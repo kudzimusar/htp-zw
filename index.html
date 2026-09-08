@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b2a3c" />
+  <meta name="description" content="HealthTimes — Zimbabwe's health and science newsroom, redesigned for a modern mobile-first reading experience." />
+  <title>HealthTimes — Zimbabwe Health & Science News</title>
+  <link rel="preconnect" href="https://healthtimes.co.zw" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="home">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <div class="breaking-bar" role="region" aria-label="Breaking news">
+    <div class="shell breaking-inner">
+      <span class="breaking-label">Breaking</span>
+      <div class="breaking-copy" id="breaking-copy">Latest health developments from Zimbabwe and across Africa.</div>
+      <a class="breaking-link" href="#latest">View latest</a>
+    </div>
+  </div>
+
+  <header class="site-header" id="site-header">
+    <div class="shell header-main">
+      <a class="brand" href="index.html" aria-label="HealthTimes home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 56 56" role="img"><path d="M28 4c10 0 18 8 18 18 0 14-18 30-18 30S10 36 10 22C10 12 18 4 28 4Z"/><path class="pulse" d="M15 27h7l4-9 5 17 4-8h7"/></svg>
+        </span>
+        <span class="brand-copy"><strong>HealthTimes</strong><small>Zimbabwe health & science newsroom</small></span>
+      </a>
+
+      <nav class="desktop-nav" aria-label="Primary navigation">
+        <a class="active" href="index.html">Home</a>
+        <a href="#latest">Latest</a>
+        <a href="#topics">Topics</a>
+        <a href="#analysis">Opinion</a>
+        <a class="premium-nav" href="premium.html">Premium <span>US$5/mo</span></a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="icon-button" type="button" data-open-search aria-label="Search HealthTimes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+        </button>
+        <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="mobile-menu">
+          <span></span><span></span><span></span><b class="sr-only">Menu</b>
+        </button>
+      </div>
+    </div>
+
+    <div class="topic-strip-wrap">
+      <div class="shell topic-strip" aria-label="Topics">
+        <a href="#latest">Breaking News</a>
+        <a href="#topics">Public Health</a>
+        <a href="#topics">HIV/AIDS</a>
+        <a href="#topics">Health Financing</a>
+        <a href="#topics">Research & Findings</a>
+        <a href="#topics">Science & Innovation</a>
+        <a href="#topics">Global Health</a>
+        <a href="#topics">Family Health</a>
+        <a href="#topics">Mental Health</a>
+      </div>
+    </div>
+
+    <div class="mobile-menu" id="mobile-menu" hidden>
+      <div class="shell mobile-menu-grid">
+        <a href="index.html">Home</a>
+        <a href="#latest">Latest stories</a>
+        <a href="#topics">Topics</a>
+        <a href="#analysis">Opinion & analysis</a>
+        <a href="premium.html">HealthTimes Premium</a>
+        <button type="button" data-open-search>Search</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="hero-section shell" aria-labelledby="hero-heading">
+      <div class="hero-grid" id="hero-grid" aria-live="polite"></div>
+    </section>
+
+    <section class="signal-strip" aria-label="Newsroom signals">
+      <div class="shell signal-grid">
+        <div><span>Coverage</span><strong>Zimbabwe · Africa · Global</strong></div>
+        <div><span>Editorial focus</span><strong>Public health + science</strong></div>
+        <div><span>Premium</span><strong>Deep reporting for US$5/month</strong></div>
+        <button class="signal-ai" type="button" data-open-ai><span class="ai-dot"></span> Ask HealthTimes AI</button>
+      </div>
+    </section>
+
+    <section class="section shell" id="latest">
+      <div class="section-heading">
+        <div><span class="eyebrow">Newsroom</span><h2>Latest stories</h2></div>
+        <a class="text-link" href="#latest-grid">See all stories <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="latest-layout">
+        <div class="story-grid" id="latest-grid"></div>
+        <aside class="trending-panel" aria-labelledby="trending-heading">
+          <div class="panel-kicker">Most read</div>
+          <h3 id="trending-heading">Trending now</h3>
+          <ol id="trending-list"></ol>
+          <div class="newsletter-card">
+            <span class="eyebrow">The morning brief</span>
+            <h4>Health news without the noise.</h4>
+            <p>Get the biggest Zimbabwean health stories in one concise email.</p>
+            <form data-newsletter-form>
+              <label class="sr-only" for="newsletter-email">Email address</label>
+              <input id="newsletter-email" name="email" type="email" placeholder="you@example.com" required />
+              <button type="submit">Join free</button>
+            </form>
+            <small data-newsletter-message>Demo form — no email is sent.</small>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section section-ink" id="premium-promo">
+      <div class="shell premium-promo-grid">
+        <div class="premium-copy">
+          <span class="premium-pill">HealthTimes Premium</span>
+          <h2>More context. More accountability. Less scrolling.</h2>
+          <p>Deep reporting and analysis on health policy, financing, research and the decisions shaping care across Zimbabwe.</p>
+          <div class="premium-benefits">
+            <span>Long-form investigations</span><span>Policy explainers</span><span>Research analysis</span>
+          </div>
+          <div class="premium-price-row"><strong>US$5</strong><span>/ month</span><a href="premium.html" class="button button-light">Preview Premium</a></div>
+        </div>
+        <div class="premium-preview-card" id="premium-preview-card"></div>
+      </div>
+    </section>
+
+    <section class="section shell" id="topics">
+      <div class="section-heading">
+        <div><span class="eyebrow">Explore</span><h2>Health by topic</h2></div>
+        <p>Built for fast scanning on mobile and deeper discovery on desktop.</p>
+      </div>
+      <div class="topic-cards" id="topic-cards"></div>
+    </section>
+
+    <section class="section shell" id="analysis">
+      <div class="section-heading">
+        <div><span class="eyebrow">Perspective</span><h2>Opinion & analysis</h2></div>
+      </div>
+      <div class="analysis-grid" id="analysis-grid"></div>
+    </section>
+
+    <section class="section shell trust-section" aria-labelledby="trust-heading">
+      <div class="trust-copy">
+        <span class="eyebrow">Why HealthTimes</span>
+        <h2 id="trust-heading">Health journalism should help people understand what changes — and why it matters.</h2>
+        <p>This redesign gives every story clearer sourcing, category context, readable typography and fewer distractions while preserving the publication's editorial voice.</p>
+      </div>
+      <div class="trust-points">
+        <article><span>01</span><h3>Evidence first</h3><p>Make research, policy and public-health reporting easier to scan and verify.</p></article>
+        <article><span>02</span><h3>Built for phones</h3><p>Large tap targets, bottom navigation, compact story cards and readable article measures.</p></article>
+        <article><span>03</span><h3>Premium with purpose</h3><p>A clear paid layer for reporting that requires more time, context and specialist attention.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <a class="brand brand-footer" href="index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 56 56"><path d="M28 4c10 0 18 8 18 18 0 14-18 30-18 30S10 36 10 22C10 12 18 4 28 4Z"/><path class="pulse" d="M15 27h7l4-9 5 17 4-8h7"/></svg></span><span class="brand-copy"><strong>HealthTimes</strong><small>Zimbabwe health & science newsroom</small></span></a>
+        <p>Independent health journalism covering Zimbabwe, Africa and global health developments.</p>
+      </div>
+      <div><h3>Coverage</h3><a href="#latest">Breaking News</a><a href="#topics">Public Health</a><a href="#topics">HIV/AIDS</a><a href="#topics">Research</a><a href="#topics">Global Health</a></div>
+      <div><h3>HealthTimes</h3><a href="#analysis">Opinion & Analysis</a><a href="premium.html">Premium</a><a href="#">BARAZA E-PAPER</a><a href="#">Jobs</a><a href="#">Fellowships & Grants</a></div>
+      <div><h3>For readers</h3><button type="button" data-open-search>Search</button><button type="button" data-open-ai>Ask HealthTimes AI</button><a href="#newsletter-email">Newsletter</a><a href="https://healthtimes.co.zw/" target="_blank" rel="noopener">Current live site</a></div>
+    </div>
+    <div class="shell footer-bottom"><span>Frontend concept · 2026 HealthTimes</span><span>Demo only — production services not yet connected.</span></div>
+  </footer>
+
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <a class="active" href="index.html" aria-label="Home"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9h-6v-6H9v6H3Z"/></svg><span>Home</span></a>
+    <a href="#latest" aria-label="Latest"><svg viewBox="0 0 24 24"><path d="M5 5h14M5 10h14M5 15h9M5 20h7"/></svg><span>Latest</span></a>
+    <button type="button" data-open-search aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span>Search</span></button>
+    <a href="premium.html" aria-label="Premium"><svg viewBox="0 0 24 24"><path d="m4 8 4 4 4-7 4 7 4-4-2 11H6Z"/></svg><span>Premium</span></a>
+    <button type="button" data-open-ai aria-label="Ask AI"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v3a4 4 0 0 0 4 4h1l2 3 2-3h1a4 4 0 0 0 4-4v-3a7 7 0 0 0-7-7Z"/><path d="M9 11h.01M15 11h.01"/></svg><span>Ask AI</span></button>
+  </nav>
+
+  <div class="search-overlay" data-search-overlay hidden>
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-title">
+      <div class="search-head"><div><span class="eyebrow">Search HealthTimes</span><h2 id="search-title">Find reporting by topic, person or keyword</h2></div><button class="close-button" type="button" data-close-search aria-label="Close search">×</button></div>
+      <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" data-search-input placeholder="Try “HIV”, “financing”, “Harare”…" autocomplete="off" /></label>
+      <div class="search-suggestions"><span>Popular:</span><button type="button" data-search-term="HIV">HIV</button><button type="button" data-search-term="Health Financing">Health financing</button><button type="button" data-search-term="Innovation">Innovation</button><button type="button" data-search-term="Harare">Harare</button></div>
+      <div class="search-results" data-search-results></div>
+    </div>
+  </div>
+
+  <aside class="ai-panel" data-ai-panel aria-hidden="true">
+    <div class="ai-header">
+      <div><span class="ai-dot"></span><strong>Ask HealthTimes</strong><small>Demo newsroom assistant</small></div>
+      <button type="button" data-close-ai aria-label="Close AI assistant">×</button>
+    </div>
+    <div class="ai-disclaimer">I can help you find and understand HealthTimes reporting. I do not diagnose, prescribe treatment, or replace a clinician. For emergencies, contact local emergency services.</div>
+    <div class="ai-messages" data-ai-messages>
+      <div class="ai-message assistant">Ask me what HealthTimes has reported about HIV, public health, health financing, innovation or recent Zimbabwe health news.</div>
+    </div>
+    <div class="ai-quick"><button type="button" data-ai-prompt="What are the latest stories?">Latest stories</button><button type="button" data-ai-prompt="What is in Premium?">Premium</button><button type="button" data-ai-prompt="Show me HIV coverage">HIV coverage</button></div>
+    <form class="ai-form" data-ai-form><label class="sr-only" for="ai-input">Ask HealthTimes</label><input id="ai-input" data-ai-input placeholder="Ask about HealthTimes coverage…" /><button type="submit">Send</button></form>
+  </aside>
+
+  <div class="toast" data-toast role="status" aria-live="polite"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
