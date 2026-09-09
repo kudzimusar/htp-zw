@@ -1,0 +1,13 @@
+{
+  "name": "healthtimes-zimbabwe-client-review",
+  "version": "2.1.0",
+  "private": true,
+  "description": "HealthTimes Zimbabwe client-review publication, newsroom and PWA.",
+  "scripts": {
+    "test:uat": "playwright test",
+    "test:uat:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0"
+  }
+}
