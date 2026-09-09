@@ -3,37 +3,122 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#071f2a" />
-  <meta name="description" content="HealthTimes Newsroom — editorial operations, publishing workflow, Premium, advertising, audience and subscriber management." />
+  <meta name="theme-color" content="#0a2632" />
+  <meta name="description" content="HealthTimes Newsroom — editorial operating system for reporting, review, publishing, distribution, Premium, advertising and staff operations." />
   <title>HealthTimes Newsroom</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="v21.css" />
   <link rel="stylesheet" href="newsroom.css" />
-  <link rel="stylesheet" href="newsroom-v21.css" />
 </head>
-<body class="newsroom-body" data-page="newsroom">
+<body class="nr-body" data-page="newsroom">
   <a class="skip-link" href="#newsroom-main">Skip to newsroom</a>
 
-  <main class="newsroom-login" data-login-view>
-    <section class="login-brand-panel"><a class="brand newsroom-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 56 56"><path d="M28 4c10 0 18 8 18 18 0 14-18 30-18 30S10 36 10 22C10 12 18 4 28 4Z"/><path class="pulse" d="M15 27h7l4-9 5 17 4-8h7"/></svg></span><span class="brand-copy"><strong>HealthTimes</strong><small>Newsroom</small></span></a><div><span class="eyebrow">Editorial operating system</span><h1>Publish with authority. Review with accountability.</h1><p>Assignments, drafts, review queues, publishing, Premium, advertising, audience briefings and staff roles in one newsroom workspace.</p></div><div class="login-principles"><span>Role-based access</span><span>Editorial audit trail</span><span>Commercial separation</span><span>Premium governance</span></div></section>
-    <section class="login-form-panel"><form class="newsroom-login-form" data-login-form><span class="eyebrow">Staff access</span><h2>Sign in to Newsroom</h2><p>Use your assigned HealthTimes newsroom account.</p><label>Username<input name="username" autocomplete="username" required /></label><label>Password<input name="password" type="password" autocomplete="current-password" required /></label><button class="button button-primary" type="submit">Sign in</button><div class="login-error" data-login-error role="alert"></div><a class="text-link" href="mailto:editorial@healthtimes.co.zw?subject=Newsroom%20account%20support">Account support →</a><a class="login-back" href="index.html">← Back to HealthTimes</a></form></section>
+  <main class="nr-auth" data-login-view>
+    <section class="nr-auth-brand">
+      <a class="nr-auth-logo" href="index.html" aria-label="HealthTimes home">
+        <span class="nr-auth-mark" aria-hidden="true">H</span>
+        <span><strong>HealthTimes</strong><small>NEWSROOM</small></span>
+      </a>
+      <div class="nr-auth-message">
+        <span class="nr-kicker">Editorial operating system</span>
+        <h1>One newsroom.<br />Every deadline,<br />decision and desk.</h1>
+        <p>Reporting, review, publishing, Premium, audience, commercial operations and staff governance in one working environment.</p>
+      </div>
+      <div class="nr-auth-principles" aria-label="Newsroom principles">
+        <span>Evidence first</span><span>Role-based authority</span><span>Visible accountability</span><span>Commercial separation</span>
+      </div>
+    </section>
+    <section class="nr-auth-form-wrap">
+      <form class="nr-auth-form" data-login-form>
+        <div class="nr-auth-mobile-brand"><strong>HealthTimes</strong><span>Newsroom</span></div>
+        <span class="nr-kicker">Staff access</span>
+        <h2>Sign in</h2>
+        <p>Use your assigned HealthTimes staff account.</p>
+        <label>Username<input name="username" autocomplete="username" required /></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
+        <button class="nr-primary nr-auth-submit" type="submit">Enter Newsroom</button>
+        <div class="nr-auth-error" data-login-error role="alert" aria-live="polite"></div>
+        <div class="nr-auth-links"><a href="mailto:editorial@healthtimes.co.zw?subject=Newsroom%20account%20support">Account support</a><a href="index.html">Back to HealthTimes</a></div>
+      </form>
+    </section>
   </main>
 
-  <div class="newsroom-app" data-newsroom-app hidden>
-    <aside class="newsroom-sidebar" data-newsroom-sidebar><div class="newsroom-logo"><a href="index.html"><span class="newsroom-logo-mark">H</span><span><strong>HealthTimes</strong><small>Newsroom</small></span></a><button type="button" data-sidebar-close aria-label="Close navigation">×</button></div><nav class="newsroom-nav" data-newsroom-nav aria-label="Newsroom modules"></nav><div class="newsroom-user-mini" data-user-mini></div></aside>
-    <div class="newsroom-content-wrap"><header class="newsroom-topbar"><button class="newsroom-menu-button" type="button" data-sidebar-open aria-label="Open navigation">☰</button><div><span class="newsroom-breadcrumb" data-breadcrumb>Overview</span><strong data-topline>Good morning</strong></div><div class="newsroom-top-actions"><button type="button" data-quick-create>＋ New story</button><a href="index.html" target="_blank" rel="noopener">View site ↗</a><button class="user-button" type="button" data-user-menu></button></div></header>
-      <main class="newsroom-main" id="newsroom-main"><div data-workspace></div></main>
-    </div>
+  <div class="nr-app" data-newsroom-app hidden>
+    <aside class="nr-sidebar" data-newsroom-sidebar>
+      <div class="nr-sidebar-brand">
+        <a href="index.html"><span class="nr-sidebar-mark">H</span><span><strong>HealthTimes</strong><small>Newsroom</small></span></a>
+        <button type="button" class="nr-icon-btn nr-sidebar-close" data-sidebar-close aria-label="Close navigation">×</button>
+      </div>
+      <nav class="nr-nav" data-newsroom-nav aria-label="Newsroom navigation"></nav>
+      <div class="nr-sidebar-user" data-user-mini></div>
+    </aside>
+
+    <section class="nr-shell">
+      <header class="nr-topbar">
+        <div class="nr-topbar-left">
+          <button class="nr-icon-btn nr-menu-btn" type="button" data-sidebar-open aria-label="Open navigation">☰</button>
+          <div><span class="nr-breadcrumb" data-breadcrumb>My Newsroom</span><strong data-topline>Workspace</strong></div>
+        </div>
+        <div class="nr-topbar-actions">
+          <button type="button" class="nr-quick" data-global-search aria-label="Search Newsroom">⌕ <span>Search</span></button>
+          <button type="button" class="nr-quick" data-notifications>● <span>Notifications</span></button>
+          <button type="button" class="nr-primary nr-new-story" data-quick-create>＋ New story</button>
+          <a class="nr-view-site" href="index.html" target="_blank" rel="noopener">View site ↗</a>
+          <button class="nr-user-button" type="button" data-user-menu aria-haspopup="menu"></button>
+        </div>
+        <div class="nr-user-popover" data-user-popover hidden></div>
+      </header>
+
+      <main class="nr-main" id="newsroom-main">
+        <div data-workspace></div>
+      </main>
+    </section>
   </div>
 
-  <section class="newsroom-modal" data-story-modal hidden aria-label="Story editor"><div class="newsroom-modal-card"><div class="newsroom-modal-head"><div><span class="eyebrow">Story workspace</span><h2 data-story-modal-title>New story</h2></div><button type="button" data-story-modal-close aria-label="Close">×</button></div><form data-story-form><input type="hidden" name="id" /><div class="newsroom-form-grid"><label class="wide">Headline<input name="title" required /></label><label>Section<select name="section"><option>Breaking News</option><option>Feature</option><option>Epidemics</option><option>Academic & Research</option><option>Global Health</option><option>Community Development</option><option>Communicable Diseases</option><option>Noncommunicable Diseases</option><option>Health News</option><option>Public Health</option><option>HIV/AIDS</option><option>Health Policy</option><option>Health Financing</option><option>Research & Findings</option><option>Africa</option><option>Opinion & Analysis</option><option>Jobs</option><option>Fellowships & Grants</option></select></label><label>Story type<select name="type"><option>News</option><option>Analysis</option><option>Feature</option><option>Opinion</option><option>Live / Developing</option><option>Research</option><option>Opportunity</option></select></label><label>Access<select name="premium"><option value="false">Public</option><option value="true">HealthTimes Premium</option></select></label><label>Assigned editor<input name="editor" placeholder="Managing Editor" /></label><label class="wide">Standfirst<textarea name="standfirst" rows="3" placeholder="Concise summary for readers"></textarea></label><label class="wide">Reporting notes<textarea name="notes" rows="6" placeholder="Sources, verification notes, context and working copy"></textarea></label></div><div class="newsroom-modal-actions"><span data-story-form-message></span><button class="button button-ghost" type="button" data-story-modal-close>Cancel</button><button class="button button-primary" type="submit">Save story</button></div></form></div></section>
+  <section class="nr-modal" data-story-modal hidden aria-label="Story workspace">
+    <div class="nr-story-workspace">
+      <header class="nr-editor-topbar">
+        <button class="nr-icon-btn" type="button" data-story-modal-close aria-label="Close story editor">←</button>
+        <div class="nr-editor-title"><span data-editor-state>Draft</span><strong data-story-modal-title>New story</strong></div>
+        <div class="nr-editor-save"><span data-save-state>Saved</span><button type="button" class="nr-secondary" data-manual-save>Save</button><button type="button" class="nr-secondary" data-story-preview>Preview</button><button type="button" class="nr-primary" data-editor-primary>Submit for review</button></div>
+      </header>
+      <div class="nr-editor-layout">
+        <section class="nr-editor-canvas">
+          <form data-story-form>
+            <input type="hidden" name="id" />
+            <label class="nr-field-label">Headline<textarea name="title" rows="2" required placeholder="Write a clear, specific headline"></textarea></label>
+            <label class="nr-field-label">Standfirst<textarea name="standfirst" rows="3" placeholder="Summarise the story and why it matters"></textarea></label>
+            <label class="nr-field-label">Story body<textarea name="body" rows="18" placeholder="Write the working article here…"></textarea></label>
+            <div class="nr-editor-insert-row"><button type="button" data-insert="source">＋ Source</button><button type="button" data-insert="quote">＋ Pull quote</button><button type="button" data-insert="table">＋ Table</button><button type="button" data-insert="media">＋ Media</button></div>
+            <label class="nr-field-label">Sources & references<textarea name="sources" rows="6" placeholder="Primary documents, interviews, studies, DOI/PubMed links and verification notes"></textarea></label>
+            <label class="nr-field-label">Internal reporting notes<textarea name="notes" rows="5" placeholder="Internal notes are never published"></textarea></label>
+          </form>
+          <section class="nr-editor-comments"><div class="nr-panel-head"><div><h3>Editorial discussion</h3><p>Internal comments and review notes</p></div></div><div data-editor-comments></div><form data-comment-form class="nr-comment-form"><textarea name="comment" rows="2" placeholder="Add an internal note…"></textarea><button class="nr-secondary" type="submit">Comment</button></form></section>
+        </section>
+        <aside class="nr-editor-inspector">
+          <div class="nr-inspector-section"><h3>Workflow</h3><label>Status<select name="status" form="story-shadow"><option>Pitch</option><option>Approved</option><option>Assigned</option><option>Reporting</option><option>Draft</option><option>Submitted</option><option>Fact check</option><option>Health / Science review</option><option>Copy edit</option><option>Editor review</option><option>Ready</option><option>Scheduled</option><option>Published</option><option>Updated / Corrected</option><option>Archived</option></select></label><label>Deadline<input type="datetime-local" name="deadline" form="story-shadow" /></label></div>
+          <div class="nr-inspector-section"><h3>Assignment</h3><label>Reporter<select name="owner" form="story-shadow"></select></label><label>Editor<select name="editor" form="story-shadow"></select></label><label>Fact checker<select name="factChecker" form="story-shadow"></select></label></div>
+          <div class="nr-inspector-section"><h3>Publication</h3><label>Desk<select name="desk" form="story-shadow"></select></label><label>Section<input name="section" form="story-shadow" /></label><label>Country<input name="country" form="story-shadow" /></label><label>Region<select name="region" form="story-shadow"></select></label><label>Access<select name="premium" form="story-shadow"><option value="false">Public</option><option value="true">HealthTimes Premium</option></select></label></div>
+          <div class="nr-inspector-section"><h3>SEO</h3><label>SEO title<input name="seoTitle" form="story-shadow" /></label><label>Meta description<textarea name="metaDescription" rows="3" form="story-shadow"></textarea></label><label>URL slug<input name="slug" form="story-shadow" /></label></div>
+          <div class="nr-inspector-section"><h3>Distribution</h3><div class="nr-check-grid"><label><input type="checkbox" name="distHomepage" form="story-shadow" /> Homepage</label><label><input type="checkbox" name="distBreaking" form="story-shadow" /> Breaking</label><label><input type="checkbox" name="distNewsletter" form="story-shadow" /> Newsletter</label><label><input type="checkbox" name="distWhatsApp" form="story-shadow" /> WhatsApp</label><label><input type="checkbox" name="distPush" form="story-shadow" /> Push</label></div></div>
+          <div class="nr-inspector-section"><h3>Commercial</h3><label>Advertising<select name="adSetting" form="story-shadow"><option>Standard</option><option>Reduced</option><option>None</option></select></label><label>Publish at<input type="datetime-local" name="schedule" form="story-shadow" /></label></div>
+          <div class="nr-inspector-section"><h3>Versions</h3><div data-version-list class="nr-version-list"></div></div>
+        </aside>
+      </div>
+      <form id="story-shadow" data-story-shadow hidden></form>
+    </div>
+  </section>
 
-  <section class="newsroom-modal" data-confirm-modal hidden aria-label="Confirm action"><div class="newsroom-modal-card newsroom-confirm"><span class="eyebrow">Confirm</span><h2 data-confirm-title>Confirm action</h2><p data-confirm-copy></p><div class="newsroom-modal-actions"><button class="button button-ghost" type="button" data-confirm-cancel>Cancel</button><button class="button button-primary" type="button" data-confirm-accept>Continue</button></div></div></section>
+  <section class="nr-modal" data-assignment-modal hidden aria-label="Create assignment"><div class="nr-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Assignments Desk</span><h2>Create assignment</h2></div><button class="nr-icon-btn" type="button" data-assignment-close>×</button></div><form data-assignment-form class="nr-dialog-form"><label>Story / topic<input name="title" required /></label><label>Reporter<select name="reporter"></select></label><label>Desk<select name="desk"></select></label><label>Deadline<input name="deadline" type="datetime-local" required /></label><label>Priority<select name="priority"><option>Normal</option><option>High</option><option>Urgent</option></select></label><label>Assigned editor<select name="editor"></select></label><label class="nr-wide">Assignment notes<textarea name="notes" rows="5"></textarea></label><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-assignment-close>Cancel</button><button type="submit" class="nr-primary">Assign story</button></div></form></div></section>
 
-  <div class="newsroom-toast" data-newsroom-toast role="status" aria-live="polite"></div>
+  <section class="nr-modal" data-invite-modal hidden aria-label="Invite staff"><div class="nr-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Staff & Access</span><h2>Invite staff member</h2></div><button class="nr-icon-btn" type="button" data-invite-close>×</button></div><form data-invite-form class="nr-dialog-form"><label>Name<input name="name" required /></label><label>Email<input name="email" type="email" required /></label><label>Role<select name="role"></select></label><label>Desk<select name="desk"></select></label><label>Country<input name="country" value="Zimbabwe" /></label><label>Assigned editor<select name="editor"></select></label><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-invite-close>Cancel</button><button type="submit" class="nr-primary">Send invitation</button></div></form></div></section>
+
+  <section class="nr-modal" data-confirm-modal hidden aria-label="Confirm action"><div class="nr-dialog nr-confirm"><span class="nr-kicker">Confirm</span><h2 data-confirm-title>Confirm action</h2><p data-confirm-copy></p><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-confirm-cancel>Cancel</button><button type="button" class="nr-danger" data-confirm-accept>Confirm</button></div></div></section>
+
+  <section class="nr-modal" data-search-modal hidden aria-label="Search Newsroom"><div class="nr-dialog nr-search-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Newsroom search</span><h2>Find stories, staff and assignments</h2></div><button class="nr-icon-btn" type="button" data-search-close>×</button></div><div class="nr-search-box"><input data-newsroom-search-input placeholder="Search HealthTimes Newsroom…" autofocus /><div data-newsroom-search-results></div></div></div></section>
+
+  <div class="nr-toast" data-newsroom-toast role="status" aria-live="polite"></div>
   <script src="newsroom.js" defer></script>
-  <script src="newsroom-v21.js" defer></script>
 </body>
 </html>
