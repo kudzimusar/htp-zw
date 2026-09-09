@@ -3,7 +3,6 @@
 
   if (document.body.dataset.page !== 'article') return;
 
-  const RATE_KEY = 'htpNewsReaderRate';
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const speechSupported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
@@ -12,23 +11,9 @@
   let segments = [];
   let index = 0;
   let state = 'idle';
-  let currentUtterance = null;
-  let premiumEnded = false;
   let remountTimer = null;
 
-  const readRate = () => {
-    const raw = Number(localStorage.getItem(RATE_KEY) || 1);
-    return [0.75, 1, 1.25, 1.5].includes(raw) ? raw : 1;
-  };
-
-  const icon = (name) => {
-    const common = 'viewBox="0 0 24 24" aria-hidden="true"';
-    if (name === 'speaker') return `<svg ${common}><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4Zm11.5-.7v7.4a5 5 0 0 0 0-7.4Zm2.5-2.2v2.2a7.5 7.5 0 0 1 0 7.4v2.2a9.5 9.5 0 0 0 0-11.8Z"/></svg>`;
-    if (name === 'play') return `<svg ${common}><path d="M8 5v14l11-7Z"/></svg>`;
-    if (name === 'pause') return `<svg ${common}><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>`;
-    if (name === 'stop') return `<svg ${common}><path d="M6 6h12v12H6z"/></svg>`;
-    return '';
-  };
+  const speakerIcon = () => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"/><path d="M15 8.5a5 5 0 0 1 0 7"/><path d="M17.8 5.8a9 9 0 0 1 0 12.4"/></svg>`;
 
   function isPremiumLocked() {
     return Boolean(
@@ -48,241 +33,200 @@
     const sourceNote = $('.article-body > .source-note')?.textContent.trim();
     if (sourceNote) result.push(sourceNote);
 
-    $$('.article-body > p').forEach((p) => {
+    $$('.article-body > p').forEach(p => {
       const value = p.textContent.trim();
       if (value) result.push(value);
     });
 
     if (!isPremiumLocked()) {
-      $$('.article-body > .gated-blur:not(.is-locked) > p').forEach((p) => {
+      $$('.article-body > .gated-blur:not(.is-locked) > p').forEach(p => {
         const value = p.textContent.trim();
         if (value) result.push(value);
       });
     }
-
     return result;
   }
 
-  function estimateMinutes(items = readableText()) {
-    const words = items.join(' ').trim().split(/\s+/).filter(Boolean).length;
-    return Math.max(1, Math.ceil(words / 165));
+  function voiceScore(voice) {
+    const lang = String(voice.lang || '');
+    const name = String(voice.name || '');
+    if (!/^en(?:-|$)/i.test(lang)) return -10000;
+
+    let score = 0;
+    if (/natural|enhanced|premium|neural|online/i.test(name)) score += 140;
+    if (/google|microsoft|siri|samantha|daniel|serena|moira|karen|tessa|ava|allison|arthur/i.test(name)) score += 75;
+    if (/^en-ZW/i.test(lang)) score += 65;
+    else if (/^en-GB/i.test(lang)) score += 55;
+    else if (/^en-US/i.test(lang)) score += 42;
+    else if (/^en-AU|^en-IE|^en-ZA|^en-NZ/i.test(lang)) score += 34;
+    if (voice.localService) score += 12;
+    if (/espeak|robot|zarvox|trinoids|whisper|bad news|bells|boing/i.test(name)) score -= 220;
+    return score;
   }
 
   function preferredVoice() {
     if (!speechSupported) return null;
-    const voices = synth.getVoices();
-    return voices.find(v => /^en-ZW/i.test(v.lang)) ||
-      voices.find(v => /^en-GB/i.test(v.lang)) ||
-      voices.find(v => /^en/i.test(v.lang)) || null;
-  }
-
-  function playerMarkup() {
-    const estimate = estimateMinutes();
-    const rate = readRate();
-    return `<section class="ht-reader" data-news-reader aria-label="Listen to this story">
-      <div class="ht-reader-mark">${icon('speaker')}</div>
-      <div class="ht-reader-copy">
-        <span class="ht-reader-kicker">Listen</span>
-        <strong class="ht-reader-title">Listen to this story</strong>
-        <span class="ht-reader-status" data-reader-status aria-live="polite">${speechSupported ? `About ${estimate} min · uses your device voice` : 'Audio reading is not available in this browser.'}</span>
-      </div>
-      <div class="ht-reader-controls">
-        <button class="ht-reader-play" type="button" data-reader-toggle ${speechSupported ? '' : 'disabled'} aria-label="Play article narration">${icon('play')}<span>Listen</span></button>
-        <label class="ht-reader-rate"><span>Speed</span><select data-reader-rate aria-label="Reading speed">
-          <option value="0.75" ${rate === 0.75 ? 'selected' : ''}>0.75×</option>
-          <option value="1" ${rate === 1 ? 'selected' : ''}>1×</option>
-          <option value="1.25" ${rate === 1.25 ? 'selected' : ''}>1.25×</option>
-          <option value="1.5" ${rate === 1.5 ? 'selected' : ''}>1.5×</option>
-        </select></label>
-        <button class="ht-reader-stop" type="button" data-reader-stop hidden aria-label="Stop article narration">${icon('stop')}</button>
-      </div>
-      <div class="ht-reader-progress" aria-hidden="true"><div class="ht-reader-progress-track"><div class="ht-reader-progress-fill" data-reader-progress></div></div><span class="ht-reader-progress-label" data-reader-progress-label>Ready</span></div>
-      <button class="ht-reader-subscribe" type="button" data-sheet-open="subscribe" data-reader-subscribe hidden>Subscribe to continue listening →</button>
-    </section>`;
-  }
-
-  function mount() {
-    if ($('[data-news-reader]')) return;
-    const head = $('.article-head');
-    if (!head) return;
-    head.insertAdjacentHTML('afterend', playerMarkup());
-
-    const rail = $('.article-rail');
-    if (rail && !$('.ht-reader-rail', rail)) {
-      rail.insertAdjacentHTML('beforeend', `<button class="rail-action ht-reader-rail" type="button" data-reader-shortcut title="Listen to this story" aria-label="Listen to this story">${icon('speaker')}</button>`);
-    }
-
-    bindPlayer();
-    if (isPremiumLocked()) {
-      premiumEnded = true;
-      setStatus('Premium preview ended — subscribe to continue listening.');
-    }
-    updateUi();
+    return [...synth.getVoices()].sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
   }
 
   function setStatus(message) {
-    const el = $('[data-reader-status]');
-    if (el) el.textContent = message;
+    const live = $('[data-reader-status]');
+    if (live) live.textContent = message;
   }
 
-  function updateUi() {
-    const player = $('[data-news-reader]');
-    if (!player) return;
-    const toggle = $('[data-reader-toggle]', player);
-    const stop = $('[data-reader-stop]', player);
-    const progress = $('[data-reader-progress]', player);
-    const label = $('[data-reader-progress-label]', player);
-    const subscribe = $('[data-reader-subscribe]', player);
-    const rail = $('[data-reader-shortcut]');
+  function updateButton() {
+    const button = $('[data-reader-toggle]');
+    if (!button) return;
+    const locked = isPremiumLocked();
+    button.classList.toggle('is-speaking', state === 'playing');
+    button.classList.toggle('is-paused', state === 'paused');
+    button.classList.toggle('is-locked', locked);
+    button.setAttribute('aria-pressed', state === 'playing' ? 'true' : 'false');
 
-    const active = state === 'playing' || state === 'paused';
-    player.classList.toggle('is-speaking', state === 'playing');
-    rail?.classList.toggle('is-speaking', state === 'playing');
-
-    if (toggle && speechSupported) {
-      toggle.innerHTML = state === 'playing' ? `${icon('pause')}<span>Pause</span>` : `${icon('play')}<span>${state === 'paused' ? 'Resume' : 'Listen'}</span>`;
-      toggle.setAttribute('aria-label', state === 'playing' ? 'Pause article narration' : state === 'paused' ? 'Resume article narration' : 'Play article narration');
+    if (!speechSupported) {
+      button.disabled = true;
+      button.setAttribute('aria-label', 'Article audio is not available in this browser');
+      button.setAttribute('title', 'Audio unavailable');
+      return;
     }
-    if (stop) stop.hidden = !active;
 
-    const total = Math.max(segments.length, 1);
-    const pct = state === 'finished' ? 100 : Math.min(100, (index / total) * 100);
-    if (progress) progress.style.width = `${pct}%`;
-    if (label) label.textContent = active ? `${Math.min(index + 1, total)} of ${total}` : state === 'finished' ? 'Complete' : 'Ready';
-    if (subscribe) subscribe.hidden = !premiumEnded;
+    button.disabled = false;
+    if (locked) {
+      button.setAttribute('aria-label', 'Premium preview ended. Subscribe to listen');
+      button.setAttribute('title', 'Premium preview ended');
+    } else if (state === 'playing') {
+      button.setAttribute('aria-label', 'Pause article audio');
+      button.setAttribute('title', 'Pause article audio');
+    } else if (state === 'paused') {
+      button.setAttribute('aria-label', 'Resume article audio');
+      button.setAttribute('title', 'Resume article audio');
+    } else {
+      button.setAttribute('aria-label', 'Listen to this story');
+      button.setAttribute('title', 'Listen to this story');
+    }
+  }
+
+  function mount() {
+    const rail = $('.article-rail');
+    if (!rail || $('[data-reader-toggle]', rail)) return;
+    rail.insertAdjacentHTML('beforeend', `<button class="rail-action ht-listen-button" type="button" data-reader-toggle aria-pressed="false">${speakerIcon()}</button><span class="ht-reader-live" data-reader-status aria-live="polite"></span>`);
+    $('[data-reader-toggle]', rail)?.addEventListener('click', togglePlayback);
+    updateButton();
   }
 
   function cancelSpeech() {
     if (!speechSupported) return;
     synth.cancel();
-    currentUtterance = null;
   }
 
-  function stop(reason = '') {
+  function reset(message = '') {
     cancelSpeech();
     state = 'idle';
     index = 0;
-    if (reason) setStatus(reason);
-    else setStatus(`About ${estimateMinutes()} min · uses your device voice`);
-    updateUi();
-  }
-
-  function finish() {
-    cancelSpeech();
-    state = 'finished';
-    index = segments.length;
-    setStatus('Finished listening.');
-    updateUi();
+    if (message) setStatus(message);
+    updateButton();
   }
 
   function speakCurrent() {
-    if (!speechSupported) return;
+    if (!speechSupported || state !== 'playing') return;
     if (isPremiumLocked()) {
-      premiumEnded = true;
-      stop('Premium preview ended — subscribe to continue listening.');
-      updateUi();
+      reset('Premium preview ended. Subscribe to continue listening.');
       return;
     }
     if (index >= segments.length) {
-      finish();
+      state = 'idle';
+      index = 0;
+      setStatus('Finished listening.');
+      updateButton();
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(segments[index]);
-    utterance.rate = readRate();
-    utterance.lang = preferredVoice()?.lang || 'en-GB';
     const voice = preferredVoice();
-    if (voice) utterance.voice = voice;
+    const utterance = new SpeechSynthesisUtterance(segments[index]);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      utterance.lang = 'en-GB';
+    }
+    utterance.rate = 0.96;
+    utterance.pitch = 1;
+    utterance.volume = 1;
     utterance.onend = () => {
       if (state !== 'playing') return;
       index += 1;
-      updateUi();
       speakCurrent();
     };
-    utterance.onerror = (event) => {
+    utterance.onerror = event => {
       if (event.error === 'canceled' || event.error === 'interrupted') return;
-      state = 'idle';
-      setStatus('Narration stopped. Tap Listen to try again.');
-      updateUi();
+      reset('Audio stopped. Tap the speaker to try again.');
     };
-    currentUtterance = utterance;
     synth.speak(utterance);
-    updateUi();
   }
 
-  function play() {
-    if (!speechSupported) return;
+  function startPlayback() {
     if (isPremiumLocked()) {
-      premiumEnded = true;
-      setStatus('Premium preview ended — subscribe to continue listening.');
-      updateUi();
+      setStatus('Premium preview ended. Subscribe to continue listening.');
+      updateButton();
+      $('[data-sheet-open="subscribe"]')?.click();
       return;
     }
 
-    if (state === 'playing') {
-      synth.pause();
-      state = 'paused';
-      setStatus('Paused.');
-      updateUi();
-      return;
-    }
-
-    if (state === 'paused') {
-      synth.resume();
-      state = 'playing';
-      setStatus('Listening…');
-      updateUi();
-      return;
-    }
-
-    premiumEnded = false;
     segments = readableText();
     index = 0;
     if (!segments.length) {
       setStatus('This story has no readable text yet.');
       return;
     }
+
     cancelSpeech();
     state = 'playing';
-    setStatus('Listening…');
-    updateUi();
+    setStatus('Playing article audio.');
+    updateButton();
     speakCurrent();
   }
 
-  function restartCurrentAtNewRate() {
-    if (!speechSupported || state !== 'playing') return;
-    cancelSpeech();
-    speakCurrent();
-  }
+  function togglePlayback() {
+    if (!speechSupported) return;
+    if (isPremiumLocked()) {
+      setStatus('Premium preview ended. Subscribe to continue listening.');
+      updateButton();
+      $('[data-sheet-open="subscribe"]')?.click();
+      return;
+    }
 
-  function bindPlayer() {
-    $('[data-reader-toggle]')?.addEventListener('click', play);
-    $('[data-reader-stop]')?.addEventListener('click', () => stop());
-    $('[data-reader-rate]')?.addEventListener('change', (event) => {
-      localStorage.setItem(RATE_KEY, String(Number(event.target.value)));
-      restartCurrentAtNewRate();
-    });
-    $('[data-reader-shortcut]')?.addEventListener('click', () => {
-      $('[data-news-reader]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => $('[data-reader-toggle]')?.focus(), 350);
-    });
+    if (state === 'playing') {
+      synth.pause();
+      state = 'paused';
+      setStatus('Article audio paused.');
+      updateButton();
+      return;
+    }
+
+    if (state === 'paused') {
+      synth.resume();
+      state = 'playing';
+      setStatus('Article audio resumed.');
+      updateButton();
+      return;
+    }
+
+    startPlayback();
   }
 
   function watchPremiumBoundary() {
     const body = $('.article-body');
     if (!body) return;
     const observer = new MutationObserver(() => {
-      if (isPremiumLocked()) {
-        premiumEnded = true;
-        if (state === 'playing' || state === 'paused') stop('Premium preview ended — subscribe to continue listening.');
-        else setStatus('Premium preview ended — subscribe to continue listening.');
-        updateUi();
+      if (isPremiumLocked() && (state === 'playing' || state === 'paused')) {
+        reset('Premium preview ended. Subscribe to continue listening.');
+      } else {
+        updateButton();
       }
     });
-    observer.observe(body, { attributes: true, subtree: true, attributeFilter: ['class', 'hidden'] });
-
+    observer.observe(body, { attributes:true, subtree:true, attributeFilter:['class','hidden'] });
     const paywall = $('[data-v21-paywall]');
-    if (paywall) observer.observe(paywall, { attributes: true, attributeFilter: ['hidden', 'class'] });
+    if (paywall) observer.observe(paywall, { attributes:true, attributeFilter:['hidden','class'] });
   }
 
   function watchArticleRemount() {
@@ -291,17 +235,14 @@
     const observer = new MutationObserver(() => {
       clearTimeout(remountTimer);
       remountTimer = setTimeout(() => {
-        if (!$('[data-news-reader]')) {
-          cancelSpeech();
-          state = 'idle';
-          index = 0;
-          premiumEnded = false;
+        if (!$('[data-reader-toggle]')) {
+          reset();
           mount();
           watchPremiumBoundary();
         }
       }, 50);
     });
-    observer.observe(mountPoint, { childList: true, subtree: true });
+    observer.observe(mountPoint, { childList:true, subtree:true });
   }
 
   function init() {
@@ -313,14 +254,6 @@
       if ('onvoiceschanged' in synth) synth.onvoiceschanged = () => synth.getVoices();
     }
     window.addEventListener('pagehide', cancelSpeech);
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && state === 'playing' && speechSupported) {
-        synth.pause();
-        state = 'paused';
-        setStatus('Paused while the app is in the background.');
-        updateUi();
-      }
-    });
   }
 
   init();
