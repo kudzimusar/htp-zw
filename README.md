@@ -1,161 +1,238 @@
-# HealthTimes Zimbabwe — 2.0 Frontend & Newsroom
+# HealthTimes Zimbabwe — 2.1 Client-Review Platform
 
-HealthTimes is an independent health news publication covering Zimbabwe, Africa and global health developments. This repository contains the HealthTimes 2.0 client-facing frontend, Premium reader experience, HealthTimes Intelligence presentation, reader preference centre and Newsroom administration surface.
+HealthTimes 2.1 is a modernization of the HealthTimes Zimbabwe publication into a premium editorial website, native-feeling mobile news product, subscriber experience, advertising platform, HealthTimes Intelligence layer and role-governed Newsroom.
 
-## Live site
+## Live surfaces
 
 - Publication: https://kudzimusar.github.io/htp-zw/
 - Premium: https://kudzimusar.github.io/htp-zw/premium.html
+- Sections & archive: https://kudzimusar.github.io/htp-zw/archive.html
 - My HealthTimes: https://kudzimusar.github.io/htp-zw/preferences.html
 - Editorial standards: https://kudzimusar.github.io/htp-zw/about.html
 - Newsroom: https://kudzimusar.github.io/htp-zw/newsroom.html
 - Operations manual: https://kudzimusar.github.io/htp-zw/manual.html
 
-## HealthTimes 2.0 product areas
+## Client-review priorities implemented
 
-### Public publication
+### Premium research
 
-- premium editorial homepage hierarchy
-- responsive article reader
-- phone/tablet native-feeling top bar and bottom app navigation
-- topic discovery
-- saved stories
-- reading progress
-- corrections and reporting context
-- WhatsApp-first sharing and direct publication comments
-- Facebook, X, LinkedIn and native share
-- custom 404, favicon and web-app manifest
+- US$5/month proposition.
+- Preview is tracked per reader + Premium story.
+- Small Premium notice after approximately 8 seconds.
+- Stronger countdown reminder from approximately 20 seconds.
+- Protected research locks automatically at 30 seconds.
+- Subscription sheet opens automatically at expiry.
+- Dismissing the sheet does not unlock content.
+- Refresh does not reset that story’s allowance.
+- Premium reader bypasses the gate.
+- Citation tools and deeper Ask HealthTimes context are positioned as member value.
 
-### HealthTimes Premium
+The frontend demonstrates the product contract. Production must enforce paid entitlement at the server/edge and connect real billing.
 
-- US$5/month proposition
-- 30-second introductory reading preview
-- browser-persistent preview start
-- dismissible membership sheet
-- browser-persistent presentation entitlement
-- member briefings and expanded intelligence positioning
+### Advertising
 
-The current entitlement mechanism is intentionally frontend-only. Production must protect paid content server-side.
+The redesign retains HealthTimes’ paid-commercial model instead of stripping it out.
 
-### Ask HealthTimes / HealthTimes Intelligence
+- HOSPAZ AGM campaign represented as initial source-site campaign.
+- Desktop masthead placement.
+- Compact mobile placement.
+- Homepage and article inventory.
+- Paid-placement disclosure and editorial/commercial separation.
+- Newsroom Advertising Manager with campaign, creative, placement, status, review and schedule controls.
 
-The current frontend provides bounded article/archive retrieval and explanations from the in-repository HealthTimes dataset. It supports summaries, significance, plain-language explanations, related reporting and topical discovery.
+### Source parity
 
-Health safety rules prevent diagnosis, prescribing and medication dosing. Production should replace the static matcher with server-side retrieval over the authoritative CMS, provenance, source citations, response logging and safety monitoring.
+`archive.html` and `docs/HEALTHTIMES_SOURCE_PARITY_REGISTER.md` preserve the original publication taxonomy/product map, including Breaking News, Features, Epidemics, specialist disease sections, Academic & Research, Jobs, Fellowships & Grants, BARAZA E-PAPER, Premium, videos and institutional pages.
 
-### My HealthTimes
+The client-review build contains/mirrors a broad current-story catalogue using official public HealthTimes imagery. Final approval should trigger authoritative CMS/media/URL migration rather than manual recreation.
 
-Reader preferences cover:
+## Separate desktop and mobile UX
 
-- topics
-- breaking/daily/weekly/Premium/monthly frequency
-- email
-- WhatsApp
-- browser notification preference
+The platform deliberately has two presentation systems over the same content model.
 
-Preferences persist in the browser for presentation. Production requires identity, consent storage, unsubscribe controls and actual messaging providers.
+### Desktop
 
-### HealthTimes Newsroom
+- richer editorial grids;
+- full header and footer;
+- wider typography with bounded sizes;
+- advertising inventory;
+- sidebars/context;
+- article research rail.
 
-`newsroom.html` demonstrates role-based newsroom operations across:
+### Mobile/tablet
 
-- Overview
-- Stories
-- Assignments
-- Editorial Calendar
-- Review Queue
-- Media
-- Authors
-- Topics
-- Breaking News
-- Premium
-- AI Desk
-- Audience
-- Newsletter
-- WhatsApp
-- Subscribers
-- Analytics
-- Staff & Roles
-- Settings
+- separate native-news homepage feed;
+- compact masthead;
+- bottom navigation;
+- persistent menu/search/saved/profile sheets;
+- smaller images/headlines/card density;
+- no desktop footer;
+- safe-area aware navigation;
+- mobile ad creative treatment.
 
-Presentation roles include Publisher / Owner, Editor-in-Chief, Reporter / Journalist, Newsletter Editor and Commercial Manager accounts, while the role matrix also defines Managing Editor, Section Editor, News Editor, Health / Science Editor, Fact Checker, Copy Editor, Multimedia Editor, Social Editor, Subscriber Manager and Analyst.
+## Reader accounts and themes
 
-The frontend demonstrates account-isolated sessions and permission-aware modules/actions. It does **not** provide production authentication or security. Replace with managed authentication, MFA and server-side RBAC before operational use.
+Public reader UI supports:
+
+- Sign in;
+- Create account;
+- Profile;
+- Premium state;
+- saved reading;
+- reading history;
+- My HealthTimes preferences;
+- Light / Dark / System appearance;
+- sign out.
+
+Presentation Premium reader:
+
+```text
+reader@healthtimes.co.zw
+HealthTimes#Reader26
+```
+
+Reader credentials/state are browser-local for client review and are not production security.
+
+## Ask HealthTimes
+
+HealthTimes Intelligence supports article summaries, significance, plain-language explanation, related coverage and topical discovery across the bundled reporting catalogue.
+
+Medical safety rules prevent personal diagnosis, prescribing and medication dosage guidance. Production should replace static browser matching with server-side RAG over the authoritative CMS, provenance, citations, safety monitoring and access controls.
+
+## Newsroom
+
+Existing Newsroom roles include Publisher/Owner, Editor-in-Chief, Managing Editor, Section Editor, News Editor, Reporter, Health/Science Editor, Fact Checker, Copy Editor, Multimedia Editor, Social Editor, Newsletter Editor, Commercial Manager, Subscriber Manager and Analyst.
+
+Presentation credentials:
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Publisher / Owner | `publisher` | `HealthTimes#Publisher26` |
+| Editor-in-Chief | `editor` | `HealthTimes#Editor26` |
+| Reporter / Journalist | `reporter` | `HealthTimes#Reporter26` |
+| Newsletter / Audience | `audience` | `HealthTimes#Audience26` |
+| Commercial Manager | `commercial` | `HealthTimes#Commercial26` |
+
+2.1 extensions add:
+
+- Public/Premium story controls synchronized to the public browser model;
+- Advertising Manager;
+- Migration Parity module;
+- appearance control.
+
+Commercial staff may manage campaigns/subscriber functions but do not receive unrestricted editorial-copy authority.
 
 ## Editorial workflow
 
-Target lifecycle:
+`Idea → Assignment → Draft → Source verification → Fact check → Health/science review → Copy edit → Ready/Scheduled → Published → Correction/Update → Archive`
 
-`Idea → Assignment → Draft → Source verification → Fact check → Health/science review → Copy edit → Ready → Scheduled → Published → Correction/Update → Archived`
+## PWA and app-store readiness
 
-The presentation compresses some workflow states while preserving role authority and an account-level audit record.
+HealthTimes is now an installable Progressive Web App using:
+
+- `site.webmanifest`
+- `sw.js`
+- standalone display mode
+- cached application shell
+- mobile-specific app UI
+
+Store scaffolds/documentation:
+
+- `app/twa-manifest.json` — Google Play Trusted Web Activity/Bubblewrap configuration.
+- `capacitor.config.json` — Capacitor wrapper configuration for iOS/Android follow-on work.
+- `docs/MOBILE_APP_PACKAGING.md` — signing/build/store guide.
+- `docs/STORE_LISTING_METADATA.md` — store listing draft and screenshot plan.
+
+Actual Play/App Store submission is not claimed: final domain ownership, production billing/auth/privacy, signing credentials and store accounts are required.
+
+## UAT
+
+The repository includes Playwright/Chromium certification across:
+
+- 375px phone
+- 430px phone
+- 768px tablet
+- 1024px landscape/small laptop
+- 1440px desktop
+- 1920px wide desktop
+
+UAT covers layout overflow/overlap, separate device presentations, stable mobile sheets, reader account flow, theme persistence, Premium timing/locking, refresh resistance, ads, Newsroom Premium/Advertising controls, RBAC and PWA assets.
+
+Run locally:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:uat
+```
+
+GitHub Actions workflow: `.github/workflows/uat.yml`.
 
 ## Repository structure
 
 ```text
 .
-├── index.html                         # public homepage
-├── article.html                       # article reader
-├── premium.html                       # Premium product
-├── preferences.html                   # My HealthTimes
-├── about.html                         # standards/team/contact
-├── newsroom.html                      # staff administration
-├── manual.html                        # browser-readable work manual
-├── 404.html                           # Pages fallback
-├── app.js                             # public data + interactions
-├── newsroom.js                        # newsroom data + RBAC/workflows
-├── styles.css                         # public design system
-├── newsroom.css                       # newsroom design system
-├── favicon.svg
+├── index.html
+├── article.html
+├── premium.html
+├── preferences.html
+├── archive.html
+├── about.html
+├── newsroom.html
+├── manual.html
+├── app.js
+├── v21.js
+├── newsroom.js
+├── newsroom-v21.js
+├── styles.css
+├── v21.css
+├── newsroom.css
+├── newsroom-v21.css
 ├── site.webmanifest
+├── sw.js
+├── favicon.svg
+├── capacitor.config.json
+├── app/
+│   └── twa-manifest.json
+├── tests/
+│   └── uat.spec.js
 ├── docs/
 │   ├── HEALTHTIMES_2_IMPLEMENTATION_PLAN.md
-│   └── HEALTHTIMES_OPERATIONS_MANUAL.md
+│   ├── HEALTHTIMES_SOURCE_PARITY_REGISTER.md
+│   ├── HEALTHTIMES_OPERATIONS_MANUAL.md
+│   ├── MOBILE_APP_PACKAGING.md
+│   └── STORE_LISTING_METADATA.md
 └── .github/workflows/
     ├── validate.yml
+    ├── uat.yml
     └── pages.yml
 ```
 
-## Documentation
-
-- `docs/HEALTHTIMES_2_IMPLEMENTATION_PLAN.md` — implementation plan and client record.
-- `docs/HEALTHTIMES_OPERATIONS_MANUAL.md` — operational/work manual.
-- `manual.html` — browser-readable manual with downloadable source documents.
-
-## Local preview
-
-Because the product is static, it can be served by any simple local HTTP server. Avoid opening files directly with `file://` when testing browser behavior.
-
-Example:
-
-```bash
-python3 -m http.server 8080
-```
-
-Then open `http://localhost:8080/`.
-
-## Validation and deployment
-
-GitHub Actions validates JavaScript syntax, required pages, local asset references and critical product contract markers. GitHub Pages deploys from `main` with the official Pages actions.
-
 ## Production replacement checklist
 
-Before live operational use, add:
+Before operational launch:
 
-1. managed staff and reader authentication;
-2. MFA for staff accounts;
+1. authoritative CMS/database + media migration;
+2. managed reader/staff authentication and staff MFA;
 3. server-side RBAC;
-4. authoritative CMS/database and revision history;
-5. server/edge Premium entitlement enforcement;
-6. payment provider for US$5/month membership;
-7. email delivery provider;
-8. WhatsApp Business provider and approved templates;
-9. channel consent/unsubscribe storage;
-10. privacy-aware analytics;
-11. server-side HealthTimes Intelligence retrieval and safety controls;
-12. observability, backups and disaster recovery;
-13. accessibility, security and editorial UAT.
+4. server/edge Premium entitlement;
+5. production US$5 billing compliant with the chosen web/store distribution model;
+6. consent-aware email/WhatsApp subscriber store and real providers;
+7. ad-serving/commercial analytics stack;
+8. privacy-aware product analytics;
+9. server-side HealthTimes Intelligence RAG/provenance/safety;
+10. app icons from client-approved source artwork;
+11. final domain and Digital Asset Links;
+12. Android/iOS signing and beta testing;
+13. redirects/SEO/canonical migration;
+14. accessibility, security, editorial and physical-device UAT;
+15. backup, monitoring and disaster recovery.
 
-## Public-source grounding
+## Documentation
 
-The product uses HealthTimes public reporting, contact details and published editorial-team information as the content/reference source. UI and product architecture are original to the HealthTimes 2.0 modernization.
+- `docs/HEALTHTIMES_2_IMPLEMENTATION_PLAN.md` — authoritative implementation/client record.
+- `docs/HEALTHTIMES_SOURCE_PARITY_REGISTER.md` — original-site migration parity.
+- `docs/HEALTHTIMES_OPERATIONS_MANUAL.md` — downloadable work manual.
+- `manual.html` — browser-readable manual.
+- `docs/MOBILE_APP_PACKAGING.md` — Play/App Store path.
+- `docs/STORE_LISTING_METADATA.md` — store listing draft.
