@@ -1,0 +1,18 @@
+{
+  "appId": "zw.co.healthtimes.app",
+  "appName": "HealthTimes Zimbabwe",
+  "webDir": ".",
+  "server": {
+    "url": "https://kudzimusar.github.io/htp-zw/",
+    "cleartext": false,
+    "allowNavigation": ["kudzimusar.github.io", "healthtimes.co.zw"]
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#092b3a"
+  }
+}
