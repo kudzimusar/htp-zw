@@ -14,6 +14,15 @@ async function clearState(page) {
   await page.evaluate(() => localStorage.clear());
 }
 
+async function seedPremiumGuest(page, guestId, elapsedMs) {
+  await page.goto('/index.html');
+  await page.evaluate(({ guestId, elapsedMs }) => {
+    localStorage.clear();
+    localStorage.setItem('htpGuestIdV21', JSON.stringify(guestId));
+    localStorage.setItem(`htpPremiumPreviewV21:${guestId}:healthcare-provision-programme`, JSON.stringify(Date.now() - elapsedMs));
+  }, { guestId, elapsedMs });
+}
+
 async function assertNoHorizontalOverflow(page) {
   const dims = await page.evaluate(() => ({
     scroll: document.documentElement.scrollWidth,
@@ -132,11 +141,7 @@ test('reader can create account, reopen profile and persist dark theme', async (
 
 test('Premium story shows early notice and stronger warning without blocking navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 800 });
-  await page.addInitScript(() => {
-    localStorage.clear();
-    localStorage.setItem('htpGuestIdV21', JSON.stringify('uat-guest'));
-    localStorage.setItem('htpPremiumPreviewV21:uat-guest:healthcare-provision-programme', JSON.stringify(Date.now() - 9000));
-  });
+  await seedPremiumGuest(page, 'uat-guest', 9000);
   await page.goto('/article.html?id=healthcare-provision-programme');
   await expect(page.locator('[data-v21-premium-status]')).toBeVisible();
   await expect(page.locator('[data-v21-premium-copy]')).toContainText('Premium');
@@ -151,17 +156,13 @@ test('Premium story shows early notice and stronger warning without blocking nav
 
 test('Premium story auto-locks and automatically opens subscription prompt after allowance', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 932 });
-  await page.addInitScript(() => {
-    localStorage.clear();
-    localStorage.setItem('htpGuestIdV21', JSON.stringify('uat-guest'));
-    localStorage.setItem('htpPremiumPreviewV21:uat-guest:healthcare-provision-programme', JSON.stringify(Date.now() - 31000));
-  });
+  await seedPremiumGuest(page, 'uat-lock-guest', 31000);
   await page.goto('/article.html?id=healthcare-provision-programme');
   await expect(page.locator('.article-body')).toHaveClass(/v21-premium-locked/);
   await expect(page.locator('[data-v21-paywall]')).toBeVisible();
   const subscribe = page.locator('[data-sheet="subscribe"]');
   await expect(subscribe).toBeVisible();
-  await subscribe.locator('[data-sheet-close]').click();
+  await subscribe.getByRole('button', { name: 'Close' }).click();
   await expect(subscribe).toBeHidden();
   await expect(page.locator('[data-v21-paywall]')).toBeVisible();
   await expect(page.locator('.mobile-bottom-nav')).toBeVisible();
@@ -169,15 +170,14 @@ test('Premium story auto-locks and automatically opens subscription prompt after
 
 test('refresh does not reset Premium article allowance', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 932 });
-  await page.addInitScript(() => {
-    localStorage.clear();
-    localStorage.setItem('htpGuestIdV21', JSON.stringify('refresh-guest'));
-    localStorage.setItem('htpPremiumPreviewV21:refresh-guest:healthcare-provision-programme', JSON.stringify(Date.now() - 31000));
-  });
+  await seedPremiumGuest(page, 'refresh-guest', 31000);
   await page.goto('/article.html?id=healthcare-provision-programme');
   await expect(page.locator('[data-v21-paywall]')).toBeVisible();
+  const storedBefore = await page.evaluate(() => localStorage.getItem('htpPremiumPreviewV21:refresh-guest:healthcare-provision-programme'));
   await page.reload();
   await expect(page.locator('[data-v21-paywall]')).toBeVisible();
+  const storedAfter = await page.evaluate(() => localStorage.getItem('htpPremiumPreviewV21:refresh-guest:healthcare-provision-programme'));
+  expect(storedAfter).toBe(storedBefore);
 });
 
 test('Premium reader bypasses gate and can copy citation', async ({ page }) => {
@@ -227,11 +227,12 @@ test('editor can control Premium state and open Advertising Manager', async ({ p
   expect(typeof override.premium).toBe('boolean');
 });
 
-test('commercial role sees Advertising but not editorial Stories module', async ({ page }) => {
+test('commercial role sees Advertising but not editorial Stories navigation', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('htpNewsroomSession', JSON.stringify({ username: 'commercial' })));
   await page.goto('/newsroom.html');
   await expect(page.locator('[data-v21-module="ads"]')).toBeVisible();
-  await expect(page.locator('[data-module="stories"]')).toHaveCount(0);
+  await expect(page.locator('[data-newsroom-nav] [data-module="stories"]')).toHaveCount(0);
+  await expect(page.locator('[data-newsroom-nav]')).not.toContainText('Stories');
 });
 
 test('archive preserves original HealthTimes section products', async ({ page }) => {
