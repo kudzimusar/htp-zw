@@ -113,6 +113,10 @@
     }
 
     bindPlayer();
+    if (isPremiumLocked()) {
+      premiumEnded = true;
+      setStatus('Premium preview ended — subscribe to continue listening.');
+    }
     updateUi();
   }
 
@@ -268,9 +272,10 @@
     const body = $('.article-body');
     if (!body) return;
     const observer = new MutationObserver(() => {
-      if (isPremiumLocked() && (state === 'playing' || state === 'paused')) {
+      if (isPremiumLocked()) {
         premiumEnded = true;
-        stop('Premium preview ended — subscribe to continue listening.');
+        if (state === 'playing' || state === 'paused') stop('Premium preview ended — subscribe to continue listening.');
+        else setStatus('Premium preview ended — subscribe to continue listening.');
         updateUi();
       }
     });
