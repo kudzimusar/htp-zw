@@ -52,7 +52,6 @@ test('expired Premium story cannot be narrated past the paywall', async ({ page 
   await expect(page.locator('.article-body')).toHaveClass(/v21-premium-locked/);
   const player = page.locator('[data-news-reader]');
   await expect(player).toBeVisible();
-  await player.locator('[data-reader-toggle]').click();
   await expect(player.locator('[data-reader-status]')).toContainText('Premium preview ended');
   await expect(player.locator('[data-reader-subscribe]')).toBeVisible();
   const speaking = await page.evaluate(() => window.speechSynthesis.speaking);
