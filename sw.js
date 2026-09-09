@@ -1,5 +1,5 @@
-const CACHE='healthtimes-shell-v21-listen';
-const SHELL=['./','./index.html','./article.html','./premium.html','./preferences.html','./about.html','./archive.html','./styles.css','./v21.css','./reader.css','./app.js','./v21.js','./reader.js','./favicon.svg','./site.webmanifest'];
+const CACHE='healthtimes-shell-v21-quality-pass';
+const SHELL=['./','./index.html','./article.html','./premium.html','./preferences.html','./about.html','./archive.html','./manual.html','./styles.css','./v21.css','./v21-fixes.css','./reader.css','./quality-pass.css','./app.js','./v21.js','./reader.js','./ad-placement.js','./quality-pass.js','./favicon.svg','./site.webmanifest'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',event=>{
