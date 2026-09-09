@@ -72,13 +72,20 @@ test('expired Premium story cannot be narrated past the paywall', async ({ page 
 
   await expect(page.locator('.article-body')).toHaveClass(/v21-premium-locked/);
   const listen = page.locator('.article-rail [data-reader-toggle]');
+  const subscribe = page.locator('[data-sheet="subscribe"]');
   await expect(listen).toBeVisible();
   await expect(listen).toHaveAttribute('aria-label', /Premium preview ended/);
   expect(await page.evaluate(() => window.speechSynthesis.speaking)).toBe(false);
 
+  // Expiry correctly auto-opens the membership sheet. Close it first so the
+  // locked audio control itself can be exercised rather than clicking behind it.
+  await expect(subscribe).toBeVisible();
+  await subscribe.getByRole('button', { name: 'Not now' }).click();
+  await expect(subscribe).toBeHidden();
+
   await listen.click();
   expect(await page.evaluate(() => window.speechSynthesis.speaking)).toBe(false);
-  await expect(page.locator('[data-sheet="subscribe"]')).toBeVisible();
+  await expect(subscribe).toBeVisible();
 });
 
 test('Premium lock cancels narration when preview expires during listening', async ({ page }) => {
