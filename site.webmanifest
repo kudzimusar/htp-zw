@@ -1,0 +1,13 @@
+{
+  "name": "HealthTimes Zimbabwe",
+  "short_name": "HealthTimes",
+  "description": "Independent health and science journalism from Zimbabwe, Africa and the world.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#092b3a",
+  "icons": [
+    {"src":"favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

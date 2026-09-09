@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#092b3a" />
+  <meta name="description" content="My HealthTimes — choose your health topics, briefing frequency and email or WhatsApp delivery preferences." />
+  <title>My HealthTimes — Briefings & Alerts</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="site.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="preferences">
+  <a class="skip-link" href="#main-content">Skip to preferences</a>
+  <div id="app-header"></div>
+  <main id="main-content">
+    <section class="preferences-hero"><div class="shell"><span class="eyebrow">My HealthTimes</span><h1>Your health news, on your terms.</h1><p>Choose the topics you follow, how often you want a briefing, and whether HealthTimes should reach you by email, WhatsApp or both.</p></div></section>
+
+    <div class="shell preferences-layout"><form data-preferences-form>
+      <section class="settings-card"><span class="eyebrow">1 · Topics</span><h2>What should HealthTimes follow for you?</h2><p>Select as many beats as you need.</p><div class="choice-grid">
+        <label class="choice"><input type="checkbox" name="topics" value="Breaking Health News"><span><strong>Breaking Health News</strong><small>Major developments and urgent updates.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="HIV/AIDS"><span><strong>HIV/AIDS</strong><small>Prevention, treatment, financing and policy.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Health Policy"><span><strong>Health Policy</strong><small>Government, regulation and health systems.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Medical Research"><span><strong>Medical Research</strong><small>Studies, evidence and research findings.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Mental Health"><span><strong>Mental Health</strong><small>Care, wellbeing and substance-use reporting.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Maternal & Child Health"><span><strong>Maternal & Child Health</strong><small>Pregnancy, newborns, children and families.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Medicines"><span><strong>Medicines</strong><small>Access, supply, regulation and pharmacy.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Health Financing"><span><strong>Health Financing</strong><small>Budgets, insurance, donors and UHC.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Innovation"><span><strong>Innovation</strong><small>Digital health, AI and new solutions.</small></span></label>
+        <label class="choice"><input type="checkbox" name="topics" value="Africa"><span><strong>Africa Health</strong><small>Regional public-health developments.</small></span></label>
+      </div></section>
+
+      <section class="settings-card"><span class="eyebrow">2 · Frequency</span><h2>How often?</h2><div class="field"><label for="frequency">Briefing schedule</label><select id="frequency" name="frequency"><option value="breaking">Breaking alerts</option><option value="daily">Daily briefing</option><option value="weekly">Weekly HealthTimes</option><option value="premium-weekly">Premium weekly intelligence</option><option value="monthly-research">Monthly research digest</option></select></div></section>
+
+      <section class="settings-card"><span class="eyebrow">3 · Delivery</span><h2>Where should we send it?</h2><div class="choice-grid"><label class="choice"><input type="checkbox" name="channels" value="email"><span><strong>Email</strong><small>Briefings and topic updates in your inbox.</small></span></label><label class="choice"><input type="checkbox" name="channels" value="whatsapp"><span><strong>WhatsApp</strong><small>Concise HealthTimes alerts and briefing links.</small></span></label><label class="choice"><input type="checkbox" name="channels" value="browser"><span><strong>Browser notifications</strong><small>Breaking updates on supported devices.</small></span></label></div><div class="field-row" style="margin-top:14px"><div class="field"><label for="pref-email">Email address</label><input id="pref-email" name="email" type="email" placeholder="name@example.com" autocomplete="email" /></div><div class="field"><label for="pref-phone">WhatsApp number</label><input id="pref-phone" name="phone" type="tel" placeholder="+263 …" autocomplete="tel" /></div></div></section>
+
+      <div style="display:flex;align-items:center;gap:14px"><button class="button button-primary" type="submit">Save My HealthTimes</button><span class="save-confirm" data-preferences-message aria-live="polite"></span></div>
+    </form>
+
+    <aside><div class="briefing-preview" data-briefing-preview></div><div class="settings-card" style="margin-top:16px"><span class="eyebrow">WhatsApp desk</span><h2>Prefer a direct conversation?</h2><p>HealthTimes customer support also accepts questions, comments and story tips by WhatsApp.</p><a class="button button-ghost" href="https://wa.me/263776280754?text=Hello%20HealthTimes" target="_blank" rel="noopener">Open WhatsApp</a></div></aside></div>
+  </main>
+  <div id="app-footer"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -2,93 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0b2a3c" />
-  <meta name="description" content="HealthTimes article" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#092b3a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="HealthTimes" />
   <title>HealthTimes Article</title>
-  <link rel="preconnect" href="https://healthtimes.co.zw" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body data-page="article">
-  <a class="skip-link" href="#main-content">Skip to content</a>
-  <div class="reading-progress" aria-hidden="true"><span data-reading-progress></span></div>
-
-  <div class="breaking-bar" role="region" aria-label="Breaking news">
-    <div class="shell breaking-inner">
-      <span class="breaking-label">HealthTimes</span>
-      <div class="breaking-copy">Independent health and science reporting from Zimbabwe.</div>
-      <a class="breaking-link" href="index.html#latest">Latest stories</a>
-    </div>
-  </div>
-
-  <header class="site-header">
-    <div class="shell header-main">
-      <a class="brand" href="index.html" aria-label="HealthTimes home">
-        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 56 56"><path d="M28 4c10 0 18 8 18 18 0 14-18 30-18 30S10 36 10 22C10 12 18 4 28 4Z"/><path class="pulse" d="M15 27h7l4-9 5 17 4-8h7"/></svg></span>
-        <span class="brand-copy"><strong>HealthTimes</strong><small>Zimbabwe health & science newsroom</small></span>
-      </a>
-      <nav class="desktop-nav" aria-label="Primary navigation"><a href="index.html">Home</a><a href="index.html#latest">Latest</a><a href="index.html#topics">Topics</a><a href="index.html#analysis">Opinion</a><a class="premium-nav" href="premium.html">Premium <span>US$5/mo</span></a></nav>
-      <div class="header-actions"><button class="icon-button" type="button" data-open-search aria-label="Search HealthTimes"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></button><button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span><span></span><b class="sr-only">Menu</b></button></div>
-    </div>
-    <div class="topic-strip-wrap"><div class="shell topic-strip"><a href="index.html#latest">Breaking News</a><a href="index.html#topics">Public Health</a><a href="index.html#topics">HIV/AIDS</a><a href="index.html#topics">Health Financing</a><a href="index.html#topics">Research & Findings</a><a href="index.html#topics">Science & Innovation</a><a href="index.html#topics">Global Health</a></div></div>
-    <div class="mobile-menu" id="mobile-menu" hidden><div class="shell mobile-menu-grid"><a href="index.html">Home</a><a href="index.html#latest">Latest stories</a><a href="index.html#topics">Topics</a><a href="index.html#analysis">Opinion & analysis</a><a href="premium.html">HealthTimes Premium</a><button type="button" data-open-search>Search</button></div></div>
-  </header>
-
-  <main id="main-content" class="article-main">
-    <article class="article-shell" data-article-shell>
-      <header class="article-header" data-article-header></header>
-      <figure class="article-hero-image" data-article-image></figure>
-
-      <div class="article-layout">
-        <aside class="article-share" aria-label="Article actions">
-          <button type="button" data-share aria-label="Share article"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
-          <button type="button" data-save aria-label="Save article"><svg viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4Z"/></svg></button>
-          <button type="button" data-open-ai aria-label="Ask AI about article"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v3a4 4 0 0 0 4 4h1l2 3 2-3h1a4 4 0 0 0 4-4v-3a7 7 0 0 0-7-7Z"/><path d="M9 11h.01M15 11h.01"/></svg></button>
-        </aside>
-
-        <div class="article-content-wrap" data-article-protected>
-          <div class="article-body" data-article-body></div>
-          <div class="premium-lock article-premium-lock" data-premium-lock hidden>
-            <div class="lock-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
-            <span class="premium-pill">Premium preview complete</span>
-            <h2>Continue with HealthTimes Premium.</h2>
-            <p>Subscribe for US$5/month to unlock the rest of this Premium story.</p>
-            <button class="button button-accent" type="button" data-subscribe>Subscribe — US$5/month</button>
-            <small>Client demo: no real payment is processed.</small>
-          </div>
-        </div>
-      </div>
-    </article>
-
-    <section class="section shell article-related" aria-labelledby="related-title">
-      <div class="section-heading compact"><div><span class="eyebrow">Keep reading</span><h2 id="related-title">Related reporting</h2></div><a class="text-link" href="index.html#latest">All stories →</a></div>
-      <div class="story-grid story-grid-three" id="related-grid"></div>
-    </section>
+  <a class="skip-link" href="#main-content">Skip to article</a>
+  <div id="app-header"></div>
+  <main id="main-content">
+    <div id="article-mount"></div>
+    <section class="related-section" aria-labelledby="related-heading"><div class="section-heading"><div><span class="eyebrow">Continue reading</span><h2 id="related-heading">Related coverage</h2></div></div><div class="related-grid" id="related-grid"></div></section>
+    <section class="related-section" aria-label="Share this story"><div class="feedback-card"><div><strong>Share this reporting</strong><div style="font-size:.76rem;color:var(--muted)">WhatsApp is prioritised for mobile readers.</div></div><div class="feedback-actions" data-social-bar></div></div></section>
   </main>
-
-  <footer class="site-footer">
-    <div class="shell footer-grid">
-      <div><a class="brand brand-footer" href="index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 56 56"><path d="M28 4c10 0 18 8 18 18 0 14-18 30-18 30S10 36 10 22C10 12 18 4 28 4Z"/><path class="pulse" d="M15 27h7l4-9 5 17 4-8h7"/></svg></span><span class="brand-copy"><strong>HealthTimes</strong><small>Zimbabwe health & science newsroom</small></span></a><p>Independent health journalism covering Zimbabwe, Africa and global health developments.</p></div>
-      <div><h3>Coverage</h3><a href="index.html#latest">Breaking News</a><a href="index.html#topics">Public Health</a><a href="index.html#topics">HIV/AIDS</a><a href="index.html#topics">Research</a></div>
-      <div><h3>HealthTimes</h3><a href="index.html#analysis">Opinion & Analysis</a><a href="premium.html">Premium</a><a href="#">BARAZA E-PAPER</a><a href="#">Jobs</a></div>
-      <div><h3>For readers</h3><button type="button" data-open-search>Search</button><button type="button" data-open-ai>Ask HealthTimes AI</button><a href="https://healthtimes.co.zw/" target="_blank" rel="noopener">Current live site</a></div>
-    </div>
-    <div class="shell footer-bottom"><span>Frontend concept · 2026 HealthTimes</span><span>Article text in this demo is summarized from public reporting.</span></div>
-  </footer>
-
-  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
-    <a href="index.html"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9h-6v-6H9v6H3Z"/></svg><span>Home</span></a>
-    <a class="active" href="index.html#latest"><svg viewBox="0 0 24 24"><path d="M5 5h14M5 10h14M5 15h9M5 20h7"/></svg><span>Latest</span></a>
-    <button type="button" data-open-search><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span>Search</span></button>
-    <a href="premium.html"><svg viewBox="0 0 24 24"><path d="m4 8 4 4 4-7 4 7 4-4-2 11H6Z"/></svg><span>Premium</span></a>
-    <button type="button" data-open-ai><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v3a4 4 0 0 0 4 4h1l2 3 2-3h1a4 4 0 0 0 4-4v-3a7 7 0 0 0-7-7Z"/><path d="M9 11h.01M15 11h.01"/></svg><span>Ask AI</span></button>
-  </nav>
-
-  <div class="search-overlay" data-search-overlay hidden><div class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-title"><div class="search-head"><div><span class="eyebrow">Search HealthTimes</span><h2 id="search-title">Find reporting by topic, person or keyword</h2></div><button class="close-button" type="button" data-close-search aria-label="Close search">×</button></div><label class="search-field"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input type="search" data-search-input placeholder="Try “HIV”, “financing”, “Harare”…" autocomplete="off" /></label><div class="search-results" data-search-results></div></div></div>
-
-  <aside class="ai-panel" data-ai-panel aria-hidden="true"><div class="ai-header"><div><span class="ai-dot"></span><strong>Ask HealthTimes</strong><small>Demo newsroom assistant</small></div><button type="button" data-close-ai aria-label="Close AI assistant">×</button></div><div class="ai-disclaimer">I can help you understand this HealthTimes demo and locate related reporting. I do not diagnose, prescribe treatment, or replace a clinician.</div><div class="ai-messages" data-ai-messages><div class="ai-message assistant">Ask me to summarize this story or find related HealthTimes coverage.</div></div><div class="ai-quick"><button type="button" data-ai-prompt="Summarize this article">Summarize</button><button type="button" data-ai-prompt="Show me related stories">Related stories</button></div><form class="ai-form" data-ai-form><label class="sr-only" for="ai-input">Ask HealthTimes</label><input id="ai-input" data-ai-input placeholder="Ask about this story…" /><button type="submit">Send</button></form></aside>
-
-  <div class="toast" data-toast role="status" aria-live="polite"></div>
+  <div id="app-footer"></div>
   <script src="app.js" defer></script>
 </body>
 </html>

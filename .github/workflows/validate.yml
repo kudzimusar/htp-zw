@@ -1,4 +1,4 @@
-name: Validate frontend
+name: Validate HealthTimes 2.0
 
 on:
   push:
@@ -21,51 +21,90 @@ jobs:
           node-version: '22'
 
       - name: Validate JavaScript syntax
-        run: node --check app.js
+        run: |
+          node --check app.js
+          node --check newsroom.js
 
-      - name: Validate required frontend files and references
+      - name: Validate product contract and local references
         shell: python
         run: |
           from html.parser import HTMLParser
           from pathlib import Path
           import re
-          import sys
 
           required = [
-              Path('index.html'),
-              Path('premium.html'),
-              Path('article.html'),
-              Path('styles.css'),
-              Path('app.js'),
-              Path('README.md'),
+              'index.html','article.html','premium.html','preferences.html','about.html',
+              'newsroom.html','manual.html','404.html','styles.css','newsroom.css',
+              'app.js','newsroom.js','favicon.svg','site.webmanifest','README.md',
+              'docs/HEALTHTIMES_2_IMPLEMENTATION_PLAN.md',
+              'docs/HEALTHTIMES_OPERATIONS_MANUAL.md',
+              '.github/workflows/pages.yml',
           ]
-          missing = [str(path) for path in required if not path.exists()]
+          missing = [p for p in required if not Path(p).is_file()]
           if missing:
               raise SystemExit(f'Missing required files: {missing}')
 
           class Parser(HTMLParser):
-              def error(self, message):
-                  raise RuntimeError(message)
+              pass
 
-          for filename in ('index.html', 'premium.html', 'article.html'):
+          public_pages = ['index.html','article.html','premium.html','preferences.html','about.html','manual.html','404.html']
+          for filename in public_pages:
               text = Path(filename).read_text(encoding='utf-8')
               Parser().feed(text)
-              for required_ref in ('styles.css', 'app.js'):
-                  if required_ref not in text:
-                      raise SystemExit(f'{filename} does not reference {required_ref}')
-              if 'mobile-bottom-nav' not in text:
-                  raise SystemExit(f'{filename} is missing mobile bottom navigation')
+              if 'styles.css' not in text or 'app.js' not in text:
+                  raise SystemExit(f'{filename} does not load the shared public design/runtime')
+              if re.search(r'href=["\']#["\']', text):
+                  raise SystemExit(f'{filename} contains a placeholder href="#"')
+
+          newsroom = Path('newsroom.html').read_text(encoding='utf-8')
+          Parser().feed(newsroom)
+          for ref in ('styles.css','newsroom.css','newsroom.js'):
+              if ref not in newsroom:
+                  raise SystemExit(f'newsroom.html is missing {ref}')
 
           js = Path('app.js').read_text(encoding='utf-8')
-          assertions = {
+          public_assertions = {
               '30-second preview': r'PREVIEW_MS\s*=\s*30_000',
-              'premium start persistence': r'htpPremiumPreviewStartedAt',
-              'demo subscriber state': r'htpDemoSubscribed',
-              'US$5 proposition': r'US\$5',
-              'AI medical safety boundary': r'diagnos',
+              'preview persistence': r'htpPremiumPreviewStartedAt',
+              'subscription state': r'htpDemoSubscribed',
+              'mobile app navigation': r'mobile-bottom-nav',
+              'WhatsApp desk': r'263776280754',
+              'Ask HealthTimes': r'Ask HealthTimes',
+              'medical safety boundary': r'diagnos',
+              'saved reading': r'htpSavedArticles',
+              'reader preferences': r'htpReaderPreferences',
           }
-          failed = [name for name, pattern in assertions.items() if not re.search(pattern, js)]
+          failed = [name for name, pattern in public_assertions.items() if not re.search(pattern, js)]
           if failed:
-              raise SystemExit(f'Missing expected demo behavior: {failed}')
+              raise SystemExit(f'Missing public product behavior: {failed}')
 
-          print('Static frontend validation passed.')
+          njs = Path('newsroom.js').read_text(encoding='utf-8')
+          newsroom_assertions = {
+              'publisher role': r'Publisher / Owner',
+              'editor role': r'Editor-in-Chief',
+              'reporter role': r'Reporter / Journalist',
+              'commercial separation': r'Commercial Manager',
+              'role permissions': r'permissions\s*=',
+              'workflow audit': r'htpNewsroomAudit',
+              'story workflow': r'Fact check',
+              'newsletter': r'Newsletter',
+              'WhatsApp': r'WhatsApp',
+          }
+          failed = [name for name, pattern in newsroom_assertions.items() if not re.search(pattern, njs)]
+          if failed:
+              raise SystemExit(f'Missing newsroom behavior: {failed}')
+
+          local_refs = set()
+          for filename in public_pages + ['newsroom.html']:
+              text = Path(filename).read_text(encoding='utf-8')
+              for ref in re.findall(r'(?:href|src)=["\']([^"\']+)["\']', text):
+                  if ref.startswith(('http://','https://','mailto:','tel:','#')):
+                      continue
+                  ref = ref.split('?')[0].split('#')[0]
+                  if ref and not ref.endswith('.html'):
+                      local_refs.add(ref)
+          missing_refs = [ref for ref in sorted(local_refs) if not Path(ref).exists()]
+          if missing_refs:
+              raise SystemExit(f'Missing local assets referenced by pages: {missing_refs}')
+
+          print('HealthTimes 2.0 validation passed.')
