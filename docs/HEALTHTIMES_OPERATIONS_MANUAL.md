@@ -1,276 +1,148 @@
-# HealthTimes 2.1 Operations & Work Manual
+# HealthTimes Operations & Work Manual
 
-**Publication:** HealthTimes Zimbabwe  
+**Publication:** HealthTimes  
 **Public site:** https://kudzimusar.github.io/htp-zw/  
 **Newsroom:** https://kudzimusar.github.io/htp-zw/newsroom.html  
-**Version:** 2.1 client-review hardening  
+**Revision:** Newsroom OS client-review release  
 **Date:** 2026-09-09
 
 ## 1. Purpose
 
-This manual is the working reference for the modern HealthTimes publication, Premium membership, reader accounts, Ask HealthTimes, WhatsApp/briefings, advertising and Newsroom administration. It is intended both for the client review and for future operational handover.
+This is the operational reference for the modern HealthTimes publication and its staff operating system. It covers reader accounts, Premium access, article listening, advertising, Ask HealthTimes, audience briefings, newsroom identity, editorial workflow, assignments, review, staff access, security, analytics, citations, mobile app readiness and the production migration boundary.
 
-The current hosted release is a semi-working frontend product. Authentication, payments, authoritative CMS persistence, message delivery, production analytics and security enforcement remain production integration boundaries. Those limitations are documented here but are not unnecessarily exposed in the public presentation UI.
+The client-review release is intentionally semi-working: public and staff workflows behave like the intended product and persist locally in the browser, while production authentication, CMS/database persistence, billing, messaging, analytics and security enforcement remain explicit integration boundaries.
 
-## 2. Device experiences
+The detailed implementation architecture is recorded in `docs/HEALTHTIMES_NEWSROOM_OS_PLAN.md`.
 
-HealthTimes uses the same reporting catalogue but deliberately presents **two device experiences**.
+---
+
+## 2. Public publication
 
 ### Desktop
 
-Desktop is an editorial publication environment with:
-
-- multi-column lead-story hierarchy;
-- trending/context sidebars;
-- full institutional navigation and footer;
-- visible advertising inventory;
-- disciplined large-format serif typography;
-- article research/context rail;
-- reader account and appearance controls.
+Desktop uses a publication-style editorial system with multi-column hierarchy, wider article context, visible commercial inventory and a full institutional footer.
 
 ### Mobile and tablet
 
-Mobile is an app-style news product rather than a smaller desktop page:
+Mobile is deliberately a separate native-news presentation rather than a reduced desktop page. It uses:
 
-- compact sticky masthead;
-- list-based mobile news feed;
-- smaller editorial images and headline sizes;
-- scrollable section/topic rail;
-- bottom navigation: Home, Latest, Ask AI, Saved, More;
-- persistent sheets for menu/search/saved/profile;
+- compact app masthead;
+- smaller story images and headline scale;
+- mobile news feed;
+- Home / Latest / Ask AI / Saved / More bottom navigation;
+- persistent menu/search/saved/profile sheets;
 - no desktop footer;
-- safe-area-aware spacing and touch targets;
-- mobile advertising variant;
-- native-style article density.
+- safe-area spacing and touch targets;
+- content-flow advertising rather than ads above app navigation.
 
-All footer/institutional destinations available on desktop are reachable through **More** on mobile.
+---
 
 ## 3. Reader accounts
 
-Use the profile icon in the masthead to sign in or create a reader account.
-
-Reader state contains:
-
-- reader identity;
-- Premium status;
-- saved stories;
-- reading history;
-- briefing/topic preferences;
-- theme preference.
+Public readers can sign in, create an account and open a profile. Reader state includes Premium status, saved stories, reading history, briefing preferences and theme preference.
 
 ### Presentation Premium reader
 
-**Email:** `reader@healthtimes.co.zw`  
-**Password:** `HealthTimes#Reader26`
+- **Email:** `reader@healthtimes.co.zw`
+- **Password:** `HealthTimes#Reader26`
 
-This account is intended for client review of the subscribed experience.
+Light, Dark and System appearance modes persist in reader state.
 
-New reader accounts can also be created from the public UI. The current client-review release stores reader accounts in browser-local state. Production must use secure managed authentication and server sessions.
+Production must replace browser-local reader identity with managed authentication and server sessions.
 
-## 4. Light, dark and system themes
+---
 
-Reader appearance can be changed from the profile/account controls.
+## 4. HealthTimes Premium
 
-Available modes:
+Premium is currently positioned at **US$5/month**.
 
-- **System** — follows device/browser color preference;
-- **Light**;
-- **Dark**.
+Each Premium story receives a reader-specific preview allowance:
 
-The preference persists in the browser and applies across public reading surfaces and the Newsroom extension layer.
-
-## 5. HealthTimes Premium — core commercial behavior
-
-Premium is priced at **US$5/month** in the current proposition.
-
-### Per-story reading allowance
-
-Every Premium story is controlled independently for a non-subscriber.
-
-1. Opening a Premium story starts that reader’s allowance for that specific story.
-2. After approximately eight seconds, a small Premium notice appears without interrupting reading.
-3. At roughly twenty seconds, the notice becomes a stronger countdown reminder.
-4. At thirty seconds, protected content locks automatically.
+1. Opening a Premium story starts that reader/story timer.
+2. A small non-blocking Premium message appears after the first few seconds.
+3. The warning becomes stronger around twenty seconds.
+4. At thirty seconds protected research locks.
 5. The membership sheet opens automatically.
-6. Closing or selecting **Not now** dismisses the sheet but does not unlock the article.
-7. The reader can still navigate the rest of HealthTimes.
-8. Refreshing/reopening does not restart the allowance for that reader/story.
-9. A subscribed reader bypasses the gate.
+6. Closing the sheet does not unlock research.
+7. Public HealthTimes navigation remains available.
+8. Refreshing or reopening does not restart the allowance.
+9. Premium readers bypass the gate.
 
-Guest preview state and signed-in reader preview state are separated by reader identity.
+Premium research can expose citation tooling, saved reading, related evidence, HealthTimes Intelligence and member briefings. Article listening follows the same entitlement boundary and stops when the Premium allowance expires.
 
-### Premium research tools
+Authorised Newsroom editorial staff can mark mapped stories Public or HealthTimes Premium. That choice is written to the public story-override layer used by the client-review site.
 
-Premium research can expose:
+Production must enforce Premium entitlement server-side or at the edge.
 
-- full protected article;
-- **Cite this research** / copy citation;
-- save and reading history;
-- article-level Ask HealthTimes;
-- related evidence/coverage;
-- member briefings;
-- reduced advertising interruptions.
+---
 
-### Editorial Premium control
+## 5. Advertising
 
-Authorized Newsroom editors can mark a mapped story **Public** or **HealthTimes Premium**. That choice is synchronized into the public reader access model in the same browser data layer.
+Advertising remains a HealthTimes revenue product. The source publication's HOSPAZ Annual General Meeting campaign is retained as the first modern campaign record.
 
-### Production replacement
+Public ad rules:
 
-The final live product must enforce entitlement server-side or at the edge. Browser-local access state is not secure enough for paid research.
+- no mobile ad above or inside the app masthead;
+- mobile home ads enter the editorial feed;
+- other public pages place ads after the primary navigation/app chrome;
+- desktop may use a prominent post-header masthead placement;
+- the full creative must remain visible rather than cropped;
+- paid placements are disclosed;
+- Premium can reduce advertising interruption.
 
-## 6. Advertising
+The Newsroom Advertising workspace provides commercial campaign context while remaining separated from editorial story editing.
 
-Advertising is a retained HealthTimes revenue product, not decorative filler.
+---
 
-The current source publication’s prominent HOSPAZ annual-general-meeting creative is represented as the first campaign in the modern advertising inventory.
+## 6. Listen to this story
 
-### Public placements
+Article pages use a compact speaker control. Tap to play, tap to pause, and tap again to resume. HealthTimes ranks available operating-system/browser English voices and prefers natural/enhanced/premium/neural voices where available.
 
-The client-review build supports:
+For Premium stories, narration cannot bypass the paywall. When access expires, narration stops and protected paragraphs are no longer read.
 
-- desktop masthead leaderboard;
-- compact mobile campaign placement;
-- homepage in-feed slot;
-- article placement for free readers;
-- placement map for future topic/briefing sponsorship;
-- reduced advertising for Premium readers.
+---
 
-Every placement is labelled as paid advertising/sponsorship and includes a statement separating advertising from editorial coverage.
+## 7. Ask HealthTimes
 
-### Newsroom Advertising Manager
+Ask HealthTimes is a journalism and research assistant. It can summarise the current story, explain why it matters, find related coverage and help readers navigate the HealthTimes archive.
 
-Available to roles with commercial authority.
+It is not a clinical service. It must not diagnose, prescribe medicine, provide dosage instructions or impersonate a clinician.
 
-Campaign fields include:
+Production should use retrieval over the authoritative HealthTimes CMS with provenance and safety monitoring.
 
-- advertiser;
-- campaign name;
-- desktop creative URL;
-- mobile creative URL;
-- destination;
-- placement;
-- status;
-- review state;
-- disclosure label;
-- start/end dates;
-- local presentation impressions/clicks.
+---
 
-Do not interpret the browser-local metrics as production analytics. They exist only to demonstrate the management model.
+# Part II — HealthTimes Newsroom OS
 
-### Health advertising governance
+## 8. What the Newsroom is
 
-Commercial staff cannot silently edit editorial stories. Health-related commercial claims should receive appropriate review before publication and sponsored material must be visually disclosed.
+The Newsroom is a dedicated staff application. It is not a public page with administrative controls attached.
 
-## 7. Source sections and archive
+The application flow is:
 
-Open `archive.html` to view the migration/parity catalogue.
+```text
+Newsroom URL
+   ↓
+Authentication gateway
+   ↓
+Persistent staff session
+   ↓
+Current staff identity
+   ↓
+Role + capabilities
+   ↓
+Role-shaped working environment
+```
 
-The modernization retains or tracks:
+When a staff user is not authenticated, only the Newsroom sign-in gateway is visible. After successful sign-in, the gateway disappears completely and the working application replaces it. Refresh preserves the active staff session.
 
-- Breaking News;
-- Feature;
-- Epidemics;
-- Abortion Compendium;
-- Academic & Research;
-- Global Health;
-- Community Development;
-- Communicable Diseases;
-- Noncommunicable Diseases;
-- HIV/AIDS;
-- Policy;
-- Public Health;
-- Jobs;
-- Opinion & Analysis;
-- Fellowships & Grants;
-- Training & Courses;
-- Research & Findings;
-- BARAZA E-PAPER;
-- HealthTimes Premium;
-- Videos;
-- About/Contact/Corrections.
+There is no impersonation shortcut. To use another account, sign out and authenticate separately.
 
-The formal migration record is `docs/HEALTHTIMES_SOURCE_PARITY_REGISTER.md`.
+---
 
-The client-review catalogue includes current official HealthTimes story imagery and a broad sample of recent reporting. Final approval triggers a full CMS/media/URL migration, not manual re-entry.
+## 9. Newsroom presentation credentials
 
-## 8. Public article tools
-
-Article pages include:
-
-- headline and standfirst;
-- author and beat;
-- date/update/read-time metadata;
-- primary-source/reviewer context;
-- reading progress;
-- save;
-- share;
-- WhatsApp comment/discussion;
-- recognizable WhatsApp/Facebook/X/LinkedIn icons;
-- correction route;
-- related reporting;
-- Ask HealthTimes prompts;
-- citation tools on Premium research.
-
-## 9. Ask HealthTimes / HealthTimes Intelligence
-
-Ask HealthTimes is a journalism research/discovery assistant.
-
-Typical uses:
-
-- summarise the current story;
-- explain why it matters;
-- explain it in plain language;
-- show related HealthTimes coverage;
-- search HealthTimes topics;
-- explain Premium.
-
-### Medical safety boundary
-
-Ask HealthTimes must not diagnose a person, prescribe medicine, provide dosage instructions or impersonate a clinician. Potential emergency/individual-care requests should direct the reader to qualified medical or emergency services.
-
-Production should replace static browser matching with server-side RAG over the authoritative HealthTimes CMS, including provenance, logging and safety monitoring.
-
-## 10. WhatsApp and social
-
-Primary WhatsApp desk: **+263 77 628 0754**  
-Secondary: **+263 772 679 680**
-
-Article WhatsApp actions include the story title/URL so comments arrive with context. Private journalist telephone numbers are not exposed by default.
-
-Other article sharing includes Facebook, X, LinkedIn, native share and copy-link fallback.
-
-Tips/corrections: **editorial@healthtimes.co.zw**.
-
-## 11. My HealthTimes briefings
-
-Open `preferences.html`.
-
-Readers can choose topics such as breaking health news, HIV/AIDS, policy, medical research, mental health, maternal/child health, medicines, health financing, innovation and Africa health.
-
-Frequencies:
-
-- Breaking alerts;
-- Daily;
-- Weekly HealthTimes;
-- Premium weekly intelligence;
-- Monthly research digest.
-
-Channels:
-
-- Email;
-- WhatsApp;
-- Browser notification presentation.
-
-Production requires consent-aware subscriber records and real delivery providers.
-
-## 12. Newsroom sign-in
-
-Open `newsroom.html`.
-
-Presentation credentials:
-
-| Role | Username | Password |
+| Workspace | Username | Password |
 | --- | --- | --- |
 | Publisher / Owner | `publisher` | `HealthTimes#Publisher26` |
 | Editor-in-Chief | `editor` | `HealthTimes#Editor26` |
@@ -278,156 +150,648 @@ Presentation credentials:
 | Newsletter / Audience | `audience` | `HealthTimes#Audience26` |
 | Commercial Manager | `commercial` | `HealthTimes#Commercial26` |
 
-Accounts remain separate. There is no impersonation shortcut: sign out before signing into another staff identity.
+The presentation accounts deliberately expose different workspaces and authority levels.
 
-## 13. Newsroom roles and separation
+---
 
-The governance model includes Publisher/Owner, Editor-in-Chief, Managing Editor, Section Editor, News Editor, Reporter, Health/Science Editor, Fact Checker, Copy Editor, Multimedia Editor, Social Editor, Newsletter Editor, Commercial Manager, Subscriber Manager and Analyst.
+## 10. Newsroom visual system
 
-Important boundaries:
+The staff application uses a restrained work-oriented design:
 
-- reporters can create/edit own or assigned work and submit for review but cannot unrestrictedly publish;
-- editorial leadership can review/publish and control Premium status;
-- commercial roles can manage advertising/subscriber products but cannot silently edit editorial copy;
-- subscriber service does not grant editorial authority;
-- passwords are not displayed in staff listings.
+- dark ink/navy navigation;
+- warm paper/off-white work surfaces;
+- HealthTimes teal for active state and primary signals;
+- muted blue for informational state;
+- restrained amber for attention/review;
+- brick red for overdue/security actions;
+- green for ready/published/healthy state;
+- compact professional typography;
+- dense tables and work queues;
+- no glassmorphism;
+- no decorative AI gradients.
 
-## 14. Editorial workflow
+The goal is to make every staff role feel like they have a working desk, not a handful of presentation links.
 
-Target lifecycle:
+---
 
-**Idea → Assignment → Draft → Source verification → Fact check → Health/science review when required → Copy edit → Ready/Scheduled → Published → Correction/Update → Archive**
+## 11. Newsroom navigation
 
-### Create a story
+### My Newsroom
 
-1. Sign in with an authorized editorial account.
-2. Choose **New story**.
-3. Set headline, section, story type and access (**Public** or **HealthTimes Premium**).
-4. Add assigned editor, standfirst and reporting/source notes.
-5. Save as Draft.
-6. Move through the authorized review workflow.
+- Overview
+- My assignments
+- My stories
+- Saved
 
-Published/approved Premium status is synchronized to the public access model for mapped client-review stories.
+### Editorial
 
-## 15. Newsroom modules
+- Stories
+- Assignments
+- Review Queue
+- Editorial Calendar
+- Breaking News
+- Corrections
 
-Core modules include:
+### Content
 
-- Overview;
-- Stories;
-- Assignments;
-- Editorial Calendar;
+- Media Library
+- Authors
+- Topics
+- Countries & regions
+- Research / Sources
+- Archive
+
+### Distribution
+
+- Homepage
+- Newsletters
+- WhatsApp
+- Social
+- Push alerts
+
+### Intelligence
+
+- Analytics
+- Trending
+- SEO
+- Citations & Impact
+- AI Desk
+
+### Commercial
+
+- Premium
+- Subscribers
+- Advertising
+
+### Organisation
+
+- Staff & Access
+- Roles & Permissions
+- Audit Log
+
+### System
+
+- Settings
+- Integrations
+- Security
+
+Modules are shown only when the current role has the required capability.
+
+---
+
+## 12. Role-shaped workspaces
+
+### Reporter / Journalist
+
+The reporter opens **My Newsroom** and sees real work context:
+
+- active assignments;
+- due-today work;
+- drafts;
+- submissions waiting for editor;
+- personal stories;
+- editorial calendar items;
+- notifications;
+- personal publishing inventory.
+
+Reporters can create, write, autosave, manually save, reopen and submit their own stories. They cannot unrestrictedly publish, manage advertising or change staff access.
+
+### Editor-in-Chief / editorial leadership
+
+Editors see:
+
 - Review Queue;
-- Media;
-- Authors;
-- Topics;
-- Breaking News;
-- Premium;
-- **Advertising**;
-- AI Desk;
-- Audience;
-- Newsletter;
-- WhatsApp;
-- Subscribers;
-- Analytics;
-- Staff & Roles;
-- Settings;
-- **Migration Parity**.
+- Ready to publish;
+- overdue assignments;
+- corrections;
+- desk activity;
+- editorial calendar;
+- trending topics;
+- publication pulse;
+- Premium editorial controls.
 
-## 16. PWA and mobile-app pitch
+They can open submitted stories, comment, move work through review stages and publish where authorised.
 
-HealthTimes is installable as a Progressive Web App through `site.webmanifest` and `sw.js`.
+### Newsletter / Audience
 
-The repository also includes:
+Audience staff see recurring editions, WhatsApp distribution, social distribution, reader-interest context and briefing deadlines.
 
-- `app/twa-manifest.json` — Google Play Trusted Web Activity/Bubblewrap scaffold;
-- `capacitor.config.json` — Capacitor native-wrapper configuration scaffold;
-- `docs/MOBILE_APP_PACKAGING.md` — Android/iOS build/signing guide;
-- `docs/STORE_LISTING_METADATA.md` — store copy and screenshot checklist.
+### Commercial Manager
 
-### Google Play
+Commercial staff see campaign inventory, advertising, Premium commercial operations and subscriber tooling. Editorial story-editing navigation is intentionally unavailable.
 
-The intended path is a verified TWA around the final production PWA. A real Play submission requires final domain ownership, Digital Asset Links, publisher signing key and Play Console access.
+### Publisher / Owner
 
-### Apple App Store
+Publisher receives organisation-level editorial, staff, commercial, security and audit context.
 
-The intended path is a Capacitor iOS wrapper. A signed App Store build requires macOS/Xcode, Apple Developer credentials, provisioning/signing and App Store Connect.
+---
 
-No store submission is claimed by this client-review repository.
+## 13. Full role model
 
-## 17. UAT and deployment
+The configured role system includes:
 
-Client-ready releases must pass:
+- Publisher / Owner
+- Editor-in-Chief
+- Managing Editor
+- Section Editor
+- News Editor
+- Reporter / Journalist
+- Health / Science Editor
+- Fact Checker
+- Copy Editor
+- Multimedia Editor
+- Social Editor
+- Newsletter Editor
+- Commercial Manager
+- Subscriber Manager
+- Analyst
 
-- JavaScript syntax/static validation;
-- local asset/link validation;
-- Playwright/Chromium browser UAT;
-- phone widths 375 and 430;
-- tablet 768;
-- 1024 landscape/small laptop;
-- desktop 1440;
-- wide desktop 1920;
+Roles are collections of granular capabilities rather than one hard-coded `admin` flag.
+
+Examples include:
+
+- `story.create`
+- `story.edit_own`
+- `story.edit_all`
+- `story.submit`
+- `story.fact_check`
+- `story.health_review`
+- `story.copy_edit`
+- `story.publish`
+- `story.correct`
+- `assignment.create`
+- `assignment.manage`
+- `premium.assign`
+- `premium.manage`
+- `ads.view`
+- `ads.create`
+- `ads.approve`
+- `subscriber.view`
+- `subscriber.manage`
+- `staff.view`
+- `staff.invite`
+- `staff.change_role`
+- `staff.revoke`
+- `analytics.view`
+- `settings.manage`
+- `security.manage`
+
+---
+
+## 14. Story lifecycle
+
+HealthTimes models the complete editorial lifecycle:
+
+**Pitch → Approved → Assigned → Reporting → Draft → Submitted → Fact check → Health / Science review → Copy edit → Editor review → Ready → Scheduled → Published → Updated / Corrected → Archived**
+
+Each story can carry:
+
+- headline;
+- standfirst;
+- working body copy;
+- source/reference notes;
+- internal reporting notes;
+- section;
+- desk;
+- topic;
+- country;
+- region;
+- reporter;
+- editor;
+- fact checker;
+- deadline;
+- status;
+- Public/Premium access;
+- SEO title;
+- meta description;
+- slug;
+- homepage/breaking/newsletter/WhatsApp/push distribution;
+- advertising setting;
+- publish schedule;
+- version history;
+- internal comments.
+
+---
+
+## 15. Writing and saving stories
+
+Open **New story** or choose **Open** from an authorised story row.
+
+The editor workspace is structured like a working document tool rather than a dashboard card.
+
+### Main canvas
+
+- headline;
+- standfirst;
+- story body;
+- source/reference area;
+- internal reporting notes;
+- insert controls for source, pull quote, table and media;
+- editorial discussion.
+
+### Inspector
+
+- workflow state;
+- deadline;
+- reporter;
+- editor;
+- fact checker;
+- desk;
+- section;
+- country;
+- region;
+- Public/Premium;
+- SEO;
+- distribution;
+- scheduling;
+- advertising setting;
+- versions.
+
+### Autosave
+
+While a journalist writes, the Newsroom displays **Saving…** and then **Saved**. A manual Save option is also provided. Save events create a local version record so the presentation can demonstrate recovery/history behavior.
+
+A journalist can close the editor, return to My Stories and reopen the saved work.
+
+Production must move revision history to the authoritative CMS/database.
+
+---
+
+## 16. Assignment Desk
+
+Editorial staff with assignment authority can create an assignment containing:
+
+- story/topic;
+- reporter;
+- desk;
+- deadline;
+- priority;
+- assigned editor;
+- reporting notes.
+
+A reporter sees the assignment inside My Assignments and can advance the work through:
+
+**Assigned → Accepted → Reporting → Drafting → Submitted → Complete**
+
+Overdue work is identified separately from active work.
+
+---
+
+## 17. Review Queue
+
+Review Queue contains work in stages such as:
+
+- Submitted;
+- Fact check;
+- Health / Science review;
+- Copy edit;
+- Editor review;
+- Ready.
+
+Appropriate editors can open a story, inspect evidence, leave internal discussion comments and advance the workflow.
+
+A Ready story can be published only by a role with `story.publish`.
+
+Internal comments do not appear on the public article.
+
+---
+
+## 18. Editorial Calendar
+
+The Newsroom calendar/agenda demonstrates:
+
+- editorial conferences;
+- story deadlines;
+- review deadlines;
+- scheduled publication;
+- newsletters;
+- WhatsApp briefings;
+- interviews/campaigns;
+- major global-health dates.
+
+This is intended to evolve into a database-backed editorial planning calendar.
+
+---
+
+## 19. Global newsroom taxonomy
+
+HealthTimes is prepared to move from a Zimbabwe-defined publication toward a global health publication with Africa as its strongest reporting authority.
+
+Configured desks/regions include:
+
+- Global Health;
+- Africa;
+- Southern Africa;
+- East Africa;
+- West Africa;
+- Central Africa;
+- North Africa;
+- Zimbabwe;
+- Research;
+- Policy;
+- Investigations;
+- Health Business.
+
+Staff profiles can contain desk, beat, country and region.
+
+---
+
+## 20. Analytics and Trending
+
+The Newsroom avoids fabricating live production numbers.
+
+Metrics that can be derived from the current local editorial dataset include:
+
+- story inventory;
+- published count;
+- review count;
+- desk mix;
+- current publishing pipeline;
+- assignments and deadline state.
+
+The interface also defines where production analytics will display:
+
+- reads;
+- engaged time;
+- completion;
+- shares;
+- saves;
+- Premium conversions;
+- country;
+- referral source;
+- search acquisition.
+
+Those values require a real analytics/event pipeline before launch.
+
+Trending provides topic-attention presentation for editorial prioritisation.
+
+---
+
+## 21. Citations & Impact
+
+Citations & Impact supports the client's goal of making HealthTimes research globally citable.
+
+The Newsroom records citation-ready research based on existing story/source metadata and provides integration points for:
+
+- backlinks;
+- academic citations;
+- government references;
+- NGO/institutional references;
+- media citations;
+- Wikipedia references;
+- top-cited HealthTimes research.
+
+External counts are not fabricated in the client-review build. Production should connect backlink/citation monitoring services.
+
+---
+
+## 22. AI Desk
+
+The AI Desk is assistive, not autonomous publishing.
+
+Planned/represented tools include:
+
+- source-document summary;
+- evidence-gap detection;
+- missing citation suggestions;
+- HealthTimes archive matches;
+- SEO/headline alternatives;
+- interview-question generation;
+- claim/source checking.
+
+AI output must always remain reviewable by staff and cannot bypass publication authority.
+
+---
+
+## 23. Media Library
+
+The Media workspace tracks editorial and commercial assets with metadata including:
+
+- filename;
+- type;
+- caption;
+- credit;
+- copyright;
+- source;
+- uploader;
+- usage;
+- date.
+
+The initial catalogue includes editorial images/documents and the HOSPAZ campaign creative.
+
+---
+
+## 24. Premium newsroom operations
+
+The Premium workspace shows Premium/public access alongside editorial state and source readiness.
+
+Staff with `premium.assign` can change mapped stories between Public and HealthTimes Premium. That action is audited and synchronized to the public access override.
+
+Reporters do not independently acquire Premium/publishing authority simply because they authored the story.
+
+---
+
+## 25. Advertising newsroom operations
+
+The Advertising workspace contains advertiser, campaign, placement, dates, status and review state. The HOSPAZ campaign remains visible as the initial paid inventory example.
+
+Commercial roles can operate advertising without receiving editorial story-editing access.
+
+Production should add ad-event collection, campaign billing, creative upload/storage and approval workflow.
+
+---
+
+## 26. Staff & Access
+
+The staff directory includes:
+
+- name;
+- email;
+- role;
+- desk;
+- beat;
+- account status;
+- last login;
+- MFA readiness;
+- permitted actions.
+
+Depending on capability, leadership can:
+
+- invite staff;
+- change role;
+- revoke active sessions;
+- revoke access.
+
+The staff invitation workflow asks for name, email, role, desk, country and assigned editor.
+
+Revoking access requires a confirmation step and writes an audit entry.
+
+---
+
+## 27. Security
+
+Security shows staff session and account-security context.
+
+The presentation model includes:
+
+- current session;
+- session revocation;
+- role state;
+- password-change state;
+- MFA readiness;
+- access status;
+- audit history.
+
+Production requirements:
+
+- managed staff identity;
+- unique accounts;
+- MFA;
+- secure password/reset process;
+- server-side sessions;
+- server-side RBAC;
+- session/device revocation;
+- login throttling;
+- immutable security audit records.
+
+No production system should rely on the browser-local presentation credentials embedded in this client-review build.
+
+---
+
+## 28. Audit Log
+
+Operational actions such as sign-in, story creation/save/state changes, Premium changes, staff invitations and access revocation create local audit entries.
+
+Production must implement an immutable server-side audit log with actor, timestamp, entity, action and before/after state where appropriate.
+
+---
+
+## 29. Recommended client demonstration
+
+### 1. Reporter
+
+Sign in as `reporter`.
+
+- Show My Newsroom.
+- Open My Assignments.
+- Create a story.
+- Type headline/body.
+- Show Saving → Saved.
+- Close and reopen the story.
+- Submit for review.
+- Point out absence of Publish and commercial tools.
+
+### 2. Editor-in-Chief
+
+Sign out and use `editor`.
+
+- Open Review Queue.
+- Review a submitted story.
+- Add an internal comment.
+- Move it through review.
+- Open Premium and show access control.
+- Publish a Ready story.
+- Show Trending, Calendar and Citations & Impact.
+
+### 3. Commercial
+
+Sign out and use `commercial`.
+
+- Show commercial dashboard.
+- Open Advertising.
+- Show HOSPAZ campaign.
+- Open Premium/subscriber operations.
+- Confirm Stories/editorial editing is unavailable.
+
+### 4. Publisher
+
+Sign out and use `publisher`.
+
+- Open Staff & Access.
+- Invite a staff member.
+- Change role if desired.
+- Revoke sessions.
+- Revoke access with confirmation.
+- Open Audit Log and Security.
+
+This sequence demonstrates that HealthTimes is becoming a publishing operating system, not merely a redesigned website.
+
+---
+
+## 30. PWA, Google Play and App Store
+
+HealthTimes is configured as an installable PWA with `site.webmanifest` and `sw.js`.
+
+Repository mobile packaging material includes:
+
+- `app/twa-manifest.json` — Android Trusted Web Activity/Bubblewrap scaffold;
+- `capacitor.config.json` — native wrapper configuration;
+- `docs/MOBILE_APP_PACKAGING.md` — packaging/signing guide;
+- `docs/STORE_LISTING_METADATA.md` — store metadata and screenshot checklist.
+
+Actual Play/App Store submission requires publisher accounts, final domain ownership, signing credentials and the production privacy/auth/billing stack.
+
+---
+
+## 31. UAT and release gates
+
+The release must pass static validation and Playwright/Chromium UAT.
+
+Public tests cover:
+
+- 375, 430, 768, 1440 and 1920 presentation;
 - no horizontal overflow;
-- no critical text overlap/clipping;
-- stable menu/search/saved sheets;
-- reader sign-in/signup/profile;
-- theme persistence;
-- Premium notice/warning/automatic lock and prompt;
-- refresh-resistant per-story preview;
-- subscriber bypass;
-- advertising visibility/disclosure;
-- Newsroom Premium/Advertising/RBAC paths;
-- PWA manifest/service worker availability;
-- successful GitHub Pages deployment.
+- stable mobile sheets;
+- Premium automatic lock/prompt;
+- Premium preview persistence;
+- subscriber bypass/citation;
+- HOSPAZ hierarchy;
+- source archive parity;
+- PWA assets;
+- article listening and Premium audio boundary.
 
-The UAT workflow/report is maintained in the repository and Actions.
+Newsroom tests cover:
 
-## 18. Troubleshooting
+- authentication gateway;
+- login view removed after successful authentication;
+- persistent session on refresh;
+- reporter create/autosave/reopen/submit;
+- reporter cannot publish;
+- editor Review Queue and publish path;
+- publisher staff invite/session revoke/access revoke/audit;
+- commercial/editorial separation;
+- responsive Newsroom shell without horizontal overflow.
 
-### Menu/Search/Saved closes immediately
+---
 
-The 2.1 release replaces the earlier delayed hide race with one active-sheet controller. If a sheet still closes without an explicit close/backdrop/Escape event, treat it as a regression.
+## 32. Production transition
 
-### Premium preview appears already expired
+Before real launch, replace local browser state with authoritative production services for:
 
-Premium allowance is deliberately persistent per reader/story. Sign in as the Premium reader to bypass it, or clear the relevant browser test state only when resetting a client-review scenario.
+- public reader authentication;
+- staff identity and MFA;
+- sessions and server-side RBAC;
+- CMS/database story persistence;
+- assignments;
+- revision history;
+- comments/review state;
+- media storage;
+- Premium billing and entitlement;
+- ad management/events;
+- analytics;
+- citations/backlink monitoring;
+- subscriber consent and messaging;
+- email/WhatsApp delivery;
+- AI retrieval/provenance/safety;
+- audit logs;
+- monitoring/backups/disaster recovery;
+- signed mobile releases.
 
-### Premium remains locked after subscribing
+---
 
-Confirm the reader account is active and marked Premium. Production will replace this with server-side entitlements.
+## 33. Reference documents
 
-### Site request returns 404
-
-Confirm the asset exists at the deployed Pages commit. CI/UAT checks first-party routes and PWA assets.
-
-### `Unchecked runtime.lastError: Could not establish connection`
-
-This frequently comes from a browser extension context. Separate extension-console errors from HealthTimes first-party network/application failures.
-
-### Newsroom control missing
-
-Check the signed-in staff role. Advertising and Premium controls are intentionally role-limited.
-
-## 19. Production transition
-
-Before a real launch, replace local browser state with:
-
-- managed reader/staff authentication and MFA;
-- secure sessions and server-side RBAC;
-- authoritative CMS/database and revision/audit history;
-- payment provider and server/edge Premium entitlement;
-- real ad-serving/commercial analytics stack;
-- consent-aware subscriber database;
-- verified email/WhatsApp delivery;
-- privacy-aware analytics;
-- server-side AI retrieval/provenance/safety;
-- final app icons and native signing;
-- backups, monitoring and disaster recovery;
-- migration crawl/redirect validation;
-- security review and physical-device UAT.
-
-## 20. Reference documents
-
+- `docs/HEALTHTIMES_NEWSROOM_OS_PLAN.md`
 - `docs/HEALTHTIMES_2_IMPLEMENTATION_PLAN.md`
 - `docs/HEALTHTIMES_SOURCE_PARITY_REGISTER.md`
 - `docs/MOBILE_APP_PACKAGING.md`
