@@ -24,6 +24,8 @@ jobs:
         run: |
           node --check app.js
           node --check newsroom.js
+          node --check reader.js
+          node --check quality-pass.js
 
       - name: Validate product contract and local references
         shell: python
@@ -37,6 +39,7 @@ jobs:
               'newsroom.html','manual.html','404.html','styles.css','newsroom.css',
               'app.js','newsroom.js','favicon.svg','site.webmanifest','README.md',
               'docs/HEALTHTIMES_2_IMPLEMENTATION_PLAN.md',
+              'docs/HEALTHTIMES_NEWSROOM_OS_PLAN.md',
               'docs/HEALTHTIMES_OPERATIONS_MANUAL.md',
               '.github/workflows/pages.yml',
           ]
@@ -84,11 +87,18 @@ jobs:
               'editor role': r'Editor-in-Chief',
               'reporter role': r'Reporter / Journalist',
               'commercial separation': r'Commercial Manager',
-              'role permissions': r'permissions\s*=',
+              'granular capability model': r'story\.publish',
+              'staff revoke capability': r'staff\.revoke',
               'workflow audit': r'htpNewsroomAudit',
-              'story workflow': r'Fact check',
-              'newsletter': r'Newsletter',
-              'WhatsApp': r'WhatsApp',
+              'persistent assignments': r'htpNewsroomAssignmentsV3',
+              'autosave state': r'Saving…',
+              'story workflow': r'Health / Science review',
+              'review queue': r'Review Queue',
+              'citations impact': r'Citations & Impact',
+              'AI desk': r'AI Desk',
+              'advertising': r'Advertising',
+              'security module': r'Security',
+              'global desks': r'West Africa',
           }
           failed = [name for name, pattern in newsroom_assertions.items() if not re.search(pattern, njs)]
           if failed:
@@ -107,4 +117,4 @@ jobs:
           if missing_refs:
               raise SystemExit(f'Missing local assets referenced by pages: {missing_refs}')
 
-          print('HealthTimes 2.0 validation passed.')
+          print('HealthTimes Newsroom OS validation passed.')
