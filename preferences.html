@@ -9,6 +9,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="v21.css" />
 </head>
 <body data-page="preferences">
   <a class="skip-link" href="#main-content">Skip to preferences</a>
@@ -34,12 +35,15 @@
 
       <section class="settings-card"><span class="eyebrow">3 · Delivery</span><h2>Where should we send it?</h2><div class="choice-grid"><label class="choice"><input type="checkbox" name="channels" value="email"><span><strong>Email</strong><small>Briefings and topic updates in your inbox.</small></span></label><label class="choice"><input type="checkbox" name="channels" value="whatsapp"><span><strong>WhatsApp</strong><small>Concise HealthTimes alerts and briefing links.</small></span></label><label class="choice"><input type="checkbox" name="channels" value="browser"><span><strong>Browser notifications</strong><small>Breaking updates on supported devices.</small></span></label></div><div class="field-row" style="margin-top:14px"><div class="field"><label for="pref-email">Email address</label><input id="pref-email" name="email" type="email" placeholder="name@example.com" autocomplete="email" /></div><div class="field"><label for="pref-phone">WhatsApp number</label><input id="pref-phone" name="phone" type="tel" placeholder="+263 …" autocomplete="tel" /></div></div></section>
 
+      <section class="settings-card"><span class="eyebrow">4 · Account & appearance</span><h2>Keep your reading preferences together.</h2><p>Sign in from the profile icon to attach Premium status, saved stories and reading preferences to your reader identity. Light, dark and system themes are available from the same profile.</p><button class="button button-ghost" type="button" data-v21-account>Open My HealthTimes profile</button></section>
+
       <div style="display:flex;align-items:center;gap:14px"><button class="button button-primary" type="submit">Save My HealthTimes</button><span class="save-confirm" data-preferences-message aria-live="polite"></span></div>
     </form>
 
-    <aside><div class="briefing-preview" data-briefing-preview></div><div class="settings-card" style="margin-top:16px"><span class="eyebrow">WhatsApp desk</span><h2>Prefer a direct conversation?</h2><p>HealthTimes customer support also accepts questions, comments and story tips by WhatsApp.</p><a class="button button-ghost" href="https://wa.me/263776280754?text=Hello%20HealthTimes" target="_blank" rel="noopener">Open WhatsApp</a></div></aside></div>
+    <aside><div class="briefing-preview" data-briefing-preview></div><div class="settings-card" style="margin-top:16px"><span class="eyebrow">WhatsApp desk</span><h2>Prefer a direct conversation?</h2><p>HealthTimes customer support accepts questions, comments and story tips by WhatsApp.</p><a class="button button-ghost" href="https://wa.me/263776280754?text=Hello%20HealthTimes" target="_blank" rel="noopener">Open WhatsApp</a></div></aside></div>
   </main>
   <div id="app-footer"></div>
   <script src="app.js" defer></script>
+  <script src="v21.js" defer></script>
 </body>
 </html>
