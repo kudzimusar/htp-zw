@@ -100,7 +100,7 @@ test('commercial workspace is operational but editorial story editing remains un
   await expect(page.locator('[data-newsroom-nav] [data-module="advertising"]')).toBeVisible();
   await expect(page.locator('[data-workspace]')).toContainText('Commercial workspace');
   await page.locator('[data-module="advertising"]').click();
-  await expect(page.locator('[data-workspace] h1')).toHaveText('Advertising Manager');
+  await expect(page.locator('[data-workspace] h1')).toHaveText('Advertising');
   await expect(page.locator('[data-workspace]')).toContainText('HOSPAZ');
 });
 
