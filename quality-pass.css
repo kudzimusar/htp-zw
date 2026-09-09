@@ -1,0 +1,58 @@
+/* HealthTimes mobile UAT quality pass — icon, hierarchy and density corrections */
+
+/* The modern Premium controller is authoritative on article pages. */
+body[data-page="article"] .preview-banner[data-premium-preview]{display:none!important}
+body[data-page="article"] .v21-social-icons{display:none!important}
+
+/* Article action rail: calm, consistent icon controls. */
+.article-rail{gap:10px!important;align-items:center}
+.article-rail .rail-action,.article-rail .ht-listen-button{width:44px!important;height:44px!important;min-width:44px!important;border-radius:50%!important;padding:0!important;display:grid!important;place-items:center!important;font-size:0!important}
+.article-rail .rail-action svg,.article-rail .ht-listen-button svg{width:20px!important;height:20px!important}
+.article-rail .rail-action[title="Discuss on WhatsApp"]{display:none!important}
+
+/* One canonical social-sharing group; use compact icons instead of oversized text pills. */
+.feedback-actions[data-social-bar]{display:flex!important;gap:10px!important;align-items:center!important;flex-wrap:wrap!important;margin-top:14px!important}
+.feedback-actions[data-social-bar]>span{display:none!important}
+.feedback-actions[data-social-bar] button{width:44px!important;height:44px!important;min-width:44px!important;border-radius:50%!important;padding:0!important;display:grid!important;place-items:center!important;font-size:0!important;background:var(--v21-card,#fff)!important;border:1px solid var(--v21-line,#dbe5e5)!important;color:var(--v21-text,#0b1720)!important}
+.feedback-actions[data-social-bar] button svg{width:19px!important;height:19px!important}
+
+/* The v21 Premium timer is the only timer shown on articles. */
+body[data-page="article"] .v21-premium-status{box-shadow:none!important;min-height:38px!important}
+body[data-page="article"] .v21-premium-status[data-preview-ended="true"] [data-v21-premium-countdown]{display:none!important}
+
+/* Advertising must follow navigation, never lead or overlap it. */
+.v21-ad-slot{position:relative!important;inset:auto!important;z-index:1!important}
+.v21-ad-compact.v21-page-flow-ad{margin-top:8px!important;margin-bottom:14px!important}
+
+/* A single, coherent outline treatment for bottom-navigation glyphs. */
+.mobile-bottom-nav svg{fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+.mobile-bottom-nav .ai-tab svg{width:21px!important;height:21px!important}
+
+@media(max-width:900px){
+  /* Premium timer should read as utility UI, not a second card. */
+  body[data-page="article"] .v21-premium-status{position:relative!important;top:auto!important;margin:7px 0 13px!important;padding:8px 10px!important;border-radius:9px!important;font-size:.68rem!important;line-height:1.25!important;box-shadow:none!important}
+  body[data-page="article"] .v21-premium-status strong{font-size:.72rem!important}
+
+  /* Side menu typography scaled to the device instead of desktop proportions. */
+  .sheet[data-sheet="more"] .sheet-head{padding:15px 18px!important}
+  .sheet[data-sheet="more"] .sheet-head h2{font-size:1.34rem!important;line-height:1.1!important}
+  .sheet[data-sheet="more"] .sheet-body{padding:8px 18px 18px!important}
+  .sheet[data-sheet="more"] .menu-links a,.sheet[data-sheet="more"] .menu-links button{font-size:1rem!important;line-height:1.2!important;font-weight:760!important;padding:14px 6px!important;min-height:0!important}
+
+  /* Article actions stay compact on app-sized screens. */
+  .article-rail{margin:0 0 13px!important}
+  .article-rail .rail-action,.article-rail .ht-listen-button{width:42px!important;height:42px!important;min-width:42px!important}
+
+  .related-section .feedback-card{padding-top:10px!important}
+  .related-section .feedback-card>div:first-child strong{font-size:1.15rem!important}
+  .related-section .feedback-card>div:first-child div{font-size:.72rem!important}
+
+  /* Keep non-home masthead advertising in content flow directly after app chrome. */
+  body:not([data-page="home"]) .v21-ad-compact.v21-page-flow-ad{width:calc(100% - 30px)!important}
+}
+
+@media(max-width:430px){
+  .sheet[data-sheet="more"] .sheet-head h2{font-size:1.28rem!important}
+  .sheet[data-sheet="more"] .menu-links a,.sheet[data-sheet="more"] .menu-links button{font-size:.94rem!important;padding:12px 5px!important}
+  .feedback-actions[data-social-bar] button{width:42px!important;height:42px!important;min-width:42px!important}
+}
