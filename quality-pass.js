@@ -24,27 +24,33 @@
 
   function setButtonIcon(el, name, label) {
     if (!el || !icons[name]) return;
-    el.innerHTML = icons[name];
+    if (el.dataset.qualityIcon !== name) {
+      el.innerHTML = icons[name];
+      el.dataset.qualityIcon = name;
+    }
     if (label) {
       el.setAttribute('aria-label', label);
       el.setAttribute('title', label);
     }
   }
 
+  function setNavItem(el, name, label, visibleText) {
+    if (!el || !icons[name]) return;
+    if (el.dataset.qualityNav === name) return;
+    el.innerHTML = `${icons[name]}<span>${visibleText}</span>`;
+    el.dataset.qualityNav = name;
+    el.setAttribute('aria-label', label);
+  }
+
   function polishBottomNav() {
     const nav = $('.mobile-bottom-nav');
     if (!nav) return;
     const items = [...nav.children];
-    setButtonIcon(items[0], 'home', 'Home');
-    if (items[0]) items[0].insertAdjacentHTML('beforeend','<span>Home</span>');
-    setButtonIcon(items[1], 'latest', 'Latest reporting');
-    if (items[1]) items[1].insertAdjacentHTML('beforeend','<span>Latest</span>');
-    setButtonIcon(items[2], 'ai', 'Ask HealthTimes AI');
-    if (items[2]) items[2].insertAdjacentHTML('beforeend','<span>Ask AI</span>');
-    setButtonIcon(items[3], 'bookmark', 'Saved stories');
-    if (items[3]) items[3].insertAdjacentHTML('beforeend','<span>Saved</span>');
-    setButtonIcon(items[4], 'more', 'More');
-    if (items[4]) items[4].insertAdjacentHTML('beforeend','<span>More</span>');
+    setNavItem(items[0], 'home', 'Home', 'Home');
+    setNavItem(items[1], 'latest', 'Latest reporting', 'Latest');
+    setNavItem(items[2], 'ai', 'Ask HealthTimes AI', 'Ask AI');
+    setNavItem(items[3], 'bookmark', 'Saved stories', 'Saved');
+    setNavItem(items[4], 'more', 'More', 'More');
   }
 
   function polishArticleRail() {
@@ -110,10 +116,10 @@
     const countdown = $('[data-v21-premium-countdown]', status);
     const locked = Boolean($('.article-body.v21-premium-locked') || $('[data-v21-paywall]:not([hidden])'));
     if (locked) {
-      if (copy) copy.textContent = 'Premium preview ended';
-      if (countdown) countdown.textContent = '00:00';
+      if (copy && copy.textContent !== 'Premium preview ended') copy.textContent = 'Premium preview ended';
+      if (countdown && countdown.textContent !== '00:00') countdown.textContent = '00:00';
       status.dataset.previewEnded = 'true';
-    } else {
+    } else if (status.dataset.previewEnded) {
       delete status.dataset.previewEnded;
     }
   }
