@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: healthtimes-chromium-uat
+  cancel-in-progress: true
+
 jobs:
   playwright:
     runs-on: ubuntu-latest
