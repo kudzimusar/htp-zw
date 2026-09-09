@@ -1,4 +1,10 @@
 /* Final device/layout boundary fixes layered after v21.css */
+
+/* Advertising must preserve the complete paid creative. Never crop client artwork. */
+.v21-ad-frame{overflow:hidden!important;background:#fff!important}
+.v21-ad-frame img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:center!important;background:#fff!important}
+.v21-inline-ad .v21-ad-frame,.v21-article-ad .v21-ad-frame{max-height:none!important;overflow:hidden!important}
+
 @media(max-width:900px){
   .mobile-topbar{grid-template-columns:54px minmax(0,1fr) 92px!important;padding-inline:4px!important}
   .mobile-topbar .v21-mobile-actions{width:92px;gap:2px;display:flex!important;align-items:center!important;justify-content:flex-end!important}
@@ -15,13 +21,27 @@
   .sheet[hidden]{display:none!important}
   .sheet-backdrop.visible{visibility:visible!important;pointer-events:auto!important}
   .site-footer{display:none!important}
+
+  /* Native-app rule: never put paid artwork above or inside the mobile masthead. */
+  .v21-ad-masthead,.v21-home-ad{display:none!important}
+  .v21-ad-compact{display:none!important}
+  .v21-ad-compact.v21-mobile-flow-ad{display:block!important;width:calc(100% - 32px)!important;margin:20px 16px 24px!important;padding:0!important;box-sizing:border-box;grid-column:1/-1}
+  .v21-mobile-flow-ad .v21-ad-label{margin:0 0 7px!important;font-size:.58rem!important}
+  .v21-mobile-flow-ad .v21-ad-frame{width:100%!important;max-height:none!important;border-radius:12px!important;background:#fff!important}
+  .v21-mobile-flow-ad .v21-ad-frame img{width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important}
+  .v21-mobile-flow-ad .v21-ad-sponsored{padding:8px 2px 0!important;border-top:0!important;font-size:.62rem!important;line-height:1.35!important}
 }
+
 @media(min-width:901px){
   .v21-mobile-home,.v21-ad-compact{display:none!important}
   .v21-ad-masthead,.v21-home-ad{display:block}
+  .v21-ad-masthead,.v21-home-ad{width:min(1280px,calc(100% - 48px))!important}
+  .v21-ad-masthead .v21-ad-frame,.v21-home-ad .v21-ad-frame{max-height:none!important}
+  .v21-ad-masthead .v21-ad-frame img,.v21-home-ad .v21-ad-frame img{width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important}
   .hero-grid{min-height:0!important}
   .hero-lead,.hero-stack,.hero-brief{position:relative!important;inset:auto!important}
   .hero-lead h1,.hero-side-story h2,.story-card h3{position:static!important;height:auto!important;max-height:none!important}
 }
+
 html[data-theme="dark"] .v21-ad-frame,html[data-theme="dark"] .v21-ad-sponsored{border-color:var(--v21-line)}
 html[data-theme="dark"] .v21-ad-sponsored{background:var(--v21-card);color:var(--v21-muted)}
