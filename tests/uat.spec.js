@@ -57,7 +57,7 @@ for (const vp of viewports) {
     await page.setViewportSize({ width: vp.width, height: vp.height });
     await clearState(page);
     await page.goto('/index.html');
-    await expect(page.locator('body')).toHaveClass(/v21-ready/);
+    await expect(page.locator('html')).toHaveClass(/v21-ready/);
     await assertNoHorizontalOverflow(page);
 
     if (vp.mobile) {
