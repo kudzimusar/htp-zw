@@ -10,18 +10,18 @@ Production migration status: **NOT STARTED**
 
 ## 1. Programme objective
 
-Move HealthTimes from the existing WordPress estate to the new HealthTimes platform without losing any of the four assets accumulated by the publication:
+Move HealthTimes from the existing WordPress estate to the new HealthTimes platform without losing the four assets accumulated by the publication:
 
 1. **Content** — articles, pages, media, authors, taxonomy and editorial history.
 2. **Authority** — URLs, search equity, SEO metadata, backlinks, Search Console history and citation potential.
 3. **Audience** — analytics history, acquisition channels, country/device/search behaviour, engagement and reader/subscriber continuity.
 4. **Revenue** — AdSense identity/configuration, direct advertising, Premium/subscription data and monetization reporting.
 
-The target is not a visual redesign. The current HealthTimes product direction is approved. Migration work changes the production architecture underneath it while preserving the client-facing experience.
+The target is not a visual redesign. Migration changes the production architecture underneath the approved HealthTimes experience while preserving the public/mobile/Newsroom product direction.
 
 ## 2. Known source facts
 
-Read-only WordPress inventory currently records approximately:
+Read-only WordPress discovery previously recorded approximately:
 
 - 5,721 published posts
 - 49 published pages
@@ -40,87 +40,110 @@ Read-only WordPress inventory currently records approximately:
 - ads.txt publisher `pub-8744434739998394`
 - known AdSense slot `7971959240`
 - Ad Inserter currently injects AdSense into post content
-- current `app-ads.txt` returns 404 on WordPress
+- current WordPress `app-ads.txt` returns 404
 - WooCommerce analytics exists; visible current month showed no orders/sales
 - MX currently points to `healthtimes.co.zw`; web DNS cutover can therefore break email if handled incorrectly
 
-These facts are discovery inputs, not permission to alter production.
+These are discovery inputs, not permission to alter production. The AG-03 source snapshot becomes authoritative for rehearsal counts if live editorial activity creates drift.
 
 ## 3. Current application facts
 
 The new HealthTimes application already includes a redesigned public publication, mobile/PWA experience, Premium preview/access concepts, advertising, reader accounts, Newsroom OS, editorial roles/capabilities, story lifecycle, assignments, review queue, staff/access management, citations/impact, analytics/trending presentation, AI Desk, media library and commercial surfaces.
 
-The current client-review implementation still uses browser-local persistence for important authority such as Newsroom authentication, RBAC, drafts, reader/Premium state, advertising state and some metrics. Production must replace local authority with a real server-backed architecture.
+The client-review implementation still contains browser-local persistence for important authority. Production migration must replace local authority with real server-backed identity, data and authorization.
 
-Recommended production topology prepared during migration planning:
+Prepared target topology remains subject to evidence-based review:
 
 - GitHub — code source of truth
 - Vercel — frontend / server-rendered application / API functions
 - Supabase — Postgres, Auth and Storage
-- Cloudflare — DNS/CDN/WAF where appropriate
+- Cloudflare or equivalent — DNS/CDN/WAF where appropriate
 - Resend or equivalent — transactional email
-- staging and production environments separated
+- separated development/staging/production environments
 - managed backups, monitoring and rollback
 
-Agents must inspect the actual repository and migration documents before assuming this architecture is final.
+## 4. Critical custody state and REC-01
 
-## 4. Critical repository-state warning
+At programme creation, GitHub `main` was `a4f1211e1a36bc16f69cd8211c6482c759eb70a2`.
 
-At the time this programme was created, GitHub `main` was at:
-
-`a4f1211e1a36bc16f69cd8211c6482c759eb70a2`
-
-A local branch named:
+A local branch/worktree named or expected as:
 
 `migration-preparation-2026-09-09`
 
-was reported to contain extensive uncommitted/local migration preparation including `docs/migration/`, importer tooling, a Supabase migration and migration tests. That branch was **not visible on GitHub** at programme creation time.
+was reported to contain substantial migration preparation including `docs/migration/`, importer tooling, Supabase migrations, migration tests, `ads.txt`, `app-ads.txt` and package scripts. That work was not persisted to GitHub.
 
-Therefore:
+AG-01 correctly determined that a GitHub-only execution environment cannot certify the original local working tree.
 
-- AG-01 must inspect the local workspace first.
-- Do not reset, clean, checkout over, or recreate those files blindly.
-- Preserve any local/uncommitted migration preparation.
-- Commit and push it to a remote migration-preparation branch before other implementation agents depend on it.
-- If the local work is unavailable, AG-01 must STOP and report the missing source rather than manufacture replacements from this document alone.
+Therefore a recovery precondition now exists:
 
-## 5. Non-negotiable safety boundaries
+**REC-01 — Local Migration Custody Recovery**
 
-Until AG-08 is explicitly authorized after acceptance gates:
+REC-01 must run with local-terminal access to the original HealthTimes Mac/worktree. Its only job is to locate, preserve, secrets-check, commit and push the authoritative migration preparation. It must not reconstruct missing work from this programme.
+
+Until REC-01 returns:
+
+`RECOVERY COMPLETE — AG-01 may resume CP1 certification from <SHA>`
+
+AG-01 remains blocked and AG-02 through AG-07 remain frozen. AG-08 remains locked.
+
+## 5. Tool and environment governance
+
+Every agent must read:
+
+`docs/migration-agents/03_TOOL_ENVIRONMENT_MATRIX.md`
+
+That matrix is authoritative for environment/tool allocation. Tool availability does not itself authorize an operation.
+
+Key rules:
+
+- REC-01 requires local-terminal access to the original workspace; GitHub-only is insufficient.
+- AG-01 requires local/repository execution plus GitHub and browser/test tooling.
+- AG-02 owns staging Vercel/Supabase provisioning.
+- AG-03 owns read-only source capture and secure client-data transfer; exports do not enter Git.
+- AG-04 owns staging rehearsal import.
+- AG-05 owns SEO/Google-read/monetization continuity in staging.
+- AG-06 owns staging Newsroom backend/Auth/security.
+- AG-07 owns integrated certification and receives test/read access, not production write authority.
+- DNS/registrar production write capability is allocated only to AG-08 after explicit owner unlock.
+
+If a required environment/tool is unavailable, the agent stops and reports the missing capability rather than manufacturing evidence.
+
+## 6. Non-negotiable safety boundaries
+
+Until AG-08 is explicitly authorized after CP7 acceptance:
 
 - no writes to the live WordPress database;
 - no production WordPress content deletion;
-- no live DNS changes;
-- no registrar changes;
+- no live DNS or registrar changes;
 - no changing MX/SPF/DKIM/DMARC;
 - no production payment credential changes;
 - no irreversible subscriber mutations;
 - no WordPress decommissioning;
 - no secret/API token commits;
-- no production import framed as a rehearsal;
+- no production import framed as rehearsal;
 - no fabricated analytics, citations, ad performance or revenue.
 
 All source access is read-only unless a later task explicitly authorizes a bounded staging operation.
 
-## 6. Design preservation rule
+## 7. Design preservation rule
 
-Do not redesign working HealthTimes public pages or Newsroom merely because migration work is underway.
+Do not redesign working HealthTimes public pages or Newsroom merely because migration is underway.
 
 Preserve:
 
 - professional editorial/publication direction;
 - dark navy / HealthTimes teal / warm paper Newsroom palette;
 - no AI-gradient or glassmorphism drift;
-- mobile and desktop presentation distinctions;
+- distinct mobile and desktop presentation;
 - existing Premium UX intent;
 - commercial/editorial separation;
 - current public accessibility and article-listening direction.
 
-Migration may change routing, rendering, storage, APIs and backend authority when required for production SEO/security.
+Migration may change routing, rendering, storage, APIs and backend authority where required for production SEO/security.
 
-## 7. Canonical migration documents
+## 8. Canonical migration documents
 
-Agents must read the applicable files under `docs/migration/` when available, including:
+Agents must read the applicable files under `docs/migration/` once REC-01 has restored them, including:
 
 - `00_MIGRATION_MASTER_PLAN.md`
 - `01_CURRENT_STATE_ARCHITECTURE.md`
@@ -137,170 +160,176 @@ Agents must read the applicable files under `docs/migration/` when available, in
 - `12_MIGRATION_ACCEPTANCE_LEDGER.md`
 - `13_ANALYTICS_SEO_MONETIZATION_INVENTORY.md`
 
-The agent task files in this branch are execution briefs. The migration package is the detailed technical specification. If they conflict, STOP and surface the conflict rather than choosing silently.
+Agent task files are execution briefs; `docs/migration/` is the detailed implementation/migration specification. If they materially conflict, STOP and surface the conflict.
 
-## 8. Programme checkpoints
+## 9. Canonical checkpoint map
 
-### CP1 — Preparation Closure
+### REC-01 — Custody Recovery Precondition
 
-Goal: make the migration preparation durable, reviewable and green.
+Not a numbered migration checkpoint. It exists only because the authoritative preparation was stranded locally.
+
+Exit: authoritative migration work is found, protected, safe to publish, committed, pushed and remote SHA verified.
+
+### CP1 — AG-01 Preparation Closure
 
 Exit requirements:
 
-- local migration work committed and pushed;
-- importer and schema reviewed;
+- recovered migration work committed/pushed;
+- importer/schema reviewed truthfully;
+- schema applies from zero to a disposable safe database/project;
 - migration tests green;
 - normal validation green;
-- Chromium UAT green with no unexplained baseline failures;
-- disposable database schema apply proven from zero;
+- Chromium UAT green with no unexplained failures;
 - global taxonomy v1 frozen;
 - secrets scan clean;
 - ads.txt/app-ads.txt strategy validated;
-- migration baseline receipt published.
+- CP1 receipt accepted.
 
-### CP2 — Production-style Staging Platform
-
-Goal: run HealthTimes on the target backend/infrastructure without touching the production WordPress estate or live domain.
+### CP2 — AG-02 Production-style Staging Platform
 
 Exit requirements:
 
 - staging frontend/API online;
 - staging database/Auth/Storage online;
-- server-side auth/RBAC baseline functional;
 - environment secrets outside Git;
-- backups and observability configured;
-- empty production-style application smoke-tested;
-- no live DNS changes.
+- backup/restore path and observability established;
+- production-style application smoke-tested;
+- no live DNS/WordPress mutation.
 
-### CP3 — Source Capture and Rehearsal Migration
-
-Goal: import a client-supplied WordPress snapshot and connected data into staging.
+### CP3 — AG-03 Client Data Package & Source Capture
 
 Exit requirements:
 
-- WordPress exports captured securely;
-- content/media/author/taxonomy reconciliation complete;
-- URL/SEO manifest generated;
-- Analytics/Search Console/AdSense configuration mapped;
-- historical metric import performed where available;
-- exceptions ledger complete;
-- no unexplained data loss.
+- secure source snapshot/manifest captured;
+- WXR/database/media validated or precise blockers recorded;
+- source IDs/provenance established;
+- Analytics/Search Console/AdSense identities resolved as far as authorized access permits;
+- commerce/subscriber/ad/newsletter source status classified;
+- no sensitive exports committed.
 
-### CP4 — Client UAT and Acceptance
-
-Goal: prove the staging migration to HealthTimes stakeholders.
+### CP4 — AG-04 Content, Media, Taxonomy & Rehearsal Import
 
 Exit requirements:
 
-- public content parity accepted;
-- mobile/desktop/PWA UAT green;
-- Newsroom workflow green;
-- Premium and advertising green;
-- SEO/redirect/structured-data gates green;
-- analytics/monetization continuity gates green or explicitly waived with reason;
-- email/DNS worksheet approved;
-- cutover decision explicitly recorded.
+- full staging rehearsal import performed;
+- all expected content/pages/authors/media accounted for or exception-listed;
+- taxonomy provenance retained and canonical mapping produced;
+- no silent shortcode/custom-field loss;
+- internal links reconciled;
+- importer idempotency and resume/restart proven;
+- production untouched.
 
-### CP5 — Production Cutover
+### CP5 — AG-05 SEO, Authority, Analytics & Monetization Continuity
 
-Goal: execute the approved migration with rollback protection.
+Exit requirements:
 
-This checkpoint is **locked** until AG-08 receives explicit authorization after CP4 acceptance.
+- legacy URL map/canonical/redirect strategy verified;
+- metadata/structured data/sitemap/robots/RSS verified;
+- Analytics/Search Console continuity resolved or precisely blocked;
+- AdSense/direct ads/ads.txt/app-ads.txt handled truthfully;
+- PageSpeed/Web Vitals baseline recorded;
+- no protected Newsroom data leaks into public analytics;
+- no fabricated metrics.
 
-## 9. Global taxonomy requirement
+### CP6 — AG-06 Newsroom Backend, Auth & Security
 
-The new HealthTimes strategy is a global health publication with Africa as its strongest editorial authority. Migration must preserve WordPress taxonomy for provenance while mapping it into a controlled canonical structure.
+Exit requirements:
 
-Canonical dimensions should include at least:
+- server-backed staff identity/session/persistence;
+- capability-based server authorization;
+- Reporter publish denial and Commercial/editorial isolation proven with direct API tests;
+- drafts/revisions/assignments/reviews/comments/audit persisted;
+- session/account revocation proven;
+- public cannot read draft/internal data;
+- no privileged secrets exposed.
 
-- geography: Global, Africa, regions and countries;
-- desks: Global Health, Africa, Research, Policy, Investigations, Public Health, Health Systems, Health Business;
-- health topics: normalized disease, public-health, policy, financing and health-system topics.
+### CP7 — AG-07 Integrated Certification & Client UAT
 
-Do not expose all 10,238 legacy WordPress tags as the new public taxonomy without normalization.
+Exit requirements:
 
-## 10. URL and SEO principle
+- one integrated frozen staging candidate SHA;
+- cross-lane reconciliation and full acceptance ledger;
+- full relevant Chromium/UAT/security/API suite green;
+- performance/accessibility/mobile/PWA checks complete;
+- backup/rollback evidence verified;
+- DNS/email worksheet complete;
+- client UAT P0/P1 closed;
+- technical/client readiness recommendation recorded;
+- AG-07 does **not** grant production authorization.
 
-Every existing public WordPress URL is valuable until proven otherwise.
+### CP8 — AG-08 Production Cutover & Rollback
 
-Prefer serving legacy article paths directly when technically reasonable. Do not default to routing all migrated content through demo-style query URLs such as `article.html?id=...` if stable production permalinks can be preserved.
+Status: **LOCKED**.
 
-Hard migration gates include:
+AG-08 may start only after:
 
-- old URL mapping;
-- canonical continuity;
-- redirect coverage;
-- sitemap/robots/RSS correctness;
-- structured data;
-- Search Console continuity;
-- 404 monitoring.
+- CP7 accepted;
+- explicit owner production authorization;
+- content freeze approved;
+- current backups/exports verified;
+- DNS/email worksheet approved;
+- rollback values/triggers confirmed.
 
-## 11. Analytics and monetization principle
+AG-08 executes final delta/import/deployment/DNS verification and monitored rollback protection.
 
-Do not recreate Site Kit as a plugin imitation and do not merely paste Google snippets.
+## 10. Global taxonomy requirement
 
-Build a native HealthTimes Intelligence layer where Google services remain authoritative external sources and HealthTimes stores normalized, provenance-preserving reporting data for role-specific Newsroom dashboards.
+HealthTimes is being positioned as a global health publication with Africa as its strongest editorial authority. Migration must preserve WordPress taxonomy for provenance while mapping it into a controlled canonical structure.
 
-Separate:
+Canonical dimensions should include geography, desks and normalized health topics. Do not expose all 10,238 legacy WordPress tags as the new public taxonomy without normalization.
 
-- external integration configuration;
-- secrets/OAuth credentials;
-- ingestion state;
-- historical imported metrics;
-- new HealthTimes audience events;
-- direct-ad metrics;
-- Google AdSense metrics;
-- derived dashboards.
+## 11. URL/SEO principle
 
-Public analytics and internal Newsroom analytics must not leak protected editorial activity.
+Every existing public WordPress URL is valuable until proven otherwise. Prefer preserving stable legacy article paths directly where technically reasonable. Hard gates include old-URL mapping, canonical continuity, redirect coverage, sitemap/robots/RSS correctness, structured data, Search Console continuity and 404 monitoring.
 
-## 12. Monetization continuity gates
+## 12. Analytics/monetization principle
+
+Do not recreate Site Kit as a plugin imitation and do not merely paste Google snippets. Google services remain authoritative external sources while HealthTimes stores normalized, provenance-preserving reporting data for role-specific Intelligence dashboards.
+
+Keep external integration configuration, secrets/OAuth, ingestion state, historical metrics, HealthTimes events, direct-ad metrics and AdSense metrics separate. Public analytics must not capture protected Newsroom/editorial activity.
+
+## 13. Monetization continuity gates
 
 - preserve verified AdSense publisher identity;
 - serve valid `ads.txt` at HTTP 200;
-- create `app-ads.txt` readiness for app monetization, using only verified seller declarations;
-- do not assume AdMob identifiers that are not confirmed;
-- direct campaigns such as HOSPAZ remain distinct from AdSense inventory;
+- keep `app-ads.txt` limited to verified seller declarations;
+- do not invent AdMob identifiers;
+- keep HOSPAZ/direct campaigns distinct from AdSense;
 - do not fabricate historical direct-ad performance;
-- avoid layout shift from ad placements.
+- avoid ad-related layout shift.
 
-## 13. Email/DNS principle
+## 14. Email/DNS principle
 
-Email continuity is a hard release gate.
+Email continuity is a hard release gate. Before web DNS cutover capture and approve all web and mail records, including apex/www, MX, SPF, DKIM, DMARC, TTLs, new targets and rollback values. AG-07 verifies the worksheet; only owner-unlocked AG-08 may execute production DNS changes.
 
-Before any web DNS cutover:
+## 15. Evidence and receipts
 
-- capture all current DNS records;
-- identify apex/www routing;
-- preserve MX;
-- preserve SPF;
-- preserve DKIM;
-- preserve DMARC;
-- verify mail before and after web cutover;
-- maintain rollback values.
+Each agent must leave a receipt containing start/end SHA, files changed, commands/tests, evidence, gates passed/failed, unresolved issues, next authorized checkpoint, and an explicit production-modification statement.
 
-## 14. Evidence and receipts
+No agent may report a checkpoint complete with unexplained red tests.
 
-Each agent must leave a receipt containing:
+## 16. Canonical order
 
-- branch and start SHA;
-- end SHA;
-- files changed;
-- commands/tests run;
-- evidence generated;
-- acceptance gates passed/failed;
-- unresolved issues;
-- next authorized agent/checkpoint;
-- explicit statement of whether any production system was modified.
+```text
+REC-01 Local Custody Recovery (only while custody blocker exists)
+        ↓
+AG-01 / CP1 Preparation Closure
+        ↓
+AG-02 / CP2 Staging Platform
+        ↓
+AG-03 / CP3 Source Capture
+        ↓
+┌──────────────────┬──────────────────┬──────────────────┐
+│ AG-04 / CP4      │ AG-05 / CP5      │ AG-06 / CP6      │
+│ Content / Media  │ SEO / Analytics  │ Newsroom / Auth  │
+│ / Taxonomy       │ / Monetization   │ / Security       │
+└──────────────────┴──────────────────┴──────────────────┘
+        ↓
+AG-07 / CP7 Integrated Certification + Client UAT
+        ↓
+EXPLICIT OWNER PRODUCTION AUTHORIZATION
+        ↓
+AG-08 / CP8 Production Cutover + Rollback
+```
 
-No agent may report a checkpoint as complete with unexplained red tests.
-
-## 15. Agent order
-
-Use `01_AGENT_REGISTER.md` for ownership and sequencing.
-
-Default order:
-
-AG-01 -> AG-02 -> AG-03 -> AG-04/AG-05/AG-06 in coordinated staging lanes -> AG-07 -> explicit owner authorization -> AG-08.
-
-Some middle agents may operate in parallel only after their prerequisites are green and they do not modify the same files/schema surfaces concurrently.
+AG-04/05/06 may overlap only after prerequisites are green and schema/file ownership is coordinated.
