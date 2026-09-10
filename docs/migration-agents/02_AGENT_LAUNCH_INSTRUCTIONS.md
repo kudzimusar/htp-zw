@@ -1,6 +1,6 @@
 # HealthTimes Migration — Agent Launch Instructions
 
-Use this file when assigning any migration agent.
+Use this file when assigning any migration or recovery agent.
 
 ## Common bootstrap prompt
 
@@ -12,13 +12,15 @@ Give the agent the following instructions before its specific task:
 >
 > Canonical migration-agent documentation branch: `docs/healthtimes-migration-agents`
 >
-> Do not rely on the assignment prompt alone. Before changing code, read the canonical programme files and your task file in full.
+> Do not rely on the assignment prompt alone. Before changing code, read the canonical programme files, tool/environment matrix and your task file in full.
 >
 > First read:
 >
 > 1. `docs/migration-agents/00_MASTER_MIGRATION_EXECUTION_PROGRAMME.md`
 > 2. `docs/migration-agents/01_AGENT_REGISTER.md`
-> 3. your assigned file under `docs/migration-agents/agent-tasks/`
+> 3. `docs/migration-agents/02_AGENT_LAUNCH_INSTRUCTIONS.md`
+> 4. `docs/migration-agents/03_TOOL_ENVIRONMENT_MATRIX.md`
+> 5. your assigned file under `docs/migration-agents/agent-tasks/`
 >
 > If your implementation branch does not contain those files, read them directly from the documentation branch, for example:
 >
@@ -26,22 +28,30 @@ Give the agent the following instructions before its specific task:
 > git fetch origin
 > git show origin/docs/healthtimes-migration-agents:docs/migration-agents/00_MASTER_MIGRATION_EXECUTION_PROGRAMME.md
 > git show origin/docs/healthtimes-migration-agents:docs/migration-agents/01_AGENT_REGISTER.md
+> git show origin/docs/healthtimes-migration-agents:docs/migration-agents/02_AGENT_LAUNCH_INSTRUCTIONS.md
+> git show origin/docs/healthtimes-migration-agents:docs/migration-agents/03_TOOL_ENVIRONMENT_MATRIX.md
 > git show origin/docs/healthtimes-migration-agents:docs/migration-agents/agent-tasks/<YOUR_TASK_FILE>.md
 > ```
 >
-> Then read every `docs/migration/` file named by your task, plus the current repository code relevant to your lane.
+> Confirm that your execution environment has every tool/environment class marked required for your agent. If a required environment is missing, STOP and report the missing capability rather than simulate evidence.
+>
+> Then read every `docs/migration/` file named by your task, plus current repository code relevant to your lane.
 >
 > Follow checkpoint prerequisites and stop conditions exactly.
 >
 > Until AG-08 is explicitly unlocked, you are NOT authorized to modify live WordPress data, change production DNS, alter email DNS records, perform a production import, decommission WordPress, or commit secrets/client exports.
 >
-> Work on a dedicated branch. Preserve existing working public design and Newsroom UX unless your task explicitly requires an underlying production-architecture change.
+> Work on a dedicated branch. Preserve the approved public design and Newsroom UX unless your task explicitly requires an underlying production-architecture change.
 >
 > Run all tests required by your task. Do not call a checkpoint complete with unexplained red tests.
 >
-> When finished, write the required agent report and return a receipt containing start/end SHA, files changed, commands/tests, evidence, gates passed/failed, blockers, next authorized checkpoint, and whether any production system was modified.
+> When finished, write the required agent report and return a receipt containing start/end SHA, files changed, commands/tests, evidence, gates passed/failed, blockers, next authorized checkpoint, tool/environment limitations, and whether any production system was modified.
 
-## Task file mapping
+## Recovery task mapping
+
+- REC-01: `REC-01_LOCAL_CUSTODY_RECOVERY.md` — requires LOCAL-TERMINAL access to the original Mac/worktree. Use only while the migration-preparation custody blocker exists.
+
+## Agent task mapping
 
 - AG-01: `AG-01_PREPARATION_CLOSURE.md`
 - AG-02: `AG-02_STAGING_PLATFORM.md`
@@ -50,33 +60,37 @@ Give the agent the following instructions before its specific task:
 - AG-05: `AG-05_SEO_ANALYTICS_MONETIZATION.md`
 - AG-06: `AG-06_NEWSROOM_BACKEND_SECURITY.md`
 - AG-07: `AG-07_CERTIFICATION_CLIENT_UAT.md`
-- AG-08: `AG-08_PRODUCTION_CUTOVER_ROLLBACK.md` — LOCKED until explicit owner authorization.
+- AG-08: `AG-08_PRODUCTION_CUTOVER_ROLLBACK.md` — LOCKED until CP7 acceptance plus explicit owner production authorization.
 
-## Sequencing
-
-Default sequence:
+## Canonical sequencing
 
 ```text
-AG-01 Preparation Closure
+REC-01 Local Custody Recovery (temporary precondition while custody blocker exists)
         ↓
-AG-02 Staging Platform
+AG-01 / CP1 Preparation Closure
         ↓
-AG-03 Client Data / Source Capture
+AG-02 / CP2 Staging Platform
         ↓
-┌──────────────┬──────────────────┬──────────────────┐
-│ AG-04        │ AG-05            │ AG-06            │
-│ Content &    │ SEO / Analytics  │ Newsroom Backend │
-│ Media Import │ / Monetization   │ / Security       │
-└──────────────┴──────────────────┴──────────────────┘
+AG-03 / CP3 Client Data / Source Capture
         ↓
-AG-07 Certification + Client UAT
+┌──────────────────┬──────────────────┬──────────────────┐
+│ AG-04 / CP4      │ AG-05 / CP5      │ AG-06 / CP6      │
+│ Content / Media  │ SEO / Analytics  │ Newsroom Backend │
+│ / Taxonomy       │ / Monetization   │ / Auth/Security  │
+└──────────────────┴──────────────────┴──────────────────┘
         ↓
-OWNER AUTHORIZATION
+AG-07 / CP7 Integrated Certification + Client UAT
         ↓
-AG-08 Production Cutover + Rollback
+EXPLICIT OWNER PRODUCTION AUTHORIZATION
+        ↓
+AG-08 / CP8 Production Cutover + Rollback
 ```
 
-AG-04/05/06 may overlap only after AG-02 and AG-03 prerequisites are satisfied and file/schema ownership is coordinated.
+AG-04/05/06 may overlap only after CP2/CP3 prerequisites are satisfied, the moderator authorizes the lanes, and file/schema ownership is coordinated.
+
+## Current custody rule
+
+If `migration-preparation-2026-09-09` is not remotely available and the original local preparation has not been recovered, AG-01 remains blocked and AG-02 through AG-07 remain frozen. Use REC-01 in a local-capable environment; do not keep assigning the same local-custody task to a GitHub-only agent.
 
 ## Programme outcome
 
