@@ -1,0 +1,8 @@
+node_modules/
+playwright-report/
+test-results/
+migration-output/
+*.log
+.env
+.env.*
+!.env.example
