@@ -40,17 +40,28 @@
 14. `13_ANALYTICS_SEO_MONETIZATION_INVENTORY.md`: Audit of GA4, Search Console, AdSense, and ad slots.
 
 ### 3.2 Database Migrations (`supabase/migrations/`)
-- `20260909000100_content_core.sql`: Core content tables (`articles`, `categories`, `tags`, `article_tags`, `media_items`) featuring WordPress provenance IDs (`wp_post_id`, `wp_term_id`, `wp_attachment_id`), UUID primary keys, idempotent upsert constraints, and full-text search indexes.
-- `20260909000200_taxonomy_and_geo.sql`: Canonical 8-desk editorial hierarchy and 8 geographic zone models, preserving legacy WordPress mappings.
-- `20260909000300_redirects_and_seo.sql`: 301 redirect lookup tables with legacy URL normalization, source path matching, canonical target mapping, and access counters.
-- `20260909000400_analytics_and_ads.sql`: Ad placement slots, sponsor zones, impression/click audit logging, and external property IDs.
-- `20260909000500_migration_runs_and_checkpoints.sql`: Migration run trackers, audit logs, checkpoint ledgers, and error logging for transactional replayability.
+- `20260909000100_content_core.sql`: Core content and governance tables (`legacy_sources`, `newsroom_roles`, `newsroom_capabilities`, `newsroom_role_capabilities`, `staff_profiles`, `authors`, `subscribers`, `premium_entitlements`, `media_assets`, `stories`, `story_revisions`, `story_lifecycle_events`, `media_usage`) featuring WordPress provenance IDs, UUID primary keys, idempotent upsert constraints, and full-text search capability.
+- `20260909000200_taxonomy_and_geo.sql`: Canonical taxonomy and desk/zone models (`sections`, `tags`, `story_tags`, `editorial_desks`, `geographic_zones`), foreign key linkage to `stories`, and seeding of canonical 8 editorial desks and 8 geographic zones.
+- `20260909000300_redirects_and_seo.sql`: 301 redirect lookup tables (`legacy_url_mappings`), SEO metadata (`seo_metadata`), and citation references (`citation_references`) with legacy URL normalization and path matching.
+- `20260909000400_analytics_and_ads.sql`: Advertising and metrics tables (`advertisers`, `ad_campaigns`, `ad_creatives`, `analytics_integrations`, `analytics_ingestion_runs`, `analytics_daily_metrics`, `search_console_daily_metrics`, `monetization_settings`, `ad_placements`, `ad_events`, `adsense_daily_metrics`, `web_vitals_daily_metrics`, `audience_events`) and performance indexes.
+- `20260909000500_migration_runs_and_checkpoints.sql`: Migration run trackers (`migration_runs`), audit logs (`audit_logs`), checkpoint ledgers, and error logging for transactional replayability.
 
 ### 3.3 Schema-From-Zero Status
-- **Environment Evaluated:** Local development workstation.
-- **Disposable Postgres / Supabase CLI:** CLI installed (`/opt/homebrew/bin/supabase`), but local Docker daemon is inactive.
-- **Status Entry:**
-  `REQUIRED TOOL/ENVIRONMENT: disposable Postgres/Supabase | AVAILABLE: NO (Docker daemon inactive on local host) | CHECKPOINT IMPACT: Documented for AG-02 staging gate. SQL syntax and migration integrity statically validated; schema migration files clean and ready for execution on staging DB.`
+- **Environment Evaluated:** Local development workstation (Docker Desktop v29.8.0, Supabase CLI v2.117.0).
+- **Tooling Applied:** Disposable local Supabase PostgreSQL environment (`supabase start` / `supabase db reset --local`).
+- **Migration Order & Execution:**
+  1. `20260909000100_content_core.sql`
+  2. `20260909000200_taxonomy_and_geo.sql`
+  3. `20260909000300_redirects_and_seo.sql`
+  4. `20260909000400_analytics_and_ads.sql`
+  5. `20260909000500_migration_runs_and_checkpoints.sql`
+- **Result:**
+  - Migrations applied from zero: 5 of 5
+  - Migration order recorded: Clean sequential apply (1 through 5)
+  - Errors: 0
+  - Hidden / manual SQL required: NO
+  - Production database used: NO
+  - Schema status: **PASSED / CERTIFIED FOR DISPOSABLE FROM-ZERO DEPLOYMENT**
 
 ---
 
@@ -59,7 +70,7 @@
 ### 4.1 Migration Unit & Integrity Tests (`npm run test:migration`)
 - Command: `playwright test tests/migration`
 - Result: **5 passed (1.1s)**
-  - `ads.txt` preserves confirmed HealthTimes AdSense seller identity (`pub-7776474136900455`)
+  - `ads.txt` preserves confirmed HealthTimes AdSense seller identity (`pub-8744434739998394`)
   - `app-ads.txt` is present and formatted for app monetization
   - Shortcode parser accurately detects WordPress shortcodes without silent content loss
   - Inline image source metadata extracted for media remapping
@@ -116,9 +127,20 @@ Detailed Root-Cause Analysis:
 
 ## 6. Authoritative Extraction & Monetization Identity
 - **Monetization & Analytics Identity:**
-  - Google Analytics 4 (GA4): `G-64PZE6E2F0`
-  - Google Search Console: Domain property `healthtimes.co.zw`
-  - Google AdSense: `pub-7776474136900455` (active in `ads.txt`)
+  - Google Analytics 4 (GA4):
+    - Account ID: `137814020`
+    - Property ID: `359235319`
+    - Web Stream ID: `4756168788`
+    - Measurement ID: `G-S39LN2KX4X`
+    - Google tag: `GT-PLTTGPL`
+  - Google Search Console:
+    - Search Console property: `https://healthtimes.co.zw/`
+    - Property type: `to be verified with account-level access`
+  - Google AdSense:
+    - Publisher ID: `pub-8744434739998394`
+    - Client ID: `ca-pub-8744434739998394`
+    - Ad Slot ID: `7971959240`
+    - Active in repository `ads.txt`: `google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0`
 - **Extraction Strategy:**
   - WXR XML exports are inherently fragile and incomplete for large historical datasets (>5,700 posts, >3,200 media files).
   - Primary Source: Direct MySQL database dump (`wp_*.sql`) + complete `wp-content/uploads/` directory archive.

@@ -1,6 +1,6 @@
 # Data Model And Mapping
 
-The schema scaffold lives in `supabase/migrations/20260909120000_healthtimes_migration_core.sql`.
+The schema scaffold lives in `supabase/migrations/` across five ordered migrations (`20260909000100_content_core.sql` through `20260909000500_migration_runs_and_checkpoints.sql`).
 
 ## Principles
 

@@ -37,7 +37,7 @@ The repository is a client-review static/PWA platform with a strong public publi
 - `scripts/migration/wordpress-importer.js` dry-run importer scaffold.
 - `scripts/migration/wordpress-transform.js` transformation and exception helpers.
 - `tests/migration/wordpress-transform.test.js` migration transformation tests.
-- `supabase/migrations/20260909120000_healthtimes_migration_core.sql` production schema scaffold.
+- `supabase/migrations/` production schema scaffold (ordered migrations `20260909000100` through `20260909000500`).
 
 ## Gates
 
