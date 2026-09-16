@@ -258,9 +258,15 @@ Added sanitized tests covering:
 - refusal to use a repository-local private source workspace;
 - deterministic checksum/format detection.
 
-Required command: `npm run test:migration`.
+CI evidence:
 
-This GitHub-only execution path cannot honestly claim a local Playwright execution. CI/owner execution evidence must be attached before CP3 acceptance. No failing test is being hidden or reclassified.
+- Standard repository validation workflow: **PASS** on AG-03 PR head `9ff8d0d02d3a658f911f36a28ce2d4ca77896f49`.
+- Dedicated `Migration Tests` workflow added for migration-sensitive pull-request changes.
+- Required command `npm run test:migration`: **PASS** on AG-03 head `092e835fca0d15d3644cd49690d5f8d878a29eda`.
+- Dependency installation: PASS.
+- Migration test job conclusion: SUCCESS.
+
+The final documentation-only receipt commit does not alter migration runtime/test code; the green migration-test evidence therefore remains applicable to the implemented tooling. No failing test is hidden or reclassified.
 
 ## R. Security / production safety
 
