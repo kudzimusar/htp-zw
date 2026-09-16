@@ -2,6 +2,9 @@ node_modules/
 playwright-report/
 test-results/
 migration-output/
+healthtimes-source-package/
+source-package-private/
+private-source-package/
 *.log
 .env
 .env.*
