@@ -54,12 +54,17 @@ async function fetchJson(url, retries = 3) {
 
 async function restInventory(args) {
   const entities = ['posts', 'pages', 'media', 'categories', 'tags', 'users'];
-  const inventory = { generatedAt: new Date().toISOString(), site: args.site, mode: 'rest', totals: {}, samples: {} };
+  const inventory = { generatedAt: new Date().toISOString(), site: args.site, mode: 'rest', totals: {}, samples: {}, notes: {} };
   for (const entity of entities) {
     const url = `${args.site.replace(/\/$/, '')}/wp-json/wp/v2/${entity}?per_page=1`;
-    const result = await fetchJson(url);
-    inventory.totals[entity] = result.total;
-    inventory.samples[entity] = result.data;
+    try {
+      const result = await fetchJson(url);
+      inventory.totals[entity] = result.total;
+      inventory.samples[entity] = result.data;
+    } catch (err) {
+      inventory.totals[entity] = null;
+      inventory.notes[entity] = `Endpoint inaccessible unauthenticated (${err.message}). Users/authors derived via sitemaps/posts.`;
+    }
     await sleep(args.rateLimitMs);
   }
   return inventory;
