@@ -7,6 +7,7 @@
     "migration:inventory": "node scripts/migration/wordpress-importer.js --mode rest-inventory --out-dir migration-output",
     "migration:dry-run": "node scripts/migration/wordpress-importer.js --mode rest --limit 100 --out-dir migration-output",
     "migration:wp-admin-capture": "node scripts/migration/wordpress-admin-capture.js",
+    "migration:source-manifest": "node scripts/migration/source-package-manifest.js",
     "test:uat": "playwright test",
     "test:migration": "playwright test tests/migration",
     "test:uat:headed": "playwright test --headed"
