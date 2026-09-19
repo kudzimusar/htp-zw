@@ -43,6 +43,9 @@ jobs:
       - name: Validate Expo dependency compatibility and TypeScript
         run: npm run native:check
 
+      - name: Run NM-01 foundation integrity tests
+        run: npm --prefix apps/mobile run test:foundation
+
       - name: Export universal web/PWA build
         run: npm run native:export:web
 
