@@ -2,14 +2,8 @@ import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useColorScheme } from "react-native";
 import { services } from "../services";
-import type { ReaderAppearance } from "../reader/types";
+import type { AppearancePreference } from "../domain/models";
 import { colors } from "./tokens";
-
-const fallback: ReaderAppearance = {
-  theme: "system",
-  textScale: 1,
-  density: "comfortable"
-};
 
 type Palette = {
   paper: string;
@@ -23,17 +17,17 @@ type Palette = {
 };
 
 type AppearanceContextValue = {
-  appearance: ReaderAppearance;
+  appearance: AppearancePreference;
   palette: Palette;
   ready: boolean;
-  updateAppearance: (next: ReaderAppearance) => Promise<void>;
+  updateAppearance: (next: AppearancePreference) => Promise<void>;
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 export function AppearanceProvider({ children }: PropsWithChildren) {
   const systemScheme = useColorScheme();
-  const [appearance, setAppearance] = useState<ReaderAppearance>(fallback);
+  const [appearance, setAppearanceState] = useState<AppearancePreference>("system");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -41,7 +35,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     services.reader
       .getAppearance()
       .then((value) => {
-        if (active) setAppearance(value);
+        if (active) setAppearanceState(value);
       })
       .finally(() => {
         if (active) setReady(true);
@@ -52,8 +46,8 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   }, []);
 
   const resolvedDark =
-    appearance.theme === "dark" ||
-    (appearance.theme === "system" && systemScheme === "dark");
+    appearance === "dark" ||
+    (appearance === "system" && systemScheme === "dark");
 
   const palette = useMemo<Palette>(
     () =>
@@ -81,9 +75,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     [resolvedDark]
   );
 
-  const updateAppearance = async (next: ReaderAppearance) => {
-    setAppearance(next);
-    await services.reader.saveAppearance(next);
+  const updateAppearance = async (next: AppearancePreference) => {
+    setAppearanceState(next);
+    await services.reader.setAppearance(next);
   };
 
   return (
