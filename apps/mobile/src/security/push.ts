@@ -7,7 +7,8 @@ export type PushRegistrationResult = {
     | "permission-denied"
     | "configuration-required"
     | "backend-required"
-    | "unsupported";
+    | "unsupported"
+    | "error";
   deviceTokenAvailable: boolean;
   message: string;
 };
@@ -27,34 +28,49 @@ export async function requestPushRegistrationBaseline(): Promise<PushRegistratio
     };
   }
 
-  const existing = await Notifications.getPermissionsAsync();
-  const permission =
-    existing.status === "granted"
-      ? existing
-      : await Notifications.requestPermissionsAsync();
+  try {
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "HealthTimes",
+        importance: Notifications.AndroidImportance.DEFAULT
+      });
+    }
 
-  if (permission.status !== "granted") {
+    const existing = await Notifications.getPermissionsAsync();
+    const permission =
+      existing.status === "granted"
+        ? existing
+        : await Notifications.requestPermissionsAsync();
+
+    if (permission.status !== "granted") {
+      return {
+        status: "permission-denied",
+        deviceTokenAvailable: false,
+        message: "Notification permission was not granted."
+      };
+    }
+
+    const projectId = resolveProjectId();
+    if (!projectId) {
+      return {
+        status: "configuration-required",
+        deviceTokenAvailable: false,
+        message: "EAS project identity is not configured for push-token issuance."
+      };
+    }
+
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
     return {
-      status: "permission-denied",
+      status: "backend-required",
+      deviceTokenAvailable: Boolean(token.data),
+      message:
+        "A device push token can be issued, but AG-06 has not supplied a server registration/revocation endpoint. The token is not treated as registered."
+    };
+  } catch {
+    return {
+      status: "error",
       deviceTokenAvailable: false,
-      message: "Notification permission was not granted."
+      message: "Native push setup could not be completed on this device."
     };
   }
-
-  const projectId = resolveProjectId();
-  if (!projectId) {
-    return {
-      status: "configuration-required",
-      deviceTokenAvailable: false,
-      message: "EAS project identity is not configured for push-token issuance."
-    };
-  }
-
-  const token = await Notifications.getExpoPushTokenAsync({ projectId });
-  return {
-    status: "backend-required",
-    deviceTokenAvailable: Boolean(token.data),
-    message:
-      "A device push token can be issued, but AG-06 has not supplied a server registration/revocation endpoint. The token is not treated as registered."
-  };
 }
