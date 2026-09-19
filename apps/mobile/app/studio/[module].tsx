@@ -1,6 +1,14 @@
 import { useLocalSearchParams } from "expo-router";
 import { StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
 
+export function generateStaticParams() {
+  return [
+    "stories", "live-desk", "video-desk", "media", "advertising", "premium", "social",
+    "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
+  ].map((module) => ({ module }));
+}
+
+
 const owners:Record<string,{title:string;owner:string;description:string}>={
   "stories":{title:"Stories",owner:"AG-06",description:"Create, edit, assignments, drafts, revisions, review and publication must use server-backed capability checks."},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows."},
