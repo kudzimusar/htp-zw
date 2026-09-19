@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "export:web": "expo export --platform web",
     "typecheck": "tsc --noEmit",
-    "check": "npx expo install --check && npm run typecheck"
+    "check": "npx expo install --check && npm run typecheck",
+    "test:foundation": "node --test tests/foundation.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
