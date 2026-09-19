@@ -38,10 +38,10 @@ Applied migrations:
 
 | Target | Artifact | CI status | Physical-device status |
 | --- | --- | --- | --- |
-| Android | debug APK | pending final NM-07 run | not executed |
-| Android tablet | same Android package, tablet layout | binary shared with Android | not executed |
-| iPhone | iOS Simulator app | pending final NM-07 run | not executed |
-| iPad | same universal iOS app, tablet layout | binary shared with iOS | not executed |
+| Android | debug APK | **PASS — build + verification + artifact** | not executed |
+| Android tablet | same Android package, tablet layout | **binary available; device-class UAT pending** | not executed |
+| iPhone | iOS Simulator app | **PASS — build + verification + artifact** | not executed |
+| iPad | same universal iOS app, tablet layout | **binary available; device-class UAT pending** | not executed |
 
 The CI binaries are unsigned/non-store certification artifacts. They do not equal App Store / Play Store release builds.
 
@@ -105,8 +105,6 @@ For each device capture:
 
 Do not mark NM-07 fully certified while any of these remain true:
 
-- no Android binary evidence;
-- no iOS binary evidence;
 - no physical Android phone run;
 - no physical Android tablet run;
 - no physical iPhone run;
@@ -119,3 +117,15 @@ Do not mark NM-07 fully certified while any of these remain true:
 ## 7. Release boundary
 
 NM-07 certification does not authorize production release by itself.
+
+
+## 8. Certified CI binary receipt
+
+Candidate SHA: `e75fb698f4dae3e62df46090be0b130438d83d5d`
+
+- Android APK: **PASS**, artifact digest `f7e152d6e53e26608b36fccae32a2be99085b5bab3d87608c57b8a5ca48a8220`
+- iOS Simulator app: **PASS**, artifact digest `ee906a9b7c061fadbbb8c71dacc70a9b56820fcf6c4158402c70544fb1bd17cd`
+- resolved environment config matrix: **PASS**
+- universal web/PWA: **PASS**
+
+CI binary evidence does not replace the required device-class UAT.
