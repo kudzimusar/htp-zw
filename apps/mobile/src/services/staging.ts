@@ -55,7 +55,7 @@ export const stagingAuthService: AuthService = {
       password,
       options: {
         data: { display_name: displayName.trim().slice(0, 120) },
-        emailRedirectTo: Linking.createURL("account-access")
+        emailRedirectTo: Linking.createURL("account-access") + "?mode=verification"
       }
     });
 
@@ -74,7 +74,7 @@ export const stagingAuthService: AuthService = {
   async requestPasswordReset(email) {
     const supabase = getStagingSupabaseClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: Linking.createURL("account-access")
+      redirectTo: Linking.createURL("account-access") + "?mode=recovery"
     });
     return error
       ? { status: "error", message: "Password reset could not be requested." }
@@ -89,7 +89,7 @@ export const stagingAuthService: AuthService = {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
-      options: { emailRedirectTo: Linking.createURL("account-access") }
+      options: { emailRedirectTo: Linking.createURL("account-access") + "?mode=verification" }
     });
     return error
       ? { status: "error", message: "Verification email could not be requested." }
@@ -97,6 +97,63 @@ export const stagingAuthService: AuthService = {
           status: "success",
           message: "If verification is pending, HealthTimes has requested a new verification email."
         };
+  },
+
+  async handleAuthCallback(url) {
+    const supabase = getStagingSupabaseClient();
+
+    try {
+      const normalized = url.includes("#")
+        ? url.replace("#", url.includes("?") ? "&" : "?")
+        : url;
+      const parsed = new URL(normalized);
+      const code = parsed.searchParams.get("code");
+      const accessToken = parsed.searchParams.get("access_token");
+      const refreshToken = parsed.searchParams.get("refresh_token");
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          return { status: "error", message: "The account link could not be exchanged for a session." };
+        }
+        return { status: "success", message: "Account link verified. The secure staging session is active." };
+      }
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if (error) {
+          return { status: "error", message: "The account link could not establish a secure session." };
+        }
+        return { status: "success", message: "Account link verified. The secure staging session is active." };
+      }
+
+      return { status: "blocked", message: "This link does not contain a supported Supabase Auth callback." };
+    } catch {
+      return { status: "error", message: "The account callback URL is invalid." };
+    }
+  },
+
+  async completePasswordReset(password) {
+    if (password.length < 8) {
+      return { status: "error", message: "New password must be at least 8 characters." };
+    }
+
+    const supabase = getStagingSupabaseClient();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) {
+      return {
+        status: "blocked",
+        message: "A verified password-recovery session is required before changing the password."
+      };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+    return error
+      ? { status: "error", message: "Password update could not be completed." }
+      : { status: "success", message: "Password updated for the current HealthTimes account." };
   },
 
   async requestAccountDeletion() {
