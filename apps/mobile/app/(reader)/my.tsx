@@ -7,23 +7,24 @@ import { colors, layout, spacing } from "../../src/theme/tokens";
 import { appEnvironment } from "../../src/platform/config";
 
 const items=[
-  ["My Profile","/onboarding"],
+  ["Account Access","/account-access"],
   ["Countries & Interests","/edition"],
   ["Saved","/saved"],
   ["Downloads","/saved"],
   ["Reading History","/saved"],
   ["Notifications","/notifications"],
+  ["Notification Settings","/notification-settings"],
   ["My Subscriptions","/premium"],
   ["Payment Methods","/premium"],
   ["Appearance / Theme","/appearance"],
   ["Privacy","/my"],
-  ["Security","/my"],
-  ["Devices / Sessions","/my"],
-  ["Settings","/my"],
+  ["Security","/devices-sessions"],
+  ["Devices / Sessions","/devices-sessions"],
+  ["Settings","/notification-settings"],
   ["System Status","/system-status"],
   ["Growth & Commercial Readiness","/growth-status"],
   ["Help & Support","/my"],
-  ["Sign Out","/my"]
+  ["Sign Out / Account deletion","/devices-sessions"]
 ] as const;
 
 export default function MyHealthTimesScreen(){

@@ -1,8 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import type { Database } from "../generated/database.types";
 import { hasStagingConfig, stagingConfig } from "./config";
+import { healthTimesAuthStorage } from "../security/auth-storage";
 
 let client: SupabaseClient<Database> | null = null;
 
@@ -14,14 +14,14 @@ export function getStagingSupabaseClient(): SupabaseClient<Database> {
   if (!client) {
     client = createClient<Database>(stagingConfig.url, stagingConfig.publishableKey, {
       auth: {
-        storage: AsyncStorage,
+        storage: healthTimesAuthStorage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === "web"
       },
       global: {
         headers: {
-          "x-healthtimes-client": "reader-nm02"
+          "x-healthtimes-client": "reader-nm06"
         }
       }
     });

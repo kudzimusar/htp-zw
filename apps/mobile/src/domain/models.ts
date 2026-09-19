@@ -200,6 +200,23 @@ export type NotificationItem = {
   destination?: string;
 };
 
+export type AuthActionResult = {
+  status: "success" | "verification-required" | "blocked" | "error";
+  message: string;
+};
+
+export type AccountDeletionState = {
+  status: "server-required" | "requested" | "unavailable";
+  message: string;
+};
+
+export type CurrentDeviceSession = {
+  authenticated: boolean;
+  userId: string | null;
+  expiresAt: number | null;
+  remoteSessionManagementAvailable: boolean;
+};
+
 export type AuthSessionState = {
   authenticated: boolean;
   userId: string | null;
