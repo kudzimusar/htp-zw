@@ -9,6 +9,7 @@ on:
       - 'package-lock.json'
       - 'ads.txt'
       - 'app-ads.txt'
+      - 'docs/migration/agent-reports/AG-03_SOURCE_DATA_CAPTURE.md'
       - '.github/workflows/migration-tests.yml'
 
 permissions:
