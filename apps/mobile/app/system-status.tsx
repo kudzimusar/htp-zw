@@ -5,6 +5,7 @@ import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { appEnvironment, editorialDataMode } from "../src/platform/config";
 import { colors, radius, spacing } from "../src/theme/tokens";
+import { AG03_SOURCE_READINESS } from "../src/domain/source";
 
 export default function SystemStatusScreen() {
   const [attempt, setAttempt] = useState(0);
@@ -37,6 +38,20 @@ export default function SystemStatusScreen() {
         <Pressable style={styles.retry} onPress={() => setAttempt((value) => value + 1)}>
           <Text style={styles.retryText}>Run checks again</Text>
         </Pressable>
+      </Section>
+
+      <Section>
+        <SectionHeader title="Source readiness" />
+        <View style={styles.row}>
+          <View style={[styles.status, AG03_SOURCE_READINESS.status === "ready" ? styles.pass : styles.fail]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>AG-03 authoritative source package</Text>
+            <Text style={styles.detail}>{AG03_SOURCE_READINESS.reason}</Text>
+            <Text style={styles.detail}>
+              Database validated: {String(AG03_SOURCE_READINESS.authoritativeDatabaseValidated)} · Uploads validated: {String(AG03_SOURCE_READINESS.completeUploadsValidated)} · Content frozen: {String(AG03_SOURCE_READINESS.contentFrozen)}
+            </Text>
+          </View>
+        </View>
       </Section>
 
       <Section>
