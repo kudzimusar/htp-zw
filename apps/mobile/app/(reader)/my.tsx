@@ -4,6 +4,7 @@ import { Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { colors, layout, spacing } from "../../src/theme/tokens";
+import { appEnvironment } from "../../src/platform/config";
 
 const items=[
   ["My Profile","/onboarding"],
@@ -19,6 +20,7 @@ const items=[
   ["Security","/my"],
   ["Devices / Sessions","/my"],
   ["Settings","/my"],
+  ["System Status","/system-status"],
   ["Help & Support","/my"],
   ["Sign Out","/my"]
 ] as const;
@@ -32,7 +34,7 @@ export default function MyHealthTimesScreen(){
         <View style={styles.avatar}><Text style={styles.avatarText}>HT</Text></View>
         <View style={{flex:1}}>
           <Text style={styles.name}>{profile.data?.displayName ?? "Reader"}</Text>
-          <Text style={styles.membership}>{profile.data?.membership ?? "anonymous"} membership • development</Text>
+          <Text style={styles.membership}>{profile.data?.membership ?? "anonymous"} membership • {appEnvironment}</Text>
         </View>
         <Pressable style={styles.premium} onPress={()=>router.push("/premium" as never)}><Text style={styles.premiumText}>Go Premium</Text></Pressable>
       </View>

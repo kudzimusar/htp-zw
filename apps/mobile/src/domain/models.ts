@@ -135,6 +135,26 @@ export type NotificationItem = {
   destination?: string;
 };
 
+export type AuthSessionState = {
+  authenticated: boolean;
+  userId: string | null;
+  expiresAt: number | null;
+};
+
+export type PlatformConnectivityCheck = {
+  key: "configuration" | "auth" | "database" | "storage" | "session";
+  label: string;
+  status: "pass" | "fail";
+  detail: string;
+};
+
+export type PlatformConnectivityReport = {
+  status: "healthy" | "degraded" | "misconfigured";
+  checkedAt: string;
+  projectRef: string | null;
+  checks: PlatformConnectivityCheck[];
+};
+
 export type StudioModule =
   | "stories"
   | "create-edit"

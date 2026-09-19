@@ -11,7 +11,8 @@
     "export:web": "expo export --platform web",
     "typecheck": "tsc --noEmit",
     "check": "npx expo install --check && npm run typecheck",
-    "test:foundation": "node --test tests/foundation.test.mjs"
+    "test:foundation": "node --test tests/foundation.test.mjs",
+    "test:staging": "node --test tests/staging-connectivity.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
@@ -24,7 +25,9 @@
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-web": "~0.21.0"
+    "react-native-web": "~0.21.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "2.116.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

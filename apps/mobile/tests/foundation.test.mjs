@@ -22,6 +22,7 @@ test("required Reader and Studio routes exist", () => {
     "app/edition.tsx",
     "app/premium.tsx",
     "app/onboarding.tsx",
+    "app/system-status.tsx",
     "app/studio/index.tsx",
     "app/studio/[module].tsx"
   ];
@@ -45,17 +46,24 @@ test("service contract surface stays explicit", () => {
     "VideoService",
     "AudioService",
     "NotificationService",
+    "PlatformService",
     "SocialAttributionService"
   ]) {
     assert.match(contracts, new RegExp(`export interface ${contract}\\b`), `missing contract: ${contract}`);
   }
 });
 
-test("non-fixture environments fail closed", () => {
+test("staging composition is transparent and production remains fail-closed", () => {
   const services = read("src/services/index.ts");
-  assert.match(services, /serviceMode !== "fixture"/);
-  assert.match(services, /Production service adapters are locked/);
-  assert.match(services, /Staging service adapters are locked/);
+  assert.match(services, /appEnvironment === "production"/);
+  assert.match(services, /editorialDataMode === "staging"/);
+  assert.match(services, /stagingAuthService/);
+  assert.match(services, /stagingPlatformService/);
+  assert.match(services, /Staging editorial-data mode is locked/);
+
+  const config = read("src/platform/config.ts");
+  assert.match(config, /FIXTURE EDITORIAL DATA/);
+  assert.match(config, /LIVE STAGING PLATFORM/);
 
   const fixtures = read("src/services/fixtures.ts");
   assert.match(fixtures, /source: "none"/, "fixture advertising must not masquerade as real inventory");
@@ -89,6 +97,7 @@ test("mobile workspace contains no production credentials or WebView architectur
 
   const corpus = files.map((file) => `\n--- ${relative(root, file)} ---\n${readFileSync(file, "utf8")}`).join("\n");
   assert.doesNotMatch(corpus, /SUPABASE_SERVICE_ROLE_KEY/i);
+  assert.doesNotMatch(corpus, /service_role/i);
   assert.doesNotMatch(corpus, /ca-pub-\d+/i);
   assert.doesNotMatch(corpus, /G-[A-Z0-9]{8,}/);
   assert.doesNotMatch(corpus, /react-native-webview|<WebView\b/i);
