@@ -137,6 +137,7 @@ export type NotificationItem = {
 
 export type StudioModule =
   | "stories"
+  | "create-edit"
   | "live-desk"
   | "video-desk"
   | "media"
