@@ -1,17 +1,22 @@
 import type { HealthTimesServices } from "../domain/contracts";
 import { fixtureServices } from "./fixtures";
 
-export type ServiceMode = "fixture" | "staging";
+export type ServiceMode = "fixture" | "staging" | "production";
 
 const requestedMode = process.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE;
-export const serviceMode: ServiceMode = requestedMode === "staging" ? "staging" : "fixture";
+export const serviceMode: ServiceMode =
+  requestedMode === "staging" ? "staging" :
+  requestedMode === "production" ? "production" :
+  "fixture";
 
 function buildServices(): HealthTimesServices {
-  if (serviceMode === "staging") {
-    // AG-02 provides staging infrastructure, but CP3/AG-04 content and AG-06 auth
-    // are not yet certified. Refuse to silently fake a real integration.
+  if (serviceMode !== "fixture") {
+    // AG-02 supplies infrastructure, but downstream AG-backed content/auth/commercial
+    // adapters are not yet certified. Refuse to ship fixtures under a real environment label.
     throw new Error(
-      "Staging mode is not enabled in NM-01. Complete the AG-backed staging adapters before setting EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging."
+      serviceMode === "production"
+        ? "Production service adapters are locked until AG-04/05/06 and NM-04/05/06 are certified."
+        : "Staging service adapters are locked until the required AG-backed integrations are implemented."
     );
   }
   return fixtureServices;
