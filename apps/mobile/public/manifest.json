@@ -1,0 +1,19 @@
+{
+  "short_name": "HealthTimes",
+  "name": "HealthTimes Global Health Journalism",
+  "description": "HealthTimes Reader for global health reporting, Live coverage, Watch, Listen and Premium journalism.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFFFFF",
+  "theme_color": "#071A2B",
+  "icons": [
+    {
+      "src": "/healthtimes-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

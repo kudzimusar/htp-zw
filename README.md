@@ -12,6 +12,43 @@ HealthTimes 2.1 is a modernization of the HealthTimes Zimbabwe publication into 
 - Newsroom: https://kudzimusar.github.io/htp-zw/newsroom.html
 - Operations manual: https://kudzimusar.github.io/htp-zw/manual.html
 
+
+## Native / Universal HealthTimes foundation
+
+The next HealthTimes Reader and Studio implementation now lives in `apps/mobile/` as a React Native + Expo + TypeScript + Expo Router workspace. It is one source tree for iOS, Android and the rebuilt mobile/web PWA. The existing static client-review PWA remains intact while the AG migration programme supplies real backend/content integrations.
+
+Current NM-01 behavior is deliberately fixture-backed:
+
+- Reader navigation: Home, Explore, Live, Watch, My HealthTimes;
+- Article, Search, Listen, Saved/Offline, Notifications, Edition, Premium and Onboarding routes;
+- responsive web/PWA presentation using the same design tokens and components;
+- HealthTimes Studio shell and all approved operational module destinations;
+- service contracts for articles, search, auth, reader state, Premium, advertising, analytics, Live, video, audio, notifications and social attribution;
+- visible development/fixture labeling;
+- no production analytics, ad metrics, seller IDs, Premium prices, roles or authorization are fabricated;
+- staging mode is locked until the relevant AG-backed adapters are implemented.
+
+App identities follow the native master plan:
+
+| Environment | Android / iOS identifier |
+| --- | --- |
+| Development | `zw.co.healthtimes.app.dev` |
+| Staging | `zw.co.healthtimes.app.staging` |
+| Production | `zw.co.healthtimes.app` |
+
+Run the universal workspace:
+
+```bash
+npm install --prefix apps/mobile
+npm run native:check
+npm run native:web
+npm run native:ios
+npm run native:android
+npm run native:export:web
+```
+
+Real integration ownership remains unchanged: AG-04 supplies migrated editorial content/media/taxonomy, AG-05 supplies verified advertising/analytics/SEO/growth decisions, and AG-06 supplies server-backed identity, sessions, capabilities and entitlement authority.
+
 ## Client-review priorities implemented
 
 ### Premium research
