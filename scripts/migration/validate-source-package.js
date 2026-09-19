@@ -6,7 +6,7 @@ const { validateUploadsArtifact } = require('./validate-wordpress-uploads');
 const { validateProvenanceReadiness } = require('./validate-provenance-readiness');
 const { fetchLiveInventory, reconcileInventories } = require('./reconcile-source-inventory');
 
-const VALIDATOR_VERSION = '1.0.0';
+const VALIDATOR_VERSION = '1.1.0';
 
 function walk(root) {
   const found = [];
@@ -19,24 +19,43 @@ function walk(root) {
       const lower = entry.name.toLowerCase();
       if (lower.endsWith('.sql') || lower.endsWith('.sql.gz')) found.push({ kind: 'database', full });
       if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz') || lower.endsWith('.zip')) {
-        const relative = full.toLowerCase();
-        if (/uploads|media/.test(relative)) found.push({ kind: 'uploads_archive', full });
+        if (/uploads|media/i.test(full)) found.push({ kind: 'uploads_archive', full });
       }
     }
   }
   return found;
 }
 
+function safeDiscoveryRecord(candidateCount, sourceClass, artifactRole, explicitOverride) {
+  let selection_status = 'MISSING';
+  if (explicitOverride) selection_status = 'EXPLICIT_OVERRIDE';
+  else if (candidateCount === 1) selection_status = 'AUTO_SINGLE';
+  else if (candidateCount > 1) selection_status = 'AMBIGUOUS';
+  return {
+    candidate_count: explicitOverride ? 1 : candidateCount,
+    source_class: sourceClass,
+    artifact_role: artifactRole,
+    selection_status
+  };
+}
+
 function discoverArtifacts(root, overrides = {}) {
   const found = walk(root);
-  const db = overrides.database ? path.resolve(overrides.database) : found.filter(x => x.kind === 'database').map(x => x.full);
-  const uploads = overrides.uploads ? path.resolve(overrides.uploads) : found.filter(x => x.kind === 'uploads_dir' || x.kind === 'uploads_archive').map(x => x.full);
+  const dbCandidates = found.filter(x => x.kind === 'database').map(x => x.full);
+  const uploadsCandidates = found.filter(x => x.kind === 'uploads_dir' || x.kind === 'uploads_archive').map(x => x.full);
+  const dbExplicit = Boolean(overrides.database);
+  const uploadsExplicit = Boolean(overrides.uploads);
+  const database = dbExplicit ? path.resolve(overrides.database) : (dbCandidates.length === 1 ? dbCandidates[0] : null);
+  const uploads = uploadsExplicit ? path.resolve(overrides.uploads) : (uploadsCandidates.length === 1 ? uploadsCandidates[0] : null);
+
   return {
-    database: Array.isArray(db) ? (db.length === 1 ? db[0] : null) : db,
-    uploads: Array.isArray(uploads) ? (uploads.length === 1 ? uploads[0] : null) : uploads,
+    database,
+    uploads,
+    database_ambiguous: !dbExplicit && dbCandidates.length > 1,
+    uploads_ambiguous: !uploadsExplicit && uploadsCandidates.length > 1,
     discovery: {
-      database_candidates: Array.isArray(db) ? db.length : 1,
-      uploads_candidates: Array.isArray(uploads) ? uploads.length : 1
+      database: safeDiscoveryRecord(dbCandidates.length, 'WORDPRESS', 'AUTHORITATIVE_WORDPRESS_DATABASE', dbExplicit),
+      uploads: safeDiscoveryRecord(uploadsCandidates.length, 'WORDPRESS', 'AUTHORITATIVE_WORDPRESS_UPLOADS', uploadsExplicit)
     }
   };
 }
@@ -49,6 +68,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--uploads') args.uploads = argv[++i];
     else if (argv[i] === '--live-inventory') args.liveInventory = argv[++i];
     else if (argv[i] === '--live-rest-base') args.liveRestBase = argv[++i];
+    else if (argv[i] === '--admin-user-count') args.adminUserCount = Number(argv[++i]);
     else if (argv[i] === '--export-timestamp') args.exportTimestamp = argv[++i];
   }
   if (!args.root) throw new Error('ROOT_REQUIRED');
@@ -77,8 +97,34 @@ async function validateSourcePackage(root, options = {}) {
     uploads: null,
     provenance: null,
     reconciliation: null,
-    hard_gates: []
+    reconciliation_core_status: null,
+    author_count_status: null,
+    hard_gates: [],
+    review_gates: []
   };
+
+  if (discovered.database_ambiguous || discovered.uploads_ambiguous) {
+    result.status = 'ARTIFACT_AMBIGUOUS';
+    if (discovered.database_ambiguous) {
+      result.hard_gates.push({
+        gate: 'authoritative_database',
+        status: 'ARTIFACT_AMBIGUOUS',
+        candidate_count: discovered.discovery.database.candidate_count,
+        source_class: 'WORDPRESS',
+        artifact_role: 'AUTHORITATIVE_WORDPRESS_DATABASE'
+      });
+    }
+    if (discovered.uploads_ambiguous) {
+      result.hard_gates.push({
+        gate: 'authoritative_uploads',
+        status: 'ARTIFACT_AMBIGUOUS',
+        candidate_count: discovered.discovery.uploads.candidate_count,
+        source_class: 'WORDPRESS',
+        artifact_role: 'AUTHORITATIVE_WORDPRESS_UPLOADS'
+      });
+    }
+    return result;
+  }
 
   if (!discovered.database) result.hard_gates.push({ gate: 'authoritative_database', status: 'ARTIFACT_MISSING' });
   if (!discovered.uploads) result.hard_gates.push({ gate: 'authoritative_uploads', status: 'ARTIFACT_MISSING' });
@@ -86,32 +132,52 @@ async function validateSourcePackage(root, options = {}) {
 
   result.database = await validateDatabaseArtifact(discovered.database, { exportTimestamp: options.exportTimestamp || null });
   result.uploads = validateUploadsArtifact(discovered.uploads);
-  if (result.database.validation_status !== 'VALID' || result.uploads.validation_status !== 'VALID') {
+
+  if (result.database.validation_status !== 'VALID' || result.uploads.validation_status === 'INVALID') {
     result.status = 'ARTIFACT_INVALID';
     if (result.database.validation_status !== 'VALID') result.hard_gates.push({ gate: 'authoritative_database', status: 'ARTIFACT_INVALID' });
-    if (result.uploads.validation_status !== 'VALID') result.hard_gates.push({ gate: 'authoritative_uploads', status: 'ARTIFACT_INVALID' });
+    if (result.uploads.validation_status === 'INVALID') result.hard_gates.push({ gate: 'authoritative_uploads', status: 'ARTIFACT_INVALID' });
     return result;
   }
 
+  if (result.uploads.validation_status === 'VALID_REQUIRES_REVIEW') {
+    result.review_gates.push({
+      gate: 'authoritative_uploads',
+      status: 'VALID_REQUIRES_REVIEW',
+      finding_codes: result.uploads.security_findings.map(f => f.code)
+    });
+  }
+
   result.provenance = validateProvenanceReadiness(result.database);
+
   let liveInventory;
   try {
     liveInventory = options.liveInventory
       ? readSanitizedInventory(path.resolve(options.liveInventory))
-      : await fetchLiveInventory(options.liveRestBase || undefined);
+      : await fetchLiveInventory(options.liveRestBase || undefined, { adminUserCount: options.adminUserCount });
     result.reconciliation = reconcileInventories(liveInventory, result.database);
   } catch {
     result.reconciliation = {
       validator: 'source_inventory_reconciliation',
       status: 'RECONCILIATION_INCOMPLETE',
-      errors: [{ code: 'LIVE_INVENTORY_UNAVAILABLE', message: 'Fresh read-only WordPress inventory could not be obtained.' }]
+      core_content_status: 'CORE_CONTENT_REQUIRES_REVIEW',
+      author_count_status: 'AUTHOR_COUNT_REQUIRES_PRIVATE_OR_ADMIN_EVIDENCE',
+      errors: [{ code: 'LIVE_INVENTORY_UNAVAILABLE', message: 'Fresh read-only WordPress core inventory could not be obtained.' }]
     };
   }
 
-  if (result.provenance.status !== 'PROVENANCE_READY' || result.reconciliation.status !== 'RECONCILED') {
+  result.reconciliation_core_status = result.reconciliation.core_content_status || null;
+  result.author_count_status = result.reconciliation.author_count_status || null;
+
+  const reconciliationReady = result.reconciliation.status === 'RECONCILED';
+  const provenanceReady = result.provenance.status === 'PROVENANCE_READY';
+  const reviewFree = result.review_gates.length === 0;
+
+  if (!provenanceReady || !reconciliationReady || !reviewFree) {
     result.status = 'ARTIFACT_VALID_RECONCILIATION_INCOMPLETE';
     return result;
   }
+
   result.status = 'SOURCE_VALIDATION_READY';
   return result;
 }
@@ -125,6 +191,7 @@ if (require.main === module) {
       if (report.status === 'ARTIFACT_MISSING') process.exitCode = 2;
       else if (report.status === 'ARTIFACT_INVALID') process.exitCode = 3;
       else if (report.status === 'ARTIFACT_VALID_RECONCILIATION_INCOMPLETE') process.exitCode = 4;
+      else if (report.status === 'ARTIFACT_AMBIGUOUS') process.exitCode = 5;
     } catch {
       process.stdout.write(JSON.stringify({
         validator: 'cp3_source_package',
@@ -138,4 +205,10 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { VALIDATOR_VERSION, discoverArtifacts, validateSourcePackage, walk };
+module.exports = {
+  VALIDATOR_VERSION,
+  discoverArtifacts,
+  safeDiscoveryRecord,
+  validateSourcePackage,
+  walk
+};
