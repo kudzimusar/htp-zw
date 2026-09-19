@@ -164,23 +164,32 @@ jobs:
         working-directory: apps/mobile/ios
         run: pod install
 
-      - name: Resolve Xcode workspace and scheme
+      - name: Resolve Xcode workspace and app scheme
         working-directory: apps/mobile/ios
         run: |
           WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
           test -n "$WORKSPACE"
+          WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
           xcodebuild -list -json -workspace "$WORKSPACE" > xcode-list.json
-          SCHEME=$(python3 - <<'PY'
-          import json
+          SCHEME=$(WORKSPACE_NAME="$WORKSPACE_NAME" python3 - <<'PY'
+          import json, os
           data=json.load(open('xcode-list.json'))
           schemes=data.get('workspace',{}).get('schemes',[])
           if not schemes:
               raise SystemExit('No Xcode scheme found')
-          print(schemes[0])
+          preferred=os.environ['WORKSPACE_NAME']
+          if preferred in schemes:
+              print(preferred)
+          else:
+              non_pod=[s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))]
+              if not non_pod:
+                  raise SystemExit('No application Xcode scheme found; schemes='+','.join(schemes))
+              print(non_pod[0])
           PY
           )
           echo "WORKSPACE=$WORKSPACE" >> "$GITHUB_ENV"
           echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          echo "Resolved application scheme: $SCHEME"
 
       - name: Build iOS Simulator app
         working-directory: apps/mobile/ios
@@ -190,8 +199,10 @@ jobs:
       - name: Verify iOS Simulator app
         working-directory: apps/mobile/ios
         run: |
-          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' -print -quit)
+          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
           test -n "$APP"
+          test -f "$APP/Info.plist"
+          echo "Resolved iOS app: $APP"
           echo "IOS_APP=$APP" >> "$GITHUB_ENV"
 
       - name: Archive iOS Simulator app
