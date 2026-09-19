@@ -2,6 +2,7 @@ import type {
   AdDecision,
   AdPlacementKey,
   AnalyticsEvent,
+  AppearancePreference,
   ArticleDetail,
   ArticleSummary,
   AudioItem,
@@ -38,6 +39,8 @@ export interface AuthService {
 export interface ReaderRepository {
   getPreferences(): Promise<EditionPreference>;
   savePreferences(preferences: EditionPreference): Promise<void>;
+  getAppearance(): Promise<AppearancePreference>;
+  setAppearance(preference: AppearancePreference): Promise<void>;
   getSavedArticleIds(): Promise<string[]>;
   toggleSavedArticle(id: string): Promise<boolean>;
   getDownloadedArticles(): Promise<ArticleDetail[]>;
