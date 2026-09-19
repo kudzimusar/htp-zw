@@ -27,15 +27,15 @@ export default function ArticleScreen(){
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
 
+  useEffect(()=>{
+    if(article.data) void services.reader.recordReadingHistory(article.data.id);
+  },[article.data?.id]);
+
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   if(!article.data) return <Page title="Article"><Text style={styles.muted}>Article not found.</Text></Page>;
 
   const story=article.data;
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
-
-  useEffect(()=>{
-    void services.reader.recordReadingHistory(story.id);
-  },[story.id]);
 
   const persistProgress=(progress:number)=>{
     const now=Date.now();
