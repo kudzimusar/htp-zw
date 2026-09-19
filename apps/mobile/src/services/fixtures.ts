@@ -86,6 +86,12 @@ const authService: AuthService = {
   async resendVerification() {
     return { status: "blocked", message: "Fixture mode does not send account email." };
   },
+  async handleAuthCallback() {
+    return { status: "blocked", message: "Fixture mode does not consume real account links." };
+  },
+  async completePasswordReset() {
+    return { status: "blocked", message: "Fixture mode has no authoritative account password." };
+  },
   async requestAccountDeletion() {
     return {
       status: "unavailable",
