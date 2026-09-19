@@ -173,7 +173,20 @@ Required gates:
 5. verify `dist/index.html`, manifest, service worker and icon;
 6. upload the generated web distribution as CI evidence.
 
-GitHub Actions validation is defined on the branch. The connected GitHub run reader only exposes pull-request-triggered runs and has not returned a native workflow run for this new workflow yet, so no green Actions result is claimed here. The existing Vercel project has produced branch previews successfully, but that deployment validates the preserved root client-review surface rather than the new Expo web export.
+Certified NM-01 branch-tip evidence:
+
+- candidate SHA: `af306f04f9a738404aa4c1998b0f07dacec23d6d`
+- Native Mobile Foundation run: `35443708975` — **SUCCESS**
+- Validate HealthTimes 2.0 run: `35443709322` — **SUCCESS**
+- Expo dependency compatibility: **PASS**
+- strict TypeScript: **PASS**
+- NM-01 foundation integrity tests: **6/6 PASS**
+- static Expo web/PWA export: **PASS**
+- PWA output verification: **PASS**
+- artifact: `healthtimes-nm01-web-dist`
+- artifact SHA-256: `c42422eb85475bdc19d4cf40fc2a0e4acb9c31b0b342d40a12dd27f48d08f7f7`
+
+The existing Vercel project also produced successful branch previews for the preserved root client-review surface. Native simulator/emulator execution is still not claimed because this connected environment does not expose the required macOS/iOS Simulator or Android Emulator runtime.
 
 ## 11. Platform result boundary
 
