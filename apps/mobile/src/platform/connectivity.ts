@@ -1,19 +1,6 @@
+import type { PlatformConnectivityCheck, PlatformConnectivityReport } from "../domain/models";
 import { getStagingSupabaseClient } from "./supabase";
 import { hasStagingConfig, stagingConfig } from "./config";
-
-export type ConnectivityCheck = {
-  key: "configuration" | "auth" | "database" | "storage" | "session";
-  label: string;
-  status: "pass" | "fail";
-  detail: string;
-};
-
-export type ConnectivityReport = {
-  status: "healthy" | "degraded" | "misconfigured";
-  checkedAt: string;
-  projectRef: string | null;
-  checks: ConnectivityCheck[];
-};
 
 function projectRefFromUrl(url: string) {
   try {
@@ -34,10 +21,10 @@ async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 80
   }
 }
 
-export async function checkStagingConnectivity(): Promise<ConnectivityReport> {
+export async function checkStagingConnectivity(): Promise<PlatformConnectivityReport> {
   const checkedAt = new Date().toISOString();
   const projectRef = projectRefFromUrl(stagingConfig.url);
-  const checks: ConnectivityCheck[] = [];
+  const checks: PlatformConnectivityCheck[] = [];
 
   if (!hasStagingConfig || projectRef !== stagingConfig.expectedProjectRef) {
     checks.push({
