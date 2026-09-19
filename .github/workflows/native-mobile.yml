@@ -1,0 +1,62 @@
+name: Native Mobile Foundation
+
+on:
+  push:
+    branches:
+      - feat/native-mobile-nm01-foundation
+    paths:
+      - 'apps/mobile/**'
+      - 'package.json'
+      - '.github/workflows/native-mobile.yml'
+      - 'docs/native-mobile/**'
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'package.json'
+      - '.github/workflows/native-mobile.yml'
+      - 'docs/native-mobile/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  universal-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install native workspace dependencies
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Validate Expo dependency compatibility and TypeScript
+        run: npm run native:check
+
+      - name: Export universal web/PWA build
+        run: npm run native:export:web
+
+      - name: Verify PWA output
+        shell: bash
+        run: |
+          test -f apps/mobile/dist/index.html
+          test -f apps/mobile/dist/manifest.json
+          test -f apps/mobile/dist/sw.js
+          test -f apps/mobile/dist/healthtimes-icon.svg
+
+      - name: Upload PWA build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthtimes-nm01-web-dist
+          path: apps/mobile/dist/
+          retention-days: 14
