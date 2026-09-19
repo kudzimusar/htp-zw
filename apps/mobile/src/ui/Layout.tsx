@@ -143,7 +143,7 @@ export function SectionHeader({
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {!!action && (
-        <Pressable onPress={onAction} style={styles.sectionAction}>
+        <Pressable accessibilityRole="button" accessibilityLabel={action} onPress={onAction} style={styles.sectionAction}>
           <Text style={styles.sectionActionText}>{action}</Text>
         </Pressable>
       )}
@@ -157,7 +157,12 @@ export function Section({ children }: PropsWithChildren) {
 
 export function Chip({ children, active = false, onPress }: PropsWithChildren<{ active?: boolean; onPress?: () => void }>) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.chip, active && styles.chipActive]}
+    >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{children}</Text>
     </Pressable>
   );
