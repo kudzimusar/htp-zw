@@ -6,6 +6,7 @@ import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout"
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { colors, layout, spacing, type } from "../../src/theme/tokens";
+import { useAppearance } from "../../src/theme/AppearanceProvider";
 
 export function generateStaticParams() {
   return [{ id: "fixture-001" }, { id: "fixture-002" }, { id: "fixture-003" }];
@@ -19,6 +20,7 @@ function stripHtml(value:string){
 export default function ArticleScreen(){
   const { id }=useLocalSearchParams<{id:string}>();
   const router=useRouter();
+  const { palette }=useAppearance();
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
   const lastProgressWrite=useRef({at:0,value:0});
@@ -32,7 +34,7 @@ export default function ArticleScreen(){
   },[article.data?.id]);
 
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
-  if(!article.data) return <Page title="Article"><Text style={styles.muted}>Article not found.</Text></Page>;
+  if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
 
   const story=article.data;
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
@@ -69,7 +71,7 @@ export default function ArticleScreen(){
       onScrollProgress={persistProgress}
     >
       <View style={styles.actions}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" style={styles.action} onPress={()=>router.back()}><Text style={styles.actionText}>Back</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" style={[styles.action,{borderColor:palette.border}]} onPress={()=>router.back()}><Text style={[styles.actionText,{color:palette.ink}]}>Back</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Change article text size" style={styles.action} onPress={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}><Text style={styles.actionText}>Text {Math.round(textScale*100)}%</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Save article" style={styles.action} onPress={save}><Text style={styles.actionText}>Save</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Download article for offline reading" style={styles.action} onPress={download}><Text style={styles.actionText}>Download</Text></Pressable>
@@ -80,28 +82,28 @@ export default function ArticleScreen(){
 
       <View style={styles.articleHeader}>
         <View style={styles.metaRow}>
-          <Text style={styles.kicker}>{story.primarySection?.name ?? "HealthTimes"}</Text>
+          <Text style={[styles.kicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
           {story.accessPolicy==="premium" && <PremiumBadge />}
         </View>
-        <Text style={styles.title}>{story.title}</Text>
-        {!!story.standfirst && <Text style={styles.standfirst}>{story.standfirst}</Text>}
-        <Text style={styles.byline}>{story.author?.displayName ?? "HealthTimes"} · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
+        <Text style={[styles.title,{color:palette.ink}]}>{story.title}</Text>
+        {!!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
+        <Text style={[styles.byline,{color:palette.inkMuted}]}>{story.author?.displayName ?? "HealthTimes"} · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
       </View>
 
       {story.heroMedia?.publicUrl && (
         <View>
           <Image source={{uri:story.heroMedia.publicUrl}} style={styles.hero} accessibilityLabel={story.heroMedia.altText ?? story.title} />
-          {!!story.heroMedia.credit && <Text style={styles.credit}>{story.heroMedia.credit}</Text>}
+          {!!story.heroMedia.credit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{story.heroMedia.credit}</Text>}
         </View>
       )}
 
       <View style={styles.body}>
         {protectedBody ? (
           <>
-            <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale}]}>{story.excerpt ?? story.standfirst}</Text>
+            <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst}</Text>
             <View style={styles.lock}>
-              <Text style={styles.lockTitle}>Premium reporting</Text>
-              <Text style={styles.lockText}>The protected article body is not shipped to this unauthenticated fixture client. AG-06 will enforce entitlement server-side.</Text>
+              <Text style={[styles.lockTitle,{color:palette.ink}]}>Premium reporting</Text>
+              <Text style={[styles.lockText,{color:palette.inkMuted}]}>The protected article body is not shipped to this unauthenticated fixture client. AG-06 will enforce entitlement server-side.</Text>
               <Pressable style={styles.primary} onPress={()=>router.push("/premium" as never)}><Text style={styles.primaryText}>View Premium</Text></Pressable>
             </View>
           </>
@@ -114,7 +116,7 @@ export default function ArticleScreen(){
 
       <Section>
         <SectionHeader title="Sources & references" />
-        <Text style={styles.muted}>Authoritative citations will come from migrated story provenance and editorial data. NM-04 does not fabricate references.</Text>
+        <Text style={[styles.muted,{color:palette.inkMuted}]}>Authoritative citations will come from migrated story provenance and editorial data. NM-04 does not fabricate references.</Text>
       </Section>
 
       <Section>
