@@ -7,6 +7,11 @@ import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { colors, layout, spacing, type } from "../../src/theme/tokens";
 
+export function generateStaticParams() {
+  return [{ id: "fixture-001" }, { id: "fixture-002" }, { id: "fixture-003" }];
+}
+
+
 function stripHtml(value:string){
   return value.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
 }
