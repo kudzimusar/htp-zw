@@ -13,7 +13,19 @@ export function mapAuthorRow(row: AuthorRow): AuthorRef {
   return {
     id: row.id,
     displayName: row.display_name,
-    slug: row.slug
+    slug: row.slug,
+    sourceProvenance: row.wordpress_source_id
+      ? {
+          system: "wordpress",
+          sourceId: row.wordpress_source_id,
+          stableKey: null,
+          sourceUrl: null,
+          checksum: null,
+          capturedAt: null,
+          wordpress: { authorId: row.wordpress_source_id },
+          exceptions: []
+        }
+      : null
   };
 }
 
@@ -23,7 +35,18 @@ export function mapMediaRow(row: MediaRow): MediaRef {
     publicUrl: row.public_url,
     altText: row.alt_text,
     caption: row.caption,
-    credit: row.credit
+    credit: row.credit,
+    sourceProvenance: row.legacy_source_id
+      ? {
+          system: "wordpress",
+          sourceId: null,
+          stableKey: null,
+          sourceUrl: row.source_url,
+          checksum: row.checksum,
+          capturedAt: null,
+          exceptions: []
+        }
+      : null
   };
 }
 
@@ -103,6 +126,12 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     topics: relations.topics ?? [],
     heroMedia: relations.heroMedia ? mapMediaRow(relations.heroMedia) : null,
     sourceProvenance: mapSourceProvenance(relations.legacySource),
-    contentIntegrity: relations.legacySource ? "unknown" : "unknown"
+    contentIntegrity: "unknown",
+    premiumSourceContext: {
+      accessPolicy,
+      legacyMembershipSignal: "unknown",
+      providerReferencePresent: false,
+      reconciliation: null
+    }
   };
 }
