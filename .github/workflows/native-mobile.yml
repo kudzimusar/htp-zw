@@ -1,10 +1,11 @@
-name: Native Mobile Foundation + Staging
+name: Native Mobile Foundation + Staging + Contracts
 
 on:
   push:
     branches:
       - feat/native-mobile-nm01-foundation
       - feat/native-mobile-nm02-staging-connectivity
+      - feat/native-mobile-nm03-content-contracts
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -49,6 +50,9 @@ jobs:
 
       - name: Run live HealthTimes Staging connectivity smoke
         run: npm --prefix apps/mobile run test:staging
+
+      - name: Run NM-03 content contract reconciliation tests
+        run: npm --prefix apps/mobile run test:content-contracts
 
       - name: Export universal web/PWA build
         run: npm run native:export:web
