@@ -15,6 +15,7 @@ import type {
   SearchResult,
   VideoItem
 } from "./models";
+import type { TaxonomySnapshot } from "./source";
 
 export interface ArticleRepository {
   getHome(): Promise<ArticleSummary[]>;
@@ -70,6 +71,10 @@ export interface NotificationService {
   registerDevice(): Promise<{ status: "fixture" | "registered" | "blocked" }>;
 }
 
+export interface TaxonomyService {
+  getSnapshot(): Promise<TaxonomySnapshot>;
+}
+
 export interface PlatformService {
   checkConnectivity(): Promise<PlatformConnectivityReport>;
 }
@@ -90,6 +95,7 @@ export interface HealthTimesServices {
   video: VideoService;
   audio: AudioService;
   notifications: NotificationService;
+  taxonomy: TaxonomyService;
   platform: PlatformService;
   social: SocialAttributionService;
 }
