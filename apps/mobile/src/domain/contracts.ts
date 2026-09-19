@@ -1,6 +1,7 @@
 import type {
   AdDecision,
   AdPlacementKey,
+  AdRequestContext,
   AnalyticsEvent,
   AppearancePreference,
   ArticleDetail,
@@ -11,6 +12,8 @@ import type {
   LiveItem,
   NotificationItem,
   PlatformConnectivityReport,
+  PremiumRestoreResult,
+  PremiumStoreState,
   ReaderProfile,
   SearchQuery,
   SearchResult,
@@ -56,8 +59,14 @@ export interface PremiumService {
   getProtectedArticle(id: string): Promise<ArticleDetail | null>;
 }
 
+export interface PremiumStoreService {
+  getState(): Promise<PremiumStoreState>;
+  startPurchase(storeProductId: string): Promise<void>;
+  restorePurchases(): Promise<PremiumRestoreResult>;
+}
+
 export interface AdvertisingService {
-  getDecision(placementKey: AdPlacementKey): Promise<AdDecision>;
+  getDecision(placementKey: AdPlacementKey, context?: AdRequestContext): Promise<AdDecision>;
 }
 
 export interface AnalyticsService {
@@ -91,6 +100,10 @@ export interface PlatformService {
 
 export interface SocialAttributionService {
   buildCanonicalShareUrl(article: ArticleSummary): Promise<string>;
+  buildAttributedShareUrl(
+    article: ArticleSummary,
+    channel: "system" | "whatsapp" | "facebook" | "x" | "linkedin" | "email" | "copy"
+  ): Promise<string>;
 }
 
 export interface HealthTimesServices {
@@ -99,6 +112,7 @@ export interface HealthTimesServices {
   auth: AuthService;
   reader: ReaderRepository;
   premium: PremiumService;
+  premiumStore: PremiumStoreService;
   advertising: AdvertisingService;
   analytics: AnalyticsService;
   live: LiveService;
