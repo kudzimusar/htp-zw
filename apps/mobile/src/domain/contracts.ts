@@ -5,9 +5,11 @@ import type {
   ArticleDetail,
   ArticleSummary,
   AudioItem,
+  AuthSessionState,
   EditionPreference,
   LiveItem,
   NotificationItem,
+  PlatformConnectivityReport,
   ReaderProfile,
   SearchQuery,
   SearchResult,
@@ -27,6 +29,7 @@ export interface SearchService {
 
 export interface AuthService {
   getReader(): Promise<ReaderProfile>;
+  getSessionState(): Promise<AuthSessionState>;
   signOut(): Promise<void>;
 }
 
@@ -67,6 +70,10 @@ export interface NotificationService {
   registerDevice(): Promise<{ status: "fixture" | "registered" | "blocked" }>;
 }
 
+export interface PlatformService {
+  checkConnectivity(): Promise<PlatformConnectivityReport>;
+}
+
 export interface SocialAttributionService {
   buildCanonicalShareUrl(article: ArticleSummary): Promise<string>;
 }
@@ -83,5 +90,6 @@ export interface HealthTimesServices {
   video: VideoService;
   audio: AudioService;
   notifications: NotificationService;
+  platform: PlatformService;
   social: SocialAttributionService;
 }
