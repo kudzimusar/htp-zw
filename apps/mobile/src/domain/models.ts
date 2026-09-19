@@ -117,24 +117,77 @@ export type AdPlacementKey =
   | "watch_feed"
   | "live_feed";
 
+export type AdRequestContext = {
+  consentForPersonalizedAds: boolean;
+  sensitiveHealthContext: boolean;
+  pagePath?: string;
+  storyId?: string;
+};
+
 export type AdDecision = {
   placementKey: AdPlacementKey;
   source: "direct" | "adsense" | "house" | "none";
+  personalization: "personalized" | "non-personalized" | "contextual" | "none";
   disclosureLabel: string;
+  policyReason?: string;
   creativeUrl?: string;
   destinationUrl?: string;
   commercialSourceContext?: CommercialSourceContext;
 };
 
+export type AnalyticsEventName =
+  | "page_view"
+  | "article_view"
+  | "article_25_percent"
+  | "article_50_percent"
+  | "article_75_percent"
+  | "article_complete"
+  | "listen_started"
+  | "listen_completed"
+  | "story_saved"
+  | "story_shared"
+  | "whatsapp_share"
+  | "search_performed"
+  | "topic_followed"
+  | "citation_copied"
+  | "reference_opened"
+  | "premium_preview_started"
+  | "premium_warning_shown"
+  | "premium_locked"
+  | "subscription_started"
+  | "subscription_completed"
+  | "newsletter_signup"
+  | "push_opt_in"
+  | "ad_impression"
+  | "ad_click";
+
 export type AnalyticsEvent = {
-  eventName: string;
-  eventVersion: string;
+  eventName: AnalyticsEventName;
+  eventVersion: "2026-09-09";
   storyId?: string;
   pagePath?: string;
   source?: string;
   medium?: string;
   campaign?: string;
   parameters?: Record<string, string | number | boolean | null>;
+};
+
+export type PremiumOffer = {
+  productKey: "monthly" | "yearly";
+  storeProductId: string;
+  displayPrice: string;
+  periodLabel: string;
+};
+
+export type PremiumStoreState = {
+  status: "configuration-required" | "available" | "unavailable";
+  offers: PremiumOffer[];
+  message: string;
+};
+
+export type PremiumRestoreResult = {
+  restored: boolean;
+  reason: "restored" | "nothing-to-restore" | "configuration-required" | "unavailable";
 };
 
 export type NotificationItem = {
