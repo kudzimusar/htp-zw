@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, VideoCard } from "../../src/ui/Cards";
-import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
+import { EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { colors, radius, spacing } from "../../src/theme/tokens";
@@ -51,6 +51,26 @@ export default function HomeScreen() {
       </Section>
 
       <Section>
+        <SectionHeader title="Primary Edition" action="Change edition" onAction={() => router.push("/edition" as never)} />
+        <StoryGrid stories={home.data.filter((item) => item.geography.some((zone) => zone.slug === "zimbabwe")).slice(0, 2)} />
+      </Section>
+
+      <Section>
+        <SectionHeader title="Research & Findings" />
+        <StoryGrid stories={home.data.filter((item) => item.primarySection?.slug === "research").slice(0, 2)} />
+      </Section>
+
+      <Section>
+        <SectionHeader title="Health Business" />
+        <StoryGrid stories={home.data.filter((item) => item.primarySection?.slug === "health-business").slice(0, 2)} />
+      </Section>
+
+      <Section>
+        <SectionHeader title="Premium Intelligence" action="View Premium" onAction={() => router.push("/premium" as never)} />
+        <StoryGrid stories={home.data.filter((item) => item.accessPolicy === "premium").slice(0, 2)} />
+      </Section>
+
+      <Section>
         <SectionHeader title="Watch" action="Open Watch" onAction={() => router.push("/watch" as never)} />
         <View style={styles.watchGrid}>
           {video.data?.map((item) => <View key={item.id} style={styles.watchItem}><VideoCard item={item} /></View>)}
@@ -59,6 +79,23 @@ export default function HomeScreen() {
 
       <Section>
         <AdSlot placement="home_watch" />
+      </Section>
+
+      <Section>
+        <SectionHeader title="Global Health" />
+        <StoryGrid stories={home.data.filter((item) => item.geography.some((zone) => zone.slug === "global")).slice(0, 3)} />
+      </Section>
+
+      <Section>
+        <SectionHeader title="Most Read / Trending" />
+        <EmptyState
+          title="Awaiting verified audience data"
+          message="AG-05 supplies real audience and analytics signals. NM-01 preserves this approved Home position without fabricating a ranking."
+        />
+      </Section>
+
+      <Section>
+        <AdSlot placement="home_deep_feed" />
       </Section>
     </Page>
   );
