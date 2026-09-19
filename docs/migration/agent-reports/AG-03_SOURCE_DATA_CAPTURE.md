@@ -95,7 +95,7 @@ Read-only public/admin capture dated 2026-09-09 and 2026-09-14 records:
 
 Admin listing additionally recorded 5,800 total posts with 5,721 published, 9 drafts, 2 pending and 2 trash.
 
-These figures are **baseline evidence**, not final authoritative snapshot reconciliation. Editorial publishing remains live, so differences in the eventual database snapshot must be logged as source drift rather than automatically treated as migration failure.
+These figures are **historical baseline evidence**, not current authoritative snapshot reconciliation. They must not be hard-coded as current counts. The AG-03 reconciler now performs a fresh read-only REST inventory when source validation runs and records its own capture timestamp. A fresh count was not substituted during this checkpoint because the available external REST access path did not return usable inventory envelope data. Editorial publishing remains live, so differences in the eventual database snapshot must be classified by the reconciler rather than automatically treated as migration failure.
 
 ## F. WordPress configuration provenance
 
@@ -185,7 +185,7 @@ Do not infer active spend from module presence alone. Account-level evidence is 
 
 Observed stack confirms commerce capability exists, including WooCommerce, Memberships, Subscriptions, PayPal and Paynow. The visible WooCommerce analytics screen for early September 2026 showed no month-to-date orders/sales.
 
-Current classification: **UNKNOWN — authoritative private history required**.
+Current classification: **UNVERIFIED — authoritative private database/export history required**.
 
 Pending database/export evidence must determine:
 
@@ -193,6 +193,7 @@ Pending database/export evidence must determine:
 - whether subscriptions/memberships are active;
 - whether Premium/e-paper/advertising/donation or other commerce depends on WooCommerce;
 - active payment-provider relationships;
+- payment historical relevance: **UNVERIFIED** until authoritative records arrive;
 - legally/accounting-relevant retention requirements;
 - current entitlement model.
 
@@ -202,9 +203,9 @@ No customer/payment rows may be copied into Git or this report.
 
 Public product and admin evidence show audience/distribution capability, but authoritative provider/account/export evidence is not yet captured.
 
-- Newsletter provider/list storage: **UNKNOWN / access pending**
-- Subscriber export availability: **UNKNOWN / access pending**
-- WhatsApp distribution model/provider: **UNKNOWN / access pending**
+- Newsletter provider/list storage: **UNVERIFIED / access pending**
+- Subscriber export availability: **UNVERIFIED / access pending**
+- WhatsApp distribution model/provider: **UNVERIFIED / access pending**
 - Personal phone/email lists committed to Git: **NO**
 
 ## N. Direct advertising
@@ -249,24 +250,63 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 
 These belong to later production lanes and must not be requested merely to complete rehearsal source capture.
 
-## Q. Test and validation state
+## Q. Pre-source validation tooling and test state
 
-Added sanitized tests covering:
+AG-03 now includes the complete preparatory validation path required before private artifacts arrive:
 
-- SHA-256 manifest generation;
-- omission of private filenames/local paths from repository-safe metadata;
-- refusal to use a repository-local private source workspace;
-- deterministic checksum/format detection.
+- `scripts/migration/validate-wordpress-database.js` — validates private `.sql` / `.sql.gz` outside Git, checks gzip/SQL integrity, detects the WordPress prefix, enumerates core/plugin/commerce/audience tables, computes sanitized row-count metadata, detects essential core gaps, classifies WooCommerce/subscription/membership/payment signals, and emits provenance capabilities without exposing row values.
+- `scripts/migration/validate-wordpress-uploads.js` — validates `.tar.gz`, `.zip`, or extracted uploads directories; records file/byte/type/year-month distributions, zero-byte files, duplicate hashes, unreadable/malformed entries, symlinks, unexpected executable/script extensions and archive integrity without emitting filenames or absolute paths.
+- `scripts/migration/reconcile-source-inventory.js` — compares a fresh read-only REST inventory with authoritative database counts using `MATCH`, `EXPECTED_SOURCE_DRIFT`, `REQUIRES_REVIEW`, `MISSING_FROM_DATABASE`, and `DATABASE_ONLY`.
+- `scripts/migration/validate-provenance-readiness.js` — emits only `PROVENANCE_READY` or `PROVENANCE_GAPS` plus a sanitized gap list.
+- `scripts/migration/validate-source-package.js` — unified read-only CP3 validator.
 
-CI evidence:
+Unified command:
 
-- Standard repository validation workflow: **PASS** on AG-03 PR head `9ff8d0d02d3a658f911f36a28ce2d4ca77896f49`.
-- Dedicated `Migration Tests` workflow added for migration-sensitive pull-request changes.
-- Required command `npm run test:migration`: **PASS** on AG-03 head `092e835fca0d15d3644cd49690d5f8d878a29eda`.
-- Dependency installation: PASS.
-- Migration test job conclusion: SUCCESS.
+```bash
+npm run migration:validate-source -- --root /PRIVATE/OUTSIDE-GIT/WORKSPACE
+```
 
-The final documentation-only receipt commit does not alter migration runtime/test code; the green migration-test evidence therefore remains applicable to the implemented tooling. No failing test is hidden or reclassified.
+Optional explicit artifact overrides are supported with `--database` and `--uploads`. Optional `--live-inventory` can be used for a sanitized captured REST inventory; otherwise the reconciler attempts a fresh read-only HealthTimes REST inventory.
+
+Unified exit-state semantics:
+
+- exit 2 / `ARTIFACT_MISSING`
+- exit 3 / `ARTIFACT_INVALID`
+- exit 4 / `ARTIFACT_VALID_RECONCILIATION_INCOMPLETE`
+- exit 0 / `SOURCE_VALIDATION_READY`
+
+The source-package manifest is schema `2.0` and preserves outside-Git enforcement while adding artifact role, validator version, capture/export timestamp placeholder, validation timestamp/status, content type/format, size, SHA-256, source class, snapshot relationship and authoritative/supplementary classification. Filenames and absolute private paths remain omitted.
+
+Synthetic fixture coverage includes:
+
+- plain `.sql`;
+- `.sql.gz`;
+- corrupted gzip;
+- alternate WordPress prefix;
+- missing essential WordPress core tables;
+- WooCommerce present/absent;
+- subscriptions present/absent;
+- memberships/payment/audience/custom table classification;
+- uploads directory and `.tar.gz` archive;
+- zero-byte asset;
+- duplicate asset hash;
+- unexpected script file signal;
+- malformed media path;
+- provenance READY/GAPS;
+- all required source-drift classifications;
+- manifest privacy;
+- rejection of source workspace inside Git;
+- unified missing-vs-valid source package outcomes;
+- output checks that private fixture filenames and absolute paths are not emitted.
+
+Required command `npm run test:migration`: **PASS** on AG-03 runtime SHA `04c7c789403f3883230c9a0d9936fd70249d34f1`.
+
+CI at that runtime SHA:
+
+- Validate HealthTimes 2.0: **SUCCESS**
+- Migration Tests: **SUCCESS**
+
+No failing migration test was waived or reclassified.
 
 ## R. Security / production safety
 
@@ -291,8 +331,36 @@ The final documentation-only receipt commit does not alter migration runtime/tes
 - AG-05 SEO/analytics/monetization readiness: **BLOCKED for certification** — core public/Site Kit identities are known, but account-level ownership/history evidence remains pending.
 - AG-06 Newsroom backend readiness: **READY from CP2 architecture perspective**; AG-03 has not modified its staging backend boundary.
 
-## T. CP3 decision
+## T. CP3 closure template — placeholders only
 
-The implementation guardrails, manifest/checksum tooling, source inventory baseline and explicit blocker ledger are in place, but the actual authoritative private source package has not yet been received and validated. Therefore CP3 cannot be certified.
+Do not populate these fields until the actual private artifacts have been received and validated.
+
+| Closure field | Value |
+| --- | --- |
+| Database SHA-256 | `PENDING_PRIVATE_ARTIFACT` |
+| Database size | `PENDING_PRIVATE_ARTIFACT` |
+| Database table count | `PENDING_PRIVATE_ARTIFACT` |
+| WordPress table prefix | `PENDING_PRIVATE_ARTIFACT` |
+| Database validation result | `PENDING_PRIVATE_ARTIFACT` |
+| Uploads SHA-256 / tree SHA-256 | `PENDING_PRIVATE_ARTIFACT` |
+| Uploads total bytes | `PENDING_PRIVATE_ARTIFACT` |
+| Uploads file count | `PENDING_PRIVATE_ARTIFACT` |
+| Uploads archive integrity | `PENDING_PRIVATE_ARTIFACT` |
+| Authoritative published-post count | `PENDING_PRIVATE_ARTIFACT` |
+| Authoritative page count | `PENDING_PRIVATE_ARTIFACT` |
+| Authoritative media count | `PENDING_PRIVATE_ARTIFACT` |
+| Authoritative category count | `PENDING_PRIVATE_ARTIFACT` |
+| Authoritative tag count | `PENDING_PRIVATE_ARTIFACT` |
+| Authoritative author/user count | `PENDING_PRIVATE_ARTIFACT` |
+| Drift reconciliation | `PENDING_PRIVATE_ARTIFACT` |
+| Provenance readiness | `PENDING_PRIVATE_ARTIFACT` |
+| WooCommerce/subscriptions classification | `UNVERIFIED` |
+| Newsletter/audience classification | `UNVERIFIED` |
+| Payment historical relevance | `UNVERIFIED` |
+| Unresolved source items | `PENDING_PRIVATE_ARTIFACT_REVIEW` |
+
+## U. CP3 decision
+
+The pre-source validation toolchain is implemented and tested, but the actual authoritative private database and uploads package has not yet been received. CP3 therefore remains open.
 
 **CP3 NOT READY — downstream migration remains blocked**
