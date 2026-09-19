@@ -16,6 +16,7 @@ import type {
 } from "../domain/contracts";
 import type { EditionPreference, SearchQuery } from "../domain/models";
 import { articles, audioItems, liveItems, notifications, videos } from "../fixtures/content";
+import { certifiedTaxonomyFixtureService } from "./taxonomy";
 
 const normalized = (value: string) => value.trim().toLowerCase();
 
@@ -172,6 +173,7 @@ export const fixtureServices: HealthTimesServices = {
   video: videoService,
   audio: audioService,
   notifications: notificationService,
+  taxonomy: certifiedTaxonomyFixtureService,
   platform: platformService,
   social: socialService
 };
