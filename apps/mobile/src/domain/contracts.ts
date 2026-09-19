@@ -16,6 +16,7 @@ import type {
   VideoItem
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
+import type { ReaderAppearance, ReadingPosition } from "../reader/types";
 
 export interface ArticleRepository {
   getHome(): Promise<ArticleSummary[]>;
