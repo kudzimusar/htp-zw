@@ -1,16 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { StoryGrid } from "../src/ui/Cards";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { colors, radius, spacing } from "../src/theme/tokens";
+import { event } from "../src/growth/events";
 
 export default function SearchScreen(){
   const [query,setQuery]=useState("");
   const [submitted,setSubmitted]=useState("");
   const [format,setFormat]=useState<"article"|"video"|"audio"|"live"|undefined>();
   const results=useAsync(()=>services.search.search({text:submitted,format}),[submitted,format]);
+
+  useEffect(()=>{
+    if(!submitted || !results.data) return;
+    const resultCount=
+      results.data.articles.length+
+      results.data.videos.length+
+      results.data.audio.length+
+      results.data.live.length;
+    void services.analytics.track(event("search_performed",{
+      result_count:resultCount,
+      format:format ?? "all",
+      // Raw search text is deliberately excluded until AG-05 privacy/consent policy
+      // explicitly allows it; health-related search queries can reveal sensitive interests.
+      query_redacted:true
+    },{pagePath:"/search"}));
+  },[submitted,format,results.data]);
 
   return (
     <Page title="Intelligent Search">
