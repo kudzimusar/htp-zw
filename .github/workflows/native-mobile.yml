@@ -1,4 +1,4 @@
-name: Native Mobile Foundation + Staging + Contracts + Reader + Growth + Security
+name: Native Mobile Foundation + Staging + Contracts + Reader + Growth + Security + Certification
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
       - feat/native-mobile-nm04-reader-product
       - feat/native-mobile-nm05-growth-commercial
       - feat/native-mobile-nm06-identity-security
+      - feat/native-mobile-nm07-native-certification
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -65,6 +66,9 @@ jobs:
 
       - name: Run NM-06 identity and Studio security tests
         run: npm --prefix apps/mobile run test:identity-security
+
+      - name: Run NM-07 certification readiness tests
+        run: npm --prefix apps/mobile run test:native-certification
 
       - name: Export universal web/PWA build
         run: npm run native:export:web
