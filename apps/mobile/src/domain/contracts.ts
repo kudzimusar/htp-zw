@@ -4,10 +4,13 @@ import type {
   AdRequestContext,
   AnalyticsEvent,
   AppearancePreference,
+  AccountDeletionState,
+  AuthActionResult,
   ArticleDetail,
   ArticleSummary,
   AudioItem,
   AuthSessionState,
+  CurrentDeviceSession,
   EditionPreference,
   LiveItem,
   NotificationItem,
@@ -20,6 +23,9 @@ import type {
   VideoItem
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
+import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
+import type { NotificationPreferences } from "../security/notification-preferences";
+import type { PushRegistrationResult } from "../security/push";
 
 export interface ArticleRepository {
   getHome(): Promise<ArticleSummary[]>;
@@ -35,7 +41,24 @@ export interface SearchService {
 export interface AuthService {
   getReader(): Promise<ReaderProfile>;
   getSessionState(): Promise<AuthSessionState>;
+  signInWithPassword(email: string, password: string): Promise<AuthActionResult>;
+  registerReader(email: string, password: string, displayName: string): Promise<AuthActionResult>;
+  requestPasswordReset(email: string): Promise<AuthActionResult>;
+  resendVerification(email: string): Promise<AuthActionResult>;
+  requestAccountDeletion(): Promise<AccountDeletionState>;
   signOut(): Promise<void>;
+}
+
+export interface AuthorizationService {
+  getSnapshot(): Promise<AuthorizationSnapshot>;
+  hasCapability(capability: HealthTimesCapability): Promise<boolean>;
+}
+
+export interface DeviceSecurityService {
+  getCurrentSession(): Promise<CurrentDeviceSession>;
+  requestPushRegistration(): Promise<PushRegistrationResult>;
+  getNotificationPreferences(): Promise<NotificationPreferences>;
+  saveNotificationPreferences(preferences: NotificationPreferences): Promise<void>;
 }
 
 export interface ReaderRepository {
@@ -110,6 +133,8 @@ export interface HealthTimesServices {
   articles: ArticleRepository;
   search: SearchService;
   auth: AuthService;
+  authorization: AuthorizationService;
+  deviceSecurity: DeviceSecurityService;
   reader: ReaderRepository;
   premium: PremiumService;
   premiumStore: PremiumStoreService;
