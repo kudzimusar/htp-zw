@@ -22,7 +22,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     scheme: "healthtimes",
     orientation: "default",
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
     plugins: ["expo-router"],
     experiments: { typedRoutes: true },
     ios: {
