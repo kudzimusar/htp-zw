@@ -43,6 +43,9 @@ test("staging Reader auth uses Supabase Auth without granting staff authority",(
     "signUp",
     "resetPasswordForEmail",
     "auth.resend",
+    "exchangeCodeForSession",
+    "auth.setSession",
+    "auth.updateUser",
     "auth.signOut"
   ]) assert.ok(staging.includes(action),"missing staging auth action: "+action);
 
@@ -64,6 +67,7 @@ test("push registration is permission-driven and never claims server registratio
   const push=read("src/security/push.ts");
   assert.ok(push.includes("getPermissionsAsync"));
   assert.ok(push.includes("requestPermissionsAsync"));
+  assert.ok(push.includes("setNotificationChannelAsync"));
   assert.ok(push.includes("getExpoPushTokenAsync"));
   assert.ok(push.includes('status: "backend-required"'));
   assert.ok(push.includes("not treated as registered"));
@@ -114,7 +118,7 @@ test("no privileged server secret or local authority fixture is introduced",()=>
   assert.equal(/setRole|switchRole|assumeRole|grantCapability/i.test(corpus),false);
 });
 
-test("anonymous staging reads cannot enumerate staff profiles",async()=>{
+test("anonymous staging reads cannot enumerate protected identity/editorial tables",async()=>{
   const eas=JSON.parse(read("eas.json"));
   const env=eas.build?.staging?.env ?? {};
   const url=env.EXPO_PUBLIC_SUPABASE_URL;
@@ -122,11 +126,33 @@ test("anonymous staging reads cannot enumerate staff profiles",async()=>{
   assert.equal(typeof url,"string");
   assert.equal(typeof key,"string");
 
-  const response=await fetch(url+"/rest/v1/staff_profiles?select=id&limit=1",{
-    headers:{apikey:key,Authorization:"Bearer "+key}
-  });
-  assert.equal(response.ok,true,"RLS probe returned HTTP "+response.status);
-  const body=await response.json();
-  assert.equal(Array.isArray(body),true);
-  assert.equal(body.length,0,"anonymous client must not enumerate staff profiles");
+  for(const table of [
+    "staff_profiles",
+    "stories",
+    "story_revisions",
+    "subscribers",
+    "premium_entitlements"
+  ]){
+    const response=await fetch(url+"/rest/v1/"+table+"?select=id&limit=1",{
+      headers:{apikey:key,Authorization:"Bearer "+key}
+    });
+    assert.equal(response.ok,true,table+" RLS probe returned HTTP "+response.status);
+    const body=await response.json();
+    assert.equal(Array.isArray(body),true);
+    assert.equal(body.length,0,"anonymous client must not enumerate "+table);
+  }
+});
+
+
+test("account recovery callback is consumed before password replacement",()=>{
+  const account=read("app/account-access.tsx");
+  const staging=read("src/services/staging.ts");
+  assert.ok(account.includes("Linking.getInitialURL"));
+  assert.ok(account.includes('Linking.addEventListener("url"'));
+  assert.ok(account.includes("handleAuthCallback"));
+  assert.ok(account.includes("completePasswordReset"));
+  assert.ok(staging.includes("exchangeCodeForSession"));
+  assert.ok(staging.includes("auth.setSession"));
+  assert.ok(staging.includes("auth.updateUser"));
+  assert.ok(staging.includes("A verified password-recovery session is required"));
 });
