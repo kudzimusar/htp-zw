@@ -32,3 +32,33 @@ export function parseHealthTimesDeepLink(url: string) {
   const match = path.match(/^article\/([^/?#]+)$/);
   return match?.[1] ? { type: "article" as const, articleId: decodeURIComponent(match[1]) } : null;
 }
+
+
+export type SocialReferralAttribution = {
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  canonicalPath: string;
+};
+
+const cleanAttributionValue = (value: string | null) =>
+  value && value.trim() ? value.trim().slice(0, 120) : null;
+
+export function parseSocialReferral(url: string): SocialReferralAttribution | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "healthtimes.co.zw" && parsed.hostname !== "www.healthtimes.co.zw") {
+      return null;
+    }
+    return {
+      source: cleanAttributionValue(parsed.searchParams.get("utm_source")),
+      medium: cleanAttributionValue(parsed.searchParams.get("utm_medium")),
+      campaign: cleanAttributionValue(parsed.searchParams.get("utm_campaign")),
+      content: cleanAttributionValue(parsed.searchParams.get("utm_content")),
+      canonicalPath: parsed.pathname || "/"
+    };
+  } catch {
+    return null;
+  }
+}
