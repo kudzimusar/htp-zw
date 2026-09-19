@@ -1,9 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { AppearanceProvider } from "../src/theme/AppearanceProvider";
 
 export default function RootLayout() {
   return (
-    <>
+    <AppearanceProvider>
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(reader)" />
@@ -16,8 +17,9 @@ export default function RootLayout() {
         <Stack.Screen name="premium" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="system-status" />
+        <Stack.Screen name="appearance" />
         <Stack.Screen name="studio" />
       </Stack>
-    </>
+    </AppearanceProvider>
   );
 }
