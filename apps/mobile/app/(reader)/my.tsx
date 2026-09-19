@@ -13,10 +13,14 @@ const items=[
   ["Reading History","/saved"],
   ["Notifications","/notifications"],
   ["My Subscriptions","/premium"],
+  ["Payment Methods","/premium"],
   ["Appearance / Theme","/my"],
   ["Privacy","/my"],
   ["Security","/my"],
-  ["Help & Support","/my"]
+  ["Devices / Sessions","/my"],
+  ["Settings","/my"],
+  ["Help & Support","/my"],
+  ["Sign Out","/my"]
 ] as const;
 
 export default function MyHealthTimesScreen(){
