@@ -125,7 +125,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     geographyRefs: (relations.geography ?? []).map(mapGeographicZoneRow),
     topics: relations.topics ?? [],
     heroMedia: relations.heroMedia ? mapMediaRow(relations.heroMedia) : null,
-    sourceProvenance: mapSourceProvenance(relations.legacySource),
+    sourceProvenance: mapSourceProvenance(relations.legacySource ?? null),
     contentIntegrity: "unknown",
     premiumSourceContext: {
       accessPolicy,
