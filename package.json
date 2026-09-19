@@ -5,7 +5,13 @@
   "description": "HealthTimes Zimbabwe client-review publication, newsroom and PWA.",
   "scripts": {
     "test:uat": "playwright test",
-    "test:uat:headed": "playwright test --headed"
+    "test:uat:headed": "playwright test --headed",
+    "native:start": "npm --prefix apps/mobile run start",
+    "native:android": "npm --prefix apps/mobile run android",
+    "native:ios": "npm --prefix apps/mobile run ios",
+    "native:web": "npm --prefix apps/mobile run web",
+    "native:check": "npm --prefix apps/mobile run check",
+    "native:export:web": "npm --prefix apps/mobile run export:web"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
