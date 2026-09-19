@@ -9,14 +9,14 @@ import type {
   NotificationService,
   PremiumService,
   PlatformService,
-  ReaderRepository,
   SearchService,
   SocialAttributionService,
   VideoService
 } from "../domain/contracts";
-import type { EditionPreference, SearchQuery } from "../domain/models";
+import type { SearchQuery } from "../domain/models";
 import { articles, audioItems, liveItems, notifications, videos } from "../fixtures/content";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
+import { persistentReaderRepository } from "./reader-persistence";
 
 const normalized = (value: string) => value.trim().toLowerCase();
 
@@ -68,33 +68,6 @@ const authService: AuthService = {
   },
   async signOut() {
     return;
-  }
-};
-
-let preferences: EditionPreference = {
-  primaryEdition: "Global",
-  followedCountries: ["Zimbabwe"],
-  followedTopics: ["Public Health", "Research"]
-};
-const saved = new Set<string>();
-
-const readerRepository: ReaderRepository = {
-  async getPreferences() {
-    return { ...preferences, followedCountries: [...preferences.followedCountries], followedTopics: [...preferences.followedTopics] };
-  },
-  async savePreferences(next) {
-    preferences = { ...next, followedCountries: [...next.followedCountries], followedTopics: [...next.followedTopics] };
-  },
-  async getSavedArticleIds() {
-    return [...saved];
-  },
-  async toggleSavedArticle(id) {
-    if (saved.has(id)) {
-      saved.delete(id);
-      return false;
-    }
-    saved.add(id);
-    return true;
   }
 };
 
@@ -165,7 +138,7 @@ export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   search: searchService,
   auth: authService,
-  reader: readerRepository,
+  reader: persistentReaderRepository,
   premium: premiumService,
   advertising: advertisingService,
   analytics: analyticsService,
