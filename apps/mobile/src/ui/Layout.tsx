@@ -1,3 +1,4 @@
+import { useCallback, useRef } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -8,8 +9,29 @@ import { environmentSummary } from "../platform/config";
 export function Page({
   children,
   scroll = true,
-  title
-}: PropsWithChildren<{ scroll?: boolean; title?: string }>) {
+  title,
+  initialScrollProgress = 0,
+  onScrollProgress
+}: PropsWithChildren<{
+  scroll?: boolean;
+  title?: string;
+  initialScrollProgress?: number;
+  onScrollProgress?: (progress: number) => void;
+}>) {
+  const scrollRef = useRef<ScrollView>(null);
+  const contentHeightRef = useRef(0);
+  const viewportHeightRef = useRef(0);
+  const restoredRef = useRef(false);
+
+  const restorePosition = useCallback(() => {
+    if (restoredRef.current || !scroll || initialScrollProgress <= 0) return;
+    const maxScroll = Math.max(0, contentHeightRef.current - viewportHeightRef.current);
+    if (maxScroll <= 0) return;
+    const progress = Math.max(0, Math.min(1, initialScrollProgress));
+    restoredRef.current = true;
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: maxScroll * progress, animated: false }));
+  }, [initialScrollProgress, scroll]);
+
   const body = (
     <View style={styles.page}>
       <EnvironmentBanner />
@@ -20,7 +42,29 @@ export function Page({
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {scroll ? <ScrollView contentContainerStyle={styles.scrollContent}>{body}</ScrollView> : body}
+      {scroll ? (
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          scrollEventThrottle={250}
+          onLayout={(event) => {
+            viewportHeightRef.current = event.nativeEvent.layout.height;
+            restorePosition();
+          }}
+          onContentSizeChange={(_width, height) => {
+            contentHeightRef.current = height;
+            restorePosition();
+          }}
+          onScroll={(event) => {
+            if (!onScrollProgress) return;
+            const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+            const maxScroll = Math.max(1, contentSize.height - layoutMeasurement.height);
+            onScrollProgress(Math.max(0, Math.min(1, contentOffset.y / maxScroll)));
+          }}
+        >
+          {body}
+        </ScrollView>
+      ) : body}
     </SafeAreaView>
   );
 }
