@@ -47,6 +47,7 @@ test("service contract surface stays explicit", () => {
     "AudioService",
     "NotificationService",
     "PlatformService",
+    "TaxonomyService",
     "SocialAttributionService"
   ]) {
     assert.match(contracts, new RegExp(`export interface ${contract}\\b`), `missing contract: ${contract}`);
