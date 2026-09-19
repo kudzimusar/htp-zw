@@ -15,6 +15,7 @@ export default function RootLayout() {
         <Stack.Screen name="edition" />
         <Stack.Screen name="premium" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="system-status" />
         <Stack.Screen name="studio" />
       </Stack>
     </>
