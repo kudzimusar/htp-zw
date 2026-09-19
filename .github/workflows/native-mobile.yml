@@ -1,4 +1,4 @@
-name: Native Mobile Foundation + Staging + Contracts
+name: Native Mobile Foundation + Staging + Contracts + Reader
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - feat/native-mobile-nm01-foundation
       - feat/native-mobile-nm02-staging-connectivity
       - feat/native-mobile-nm03-content-contracts
+      - feat/native-mobile-nm04-reader-product
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -53,6 +54,9 @@ jobs:
 
       - name: Run NM-03 content contract reconciliation tests
         run: npm --prefix apps/mobile run test:content-contracts
+
+      - name: Run NM-04 Reader product hardening tests
+        run: npm --prefix apps/mobile run test:reader-product
 
       - name: Export universal web/PWA build
         run: npm run native:export:web
