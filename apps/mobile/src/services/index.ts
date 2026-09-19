@@ -2,6 +2,7 @@ import type { HealthTimesServices } from "../domain/contracts";
 import { appEnvironment, editorialDataMode } from "../platform/config";
 import { fixtureServices } from "./fixtures";
 import { stagingAuthService, stagingPlatformService } from "./staging";
+import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 
 export const serviceMode = editorialDataMode;
 
@@ -22,6 +23,8 @@ function buildServices(): HealthTimesServices {
     return {
       ...fixtureServices,
       auth: stagingAuthService,
+      authorization: stagingAuthorizationService,
+      deviceSecurity: stagingDeviceSecurityService,
       platform: stagingPlatformService
     };
   }
