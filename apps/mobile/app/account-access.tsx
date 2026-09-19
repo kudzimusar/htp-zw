@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import * as Linking from "expo-linking";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
 import { colors, layout, radius, spacing } from "../src/theme/tokens";
 
-type Mode = "sign-in" | "register" | "recovery";
+type Mode = "sign-in" | "register" | "recovery" | "new-password";
 
 export default function AccountAccessScreen(){
   const [mode,setMode]=useState<Mode>("sign-in");
@@ -16,8 +17,51 @@ export default function AccountAccessScreen(){
   const validEmail=email.trim().includes("@");
   const strongEnough=password.length>=8;
 
+  useEffect(()=>{
+    let active=true;
+
+    const consume=async(url:string|null)=>{
+      if(!url || !url.includes("account-access")) return;
+      const result=await services.auth.handleAuthCallback(url);
+      if(!active) return;
+      setStatus(result.message);
+
+      if(result.status==="success"){
+        if(url.includes("mode=recovery")){
+          setMode("new-password");
+          setPassword("");
+        }else{
+          setMode("sign-in");
+        }
+      }
+    };
+
+    void Linking.getInitialURL().then(consume);
+    const subscription=Linking.addEventListener("url",({url})=>{ void consume(url); });
+
+    return ()=>{
+      active=false;
+      subscription.remove();
+    };
+  },[]);
+
   const submit=async()=>{
     setStatus("");
+
+    if(mode==="new-password"){
+      if(!strongEnough){
+        setStatus("New password must be at least 8 characters.");
+        return;
+      }
+      const result=await services.auth.completePasswordReset(password);
+      setStatus(result.message);
+      if(result.status==="success"){
+        setPassword("");
+        setMode("sign-in");
+      }
+      return;
+    }
+
     if(!validEmail){
       setStatus("Enter a valid email address.");
       return;
@@ -49,18 +93,24 @@ export default function AccountAccessScreen(){
     setStatus(result.message);
   };
 
+  const title=
+    mode==="sign-in" ? "Sign in" :
+    mode==="register" ? "Create reader account" :
+    mode==="recovery" ? "Password recovery" :
+    "Set a new password";
+
   return (
     <Page title="Account Access">
       <Section>
         <View style={styles.tabs}>
           <Chip active={mode==="sign-in"} onPress={()=>setMode("sign-in")}>Sign in</Chip>
           <Chip active={mode==="register"} onPress={()=>setMode("register")}>Create reader account</Chip>
-          <Chip active={mode==="recovery"} onPress={()=>setMode("recovery")}>Reset password</Chip>
+          <Chip active={mode==="recovery" || mode==="new-password"} onPress={()=>setMode("recovery")}>Reset password</Chip>
         </View>
       </Section>
 
       <Section>
-        <SectionHeader title={mode==="sign-in" ? "Sign in" : mode==="register" ? "Create reader account" : "Password recovery"} />
+        <SectionHeader title={title} />
         <View style={styles.form}>
           {mode==="register" && (
             <TextInput
@@ -72,37 +122,47 @@ export default function AccountAccessScreen(){
               accessibilityLabel="Display name"
             />
           )}
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email address"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            style={styles.input}
-            accessibilityLabel="Email address"
-          />
-          {mode!=="recovery" && (
+
+          {mode!=="new-password" && (
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email address"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              style={styles.input}
+              accessibilityLabel="Email address"
+            />
+          )}
+
+          {(mode==="sign-in" || mode==="register" || mode==="new-password") && (
             <TextInput
               value={password}
               onChangeText={setPassword}
-              placeholder="Password"
+              placeholder={mode==="new-password" ? "New password" : "Password"}
               secureTextEntry
               autoComplete={mode==="sign-in" ? "current-password" : "new-password"}
               style={styles.input}
-              accessibilityLabel="Password"
+              accessibilityLabel={mode==="new-password" ? "New password" : "Password"}
             />
           )}
+
           <Pressable accessibilityRole="button" style={styles.primary} onPress={()=>void submit()}>
             <Text style={styles.primaryText}>
-              {mode==="sign-in" ? "Sign in" : mode==="register" ? "Create account" : "Request reset"}
+              {mode==="sign-in" ? "Sign in" :
+               mode==="register" ? "Create account" :
+               mode==="recovery" ? "Request reset" :
+               "Set new password"}
             </Text>
           </Pressable>
-          {mode!=="sign-in" && (
+
+          {mode==="register" && (
             <Pressable accessibilityRole="button" style={styles.secondary} onPress={()=>void resend()}>
               <Text style={styles.secondaryText}>Resend verification email</Text>
             </Pressable>
           )}
+
           {!!status && <Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>}
         </View>
       </Section>
@@ -112,6 +172,9 @@ export default function AccountAccessScreen(){
           <Text style={styles.securityTitle}>Reader identity is not Studio authority</Text>
           <Text style={styles.securityText}>
             A signed-in reader cannot grant themselves staff roles or publishing capabilities. Studio privileges require an AG-06 server-issued capability snapshot.
+          </Text>
+          <Text style={styles.securityText}>
+            Email verification and password-recovery links return to this screen. Native sessions are persisted with SecureStore; web uses the compatible browser storage fallback.
           </Text>
         </View>
       </Section>
