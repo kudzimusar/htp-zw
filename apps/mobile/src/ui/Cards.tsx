@@ -12,7 +12,13 @@ function formatDate(value: string | null) {
 export function HeroStory({ story }: { story: ArticleSummary }) {
   const router=useRouter();
   return (
-    <Pressable style={styles.hero} onPress={() => router.push(("/article/" + story.id) as never)}>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={story.title}
+      accessibilityHint="Opens the full HealthTimes article"
+      style={styles.hero}
+      onPress={() => router.push(("/article/" + story.id) as never)}
+    >
       {story.heroMedia?.publicUrl ? (
         <Image source={{ uri: story.heroMedia.publicUrl }} style={styles.heroImage} accessibilityLabel={story.heroMedia.altText ?? story.title} />
       ) : null}
@@ -32,7 +38,13 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
 export function StoryCard({ story, compact = false }: { story: ArticleSummary; compact?: boolean }) {
   const router=useRouter();
   return (
-    <Pressable style={[styles.storyCard, compact && styles.storyCompact]} onPress={() => router.push(("/article/" + story.id) as never)}>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={story.title}
+      accessibilityHint="Opens the full HealthTimes article"
+      style={[styles.storyCard, compact && styles.storyCompact]}
+      onPress={() => router.push(("/article/" + story.id) as never)}
+    >
       {story.heroMedia?.publicUrl ? (
         <Image source={{ uri: story.heroMedia.publicUrl }} style={[styles.storyImage, compact && styles.storyImageCompact]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
       ) : null}
@@ -51,11 +63,15 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
 
 export function StoryGrid({ stories }: { stories: ArticleSummary[] }) {
   const { width }=useWindowDimensions();
+  const tablet=width >= breakpoints.tablet;
   const desktop=width >= breakpoints.desktop;
   return (
-    <View style={[styles.grid, desktop && styles.gridDesktop]}>
+    <View style={[styles.grid, tablet && styles.gridResponsive]}>
       {stories.map((story) => (
-        <View key={story.id} style={desktop ? styles.gridItemDesktop : styles.gridItemMobile}>
+        <View
+          key={story.id}
+          style={desktop ? styles.gridItemDesktop : tablet ? styles.gridItemTablet : styles.gridItemMobile}
+        >
           <StoryCard story={story} />
         </View>
       ))}
@@ -141,8 +157,9 @@ const styles=StyleSheet.create({
   storyTitle:{fontSize:type.story,lineHeight:25,fontWeight:"900",color:colors.ink},
   excerpt:{fontSize:14,lineHeight:21,color:colors.inkMuted},
   grid:{gap:spacing.xl},
-  gridDesktop:{flexDirection:"row",flexWrap:"wrap"},
+  gridResponsive:{flexDirection:"row",flexWrap:"wrap"},
   gridItemDesktop:{width:"31.7%"},
+  gridItemTablet:{width:"48%"},
   gridItemMobile:{width:"100%"},
   rail:{gap:spacing.md,paddingRight:spacing.lg},
   liveCard:{width:285,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden",backgroundColor:colors.paper},
