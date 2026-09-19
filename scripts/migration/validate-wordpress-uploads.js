@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
-const VALIDATOR_VERSION = '1.0.0';
+const VALIDATOR_VERSION = '1.1.0';
 const SCRIPT_EXTENSIONS = new Set(['php','phtml','phar','cgi','pl','py','rb','sh','bash','zsh','js','mjs','cjs','exe','dll','bat','cmd','ps1']);
 const MIME_BY_EXTENSION = {
   jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp',
@@ -46,22 +46,26 @@ function mimeForExtension(ext) {
 
 function listTree(root) {
   const files = [];
-  const suspiciousLinks = [];
+  let symlinkCount = 0;
+  let hardlinkFileCount = 0;
   function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       const rel = path.relative(root, full);
       const stat = fs.lstatSync(full);
       if (stat.isSymbolicLink()) {
-        suspiciousLinks.push(rel);
+        symlinkCount += 1;
         continue;
       }
       if (stat.isDirectory()) walk(full);
-      else if (stat.isFile()) files.push({ full, rel, stat });
+      else if (stat.isFile()) {
+        if (stat.nlink > 1) hardlinkFileCount += 1;
+        files.push({ full, rel, stat });
+      }
     }
   }
   walk(root);
-  return { files, suspiciousLinks };
+  return { files, symlinkCount, hardlinkFileCount };
 }
 
 function treeHash(files) {
@@ -73,13 +77,13 @@ function treeHash(files) {
 }
 
 function validateExtractedDirectory(rootDir) {
-  const { files, suspiciousLinks } = listTree(rootDir);
+  const { files, symlinkCount, hardlinkFileCount } = listTree(rootDir);
   const extensions = {};
   const mimeTypes = {};
   const yearMonth = {};
-  const zeroByte = [];
-  const unreadable = [];
-  const malformed = [];
+  let zeroByteFileCount = 0;
+  let unreadableFileCount = 0;
+  let malformedPathCount = 0;
   const scriptExtensions = {};
   const hashCounts = new Map();
   let totalBytes = 0;
@@ -90,8 +94,8 @@ function validateExtractedDirectory(rootDir) {
     extensions[ext] = (extensions[ext] || 0) + 1;
     const mime = mimeForExtension(ext);
     mimeTypes[mime] = (mimeTypes[mime] || 0) + 1;
-    if (file.stat.size === 0) zeroByte.push(true);
-    if (isMalformedArchivePath(file.rel)) malformed.push(true);
+    if (file.stat.size === 0) zeroByteFileCount += 1;
+    if (isMalformedArchivePath(file.rel)) malformedPathCount += 1;
     if (SCRIPT_EXTENSIONS.has(ext)) scriptExtensions[ext] = (scriptExtensions[ext] || 0) + 1;
     const parts = file.rel.replace(/\\/g, '/').split('/');
     for (let i = 0; i < parts.length - 1; i += 1) {
@@ -106,9 +110,10 @@ function validateExtractedDirectory(rootDir) {
       const digest = sha256File(file.full);
       hashCounts.set(digest, (hashCounts.get(digest) || 0) + 1);
     } catch {
-      unreadable.push(true);
+      unreadableFileCount += 1;
     }
   }
+
   const duplicateGroups = [...hashCounts.entries()]
     .filter(([, count]) => count > 1)
     .map(([sha256, count]) => ({ sha256, copies: count }))
@@ -120,12 +125,13 @@ function validateExtractedDirectory(rootDir) {
     extension_distribution: Object.fromEntries(Object.entries(extensions).sort()),
     mime_type_distribution: Object.fromEntries(Object.entries(mimeTypes).sort()),
     year_month_distribution: Object.fromEntries(Object.entries(yearMonth).sort()),
-    zero_byte_file_count: zeroByte.length,
+    zero_byte_file_count: zeroByteFileCount,
     duplicate_hash_groups: duplicateGroups,
     duplicate_file_count: duplicateGroups.reduce((sum, g) => sum + g.copies, 0),
-    unreadable_file_count: unreadable.length,
-    malformed_path_count: malformed.length,
-    suspicious_symlink_count: suspiciousLinks.length,
+    unreadable_file_count: unreadableFileCount,
+    malformed_path_count: malformedPathCount,
+    suspicious_symlink_count: symlinkCount,
+    suspicious_hardlink_file_count: hardlinkFileCount,
     unexpected_script_extensions: Object.fromEntries(Object.entries(scriptExtensions).sort()),
     unexpected_script_file_count: Object.values(scriptExtensions).reduce((a, b) => a + b, 0),
     tree_sha256: treeHash(files)
@@ -134,14 +140,32 @@ function validateExtractedDirectory(rootDir) {
 
 function listArchiveEntries(artifact, format) {
   try {
-    if (format === 'tar.gz') {
-      return execFileSync('tar', ['-tzf', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] })
-        .split(/\r?\n/).filter(Boolean);
-    }
-    return execFileSync('unzip', ['-Z1', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] })
-      .split(/\r?\n/).filter(Boolean);
+    const raw = format === 'tar.gz'
+      ? execFileSync('tar', ['-tzf', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] })
+      : execFileSync('unzip', ['-Z1', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
+    return raw.split(/\r?\n/).filter(Boolean);
   } catch {
     return null;
+  }
+}
+
+function inspectArchiveMemberTypes(artifact, format) {
+  try {
+    const raw = format === 'tar.gz'
+      ? execFileSync('tar', ['-tvzf', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] })
+      : execFileSync('unzip', ['-Z', '-l', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
+    let symlink_count = 0;
+    let hardlink_count = 0;
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trimStart();
+      if (!trimmed) continue;
+      const type = trimmed[0];
+      if (type === 'l') symlink_count += 1;
+      if (type === 'h') hardlink_count += 1;
+    }
+    return { status: 'INSPECTED', symlink_count, hardlink_count };
+  } catch {
+    return { status: 'INSPECTION_FAILED', symlink_count: null, hardlink_count: null };
   }
 }
 
@@ -153,9 +177,19 @@ function testArchiveIntegrity(artifact, format) {
   } catch { return false; }
 }
 
-function extractArchive(artifact, format, target) {
+function assertTargetInside(targetRoot, relativePath) {
+  const root = path.resolve(targetRoot);
+  const candidate = path.resolve(root, relativePath);
+  if (candidate !== root && !candidate.startsWith(root + path.sep)) throw new Error('ARCHIVE_PATH_ESCAPE');
+}
+
+function extractArchive(artifact, format, target, entries) {
+  for (const entry of entries) {
+    if (isMalformedArchivePath(entry)) throw new Error('ARCHIVE_PATH_ESCAPE');
+    assertTargetInside(target, entry);
+  }
   if (format === 'tar.gz') {
-    execFileSync('tar', ['-xzf', artifact, '-C', target, '--no-same-owner'], { stdio: ['ignore','ignore','ignore'] });
+    execFileSync('tar', ['-xzf', artifact, '-C', target, '--no-same-owner', '--no-same-permissions'], { stdio: ['ignore','ignore','ignore'] });
   } else {
     execFileSync('unzip', ['-qq', artifact, '-d', target], { stdio: ['ignore','ignore','ignore'] });
   }
@@ -169,7 +203,7 @@ function detectFormat(artifact) {
   return 'unknown';
 }
 
-function validateUploadsArtifact(artifact, options = {}) {
+function validateUploadsArtifact(artifact) {
   const report = {
     validator: 'wordpress_uploads',
     validator_version: VALIDATOR_VERSION,
@@ -181,10 +215,13 @@ function validateUploadsArtifact(artifact, options = {}) {
     file_exists: false,
     file_readable: false,
     archive_integrity: 'NOT_APPLICABLE',
+    archive_member_safety: { status: 'NOT_APPLICABLE', symlink_count: 0, hardlink_count: 0 },
     validation_status: 'INVALID',
     metrics: null,
+    security_findings: [],
     errors: []
   };
+
   try {
     if (!fs.existsSync(artifact)) {
       report.errors.push({ code: 'ARTIFACT_MISSING', message: 'Uploads artifact is missing.' });
@@ -209,35 +246,55 @@ function validateUploadsArtifact(artifact, options = {}) {
     report.metrics = validateExtractedDirectory(artifact);
     report.size_bytes = report.metrics.total_bytes;
     report.sha256 = report.metrics.tree_sha256;
-    report.archive_integrity = 'NOT_APPLICABLE';
   } else {
     const stat = fs.statSync(artifact);
     report.size_bytes = stat.size;
     report.sha256 = sha256File(artifact);
+
     const entries = listArchiveEntries(artifact, format);
     if (!entries) {
       report.archive_integrity = 'FAIL';
       report.errors.push({ code: 'ARCHIVE_LIST_FAILED', message: 'Archive could not be listed safely.' });
       return report;
     }
-    const malformed = entries.filter(isMalformedArchivePath);
-    if (malformed.length) {
+
+    const malformedCount = entries.filter(isMalformedArchivePath).length;
+    if (malformedCount) {
       report.archive_integrity = 'FAIL';
-      report.errors.push({ code: 'MALFORMED_ARCHIVE_PATH', message: 'Archive contains unsafe or malformed paths.', count: malformed.length });
+      report.errors.push({ code: 'MALFORMED_ARCHIVE_PATH', message: 'Archive contains unsafe or malformed paths.', count: malformedCount });
       return report;
     }
+
+    report.archive_member_safety = inspectArchiveMemberTypes(artifact, format);
+    if (report.archive_member_safety.status !== 'INSPECTED') {
+      report.errors.push({ code: 'ARCHIVE_MEMBER_TYPE_INSPECTION_FAILED', message: 'Archive member types could not be inspected safely.' });
+      return report;
+    }
+    if (report.archive_member_safety.symlink_count > 0 || report.archive_member_safety.hardlink_count > 0) {
+      report.archive_integrity = 'FAIL';
+      report.security_findings.push({
+        code: 'ARCHIVE_LINK_ENTRY_REJECTED',
+        severity: 'BLOCKING',
+        symlink_count: report.archive_member_safety.symlink_count,
+        hardlink_count: report.archive_member_safety.hardlink_count
+      });
+      report.errors.push({ code: 'ARCHIVE_LINK_ENTRY_REJECTED', message: 'Archive contains symlink or hardlink members and was not extracted.' });
+      return report;
+    }
+
     if (!testArchiveIntegrity(artifact, format)) {
       report.archive_integrity = 'FAIL';
       report.errors.push({ code: 'ARCHIVE_INTEGRITY_FAILED', message: 'Archive integrity check failed.' });
       return report;
     }
     report.archive_integrity = 'PASS';
+
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'healthtimes-uploads-validate-'));
     try {
-      extractArchive(artifact, format, temp);
+      extractArchive(artifact, format, temp, entries);
       report.metrics = validateExtractedDirectory(temp);
     } catch {
-      report.errors.push({ code: 'ARCHIVE_EXTRACTION_FAILED', message: 'Archive could not be extracted into the disposable validation workspace.' });
+      report.errors.push({ code: 'ARCHIVE_EXTRACTION_FAILED', message: 'Archive could not be extracted safely into the disposable validation workspace.' });
     } finally {
       fs.rmSync(temp, { recursive: true, force: true });
     }
@@ -246,9 +303,28 @@ function validateUploadsArtifact(artifact, options = {}) {
   if (report.metrics) {
     if (report.metrics.malformed_path_count) report.errors.push({ code: 'MALFORMED_MEDIA_PATHS', message: 'Extracted uploads contain malformed paths.', count: report.metrics.malformed_path_count });
     if (report.metrics.unreadable_file_count) report.errors.push({ code: 'UNREADABLE_MEDIA_FILES', message: 'One or more media files are unreadable.', count: report.metrics.unreadable_file_count });
-    if (report.metrics.suspicious_symlink_count) report.errors.push({ code: 'SYMLINKS_NOT_ALLOWED', message: 'Uploads package contains symbolic links.', count: report.metrics.suspicious_symlink_count });
+    if (report.metrics.suspicious_symlink_count || report.metrics.suspicious_hardlink_file_count) {
+      report.security_findings.push({
+        code: 'FILESYSTEM_LINKS_REJECTED',
+        severity: 'BLOCKING',
+        symlink_count: report.metrics.suspicious_symlink_count,
+        hardlink_file_count: report.metrics.suspicious_hardlink_file_count
+      });
+      report.errors.push({ code: 'FILESYSTEM_LINKS_REJECTED', message: 'Uploads tree contains symbolic or hard-linked files.' });
+    }
+    if (report.metrics.unexpected_script_file_count) {
+      report.security_findings.push({
+        code: 'UNEXPECTED_EXECUTABLE_OR_SCRIPT_IN_UPLOADS',
+        severity: 'REVIEW_REQUIRED',
+        count: report.metrics.unexpected_script_file_count,
+        extensions: report.metrics.unexpected_script_extensions
+      });
+    }
   }
-  report.validation_status = report.errors.length ? 'INVALID' : 'VALID';
+
+  if (report.errors.length) report.validation_status = 'INVALID';
+  else if (report.security_findings.some(f => f.severity === 'REVIEW_REQUIRED')) report.validation_status = 'VALID_REQUIRES_REVIEW';
+  else report.validation_status = 'VALID';
   return report;
 }
 
@@ -264,7 +340,8 @@ if (require.main === module) {
     const args = parseArgs(process.argv.slice(2));
     const report = validateUploadsArtifact(path.resolve(args.artifact));
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-    if (report.validation_status !== 'VALID') process.exitCode = 2;
+    if (report.validation_status === 'INVALID') process.exitCode = 3;
+    else if (report.validation_status === 'VALID_REQUIRES_REVIEW') process.exitCode = 4;
   } catch {
     process.stdout.write(JSON.stringify({
       validator: 'wordpress_uploads',
@@ -272,7 +349,7 @@ if (require.main === module) {
       validation_status: 'INVALID',
       errors: [{ code: 'VALIDATOR_ARGUMENT_ERROR', message: 'Uploads artifact argument is required.' }]
     }, null, 2) + '\n');
-    process.exitCode = 2;
+    process.exitCode = 3;
   }
 }
 
@@ -280,8 +357,10 @@ module.exports = {
   MIME_BY_EXTENSION,
   SCRIPT_EXTENSIONS,
   VALIDATOR_VERSION,
+  assertTargetInside,
   detectFormat,
   extensionOf,
+  inspectArchiveMemberTypes,
   isMalformedArchivePath,
   mimeForExtension,
   validateExtractedDirectory,
