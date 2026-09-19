@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
@@ -20,9 +20,12 @@ export default function ArticleScreen(){
   const { id }=useLocalSearchParams<{id:string}>();
   const router=useRouter();
   const [textScale,setTextScale]=useState(1);
+  const [actionStatus,setActionStatus]=useState("");
+  const lastProgressWrite=useRef({at:0,value:0});
   const article=useAsync(()=>services.articles.getById(String(id)),[id]);
   const related=useAsync(()=>services.articles.getRelated(String(id)),[id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
+  const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
 
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   if(!article.data) return <Page title="Article"><Text style={styles.muted}>Article not found.</Text></Page>;
@@ -30,21 +33,50 @@ export default function ArticleScreen(){
   const story=article.data;
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
 
+  useEffect(()=>{
+    void services.reader.recordReadingHistory(story.id);
+  },[story.id]);
+
+  const persistProgress=(progress:number)=>{
+    const now=Date.now();
+    const previous=lastProgressWrite.current;
+    if(now-previous.at<1000 && Math.abs(progress-previous.value)<0.03) return;
+    lastProgressWrite.current={at:now,value:progress};
+    void services.reader.setReadPosition(story.id,progress);
+  };
+
   const share=async()=>{
     const url=await services.social.buildCanonicalShareUrl(story);
     await Share.share({message:story.title+" — "+url,url});
   };
-  const save=async()=>{ await services.reader.toggleSavedArticle(story.id); };
+  const save=async()=>{
+    const saved=await services.reader.toggleSavedArticle(story.id);
+    setActionStatus(saved ? "Saved" : "Removed from saved");
+  };
+
+  const download=async()=>{
+    if(protectedBody){
+      setActionStatus("Premium body is not available for offline storage without entitlement.");
+      return;
+    }
+    await services.reader.downloadArticle(story);
+    setActionStatus("Available offline");
+  };
 
   return (
-    <Page>
+    <Page
+      initialScrollProgress={readPosition.data ?? 0}
+      onScrollProgress={persistProgress}
+    >
       <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={()=>router.back()}><Text style={styles.actionText}>Back</Text></Pressable>
-        <Pressable style={styles.action} onPress={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}><Text style={styles.actionText}>Text {Math.round(textScale*100)}%</Text></Pressable>
-        <Pressable style={styles.action} onPress={save}><Text style={styles.actionText}>Save</Text></Pressable>
-        <Pressable style={styles.action} onPress={()=>router.push("/listen" as never)}><Text style={styles.actionText}>Listen</Text></Pressable>
-        <Pressable style={styles.action} onPress={share}><Text style={styles.actionText}>Share</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" style={styles.action} onPress={()=>router.back()}><Text style={styles.actionText}>Back</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Change article text size" style={styles.action} onPress={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}><Text style={styles.actionText}>Text {Math.round(textScale*100)}%</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Save article" style={styles.action} onPress={save}><Text style={styles.actionText}>Save</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Download article for offline reading" style={styles.action} onPress={download}><Text style={styles.actionText}>Download</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Listen to article" style={styles.action} onPress={()=>router.push("/listen" as never)}><Text style={styles.actionText}>Listen</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Share article" style={styles.action} onPress={share}><Text style={styles.actionText}>Share</Text></Pressable>
       </View>
+      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={styles.actionStatus}>{actionStatus}</Text>}
 
       <View style={styles.articleHeader}>
         <View style={styles.metaRow}>
@@ -82,7 +114,7 @@ export default function ArticleScreen(){
 
       <Section>
         <SectionHeader title="Sources & references" />
-        <Text style={styles.muted}>Authoritative citations will come from migrated story provenance and editorial data. NM-01 does not fabricate references.</Text>
+        <Text style={styles.muted}>Authoritative citations will come from migrated story provenance and editorial data. NM-04 does not fabricate references.</Text>
       </Section>
 
       <Section>
@@ -100,6 +132,7 @@ const styles=StyleSheet.create({
   actions:{marginTop:spacing.lg,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   action:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderColor:colors.border},
   actionText:{fontSize:13,fontWeight:"800",color:colors.ink},
+  actionStatus:{fontSize:12,fontWeight:"700",color:colors.success,marginTop:spacing.sm},
   articleHeader:{marginTop:spacing.xl,gap:spacing.md,maxWidth:layout.articleMax,alignSelf:"center",width:"100%"},
   metaRow:{flexDirection:"row",gap:spacing.sm,alignItems:"center"},
   kicker:{fontSize:12,fontWeight:"900",color:colors.blue,textTransform:"uppercase",letterSpacing:0.8},
