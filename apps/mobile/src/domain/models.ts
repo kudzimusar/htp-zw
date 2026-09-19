@@ -1,4 +1,4 @@
-import type { ContentIntegrityState, GeographyRef, SourceProvenance } from "./source";
+import type { CommercialSourceContext, ContentIntegrityState, GeographyRef, PremiumSourceContext, SourceProvenance } from "./source";
 
 export type AccessPolicy = "public" | "premium";
 export type StoryStatus = "draft" | "scheduled" | "published" | "archived";
@@ -7,6 +7,7 @@ export type AuthorRef = {
   id: string;
   displayName: string;
   slug: string;
+  sourceProvenance?: SourceProvenance | null;
 };
 
 export type MediaRef = {
@@ -15,6 +16,7 @@ export type MediaRef = {
   altText: string | null;
   caption: string | null;
   credit: string | null;
+  sourceProvenance?: SourceProvenance | null;
 };
 
 export type TaxonomyRef = {
@@ -41,6 +43,7 @@ export type ArticleSummary = {
   heroMedia: MediaRef | null;
   sourceProvenance?: SourceProvenance | null;
   contentIntegrity?: ContentIntegrityState;
+  premiumSourceContext?: PremiumSourceContext;
 };
 
 export type ArticleDetail = ArticleSummary & {
@@ -56,6 +59,7 @@ export type LiveItem = {
   updatedAt: string;
   updateCount?: number;
   media: MediaRef | null;
+  sourceProvenance?: SourceProvenance | null;
 };
 
 export type VideoItem = {
@@ -64,6 +68,7 @@ export type VideoItem = {
   durationSeconds: number | null;
   publishedAt: string | null;
   thumbnail: MediaRef | null;
+  sourceProvenance?: SourceProvenance | null;
 };
 
 export type AudioItem = {
@@ -117,6 +122,7 @@ export type AdDecision = {
   disclosureLabel: string;
   creativeUrl?: string;
   destinationUrl?: string;
+  commercialSourceContext?: CommercialSourceContext;
 };
 
 export type AnalyticsEvent = {
