@@ -8,6 +8,7 @@ import type {
   LiveService,
   NotificationService,
   PremiumService,
+  PlatformService,
   ReaderRepository,
   SearchService,
   SocialAttributionService,
@@ -60,6 +61,9 @@ const searchService: SearchService = {
 const authService: AuthService = {
   async getReader() {
     return { id: "fixture-reader", displayName: "Development Reader", membership: "registered" };
+  },
+  async getSessionState() {
+    return { authenticated: false, userId: null, expiresAt: null };
   },
   async signOut() {
     return;
@@ -132,6 +136,24 @@ const notificationService: NotificationService = {
   }
 };
 
+const platformService: PlatformService = {
+  async checkConnectivity() {
+    return {
+      status: "healthy",
+      checkedAt: new Date().toISOString(),
+      projectRef: null,
+      checks: [
+        {
+          key: "configuration",
+          label: "Fixture environment",
+          status: "pass",
+          detail: "Local fixture mode is active; no staging network calls are required."
+        }
+      ]
+    };
+  }
+};
+
 const socialService: SocialAttributionService = {
   async buildCanonicalShareUrl(article) {
     return "https://healthtimes.co.zw/" + article.slug + "/";
@@ -150,5 +172,6 @@ export const fixtureServices: HealthTimesServices = {
   video: videoService,
   audio: audioService,
   notifications: notificationService,
+  platform: platformService,
   social: socialService
 };
