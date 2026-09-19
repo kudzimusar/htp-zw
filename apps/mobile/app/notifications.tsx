@@ -1,14 +1,16 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Chip, EmptyState, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { colors, spacing } from "../src/theme/tokens";
 
 export default function NotificationsScreen(){
+  const router=useRouter();
   const notifications=useAsync(()=>services.notifications.list(),[]);
   return (
     <Page title="Notifications">
-      <View style={styles.tabs}><Chip active>All</Chip><Chip>Breaking</Chip><Chip>Live</Chip><Chip>Topics</Chip><Chip>Premium</Chip><Chip>System</Chip></View>
+      <View style={styles.headerRow}><View style={styles.tabs}><Chip active>All</Chip><Chip>Breaking</Chip><Chip>Live</Chip><Chip>Topics</Chip><Chip>Premium</Chip><Chip>System</Chip></View><Pressable accessibilityRole="button" style={styles.settings} onPress={()=>router.push("/notification-settings" as never)}><Text style={styles.settingsText}>Settings</Text></Pressable></View>
       <Section>
         <SectionHeader title="Latest" />
         {notifications.data?.length ? notifications.data.map((item)=>(
@@ -26,7 +28,10 @@ export default function NotificationsScreen(){
   );
 }
 const styles=StyleSheet.create({
-  tabs:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.lg},
+  headerRow:{marginTop:spacing.lg,gap:spacing.md},
+  tabs:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  settings:{minHeight:44,alignSelf:"flex-start",justifyContent:"center"},
+  settingsText:{fontWeight:"900",color:colors.blue},
   row:{minHeight:74,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:"row",gap:spacing.md,paddingVertical:spacing.md,alignItems:"flex-start"},
   dot:{width:9,height:9,borderRadius:5,backgroundColor:colors.blue,marginTop:7},
   dotRead:{backgroundColor:colors.border},
