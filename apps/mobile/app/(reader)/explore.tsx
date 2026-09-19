@@ -8,7 +8,7 @@ import { useAsync } from "../../src/hooks/useAsync";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 
 const browseGroups=[
-  ["Countries",["Global","Zimbabwe","South Africa","Kenya","Nigeria"]],
+  ["Countries",["Zimbabwe","More countries from taxonomy service"]],
   ["Regions",["Africa","Southern Africa","East Africa","West Africa","Central Africa","North Africa"]],
   ["Topics",["Public Health","Health Systems","Research","Health Financing","Digital Health","Community Health"]],
   ["Desks",["Global Health","Africa","Research","Policy","Investigations","Public Health","Health Systems","Health Business"]],
