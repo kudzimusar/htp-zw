@@ -19,14 +19,21 @@ test('builds checksummed repository-safe metadata without leaking filenames or p
   const manifest = buildManifest(root, {
     repoDir: process.cwd(),
     snapshotId: 'rehearsal-snapshot-test',
-    generatedAt: '2026-09-16T00:00:00.000Z'
+    generatedAt: '2026-09-19T00:00:00.000Z'
   });
 
+  expect(manifest.schema_version).toBe('2.0');
+  expect(manifest.validator_version).toBe('2.0.0');
   expect(manifest.snapshot_type).toBe('rehearsal');
   expect(manifest.content_freeze_status).toBe('NOT_FROZEN');
   expect(manifest.artifact_count).toBe(1);
   expect(manifest.artifacts[0].safe_identifier).toBe('artifact_0001');
   expect(manifest.artifacts[0].source_system).toBe('wordpress');
+  expect(manifest.artifacts[0].source_class).toBe('WORDPRESS');
+  expect(manifest.artifacts[0].artifact_role).toBe('AUTHORITATIVE_WORDPRESS_DATABASE');
+  expect(manifest.artifacts[0].authoritative).toBe(true);
+  expect(manifest.artifacts[0].snapshot_relationship).toBe('AUTHORITATIVE_SOURCE');
+  expect(manifest.artifacts[0].validation_timestamp).toBe('2026-09-19T00:00:00.000Z');
   expect(manifest.artifacts[0].sha256).toHaveLength(64);
   expect(manifest.artifacts[0].format).toBe('sql.gz');
 
