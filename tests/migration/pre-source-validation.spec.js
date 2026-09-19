@@ -12,12 +12,14 @@ const {
   validateUploadsArtifact
 } = require('../../scripts/migration/validate-wordpress-uploads');
 const {
+  fetchLiveInventory,
   reconcileInventories
 } = require('../../scripts/migration/reconcile-source-inventory');
 const {
   validateProvenanceReadiness
 } = require('../../scripts/migration/validate-provenance-readiness');
 const {
+  discoverArtifacts,
   validateSourcePackage
 } = require('../../scripts/migration/validate-source-package');
 
@@ -66,8 +68,60 @@ function validSql(prefix = 'wp_', extras = true) {
   return sql;
 }
 
+function cpanelStyleSql(prefix = 'cp_') {
+  return [
+    '-- MySQL dump 10.13  Distrib 8.0.x, for Linux (x86_64)',
+    '-- Host: localhost    Database: synthetic_healthtimes',
+    '/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;',
+    '/*!40101 SET NAMES utf8mb4 */;',
+    'SET FOREIGN_KEY_CHECKS=0;',
+    ...coreCreate(prefix).split('\n'),
+    'DROP TABLE IF EXISTS `' + prefix + 'wc_orders`;',
+    'CREATE TABLE `' + prefix + 'wc_orders` (',
+    '  `id` bigint NOT NULL,',
+    '  `status` varchar(20) DEFAULT NULL',
+    ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;',
+    'DROP TABLE IF EXISTS `' + prefix + 'woocommerce_subscriptions`;',
+    'CREATE TABLE `' + prefix + 'woocommerce_subscriptions` (',
+    '  `id` bigint NOT NULL',
+    ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;',
+    'LOCK TABLES `' + prefix + 'posts` WRITE;',
+    'INSERT INTO `' + prefix + 'posts` VALUES',
+    "(10,2,0,'cpanel-story','https://example.invalid/cpanel-story/','publish','post'),",
+    "(11,2,0,'cpanel-page','https://example.invalid/cpanel-page/','publish','page'),",
+    "(12,2,0,'cpanel-image','https://example.invalid/wp-content/uploads/2026/09/cpanel.jpg','inherit','attachment');",
+    'UNLOCK TABLES;',
+    'LOCK TABLES `' + prefix + 'postmeta` WRITE;',
+    "INSERT INTO `" + prefix + "postmeta` VALUES (1,10,'_thumbnail_id','12');",
+    'UNLOCK TABLES;',
+    'LOCK TABLES `' + prefix + 'users` WRITE;',
+    "INSERT INTO `" + prefix + "users` VALUES (2,'private-row-marker-should-not-leak');",
+    'UNLOCK TABLES;',
+    'LOCK TABLES `' + prefix + 'terms` WRITE;',
+    "INSERT INTO `" + prefix + "terms` VALUES (1,'Health','health'),(2,'Zimbabwe','zimbabwe');",
+    'UNLOCK TABLES;',
+    'LOCK TABLES `' + prefix + 'term_taxonomy` WRITE;',
+    "INSERT INTO `" + prefix + "term_taxonomy` VALUES (1,1,'category'),(2,2,'post_tag');",
+    'UNLOCK TABLES;',
+    'LOCK TABLES `' + prefix + 'options` WRITE;',
+    "INSERT INTO `" + prefix + "options` VALUES (1,'permalink_structure','/%postname%/');",
+    'UNLOCK TABLES;',
+    '/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;',
+    'SET FOREIGN_KEY_CHECKS=1;'
+  ].join('\n');
+}
+
 function tempDir(label) {
   return fs.mkdtempSync(path.join(os.tmpdir(), label));
+}
+
+function commandExists(name) {
+  try {
+    execFileSync('sh', ['-c', 'command -v ' + name], { stdio: ['ignore','ignore','ignore'] });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 test('validates plain SQL with alternate WordPress prefix and commerce/provenance signals', async () => {
@@ -126,31 +180,98 @@ test('reports missing WordPress core structures and commerce absence conservativ
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('validates extracted uploads and tar.gz with zero-byte, duplicate and executable signals', () => {
-  const root = tempDir('ht-ag03-uploads-');
+test('consumes cPanel/phpMyAdmin/mysqldump-style SQL without exposing row contents', async () => {
+  const root = tempDir('ht-ag03-cpanel-');
+  const file = path.join(root, 'cpanel-synthetic.sql');
+  fs.writeFileSync(file, cpanelStyleSql('cp_'));
+  const report = await validateDatabaseArtifact(file);
+  const serialized = JSON.stringify(report);
+
+  expect(report.validation_status).toBe('VALID');
+  expect(report.wordpress_table_prefix).toBe('cp_');
+  expect(report.commerce_signals.woocommerce_present).toBe(true);
+  expect(report.commerce_signals.subscriptions_present).toBe(true);
+  expect(report.authoritative_inventory.published_posts).toBe(1);
+  expect(report.authoritative_inventory.pages).toBe(1);
+  expect(report.authoritative_inventory.media).toBe(1);
+  expect(serialized).not.toContain('private-row-marker-should-not-leak');
+  expect(serialized).not.toContain('cpanel-synthetic.sql');
+  expect(serialized).not.toContain(root);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('PHP in uploads is valid only with mandatory review', () => {
+  const root = tempDir('ht-ag03-uploads-script-');
+  const uploads = path.join(root, 'uploads');
+  const month = path.join(uploads, '2026', '09');
+  fs.mkdirSync(month, { recursive: true });
+  fs.writeFileSync(path.join(month, 'photo.jpg'), 'image');
+  fs.writeFileSync(path.join(month, 'unexpected.php'), '<?php echo 1;');
+
+  const report = validateUploadsArtifact(uploads);
+  expect(report.validation_status).toBe('VALID_REQUIRES_REVIEW');
+  expect(report.metrics.unexpected_script_extensions.php).toBe(1);
+  expect(report.security_findings.map(f => f.code)).toContain('UNEXPECTED_EXECUTABLE_OR_SCRIPT_IN_UPLOADS');
+  expect(JSON.stringify(report)).not.toContain('unexpected.php');
+  expect(JSON.stringify(report)).not.toContain(root);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('ordinary uploads archive remains valid with zero-byte and duplicate metadata', () => {
+  const root = tempDir('ht-ag03-uploads-ordinary-');
   const uploads = path.join(root, 'uploads');
   const month = path.join(uploads, '2026', '09');
   fs.mkdirSync(month, { recursive: true });
   fs.writeFileSync(path.join(month, 'photo.jpg'), 'duplicate-image');
   fs.writeFileSync(path.join(month, 'copy.jpg'), 'duplicate-image');
   fs.writeFileSync(path.join(month, 'zero.txt'), '');
-  fs.writeFileSync(path.join(month, 'unexpected.php'), '<?php echo 1;');
-
-  const dirReport = validateUploadsArtifact(uploads);
-  expect(dirReport.validation_status).toBe('VALID');
-  expect(dirReport.metrics.file_count).toBe(4);
-  expect(dirReport.metrics.zero_byte_file_count).toBe(1);
-  expect(dirReport.metrics.duplicate_hash_groups[0].copies).toBe(2);
-  expect(dirReport.metrics.unexpected_script_extensions.php).toBe(1);
-  expect(dirReport.metrics.year_month_distribution['2026/09']).toBe(4);
 
   const archive = path.join(root, 'uploads.tar.gz');
   execFileSync('tar', ['-czf', archive, '-C', root, 'uploads']);
-  const archiveReport = validateUploadsArtifact(archive);
-  expect(archiveReport.validation_status).toBe('VALID');
-  expect(archiveReport.archive_integrity).toBe('PASS');
-  expect(archiveReport.metrics.file_count).toBe(4);
-  expect(JSON.stringify(archiveReport)).not.toContain(root);
+  const report = validateUploadsArtifact(archive);
+  expect(report.validation_status).toBe('VALID');
+  expect(report.archive_integrity).toBe('PASS');
+  expect(report.metrics.file_count).toBe(3);
+  expect(report.metrics.zero_byte_file_count).toBe(1);
+  expect(report.metrics.duplicate_hash_groups[0].copies).toBe(2);
+  expect(report.metrics.year_month_distribution['2026/09']).toBe(3);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('tar symlink and hardlink members are rejected before extraction', () => {
+  const root = tempDir('ht-ag03-links-');
+  const uploads = path.join(root, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  const original = path.join(uploads, 'original.jpg');
+  fs.writeFileSync(original, 'image');
+  fs.symlinkSync('original.jpg', path.join(uploads, 'symlink.jpg'));
+  fs.linkSync(original, path.join(uploads, 'hardlink.jpg'));
+  const archive = path.join(root, 'links.tar.gz');
+  execFileSync('tar', ['-czf', archive, '-C', root, 'uploads']);
+
+  const report = validateUploadsArtifact(archive);
+  expect(report.validation_status).toBe('INVALID');
+  expect(report.archive_integrity).toBe('FAIL');
+  expect(report.security_findings.map(f => f.code)).toContain('ARCHIVE_LINK_ENTRY_REJECTED');
+  expect(report.archive_member_safety.symlink_count).toBeGreaterThan(0);
+  expect(report.archive_member_safety.hardlink_count).toBeGreaterThan(0);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('ZIP symlink is rejected when ZIP symlink metadata is supported', () => {
+  test.skip(!commandExists('zip'), 'zip command not available on runner');
+  const root = tempDir('ht-ag03-zip-link-');
+  const uploads = path.join(root, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  fs.writeFileSync(path.join(uploads, 'original.jpg'), 'image');
+  fs.symlinkSync('original.jpg', path.join(uploads, 'symlink.jpg'));
+  const archive = path.join(root, 'links.zip');
+  execFileSync('zip', ['-qry', '-y', archive, 'uploads'], { cwd: root });
+
+  const report = validateUploadsArtifact(archive);
+  expect(report.validation_status).toBe('INVALID');
+  expect(report.security_findings.map(f => f.code)).toContain('ARCHIVE_LINK_ENTRY_REJECTED');
+  expect(report.archive_member_safety.symlink_count).toBeGreaterThan(0);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -158,6 +279,93 @@ test('detects malformed media archive paths without exposing path values', () =>
   expect(isMalformedArchivePath('../escape.jpg')).toBe(true);
   expect(isMalformedArchivePath('/absolute/file.jpg')).toBe(true);
   expect(isMalformedArchivePath('2026/09/photo.jpg')).toBe(false);
+});
+
+test('public REST user 401 does not discard five core content counts', async () => {
+  const originalFetch = global.fetch;
+  const totals = { posts: 100, pages: 10, media: 50, categories: 7, tags: 20 };
+  global.fetch = async url => {
+    const endpoint = new URL(url).pathname.split('/').pop();
+    if (endpoint === 'users') return { ok: false, status: 401, json: async () => ({}) };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ headers: { 'X-WP-Total': String(totals[endpoint]) } })
+    };
+  };
+  try {
+    const live = await fetchLiveInventory('https://example.invalid/wp-json/wp/v2');
+    expect(live.counts).toEqual({
+      published_posts: 100,
+      pages: 10,
+      media: 50,
+      categories: 7,
+      tags: 20,
+      authors_users: null
+    });
+    expect(live.availability.core_content).toBe('AVAILABLE');
+    expect(live.availability.authors_users).toBe('UNAVAILABLE_FROM_PUBLIC_REST');
+    expect(live.author_rest_status).toBe('UNAVAILABLE_HTTP_401');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('sanitized admin user count explicitly supplements blocked public users endpoint', async () => {
+  const originalFetch = global.fetch;
+  let usersRequested = false;
+  global.fetch = async url => {
+    const endpoint = new URL(url).pathname.split('/').pop();
+    if (endpoint === 'users') {
+      usersRequested = true;
+      return { ok: false, status: 401, json: async () => ({}) };
+    }
+    return { ok: true, status: 200, json: async () => ({ headers: { 'x-wp-total': '1' } }) };
+  };
+  try {
+    const live = await fetchLiveInventory('https://example.invalid/wp-json/wp/v2', { adminUserCount: 3 });
+    expect(live.counts.authors_users).toBe(3);
+    expect(live.author_count_source).toBe('SANITIZED_ADMIN_CAPTURE');
+    expect(usersRequested).toBe(false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('inventory reconciler separates core reconciliation from unavailable author count', () => {
+  const live = {
+    captured_at: '2026-09-19T01:00:00.000Z',
+    availability: { core_content: 'AVAILABLE', authors_users: 'UNAVAILABLE_FROM_PUBLIC_REST' },
+    author_count_source: 'UNAVAILABLE_FROM_PUBLIC_REST',
+    counts: { published_posts: 1, pages: 1, media: 1, categories: 1, tags: 1, authors_users: null }
+  };
+  const db = {
+    export_timestamp: '2026-09-19T00:00:00.000Z',
+    authoritative_inventory: { published_posts: 1, pages: 1, media: 1, categories: 1, tags: 1, authors_users: 1 }
+  };
+  const report = reconcileInventories(live, db);
+  expect(report.core_content_status).toBe('CORE_CONTENT_RECONCILED');
+  expect(report.author_count_status).toBe('AUTHOR_COUNT_REQUIRES_PRIVATE_OR_ADMIN_EVIDENCE');
+  expect(report.items.authors_users.classification).toBe('UNAVAILABLE_FROM_PUBLIC_REST');
+  expect(report.status).toBe('CORE_CONTENT_RECONCILED');
+});
+
+test('inventory reconciler still classifies non-author source drift and review states', () => {
+  const live = {
+    captured_at: '2026-09-19T01:00:00.000Z',
+    counts: { published_posts: 2, pages: 1, media: 1, categories: 1, tags: 1, authors_users: 1 }
+  };
+  const db = {
+    export_timestamp: '2026-09-19T00:00:00.000Z',
+    authoritative_inventory: { published_posts: 1, pages: 1, media: 2, categories: 1, tags: null, authors_users: 1 }
+  };
+  const report = reconcileInventories(live, db);
+  expect(report.items.published_posts.classification).toBe('EXPECTED_SOURCE_DRIFT');
+  expect(report.items.pages.classification).toBe('MATCH');
+  expect(report.items.media.classification).toBe('REQUIRES_REVIEW');
+  expect(report.items.tags.classification).toBe('MISSING_FROM_DATABASE');
+  expect(report.items.authors_users.classification).toBe('MATCH');
+  expect(report.status).toBe('RECONCILIATION_INCOMPLETE');
 });
 
 test('provenance validator returns READY for sufficient authoritative schema and GAPS otherwise', async () => {
@@ -174,30 +382,115 @@ test('provenance validator returns READY for sufficient authoritative schema and
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('inventory reconciler distinguishes match, expected drift, review and missing/database-only states', () => {
-  const live = {
-    captured_at: '2026-09-19T01:00:00.000Z',
-    counts: { published_posts: 2, pages: 1, media: 1, categories: 1, tags: 1, authors_users: null }
-  };
-  const db = {
-    export_timestamp: '2026-09-19T00:00:00.000Z',
-    authoritative_inventory: { published_posts: 1, pages: 1, media: 2, categories: 1, tags: null, authors_users: 1 }
-  };
-  const report = reconcileInventories(live, db);
-  expect(report.items.published_posts.classification).toBe('EXPECTED_SOURCE_DRIFT');
-  expect(report.items.pages.classification).toBe('MATCH');
-  expect(report.items.media.classification).toBe('REQUIRES_REVIEW');
-  expect(report.items.tags.classification).toBe('MISSING_FROM_DATABASE');
-  expect(report.items.authors_users.classification).toBe('DATABASE_ONLY');
-  expect(report.status).toBe('RECONCILIATION_INCOMPLETE');
+test('artifact ambiguity is explicit and repository-safe', async () => {
+  const root = tempDir('ht-ag03-ambiguous-');
+  const wordpress = path.join(root, 'wordpress');
+  const uploads = path.join(wordpress, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  fs.writeFileSync(path.join(uploads, 'asset.jpg'), 'asset');
+  fs.writeFileSync(path.join(wordpress, 'first.sql'), validSql());
+  fs.writeFileSync(path.join(wordpress, 'second.sql'), validSql());
+
+  const discovered = discoverArtifacts(root, {});
+  expect(discovered.discovery.database.selection_status).toBe('AMBIGUOUS');
+  expect(discovered.discovery.database.candidate_count).toBe(2);
+
+  const report = await validateSourcePackage(root, { repoDir: process.cwd() });
+  expect(report.status).toBe('ARTIFACT_AMBIGUOUS');
+  expect(report.hard_gates[0]).toMatchObject({
+    gate: 'authoritative_database',
+    status: 'ARTIFACT_AMBIGUOUS',
+    candidate_count: 2,
+    source_class: 'WORDPRESS',
+    artifact_role: 'AUTHORITATIVE_WORDPRESS_DATABASE'
+  });
+  const serialized = JSON.stringify(report);
+  expect(serialized).not.toContain('first.sql');
+  expect(serialized).not.toContain('second.sql');
+  expect(serialized).not.toContain(root);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('explicit database selection resolves ambiguity without leaking selection path', async () => {
+  const root = tempDir('ht-ag03-ambiguous-override-');
+  const wordpress = path.join(root, 'wordpress');
+  const uploads = path.join(wordpress, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  fs.writeFileSync(path.join(uploads, 'asset.jpg'), 'asset');
+  const first = path.join(wordpress, 'first.sql');
+  fs.writeFileSync(first, validSql());
+  fs.writeFileSync(path.join(wordpress, 'second.sql'), validSql());
+  const liveFile = path.join(root, 'live-inventory.json');
+  fs.writeFileSync(liveFile, JSON.stringify({
+    captured_at: '2026-09-19T00:00:00.000Z',
+    counts: { published_posts: 1, pages: 1, media: 1, categories: 1, tags: 1, authors_users: 1 }
+  }));
+
+  const report = await validateSourcePackage(root, {
+    repoDir: process.cwd(),
+    database: first,
+    liveInventory: liveFile,
+    exportTimestamp: '2026-09-19T00:00:00.000Z'
+  });
+  expect(report.status).toBe('SOURCE_VALIDATION_READY');
+  expect(report.discovery.database.selection_status).toBe('EXPLICIT_OVERRIDE');
+  expect(JSON.stringify(report)).not.toContain(first);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('uploads review finding prevents SOURCE_VALIDATION_READY', async () => {
+  const root = tempDir('ht-ag03-review-gate-');
+  const wordpress = path.join(root, 'wordpress');
+  const uploads = path.join(wordpress, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  fs.writeFileSync(path.join(uploads, 'asset.jpg'), 'asset');
+  fs.writeFileSync(path.join(uploads, 'unexpected.php'), '<?php');
+  fs.writeFileSync(path.join(wordpress, 'snapshot.sql'), validSql());
+  const liveFile = path.join(root, 'live-inventory.json');
+  fs.writeFileSync(liveFile, JSON.stringify({
+    captured_at: '2026-09-19T00:00:00.000Z',
+    counts: { published_posts: 1, pages: 1, media: 1, categories: 1, tags: 1, authors_users: 1 }
+  }));
+
+  const report = await validateSourcePackage(root, {
+    repoDir: process.cwd(),
+    liveInventory: liveFile,
+    exportTimestamp: '2026-09-19T00:00:00.000Z'
+  });
+  expect(report.status).toBe('ARTIFACT_VALID_RECONCILIATION_INCOMPLETE');
+  expect(report.review_gates[0].status).toBe('VALID_REQUIRES_REVIEW');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('unified validator exposes core reconciled while author count awaits private/admin evidence', async () => {
+  const root = tempDir('ht-ag03-author-fallback-');
+  const wordpress = path.join(root, 'wordpress');
+  const uploads = path.join(wordpress, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  fs.writeFileSync(path.join(uploads, 'asset.jpg'), 'asset');
+  fs.writeFileSync(path.join(wordpress, 'snapshot.sql'), validSql());
+  const liveFile = path.join(root, 'live-inventory.json');
+  fs.writeFileSync(liveFile, JSON.stringify({
+    captured_at: '2026-09-19T00:00:00.000Z',
+    availability: { core_content: 'AVAILABLE', authors_users: 'UNAVAILABLE_FROM_PUBLIC_REST' },
+    author_count_source: 'UNAVAILABLE_FROM_PUBLIC_REST',
+    counts: { published_posts: 1, pages: 1, media: 1, categories: 1, tags: 1, authors_users: null }
+  }));
+
+  const report = await validateSourcePackage(root, {
+    repoDir: process.cwd(),
+    liveInventory: liveFile,
+    exportTimestamp: '2026-09-19T00:00:00.000Z'
+  });
+  expect(report.status).toBe('ARTIFACT_VALID_RECONCILIATION_INCOMPLETE');
+  expect(report.reconciliation_core_status).toBe('CORE_CONTENT_RECONCILED');
+  expect(report.author_count_status).toBe('AUTHOR_COUNT_REQUIRES_PRIVATE_OR_ADMIN_EVIDENCE');
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test('unified source validation distinguishes missing artifacts and fully valid synthetic package', async () => {
   const missingRoot = tempDir('ht-ag03-unified-missing-');
-  const missing = await validateSourcePackage(missingRoot, {
-    repoDir: process.cwd(),
-    liveInventory: null
-  });
+  const missing = await validateSourcePackage(missingRoot, { repoDir: process.cwd() });
   expect(missing.status).toBe('ARTIFACT_MISSING');
   fs.rmSync(missingRoot, { recursive: true, force: true });
 
