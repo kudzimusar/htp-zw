@@ -3,14 +3,15 @@ import { StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
 
 export function generateStaticParams() {
   return [
-    "stories", "live-desk", "video-desk", "media", "advertising", "premium", "social",
+    "stories", "create-edit", "live-desk", "video-desk", "media", "advertising", "premium", "social",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
 
 
 const owners:Record<string,{title:string;owner:string;description:string}>={
-  "stories":{title:"Stories",owner:"AG-06",description:"Create, edit, assignments, drafts, revisions, review and publication must use server-backed capability checks."},
+  "stories":{title:"Stories",owner:"AG-06",description:"Assignments, drafts, revisions, review and publication must use server-backed capability checks."},
+  "create-edit":{title:"Create / Edit",owner:"AG-06",description:"The story editor is a server-authorized workflow. Draft persistence, revisions, review transitions and publish authority remain backend-owned."},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows."},
   "video-desk":{title:"Video Desk",owner:"AG-04 + AG-06",description:"Video metadata, media and publishing remain backend-owned."},
   "media":{title:"Media Library",owner:"AG-04",description:"Migrated media, captions, credits, alt text and provenance come from staging Storage and media_assets."},
