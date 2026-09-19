@@ -255,8 +255,8 @@ These belong to later production lanes and must not be requested merely to compl
 AG-03 now includes the complete preparatory validation path required before private artifacts arrive:
 
 - `scripts/migration/validate-wordpress-database.js` — validates private `.sql` / `.sql.gz` outside Git, checks gzip/SQL integrity, detects the WordPress prefix, enumerates core/plugin/commerce/audience tables, computes sanitized row-count metadata, detects essential core gaps, classifies WooCommerce/subscription/membership/payment signals, and emits provenance capabilities without exposing row values.
-- `scripts/migration/validate-wordpress-uploads.js` — validates `.tar.gz`, `.zip`, or extracted uploads directories; records file/byte/type/year-month distributions, zero-byte files, duplicate hashes, unreadable/malformed entries, symlinks, unexpected executable/script extensions and archive integrity without emitting filenames or absolute paths.
-- `scripts/migration/reconcile-source-inventory.js` — compares a fresh read-only REST inventory with authoritative database counts using `MATCH`, `EXPECTED_SOURCE_DRIFT`, `REQUIRES_REVIEW`, `MISSING_FROM_DATABASE`, and `DATABASE_ONLY`.
+- `scripts/migration/validate-wordpress-uploads.js` — validates `.tar.gz`, `.zip`, or extracted uploads directories; records file/byte/type/year-month distributions, zero-byte files, duplicate hashes, unreadable/malformed entries, symlinks/hardlinks, unexpected executable/script extensions and archive integrity without emitting filenames or absolute paths. PHP/PHTML/PHAR/CGI/shell/script/executable findings are `VALID_REQUIRES_REVIEW`; archive symlink/hardlink members are rejected before extraction. Path traversal remains blocking and extraction is constrained to a disposable directory.
+- `scripts/migration/reconcile-source-inventory.js` — compares a fresh read-only REST inventory with authoritative database counts using `MATCH`, `EXPECTED_SOURCE_DRIFT`, `REQUIRES_REVIEW`, `MISSING_FROM_DATABASE`, and `DATABASE_ONLY`. Posts/pages/media/categories/tags are collected independently of `/users`; a blocked `/users` endpoint yields `CORE_CONTENT_RECONCILED` plus `AUTHOR_COUNT_REQUIRES_PRIVATE_OR_ADMIN_EVIDENCE` when the five core metrics reconcile.
 - `scripts/migration/validate-provenance-readiness.js` — emits only `PROVENANCE_READY` or `PROVENANCE_GAPS` plus a sanitized gap list.
 - `scripts/migration/validate-source-package.js` — unified read-only CP3 validator.
 
@@ -266,13 +266,14 @@ Unified command:
 npm run migration:validate-source -- --root /PRIVATE/OUTSIDE-GIT/WORKSPACE
 ```
 
-Optional explicit artifact overrides are supported with `--database` and `--uploads`. Optional `--live-inventory` can be used for a sanitized captured REST inventory; otherwise the reconciler attempts a fresh read-only HealthTimes REST inventory.
+Optional explicit artifact overrides are supported with `--database` and `--uploads`. When more than one database or uploads candidate is discovered, the unified validator now returns `ARTIFACT_AMBIGUOUS` with safe candidate counts/source roles only and requires explicit selection. Optional `--live-inventory` can be used for a sanitized captured REST inventory; otherwise the reconciler attempts a fresh read-only HealthTimes REST inventory. `--admin-user-count <n>` may provide an explicitly sanitized admin-captured author/user count when the public `/users` endpoint is unavailable.
 
 Unified exit-state semantics:
 
 - exit 2 / `ARTIFACT_MISSING`
 - exit 3 / `ARTIFACT_INVALID`
 - exit 4 / `ARTIFACT_VALID_RECONCILIATION_INCOMPLETE`
+- exit 5 / `ARTIFACT_AMBIGUOUS`
 - exit 0 / `SOURCE_VALIDATION_READY`
 
 The source-package manifest is schema `2.0` and preserves outside-Git enforcement while adding artifact role, validator version, capture/export timestamp placeholder, validation timestamp/status, content type/format, size, SHA-256, source class, snapshot relationship and authoritative/supplementary classification. Filenames and absolute private paths remain omitted.
@@ -290,16 +291,25 @@ Synthetic fixture coverage includes:
 - uploads directory and `.tar.gz` archive;
 - zero-byte asset;
 - duplicate asset hash;
-- unexpected script file signal;
+- unexpected script file review gate;
+- tar symlink rejection;
+- tar hardlink rejection;
+- ZIP symlink rejection when supported by the runner;
 - malformed media path;
 - provenance READY/GAPS;
 - all required source-drift classifications;
 - manifest privacy;
 - rejection of source workspace inside Git;
 - unified missing-vs-valid source package outcomes;
-- output checks that private fixture filenames and absolute paths are not emitted.
+- explicit `ARTIFACT_AMBIGUOUS` behavior and safe candidate metadata;
+- `/users` HTTP 401 fallback with core REST metrics preserved;
+- explicit sanitized admin user-count override;
+- cPanel/phpMyAdmin/mysqldump-style SQL containing comments, `DROP TABLE IF EXISTS`, `CREATE TABLE`, `LOCK TABLES`, extended multi-row `INSERT INTO`, MySQL version directives and `UNLOCK TABLES`;
+- output checks that private fixture filenames, absolute paths and fake row contents are not emitted.
 
-Required command `npm run test:migration`: **PASS** on AG-03 runtime SHA `04c7c789403f3883230c9a0d9936fd70249d34f1`.
+Current frozen-tooling runtime SHA: `c33c56fb0f75b993d5751103cbcd56e96f6c5375`.
+
+Required command `npm run test:migration`: **PASS** on that runtime SHA.
 
 CI at that runtime SHA:
 
@@ -307,6 +317,16 @@ CI at that runtime SHA:
 - Migration Tests: **SUCCESS**
 
 No failing migration test was waived or reclassified.
+
+### Final pre-source hardening disposition
+
+- Public REST fallback: **HARDENED** — five core content counts survive a blocked public `/users` endpoint; author count remains explicit and separately classified.
+- Sanitized admin author-count fallback: **SUPPORTED** via explicit input only; no stale count is silently substituted.
+- Upload executables/scripts: **VALID_REQUIRES_REVIEW**; never auto-deleted.
+- Tar/ZIP link handling: **BLOCKING** — symlink/hardlink archive members are rejected before extraction; extracted-tree links are also blocking findings.
+- Artifact ambiguity: **EXPLICIT** — multiple database/uploads candidates return `ARTIFACT_AMBIGUOUS`; filenames/paths are not exposed.
+- cPanel/phpMyAdmin/mysqldump compatibility: **PASS** on synthetic realistic dump fixture.
+- Pre-source tooling scope: **FROZEN after final-tip CI**. No additional pre-source features should be added before the authoritative cPanel artifacts arrive.
 
 ## R. Security / production safety
 
