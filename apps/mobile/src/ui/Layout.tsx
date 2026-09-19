@@ -59,13 +59,13 @@ export function AppHeader({ title }: { title?: string }) {
 
       {desktop && (
         <View style={styles.desktopNav}>
-          {[
+          {([
             ["Home", "/"],
             ["Explore", "/explore"],
             ["Live", "/live"],
             ["Watch", "/watch"],
             ["My HealthTimes", "/my"]
-          ].map(([label, path]) => (
+          ] as const).map(([label, path]) => (
             <Pressable key={path} onPress={() => go(path)} style={styles.desktopNavItem}>
               <Text style={styles.desktopNavText}>{label}</Text>
             </Pressable>
