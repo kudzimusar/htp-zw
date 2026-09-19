@@ -1,9 +1,11 @@
 import type { PropsWithChildren } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
-import type { ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
+import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
 import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
+import { services } from "../services";
+import { useAsync } from "../hooks/useAsync";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -132,11 +134,30 @@ export function AudioCard({ item }: { item: AudioItem }) {
   );
 }
 
-export function AdSlot({ placement, message="Reserved inventory. Delivery is controlled by AdvertisingService." }: { placement: string; message?: string }) {
+export function AdSlot({
+  placement,
+  sensitiveHealthContext = true
+}: {
+  placement: AdPlacementKey;
+  sensitiveHealthContext?: boolean;
+}) {
   const { palette }=useAppearance();
+  const decision=useAsync(
+    ()=>services.advertising.getDecision(placement,{
+      consentForPersonalizedAds:false,
+      sensitiveHealthContext
+    }),
+    [placement,sensitiveHealthContext]
+  );
+
+  const message=decision.data?.policyReason ??
+    "Reserved inventory. Delivery is controlled by AdvertisingService.";
+
   return (
     <View style={[styles.adSlot,{backgroundColor:palette.paperMuted,borderColor:palette.border}]}>
-      <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
+      <Text style={[styles.adLabel,{color:palette.inkMuted}]}>
+        {decision.data?.source === "none" ? "AD INVENTORY" : decision.data?.disclosureLabel ?? "ADVERTISEMENT"}
+      </Text>
       <Text style={[styles.adPlacement,{color:palette.ink}]}>{placement}</Text>
       <Text style={[styles.adMessage,{color:palette.inkMuted}]}>{message}</Text>
     </View>
