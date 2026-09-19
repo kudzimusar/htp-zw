@@ -7,6 +7,7 @@ import { breakpoints, colors, layout, spacing } from "../theme/tokens";
 const modules=[
   ["Today","/studio"],
   ["Stories","/studio/stories"],
+  ["Create / Edit","/studio/create-edit"],
   ["Live Desk","/studio/live-desk"],
   ["Video Desk","/studio/video-desk"],
   ["Media","/studio/media"],
