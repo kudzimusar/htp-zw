@@ -5,10 +5,12 @@ import { StoryCard, StoryGrid } from "../src/ui/Cards";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { colors, spacing } from "../src/theme/tokens";
+import { useAppearance } from "../src/theme/AppearanceProvider";
 
 type LibraryTab = "articles" | "videos" | "audio" | "offline" | "history";
 
 export default function SavedScreen(){
+  const { palette }=useAppearance();
   const [active,setActive]=useState<LibraryTab>("articles");
   const [refresh,setRefresh]=useState(0);
 
@@ -64,7 +66,7 @@ export default function SavedScreen(){
           {library.data?.downloads.length ? (
             <View style={styles.offlineList}>
               {library.data.downloads.map((story)=>(
-                <View style={styles.offlineRow} key={story.id}>
+                <View style={[styles.offlineRow,{borderTopColor:palette.border}]} key={story.id}>
                   <View style={styles.offlineBadgeRow}>
                     <Text style={styles.offlineBadge}>AVAILABLE OFFLINE</Text>
                     <Pressable
@@ -73,7 +75,7 @@ export default function SavedScreen(){
                       onPress={()=>void removeDownload(story.id)}
                       style={styles.removeButton}
                     >
-                      <Text style={styles.removeText}>Remove download</Text>
+                      <Text style={[styles.removeText,{color:palette.blue}]}>Remove download</Text>
                     </Pressable>
                   </View>
                   <StoryCard story={story} compact />
@@ -108,7 +110,7 @@ export default function SavedScreen(){
       )}
 
       <Section>
-        <Text style={styles.note}>Saved IDs, offline article bodies, read position and reading history use versioned device storage shared by native and PWA. Protected Premium bodies are not cached without entitlement.</Text>
+        <Text style={[styles.note,{color:palette.inkMuted}]}>Saved IDs, offline article bodies, read position and reading history use versioned device storage shared by native and PWA. Protected Premium bodies are not cached without entitlement.</Text>
       </Section>
     </Page>
   );
