@@ -23,6 +23,7 @@ test("required Reader and Studio routes exist", () => {
     "app/premium.tsx",
     "app/onboarding.tsx",
     "app/system-status.tsx",
+    "app/growth-status.tsx",
     "app/studio/index.tsx",
     "app/studio/[module].tsx"
   ];
@@ -40,6 +41,7 @@ test("service contract surface stays explicit", () => {
     "AuthService",
     "ReaderRepository",
     "PremiumService",
+    "PremiumStoreService",
     "AdvertisingService",
     "AnalyticsService",
     "LiveService",
@@ -67,7 +69,9 @@ test("staging composition is transparent and production remains fail-closed", ()
   assert.match(config, /LIVE STAGING PLATFORM/);
 
   const fixtures = read("src/services/fixtures.ts");
-  assert.match(fixtures, /source: "none"/, "fixture advertising must not masquerade as real inventory");
+  const advertising = read("src/growth/advertising.ts");
+  assert.match(fixtures, /decideFixtureAd/, "fixture advertising must route through the NM-05 policy service");
+  assert.match(advertising, /source: "none"/, "fixture advertising must not masquerade as real inventory");
   assert.match(fixtures, /getProtectedArticle\(\)[\s\S]*return null/, "fixture Premium service must not return protected bodies");
 });
 
@@ -96,12 +100,31 @@ test("mobile workspace contains no production credentials or WebView architectur
   };
   for (const dir of roots) walk(join(root, dir));
 
-  const corpus = files.map((file) => `\n--- ${relative(root, file)} ---\n${readFileSync(file, "utf8")}`).join("\n");
+  const entries = files.map((file) => ({
+    path: relative(root, file),
+    content: readFileSync(file, "utf8")
+  }));
+  const corpus = entries.map(({ path, content }) => `\n--- ${path} ---\n${content}`).join("\n");
+
   assert.doesNotMatch(corpus, /SUPABASE_SERVICE_ROLE_KEY/i);
   assert.doesNotMatch(corpus, /service_role/i);
-  assert.doesNotMatch(corpus, /ca-pub-\d+/i);
-  assert.doesNotMatch(corpus, /G-[A-Z0-9]{8,}/);
+  assert.doesNotMatch(corpus, /ca-app-pub-/i, "unverified AdMob identifiers must not enter the client");
   assert.doesNotMatch(corpus, /react-native-webview|<WebView\b/i);
+
+  const publicIdentityAllowed = new Set([
+    "src/growth/config.ts",
+    "public/ads.txt",
+    "public/app-ads.txt"
+  ]);
+  for (const entry of entries) {
+    if (/ca-pub-\d+/i.test(entry.content) || /G-[A-Z0-9]{8,}/.test(entry.content)) {
+      assert.equal(
+        publicIdentityAllowed.has(entry.path),
+        true,
+        `verified web Google/AdSense identity leaked outside approved continuity files: ${entry.path}`
+      );
+    }
+  }
 });
 
 test("approved design hierarchy remains visible in the core UI", () => {

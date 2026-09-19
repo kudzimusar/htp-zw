@@ -21,6 +21,7 @@ const items=[
   ["Devices / Sessions","/my"],
   ["Settings","/my"],
   ["System Status","/system-status"],
+  ["Growth & Commercial Readiness","/growth-status"],
   ["Help & Support","/my"],
   ["Sign Out","/my"]
 ] as const;

@@ -17,6 +17,10 @@ import type { SearchQuery } from "../domain/models";
 import { articles, audioItems, liveItems, notifications, videos } from "../fixtures/content";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import { persistentReaderRepository } from "./reader-persistence";
+import { decideFixtureAd } from "../growth/advertising";
+import { validatePublicAnalyticsEvent } from "../growth/events";
+import { attributedShareUrl, canonicalArticleUrl } from "../growth/deepLinks";
+import { fixturePremiumStoreService } from "../growth/premium-store";
 
 const normalized = (value: string) => value.trim().toLowerCase();
 
@@ -81,18 +85,16 @@ const premiumService: PremiumService = {
 };
 
 const advertisingService: AdvertisingService = {
-  async getDecision(placementKey) {
-    return {
-      placementKey,
-      source: "none",
-      disclosureLabel: "Advertisement"
-    };
+  async getDecision(placementKey, context) {
+    return decideFixtureAd(placementKey, context);
   }
 };
 
 const analyticsService: AnalyticsService = {
-  async track() {
-    // NM-01 intentionally emits no production analytics.
+  async track(event) {
+    validatePublicAnalyticsEvent(event);
+    // Event shape is validated, but NM-05 intentionally emits no production analytics
+    // until a verified mobile GA4 stream/provider is configured.
     return;
   }
 };
@@ -130,7 +132,10 @@ const platformService: PlatformService = {
 
 const socialService: SocialAttributionService = {
   async buildCanonicalShareUrl(article) {
-    return "https://healthtimes.co.zw/" + article.slug + "/";
+    return canonicalArticleUrl(article);
+  },
+  async buildAttributedShareUrl(article, channel) {
+    return attributedShareUrl(article, channel);
   }
 };
 
@@ -140,6 +145,7 @@ export const fixtureServices: HealthTimesServices = {
   auth: authService,
   reader: persistentReaderRepository,
   premium: premiumService,
+  premiumStore: fixturePremiumStoreService,
   advertising: advertisingService,
   analytics: analyticsService,
   live: liveService,

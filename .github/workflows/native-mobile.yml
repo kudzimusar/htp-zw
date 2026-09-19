@@ -1,4 +1,4 @@
-name: Native Mobile Foundation + Staging + Contracts + Reader
+name: Native Mobile Foundation + Staging + Contracts + Reader + Growth
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - feat/native-mobile-nm02-staging-connectivity
       - feat/native-mobile-nm03-content-contracts
       - feat/native-mobile-nm04-reader-product
+      - feat/native-mobile-nm05-growth-commercial
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -58,6 +59,9 @@ jobs:
       - name: Run NM-04 Reader product hardening tests
         run: npm --prefix apps/mobile run test:reader-product
 
+      - name: Run NM-05 growth commercial safety tests
+        run: npm --prefix apps/mobile run test:growth-commercial
+
       - name: Export universal web/PWA build
         run: npm run native:export:web
 
@@ -68,6 +72,10 @@ jobs:
           test -f apps/mobile/dist/manifest.json
           test -f apps/mobile/dist/sw.js
           test -f apps/mobile/dist/healthtimes-icon.svg
+          test -f apps/mobile/dist/ads.txt
+          test -f apps/mobile/dist/app-ads.txt
+          grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/ads.txt
+          grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/app-ads.txt
 
       - name: Upload PWA build evidence
         uses: actions/upload-artifact@v4
