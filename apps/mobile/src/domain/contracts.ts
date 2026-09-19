@@ -45,6 +45,8 @@ export interface AuthService {
   registerReader(email: string, password: string, displayName: string): Promise<AuthActionResult>;
   requestPasswordReset(email: string): Promise<AuthActionResult>;
   resendVerification(email: string): Promise<AuthActionResult>;
+  handleAuthCallback(url: string): Promise<AuthActionResult>;
+  completePasswordReset(password: string): Promise<AuthActionResult>;
   requestAccountDeletion(): Promise<AccountDeletionState>;
   signOut(): Promise<void>;
 }
