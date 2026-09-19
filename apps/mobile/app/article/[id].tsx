@@ -7,6 +7,7 @@ import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { colors, layout, spacing, type } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
+import { event } from "../../src/growth/events";
 
 export function generateStaticParams() {
   return [{ id: "fixture-001" }, { id: "fixture-002" }, { id: "fixture-003" }];
@@ -24,14 +25,37 @@ export default function ArticleScreen(){
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
   const lastProgressWrite=useRef({at:0,value:0});
+  const trackedArticleId=useRef<string|null>(null);
+  const trackedProgressEvents=useRef(new Set<string>());
+  const premiumLockTracked=useRef(false);
   const article=useAsync(()=>services.articles.getById(String(id)),[id]);
   const related=useAsync(()=>services.articles.getRelated(String(id)),[id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
 
   useEffect(()=>{
-    if(article.data) void services.reader.recordReadingHistory(article.data.id);
-  },[article.data?.id]);
+    const current=article.data;
+    if(!current) return;
+
+    void services.reader.recordReadingHistory(current.id);
+
+    if(trackedArticleId.current!==current.id){
+      trackedArticleId.current=current.id;
+      trackedProgressEvents.current.clear();
+      premiumLockTracked.current=false;
+      void services.analytics.track(event("article_view",{
+        premium_state:current.accessPolicy,
+        section:current.primarySection?.slug ?? "unassigned"
+      },{storyId:current.id,pagePath:"/article/"+current.id}));
+    }
+
+    if(current.accessPolicy==="premium" && entitlement.data===false && !premiumLockTracked.current){
+      premiumLockTracked.current=true;
+      void services.analytics.track(event("premium_locked",{
+        seconds_elapsed:0
+      },{storyId:current.id,pagePath:"/article/"+current.id}));
+    }
+  },[article.data?.id,entitlement.data]);
 
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
@@ -45,15 +69,38 @@ export default function ArticleScreen(){
     if(now-previous.at<1000 && Math.abs(progress-previous.value)<0.03) return;
     lastProgressWrite.current={at:now,value:progress};
     void services.reader.setReadPosition(story.id,progress);
+
+    const milestones=[
+      {threshold:0.25,name:"article_25_percent" as const,depth:25},
+      {threshold:0.50,name:"article_50_percent" as const,depth:50},
+      {threshold:0.75,name:"article_75_percent" as const,depth:75},
+      {threshold:0.98,name:"article_complete" as const,depth:100}
+    ];
+    for(const milestone of milestones){
+      if(progress>=milestone.threshold && !trackedProgressEvents.current.has(milestone.name)){
+        trackedProgressEvents.current.add(milestone.name);
+        void services.analytics.track(event(milestone.name,{
+          scroll_depth:milestone.depth
+        },{storyId:story.id,pagePath:"/article/"+story.id}));
+      }
+    }
   };
 
   const share=async()=>{
-    const url=await services.social.buildCanonicalShareUrl(story);
+    const url=await services.social.buildAttributedShareUrl(story,"system");
     await Share.share({message:story.title+" — "+url,url});
+    await services.analytics.track(event("story_shared",{
+      channel:"system"
+    },{storyId:story.id,pagePath:"/article/"+story.id}));
   };
   const save=async()=>{
     const saved=await services.reader.toggleSavedArticle(story.id);
     setActionStatus(saved ? "Saved" : "Removed from saved");
+    if(saved){
+      await services.analytics.track(event("story_saved",{
+        reader_state:"local-reader"
+      },{storyId:story.id,pagePath:"/article/"+story.id}));
+    }
   };
 
   const download=async()=>{
