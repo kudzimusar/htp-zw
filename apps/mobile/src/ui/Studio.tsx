@@ -3,6 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, spacing } from "../theme/tokens";
+import { services } from "../services";
+import { useAsync } from "../hooks/useAsync";
+import { hasServerCapability, type HealthTimesCapability } from "../security/capabilities";
 
 const modules=[
   ["Today","/studio"],
@@ -55,6 +58,40 @@ export function StudioShell({children,title}:PropsWithChildren<{title:string}>){
   );
 }
 
+export function StudioAccessGate({
+  capability,
+  children
+}:PropsWithChildren<{capability:HealthTimesCapability}>){
+  const authorization=useAsync(()=>services.authorization.getSnapshot(),[capability]);
+
+  if(authorization.loading){
+    return (
+      <View style={styles.accessGate}>
+        <Text style={styles.accessGateTitle}>Checking server authority…</Text>
+      </View>
+    );
+  }
+
+  const snapshot=authorization.data;
+  const allowed=snapshot ? hasServerCapability(snapshot,capability) : false;
+  if(!allowed){
+    return (
+      <View style={styles.accessGate}>
+        <Text style={styles.accessGateEyebrow}>SERVER AUTHORITY REQUIRED</Text>
+        <Text style={styles.accessGateTitle}>This Studio module is locked.</Text>
+        <Text style={styles.accessGateText}>
+          Required capability: {capability}. {snapshot?.reason ?? authorization.error?.message ?? "No server capability snapshot is available."}
+        </Text>
+        <Text style={styles.accessGateText}>
+          Signing in, changing local state, or editing the client cannot grant this capability.
+        </Text>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export function StudioPlaceholder({owner,description}:{owner:string;description:string}){
   return (
     <View style={styles.placeholder}>
@@ -90,5 +127,9 @@ const styles=StyleSheet.create({
   placeholder:{marginTop:spacing.xl,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,padding:spacing.xl,gap:spacing.sm},
   placeholderOwner:{fontSize:11,fontWeight:"900",color:colors.blue,letterSpacing:1},
   placeholderText:{fontSize:18,lineHeight:25,fontWeight:"800",color:colors.ink,maxWidth:760},
-  placeholderState:{fontSize:13,lineHeight:20,color:colors.inkMuted}
+  placeholderState:{fontSize:13,lineHeight:20,color:colors.inkMuted},
+  accessGate:{marginTop:spacing.xl,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.live,padding:spacing.xl,gap:spacing.sm},
+  accessGateEyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1,color:colors.live},
+  accessGateTitle:{fontSize:20,fontWeight:"900",color:colors.ink},
+  accessGateText:{fontSize:14,lineHeight:21,color:colors.inkMuted,maxWidth:760}
 });
