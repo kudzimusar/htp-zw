@@ -1,3 +1,5 @@
+import type { ContentIntegrityState, GeographyRef, SourceProvenance } from "./source";
+
 export type AccessPolicy = "public" | "premium";
 export type StoryStatus = "draft" | "scheduled" | "published" | "archived";
 
@@ -34,8 +36,11 @@ export type ArticleSummary = {
   author: AuthorRef | null;
   primarySection: TaxonomyRef | null;
   geography: TaxonomyRef[];
+  geographyRefs?: GeographyRef[];
   topics: TaxonomyRef[];
   heroMedia: MediaRef | null;
+  sourceProvenance?: SourceProvenance | null;
+  contentIntegrity?: ContentIntegrityState;
 };
 
 export type ArticleDetail = ArticleSummary & {
