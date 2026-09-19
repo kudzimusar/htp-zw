@@ -7,7 +7,8 @@ on:
       - feat/native-mobile-nm02-staging-connectivity
       - feat/native-mobile-nm03-content-contracts
       - feat/native-mobile-nm04-reader-product
-      - feat/native-mobile-nm05-growth-commercial\n      - feat/native-mobile-nm06-identity-security
+      - feat/native-mobile-nm05-growth-commercial
+      - feat/native-mobile-nm06-identity-security
     paths:
       - 'apps/mobile/**'
       - 'package.json'
