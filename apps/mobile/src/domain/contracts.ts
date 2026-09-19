@@ -2,6 +2,7 @@ import type {
   AdDecision,
   AdPlacementKey,
   AnalyticsEvent,
+  AppearancePreference,
   ArticleDetail,
   ArticleSummary,
   AudioItem,
@@ -37,8 +38,17 @@ export interface AuthService {
 export interface ReaderRepository {
   getPreferences(): Promise<EditionPreference>;
   savePreferences(preferences: EditionPreference): Promise<void>;
+  getAppearance(): Promise<AppearancePreference>;
+  setAppearance(preference: AppearancePreference): Promise<void>;
   getSavedArticleIds(): Promise<string[]>;
   toggleSavedArticle(id: string): Promise<boolean>;
+  getDownloadedArticles(): Promise<ArticleDetail[]>;
+  downloadArticle(article: ArticleDetail): Promise<void>;
+  removeDownloadedArticle(id: string): Promise<void>;
+  getReadPosition(articleId: string): Promise<number>;
+  setReadPosition(articleId: string, progress: number): Promise<void>;
+  recordReadingHistory(articleId: string): Promise<void>;
+  getReadingHistoryIds(): Promise<string[]>;
 }
 
 export interface PremiumService {

@@ -15,7 +15,7 @@ const items=[
   ["Notifications","/notifications"],
   ["My Subscriptions","/premium"],
   ["Payment Methods","/premium"],
-  ["Appearance / Theme","/my"],
+  ["Appearance / Theme","/appearance"],
   ["Privacy","/my"],
   ["Security","/my"],
   ["Devices / Sessions","/my"],

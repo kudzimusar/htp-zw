@@ -1,5 +1,6 @@
 import type { CommercialSourceContext, ContentIntegrityState, GeographyRef, PremiumSourceContext, SourceProvenance } from "./source";
 
+export type AppearancePreference = "light" | "dark" | "system";
 export type AccessPolicy = "public" | "premium";
 export type StoryStatus = "draft" | "scheduled" | "published" | "archived";
 

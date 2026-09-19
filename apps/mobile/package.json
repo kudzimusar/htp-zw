@@ -13,7 +13,8 @@
     "check": "npx expo install --check && npm run typecheck",
     "test:foundation": "node --test tests/foundation.test.mjs",
     "test:staging": "node --test tests/staging-connectivity.test.mjs",
-    "test:content-contracts": "node --test tests/content-contracts.test.mjs"
+    "test:content-contracts": "node --test tests/content-contracts.test.mjs",
+    "test:reader-product": "node --test tests/reader-product.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
