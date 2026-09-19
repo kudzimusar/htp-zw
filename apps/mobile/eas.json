@@ -21,7 +21,7 @@
       "autoIncrement": true,
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE": "staging"
+        "EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE": "production"
       }
     }
   },
