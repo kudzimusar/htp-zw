@@ -5,6 +5,7 @@ import { colors, spacing } from "../../src/theme/tokens";
 
 const actions=[
   ["Stories","stories","Draft, review, assignment and publication workflows"],
+  ["Create / Edit","create-edit","Server-authorized story creation and editing"],
   ["Live Desk","live-desk","Live blogs, streams and scheduled events"],
   ["Video Desk","video-desk","Video publishing and metadata"],
   ["Advertising","advertising","Campaigns, creatives and placements"],
