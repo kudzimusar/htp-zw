@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, radius, spacing, type } from "../theme/tokens";
-import { serviceMode } from "../services";
+import { environmentSummary } from "../platform/config";
 
 export function Page({
   children,
@@ -39,7 +39,7 @@ export function ContentWidth({ children }: PropsWithChildren) {
 export function EnvironmentBanner() {
   return (
     <View style={styles.environment}>
-      <Text style={styles.environmentText}>DEVELOPMENT • {serviceMode.toUpperCase()} DATA • NOT PRODUCTION</Text>
+      <Text style={styles.environmentText}>{environmentSummary()}</Text>
     </View>
   );
 }
