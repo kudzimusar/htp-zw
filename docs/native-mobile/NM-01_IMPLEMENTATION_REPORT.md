@@ -73,6 +73,7 @@ Studio has a visually distinct dark operational navigation and light working can
 
 - Today;
 - Stories;
+- Create / Edit;
 - Live Desk;
 - Video Desk;
 - Media;
@@ -172,7 +173,7 @@ Required gates:
 5. verify `dist/index.html`, manifest, service worker and icon;
 6. upload the generated web distribution as CI evidence.
 
-Exact run results are recorded only after GitHub Actions completes on this branch.
+GitHub Actions validation is defined on the branch. The connected GitHub run reader only exposes pull-request-triggered runs and has not returned a native workflow run for this new workflow yet, so no green Actions result is claimed here. The existing Vercel project has produced branch previews successfully, but that deployment validates the preserved root client-review surface rather than the new Expo web export.
 
 ## 11. Platform result boundary
 
