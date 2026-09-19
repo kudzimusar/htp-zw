@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ReaderRepository } from "../domain/contracts";
-import type { ArticleDetail, EditionPreference } from "../domain/models";
+import type { AppearancePreference, ArticleDetail, EditionPreference } from "../domain/models";
 
 const keys = {
   preferences: "ht:nm04:reader:preferences:v1",
+  appearance: "ht:nm04:reader:appearance:v1",
   saved: "ht:nm04:reader:saved:v1",
   downloads: "ht:nm04:reader:downloads:v1",
   progress: "ht:nm04:reader:progress:v1",
@@ -42,6 +43,15 @@ export const persistentReaderRepository: ReaderRepository = {
 
   async savePreferences(preferences) {
     await writeJson(keys.preferences, preferences);
+  },
+
+  async getAppearance() {
+    const preference = await readJson<AppearancePreference>(keys.appearance, "system");
+    return preference === "light" || preference === "dark" ? preference : "system";
+  },
+
+  async setAppearance(preference) {
+    await writeJson(keys.appearance, preference);
   },
 
   async getSavedArticleIds() {
