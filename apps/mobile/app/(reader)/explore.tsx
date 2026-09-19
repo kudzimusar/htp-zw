@@ -8,9 +8,12 @@ import { useAsync } from "../../src/hooks/useAsync";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 
 const browseGroups=[
-  ["Countries",["Global","Africa","Zimbabwe","Southern Africa","East Africa"]],
-  ["Desks",["Public Health","Health Systems","Research","Policy","Health Business","Investigations"]],
-  ["Formats",["Articles","Live","Video","Audio","Premium"]]
+  ["Countries",["Global","Zimbabwe","South Africa","Kenya","Nigeria"]],
+  ["Regions",["Africa","Southern Africa","East Africa","West Africa","Central Africa","North Africa"]],
+  ["Topics",["Public Health","Health Systems","Research","Health Financing","Digital Health","Community Health"]],
+  ["Desks",["Global Health","Africa","Research","Policy","Investigations","Public Health","Health Systems","Health Business"]],
+  ["Formats",["Articles","Live","Video","Audio","Premium"]],
+  ["More",["Authors","Jobs","Fellowships & Grants","E-Paper","Archive"]]
 ] as const;
 
 export default function ExploreScreen(){
