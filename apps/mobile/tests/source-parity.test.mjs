@@ -9,7 +9,9 @@ const read=(path)=>readFileSync(join(root,path),"utf8");
 
 test("Source Parity Bridge is public, read-only and replaceable",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/https:\/\/healthtimes\.co\.zw/);
+  const snapshot=read("src/source-parity/snapshot.ts");
+  assert.match(snapshot,/https:\/\/healthtimes\.co\.zw/);
+  assert.match(service,/EXPO_PUBLIC_HEALTHTIMES_SOURCE_BASE_URL/);
   assert.match(service,/method:"GET"/);
   assert.doesNotMatch(service,/method:"POST"|method:"PUT"|method:"PATCH"|method:"DELETE"/);
   assert.doesNotMatch(service,/service_role|subscriber|payment_method|private draft/i);
