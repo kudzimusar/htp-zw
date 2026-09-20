@@ -156,3 +156,19 @@ test("responsive Reader shell keeps mobile native and desktop editorial navigati
   assert.ok(layout.includes("Change edition"));
   assert.ok(layout.includes("mobileTabsVisible ? 96 : 64"));
 });
+
+
+test("Home editorial filters are functional and default country preferences stay global-neutral", () => {
+  const home = read("app/(reader)/index.tsx");
+  const persistence = read("src/services/reader-persistence.ts");
+  assert.ok(home.includes('type HomeFilter="for-you"|"latest"|"edition"|"world"|"health"'));
+  assert.ok(home.includes("setActiveFilter(item.key)"));
+  assert.ok(home.includes("matchesPreferences"));
+  assert.ok(home.includes('activeFilter==="latest"'));
+  assert.ok(home.includes('activeFilter==="edition"'));
+  assert.ok(home.includes('activeFilter==="world"'));
+  assert.ok(home.includes('activeFilter==="health"'));
+  assert.ok(home.includes('live.data?.length'));
+  assert.ok(persistence.includes("followedCountries: []"));
+  assert.equal(persistence.includes('followedCountries: ["Zimbabwe"]'), false);
+});

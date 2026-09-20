@@ -1,5 +1,7 @@
+import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { ArticleSummary, EditionPreference } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
 import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
@@ -7,9 +9,33 @@ import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 
+type HomeFilter="for-you"|"latest"|"edition"|"world"|"health";
+
+function publishedTime(story:ArticleSummary){
+  return story.publishedAt ? new Date(story.publishedAt).getTime() : 0;
+}
+
+function matchesPreferences(story:ArticleSummary,preferences:EditionPreference){
+  const countries=new Set(preferences.followedCountries.map((item)=>item.toLowerCase()));
+  const topics=new Set(preferences.followedTopics.map((item)=>item.toLowerCase()));
+  if(preferences.primaryEdition && preferences.primaryEdition.toLowerCase()!=="global"){
+    countries.add(preferences.primaryEdition.toLowerCase());
+  }
+  return (
+    story.geography.some((zone)=>countries.has(zone.name.toLowerCase())) ||
+    story.topics.some((topic)=>topics.has(topic.name.toLowerCase()))
+  );
+}
+
+function isHealthStory(story:ArticleSummary){
+  const section=story.primarySection?.name.toLowerCase() ?? "";
+  return section.includes("health") || story.topics.some((topic)=>topic.name.toLowerCase().includes("health"));
+}
+
 export default function HomeScreen() {
   const router=useRouter();
   const { palette }=useAppearance();
+  const [activeFilter,setActiveFilter]=useState<HomeFilter>("for-you");
   const home=useAsync(() => services.articles.getHome(), []);
   const live=useAsync(() => services.live.list(), []);
   const video=useAsync(() => services.video.list(), []);
@@ -18,17 +44,52 @@ export default function HomeScreen() {
   if (home.loading || !home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
 
-  const [hero,...rest]=home.data;
-  const edition=preferences.data?.primaryEdition?.trim() || "Global";
+  const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
+  const edition=preferenceState.primaryEdition?.trim() || "Global";
   const editionStories=edition.toLowerCase()==="global"
     ? home.data.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
     : home.data.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
 
+  const filteredStories=useMemo(()=>{
+    const source=home.data ?? [];
+    if(activeFilter==="latest"){
+      return [...source].sort((a,b)=>publishedTime(b)-publishedTime(a));
+    }
+    if(activeFilter==="edition"){
+      return editionStories.length ? editionStories : source;
+    }
+    if(activeFilter==="world"){
+      const matches=source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"));
+      return matches.length ? matches : source;
+    }
+    if(activeFilter==="health"){
+      const matches=source.filter(isHealthStory);
+      return matches.length ? matches : source;
+    }
+    const matches=source.filter((item)=>matchesPreferences(item,preferenceState));
+    return matches.length ? matches : source;
+  },[
+    activeFilter,
+    home.data,
+    edition,
+    preferenceState.followedCountries.join("|"),
+    preferenceState.followedTopics.join("|")
+  ]);
+
+  const [hero,...topStories]=filteredStories;
+  const filters:{key:HomeFilter;label:string}[]=[
+    {key:"for-you",label:"For You"},
+    {key:"latest",label:"Latest"},
+    {key:"edition",label:edition},
+    {key:"world",label:"World"},
+    {key:"health",label:"Health"}
+  ];
+
   return (
     <Page>
       <View style={styles.editorialFilters} accessibilityLabel="Editorial filters">
-        {["For You","Latest",edition,"World","Health"].map((item,index)=>(
-          <Chip key={item} active={index===0} onPress={index===2 ? ()=>router.push("/edition" as never) : undefined}>{item}</Chip>
+        {filters.map((item)=>(
+          <Chip key={item.key} active={activeFilter===item.key} onPress={()=>setActiveFilter(item.key)}>{item.label}</Chip>
         ))}
       </View>
 
@@ -39,10 +100,12 @@ export default function HomeScreen() {
 
       {hero ? <HeroStory story={hero} /> : null}
 
-      <Section>
-        <SectionHeader title="Live Now" eyebrow="NOW" action="Open Live" onAction={() => router.push("/live" as never)} />
-        {live.data?.length ? <LiveRail items={live.data} /> : <Text style={[styles.muted,{color:palette.inkMuted}]}>No live event.</Text>}
-      </Section>
+      {!!live.data?.length && (
+        <Section>
+          <SectionHeader title="Live Now" eyebrow="NOW" action="Open Live" onAction={() => router.push("/live" as never)} />
+          <LiveRail items={live.data.filter((item)=>item.status==="live")} />
+        </Section>
+      )}
 
       <Section>
         <AdSlot placement="home_after_live" />
@@ -50,7 +113,9 @@ export default function HomeScreen() {
 
       <Section>
         <SectionHeader title="Top Stories" eyebrow="EDITOR'S DESK" action="Explore" onAction={() => router.push("/explore" as never)} />
-        <StoryList stories={rest} />
+        {topStories.length
+          ? <StoryList stories={topStories} />
+          : <EmptyState title="No additional stories in this view" message="Choose another filter or Explore the wider HealthTimes taxonomy." />}
       </Section>
 
       <Section>
@@ -126,7 +191,6 @@ const styles=StyleSheet.create({
   previewNotice:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.md,paddingHorizontal:spacing.lg,marginBottom:spacing.xl,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.2},
   previewText:{fontSize:12,lineHeight:18,flex:1,minWidth:220},
-  muted:{fontSize:14},
   callout:{borderRadius:radius.md,padding:spacing.xl,gap:spacing.lg,flexDirection:"row",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"},
   calloutCopy:{gap:spacing.sm,flex:1,minWidth:240},
   calloutTitle:{fontSize:20,fontWeight:"900"},
