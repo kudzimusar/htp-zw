@@ -1,11 +1,13 @@
 import { useCallback, useRef } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, layout, radius, spacing, type } from "../theme/tokens";
 import { environmentSummary } from "../platform/config";
 import { useAppearance } from "../theme/AppearanceProvider";
+import { services } from "../services";
+import { useAsync } from "../hooks/useAsync";
 
 export function Page({
   children,
@@ -37,8 +39,15 @@ export function Page({
   const body = (
     <View style={[styles.page, { backgroundColor: palette.paper }]}>
       <EnvironmentBanner />
-      <AppHeader title={title} />
-      <ContentWidth>{children}</ContentWidth>
+      <AppHeader />
+      <ContentWidth>
+        {!!title && (
+          <View style={styles.screenHeading}>
+            <Text style={[styles.screenTitle, { color: palette.ink }]}>{title}</Text>
+          </View>
+        )}
+        {children}
+      </ContentWidth>
     </View>
   );
 
@@ -92,61 +101,81 @@ export function EnvironmentBanner() {
   );
 }
 
-export function AppHeader({ title }: { title?: string }) {
+export function AppHeader() {
   const { palette } = useAppearance();
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const pathname = usePathname();
   const desktop = width >= breakpoints.desktop;
+  const horizontal =
+    width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
+  const preferences = useAsync(() => services.reader.getPreferences(), []);
+  const edition = preferences.data?.primaryEdition?.trim() || "Global";
   const go = (path: string) => router.push(path as never);
+
+  const nav = [
+    ["Home", "/"],
+    ["Explore", "/explore"],
+    ["Live", "/live"],
+    ["Watch", "/watch"],
+    ["My HealthTimes", "/my"]
+  ] as const;
+
+  const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
-      <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button">
-        <Text style={[styles.brand, { color: palette.ink }]}>HealthTimes</Text>
-        <Text style={[styles.edition, { color: palette.blue }]}>Global</Text>
-      </Pressable>
+      <View style={[styles.headerInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+        <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
+          <Text style={[styles.brand, { color: palette.ink }]}>HealthTimes</Text>
+        </Pressable>
 
-      {desktop && (
-        <View style={styles.desktopNav}>
-          {([
-            ["Home", "/"],
-            ["Explore", "/explore"],
-            ["Live", "/live"],
-            ["Watch", "/watch"],
-            ["My HealthTimes", "/my"]
-          ] as const).map(([label, path]) => (
-            <Pressable
-              key={path}
-              onPress={() => go(path)}
-              style={styles.desktopNavItem}
-              accessibilityRole="link"
-              accessibilityLabel={label}
-            >
-              <Text style={[styles.desktopNavText, { color: palette.ink }]}>{label}</Text>
-            </Pressable>
-          ))}
+        <Pressable
+          onPress={() => go("/edition")}
+          style={[styles.editionButton, { borderColor: palette.border }]}
+          accessibilityRole="button"
+          accessibilityLabel={"Edition " + edition + ". Change edition"}
+        >
+          <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
+          <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
+        </Pressable>
+
+        {desktop && (
+          <View style={styles.desktopNav}>
+            {nav.map(([label, path]) => (
+              <Pressable
+                key={path}
+                onPress={() => go(path)}
+                style={[styles.desktopNavItem, isActive(path) && { borderBottomColor: palette.blue }]}
+                accessibilityRole="link"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: isActive(path) }}
+              >
+                <Text style={[styles.desktopNavText, { color: isActive(path) ? palette.blue : palette.ink }]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => go("/search")}
+            style={[styles.actionButton, { borderColor: palette.border }]}
+            accessibilityLabel="Search HealthTimes"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => go("/notifications")}
+            style={[styles.actionButton, { borderColor: palette.border }]}
+            accessibilityLabel="Notifications"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
+          </Pressable>
         </View>
-      )}
-
-      <View style={styles.headerActions}>
-        <Pressable
-          onPress={() => go("/search")}
-          style={[styles.actionButton, { borderColor: palette.border }]}
-          accessibilityLabel="Search HealthTimes"
-          accessibilityRole="button"
-        >
-          <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => go("/notifications")}
-          style={[styles.actionButton, { borderColor: palette.border }]}
-          accessibilityLabel="Notifications"
-          accessibilityRole="button"
-        >
-          <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
-        </Pressable>
       </View>
-      {!!title && !desktop && <Text style={[styles.mobileTitle, { color: palette.ink }]}>{title}</Text>}
     </View>
   );
 }
@@ -154,16 +183,21 @@ export function AppHeader({ title }: { title?: string }) {
 export function SectionHeader({
   title,
   action,
-  onAction
+  onAction,
+  eyebrow
 }: {
   title: string;
   action?: string;
   onAction?: () => void;
+  eyebrow?: string;
 }) {
   const { palette } = useAppearance();
   return (
     <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, { color: palette.ink }]}>{title}</Text>
+      <View style={styles.sectionHeadingCopy}>
+        {!!eyebrow && <Text style={[styles.sectionEyebrow, { color: palette.blue }]}>{eyebrow}</Text>}
+        <Text style={[styles.sectionTitle, { color: palette.ink }]}>{title}</Text>
+      </View>
       {!!action && (
         <Pressable accessibilityRole="button" accessibilityLabel={action} onPress={onAction} style={styles.sectionAction}>
           <Text style={[styles.sectionActionText, { color: palette.blue }]}>{action}</Text>
@@ -220,22 +254,28 @@ const styles=StyleSheet.create({
   safe:{flex:1},
   scrollContent:{flexGrow:1},
   page:{flex:1},
-  content:{width:"100%",alignSelf:"center"},
+  content:{width:"100%",alignSelf:"center",paddingBottom:64},
   environment:{paddingVertical:6,paddingHorizontal:12},
   environmentText:{color:"#FFFFFF",fontSize:10,fontWeight:"800",textAlign:"center",letterSpacing:0.7},
-  header:{minHeight:72,borderBottomWidth:1,flexDirection:"row",alignItems:"center",paddingHorizontal:layout.mobileGutter,gap:spacing.md,flexWrap:"wrap"},
+  header:{minHeight:70,borderBottomWidth:1},
+  headerInner:{width:"100%",alignSelf:"center",minHeight:70,flexDirection:"row",alignItems:"center",gap:spacing.md},
   brandButton:{minHeight:layout.touchMin,justifyContent:"center"},
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
-  edition:{fontSize:11,fontWeight:"800",textTransform:"uppercase",letterSpacing:0.8},
-  desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",gap:spacing.sm},
-  desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md},
-  desktopNavText:{fontSize:14,fontWeight:"700"},
+  editionButton:{minHeight:layout.touchMin,maxWidth:150,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.md},
+  editionLabel:{fontSize:9,fontWeight:"900",letterSpacing:1},
+  editionValue:{fontSize:12,fontWeight:"900",marginTop:2},
+  desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
+  desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
+  desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.sm},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderWidth:1,borderRadius:radius.sm},
   actionText:{fontSize:13,fontWeight:"800"},
-  mobileTitle:{width:"100%",fontSize:type.screen,fontWeight:"900",paddingBottom:spacing.md},
+  screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm,borderBottomWidth:0},
+  screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},
-  sectionHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:spacing.lg,gap:spacing.md},
+  sectionHeader:{flexDirection:"row",alignItems:"flex-end",justifyContent:"space-between",marginBottom:spacing.lg,gap:spacing.md},
+  sectionHeadingCopy:{gap:2,flex:1},
+  sectionEyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1.1,textTransform:"uppercase"},
   sectionTitle:{fontSize:23,fontWeight:"900",letterSpacing:-0.4},
   sectionAction:{minHeight:layout.touchMin,justifyContent:"center"},
   sectionActionText:{fontSize:13,fontWeight:"800"},

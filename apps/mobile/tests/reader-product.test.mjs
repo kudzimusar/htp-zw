@@ -22,7 +22,7 @@ test("ReaderRepository exposes deterministic persistent Reader capabilities", ()
     "getAppearance",
     "setAppearance"
   ]) {
-    assert.match(contracts, new RegExp(`\\b${method}\\b`), `missing ReaderRepository method: ${method}`);
+    assert.match(contracts, new RegExp("\\b" + method + "\\b"), "missing ReaderRepository method: " + method);
   }
 });
 
@@ -36,7 +36,7 @@ test("device persistence separates saved, downloads, progress, history and appea
     "progress",
     "history"
   ]) {
-    assert.match(persistence, new RegExp(`ht:nm04:reader:${key}:v1`));
+    assert.match(persistence, new RegExp("ht:nm04:reader:" + key + ":v1"));
   }
   assert.match(persistence, /Math\.max\(0, Math\.min\(1, value\)\)/);
   assert.match(persistence, /slice\(0, 100\)/, "reading history must be bounded");
@@ -87,4 +87,29 @@ test("NM-04 cannot claim real migrated content before AG-04", () => {
   assert.match(source, /status: "blocked"/);
   assert.match(source, /authoritativeDatabaseValidated: false/);
   assert.match(source, /completeUploadsValidated: false/);
+});
+
+test("unified UI milestone follows approved Reader and PWA design authority", () => {
+  const layout = read("src/ui/Layout.tsx");
+  const cards = read("src/ui/Cards.tsx");
+  const home = read("app/(reader)/index.tsx");
+  const explore = read("app/(reader)/explore.tsx");
+  const search = read("app/search.tsx");
+  const article = read("app/article/[id].tsx");
+
+  assert.match(layout, /EDITION/);
+  assert.match(layout, /My HealthTimes/);
+  assert.match(layout, /breakpoints\.desktop/);
+  assert.match(cards, /export function StoryList/);
+  assert.match(cards, /heroDesktop/);
+  assert.match(home, /Editorial filters/);
+  assert.doesNotMatch(home, /zone\.slug === "zimbabwe"/i, "Home must not permanently hard-code Zimbabwe as the active edition");
+  assert.match(explore, /TAXONOMY GATEWAY/);
+  assert.match(search, /Suggested searches/);
+  assert.match(search, /VideoCard/);
+  assert.match(search, /AudioCard/);
+  assert.match(search, /LiveRail/);
+  assert.match(article, /articleParagraphs/);
+  assert.match(article, /article_after_intro/);
+  assert.match(article, /AG-06 remains the server authority for entitlement/);
 });

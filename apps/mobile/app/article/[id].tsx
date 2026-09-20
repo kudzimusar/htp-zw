@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Image, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
 import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
-import { colors, layout, spacing, type } from "../../src/theme/tokens";
+import { breakpoints, colors, layout, radius, spacing, type } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 
@@ -13,15 +13,23 @@ export function generateStaticParams() {
   return [{ id: "fixture-001" }, { id: "fixture-002" }, { id: "fixture-003" }];
 }
 
-
 function stripHtml(value:string){
   return value.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+}
+
+function articleParagraphs(value:string|null){
+  if(!value) return [];
+  return value
+    .split(/<\/p>/i)
+    .map((part)=>stripHtml(part))
+    .filter(Boolean);
 }
 
 export default function ArticleScreen(){
   const { id }=useLocalSearchParams<{id:string}>();
   const router=useRouter();
   const { palette }=useAppearance();
+  const { width }=useWindowDimensions();
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
   const lastProgressWrite=useRef({at:0,value:0});
@@ -62,6 +70,8 @@ export default function ArticleScreen(){
 
   const story=article.data;
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
+  const paragraphs=articleParagraphs(story.bodyHtml);
+  const desktop=width >= breakpoints.desktop;
 
   const persistProgress=(progress:number)=>{
     const now=Date.now();
@@ -93,6 +103,7 @@ export default function ArticleScreen(){
       channel:"system"
     },{storyId:story.id,pagePath:"/article/"+story.id}));
   };
+
   const save=async()=>{
     const saved=await services.reader.toggleSavedArticle(story.id);
     setActionStatus(saved ? "Saved" : "Removed from saved");
@@ -112,34 +123,52 @@ export default function ArticleScreen(){
     setActionStatus("Available offline");
   };
 
+  const actionButton=(label:string,onPress:()=>void,accessibilityLabel=label)=>(
+    <Pressable
+      key={label}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={[styles.action,{borderColor:palette.border,backgroundColor:palette.paper}]}
+      onPress={onPress}
+    >
+      <Text style={[styles.actionText,{color:palette.ink}]}>{label}</Text>
+    </Pressable>
+  );
+
   return (
     <Page
       initialScrollProgress={readPosition.data ?? 0}
       onScrollProgress={persistProgress}
     >
       <View style={styles.actions}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" style={[styles.action,{borderColor:palette.border}]} onPress={()=>router.back()}><Text style={[styles.actionText,{color:palette.ink}]}>Back</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Change article text size" style={styles.action} onPress={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}><Text style={styles.actionText}>Text {Math.round(textScale*100)}%</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Save article" style={styles.action} onPress={save}><Text style={styles.actionText}>Save</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Download article for offline reading" style={styles.action} onPress={download}><Text style={styles.actionText}>Download</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Listen to article" style={styles.action} onPress={()=>router.push("/listen" as never)}><Text style={styles.actionText}>Listen</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Share article" style={styles.action} onPress={share}><Text style={styles.actionText}>Share</Text></Pressable>
+        {actionButton("Back",()=>router.back(),"Go back")}
+        {actionButton("Text " + Math.round(textScale*100) + "%",()=>setTextScale(textScale>=1.25?0.9:textScale+0.1),"Change article text size")}
+        {actionButton("Save",()=>{void save();},"Save article")}
+        {actionButton("Offline",()=>{void download();},"Download article for offline reading")}
+        {actionButton("Listen",()=>router.push("/listen" as never),"Listen to article")}
+        {actionButton("Share",()=>{void share();},"Share article")}
       </View>
-      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={styles.actionStatus}>{actionStatus}</Text>}
+      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:colors.success}]}>{actionStatus}</Text>}
 
       <View style={styles.articleHeader}>
         <View style={styles.metaRow}>
           <Text style={[styles.kicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
           {story.accessPolicy==="premium" && <PremiumBadge />}
         </View>
-        <Text style={[styles.title,{color:palette.ink}]}>{story.title}</Text>
+        <Text style={[styles.title,{color:palette.ink},desktop && styles.titleDesktop]}>{story.title}</Text>
         {!!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
         <Text style={[styles.byline,{color:palette.inkMuted}]}>{story.author?.displayName ?? "HealthTimes"} · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
+        {!!story.geography.length && (
+          <View style={styles.geography}>
+            {story.geography.map((zone)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
+          </View>
+        )}
       </View>
 
       {story.heroMedia?.publicUrl && (
-        <View>
-          <Image source={{uri:story.heroMedia.publicUrl}} style={styles.hero} accessibilityLabel={story.heroMedia.altText ?? story.title} />
+        <View style={styles.heroWrap}>
+          <Image source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
+          {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
           {!!story.heroMedia.credit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{story.heroMedia.credit}</Text>}
         </View>
       )}
@@ -148,22 +177,35 @@ export default function ArticleScreen(){
         {protectedBody ? (
           <>
             <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst}</Text>
-            <View style={styles.lock}>
+            <View style={[styles.lock,{borderTopColor:colors.premium}]}>
               <Text style={[styles.lockTitle,{color:palette.ink}]}>Premium reporting</Text>
-              <Text style={[styles.lockText,{color:palette.inkMuted}]}>The protected article body is not shipped to this unauthenticated fixture client. AG-06 will enforce entitlement server-side.</Text>
-              <Pressable style={styles.primary} onPress={()=>router.push("/premium" as never)}><Text style={styles.primaryText}>View Premium</Text></Pressable>
+              <Text style={[styles.lockText,{color:palette.inkMuted}]}>The protected article body is not shipped to this unauthenticated client. AG-06 remains the server authority for entitlement.</Text>
+              <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium</Text></Pressable>
             </View>
           </>
         ):(
-          <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale}]}>{stripHtml(story.bodyHtml ?? "")}</Text>
+          <>
+            {paragraphs.length ? (
+              paragraphs.map((paragraph,index)=>(
+                <View key={String(index)}>
+                  <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{paragraph}</Text>
+                  {index===0 && (
+                    <View style={styles.inlineAd}>
+                      <AdSlot placement="article_after_intro" />
+                    </View>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? ""}</Text>
+            )}
+          </>
         )}
       </View>
 
-      <Section><AdSlot placement="article_after_intro" /></Section>
-
       <Section>
         <SectionHeader title="Sources & references" />
-        <Text style={[styles.muted,{color:palette.inkMuted}]}>Authoritative citations will come from migrated story provenance and editorial data. NM-04 does not fabricate references.</Text>
+        <Text style={[styles.muted,{color:palette.inkMuted}]}>Authoritative citations will come from migrated story provenance and editorial data. This Reader does not fabricate references.</Text>
       </Section>
 
       <Section>
@@ -179,25 +221,31 @@ export default function ArticleScreen(){
 }
 const styles=StyleSheet.create({
   actions:{marginTop:spacing.lg,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  action:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderColor:colors.border},
-  actionText:{fontSize:13,fontWeight:"800",color:colors.ink},
-  actionStatus:{fontSize:12,fontWeight:"700",color:colors.success,marginTop:spacing.sm},
+  action:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderRadius:radius.sm},
+  actionText:{fontSize:13,fontWeight:"800"},
+  actionStatus:{fontSize:12,fontWeight:"700",marginTop:spacing.sm},
   articleHeader:{marginTop:spacing.xl,gap:spacing.md,maxWidth:layout.articleMax,alignSelf:"center",width:"100%"},
-  metaRow:{flexDirection:"row",gap:spacing.sm,alignItems:"center"},
-  kicker:{fontSize:12,fontWeight:"900",color:colors.blue,textTransform:"uppercase",letterSpacing:0.8},
-  title:{fontSize:38,lineHeight:44,fontWeight:"900",letterSpacing:-0.9,color:colors.ink},
-  standfirst:{fontSize:18,lineHeight:27,color:colors.inkMuted},
-  byline:{fontSize:13,fontWeight:"700",color:colors.inkMuted},
-  hero:{width:"100%",aspectRatio:16/9,marginTop:spacing.xl,backgroundColor:colors.paperMuted},
-  credit:{fontSize:11,color:colors.inkMuted,marginTop:spacing.xs},
+  metaRow:{flexDirection:"row",gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
+  kicker:{fontSize:12,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
+  title:{fontSize:36,lineHeight:42,fontWeight:"900",letterSpacing:-0.9},
+  titleDesktop:{fontSize:48,lineHeight:54,letterSpacing:-1.2},
+  standfirst:{fontSize:18,lineHeight:27},
+  byline:{fontSize:13,fontWeight:"700"},
+  geography:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  geoLabel:{fontSize:11,fontWeight:"700",borderWidth:1,borderRadius:radius.sm,paddingHorizontal:8,paddingVertical:5},
+  heroWrap:{marginTop:spacing.xl},
+  hero:{width:"100%",aspectRatio:16/9},
+  caption:{fontSize:12,lineHeight:18,marginTop:spacing.sm,maxWidth:900},
+  credit:{fontSize:11,marginTop:spacing.xs},
   body:{maxWidth:layout.articleMax,alignSelf:"center",width:"100%",marginTop:spacing.xl},
-  paragraph:{color:colors.ink},
-  lock:{marginTop:spacing.xl,borderTopWidth:3,borderTopColor:colors.premium,paddingTop:spacing.xl,gap:spacing.sm},
-  lockTitle:{fontSize:24,fontWeight:"900",color:colors.ink},
-  lockText:{fontSize:15,lineHeight:22,color:colors.inkMuted},
-  primary:{alignSelf:"flex-start",backgroundColor:colors.blue,minHeight:44,justifyContent:"center",paddingHorizontal:16,marginTop:spacing.sm},
-  primaryText:{color:"#FFFFFF",fontWeight:"900"},
-  muted:{fontSize:14,lineHeight:21,color:colors.inkMuted},
+  paragraph:{marginBottom:spacing.lg},
+  inlineAd:{marginVertical:spacing.lg},
+  lock:{marginTop:spacing.xl,borderTopWidth:3,paddingTop:spacing.xl,gap:spacing.sm},
+  lockTitle:{fontSize:24,fontWeight:"900"},
+  lockText:{fontSize:15,lineHeight:22},
+  primary:{alignSelf:"flex-start",minHeight:44,justifyContent:"center",paddingHorizontal:16,marginTop:spacing.sm,borderRadius:radius.sm},
+  primaryText:{fontWeight:"900"},
+  muted:{fontSize:14,lineHeight:21},
   related:{gap:spacing.xl},
   relatedItem:{maxWidth:520}
 });
