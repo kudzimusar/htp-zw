@@ -113,3 +113,25 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   assert.match(article, /article_after_intro/);
   assert.match(article, /AG-06 remains the server authority for entitlement/);
 });
+
+
+test("media and personal surfaces remain service-owned and globally edition-safe", () => {
+  const live = read("app/(reader)/live.tsx");
+  const watch = read("app/(reader)/watch.tsx");
+  const listen = read("app/listen.tsx");
+  const edition = read("app/edition.tsx");
+  const onboarding = read("app/onboarding.tsx");
+  const premium = read("app/premium.tsx");
+  const notifications = read("app/notifications.tsx");
+
+  assert.match(live, /services\.live\.list/);
+  assert.match(watch, /services\.video\.list/);
+  assert.match(listen, /services\.audio\.list/);
+  assert.match(edition, /services\.reader\.getPreferences/);
+  assert.match(onboarding, /services\.taxonomy\.getSnapshot/);
+  assert.match(onboarding, /saveNotificationPreferences/);
+  assert.doesNotMatch(edition, /Zimbabwe/);
+  assert.doesNotMatch(onboarding, /Zimbabwe/);
+  assert.match(premium, /Server entitlement remains authoritative under AG-06/);
+  assert.match(notifications, /Native token registration and remote delivery remain AG-06/);
+});

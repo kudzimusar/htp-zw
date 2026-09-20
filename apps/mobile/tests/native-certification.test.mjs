@@ -61,3 +61,11 @@ test("native signing credentials and Expo project identity are not fabricated",(
   assert.equal(/projectId\s*:/.test(config),false);
   assert.equal(/EXPO_TOKEN|ASC_API_KEY|APPLE_TEAM_ID|ANDROID_KEYSTORE|GOOGLE_SERVICE_ACCOUNT/i.test(config+"\n"+eas),false);
 });
+
+
+test("feature-branch PWA preview uses its own deployment environment",()=>{
+  const pages=readRepo(".github/workflows/pages.yml");
+  assert.ok(pages.includes("feat/native-mobile-nm07-native-certification"));
+  assert.ok(pages.includes("name: github-pages-preview"));
+  assert.ok(pages.includes("actions/deploy-pages@v4"));
+});
