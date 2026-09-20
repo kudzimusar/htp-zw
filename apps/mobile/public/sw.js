@@ -1,5 +1,8 @@
-const CACHE_NAME = "healthtimes-nm01-v1";
-const SHELL = ["/", "/manifest.json", "/healthtimes-icon.svg"];
+const CACHE_NAME = "healthtimes-universal-v2";
+
+const scopePath = new URL(self.registration.scope).pathname;
+const scopedPath = (path = "") => scopePath + path.replace(/^\/+/, "");
+const SHELL = [scopedPath(), scopedPath("manifest.json"), scopedPath("healthtimes-icon.svg")];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
@@ -27,7 +30,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
+        .catch(() => caches.match(request).then((cached) => cached || caches.match(scopedPath())))
     );
     return;
   }

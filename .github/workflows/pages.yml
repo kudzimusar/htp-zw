@@ -52,8 +52,21 @@ jobs:
           test -f apps/mobile/dist/manifest.json
           test -f apps/mobile/dist/sw.js
           test -f apps/mobile/dist/healthtimes-icon.svg
+          node <<'NODE'
+          const fs = require("fs");
+          const html = fs.readFileSync("apps/mobile/dist/index.html", "utf8");
+          for (const marker of ["/htp-zw/manifest.json", "/htp-zw/healthtimes-icon.svg", "/htp-zw/sw.js"]) {
+            if (!html.includes(marker)) throw new Error("Missing base-aware PWA marker: " + marker);
+          }
+          const manifest = JSON.parse(fs.readFileSync("apps/mobile/dist/manifest.json", "utf8"));
+          if (manifest.start_url !== "./" || manifest.scope !== "./" || manifest.id !== "./") {
+            throw new Error("PWA manifest is not subpath-safe.");
+          }
+          const sw = fs.readFileSync("apps/mobile/dist/sw.js", "utf8");
+          if (!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive its Pages scope.");
+          NODE
           touch apps/mobile/dist/.nojekyll
-          echo "HealthTimes universal PWA preview ready."
+          echo "HealthTimes universal PWA preview ready at /htp-zw/."
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

@@ -75,16 +75,29 @@ test("staging composition is transparent and production remains fail-closed", ()
   assert.match(fixtures, /getProtectedArticle\(\)[\s\S]*return null/, "fixture Premium service must not return protected bodies");
 });
 
-test("PWA contract is installable and static-export ready", () => {
+test("PWA contract is installable, subpath-safe and static-export ready", () => {
   const manifest = JSON.parse(read("public/manifest.json"));
   assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.start_url, "/");
+  assert.equal(manifest.id, "./");
+  assert.equal(manifest.start_url, "./");
+  assert.equal(manifest.scope, "./");
+  assert.equal(manifest.icons[0].src, "healthtimes-icon.svg");
   assert.equal(manifest.theme_color, "#071A2B");
-  assert.equal(existsSync(join(root, "public/sw.js")), true);
+
+  const html = read("app/+html.tsx");
+  assert.match(html, /Constants\.expoConfig\?\.experiments/);
+  assert.match(html, /assetPath\("manifest\.json"\)/);
+  assert.match(html, /assetPath\("sw\.js"\)/);
+
+  const sw = read("public/sw.js");
+  assert.match(sw, /self\.registration\.scope/);
+  assert.match(sw, /scopedPath\("manifest\.json"\)/);
+  assert.match(sw, /scopedPath\("healthtimes-icon\.svg"\)/);
 
   const config = read("app.config.ts");
   assert.match(config, /zw\.co\.healthtimes\.app/);
   assert.match(config, /output: "static"/);
+  assert.match(config, /baseUrl: webBaseUrl/);
 });
 
 test("mobile workspace contains no production credentials or WebView architecture", () => {
