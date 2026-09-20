@@ -85,3 +85,11 @@ test("Pages owner preview explicitly runs source-parity mode",()=>{
   assert.match(pages,/EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity/);
   assert.match(pages,/test:source-parity/);
 });
+
+
+test("System Status reports source parity without claiming authoritative migration",()=>{
+  const status=read("app/system-status.tsx");
+  assert.match(status,/read-only public source-parity editorial data/i);
+  assert.match(status,/not migration completeness/i);
+  assert.doesNotMatch(status,/fixture-backed editorial data/i);
+});

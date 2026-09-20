@@ -15,7 +15,7 @@ export default function SystemStatusScreen() {
 
   return (
     <Page title="System Status">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Operational diagnostics distinguish live staging infrastructure from fixture-backed editorial data and blocked migration prerequisites.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Operational diagnostics distinguish live staging infrastructure, read-only public source-parity editorial data and the still-blocked authoritative migration prerequisites.</Text>
 
       <View style={styles.summaryGrid}>
         <View style={[styles.summaryCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
@@ -70,7 +70,7 @@ export default function SystemStatusScreen() {
       <Section>
         <View style={[styles.boundary,{borderLeftColor:palette.blue}]}>
           <Text style={[styles.boundaryTitle,{color:palette.ink}]}>Current data boundary</Text>
-          <Text style={[styles.boundaryText,{color:palette.inkMuted}]}>AG-02 staging infrastructure is live. Authoritative stories, media, subscribers and staff remain unavailable until the migration lanes populate and authorize them. This screen never displays the publishable key and no service-role/database secret belongs in the app.</Text>
+          <Text style={[styles.boundaryText,{color:palette.inkMuted}]}>AG-02 staging infrastructure is live. The Reader may display current public HealthTimes stories and public media through the read-only Source Parity Bridge, but that is not migration completeness. The authoritative WordPress database/uploads package, complete migrated media custody, subscribers and staff authority remain blocked behind AG-03/AG-04/AG-06. This screen never displays the publishable key and no service-role/database secret belongs in the app.</Text>
         </View>
       </Section>
     </Page>
