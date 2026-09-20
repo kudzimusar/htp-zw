@@ -1,11 +1,12 @@
 import { Tabs } from "expo-router";
 import { StyleSheet, View, useWindowDimensions } from "react-native";
+import type { ColorValue } from "react-native";
 import { breakpoints } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 
 type TabIconKind="home"|"explore"|"live"|"watch"|"profile";
 
-function TabIcon({kind,color,focused}:{kind:TabIconKind;color:string;focused:boolean}){
+function TabIcon({kind,color,focused}:{kind:TabIconKind;color:ColorValue;focused:boolean}){
   if(kind==="explore"){
     return (
       <View style={[styles.exploreIcon,{borderColor:color}]}>
@@ -48,7 +49,7 @@ export default function ReaderTabs() {
   const desktop=width >= breakpoints.desktop;
 
   const icon=(kind:TabIconKind)=>
-    ({color,focused}:{color:string;focused:boolean})=><TabIcon kind={kind} color={color} focused={focused} />;
+    ({color,focused}:{color:ColorValue;focused:boolean;size:number})=><TabIcon kind={kind} color={color} focused={focused} />;
 
   return (
     <Tabs
