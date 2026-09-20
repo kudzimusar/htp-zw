@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Image, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Image, Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
 import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
@@ -8,9 +8,15 @@ import { useAsync } from "../../src/hooks/useAsync";
 import { breakpoints, colors, layout, radius, spacing, type } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
+import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 
 export function generateStaticParams() {
-  return [{ id: "fixture-001" }, { id: "fixture-002" }, { id: "fixture-003" }];
+  return [
+    ...SOURCE_PARITY_STATIC_ARTICLE_IDS.map((id)=>({id})),
+    { id: "fixture-001" },
+    { id: "fixture-002" },
+    { id: "fixture-003" }
+  ];
 }
 
 function stripHtml(value:string){
@@ -157,10 +163,24 @@ export default function ArticleScreen(){
         </View>
         <Text style={[styles.title,{color:palette.ink},desktop && styles.titleDesktop]}>{story.title}</Text>
         {!!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
-        <Text style={[styles.byline,{color:palette.inkMuted}]}>{story.author?.displayName ?? "HealthTimes"} · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
+        {story.author ? (
+          <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
+            <Text style={[styles.byline,{color:palette.blue}]}>By {story.author.displayName} · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
+        )}
         {!!story.geography.length && (
           <View style={styles.geography}>
             {story.geography.map((zone)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
+          </View>
+        )}
+        {!!story.legacyTaxonomy?.length && (
+          <View style={styles.sourceTaxonomy}>
+            <Text style={[styles.sourceTaxonomyLabel,{color:palette.inkMuted}]}>Legacy source taxonomy</Text>
+            <View style={styles.geography}>
+              {story.legacyTaxonomy.map((term)=><Text key={term.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{term.name}</Text>)}
+            </View>
           </View>
         )}
       </View>
@@ -204,8 +224,23 @@ export default function ArticleScreen(){
       </View>
 
       <Section>
-        <SectionHeader title="Sources & references" />
-        <Text style={[styles.muted,{color:palette.inkMuted}]}>Authoritative citations will come from migrated story provenance and editorial data. This Reader does not fabricate references.</Text>
+        <SectionHeader title="Source & provenance" eyebrow={story.sourceProvenance?.system==="wordpress" ? "SOURCE PARITY" : undefined} />
+        {story.sourceProvenance?.system==="wordpress" ? (
+          <View style={styles.sourceBlock}>
+            <Text style={[styles.muted,{color:palette.inkMuted}]}>This story is presented from the current public HealthTimes WordPress source through the temporary read-only parity bridge. It is not proof of AG-03/AG-04 migration completeness.</Text>
+            {!!(story.canonicalUrl ?? story.sourceProvenance.sourceUrl) && (
+              <Pressable
+                accessibilityRole="link"
+                style={[styles.sourceButton,{borderColor:palette.border}]}
+                onPress={()=>void Linking.openURL((story.canonicalUrl ?? story.sourceProvenance?.sourceUrl)!)}
+              >
+                <Text style={[styles.sourceButtonText,{color:palette.blue}]}>Open current source article →</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : (
+          <Text style={[styles.muted,{color:palette.inkMuted}]}>Authoritative citations will come from migrated story provenance and editorial data. This Reader does not fabricate references.</Text>
+        )}
       </Section>
 
       <Section>
@@ -230,8 +265,10 @@ const styles=StyleSheet.create({
   title:{fontSize:36,lineHeight:42,fontWeight:"900",letterSpacing:-0.9},
   titleDesktop:{fontSize:48,lineHeight:54,letterSpacing:-1.2},
   standfirst:{fontSize:18,lineHeight:27},
-  byline:{fontSize:13,fontWeight:"700"},
+  byline:{fontSize:13,fontWeight:"800"},
   geography:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  sourceTaxonomy:{gap:spacing.sm,marginTop:spacing.xs},
+  sourceTaxonomyLabel:{fontSize:10,fontWeight:"900",letterSpacing:0.8,textTransform:"uppercase"},
   geoLabel:{fontSize:11,fontWeight:"700",borderWidth:1,borderRadius:radius.sm,paddingHorizontal:8,paddingVertical:5},
   heroWrap:{marginTop:spacing.xl},
   hero:{width:"100%",aspectRatio:16/9},
@@ -246,6 +283,9 @@ const styles=StyleSheet.create({
   primary:{alignSelf:"flex-start",minHeight:44,justifyContent:"center",paddingHorizontal:16,marginTop:spacing.sm,borderRadius:radius.sm},
   primaryText:{fontWeight:"900"},
   muted:{fontSize:14,lineHeight:21},
+  sourceBlock:{gap:spacing.md,maxWidth:760},
+  sourceButton:{minHeight:44,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:14,borderWidth:1,borderRadius:radius.sm},
+  sourceButtonText:{fontWeight:"900"},
   related:{gap:spacing.xl},
   relatedItem:{maxWidth:520}
 });

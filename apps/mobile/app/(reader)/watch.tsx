@@ -20,14 +20,14 @@ export default function WatchScreen(){
 
   const unavailableCopy:Record<Exclude<WatchTab,"latest">,string>={
     popular:"AG-05 audience signals will determine verified popularity; the client does not fabricate rankings.",
-    series:"AG-04 migrated video metadata will identify authoritative series.",
+    series:"The public source confirms a HealthTimes video playlist, but authoritative series grouping remains an AG-04 metadata responsibility.",
     live:"Live video is routed through the HealthTimes Live service so status remains authoritative.",
-    shorts:"Short-form classification will come from authoritative AG-04 video metadata."
+    shorts:"Short-form classification will come from authoritative AG-04 video metadata; the source bridge does not infer it from duration alone."
   };
 
   return (
     <Page title="Watch">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>HealthTimes video is a first-class editorial destination with the same publication identity across iOS, Android and PWA.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>HealthTimes video is a first-class editorial destination. Latest currently reflects verified video relationships exposed by the public source publication; playback URLs are not invented when the source does not expose them.</Text>
       <View style={styles.tabs}>
         {([
           ["latest","Latest"],

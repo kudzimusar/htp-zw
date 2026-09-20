@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { EmptyState, Page, Section, SectionHeader } from "../src/ui/Layout";
+import { StoryGrid } from "../src/ui/Cards";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { event } from "../src/growth/events";
@@ -12,6 +13,8 @@ export default function PremiumScreen(){
   const router=useRouter();
   const { palette }=useAppearance();
   const store=useAsync(()=>services.premiumStore.getState(),[]);
+  const sourceStories=useAsync(()=>services.articles.getHome(),[]);
+  const premiumStories=(sourceStories.data ?? []).filter((story)=>story.accessPolicy==="premium");
   const [status,setStatus]=useState("");
 
   const purchase=async(storeProductId:string,productKey:"monthly"|"yearly")=>{
@@ -38,6 +41,13 @@ export default function PremiumScreen(){
         <Text style={[styles.title,{color:palette.ink}]}>Deeper health intelligence. Full reporting. One clear membership.</Text>
         <Text style={[styles.text,{color:palette.inkMuted}]}>Store products, localized prices and transaction receipts come only from approved platform configuration. HealthTimes does not hardcode or invent production pricing.</Text>
       </View>
+
+      <Section>
+        <SectionHeader title="From HealthTimes Premium" eyebrow="CURRENT PUBLIC SOURCE" />
+        {premiumStories.length
+          ? <StoryGrid stories={premiumStories} />
+          : <EmptyState title="No Premium source stories in this snapshot" message="Premium labels remain source-owned and will be fully reconciled by AG-04." />}
+      </Section>
 
       <Section>
         <SectionHeader title="Choose your plan" eyebrow="VERIFIED STOREFRONT" />

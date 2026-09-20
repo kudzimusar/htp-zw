@@ -28,7 +28,7 @@ export default function ExploreScreen(){
     ["Topics",topics],
     ["Desks",desks],
     ["Formats",["Articles","Live","Video","Audio","Premium"]],
-    ["More",["Authors","Jobs","Fellowships & Grants","E-Paper","Archive"]]
+    ["More",["Authors","About HealthTimes","Jobs","Fellowships & Grants","E-Paper","Archive"]]
   ] as const;
 
   const filteredStories=useMemo(()=>{
@@ -48,7 +48,7 @@ export default function ExploreScreen(){
 
   return (
     <Page title="Explore">
-      <Text style={[styles.intro,{color:palette.inkMuted}]}>Browse HealthTimes by country, region, editorial desk, topic and format. Taxonomy follows AG-01/AG-03 contracts and will fill progressively as authoritative migration data arrives.</Text>
+      <Text style={[styles.intro,{color:palette.inkMuted}]}>Browse the real current HealthTimes publication through AG-01 canonical desks while preserving legacy WordPress categories for reconciliation. This read-only bridge will be replaced by the AG-04 Supabase repository without changing the screen contract.</Text>
 
       <Pressable style={[styles.search,{borderColor:palette.border,backgroundColor:palette.paperMuted}]} onPress={()=>router.push("/search" as never)}>
         <Text style={[styles.searchLabel,{color:palette.ink}]}>Search HealthTimes</Text>
@@ -66,7 +66,11 @@ export default function ExploreScreen(){
                   {items.slice(0,title==="More"?6:12).map((item)=>(
                     <Pressable
                       key={item}
-                      onPress={()=>setActive(item)}
+                      onPress={()=>{
+                        if(item==="Authors") return router.push("/authors" as never);
+                        if(item==="About HealthTimes") return router.push("/about" as never);
+                        setActive(item);
+                      }}
                       accessibilityRole="button"
                       accessibilityState={{selected:active===item}}
                       style={[
@@ -91,7 +95,7 @@ export default function ExploreScreen(){
 
       <Section>
         <SectionHeader title={active + " reporting"} eyebrow="DISCOVER" action="Intelligent Search" onAction={()=>router.push("/search" as never)} />
-        {filteredStories.length ? <StoryGrid stories={filteredStories} /> : <EmptyState title="No matching fixture stories" message="The taxonomy selection is valid; matching editorial content will arrive through AG-04 without changing this screen." />}
+        {filteredStories.length ? <StoryGrid stories={filteredStories} /> : <EmptyState title="No matching source-parity stories" message="The taxonomy selection is valid; the complete archive remains an AG-04 migration responsibility." />}
       </Section>
     </Page>
   );

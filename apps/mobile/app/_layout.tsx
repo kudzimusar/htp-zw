@@ -45,6 +45,9 @@ export default function RootLayout() {
         <Stack.Screen name="notifications" />
         <Stack.Screen name="edition" />
         <Stack.Screen name="premium" />
+        <Stack.Screen name="authors" />
+        <Stack.Screen name="author/[slug]" />
+        <Stack.Screen name="about" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="system-status" />
         <Stack.Screen name="appearance" />

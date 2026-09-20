@@ -59,3 +59,27 @@ test("default development editorial mode is source parity while production stays
   assert.match(services,/Production service adapters are locked/);
   assert.match(services,/Staging editorial-data mode is locked until AG-04/);
 });
+
+test("requested Reader surfaces consume the repository bridge instead of a second source architecture",()=>{
+  const home=read("app/(reader)/index.tsx");
+  const explore=read("app/(reader)/explore.tsx");
+  const search=read("app/search.tsx");
+  const premium=read("app/premium.tsx");
+  const watch=read("app/(reader)/watch.tsx");
+  const article=read("app/article/[id].tsx");
+  const author=read("app/author/[slug].tsx");
+  const about=read("app/about.tsx");
+  for(const source of [home,explore,search,premium,watch]) assert.match(source,/services\./);
+  assert.match(article,/SOURCE_PARITY_STATIC_ARTICLE_IDS/);
+  assert.match(article,/Open current source article/);
+  assert.match(author,/services\.publication\.getAuthor/);
+  assert.match(author,/services\.articles\.listByAuthor/);
+  assert.match(about,/services\.publication\.getProfile/);
+  assert.doesNotMatch(home,/fixture editorial data/i);
+});
+
+test("Pages owner preview explicitly runs source-parity mode",()=>{
+  const pages=read("../../.github/workflows/pages.yml");
+  assert.match(pages,/EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity/);
+  assert.match(pages,/test:source-parity/);
+});

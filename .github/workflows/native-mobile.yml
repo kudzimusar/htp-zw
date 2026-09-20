@@ -70,6 +70,9 @@ jobs:
       - name: Run NM-07 certification readiness tests
         run: npm --prefix apps/mobile run test:native-certification
 
+      - name: Run read-only source parity bridge tests
+        run: npm --prefix apps/mobile run test:source-parity
+
       - name: Export universal web/PWA build
         run: npm run native:export:web
 

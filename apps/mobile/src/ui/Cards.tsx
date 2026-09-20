@@ -70,7 +70,7 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
         </View>
         <Text style={[styles.storyTitle,{color:palette.ink}]}>{story.title}</Text>
         {!compact && !!story.excerpt && <Text style={[styles.excerpt,{color:palette.inkMuted}]}>{story.excerpt}</Text>}
-        <Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(story.publishedAt)}</Text>
+        <Text style={[styles.meta,{color:palette.inkMuted}]}>{story.author?.displayName ? story.author.displayName+" · " : ""}{formatDate(story.publishedAt)}</Text>
       </View>
     </Pressable>
   );

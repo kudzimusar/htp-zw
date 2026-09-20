@@ -39,9 +39,13 @@ jobs:
       - name: Validate universal app
         run: npm run native:check
 
+      - name: Validate read-only source parity bridge
+        run: npm --prefix apps/mobile run test:source-parity
+
       - name: Export HealthTimes PWA for GitHub Pages
         env:
           APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
           HEALTHTIMES_WEB_BASE_URL: /htp-zw
         run: npm run native:export:web
 
@@ -66,7 +70,7 @@ jobs:
           if (!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive its Pages scope.");
           NODE
           touch apps/mobile/dist/.nojekyll
-          echo "HealthTimes universal PWA preview ready at /htp-zw/."
+          echo "HealthTimes source-parity PWA preview ready at /htp-zw/."
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

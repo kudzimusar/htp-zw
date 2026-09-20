@@ -94,8 +94,8 @@ export default function HomeScreen() {
       </View>
 
       <View style={[styles.previewNotice,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
-        <Text style={[styles.previewLabel,{color:palette.blue}]}>PREVIEW BUILD</Text>
-        <Text style={[styles.previewText,{color:palette.inkMuted}]}>Editorial fixtures remain clearly separated until AG-04 migrated stories and media are certified.</Text>
+        <Text style={[styles.previewLabel,{color:palette.blue}]}>SOURCE PARITY PREVIEW</Text>
+        <Text style={[styles.previewText,{color:palette.inkMuted}]}>Current public HealthTimes stories are presented through a read-only bridge. WordPress is never mutated; AG-03/AG-04 remain authoritative for migration completeness and the final Supabase repository.</Text>
       </View>
 
       {hero ? <HeroStory story={hero} /> : null}
@@ -136,7 +136,7 @@ export default function HomeScreen() {
         {editionStories.length ? (
           <StoryGrid stories={editionStories.slice(0,3)} />
         ) : (
-          <EmptyState title="Edition coverage is being prepared" message="The selected edition is supported by the global model, but the current controlled fixture set does not yet contain matching stories." />
+          <EmptyState title="Edition coverage is being prepared" message="The selected edition is supported by the global model, but the current bounded source-parity snapshot does not yet contain matching stories." />
         )}
       </Section>
 
