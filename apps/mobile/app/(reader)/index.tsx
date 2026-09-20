@@ -67,7 +67,7 @@ export default function HomeScreen() {
       </Section>
 
       <Section>
-        <SectionHeader title={edition + " Edition"} eyebrow="PRIMARY EDITION" action="Change edition" onAction={() => router.push("/edition" as never)} />
+        <SectionHeader title={edition + " Edition"} eyebrow="Primary Edition" action="Change edition" onAction={() => router.push("/edition" as never)} />
         {editionStories.length ? (
           <StoryGrid stories={editionStories.slice(0,3)} />
         ) : (
