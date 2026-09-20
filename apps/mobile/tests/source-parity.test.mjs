@@ -93,3 +93,18 @@ test("System Status reports source parity without claiming authoritative migrati
   assert.match(status,/not migration completeness/i);
   assert.doesNotMatch(status,/fixture-backed editorial data/i);
 });
+
+
+test("verified source photography is available in deterministic parity fallback",()=>{
+  const snapshot=read("src/source-parity/snapshot.ts");
+  for(const asset of [
+    "enhanced_1200x665.jpg",
+    "dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
+    "Chief-Nyamaropa.jpeg",
+    "aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
+    "zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg"
+  ]){
+    assert.ok(snapshot.includes(asset),asset);
+  }
+  assert.match(snapshot,/publicUrl:input\.imageUrl \?\? null/);
+});

@@ -57,6 +57,7 @@ function sourceArticle(input:{
   categories:string[];
   excerpt:string;
   imageAlt?:string;
+  imageUrl?:string;
   geography:"zimbabwe"|"africa"|"global";
 }):ArticleDetail {
   const accessPolicy=input.categories.includes("HealthTimes Premium") ? "premium" : "public";
@@ -98,7 +99,7 @@ function sourceArticle(input:{
     legacyTaxonomy:legacy,
     heroMedia:input.imageAlt ? {
       id:"source-media-"+input.slug,
-      publicUrl:null,
+      publicUrl:input.imageUrl ?? null,
       altText:input.imageAlt,
       caption:null,
       credit:"Current HealthTimes public source; runtime media URL supplied by the read-only source bridge.",
@@ -106,10 +107,10 @@ function sourceArticle(input:{
         system:"wordpress",
         sourceId:null,
         stableKey:"wordpress-media:"+input.slug,
-        sourceUrl:canonicalUrl,
+        sourceUrl:input.imageUrl ?? canonicalUrl,
         checksum:null,
         capturedAt:SOURCE_PARITY_VERIFIED_AT,
-        exceptions:[{
+        exceptions:input.imageUrl ? [] : [{
           kind:"missing-media",
           classification:"requires-review",
           note:"Snapshot preserves the verified source relationship and alt text; public WordPress _embed refresh supplies the live media URL when available."
@@ -165,6 +166,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["Africa","Epidemics"],
     excerpt:"Africa CDC says surveillance gaps and deaths outside treatment facilities are complicating the Ebola response in the Democratic Republic of the Congo.",
     imageAlt:"Dr Jean Kaseya, Director General of Africa CDC, speaking during a public health briefing",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg",
     geography:"africa"
   }),
   sourceArticle({
@@ -194,6 +196,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["Features"],
     excerpt:"Dr Neddy Makonza reflects on specialist training, decentralising orthopaedic care and creating a clearer pathway for more women to enter surgery.",
     imageAlt:"Dr Neddy Makonza, Zimbabwean orthopaedic surgeon",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
     geography:"zimbabwe"
   }),
   sourceArticle({
@@ -204,6 +207,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["HIV/AIDS"],
     excerpt:"A traditional court ruling in Shamva has renewed questions about HIV stigma, medical evidence and punitive responses after statutory decriminalisation.",
     imageAlt:"Chief Nyamaropa during a traditional court proceeding in Shamva",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg",
     geography:"zimbabwe"
   }),
   sourceArticle({
@@ -223,6 +227,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["Global Health","HIV/AIDS"],
     excerpt:"Fiji’s national HIV emergency reflects transmission moving beyond the population at the centre of the country’s initial outbreak response.",
     imageAlt:"Protesters at AIDS 2026 raising concerns about HIV among Indigenous people",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
     geography:"global"
   }),
   sourceArticle({
@@ -233,6 +238,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["Health News","Family Health","SRHR"],
     excerpt:"Zimbabwe’s community campaign against teenage pregnancy and child marriage is expanding toward Parliament and other local accountability structures.",
     imageAlt:"Zimbabwean parliamentarians at an engagement on teenage pregnancy and child marriage",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg",
     geography:"zimbabwe"
   }),
   sourceArticle({
