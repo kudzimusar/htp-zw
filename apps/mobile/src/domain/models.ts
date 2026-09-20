@@ -11,6 +11,24 @@ export type AuthorRef = {
   sourceProvenance?: SourceProvenance | null;
 };
 
+export type AuthorProfile = AuthorRef & {
+  role: string | null;
+  bio: string | null;
+  sourceUrl: string | null;
+};
+
+export type PublicationProfile = {
+  name: string;
+  description: string;
+  publisher: string;
+  location: string;
+  editorialEmail: string;
+  aboutUrl: string;
+  contactUrl: string;
+  editorialPrinciples: string[];
+  sourceVerifiedAt: string;
+};
+
 export type MediaRef = {
   id: string;
   publicUrl: string | null;
@@ -41,6 +59,7 @@ export type ArticleSummary = {
   geography: TaxonomyRef[];
   geographyRefs?: GeographyRef[];
   topics: TaxonomyRef[];
+  legacyTaxonomy?: TaxonomyRef[];
   heroMedia: MediaRef | null;
   sourceProvenance?: SourceProvenance | null;
   contentIntegrity?: ContentIntegrityState;
@@ -69,6 +88,8 @@ export type VideoItem = {
   durationSeconds: number | null;
   publishedAt: string | null;
   thumbnail: MediaRef | null;
+  sourceUrl?: string | null;
+  relatedArticleId?: string | null;
   sourceProvenance?: SourceProvenance | null;
 };
 

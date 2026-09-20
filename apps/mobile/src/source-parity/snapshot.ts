@@ -1,0 +1,369 @@
+import type {
+  ArticleDetail,
+  AuthorProfile,
+  PublicationProfile,
+  TaxonomyRef,
+  VideoItem
+} from "../domain/models";
+
+export const SOURCE_PARITY_VERIFIED_AT = "2026-09-20T11:00:00Z";
+export const SOURCE_PARITY_PUBLIC_BASE_URL = "https://healthtimes.co.zw";
+
+const canonicalSections = {
+  "global-health": { id: "desk-global-health", name: "Global Health", slug: "global-health" },
+  africa: { id: "desk-africa", name: "Africa", slug: "africa" },
+  research: { id: "desk-research", name: "Research", slug: "research" },
+  policy: { id: "desk-policy", name: "Policy", slug: "policy" },
+  "public-health": { id: "desk-public-health", name: "Public Health", slug: "public-health" },
+  "health-business": { id: "desk-health-business", name: "Health Business", slug: "health-business" }
+} as const;
+
+const geography = {
+  global: { id: "zone-global", name: "Global", slug: "global" },
+  africa: { id: "zone-africa", name: "Africa", slug: "africa" },
+  zimbabwe: { id: "zone-zimbabwe", name: "Zimbabwe", slug: "zimbabwe" }
+} as const;
+
+const authorIdentity: Record<string,{id:string;displayName:string;slug:string}> = {
+  "Michael Gwarisa": { id: "source-author-michael-gwarisa", displayName: "Michael Gwarisa", slug: "michael-gwarisa" },
+  "Kuda Pembere": { id: "source-author-kuda-pembere", displayName: "Kuda Pembere", slug: "kuda-pembere" },
+  "Kudakwashe Pembere": { id: "source-author-kuda-pembere", displayName: "Kudakwashe Pembere", slug: "kuda-pembere" },
+  "Staff Reporter": { id: "source-author-staff-reporter", displayName: "Staff Reporter", slug: "staff-reporter" }
+};
+
+function slugify(value:string){
+  return value.toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+}
+
+export function canonicalSectionForLegacy(names:string[]):TaxonomyRef {
+  const set=new Set(names.map((name)=>name.toLowerCase()));
+  if(set.has("africa")) return canonicalSections.africa;
+  if(set.has("global health")) return canonicalSections["global-health"];
+  if(set.has("health financing")) return canonicalSections["health-business"];
+  if(set.has("reseach findings") || set.has("research & findings") || set.has("academic & research")) return canonicalSections.research;
+  if(set.has("policy")) return canonicalSections.policy;
+  return canonicalSections["public-health"];
+}
+
+function legacyRefs(names:string[]):TaxonomyRef[]{
+  return names.map((name)=>({id:"legacy-"+slugify(name),name,slug:slugify(name)}));
+}
+
+function sourceArticle(input:{
+  title:string;
+  slug:string;
+  date:string;
+  author:string;
+  categories:string[];
+  excerpt:string;
+  imageAlt?:string;
+  geography:"zimbabwe"|"africa"|"global";
+}):ArticleDetail {
+  const accessPolicy=input.categories.includes("HealthTimes Premium") ? "premium" : "public";
+  const canonicalUrl=SOURCE_PARITY_PUBLIC_BASE_URL+"/"+input.slug+"/";
+  const author=authorIdentity[input.author] ?? {
+    id:"source-author-"+slugify(input.author),
+    displayName:input.author,
+    slug:slugify(input.author)
+  };
+  const geo=input.geography==="zimbabwe" ? geography.zimbabwe : input.geography==="africa" ? geography.africa : geography.global;
+  const legacy=legacyRefs(input.categories);
+  return {
+    id:"source-"+input.slug,
+    title:input.title,
+    slug:input.slug,
+    standfirst:input.excerpt,
+    excerpt:input.excerpt,
+    bodyHtml:null,
+    canonicalUrl,
+    accessPolicy,
+    status:"published",
+    publishedAt:input.date+"T00:00:00Z",
+    modifiedAt:input.date+"T00:00:00Z",
+    author:{
+      ...author,
+      sourceProvenance:{
+        system:"wordpress",
+        sourceId:null,
+        stableKey:"wordpress-author:"+author.slug,
+        sourceUrl:author.slug==="kuda-pembere" ? SOURCE_PARITY_PUBLIC_BASE_URL+"/author/kuda-pembere/" : null,
+        checksum:null,
+        capturedAt:SOURCE_PARITY_VERIFIED_AT,
+        exceptions:[]
+      }
+    },
+    primarySection:canonicalSectionForLegacy(input.categories),
+    geography:[geo],
+    topics:legacy,
+    legacyTaxonomy:legacy,
+    heroMedia:input.imageAlt ? {
+      id:"source-media-"+input.slug,
+      publicUrl:null,
+      altText:input.imageAlt,
+      caption:null,
+      credit:"Current HealthTimes public source; runtime media URL supplied by the read-only source bridge.",
+      sourceProvenance:{
+        system:"wordpress",
+        sourceId:null,
+        stableKey:"wordpress-media:"+input.slug,
+        sourceUrl:canonicalUrl,
+        checksum:null,
+        capturedAt:SOURCE_PARITY_VERIFIED_AT,
+        exceptions:[{
+          kind:"missing-media",
+          classification:"requires-review",
+          note:"Snapshot preserves the verified source relationship and alt text; public WordPress _embed refresh supplies the live media URL when available."
+        }]
+      }
+    } : null,
+    sourceProvenance:{
+      system:"wordpress",
+      sourceId:null,
+      stableKey:"wordpress-url:"+canonicalUrl,
+      sourceUrl:canonicalUrl,
+      checksum:null,
+      capturedAt:SOURCE_PARITY_VERIFIED_AT,
+      wordpress:{legacyPath:"/"+input.slug+"/"},
+      exceptions:[]
+    },
+    contentIntegrity:"requires-review",
+    premiumSourceContext:{
+      accessPolicy,
+      legacyMembershipSignal:accessPolicy==="premium" ? "wordpress-premium" : "none",
+      providerReferencePresent:false,
+      reconciliation:"requires-review"
+    }
+  };
+}
+
+export const sourceParityArticles:ArticleDetail[]=[
+  sourceArticle({
+    title:"Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks",
+    slug:"zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks",
+    date:"2026-09-18",
+    author:"Michael Gwarisa",
+    categories:["Health News","HIV/AIDS"],
+    excerpt:"Zimbabwe is examining how domestic social contracting can sustain community-led HIV services as international donor support declines.",
+    imageAlt:"Stakeholders at a Zimbabwe social contracting and HIV financing dialogue in Harare",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt",
+    slug:"ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis",
+    date:"2026-09-18",
+    author:"Kuda Pembere",
+    categories:["Health News"],
+    excerpt:"Health advocates are linking Zimbabwe’s debt burden to pressure on public services and calling for stronger collective bargaining by debtor countries.",
+    imageAlt:"Ernest Chikwati, Country Director of AIDS Healthcare Foundation Zimbabwe",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Africa CDC Warns Ebola Response Is Missing Most Expected Contacts as Community Deaths Rise",
+    slug:"africa-cdc-ebola-contact-tracing-community-deaths-drc",
+    date:"2026-09-18",
+    author:"Michael Gwarisa",
+    categories:["Africa","Epidemics"],
+    excerpt:"Africa CDC says surveillance gaps and deaths outside treatment facilities are complicating the Ebola response in the Democratic Republic of the Congo.",
+    imageAlt:"Dr Jean Kaseya, Director General of Africa CDC, speaking during a public health briefing",
+    geography:"africa"
+  }),
+  sourceArticle({
+    title:"US medical team brings specialist surgical expertise to Zimbabwe in 15-year partnership",
+    slug:"us-doctor-plays-with-child-cleft-lip-zimbabwe-medical-mission",
+    date:"2026-09-18",
+    author:"Michael Gwarisa",
+    categories:["Health News"],
+    excerpt:"A multidisciplinary United States medical team is working with Celebration Health on specialist surgical outreach and long-term local capacity building.",
+    imageAlt:"US doctor with a child during the LEAP Global Missions medical outreach in Zimbabwe",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Ugandan MPs explore ZNNP+ Kutabila, Zim’s HIV financing model",
+    slug:"uganda-legislators-benchmark-zimbabwe-hiv-response-kutabila-platform",
+    date:"2026-09-17",
+    author:"Kudakwashe Pembere",
+    categories:["Health News","HIV/AIDS"],
+    excerpt:"Ugandan legislators are benchmarking Zimbabwe’s community-led HIV monitoring, AIDS financing and the ZNNP+ Kutabila virtual health platform.",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Meet Dr Neddy Makonza: Zimbabwe’s Fourth Female Orthopaedic Surgeon Wants to Open Doors for More Women",
+    slug:"meet-dr-neddy-zimbabwes-fourth-female-orthopaedic-surgeon",
+    date:"2026-09-17",
+    author:"Michael Gwarisa",
+    categories:["Features"],
+    excerpt:"Dr Neddy Makonza reflects on specialist training, decentralising orthopaedic care and creating a clearer pathway for more women to enter surgery.",
+    imageAlt:"Dr Neddy Makonza, Zimbabwean orthopaedic surgeon",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"HIV decriminalisation tested as traditional court orders woman to pay cow over alleged transmission",
+    slug:"chief-nyamaropa-orders-woman-to-pay-cow-over-alleged-hiv-transmission",
+    date:"2026-09-16",
+    author:"Michael Gwarisa",
+    categories:["HIV/AIDS"],
+    excerpt:"A traditional court ruling in Shamva has renewed questions about HIV stigma, medical evidence and punitive responses after statutory decriminalisation.",
+    imageAlt:"Chief Nyamaropa during a traditional court proceeding in Shamva",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Most Ebola deaths in DRC are happening outside treatment centres as care barriers deepen",
+    slug:"most-ebola-deaths-in-drc-are-happening-outside-treatment-centres-as-care-barriers-deepen",
+    date:"2026-09-16",
+    author:"Michael Gwarisa",
+    categories:["Africa","Epidemics"],
+    excerpt:"WHO data indicate that many Ebola deaths in the DRC continue to occur in communities, highlighting delays and barriers on the path to treatment.",
+    geography:"africa"
+  }),
+  sourceArticle({
+    title:"Fiji’s HIV Epidemic Has Moved Beyond Its Initial Risk Group",
+    slug:"fiji-hiv-emergency-epidemic-spreads-beyond-drug-users",
+    date:"2026-09-16",
+    author:"Michael Gwarisa",
+    categories:["Global Health","HIV/AIDS"],
+    excerpt:"Fiji’s national HIV emergency reflects transmission moving beyond the population at the centre of the country’s initial outbreak response.",
+    imageAlt:"Protesters at AIDS 2026 raising concerns about HIV among Indigenous people",
+    geography:"global"
+  }),
+  sourceArticle({
+    title:"‘Not In My Village’ Goes National as Zimbabwe Targets MPs in Fight Against Teenage Pregnancy",
+    slug:"not-in-my-constituency-zimbabwe-teenage-pregnancy-tags",
+    date:"2026-09-15",
+    author:"Michael Gwarisa",
+    categories:["Health News","Family Health","SRHR"],
+    excerpt:"Zimbabwe’s community campaign against teenage pregnancy and child marriage is expanding toward Parliament and other local accountability structures.",
+    imageAlt:"Zimbabwean parliamentarians at an engagement on teenage pregnancy and child marriage",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Harare STI Cases Fall Below 2,000 Per Quarter, NAC Says",
+    slug:"harare-sti-cases-fall-below-2000-per-quarter-nac",
+    date:"2026-09-07",
+    author:"Kuda Pembere",
+    categories:["Breaking News","Health News","HIV/AIDS"],
+    excerpt:"National AIDS Council figures point to lower quarterly STI cases in Harare while adolescents and young women remain disproportionately affected.",
+    imageAlt:"NAC Harare Province manager Adonijah Muzondiona discussing STI and HIV prevention",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Parliament Probes NatPharm Over Zimbabwe’s Medicine Supply Chain",
+    slug:"parliament-probes-natpharm-zimbabwe-medicine-supply-chain",
+    date:"2026-09-07",
+    author:"Michael Gwarisa",
+    categories:["Health News","Policy"],
+    excerpt:"Parliament is examining financing, procurement, distribution and digital systems across Zimbabwe’s public medicines supply chain.",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"US Embassy Challenges Zimbabwe’s Account of Rejected Health Assistance Deal",
+    slug:"us-embassy-challenges-zimbabwe-rejected-health-mou",
+    date:"2026-08-03",
+    author:"Michael Gwarisa",
+    categories:["Health News","HealthTimes Premium"],
+    excerpt:"The US Embassy disputed Zimbabwe’s explanation of a rejected health assistance agreement, adding a new public account to the funding dispute.",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Zimbabwe Faces Funding Cliff as U.S. Ends Support for HIV, TB and Malaria Programmes",
+    slug:"zimbabwe-us-hiv-tb-malaria-funding-ends-september-2026",
+    date:"2026-07-24",
+    author:"Kuda Pembere",
+    categories:["Breaking News","Health Financing","HealthTimes Premium","HIV/AIDS"],
+    excerpt:"Zimbabwe faces pressure to expand domestic health financing as United States support for major HIV, TB and malaria programmes winds down.",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Zimbabwe Drops National Health Insurance Name, Unveils Tax-Funded Healthcare Provision Programme",
+    slug:"zimbabwe-national-healthcare-provision-programme-mombeshora",
+    date:"2026-07-23",
+    author:"Michael Gwarisa",
+    categories:["Health Financing","HealthTimes Premium"],
+    excerpt:"Government has reframed its proposed national health financing mechanism as a tax-funded healthcare provision programme rather than an insurance scheme.",
+    imageAlt:"Health Minister Dr Douglas Mombeshora discussing the proposed healthcare provision programme",
+    geography:"zimbabwe"
+  })
+];
+
+export const SOURCE_PARITY_STATIC_ARTICLE_IDS=sourceParityArticles.map((article)=>article.id);
+
+export const sourceParityVideos:VideoItem[]=[
+  {
+    id:"source-video-jaciara-cleft-surgery",
+    title:"From Mozambique to Zimbabwe: Jaciara’s Life-Changing Cleft Lip Surgery at CURE Children's Hospital",
+    durationSeconds:490,
+    publishedAt:null,
+    thumbnail:null,
+    sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",
+    sourceProvenance:{system:"wordpress",sourceId:null,stableKey:"source-video:jaciara-cleft-surgery",sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",checksum:null,capturedAt:SOURCE_PARITY_VERIFIED_AT,exceptions:[]}
+  },
+  {
+    id:"source-video-silicosis-miners",
+    title:"Silicosis is Killing Zimbabwe’s Artisanal Miners | 42 Deaths Recorded at Kwekwe General Hospital",
+    durationSeconds:346,
+    publishedAt:null,
+    thumbnail:null,
+    sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",
+    sourceProvenance:{system:"wordpress",sourceId:null,stableKey:"source-video:silicosis-miners",sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",checksum:null,capturedAt:SOURCE_PARITY_VERIFIED_AT,exceptions:[]}
+  },
+  {
+    id:"source-video-medical-aid-crisis",
+    title:"Zimbabwe’s Medical Aid Crisis: AHFoZ CEO Warns Coverage Could Fall Below 8%",
+    durationSeconds:272,
+    publishedAt:null,
+    thumbnail:null,
+    sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",
+    sourceProvenance:{system:"wordpress",sourceId:null,stableKey:"source-video:medical-aid-crisis",sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",checksum:null,capturedAt:SOURCE_PARITY_VERIFIED_AT,exceptions:[]}
+  },
+  {
+    id:"source-video-pabs-annex",
+    title:"Global South Puts Pressure on WHO Over PABS Annex Ahead of Pandemic Treaty Vote",
+    durationSeconds:145,
+    publishedAt:null,
+    thumbnail:null,
+    sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",
+    sourceProvenance:{system:"wordpress",sourceId:null,stableKey:"source-video:pabs-annex",sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",checksum:null,capturedAt:SOURCE_PARITY_VERIFIED_AT,exceptions:[]}
+  },
+  {
+    id:"source-video-sugar-coke",
+    title:"How Many Teaspoons of Sugar Are in a Coke? This Will Shock You",
+    durationSeconds:677,
+    publishedAt:null,
+    thumbnail:null,
+    sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",
+    sourceProvenance:{system:"wordpress",sourceId:null,stableKey:"source-video:sugar-coke",sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/",checksum:null,capturedAt:SOURCE_PARITY_VERIFIED_AT,exceptions:[]}
+  }
+];
+
+export const sourceParityAuthors:AuthorProfile[]=[
+  {id:"source-author-michael-gwarisa",displayName:"Michael Gwarisa",slug:"michael-gwarisa",role:"Editor-in-Chief",bio:null,sourceUrl:null},
+  {id:"source-author-kuda-pembere",displayName:"Kudakwashe Pembere",slug:"kuda-pembere",role:"Assistant Editor",bio:null,sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/author/kuda-pembere/"},
+  {id:"source-author-ntokozo-gudu",displayName:"Ntokozo Gudu",slug:"ntokozo-gudu",role:"Reporter",bio:null,sourceUrl:null},
+  {id:"source-author-patson-gumbo",displayName:"Patson Gumbo",slug:"patson-gumbo",role:"Reporter",bio:null,sourceUrl:null},
+  {id:"source-author-rukudzo-gota",displayName:"Rukudzo Gota",slug:"rukudzo-gota",role:"Reporter",bio:null,sourceUrl:null},
+  {id:"source-author-staff-reporter",displayName:"Staff Reporter",slug:"staff-reporter",role:"Staff Reporter",bio:null,sourceUrl:null}
+];
+
+export const sourceParityPublication:PublicationProfile={
+  name:"HealthTimes",
+  description:"An independent health news publication covering Zimbabwe, Africa and global health, with an emphasis on public health, research, policy and evidence-based reporting.",
+  publisher:"MITAP Media Pvt Ltd",
+  location:"Zimbabwe",
+  editorialEmail:"editorial@healthtimes.co.zw",
+  aboutUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/about-us/",
+  contactUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/contact-us/",
+  editorialPrinciples:[
+    "Accuracy and evidence",
+    "Clarity and accessibility in health communication",
+    "Ethical reporting of sensitive health issues",
+    "Respect for privacy and dignity",
+    "Transparent sourcing and corrections"
+  ],
+  sourceVerifiedAt:SOURCE_PARITY_VERIFIED_AT
+};
+
+export const sourceParityAdvertisingReference={
+  campaignName:"HOSPAZ September AGM",
+  articleUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/hospaz-sets-september-agm-to-shape-zimbabwes-next-chapter-in-hospice-and-palliative-care/",
+  creativeVerified:false,
+  note:"The Source Parity Register documents HOSPAZ AGM as the initial real campaign. The exact approved creative and destination are not rendered until they are source-verified."
+} as const;
