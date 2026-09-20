@@ -135,3 +135,24 @@ test("media and personal surfaces remain service-owned and globally edition-safe
   assert.match(premium, /Server entitlement remains authoritative under AG-06/);
   assert.match(notifications, /Native token registration and remote delivery remain AG-06/);
 });
+
+
+test("responsive Reader shell keeps mobile native and desktop editorial navigation aligned", () => {
+  const tabs = read("app/(reader)/_layout.tsx");
+  const layout = read("src/ui/Layout.tsx");
+
+  for (const label of ["Home","Explore","Live","Watch","My HT"]) {
+    assert.ok(tabs.includes('title:"' + label + '"'), "missing bottom tab: " + label);
+  }
+  for (const kind of ["home","explore","live","watch","profile"]) {
+    assert.ok(tabs.includes('icon("' + kind + '")'), "missing bottom-tab icon: " + kind);
+  }
+  assert.ok(tabs.includes("tabBarActiveTintColor:palette.blue"));
+  assert.ok(tabs.includes("tabBarInactiveTintColor:palette.inkMuted"));
+  assert.ok(layout.includes("phone = width < breakpoints.tablet"));
+  assert.ok(layout.includes("mobileUtilityWrap"));
+  assert.ok(layout.includes("Search HealthTimes"));
+  assert.ok(layout.includes("Notifications"));
+  assert.ok(layout.includes("Change edition"));
+  assert.ok(layout.includes("mobileTabsVisible ? 96 : 64"));
+});

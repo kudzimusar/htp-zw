@@ -22,10 +22,12 @@ export function Page({
   onScrollProgress?: (progress: number) => void;
 }>) {
   const { palette } = useAppearance();
+  const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const restoredRef = useRef(false);
+  const mobileTabsVisible = width < breakpoints.desktop;
 
   const restorePosition = useCallback(() => {
     if (restoredRef.current || !scroll || initialScrollProgress <= 0) return;
@@ -40,7 +42,7 @@ export function Page({
     <View style={[styles.page, { backgroundColor: palette.paper }]}>
       <EnvironmentBanner />
       <AppHeader />
-      <ContentWidth>
+      <ContentWidth bottomInset={mobileTabsVisible ? 96 : 64}>
         {!!title && (
           <View style={styles.screenHeading}>
             <Text style={[styles.screenTitle, { color: palette.ink }]}>{title}</Text>
@@ -59,6 +61,7 @@ export function Page({
           style={{ backgroundColor: palette.paper }}
           contentContainerStyle={[styles.scrollContent, { backgroundColor: palette.paper }]}
           scrollEventThrottle={250}
+          keyboardShouldPersistTaps="handled"
           onLayout={(event) => {
             viewportHeightRef.current = event.nativeEvent.layout.height;
             restorePosition();
@@ -81,12 +84,15 @@ export function Page({
   );
 }
 
-export function ContentWidth({ children }: PropsWithChildren) {
+export function ContentWidth({
+  children,
+  bottomInset = 64
+}: PropsWithChildren<{bottomInset?:number}>) {
   const { width } = useWindowDimensions();
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
   return (
-    <View style={[styles.content, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+    <View style={[styles.content, { maxWidth: layout.contentMax, paddingHorizontal: horizontal, paddingBottom: bottomInset }]}>
       {children}
     </View>
   );
@@ -106,6 +112,7 @@ export function AppHeader() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const pathname = usePathname();
+  const phone = width < breakpoints.tablet;
   const desktop = width >= breakpoints.desktop;
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
@@ -123,6 +130,29 @@ export function AppHeader() {
 
   const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
+  const actions = (
+    <View style={[styles.headerActions, phone && styles.phoneActions]}>
+      <Pressable
+        onPress={() => go("/search")}
+        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        accessibilityLabel="Search HealthTimes"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>DISCOVER</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => go("/notifications")}
+        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        accessibilityLabel="Notifications"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>UPDATES</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
       <View style={[styles.headerInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
@@ -132,7 +162,7 @@ export function AppHeader() {
 
         <Pressable
           onPress={() => go("/edition")}
-          style={[styles.editionButton, { borderColor: palette.border }]}
+          style={[styles.editionButton, phone && styles.phoneEditionButton, { borderColor: palette.border }]}
           accessibilityRole="button"
           accessibilityLabel={"Edition " + edition + ". Change edition"}
         >
@@ -157,25 +187,16 @@ export function AppHeader() {
           </View>
         )}
 
-        <View style={styles.headerActions}>
-          <Pressable
-            onPress={() => go("/search")}
-            style={[styles.actionButton, { borderColor: palette.border }]}
-            accessibilityLabel="Search HealthTimes"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => go("/notifications")}
-            style={[styles.actionButton, { borderColor: palette.border }]}
-            accessibilityLabel="Notifications"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
-          </Pressable>
-        </View>
+        {!phone && actions}
       </View>
+
+      {phone && (
+        <View style={[styles.mobileUtilityWrap, { borderTopColor: palette.border }]}>
+          <View style={[styles.mobileUtilityInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+            {actions}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -254,23 +275,29 @@ const styles=StyleSheet.create({
   safe:{flex:1},
   scrollContent:{flexGrow:1},
   page:{flex:1},
-  content:{width:"100%",alignSelf:"center",paddingBottom:64},
+  content:{width:"100%",alignSelf:"center"},
   environment:{paddingVertical:6,paddingHorizontal:12},
   environmentText:{color:"#FFFFFF",fontSize:10,fontWeight:"800",textAlign:"center",letterSpacing:0.7},
-  header:{minHeight:70,borderBottomWidth:1},
-  headerInner:{width:"100%",alignSelf:"center",minHeight:70,flexDirection:"row",alignItems:"center",gap:spacing.md},
+  header:{borderBottomWidth:1},
+  headerInner:{width:"100%",alignSelf:"center",minHeight:68,flexDirection:"row",alignItems:"center",gap:spacing.md},
   brandButton:{minHeight:layout.touchMin,justifyContent:"center"},
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
   editionButton:{minHeight:layout.touchMin,maxWidth:150,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.md},
+  phoneEditionButton:{marginLeft:"auto",maxWidth:128,flexShrink:1},
   editionLabel:{fontSize:9,fontWeight:"900",letterSpacing:1},
   editionValue:{fontSize:12,fontWeight:"900",marginTop:2},
   desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
   desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
   desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.sm},
+  phoneActions:{width:"100%",marginLeft:0},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderWidth:1,borderRadius:radius.sm},
-  actionText:{fontSize:13,fontWeight:"800"},
-  screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm,borderBottomWidth:0},
+  phoneActionButton:{flex:1,minHeight:50},
+  actionEyebrow:{fontSize:8,fontWeight:"900",letterSpacing:0.9},
+  actionText:{fontSize:13,fontWeight:"900",marginTop:1},
+  mobileUtilityWrap:{borderTopWidth:1},
+  mobileUtilityInner:{width:"100%",alignSelf:"center",paddingVertical:spacing.sm},
+  screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},
   sectionHeader:{flexDirection:"row",alignItems:"flex-end",justifyContent:"space-between",marginBottom:spacing.lg,gap:spacing.md},
