@@ -61,7 +61,7 @@ test("AG-03 readiness stays blocked until authoritative private source evidence 
 });
 
 test("global taxonomy model is not Zimbabwe-only", () => {
-  const taxonomy = read("src/services/taxonomy.ts");
+  const taxonomy = read("src/services/taxonomy.ts") + "\n" + read("src/domain/taxonomy-authority.ts");
   for (const desk of [
     "Global Health",
     "Africa",
