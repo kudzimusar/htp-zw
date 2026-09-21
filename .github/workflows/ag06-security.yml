@@ -1,0 +1,113 @@
+name: AG-06 Newsroom Security
+
+on:
+  pull_request:
+    paths:
+      - 'api/newsroom.js'
+      - 'newsroom.js'
+      - 'newsroom.html'
+      - 'newsroom.css'
+      - 'vercel.json'
+      - 'supabase/migrations/**'
+      - 'tests/ag06-*.spec.js'
+      - 'tests/newsroom-os.spec.js'
+      - 'playwright.config.js'
+      - 'package.json'
+      - '.github/workflows/ag06-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: AG-06 static authorization contract
+        run: npm run test:ag06:contract
+      - name: Secret-pattern guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! git grep -nE 'eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}' -- ':!package-lock.json'
+          ! git grep -nE 'postgres(ql)?://[^[:space:]@]+:[^[:space:]@]+@' -- ':!docs/**'
+          ! git grep -nE 'HealthTimes#(Publisher|Editor|Reporter|Commercial|Audience)[0-9]+' -- newsroom.js newsroom.html api || true
+          if git grep -nE 'HealthTimes#(Publisher|Editor|Reporter|Commercial|Audience)[0-9]+' -- newsroom.js newsroom.html api; then
+            echo 'Legacy demo credential literal detected in runtime code.'
+            exit 1
+          fi
+
+  disposable-supabase-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Initialize local Supabase config
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            npx --yes supabase@2.117.0 init
+          fi
+      - name: Start disposable Supabase
+        run: npx --yes supabase@2.117.0 start
+      - name: Apply all migrations from zero
+        run: npx --yes supabase@2.117.0 db reset --local
+      - name: Stop disposable Supabase
+        if: always()
+        run: npx --yes supabase@2.117.0 stop --no-backup || true
+
+  local-newsroom-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Unauthenticated gateway and local regression
+        run: npx playwright test tests/newsroom-os.spec.js
+
+  live-staging-security:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AG06_STAGING_BASE_URL: ${{ secrets.AG06_STAGING_BASE_URL }}
+      AG06_STAGING_SUPABASE_URL: ${{ secrets.AG06_STAGING_SUPABASE_URL }}
+      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      AG06_REPORTER_EMAIL: ${{ secrets.AG06_REPORTER_EMAIL }}
+      AG06_REPORTER_PASSWORD: ${{ secrets.AG06_REPORTER_PASSWORD }}
+      AG06_EDITOR_EMAIL: ${{ secrets.AG06_EDITOR_EMAIL }}
+      AG06_EDITOR_PASSWORD: ${{ secrets.AG06_EDITOR_PASSWORD }}
+      AG06_COMMERCIAL_EMAIL: ${{ secrets.AG06_COMMERCIAL_EMAIL }}
+      AG06_COMMERCIAL_PASSWORD: ${{ secrets.AG06_COMMERCIAL_PASSWORD }}
+      AG06_PUBLISHER_EMAIL: ${{ secrets.AG06_PUBLISHER_EMAIL }}
+      AG06_PUBLISHER_PASSWORD: ${{ secrets.AG06_PUBLISHER_PASSWORD }}
+      PLAYWRIGHT_BASE_URL: ${{ secrets.AG06_STAGING_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require bounded staging test configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AG06_STAGING_BASE_URL AG06_STAGING_SUPABASE_URL AG06_STAGING_SUPABASE_PUBLISHABLE_KEY AG06_REPORTER_EMAIL AG06_REPORTER_PASSWORD AG06_EDITOR_EMAIL AG06_EDITOR_PASSWORD AG06_COMMERCIAL_EMAIL AG06_COMMERCIAL_PASSWORD AG06_PUBLISHER_EMAIL AG06_PUBLISHER_PASSWORD; do
+            test -n "${!name:-}" || { echo "Missing required staging secret: $name"; exit 1; }
+          done
+          [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Direct API/RLS attacks + Newsroom journeys
+        run: npm run test:ag06:live
