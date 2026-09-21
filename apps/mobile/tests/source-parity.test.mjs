@@ -119,3 +119,38 @@ test("live public WordPress refresh can surface newly published posts without re
   assert.match(service,/const merged=\[\.\.\.liveArticles,\.\.\.snapshotFallbacks\]/);
   assert.doesNotMatch(service,/if\(!fallback\) continue/);
 });
+
+
+test("new live posts remain readable through the existing ArticleRepository contract",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/const current=\(await refreshedArticles\(\)\)\.find\(\(article\)=>article\.id===id\)/);
+  assert.match(service,/encodeURIComponent\(current\.slug\)/);
+  assert.doesNotMatch(service,/if\(!fallback\) return null/);
+});
+
+test("fallbackless live posts preserve uncertainty instead of fabricating canonical truth",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/function inferPrimarySection/);
+  assert.match(service,/if\(!normalized\.some\(\(name\)=>canonicalLegacyNames\.has\(name\)\)\) return null/);
+  assert.match(service,/Geography is left unassigned because the public source metadata does not provide enough evidence/);
+  assert.match(service,/No AG-01 canonical desk is inferred/);
+  assert.match(service,/author-unresolved/);
+  assert.match(service,/taxonomy-unresolved/);
+  assert.match(service,/missing-media/);
+  assert.match(service,/unknown-shortcode/);
+});
+
+test("live source taxonomy and authors can extend parity surfaces without a second repository",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/const articles=await refreshedArticles\(\);/);
+  assert.match(service,/async function parityAuthors/);
+  assert.match(service,/return parityAuthors\(\)/);
+  assert.match(service,/topics:observedLegacy/);
+});
+
+test("source-parity search respects contract filters as well as the live corpus",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/if\(query\.country\)/);
+  assert.match(service,/if\(query\.topic\)/);
+  assert.match(service,/article\.legacyTaxonomy/);
+});
