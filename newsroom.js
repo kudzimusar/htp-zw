@@ -10,8 +10,36 @@
   const HOSPAZ = 'https://healthtimes.co.zw/wp-content/uploads/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg';
   const $ = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => [...r.querySelectorAll(s)];
-  const read = (k, f) => { try { const v=localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } };
-  const write = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  // Browser state is a presentation cache only. Server/RLS is authoritative.
+  const memory = new Map();
+  const read = (k, f) => memory.has(k) ? memory.get(k) : f;
+  const write = (k,v) => memory.set(k,v);
+  let serverUser = null;
+
+  function csrfToken(){
+    const row = String(document.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('htp_nr_csrf='));
+    return row ? decodeURIComponent(row.slice('htp_nr_csrf='.length)) : '';
+  }
+  async function api(action,payload={},method='POST'){
+    const options={method,credentials:'same-origin',headers:{'Accept':'application/json'}};
+    if(method==='POST'){
+      options.headers['Content-Type']='application/json';
+      const csrf=csrfToken();
+      if(csrf)options.headers['X-HTP-CSRF']=csrf;
+      options.body=JSON.stringify({action,...payload});
+    }
+    const url=method==='GET'?`/api/newsroom?action=${encodeURIComponent(action)}`:'/api/newsroom';
+    const response=await fetch(url,options);
+    let data={};
+    try{data=await response.json();}catch{}
+    if(!response.ok||data.ok===false){
+      const error=new Error(data.error||`Newsroom request failed (${response.status})`);
+      error.status=response.status; error.data=data; throw error;
+    }
+    return data;
+  }
+  const localTime=v=>v?new Date(v).toISOString().slice(0,16):'';
+  const displayTime=v=>v?new Date(v).toLocaleString():'Never';
   const esc = (v='') => String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const iso = () => new Date().toISOString();
   const stamp = () => iso().slice(0,16).replace('T',' ');
@@ -112,25 +140,126 @@
   ];
 
   let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null;
-  function ensureSeed(){ if(!read(KEYS.stories,null))write(KEYS.stories,initialStories); if(!read(KEYS.assignments,null))write(KEYS.assignments,initialAssignments); if(!read(KEYS.staff,null))write(KEYS.staff,initialStaff); if(!read(KEYS.media,null))write(KEYS.media,initialMedia); if(!read(KEYS.campaigns,null))write(KEYS.campaigns,initialCampaigns); if(!read(KEYS.comments,null))write(KEYS.comments,{}); if(!read(KEYS.audit,null))write(KEYS.audit,[]); }
-  function getStories(){ensureSeed();return read(KEYS.stories,[])} function setStories(v){write(KEYS.stories,v)}
-  function getAssignments(){ensureSeed();return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
-  function getStaff(){ensureSeed();return read(KEYS.staff,[])} function setStaff(v){write(KEYS.staff,v)}
-  function getMedia(){ensureSeed();return read(KEYS.media,[])}
-  function caps(role){return new Set(ROLE_CAPS[role]||[])} function has(cap){return caps(currentUser()?.role).has(cap)}
-  function staffRecord(username){return getStaff().find(x=>x.username===username)}
-  function currentUser(){const s=read(KEYS.session,null);if(!s?.username||!ACCOUNTS[s.username])return null;const base=ACCOUNTS[s.username], staff=staffRecord(s.username);if(staff?.status==='Revoked'||staff?.status==='Deactivated'||staff?.status==='Suspended')return null;return {...base,...staff,username:s.username,initials:initials(staff?.name||base.name)};}
+  function ensureSeed(){}
+  function getStories(){return read(KEYS.stories,[])} function setStories(v){write(KEYS.stories,v)}
+  function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
+  function getStaff(){return read(KEYS.staff,[])} function setStaff(v){write(KEYS.staff,v)}
+  function getMedia(){return read(KEYS.media,[])}
+  function caps(role){return new Set(ROLE_CAPS[role]||[])} // presentation reference only
+  function has(cap){return new Set(currentUser()?.capabilities||[]).has(cap)}
+  function staffRecord(username){return getStaff().find(x=>x.username===username||x.id===username)}
+  function currentUser(){return serverUser}
   function isEditor(){return has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_PUBLISH)||has(CAP.ASSIGN_MANAGE)}
   function canEditStory(s){const u=currentUser();return !!u && (has(CAP.STORY_EDIT_ALL)||(has(CAP.STORY_EDIT_OWN)&&s.owner===u.username));}
-  function canModule(id,rule){if(!currentUser())return false;if(!rule)return true;if(rule==='editorial')return has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_CREATE)||has(CAP.STORY_FACT)||has(CAP.STORY_HEALTH)||has(CAP.STORY_COPY);if(rule==='review')return has(CAP.STORY_FACT)||has(CAP.STORY_HEALTH)||has(CAP.STORY_COPY)||has(CAP.STORY_PUBLISH);if(rule==='premium')return has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE);if(rule==='admin')return has(CAP.STAFF_VIEW)||has(CAP.SETTINGS)||has(CAP.SECURITY);if(rule==='security')return has(CAP.SECURITY)||!!currentUser();return has(rule);}
-  function audit(action){const u=currentUser();const list=read(KEYS.audit,[]);list.unshift({at:iso(),user:u?.name||'System',role:u?.role||'System',action});write(KEYS.audit,list.slice(0,150));}
+  function canModule(id,rule){if(!currentUser())return false;if(!rule)return true;if(rule==='editorial')return has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_CREATE)||has(CAP.STORY_FACT)||has(CAP.STORY_HEALTH)||has(CAP.STORY_COPY);if(rule==='review')return has(CAP.STORY_FACT)||has(CAP.STORY_HEALTH)||has(CAP.STORY_COPY)||has(CAP.STORY_PUBLISH);if(rule==='premium')return has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE);if(rule==='admin')return has(CAP.STAFF_VIEW)||has(CAP.SETTINGS)||has(CAP.SECURITY);if(rule==='security')return has(CAP.SECURITY)||has('security.view_sessions')||!!currentUser();return has(rule);}
+  function audit(){/* Durable audit is written by server-side RPCs. */}
   function toast(msg){const el=$('[data-newsroom-toast]');if(!el)return;el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2200);}
-  function syncPremium(story){const id=titleToId[story.title]||story.slug; if(!id)return; const o=read(KEYS.overrides,{});o[id]={...(o[id]||{}),premium:!!story.premium,updatedAt:iso(),source:'newsroom'};write(KEYS.overrides,o);}
+  function syncPremium(){/* Premium editorial policy is server-backed. */}
 
-  function login(username,password){ensureSeed();const key=String(username||'').trim().toLowerCase();const a=ACCOUNTS[key], staff=staffRecord(key);if(!a||a.password!==password||['Suspended','Deactivated','Revoked'].includes(staff?.status))return false;write(KEYS.session,{username:key,signedInAt:iso(),sessionId:`session-${Date.now()}`});const sessions=read(KEYS.sessions,{});sessions[key]=[{id:`current-${Date.now()}`,device:'Current browser',location:'Active session',lastActive:'Now',current:true},...(sessions[key]||[]).filter(x=>!x.current).slice(0,2)];write(KEYS.sessions,sessions);staff.lastLogin='Now';setStaff(getStaff().map(x=>x.username===key?staff:x));audit(`${a.name} signed in to HealthTimes Newsroom`);return true;}
-  function logout(){const u=currentUser();if(u)audit(`${u.name} signed out`);localStorage.removeItem(KEYS.session);location.reload();}
+  function applyBootstrap(payload){
+    const data=payload?.data||payload||{};
+    const ctx=data.context||{};
+    const roles=new Map((data.roles||[]).map(r=>[r.id,r.name]));
+    const rawStaff=data.staff||[];
+    const byId=new Map(rawStaff.map(s=>[s.id,s]));
+    const handleFor=id=>{const s=byId.get(id);return s?.handle||s?.id||'';};
+    const staff=(rawStaff||[]).map(s=>({
+      id:s.id,authUserId:s.auth_user_id,username:s.handle||s.id,name:s.display_name,email:s.email||'',
+      role:roles.get(s.role_id)||'Staff',desk:s.desk||'',beat:s.beat||'',country:s.country||'',region:s.region||'',
+      status:String(s.status||'').replace(/^./,x=>x.toUpperCase()),editor:handleFor(s.assigned_editor_id),
+      lastLogin:displayTime(s.last_login_at),mfa:s.mfa_enrolled_at?'Enrolled':(s.mfa_required?'Required':'Available')
+    }));
+    setStaff(staff);
+    const staffById=new Map(staff.map(s=>[s.id,s]));
+    const revisionGroups={};
+    for(const r of data.revisions||[]){
+      (revisionGroups[r.story_id]||(revisionGroups[r.story_id]=[])).push({
+        id:r.id,revisionNumber:r.revision_number,at:r.created_at,
+        by:staffById.get(r.editor_id)?.name||'Newsroom',label:r.change_summary||`Revision ${r.revision_number}`
+      });
+    }
+    const stories=(data.stories||[]).map(s=>({
+      id:s.id,title:s.title||'',standfirst:s.standfirst||'',body:s.body_html||'',sources:s.source_notes||'',notes:s.internal_notes||'',
+      section:'Health News',desk:s.desk||'',country:s.country||'',region:s.region||'Global',topic:s.topic||'',
+      premium:String(s.access_policy||'public').toLowerCase()==='premium',
+      owner:handleFor(s.owner_staff_id),author:staffById.get(s.owner_staff_id)?.name||'HealthTimes',
+      editor:handleFor(s.assigned_editor_staff_id),factChecker:handleFor(s.fact_checker_staff_id),
+      status:s.workflow_status||(String(s.status||'').toLowerCase()==='publish'?'Published':'Draft'),
+      deadline:localTime(s.deadline_at),schedule:localTime(s.scheduled_at),updated:displayTime(s.updated_at||s.modified_at),
+      seoTitle:s.seo_title||'',metaDescription:s.seo_description||'',slug:s.slug||'',adSetting:s.ad_setting||'Standard',
+      distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1)
+    }));
+    setStories(stories);
+    const assignments=(data.assignments||[]).map(a=>({
+      id:a.id,storyId:a.story_id,title:a.title,reporter:handleFor(a.reporter_staff_id),
+      desk:a.desk||'',deadline:a.deadline_at||'',priority:a.priority||'Normal',
+      editor:handleFor(a.assigned_editor_staff_id),status:a.status||'Assigned',notes:a.notes||''
+    }));
+    setAssignments(assignments);
+    const comments={};
+    for(const row of data.comments||[]){
+      const a=staffById.get(row.author_staff_id);
+      (comments[row.story_id]||(comments[row.story_id]=[])).push({
+        id:row.id,user:a?.name||'Newsroom',at:row.created_at,text:row.body,resolved:!!row.resolved_at
+      });
+    }
+    write(KEYS.comments,comments);
+    write(KEYS.audit,(data.audit||[]).map(row=>({
+      at:row.created_at,user:staffById.get(row.actor_staff_id)?.name||'System',
+      role:staffById.get(row.actor_staff_id)?.role||'System',action:row.action,
+      target:row.target_table,targetId:row.target_id,metadata:row.metadata||{}
+    })));
+    const sessionMap={};
+    for(const row of data.sessions||[]){
+      const person=staffById.get(row.staff_profile_id); if(!person)continue;
+      (sessionMap[person.username]||(sessionMap[person.username]=[])).push({
+        id:row.provider_session_id,dbId:row.id,device:row.user_agent||'Staff browser',
+        location:'HealthTimes Staging',lastActive:displayTime(row.last_seen_at),
+        current:row.provider_session_id===ctx.session_id,revoked:!!row.revoked_at
+      });
+    }
+    write(KEYS.sessions,sessionMap);
+    const advertisers=new Map((data.advertisers||[]).map(a=>[a.id,a.name]));
+    write(KEYS.campaigns,(data.campaigns||[]).map(x=>({
+      id:x.id,advertiser:advertisers.get(x.advertiser_id)||'Advertiser',name:x.name,status:x.status,
+      start:x.start_at||'',end:x.end_at||'',review:x.review_status||'pending',placement:[],impressions:0,clicks:0
+    })));
+    write(KEYS.notifications,[]);
+    const self=staff.find(s=>s.id===ctx.id)||{
+      id:ctx.id,username:ctx.handle||ctx.id,name:ctx.display_name,email:ctx.email,role:ctx.role,
+      desk:ctx.desk||'',beat:ctx.beat||'',country:ctx.country||'',region:ctx.region||'',status:'Active',
+      editor:ctx.assigned_editor||'',lastLogin:displayTime(ctx.last_login_at),mfa:ctx.mfa_enrolled_at?'Enrolled':(ctx.mfa_required?'Required':'Available')
+    };
+    serverUser={...self,capabilities:Array.isArray(ctx.capabilities)?ctx.capabilities:[],sessionId:ctx.session_id,initials:initials(self.name)};
+  }
 
-  function init(){ensureSeed();bindGlobal();const u=currentUser();if(!u){$('[data-login-view]').hidden=false;$('[data-newsroom-app]').hidden=true;return;}$('[data-login-view]').hidden=true;$('[data-newsroom-app]').hidden=false;renderUser();renderNav();showModule('overview');}
+  async function refreshData(){
+    const result=await api('bootstrap',{},'GET');
+    applyBootstrap(result.data);
+    return result.data;
+  }
+
+  async function login(email,password){
+    const result=await api('login',{email:String(email||'').trim().toLowerCase(),password:String(password||'')});
+    serverUser={...(result.context||{}),username:result.context?.handle||result.context?.id,name:result.context?.display_name,initials:initials(result.context?.display_name),capabilities:result.context?.capabilities||[]};
+    await refreshData();
+    return true;
+  }
+  async function logout(){
+    try{await api('logout');}catch{}
+    memory.clear();serverUser=null;location.reload();
+  }
+
+  async function init(){
+    bindGlobal();
+    try{await refreshData();}catch(error){
+      if(error.status!==401&&error.status!==403)console.warn('Newsroom bootstrap unavailable:',error.message);
+      serverUser=null;
+    }
+    const u=currentUser();
+    if(!u){$('[data-login-view]').hidden=false;$('[data-newsroom-app]').hidden=true;return;}
+    $('[data-login-view]').hidden=true;$('[data-newsroom-app]').hidden=false;renderUser();renderNav();showModule('overview');
+  }
 
   function renderUser(){const u=currentUser();$('[data-user-mini]').innerHTML=`<div class="nr-user-mini-row"><span class="nr-avatar">${esc(u.initials)}</span><span><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></span><button type="button" data-sign-out aria-label="Sign out">↪</button></div>`;$('[data-user-menu]').textContent=u.initials;$('[data-topline]').textContent=`${u.name} · ${u.role}`;}
   function navCount(id){const u=currentUser(), stories=getStories(), assignments=getAssignments();if(id==='my-assignments')return assignments.filter(a=>a.reporter===u.username&&!['Complete'].includes(a.status)).length;if(id==='my-stories')return stories.filter(s=>s.owner===u.username&&!['Archived'].includes(s.status)).length;if(id==='review')return stories.filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)).length;if(id==='corrections')return stories.filter(s=>s.status==='Updated / Corrected').length;if(id==='premium')return stories.filter(s=>s.premium).length;return 0;}
@@ -149,8 +278,8 @@
   <div class="nr-grid nr-grid-4">${stat('Active assignments',assignments.filter(a=>a.status!=='Complete').length,'Stories currently assigned to you','teal')}${stat('Due today',due.length,'Deadlines requiring attention','red')}${stat('Drafts',drafts.length,'Working copy not yet submitted','blue')}${stat('Waiting for editor',waiting.length,'Submitted or in review','amber')}</div>
   <div class="nr-dashboard-columns"><div class="nr-dashboard-stack"><section class="nr-panel"><div class="nr-panel-head"><div><h2>My assignments</h2><p>Priority work and deadlines</p></div><button data-module-jump="my-assignments">Open desk →</button></div><ul class="nr-list">${assignments.slice(0,5).map(a=>assignmentList(a)).join('')||emptyRow('No active assignments')}</ul></section><section class="nr-panel"><div class="nr-panel-head"><div><h2>My stories</h2><p>Drafting, review and publication state</p></div><button data-module-jump="my-stories">All stories →</button></div><ul class="nr-list">${stories.slice(0,6).map(s=>storyList(s)).join('')}</ul></section></div><div class="nr-dashboard-stack">${todayPanel()}${notificationPanel()}${personalPerformancePanel(stories)}</div></div>`;}
   function renderEditorDashboard(){const stories=getStories(), assignments=getAssignments(), review=stories.filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)), overdue=assignments.filter(a=>new Date(a.deadline)<new Date()&&a.status!=='Complete'), ready=stories.filter(s=>['Ready','Scheduled'].includes(s.status)), corrections=stories.filter(s=>s.status==='Updated / Corrected');return `${head('Newsroom today','Review priorities, deadlines, publishing readiness and desk activity.',button('＋ Assignment','data-open-assignment','nr-secondary')+button('＋ New story','data-quick-create','nr-primary'))}<div class="nr-grid nr-grid-4">${stat('Needs review',review.length,'Editorial or verification action','amber')}${stat('Ready to publish',ready.length,'Ready or scheduled work','green')}${stat('Overdue assignments',overdue.length,'Past deadline and incomplete','red')}${stat('Corrections waiting',corrections.length,'Updates requiring publication','blue')}</div><div class="nr-dashboard-columns"><div class="nr-dashboard-stack"><section class="nr-panel"><div class="nr-panel-head"><div><h2>Review queue</h2><p>Work requiring an editorial decision</p></div><button data-module-jump="review">Open queue →</button></div>${review.slice(0,6).map(reviewCard).join('')||empty('Review queue is clear')}</section><section class="nr-panel"><div class="nr-panel-head"><div><h2>Desk activity</h2><p>Current working inventory by desk</p></div></div>${deskActivity()}</section></div><div class="nr-dashboard-stack">${todayPanel()}${trendingPanel()}${publicationPulse()}</div></div>`;}
-  function renderPublisherDashboard(){const stories=getStories(),staff=getStaff(), campaigns=read(KEYS.campaigns,initialCampaigns),active=staff.filter(s=>s.status==='Active').length;return `${head('Publisher overview','Organisation-wide editorial, commercial, staff and security context.',button('View audit','data-module-jump="audit"','nr-secondary')+button('Invite staff','data-open-invite','nr-primary'))}<div class="nr-grid nr-grid-4">${stat('Editorial inventory',stories.length,'Stories across all workflow states','teal')}${stat('Active staff',active,'Newsroom accounts currently active','blue')}${stat('Premium research',stories.filter(s=>s.premium).length,'Stories under Premium governance','amber')}${stat('Active campaigns',campaigns.filter(c=>c.status==='Active').length,'Commercial inventory currently running','green')}</div><div class="nr-dashboard-columns"><div class="nr-dashboard-stack"><section class="nr-panel"><div class="nr-panel-head"><div><h2>Operating health</h2><p>Publication work that needs attention</p></div></div>${deskActivity()}</section><section class="nr-panel"><div class="nr-panel-head"><div><h2>Staff & access</h2><p>Current organisation profile</p></div><button data-module-jump="staff">Manage →</button></div><div class="nr-staff-card-grid">${staff.slice(0,6).map(personCard).join('')}</div></section></div><div class="nr-dashboard-stack">${publicationPulse()}${commercialPulse()}${securityPulse()}</div></div>`;}
-  function renderCommercialDashboard(){const campaigns=read(KEYS.campaigns,initialCampaigns), stories=getStories(), premium=stories.filter(s=>s.premium);return `${head('Commercial workspace','Advertising, Premium product and subscriber operations — separated from editorial copy.',button('Advertising','data-module-jump="advertising"','nr-primary'))}<div class="nr-grid nr-grid-4">${stat('Active campaigns',campaigns.filter(c=>c.status==='Active').length,'Paid inventory currently running','teal')}${stat('Scheduled campaigns',campaigns.filter(c=>c.status==='Scheduled').length,'Upcoming commercial inventory','blue')}${stat('Premium stories',premium.length,'Current Premium publishing inventory','amber')}${stat('Ad review pending',campaigns.filter(c=>c.review==='Pending').length,'Campaigns needing approval','red')}</div><div class="nr-dashboard-columns"><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Commercial work without editorial permissions</p></div><button data-module-jump="advertising">Manage →</button></div>${campaignTable(campaigns)}</section><div class="nr-dashboard-stack">${commercialPulse()}${subscriberPulse()}</div></div>`;}
+  function renderPublisherDashboard(){const stories=getStories(),staff=getStaff(), campaigns=read(KEYS.campaigns,[]),active=staff.filter(s=>s.status==='Active').length;return `${head('Publisher overview','Organisation-wide editorial, commercial, staff and security context.',button('View audit','data-module-jump="audit"','nr-secondary')+button('Invite staff','data-open-invite','nr-primary'))}<div class="nr-grid nr-grid-4">${stat('Editorial inventory',stories.length,'Stories across all workflow states','teal')}${stat('Active staff',active,'Newsroom accounts currently active','blue')}${stat('Premium research',stories.filter(s=>s.premium).length,'Stories under Premium governance','amber')}${stat('Active campaigns',campaigns.filter(c=>c.status==='Active').length,'Commercial inventory currently running','green')}</div><div class="nr-dashboard-columns"><div class="nr-dashboard-stack"><section class="nr-panel"><div class="nr-panel-head"><div><h2>Operating health</h2><p>Publication work that needs attention</p></div></div>${deskActivity()}</section><section class="nr-panel"><div class="nr-panel-head"><div><h2>Staff & access</h2><p>Current organisation profile</p></div><button data-module-jump="staff">Manage →</button></div><div class="nr-staff-card-grid">${staff.slice(0,6).map(personCard).join('')}</div></section></div><div class="nr-dashboard-stack">${publicationPulse()}${commercialPulse()}${securityPulse()}</div></div>`;}
+  function renderCommercialDashboard(){const campaigns=read(KEYS.campaigns,[]), stories=getStories(), premium=stories.filter(s=>s.premium);return `${head('Commercial workspace','Advertising, Premium product and subscriber operations — separated from editorial copy.',button('Advertising','data-module-jump="advertising"','nr-primary'))}<div class="nr-grid nr-grid-4">${stat('Active campaigns',campaigns.filter(c=>c.status==='Active').length,'Paid inventory currently running','teal')}${stat('Scheduled campaigns',campaigns.filter(c=>c.status==='Scheduled').length,'Upcoming commercial inventory','blue')}${stat('Premium stories',premium.length,'Current Premium publishing inventory','amber')}${stat('Ad review pending',campaigns.filter(c=>c.review==='Pending').length,'Campaigns needing approval','red')}</div><div class="nr-dashboard-columns"><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Commercial work without editorial permissions</p></div><button data-module-jump="advertising">Manage →</button></div>${campaignTable(campaigns)}</section><div class="nr-dashboard-stack">${commercialPulse()}${subscriberPulse()}</div></div>`;}
   function renderAudienceDashboard(){return `${head('Audience desk','Briefings, WhatsApp, social distribution and reader relationship work.',button('Build briefing','data-module-jump="newsletter"','nr-primary'))}<div class="nr-grid nr-grid-4">${stat('Scheduled editions','2','Weekly + Premium intelligence','teal')}${stat('Stories selected','7','Across active briefing drafts','blue')}${stat('WhatsApp queue','3','Items awaiting distribution','amber')}${stat('Reader channels','3','Email · WhatsApp · browser','green')}</div><div class="nr-dashboard-columns"><div class="nr-dashboard-stack">${distributionQueue()}${todayPanel()}</div><div class="nr-dashboard-stack">${audienceTopicPanel()}${notificationPanel()}</div></div>`;}
 
   function storyList(s){return `<li class="nr-list-item"><div><strong>${esc(s.title)}</strong><p>${esc(s.desk)} · ${esc(s.premium?'Premium':'Public')} · Updated ${esc(s.updated)}</p></div><div class="nr-list-actions">${status(s.status)}${canEditStory(s)?button('Open',`data-open-story="${esc(s.id)}"`):''}</div></li>`;}
@@ -203,7 +332,7 @@
   function renderPremium(){const list=getStories().filter(s=>s.premium||has(CAP.PREMIUM_ASSIGN));return `${head('Premium','Research access, publishing stage and membership value.',has(CAP.PREMIUM_MANAGE)?button('View membership operations','data-module-jump="subscribers"','nr-secondary'):'')}<section class="nr-panel" data-v21-premium-admin><div class="nr-panel-head"><div><h2>Premium publishing controls</h2><p>Authorised changes update the public story access override.</p></div></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Story</th><th>Status</th><th>Sources</th><th>Access</th><th>Action</th></tr></thead><tbody>${list.map(s=>`<tr><td class="nr-title-cell"><strong>${esc(s.title)}</strong><span>${esc(s.desk)}</span></td><td>${status(s.status)}</td><td>${s.sources?'Recorded':'Needs sources'}</td><td><span class="nr-tag">${s.premium?'Premium':'Public'}</span></td><td>${has(CAP.PREMIUM_ASSIGN)?`<button class="nr-secondary" data-v21-premium-toggle="${esc(s.id)}">${s.premium?'Make public':'Make Premium'}</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></section>`;}
   function renderSubscribers(){return `${head('Subscribers','Membership service, reader accounts and Premium support operations.')}<div class="nr-grid nr-grid-3">${stat('Membership price','US$5','Monthly Premium proposition','teal')}${stat('Preview contract','30 sec','Per-reader, per-story access','amber')}${stat('Billing','Connect','Production payment provider required','blue')}</div><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>Subscriber operations</h2><p>Production identity and billing service integration points</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Reader identity</strong><p>Account, saved stories and preferences</p></div><span class="nr-tag">Frontend ready</span></li><li class="nr-list-item"><div><strong>Entitlements</strong><p>Server-side membership required for production</p></div><span class="nr-tag">Integrate</span></li><li class="nr-list-item"><div><strong>Support status</strong><p>Subscriber manager workflow</p></div><span class="nr-tag">Prepared</span></li></ul></section>`;}
   function campaignTable(list){return `<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Campaign</th><th>Advertiser</th><th>Placement</th><th>Dates</th><th>Status</th><th>Review</th></tr></thead><tbody>${list.map(c=>`<tr><td class="nr-title-cell"><strong>${esc(c.name)}</strong><span>${esc(c.label||'Advertisement')}</span></td><td>${esc(c.advertiser)}</td><td>${esc((c.placement||[]).join(' · '))}</td><td>${esc(c.start)} → ${esc(c.end)}</td><td>${status(c.status)}</td><td><span class="nr-tag">${esc(c.review)}</span></td></tr>`).join('')}</tbody></table></div>`;}
-  function renderAdvertising(){return `${head('Advertising','Paid inventory, campaign governance and commercial review.',has(CAP.ADS_CREATE)?button('＋ New campaign','','nr-primary'):'')}<div class="nr-note">Commercial staff can manage advertising and membership operations but cannot edit newsroom stories.</div><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Masthead, in-feed, article and briefing placements</p></div></div>${campaignTable(read(KEYS.campaigns,initialCampaigns))}</section><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>HOSPAZ creative</h2><p>Current paid campaign retained from the source publication</p></div></div><div style="padding:14px"><img src="${HOSPAZ}" alt="HOSPAZ Annual General Meeting advertisement" style="display:block;width:100%;height:auto;object-fit:contain;border-radius:8px"></div></section>`;}
+  function renderAdvertising(){return `${head('Advertising','Paid inventory, campaign governance and commercial review.',has(CAP.ADS_CREATE)?button('＋ New campaign','','nr-primary'):'')}<div class="nr-note">Commercial staff can manage advertising and membership operations but cannot edit newsroom stories.</div><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Masthead, in-feed, article and briefing placements</p></div></div>${campaignTable(read(KEYS.campaigns,[]))}</section><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>HOSPAZ creative</h2><p>Current paid campaign retained from the source publication</p></div></div><div style="padding:14px"><img src="${HOSPAZ}" alt="HOSPAZ Annual General Meeting advertisement" style="display:block;width:100%;height:auto;object-fit:contain;border-radius:8px"></div></section>`;}
 
   function renderStaff(){const list=getStaff();return `${head('Staff & Access','Invite, assign, suspend and revoke Newsroom access.',has(CAP.STAFF_INVITE)?button('＋ Invite staff','data-open-invite','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Staff</th><th>Role</th><th>Desk</th><th>Status</th><th>Last login</th><th>Security</th><th>Actions</th></tr></thead><tbody>${list.map(s=>`<tr><td class="nr-title-cell"><strong>${esc(s.name)}</strong><span>${esc(s.email)} · ${esc(s.beat)}</span></td><td>${esc(s.role)}</td><td>${esc(s.desk)}</td><td>${status(s.status)}</td><td>${esc(s.lastLogin||'Never')}</td><td><span class="nr-tag">MFA ${esc(s.mfa||'Pending')}</span></td><td><div class="nr-table-actions">${has(CAP.STAFF_ROLE)&&s.username!==currentUser().username?`<button data-staff-role="${esc(s.username)}">Change role</button>`:''}${has(CAP.STAFF_REVOKE)&&s.username!==currentUser().username?`<button data-staff-sessions="${esc(s.username)}">Revoke sessions</button><button data-staff-revoke="${esc(s.username)}">Revoke access</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></section>`;}
   function renderRoles(){return `${head('Roles & Permissions','Capabilities define authority; roles group capabilities for newsroom work.')}<section class="nr-panel"><div class="nr-capability-grid">${Object.entries(ROLE_CAPS).map(([role,cs])=>`<article class="nr-role-card"><h3>${esc(role)}</h3><p>${cs.length} configured capabilities</p><ul>${cs.slice(0,8).map(c=>`<li>${esc(c)}</li>`).join('')}${cs.length>8?`<li>+ ${cs.length-8} more</li>`:''}</ul></article>`).join('')}</div></section>`;}
@@ -212,33 +341,66 @@
   function renderIntegrations(){return `${head('Integrations','Production connections for publishing, identity, analytics and distribution.')}<section class="nr-panel"><div class="nr-source-grid">${[['CMS / Database','Replace local story persistence'],['Identity + MFA','Replace local staff credentials'],['Analytics','Reads, engagement, geography and referrals'],['Email','Newsletter delivery'],['WhatsApp Business','Briefings and reader messaging'],['Payments','Premium billing and entitlement'],['Citation monitoring','Backlinks and academic mentions'],['Ad events','Campaign impressions and clicks']].map(x=>`<article class="nr-source-card"><strong>${x[0]}</strong><span>${x[1]}</span><span>Production integration</span></article>`).join('')}</div></section>`;}
   function renderSecurity(){const u=currentUser(),all=read(KEYS.sessions,{}),sessions=all[u.username]||[{id:'current',device:'Current browser',location:'Current session',lastActive:'Now',current:true}];return `${head('Security','Sessions, access state and account security.',has(CAP.SECURITY)?button('View audit','data-module-jump="audit"','nr-secondary'):'')}<div class="nr-grid nr-grid-2"><section class="nr-panel"><div class="nr-panel-head"><div><h2>Sessions</h2><p>Signed-in devices for this staff account</p></div></div>${sessions.map(s=>`<div class="nr-security-session"><div><strong>${esc(s.device)}</strong><p>${esc(s.location)} · ${esc(s.lastActive)}</p></div>${s.current?'<span class="nr-tag">Current</span>':button('Revoke',`data-revoke-session="${esc(s.id)}"`)}</div>`).join('')}</section><section class="nr-panel"><div class="nr-panel-head"><div><h2>Account security</h2><p>Identity controls</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>MFA</strong><p>Production managed identity requirement</p></div><span class="nr-tag">${esc(u.mfa||'Pending')}</span></li><li class="nr-list-item"><div><strong>Password status</strong><p>${u.passwordChange?'Change required':'No forced change'}</p></div><span class="nr-tag">Protected</span></li><li class="nr-list-item"><div><strong>Role</strong><p>${esc(u.role)}</p></div><span class="nr-tag">RBAC</span></li></ul></section></div>`;}
 
-  function openStory(id=null){const u=currentUser();if(id){const s=getStories().find(x=>x.id===id);if(!s||!canEditStory(s)){toast('You do not have permission to edit this story.');return;}editingStoryId=id;}else{if(!has(CAP.STORY_CREATE)){toast('Your role cannot create stories.');return;}editingStoryId=`s-${Date.now().toString(36)}`;const s={id:editingStoryId,title:'',standfirst:'',body:'',sources:'',notes:'',section:'Health News',desk:u.desk||'Global Health',country:u.country||'',region:u.region||'Global',topic:'',premium:false,owner:u.username,author:u.name,editor:isEditor()?u.username:'editor',factChecker:'',status:'Draft',deadline:'',schedule:'',updated:stamp(),seoTitle:'',metaDescription:'',slug:'',adSetting:'Standard',distribution:{homepage:false,breaking:false,newsletter:false,whatsapp:false,push:false},versions:[]};const list=getStories();list.unshift(s);setStories(list);audit(`${u.name} created a new story draft`);}
-    populateEditor();$('[data-story-modal]').hidden=false;document.body.style.overflow='hidden';}
-  function closeStory(){flushAutosave();$('[data-story-modal]').hidden=true;document.body.style.overflow='';editingStoryId=null;}
+  async function openStory(id=null){
+    const u=currentUser();
+    if(id){
+      const s=getStories().find(x=>x.id===id);
+      if(!s||!canEditStory(s)){toast('You do not have permission to edit this story.');return;}
+      editingStoryId=id;
+    }else{
+      if(!has(CAP.STORY_CREATE)){toast('Your account cannot create stories.');return;}
+      try{
+        const result=await api('createStory',{story:{desk:u.desk||'Global Health',country:u.country||'',region:u.region||'Global'}});
+        await refreshData();editingStoryId=result.id;
+      }catch(error){toast(error.message);return;}
+    }
+    populateEditor();$('[data-story-modal]').hidden=false;document.body.style.overflow='hidden';
+  }
+  async function closeStory(){await flushAutosave();$('[data-story-modal]').hidden=true;document.body.style.overflow='';editingStoryId=null;}
   function staffOptions(selected='',roles=null){return getStaff().filter(s=>s.status==='Active'&&(!roles||roles.includes(s.role))).map(s=>`<option value="${esc(s.username)}" ${s.username===selected?'selected':''}>${esc(s.name)} · ${esc(s.role)}</option>`).join('');}
   function populateEditor(){const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const form=$('[data-story-form]'), shadow=$('[data-story-shadow]');form.elements.id.value=s.id;form.elements.title.value=s.title||'';form.elements.standfirst.value=s.standfirst||'';form.elements.body.value=s.body||'';form.elements.sources.value=s.sources||'';form.elements.notes.value=s.notes||'';const fields={status:s.status,deadline:s.deadline||'',owner:s.owner,editor:s.editor||'',factChecker:s.factChecker||'',desk:s.desk||'',section:s.section||'',country:s.country||'',region:s.region||'Global',premium:String(!!s.premium),seoTitle:s.seoTitle||'',metaDescription:s.metaDescription||'',slug:s.slug||'',adSetting:s.adSetting||'Standard',schedule:s.schedule||''};const owner=$('[name="owner"][form="story-shadow"]'), editor=$('[name="editor"][form="story-shadow"]'), checker=$('[name="factChecker"][form="story-shadow"]'), desk=$('[name="desk"][form="story-shadow"]'), region=$('[name="region"][form="story-shadow"]');owner.innerHTML=staffOptions(s.owner,['Reporter / Journalist','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);editor.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.editor,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;checker.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.factChecker,['Fact Checker','Health / Science Editor','Editor-in-Chief'])}`;desk.innerHTML=DESKS.map(x=>`<option ${x===s.desk?'selected':''}>${x}</option>`).join('');region.innerHTML=REGIONS.map(x=>`<option ${x===s.region?'selected':''}>${x}</option>`).join('');Object.entries(fields).forEach(([k,v])=>{const el=$(`[name="${k}"][form="story-shadow"]`);if(el)el.value=v;});['Homepage','Breaking','Newsletter','WhatsApp','Push'].forEach(k=>{const el=$(`[name="dist${k}"][form="story-shadow"]`);if(el)el.checked=!!s.distribution?.[k.toLowerCase()];});$('[data-story-modal-title]').textContent=s.title||'Untitled story';$('[data-editor-state]').textContent=s.status;$('[data-save-state]').textContent='Saved';renderVersions(s);renderComments(s);configureEditorAction(s);protectInspector(s);}
-  function protectInspector(s){const reporterOnly=!has(CAP.STORY_EDIT_ALL);['status','owner','editor','factChecker'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=reporterOnly;});const premium=$('[name="premium"][form="story-shadow"]');if(premium)premium.disabled=!has(CAP.PREMIUM_ASSIGN);}
-  function formStory(){const old=getStories().find(x=>x.id===editingStoryId);if(!old)return null;const f=$('[data-story-form]'), d=new FormData($('[data-story-shadow]'));const story={...old,title:f.elements.title.value.trim(),standfirst:f.elements.standfirst.value.trim(),body:f.elements.body.value,sources:f.elements.sources.value,notes:f.elements.notes.value,status:String(d.get('status')||old.status),deadline:String(d.get('deadline')||''),owner:String(d.get('owner')||old.owner),editor:String(d.get('editor')||''),factChecker:String(d.get('factChecker')||''),desk:String(d.get('desk')||old.desk),section:String(d.get('section')||old.section),country:String(d.get('country')||old.country),region:String(d.get('region')||old.region),premium:String(d.get('premium'))==='true',seoTitle:String(d.get('seoTitle')||''),metaDescription:String(d.get('metaDescription')||''),slug:String(d.get('slug')||slugify(f.elements.title.value)),adSetting:String(d.get('adSetting')||'Standard'),schedule:String(d.get('schedule')||''),updated:stamp(),author:staffRecord(String(d.get('owner')||old.owner))?.name||old.author,distribution:{homepage:!!d.get('distHomepage'),breaking:!!d.get('distBreaking'),newsletter:!!d.get('distNewsletter'),whatsapp:!!d.get('distWhatsApp'),push:!!d.get('distPush')}};if(!has(CAP.STORY_EDIT_ALL)){story.status=old.status;story.owner=old.owner;story.editor=old.editor;story.factChecker=old.factChecker;}if(!has(CAP.PREMIUM_ASSIGN))story.premium=old.premium;return story;}
-  function saveStory(manual=false){if(!editingStoryId)return;const story=formStory();if(!story)return;const list=getStories(),idx=list.findIndex(x=>x.id===editingStoryId),old=list[idx];const meaningful=JSON.stringify([old.title,old.standfirst,old.body,old.sources,old.status,old.premium])!==JSON.stringify([story.title,story.standfirst,story.body,story.sources,story.status,story.premium]);if(manual||meaningful){story.versions=[...(old.versions||[])];story.versions.unshift({at:iso(),by:currentUser().name,label:manual?'Manual save':'Autosave'});story.versions=story.versions.slice(0,10);}list[idx]=story;setStories(list);syncPremium(story);$('[data-save-state]').textContent='Saved';$('[data-story-modal-title]').textContent=story.title||'Untitled story';$('[data-editor-state]').textContent=story.status;renderVersions(story);configureEditorAction(story);if(manual){audit(`${currentUser().name} saved “${story.title||'Untitled story'}”`);toast('Story saved');}}
-  function scheduleAutosave(){if(!editingStoryId)return;$('[data-save-state]').textContent='Saving…';clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>saveStory(false),650);}
-  function flushAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;saveStory(false);}}
-  function renderVersions(s){$('[data-version-list]').innerHTML=(s.versions||[]).slice(0,6).map(v=>`<div class="nr-version"><strong>${esc(v.label)}</strong><span>${esc(v.by)} · ${esc(new Date(v.at).toLocaleString())}</span></div>`).join('')||'<div class="nr-version"><span>No saved versions yet</span></div>';}
+  function protectInspector(s){const reporterOnly=!has(CAP.STORY_EDIT_ALL);['status','owner','editor','factChecker'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=reporterOnly;});const premium=$('[name="premium"][form="story-shadow"]');if(premium)premium.disabled=!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE));}
+  function formStory(){const old=getStories().find(x=>x.id===editingStoryId);if(!old)return null;const f=$('[data-story-form]'), d=new FormData($('[data-story-shadow]'));return {...old,title:f.elements.title.value.trim(),standfirst:f.elements.standfirst.value.trim(),body:f.elements.body.value,sources:f.elements.sources.value,notes:f.elements.notes.value,status:String(d.get('status')||old.status),deadline:String(d.get('deadline')||''),owner:String(d.get('owner')||old.owner),editor:String(d.get('editor')||''),factChecker:String(d.get('factChecker')||''),desk:String(d.get('desk')||old.desk),section:String(d.get('section')||old.section),country:String(d.get('country')||old.country),region:String(d.get('region')||old.region),premium:String(d.get('premium'))==='true',seoTitle:String(d.get('seoTitle')||''),metaDescription:String(d.get('metaDescription')||''),slug:String(d.get('slug')||slugify(f.elements.title.value)),adSetting:String(d.get('adSetting')||'Standard'),schedule:String(d.get('schedule')||''),distribution:{homepage:!!d.get('distHomepage'),breaking:!!d.get('distBreaking'),newsletter:!!d.get('distNewsletter'),whatsapp:!!d.get('distWhatsApp'),push:!!d.get('distPush')}};}
+  async function saveStory(manual=false){
+    if(!editingStoryId)return;
+    const story=formStory();if(!story)return;
+    const owner=staffRecord(story.owner),editor=staffRecord(story.editor),checker=staffRecord(story.factChecker);
+    const patch={title:story.title,standfirst:story.standfirst,body:story.body,sources:story.sources,notes:story.notes,desk:story.desk,topic:story.topic||'',country:story.country,region:story.region,deadline_at:story.deadline||'',seo_title:story.seoTitle,seo_description:story.metaDescription,slug:story.slug,scheduled_at:story.schedule||'',distribution:story.distribution,ad_setting:story.adSetting};
+    if(owner)patch.owner_staff_id=owner.id;if(editor)patch.assigned_editor_staff_id=editor.id;if(checker)patch.fact_checker_staff_id=checker.id;
+    patch.access_policy=story.premium?'premium':'public';
+    try{
+      const result=await api('saveStory',{storyId:story.id,expectedVersion:story.lockVersion,patch,reason:manual?'Manual save':'Autosave'});
+      story.lockVersion=Number(result.version||story.lockVersion+1);story.updated=displayTime(new Date().toISOString());
+      const list=getStories(),idx=list.findIndex(x=>x.id===story.id);if(idx>=0){list[idx]=story;setStories(list);}
+      $('[data-save-state]').textContent='Saved';$('[data-story-modal-title]').textContent=story.title||'Untitled story';
+      if(manual)toast('Story saved');
+    }catch(error){
+      $('[data-save-state]').textContent=error.status===409?'Conflict — reload':'Save failed';
+      toast(error.status===409?'A newer server revision exists. Reload the story before saving again.':error.message);
+      if(error.status===409){await refreshData();populateEditor();}
+      throw error;
+    }
+  }
+  function scheduleAutosave(){if(!editingStoryId)return;$('[data-save-state]').textContent='Saving…';clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>{autosaveTimer=null;saveStory(false).catch(()=>{});},700);}
+  async function flushAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;try{await saveStory(false);}catch{}}}
+  function renderVersions(s){$('[data-version-list]').innerHTML=(s.versions||[]).slice(0,8).map(v=>`<div class="nr-version"><strong>${esc(v.label)}</strong><span>${esc(v.by)} · ${esc(new Date(v.at).toLocaleString())}</span></div>`).join('')||'<div class="nr-version"><span>No saved versions yet</span></div>';}
   function renderComments(s){const map=read(KEYS.comments,{}),items=map[s.id]||[];$('[data-editor-comments]').innerHTML=items.map(c=>`<article class="nr-comment"><strong>${esc(c.user)}</strong><time>${esc(new Date(c.at).toLocaleString())}</time><p>${esc(c.text)}</p>${c.resolved?'<span class="nr-tag">Resolved</span>':''}</article>`).join('')||'<div class="nr-empty"><p>No internal comments yet.</p></div>';}
-  function configureEditorAction(s){const btn=$('[data-editor-primary]');if(has(CAP.STORY_PUBLISH)&&['Ready','Scheduled','Editor review'].includes(s.status)){btn.textContent='Publish';btn.dataset.action='publish';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Submitted'){btn.textContent='Send to fact check';btn.dataset.action='fact';return;}if(has(CAP.STORY_EDIT_ALL)&&['Fact check','Health / Science review','Copy edit'].includes(s.status)){btn.textContent='Advance review';btn.dataset.action='advance';return;}btn.textContent='Submit for review';btn.dataset.action='submit';btn.disabled=!has(CAP.STORY_SUBMIT);}
-  function primaryEditorAction(){flushAutosave();const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const action=$('[data-editor-primary]').dataset.action;if(action==='publish'){transitionStory(s.id,'Published');return;}if(action==='fact'){transitionStory(s.id,'Fact check');return;}if(action==='advance'){const next={'Fact check':'Health / Science review','Health / Science review':'Copy edit','Copy edit':'Editor review'}[s.status]||'Editor review';transitionStory(s.id,next);return;}if(has(CAP.STORY_SUBMIT)){transitionStory(s.id,'Submitted');}}
-  function transitionStory(id,next){const list=getStories(),s=list.find(x=>x.id===id);if(!s)return;if(next==='Published'&&!has(CAP.STORY_PUBLISH)){toast('Publishing authority is required.');return;}if(next==='Fact check'&&!has(CAP.STORY_EDIT_ALL)){toast('Editorial review authority is required.');return;}if(next==='Submitted'&&!(has(CAP.STORY_SUBMIT)&&canEditStory(s))){toast('You cannot submit this story.');return;}s.status=next;s.updated=stamp();s.versions=[{at:iso(),by:currentUser().name,label:`Moved to ${next}`},...(s.versions||[])].slice(0,10);setStories(list);syncPremium(s);audit(`${currentUser().name} moved “${s.title}” to ${next}`);if(editingStoryId===id)populateEditor();else showModule(active);toast(`Story moved to ${next}`);}
-
-  function assignmentProgress(id){const list=getAssignments(),a=list.find(x=>x.id===id);if(!a||a.reporter!==currentUser().username)return;const seq=['Assigned','Accepted','Reporting','Drafting','Submitted','Complete'];const i=Math.max(0,seq.indexOf(a.status));a.status=seq[Math.min(i+1,seq.length-1)];setAssignments(list);audit(`${currentUser().name} moved assignment “${a.title}” to ${a.status}`);showModule(active);toast(`Assignment: ${a.status}`);}
-  function openAssignment(){if(!has(CAP.ASSIGN_CREATE))return;const f=$('[data-assignment-form]');f.reset();f.elements.reporter.innerHTML=staffOptions('', ['Reporter / Journalist']);f.elements.editor.innerHTML=staffOptions(currentUser().username,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);f.elements.desk.innerHTML=DESKS.filter(x=>!['Commercial'].includes(x)).map(x=>`<option>${x}</option>`).join('');$('[data-assignment-modal]').hidden=false;}
-  function saveAssignment(form){const d=new FormData(form),a={id:`a-${Date.now().toString(36)}`,title:String(d.get('title')),reporter:String(d.get('reporter')),desk:String(d.get('desk')),deadline:String(d.get('deadline')),priority:String(d.get('priority')),editor:String(d.get('editor')),status:'Assigned',notes:String(d.get('notes')||'')};const list=getAssignments();list.unshift(a);setAssignments(list);audit(`${currentUser().name} assigned “${a.title}” to ${staffRecord(a.reporter)?.name||a.reporter}`);$('[data-assignment-modal]').hidden=true;showModule('assignments');toast('Assignment created');}
-
+  function configureEditorAction(s){const btn=$('[data-editor-primary]');btn.disabled=false;if(has(CAP.STORY_PUBLISH)&&['Ready','Scheduled','Editor review'].includes(s.status)){btn.textContent='Publish';btn.dataset.action='publish';return;}if(has(CAP.STORY_FACT)&&s.status==='Submitted'){btn.textContent='Send to fact check';btn.dataset.action='fact';return;}if(has(CAP.STORY_HEALTH)&&s.status==='Fact check'){btn.textContent='Health / science review';btn.dataset.action='health';return;}if(has(CAP.STORY_COPY)&&s.status==='Health / Science review'){btn.textContent='Copy edit';btn.dataset.action='copy';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Copy edit'){btn.textContent='Editor review';btn.dataset.action='editor';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Editor review'){btn.textContent='Mark ready';btn.dataset.action='ready';return;}btn.textContent='Submit for review';btn.dataset.action='submit';btn.disabled=!has(CAP.STORY_SUBMIT);}
+  async function primaryEditorAction(){await flushAutosave();const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const action=$('[data-editor-primary]').dataset.action;const next={publish:'Published',fact:'Fact check',health:'Health / Science review',copy:'Copy edit',editor:'Editor review',ready:'Ready',submit:'Submitted'}[action]||'Submitted';await transitionStory(s.id,next);}
+  async function transitionStory(id,next){
+    try{await api('transitionStory',{storyId:id,nextStatus:next});await refreshData();if(editingStoryId===id)populateEditor();else showModule(active);toast(`Story moved to ${next}`);}
+    catch(error){toast(error.message);}
+  }
+  async function assignmentProgress(id){try{await api('progressAssignment',{assignmentId:id});await refreshData();showModule(active);}catch(error){toast(error.message);}}
+  function openAssignment(){if(!(has(CAP.ASSIGN_CREATE)||has(CAP.ASSIGN_MANAGE)))return;const f=$('[data-assignment-form]');f.reset();f.elements.reporter.innerHTML=staffOptions('', ['Reporter / Journalist']);f.elements.editor.innerHTML=staffOptions(currentUser().username,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);f.elements.desk.innerHTML=DESKS.filter(x=>!['Commercial'].includes(x)).map(x=>`<option>${x}</option>`).join('');$('[data-assignment-modal]').hidden=false;}
+  async function saveAssignment(form){const d=new FormData(form),reporter=staffRecord(String(d.get('reporter'))),editor=staffRecord(String(d.get('editor')));try{await api('createAssignment',{assignment:{title:String(d.get('title')),reporter_staff_id:reporter?.id,assigned_editor_staff_id:editor?.id||null,desk:String(d.get('desk')),deadline_at:String(d.get('deadline')),priority:String(d.get('priority')),notes:String(d.get('notes')||'')}});$('[data-assignment-modal]').hidden=true;await refreshData();showModule('assignments');toast('Assignment created');}catch(error){toast(error.message);}}
   function openInvite(){if(!has(CAP.STAFF_INVITE))return;const f=$('[data-invite-form]');f.reset();f.elements.role.innerHTML=Object.keys(ROLE_CAPS).map(x=>`<option>${esc(x)}</option>`).join('');f.elements.desk.innerHTML=DESKS.map(x=>`<option>${esc(x)}</option>`).join('');f.elements.editor.innerHTML=`<option value="">None</option>${staffOptions('', ['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;$('[data-invite-modal]').hidden=false;}
-  function saveInvite(form){const d=new FormData(form),name=String(d.get('name')),email=String(d.get('email')),username=`invited-${Date.now().toString(36)}`;const list=getStaff();list.push({username,name,email,role:String(d.get('role')),desk:String(d.get('desk')),beat:'To be assigned',country:String(d.get('country')||''),region:'Global',status:'Invited',editor:String(d.get('editor')||''),lastLogin:'Never',passwordChange:true,mfa:'Pending'});setStaff(list);audit(`${currentUser().name} invited ${name} as ${String(d.get('role'))}`);$('[data-invite-modal]').hidden=true;showModule('staff');toast('Staff invitation created');}
-  function changeStaffRole(username){if(!has(CAP.STAFF_ROLE))return;const s=staffRecord(username);if(!s)return;const roles=Object.keys(ROLE_CAPS),i=roles.indexOf(s.role);s.role=roles[(i+1)%roles.length];setStaff(getStaff().map(x=>x.username===username?s:x));audit(`${currentUser().name} changed ${s.name} role to ${s.role}`);showModule('staff');toast('Role updated');}
+  async function saveInvite(form){const d=new FormData(form),editor=staffRecord(String(d.get('editor')));try{await api('invite',{displayName:String(d.get('name')),email:String(d.get('email')),role:String(d.get('role')),desk:String(d.get('desk')),country:String(d.get('country')||''),assignedEditorId:editor?.id||null});$('[data-invite-modal]').hidden=true;await refreshData();showModule('staff');toast('Staff invitation requested');}catch(error){toast(error.message);}}
+  async function changeStaffRole(username){if(!has(CAP.STAFF_ROLE))return;const s=staffRecord(username);if(!s)return;const roles=Object.keys(ROLE_CAPS),i=roles.indexOf(s.role),next=roles[(i+1)%roles.length];try{await api('changeRole',{staffId:s.id,role:next});await refreshData();showModule('staff');toast('Role updated');}catch(error){toast(error.message);}}
   function confirm(title,copy,fn){pendingConfirm=fn;$('[data-confirm-title]').textContent=title;$('[data-confirm-copy]').textContent=copy;$('[data-confirm-modal]').hidden=false;}
-  function revokeAccess(username){if(!has(CAP.STAFF_REVOKE))return;const s=staffRecord(username);if(!s)return;confirm('Revoke Newsroom access?',`${s.name} will no longer be able to sign in to HealthTimes Newsroom.`,()=>{s.status='Revoked';setStaff(getStaff().map(x=>x.username===username?s:x));const sessions=read(KEYS.sessions,{});delete sessions[username];write(KEYS.sessions,sessions);audit(`${currentUser().name} revoked Newsroom access for ${s.name}`);showModule('staff');toast('Access revoked');});}
-  function revokeStaffSessions(username){if(!has(CAP.STAFF_REVOKE))return;const sessions=read(KEYS.sessions,{});sessions[username]=[];write(KEYS.sessions,sessions);audit(`${currentUser().name} revoked active sessions for ${staffRecord(username)?.name||username}`);toast('Sessions revoked');}
-  function togglePremium(id){if(!has(CAP.PREMIUM_ASSIGN))return;const list=getStories(),s=list.find(x=>x.id===id);if(!s)return;s.premium=!s.premium;s.updated=stamp();setStories(list);syncPremium(s);audit(`${currentUser().name} changed “${s.title}” access to ${s.premium?'Premium':'Public'}`);showModule('premium');toast(`Story is now ${s.premium?'Premium':'Public'}`);}
+  function revokeAccess(username){if(!has(CAP.STAFF_REVOKE))return;const s=staffRecord(username);if(!s)return;confirm('Revoke Newsroom access?',`${s.name} will no longer be able to use HealthTimes Newsroom.`,async()=>{try{await api('revokeStaff',{staffId:s.id,status:'revoked'});await refreshData();showModule('staff');toast('Access revoked');}catch(error){toast(error.message);}});}
+  async function revokeStaffSessions(username){if(!(has(CAP.STAFF_REVOKE)||has('security.revoke_session')))return;const s=staffRecord(username);if(!s)return;try{await api('revokeSession',{staffId:s.id});await refreshData();showModule('staff');toast('Sessions revoked');}catch(error){toast(error.message);}}
+  async function togglePremium(id){if(!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE)))return;const s=getStories().find(x=>x.id===id);if(!s)return;try{await api('setPremium',{storyId:id,accessPolicy:s.premium?'public':'premium'});await refreshData();showModule('premium');toast('Story access policy updated');}catch(error){toast(error.message);}}
 
   function userPopover(){const el=$('[data-user-popover]'),u=currentUser();el.hidden=!el.hidden;if(!el.hidden)el.innerHTML=`<div class="nr-popover-id"><strong>${esc(u.name)}</strong><span>${esc(u.role)} · ${esc(u.desk)}</span></div><button data-popover-action="profile">My profile</button><button data-module-jump="my-assignments">My assignments</button><button data-module-jump="my-stories">My drafts & stories</button><button data-module-jump="security">Security</button><button data-sign-out>Sign out</button>`;}
   function openSearch(){const modal=$('[data-search-modal]');modal.hidden=false;const input=$('[data-newsroom-search-input]');input.value='';$('[data-newsroom-search-results]').innerHTML='';setTimeout(()=>input.focus(),20);}
@@ -247,28 +409,28 @@
   function filterStories(){const q=String($('[data-story-search]')?.value||'').toLowerCase(),st=$('[data-story-status]')?.value||'',desk=$('[data-story-desk]')?.value||'';const list=getStories().filter(s=>(!q||`${s.title} ${s.section} ${s.author}`.toLowerCase().includes(q))&&(!st||s.status===st)&&(!desk||s.desk===desk));$('[data-story-table]').innerHTML=storyTable(list);}
 
   function bindGlobal(){
-    const loginForm=$('[data-login-form]');if(loginForm)loginForm.addEventListener('submit',e=>{e.preventDefault();const d=new FormData(loginForm);if(login(d.get('username'),d.get('password')))location.reload();else $('[data-login-error]').textContent='We could not sign you in. Check your staff credentials or access status.';});
-    document.addEventListener('click',e=>{
+    const loginForm=$('[data-login-form]');if(loginForm)loginForm.addEventListener('submit',async e=>{e.preventDefault();const d=new FormData(loginForm);$('[data-login-error]').textContent='';try{await login(d.get('email'),d.get('password'));location.reload();}catch(error){$('[data-login-error]').textContent=error.message||'We could not sign you in. Check your verified staff account and access status.';}});
+    document.addEventListener('click',async e=>{
       const mod=e.target.closest('[data-module]');if(mod){showModule(mod.dataset.module);return;}
       const jump=e.target.closest('[data-module-jump]');if(jump){showModule(jump.dataset.moduleJump);$('[data-user-popover]')?.setAttribute('hidden','');return;}
-      if(e.target.closest('[data-sign-out]')){logout();return;}
+      if(e.target.closest('[data-sign-out]')){await logout();return;}
       if(e.target.closest('[data-user-menu]')){userPopover();return;}
-      if(e.target.closest('[data-quick-create]')){openStory();return;}
-      const open=e.target.closest('[data-open-story]');if(open){openStory(open.dataset.openStory);return;}
-      if(e.target.closest('[data-story-modal-close]')){closeStory();return;}
-      if(e.target.closest('[data-manual-save]')){saveStory(true);return;}
-      if(e.target.closest('[data-editor-primary]')){primaryEditorAction();return;}
-      if(e.target.closest('[data-story-preview]')){flushAutosave();toast('Preview saved. Public preview opens after production CMS integration.');return;}
-      const trans=e.target.closest('[data-transition-story]');if(trans){transitionStory(trans.dataset.transitionStory,trans.dataset.next);return;}
-      const ap=e.target.closest('[data-assignment-progress]');if(ap){assignmentProgress(ap.dataset.assignmentProgress);return;}
+      if(e.target.closest('[data-quick-create]')){await openStory();return;}
+      const open=e.target.closest('[data-open-story]');if(open){await openStory(open.dataset.openStory);return;}
+      if(e.target.closest('[data-story-modal-close]')){await closeStory();return;}
+      if(e.target.closest('[data-manual-save]')){try{await saveStory(true);}catch{}return;}
+      if(e.target.closest('[data-editor-primary]')){await primaryEditorAction();return;}
+      if(e.target.closest('[data-story-preview]')){await flushAutosave();toast('Draft saved. Public preview remains separate from unpublished Newsroom data.');return;}
+      const trans=e.target.closest('[data-transition-story]');if(trans){await transitionStory(trans.dataset.transitionStory,trans.dataset.next);return;}
+      const ap=e.target.closest('[data-assignment-progress]');if(ap){await assignmentProgress(ap.dataset.assignmentProgress);return;}
       if(e.target.closest('[data-open-assignment]')){openAssignment();return;}
       if(e.target.closest('[data-assignment-close]')){$('[data-assignment-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-invite]')){openInvite();return;}
       if(e.target.closest('[data-invite-close]')){$('[data-invite-modal]').hidden=true;return;}
-      const sr=e.target.closest('[data-staff-role]');if(sr){changeStaffRole(sr.dataset.staffRole);return;}
-      const ss=e.target.closest('[data-staff-sessions]');if(ss){revokeStaffSessions(ss.dataset.staffSessions);return;}
+      const sr=e.target.closest('[data-staff-role]');if(sr){await changeStaffRole(sr.dataset.staffRole);return;}
+      const ss=e.target.closest('[data-staff-sessions]');if(ss){await revokeStaffSessions(ss.dataset.staffSessions);return;}
       const rv=e.target.closest('[data-staff-revoke]');if(rv){revokeAccess(rv.dataset.staffRevoke);return;}
-      const pt=e.target.closest('[data-v21-premium-toggle]');if(pt){togglePremium(pt.dataset.v21PremiumToggle);return;}
+      const pt=e.target.closest('[data-v21-premium-toggle]');if(pt){await togglePremium(pt.dataset.v21PremiumToggle);return;}
       if(e.target.closest('[data-confirm-cancel]')){$('[data-confirm-modal]').hidden=true;pendingConfirm=null;return;}
       if(e.target.closest('[data-confirm-accept]')){const fn=pendingConfirm;$('[data-confirm-modal]').hidden=true;pendingConfirm=null;if(fn)fn();return;}
       if(e.target.closest('[data-global-search]')){openSearch();return;}
@@ -279,11 +441,12 @@
       const ins=e.target.closest('[data-insert]');if(ins){toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
     });
     document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);});
-    $('[data-assignment-form]')?.addEventListener('submit',e=>{e.preventDefault();saveAssignment(e.currentTarget);});
-    $('[data-invite-form]')?.addEventListener('submit',e=>{e.preventDefault();saveInvite(e.currentTarget);});
-    $('[data-comment-form]')?.addEventListener('submit',e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;const map=read(KEYS.comments,{});map[editingStoryId]=[...(map[editingStoryId]||[]),{id:`c-${Date.now()}`,user:currentUser().name,at:iso(),text,resolved:false}];write(KEYS.comments,map);audit(`${currentUser().name} added an editorial comment`);e.currentTarget.reset();renderComments(getStories().find(x=>x.id===editingStoryId));});
-    window.addEventListener('beforeunload',()=>flushAutosave());
+    $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
+    $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
+    $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text});e.currentTarget.reset();await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
+    window.addEventListener('beforeunload',()=>{if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;}});
+
   }
 
-  init();
+  init().catch(error=>console.warn('Newsroom initialization failed safely:',error.message));
 })();
