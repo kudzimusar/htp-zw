@@ -231,3 +231,13 @@ test("only explicit AG-01 desk names are approved legacy-to-canonical desk mappi
     '"research & findings":'
   ]) assert.ok(!authority.includes(inferred), inferred);
 });
+
+
+test("AG-04 media mapping can retain the related legacy-source provenance", () => {
+  const mapper = read("src/domain/mappers.ts");
+  assert.match(mapper, /heroMediaLegacySource\?: LegacySourceRow \| null/);
+  assert.match(mapper, /mapMediaRow\(relations\.heroMedia, relations\.heroMediaLegacySource \?\? null\)/);
+  assert.match(mapper, /legacySource\s*\? mapSourceProvenance\(legacySource\)/);
+  assert.match(mapper, /Media has a legacy_source_id, but the AG-04 repository did not supply/);
+  assert.match(mapper, /stableKey: "wordpress-author:" \+ row\.wordpress_source_id/);
+});
