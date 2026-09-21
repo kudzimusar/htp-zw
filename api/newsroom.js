@@ -270,7 +270,8 @@ async function bootstrap(token, req) {
     subscribers: 'subscribers?select=' + encodeSelect('id,email,display_name,status,created_at') + '&order=created_at.desc&limit=200'
   };
   const entries = await Promise.all(Object.entries(queries).map(async ([key, query]) => [key, await optionalRows(query, token)]));
-  return { context, ...Object.fromEntries(entries) };
+  const directory = await rpc('newsroom_staff_directory', {}, token);
+  return { context, directory: Array.isArray(directory) ? directory : [], ...Object.fromEntries(entries) };
 }
 
 function backendError(res, error) {
@@ -288,13 +289,12 @@ async function inviteAuthUser(invitation, origin) {
     throw error;
   }
   const redirectTo = process.env.NEWSROOM_INVITE_REDIRECT_URL || `${origin}/newsroom.html`;
-  return supabaseRequest('/auth/v1/invite', {
+  return supabaseRequest('/auth/v1/invite?redirect_to=' + encodeURIComponent(redirectTo), {
     method: 'POST',
     service: true,
     body: {
       email: invitation.email,
-      data: { newsroom_invitation_id: invitation.id },
-      redirect_to: redirectTo
+      data: { newsroom_invitation_id: invitation.id }
     }
   });
 }
@@ -352,9 +352,10 @@ async function handle(req, res) {
       const email = String(body.email || '').trim().toLowerCase();
       if (!email) return json(res, 400, { ok: false, error: 'Staff email is required.' });
       const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers['x-forwarded-host'] || req.headers.host}`;
-      await supabaseRequest('/auth/v1/recover', {
+      const redirectTo = process.env.NEWSROOM_RECOVERY_REDIRECT_URL || `${origin}/newsroom.html`;
+      await supabaseRequest('/auth/v1/recover?redirect_to=' + encodeURIComponent(redirectTo), {
         method: 'POST',
-        body: { email, redirect_to: process.env.NEWSROOM_RECOVERY_REDIRECT_URL || `${origin}/newsroom.html` }
+        body: { email }
       });
       return json(res, 200, { ok: true, message: 'If the account is eligible, a recovery email has been requested.' });
     }
