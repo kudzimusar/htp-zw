@@ -84,6 +84,8 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(boot.body.data.context.role).toBe('Reporter / Journalist');
     expect(boot.body.data.context.capabilities).toContain('story.create');
     expect(boot.body.data.context.capabilities).not.toContain('story.publish');
+    const reporterAppSessionId=boot.body.data.context.session_id;
+    expect(reporterAppSessionId).toBeTruthy();
 
     const stamp=Date.now();
     const created=await appPost(reporter,'createStory',{story:{
@@ -176,7 +178,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(publisherBoot.response.status()).toBe(200);
     const reporterProfile=publisherBoot.body.data.staff.find(s=>String(s.email||'').toLowerCase()===String(accounts.reporter.email).toLowerCase());
     expect(reporterProfile?.id).toBeTruthy();
-    const reporterSession=publisherBoot.body.data.sessions.find(s=>s.staff_profile_id===reporterProfile.id&&!s.revoked_at);
+    const reporterSession=publisherBoot.body.data.sessions.find(s=>s.staff_profile_id===reporterProfile.id&&s.provider_session_id===reporterAppSessionId&&!s.revoked_at);
     expect(reporterSession?.provider_session_id).toBeTruthy();
     const revoke=await appPost(publisher,'revokeSession',{
       staffId:reporterProfile.id,providerSessionId:reporterSession.provider_session_id
