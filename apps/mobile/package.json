@@ -15,6 +15,7 @@
     "test:staging": "node --test tests/staging-connectivity.test.mjs",
     "test:content-contracts": "node --test tests/content-contracts.test.mjs",
     "test:reader-product": "node --test tests/reader-product.test.mjs",
+    "test:reader-fidelity": "node --test tests/article-content.test.mjs tests/search-ranking.test.mjs",
     "test:growth-commercial": "node --test tests/growth-commercial.test.mjs",
     "test:identity-security": "node --test tests/identity-security.test.mjs",
     "test:native-certification": "node --test tests/native-certification.test.mjs",

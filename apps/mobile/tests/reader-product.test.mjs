@@ -109,9 +109,9 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   assert.match(search, /VideoCard/);
   assert.match(search, /AudioCard/);
   assert.match(search, /LiveRail/);
-  assert.match(article, /articleBlocks/);
+  assert.match(article, /parseArticleContent/);
   assert.match(article, /article_after_intro/);
-  assert.match(article, /AG-06 remains the server authority for entitlement/);
+  assert.match(article, /This Premium article is available to members/);
 });
 
 

@@ -14,6 +14,7 @@ import type {
   TaxonomyRef
 } from "../domain/models";
 import type { SourceException } from "../domain/source";
+import { scoreReaderSearch } from "../reader/search-ranking";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import {
@@ -138,6 +139,9 @@ function inferGeography(post:WpPost,fallback:ArticleDetail|null){
   return [];
 }
 
+const readerSupportedArticleTags=new Set(["p","h2","h3","blockquote","ul","ol","li","figure","figcaption","img","a","strong","b","em","i","br","div","span"]);
+function unsupportedBodyTags(value:string){const tags=new Set<string>();for(const match of value.matchAll(/<\s*\/?\s*([a-z0-9:-]+)/gi)){const tag=match[1]?.toLowerCase();if(tag&&!readerSupportedArticleTags.has(tag))tags.add(tag);}return Array.from(tags).sort();}
+
 function mappingExceptions(
   post:WpPost,
   fallback:ArticleDetail|null,
@@ -198,6 +202,8 @@ function mappingExceptions(
       note:"The public rendered body still contains shortcode-like syntax and requires migration-time reconciliation."
     });
   }
+  const unsupportedTags=unsupportedBodyTags(rawBody);
+  if(unsupportedTags.length) exceptions.push({kind:"other",classification:"requires-review",field:"bodyHtml",note:"Unsupported WordPress HTML remains preserved at source for AG-04 reconciliation while the Reader omits or degrades it safely: "+unsupportedTags.join(", ")+ "."});
   if(!stripHtml(post.excerpt?.rendered) && !fallback?.excerpt){
     exceptions.push({
       kind:"other",
@@ -405,53 +411,18 @@ const articleRepository:ArticleRepository={
 };
 
 const normalized=(value:string)=>value.trim().toLowerCase();
-
-const searchService:SearchService={
-  async search(query:SearchQuery){
-    const all=await refreshedArticles();
-    const q=normalized(query.text);
-    const articles=query.format && query.format!=="article" ? [] : all.filter((article)=>{
-      if(query.country){
-        const country=normalized(query.country);
-        if(!article.geography.some((zone)=>normalized(zone.name)===country || normalized(zone.slug)===country)) return false;
-      }
-      if(query.topic){
-        const topic=normalized(query.topic);
-        const topicMatch=
-          normalized(article.primarySection?.name ?? "")===topic ||
-          normalized(article.primarySection?.slug ?? "")===topic ||
-          article.topics.some((term)=>normalized(term.name)===topic || normalized(term.slug)===topic) ||
-          (article.legacyTaxonomy ?? []).some((term)=>normalized(term.name)===topic || normalized(term.slug)===topic);
-        if(!topicMatch) return false;
-      }
-      if(!q) return true;
-      const haystack=[
-        article.title,
-        article.standfirst ?? "",
-        article.excerpt ?? "",
-        article.author?.displayName ?? "",
-        article.primarySection?.name ?? "",
-        ...(article.legacyTaxonomy ?? []).map((term)=>term.name),
-        ...article.geography.map((zone)=>zone.name)
-      ].join(" ").toLowerCase();
-      return haystack.includes(q);
-    });
-    const authors=query.format
-      ? []
-      : (await parityAuthors()).filter((author)=>{
-          if(!q) return true;
-          return [
-            author.displayName,
-            author.role ?? "",
-            author.bio ?? ""
-          ].join(" ").toLowerCase().includes(q);
-        });
-    const videos=query.country || query.topic || (query.format && query.format!=="video")
-      ? []
-      : sourceParityVideos.filter((item)=>!q || item.title.toLowerCase().includes(q));
-    return {articles,authors,videos,audio:[],live:[]};
-  }
-};
+function publishedTime(value:string|null){if(!value)return 0;const parsed=new Date(value).getTime();return Number.isFinite(parsed)?parsed:0;}
+const searchService:SearchService={async search(query:SearchQuery){
+ const all=await refreshedArticles(),q=query.text.trim();
+ const articles=query.format&&query.format!=="article"?[]:all.filter(article=>{
+  if(query.country){const country=normalized(query.country);if(!article.geography.some(zone=>normalized(zone.name)===country||normalized(zone.slug)===country))return false;}
+  if(query.topic){const topic=normalized(query.topic),hit=normalized(article.primarySection?.name??"")===topic||normalized(article.primarySection?.slug??"")===topic||article.topics.some(term=>normalized(term.name)===topic||normalized(term.slug)===topic)||(article.legacyTaxonomy??[]).some(term=>normalized(term.name)===topic||normalized(term.slug)===topic);if(!hit)return false;}return true;
+ }).map(article=>({article,score:scoreReaderSearch(q,{title:article.title,slug:article.slug,standfirst:article.standfirst,excerpt:article.excerpt,author:article.author?.displayName??null,section:article.primarySection?.name??null,taxonomy:(article.legacyTaxonomy??article.topics).map(term=>term.name),geography:article.geography.map(zone=>zone.name),publishedAt:article.publishedAt})}))
+ .filter((entry):entry is {article:ArticleDetail;score:number}=>entry.score!==null).sort((a,b)=>b.score-a.score||publishedTime(b.article.publishedAt)-publishedTime(a.article.publishedAt)).map(entry=>entry.article);
+ const authors=query.format?[]:(await parityAuthors()).map(author=>({author,score:scoreReaderSearch(q,{title:author.displayName,standfirst:author.role,excerpt:author.bio,author:author.displayName})})).filter((entry):entry is {author:AuthorProfile;score:number}=>entry.score!==null).sort((a,b)=>b.score-a.score||a.author.displayName.localeCompare(b.author.displayName)).map(entry=>entry.author);
+ const videos=query.country||query.topic||(query.format&&query.format!=="video")?[]:sourceParityVideos.map(video=>({video,score:scoreReaderSearch(q,{title:video.title,publishedAt:video.publishedAt})})).filter(entry=>entry.score!==null).sort((a,b)=>(b.score??0)-(a.score??0)).map(entry=>entry.video);
+ return{articles,authors,videos,audio:[],live:[]};
+}};
 
 const videoService:VideoService={
   async list(){

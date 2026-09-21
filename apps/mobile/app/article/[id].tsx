@@ -9,6 +9,7 @@ import { breakpoints, colors, layout, radius, spacing, type } from "../../src/th
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
+import { parseArticleContent, type ArticleInline } from "../../src/reader/article-content";
 
 export function generateStaticParams() {
   return [
@@ -19,36 +20,7 @@ export function generateStaticParams() {
   ];
 }
 
-function stripHtml(value:string){
-  return value.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
-}
-
-type ArticleBlock={
-  kind:"paragraph"|"heading"|"quote"|"list";
-  text:string;
-};
-
-function articleBlocks(value:string|null):ArticleBlock[]{
-  if(!value) return [];
-  const blocks:ArticleBlock[]=[];
-  const matcher=/<(p|h2|h3|blockquote|li)[^>]*>([\s\S]*?)<\/\1>/gi;
-  let match:RegExpExecArray|null;
-  while((match=matcher.exec(value))){
-    const rawTag=match[1];
-    const rawText=match[2];
-    if(!rawTag || !rawText) continue;
-    const text=stripHtml(rawText);
-    if(!text) continue;
-    const tag=rawTag.toLowerCase();
-    blocks.push({
-      kind:tag==="h2"||tag==="h3" ? "heading" : tag==="blockquote" ? "quote" : tag==="li" ? "list" : "paragraph",
-      text
-    });
-  }
-  if(blocks.length) return blocks;
-  const text=stripHtml(value);
-  return text ? [{kind:"paragraph",text}] : [];
-}
+function renderInlines(inlines:ArticleInline[],keyPrefix:string,linkColor:string){return inlines.map((inline,index)=><Text key={keyPrefix+"-"+index} style={[inline.strong&&styles.inlineStrong,inline.emphasis&&styles.inlineEmphasis,inline.href?{color:linkColor,textDecorationLine:"underline"}:null]} onPress={inline.href?()=>{void Linking.openURL(inline.href!);}:undefined} accessibilityRole={inline.href?"link":undefined}>{inline.text}</Text>);}
 
 function formatArticleTime(value:string|null){
   if(!value) return "";
@@ -106,7 +78,7 @@ export default function ArticleScreen(){
 
   const story=article.data;
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
-  const blocks=articleBlocks(story.bodyHtml);
+  const blocks=parseArticleContent(story.bodyHtml,story.canonicalUrl);
   const desktop=width >= breakpoints.desktop;
   const publishedLabel=formatArticleTime(story.publishedAt);
   const modifiedLabel=formatArticleTime(story.modifiedAt);
@@ -244,7 +216,7 @@ export default function ArticleScreen(){
             <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst}</Text>
             <View style={[styles.lock,{borderTopColor:colors.premium}]}>
               <Text style={[styles.lockTitle,{color:palette.ink}]}>Premium reporting</Text>
-              <Text style={[styles.lockText,{color:palette.inkMuted}]}>The protected article body is not shipped to this unauthenticated client. AG-06 remains the server authority for entitlement.</Text>
+              <Text style={[styles.lockText,{color:palette.inkMuted}]}>This Premium article is available to members. Sign in or view Premium options to continue reading.</Text>
               <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium</Text></Pressable>
             </View>
           </>
@@ -254,18 +226,15 @@ export default function ArticleScreen(){
               blocks.map((block,index)=>(
                 <View key={String(index)}>
                   {block.kind==="heading" ? (
-                    <Text style={[styles.bodyHeading,{fontSize:24*textScale,lineHeight:31*textScale,color:palette.ink}]}>{block.text}</Text>
-                  ) : block.kind==="quote" ? (
-                    <View style={[styles.quote,{borderLeftColor:palette.blue}]}>
-                      <Text style={[styles.quoteText,{fontSize:19*textScale,lineHeight:29*textScale,color:palette.ink}]}>{block.text}</Text>
-                    </View>
+                    <Text style={[styles.bodyHeading,{fontSize:(block.level===2?24:20)*textScale,lineHeight:(block.level===2?31:27)*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"heading-"+index,palette.blue)}</Text>
+                  ) : block.kind==="blockquote" ? (
+                    <View style={[styles.quote,{borderLeftColor:palette.blue}]}><Text style={[styles.quoteText,{fontSize:19*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"quote-"+index,palette.blue)}</Text></View>
                   ) : block.kind==="list" ? (
-                    <View style={styles.listRow}>
-                      <Text style={[styles.listBullet,{color:palette.blue}]}>•</Text>
-                      <Text style={[styles.listText,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{block.text}</Text>
-                    </View>
+                    <View style={styles.articleList}>{block.items.map((item,itemIndex)=><View style={styles.listRow} key={"list-"+index+"-"+itemIndex}><Text style={[styles.listBullet,{color:palette.blue}]}>{block.ordered?String(itemIndex+1)+".":"•"}</Text><Text style={[styles.listText,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(item,"list-"+index+"-"+itemIndex,palette.blue)}</Text></View>)}</View>
+                  ) : block.kind==="figure" ? (
+                    <View style={styles.inlineFigure}>{block.href?<Pressable accessibilityRole="link" onPress={()=>{void Linking.openURL(block.href!);}}><Image source={{uri:block.src}} style={[styles.inlineFigureImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={block.alt??"Article image"} /></Pressable>:<Image source={{uri:block.src}} style={[styles.inlineFigureImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={block.alt??"Article image"} />}{!!block.caption.length&&<Text style={[styles.caption,{color:palette.inkMuted}]}>{renderInlines(block.caption,"caption-"+index,palette.blue)}</Text>}</View>
                   ) : (
-                    <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{block.text}</Text>
+                    <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"paragraph-"+index,palette.blue)}</Text>
                   )}
                   {index===0 && (
                     <View style={styles.inlineAd}>
@@ -281,25 +250,7 @@ export default function ArticleScreen(){
         )}
       </View>
 
-      <Section>
-        <SectionHeader title="Source & provenance" eyebrow={story.sourceProvenance?.system==="wordpress" ? "SOURCE PARITY" : undefined} />
-        {story.sourceProvenance?.system==="wordpress" ? (
-          <View style={styles.sourceBlock}>
-            <Text style={[styles.muted,{color:palette.inkMuted}]}>This story is presented from the current public HealthTimes WordPress source through the temporary read-only parity bridge. It is not proof of AG-03/AG-04 migration completeness.</Text>
-            {!!(story.canonicalUrl ?? story.sourceProvenance.sourceUrl) && (
-              <Pressable
-                accessibilityRole="link"
-                style={[styles.sourceButton,{borderColor:palette.border}]}
-                onPress={()=>void Linking.openURL((story.canonicalUrl ?? story.sourceProvenance?.sourceUrl)!)}
-              >
-                <Text style={[styles.sourceButtonText,{color:palette.blue}]}>Open current source article →</Text>
-              </Pressable>
-            )}
-          </View>
-        ) : (
-          <Text style={[styles.muted,{color:palette.inkMuted}]}>Authoritative citations will come from migrated story provenance and editorial data. This Reader does not fabricate references.</Text>
-        )}
-      </Section>
+      {!!(story.canonicalUrl ?? story.sourceProvenance?.sourceUrl) && (<Section><SectionHeader title="Original publication" /><View style={styles.sourceBlock}><Pressable accessibilityRole="link" style={[styles.sourceButton,{borderColor:palette.border}]} onPress={()=>void Linking.openURL((story.canonicalUrl ?? story.sourceProvenance?.sourceUrl)!)}><Text style={[styles.sourceButtonText,{color:palette.blue}]}>View article on HealthTimes.co.zw →</Text></Pressable></View></Section>)}
 
       <Section>
         <SectionHeader title="Related coverage" />
@@ -339,9 +290,14 @@ const styles=StyleSheet.create({
   bodyHeading:{fontWeight:"900",letterSpacing:-.4,marginTop:spacing.lg,marginBottom:spacing.md},
   quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.lg},
   quoteText:{fontWeight:"700",fontStyle:"italic"},
+  articleList:{marginBottom:spacing.md},
   listRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,marginBottom:spacing.md},
   listBullet:{fontSize:18,fontWeight:"900",lineHeight:29},
   listText:{flex:1},
+  inlineFigure:{marginBottom:spacing.xl,gap:spacing.sm},
+  inlineFigureImage:{width:"100%",aspectRatio:16/9},
+  inlineStrong:{fontWeight:"900"},
+  inlineEmphasis:{fontStyle:"italic"},
   inlineAd:{marginVertical:spacing.lg},
   lock:{marginTop:spacing.xl,borderTopWidth:3,paddingTop:spacing.xl,gap:spacing.sm},
   lockTitle:{fontSize:24,fontWeight:"900"},
