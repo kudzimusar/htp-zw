@@ -151,6 +151,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["Health News","HIV/AIDS"],
     excerpt:"Zimbabwe is examining how domestic social contracting can sustain community-led HIV services as international donor support declines.",
     imageAlt:"Stakeholders at a Zimbabwe social contracting and HIV financing dialogue in Harare",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
     geography:"zimbabwe"
   }),
   sourceArticle({
@@ -161,6 +162,7 @@ export const sourceParityArticles:ArticleDetail[]=[
     categories:["Health News"],
     excerpt:"Health advocates are linking Zimbabwe’s debt burden to pressure on public services and calling for stronger collective bargaining by debtor countries.",
     imageAlt:"Ernest Chikwati, Country Director of AIDS Healthcare Foundation Zimbabwe",
+    imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
     geography:"zimbabwe"
   }),
   sourceArticle({
@@ -354,6 +356,23 @@ export const sourceParityArticles:ArticleDetail[]=[
 ];
 
 export const SOURCE_PARITY_STATIC_ARTICLE_IDS=sourceParityArticles.map((article)=>article.id);
+
+export const sourceParityLegacyNavigation:TaxonomyRef[]=[
+  "Breaking News",
+  "Features",
+  "Epidemics",
+  "Academic & Research",
+  "Global Health",
+  "Community Development",
+  "Communicable Diseases",
+  "Noncommunicable Diseases",
+  "HIV/AIDS",
+  "Policy",
+  "Public Health",
+  "Opinion & Analysis",
+  "Research & Findings",
+  "HealthTimes Premium"
+].map((name)=>({id:"legacy-navigation-"+slugify(name),name,slug:slugify(name)}));
 
 export const sourceParityVideos:VideoItem[]=[
   {
