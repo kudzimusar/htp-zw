@@ -107,6 +107,25 @@ jobs:
           const sw = fs.readFileSync("apps/mobile/dist/sw.js", "utf8");
           if (!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive its Pages scope.");
           NODE
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+          const dist = "apps/mobile/dist";
+          const required = ["explore","live","search","premium","watch","my"];
+          const routeExists = (route) => [
+            path.join(dist, route + ".html"),
+            path.join(dist, route, "index.html")
+          ].some(fs.existsSync);
+          for (const route of required) {
+            if (!routeExists(route)) throw new Error("Missing statically exported route: /" + route);
+          }
+          const articleDir = path.join(dist, "article");
+          const articleExported =
+            fs.existsSync(articleDir) &&
+            fs.readdirSync(articleDir).some((name) => name.endsWith(".html") || fs.existsSync(path.join(articleDir, name, "index.html")));
+          if (!articleExported) throw new Error("No statically exported Article Reader route found.");
+          NODE
+          printf '{"sha":"%s","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$GITHUB_SHA" > apps/mobile/dist/build-info.json
           touch apps/mobile/dist/.nojekyll
           echo "HealthTimes source-parity PWA preview ready at /htp-zw/."
 
@@ -126,7 +145,56 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy universal PWA preview
         id: deployment
         uses: actions/deploy-pages@v4
+
+  verify-deployment:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Verify exact-head Pages deployment and critical routes
+        shell: bash
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          base="${PAGE_URL%/}"
+          expected_sha="$GITHUB_SHA"
+
+          for attempt in 1 2 3 4 5; do
+            deployed_sha="$(curl -fsSL --max-time 20 "$base/build-info.json" 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{process.stdout.write(JSON.parse(d).sha||"")}catch{}})')"
+            if [[ "$deployed_sha" == "$expected_sha" ]]; then
+              echo "Exact-head Pages deployment: PASS ($deployed_sha)"
+              break
+            fi
+            if [[ "$attempt" == "5" ]]; then
+              echo "::error::Pages deployment SHA mismatch. Expected $expected_sha, received ${deployed_sha:-<none>}."
+              exit 1
+            fi
+            sleep 5
+          done
+
+          routes=(
+            ""
+            "live"
+            "explore"
+            "search"
+            "premium"
+            "watch"
+            "my"
+            "article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+          )
+          for route in "${routes[@]}"; do
+            url="$base/${route}"
+            curl -fsSL --max-time 20 "$url" >/dev/null
+            echo "Route PASS: /${route}"
+          done
+
+          curl -fsSL --max-time 20 "$base/manifest.json" >/dev/null
+          curl -fsSL --max-time 20 "$base/sw.js" >/dev/null
+          curl -fsSL --max-time 20 "$base/healthtimes-icon.svg" >/dev/null
+          echo "Manifest, service worker and icon: PASS"
