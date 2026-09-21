@@ -1097,6 +1097,33 @@ begin
 end;
 $;
 
+create or replace function public.newsroom_create_campaign(
+  p_advertiser_id uuid,
+  p_name text,
+  p_start_at timestamptz default null,
+  p_end_at timestamptz default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, auth
+as $
+declare
+  v_actor uuid := public.newsroom_current_staff_id_basic();
+  v_id uuid;
+begin
+  if not public.newsroom_has_capability('ads.create') then
+    raise exception using errcode='42501',message='ads.create capability required';
+  end if;
+  insert into public.ad_campaigns(advertiser_id,name,status,start_at,end_at,review_status)
+  values(p_advertiser_id,trim(p_name),'draft',p_start_at,p_end_at,'pending')
+  returning id into v_id;
+  insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
+  values(v_actor,'campaign.created','ad_campaigns',v_id,jsonb_build_object('status','draft','review_status','pending'));
+  return v_id;
+end;
+$;
+
 create or replace function public.newsroom_approve_campaign(p_campaign_id uuid, p_approved boolean)
 returns text
 language plpgsql
@@ -1110,6 +1137,7 @@ begin
   if not public.newsroom_has_capability('ads.approve') then
     raise exception using errcode='42501',message='ads.approve capability required';
   end if;
+  perform set_config('app.newsroom_rpc','1',true);
   update public.ad_campaigns
   set review_status=v_review,
       status=case when p_approved and status='draft' then 'approved' else status end
@@ -1196,6 +1224,25 @@ begin
   return new;
 end;
 $;
+
+create or replace function public.newsroom_protect_campaign_authority_fields()
+returns trigger
+language plpgsql
+set search_path = public
+as $
+begin
+  if current_setting('app.newsroom_rpc',true) is distinct from '1'
+     and (new.status is distinct from old.status or new.review_status is distinct from old.review_status) then
+    raise exception using errcode='42501',message='Campaign authority fields require an approved Newsroom RPC';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists trg_newsroom_protect_campaign_authority on public.ad_campaigns;
+create trigger trg_newsroom_protect_campaign_authority
+before update on public.ad_campaigns
+for each row execute function public.newsroom_protect_campaign_authority_fields();
 
 drop trigger if exists trg_newsroom_protect_staff_authority on public.staff_profiles;
 create trigger trg_newsroom_protect_staff_authority
@@ -1349,13 +1396,8 @@ create policy ag06_ads_campaign_read on public.ad_campaigns for select to authen
 using (public.newsroom_has_capability('ads.view'));
 
 drop policy if exists ag06_ads_campaign_insert on public.ad_campaigns;
-create policy ag06_ads_campaign_insert on public.ad_campaigns for insert to authenticated
-with check (public.newsroom_has_capability('ads.create'));
-
 drop policy if exists ag06_ads_campaign_update on public.ad_campaigns;
-create policy ag06_ads_campaign_update on public.ad_campaigns for update to authenticated
-using (public.newsroom_has_capability('ads.create') or public.newsroom_has_capability('ads.approve'))
-with check (public.newsroom_has_capability('ads.create') or public.newsroom_has_capability('ads.approve'));
+-- Campaign creation/approval is RPC-only so status/review changes are always authorized and audited.
 
 drop policy if exists ag06_advertisers_read on public.advertisers;
 create policy ag06_advertisers_read on public.advertisers for select to authenticated
@@ -1406,6 +1448,25 @@ revoke all on public.story_corrections from anon;
 revoke all on public.staff_profiles from anon;
 revoke all on public.stories from anon;
 
+revoke execute on function public.newsroom_register_session(text) from public, anon;
+revoke execute on function public.newsroom_current_context() from public, anon;
+revoke execute on function public.newsroom_staff_directory() from public, anon;
+revoke execute on function public.newsroom_create_story(jsonb) from public, anon;
+revoke execute on function public.newsroom_save_story(uuid,integer,jsonb,text) from public, anon;
+revoke execute on function public.newsroom_transition_story(uuid,text,text) from public, anon;
+revoke execute on function public.newsroom_create_assignment(jsonb) from public, anon;
+revoke execute on function public.newsroom_progress_assignment(uuid) from public, anon;
+revoke execute on function public.newsroom_add_comment(uuid,text) from public, anon;
+revoke execute on function public.newsroom_create_invitation(text,text,text,text,text,uuid) from public, anon;
+revoke execute on function public.newsroom_change_staff_role(uuid,text) from public, anon;
+revoke execute on function public.newsroom_revoke_staff(uuid,text) from public, anon;
+revoke execute on function public.newsroom_revoke_session(uuid,text) from public, anon;
+revoke execute on function public.newsroom_set_story_access(uuid,text) from public, anon;
+revoke execute on function public.newsroom_record_review(uuid,text,text,text) from public, anon;
+revoke execute on function public.newsroom_restore_revision(uuid,uuid,integer) from public, anon;
+revoke execute on function public.newsroom_create_campaign(uuid,text,timestamptz,timestamptz) from public, anon;
+revoke execute on function public.newsroom_approve_campaign(uuid,boolean) from public, anon;
+
 grant execute on function public.newsroom_public_published_stories(text) to anon, authenticated;
 grant execute on function public.newsroom_register_session(text) to authenticated;
 grant execute on function public.newsroom_current_context() to authenticated;
@@ -1423,6 +1484,7 @@ grant execute on function public.newsroom_revoke_session(uuid,text) to authentic
 grant execute on function public.newsroom_set_story_access(uuid,text) to authenticated;
 grant execute on function public.newsroom_record_review(uuid,text,text,text) to authenticated;
 grant execute on function public.newsroom_restore_revision(uuid,uuid,integer) to authenticated;
+grant execute on function public.newsroom_create_campaign(uuid,text,timestamptz,timestamptz) to authenticated;
 grant execute on function public.newsroom_approve_campaign(uuid,boolean) to authenticated;
 
 revoke execute on function public.newsroom_has_capability(text) from anon;
