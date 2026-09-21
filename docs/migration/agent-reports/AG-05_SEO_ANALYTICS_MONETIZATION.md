@@ -281,8 +281,8 @@ Regional consent-policy content remains a production/legal configuration task.
 
 Runtime candidate: `1546639cce38028b8daac9fa620ac89b8a0a3cc9`
 
-- Validate HealthTimes 2.0 run `35667903627`: **SUCCESS**
-- Migration Tests run `35667903655`: **50/50 PASS** in 3.9s
+- Validate HealthTimes 2.0 run `35668048259`: **SUCCESS**
+- Migration Tests run `35668048273`: **50/50 PASS** in 4.1s
 - AG-05 Certification run `35668045741`: **SUCCESS**
 - Browser smoke: **8/8 PASS** in 7.2s
   - 375px
