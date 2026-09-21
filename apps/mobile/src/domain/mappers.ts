@@ -9,6 +9,7 @@ import type {
 import type {
   GeographyRef,
   SourceException,
+  SourceMappingAuthority,
   SourceProvenance,
   WordPressSourceIdentity
 } from "./source";
@@ -129,6 +130,17 @@ export function mapSectionRow(row: SectionRow): TaxonomyRef {
   };
 }
 
+export function mapLegacySectionRow(row: SectionRow): LegacyTaxonomyRef | null {
+  if (!row.wordpress_source_id) return null;
+  return {
+    ...mapSectionRow(row),
+    authority: "observed-source",
+    sourceSystem: "wordpress",
+    sourceId: row.wordpress_source_id,
+    sourceKind: "category"
+  };
+}
+
 export function mapTagRow(row: TagRow): TaxonomyRef {
   return {
     id: row.id,
@@ -188,6 +200,12 @@ export function mapSourceProvenance(
 export type StoryRelations = {
   author?: AuthorRow | null;
   primarySection?: SectionRow | null;
+  /**
+   * A section row is Reader-canonical only when the repository can prove that
+   * AG-04 mapped it to the AG-01 vocabulary. WordPress-backed section rows
+   * default to observed-source and remain legacy taxonomy.
+   */
+  primarySectionAuthority?: SourceMappingAuthority;
   heroMedia?: MediaRow | null;
   geography?: ZoneRow[];
   /**
@@ -206,9 +224,27 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     row.status === "scheduled" || row.status === "published" || row.status === "archived"
       ? row.status
       : "draft";
-  const primarySection = relations.primarySection ? mapSectionRow(relations.primarySection) : null;
+  const primarySectionCandidate = relations.primarySection ? mapSectionRow(relations.primarySection) : null;
+  const primarySectionAuthority =
+    relations.primarySectionAuthority ??
+    (relations.primarySection?.wordpress_source_id ? "observed-source" : null);
+  const primarySection =
+    primarySectionAuthority === "canonical-approved" ? primarySectionCandidate : null;
+  const observedPrimarySection =
+    primarySectionAuthority === "observed-source" && relations.primarySection
+      ? mapLegacySectionRow(relations.primarySection)
+      : null;
   const topics = relations.topics ?? [];
-  const legacyTaxonomy = relations.legacyTaxonomy ?? [];
+  const legacyTaxonomy = Array.from(new Map(
+    [
+      ...(relations.legacyTaxonomy ?? []),
+      ...(observedPrimarySection ? [observedPrimarySection] : [])
+    ].map((term) => [term.sourceKind + ":" + (term.sourceId ?? term.slug), term])
+  ).values());
+  const inferredCanonical =
+    primarySectionAuthority === "inferred-requires-review" && primarySectionCandidate
+      ? [primarySectionCandidate]
+      : [];
   const geographyRefs = (relations.geography ?? []).map(mapGeographicZoneRow);
   const canonicalGeography = normalizeCanonicalGeography(geographyRefs);
   const sourceProvenance = mapSourceProvenance(
@@ -234,7 +270,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     geographyResolution: {
       canonicalApproved: geographyRefs,
       observedSource: [],
-      inferredRequiresReview: []
+      inferredRequiresReview: inferredCanonical
     },
     topics,
     legacyTaxonomy,
