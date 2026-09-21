@@ -194,10 +194,6 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      <View style={[styles.previewNotice,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
-        <Text style={[styles.previewLabel,{color:palette.blue}]}>SOURCE PARITY PREVIEW</Text>
-        <Text style={[styles.previewText,{color:palette.inkMuted}]}>The approved HealthTimes design is presenting current public HealthTimes journalism through a read-only bridge. AG-03/AG-04 remain authoritative for migration completeness and the final repository.</Text>
-      </View>
 
       {hero ? <HeroStory story={hero} /> : null}
 
@@ -232,7 +228,7 @@ export default function HomeScreen() {
             {featuredVideos.map((item) => <View key={item.id} style={styles.watchItem}><VideoCard item={item} /></View>)}
           </View>
         ) : (
-          <EmptyState title="No verified video available" message="Watch activates only with source-backed video metadata through the existing VideoService." />
+          <EmptyState title="No videos available" message="New HealthTimes videos will appear here when published." />
         )}
       </Section>
 
@@ -271,8 +267,8 @@ export default function HomeScreen() {
       <Section>
         <SectionHeader title="Most Read / Trending" />
         <EmptyState
-          title="Awaiting verified audience data"
-          message="AG-05 supplies real audience and analytics signals. This approved Home position remains reserved without fabricating a ranking."
+          title="Most Read is not available yet"
+          message="Audience-ranked stories will appear here when readership data is available."
         />
       </Section>
 

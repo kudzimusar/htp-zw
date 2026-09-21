@@ -68,6 +68,15 @@ export default function SystemStatusScreen() {
       </Section>
 
       <Section>
+        <SectionHeader title="Reader fidelity" eyebrow="NM-04 DIAGNOSTICS" />
+        <View style={[styles.sourceCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
+          <Text style={[styles.label,{color:palette.ink}]}>Structured WordPress article rendering</Text>
+          <Text style={[styles.detail,{color:palette.inkMuted}]}>The Reader allows paragraphs, H2/H3 headings, ordered and unordered lists, blockquotes, safe links, figures/images, captions and basic emphasis. Script, iframe, object, embed and form execution is blocked. Unsupported WordPress body constructs remain source exceptions for AG-04 reconciliation.</Text>
+          <Text style={[styles.detail,{color:palette.inkMuted}]}>The GitHub Pages review build carries a base-aware deep-link fallback so a public story discovered after static export can re-enter the PWA route rather than ending on the generic Pages 404 screen.</Text>
+        </View>
+      </Section>
+
+      <Section>
         <View style={[styles.boundary,{borderLeftColor:palette.blue}]}>
           <Text style={[styles.boundaryTitle,{color:palette.ink}]}>Current data boundary</Text>
           <Text style={[styles.boundaryText,{color:palette.inkMuted}]}>AG-02 staging infrastructure is live. The Reader may display current public HealthTimes stories and public media through the read-only Source Parity Bridge, but that is not migration completeness. The authoritative WordPress database/uploads package, complete migrated media custody, subscribers and staff authority remain blocked behind AG-03/AG-04/AG-06. This screen never displays the publishable key and no service-role/database secret belongs in the app.</Text>

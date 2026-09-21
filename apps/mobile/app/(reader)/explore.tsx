@@ -88,7 +88,7 @@ export default function ExploreScreen(){
 
   return (
     <Page title="Explore">
-      <Text style={[styles.intro,{color:palette.inkMuted}]}>Discover the real current HealthTimes publication through the new controlled taxonomy while retaining the legacy WordPress categories needed for migration provenance. Canonical desks and legacy categories are deliberately shown as separate systems.</Text>
+      <Text style={[styles.intro,{color:palette.inkMuted}]}>Browse HealthTimes by editorial desk, publication category, geography, format and author. Editorial desks and publication categories are kept separate so readers can explore both clearly.</Text>
 
       <Pressable style={[styles.search,{borderColor:palette.border,backgroundColor:palette.paperMuted}]} onPress={()=>router.push("/search" as never)}>
         <Text style={[styles.searchLabel,{color:palette.ink}]}>Search HealthTimes</Text>
@@ -100,11 +100,11 @@ export default function ExploreScreen(){
         <View style={styles.legend}>
           <View style={[styles.legendItem,{borderColor:palette.border}]}>
             <Text style={[styles.legendLabel,{color:palette.blue}]}>CANONICAL</Text>
-            <Text style={[styles.legendText,{color:palette.inkMuted}]}>AG-01 controlled navigation taxonomy.</Text>
+            <Text style={[styles.legendText,{color:palette.inkMuted}]}>HealthTimes editorial navigation.</Text>
           </View>
           <View style={[styles.legendItem,{borderColor:palette.border}]}>
             <Text style={[styles.legendLabel,{color:palette.ink}]}>LEGACY</Text>
-            <Text style={[styles.legendText,{color:palette.inkMuted}]}>Observed public WordPress taxonomy preserved for source continuity.</Text>
+            <Text style={[styles.legendText,{color:palette.inkMuted}]}>Categories used by the current HealthTimes publication.</Text>
           </View>
         </View>
 
@@ -115,7 +115,7 @@ export default function ExploreScreen(){
                 <Text style={[styles.gatewayTitle,{color:palette.ink}]}>{title}</Text>
                 {(title==="Canonical desks" || title==="Legacy publication categories") && (
                   <Text style={[styles.groupSource,{color:palette.inkMuted}]}>
-                    {title==="Canonical desks" ? "AG-BACKED TAXONOMY CONTRACT" : "SOURCE-BACKED PUBLIC TAXONOMY"}
+                    {title==="Canonical desks" ? "HEALTHTIMES DESKS" : "PUBLICATION CATEGORIES"}
                   </Text>
                 )}
               </View>
@@ -143,10 +143,10 @@ export default function ExploreScreen(){
                 </View>
               ) : (
                 <EmptyState
-                  title={title + " awaiting authoritative values"}
+                  title={"No "+title.toLowerCase()+" available"}
                   message={title==="Legacy publication categories"
-                    ? "No source-backed categories are available in the bounded parity corpus for this dimension yet."
-                    : "The platform contract supports this dimension, but authoritative migrated values are not available yet."}
+                    ? "No categories are available for this section yet."
+                    : "No values are available for this section yet."}
                 />
               )}
             </View>
@@ -158,7 +158,7 @@ export default function ExploreScreen(){
         <SectionHeader title={active + " reporting"} eyebrow="DISCOVER" action="Intelligent Search" onAction={()=>router.push("/search" as never)} />
         {filteredStories.length
           ? <StoryGrid stories={filteredStories} />
-          : <EmptyState title={"No source-backed "+active+" stories in this parity window"} message="The taxonomy selection remains valid. The complete historical archive and final normalized taxonomy remain an AG-04 migration responsibility." />}
+          : <EmptyState title={"No "+active+" stories found"} message="Try another HealthTimes desk or publication category." />}
       </Section>
     </Page>
   );

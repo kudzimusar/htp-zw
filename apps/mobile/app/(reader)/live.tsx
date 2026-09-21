@@ -25,7 +25,7 @@ export default function LiveScreen(){
 
   return (
     <Page title="Live">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Follow verified HealthTimes live blogs, streams and scheduled health events from the same editorial service used across native and PWA.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Follow HealthTimes live blogs, streams and scheduled health events in one place.</Text>
       <View style={styles.tabs}>
         <Chip active={active==="live"} onPress={()=>setActive("live")}>Live Now</Chip>
         <Chip active={active==="blog"} onPress={()=>setActive("blog")}>Live Blog</Chip>
@@ -52,7 +52,7 @@ export default function LiveScreen(){
         ) : (
           <EmptyState
             title={active==="upcoming" ? "No scheduled live coverage" : "No active live coverage"}
-            message="This surface collapses cleanly when the Live service has no matching authoritative event."
+            message="No matching live event is available right now."
           />
         )}
       </Section>
@@ -67,7 +67,7 @@ export default function LiveScreen(){
       <Section>
         <View style={[styles.note,{borderLeftColor:palette.live}]}>
           <Text style={[styles.noteTitle,{color:palette.ink}]}>Live is a first-class format</Text>
-          <Text style={[styles.noteText,{color:palette.inkMuted}]}>AG-04 owns migrated Live/media records. Viewer and audience metrics appear only when an authoritative service supplies them; this client does not invent counts.</Text>
+          <Text style={[styles.noteText,{color:palette.inkMuted}]}>Viewer and audience figures appear only when HealthTimes has verified data for the event.</Text>
         </View>
       </Section>
 

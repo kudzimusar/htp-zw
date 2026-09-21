@@ -76,7 +76,7 @@ export default function SearchScreen(){
 
   return (
     <Page title="Intelligent Search">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Search real HealthTimes journalism by words, author, topic, country and format. Discovery routes readers to source-backed reporting; it does not replace articles with generated summaries.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Search HealthTimes journalism by words, author, topic, country and format. Results are ranked using article wording, publication topics, authors, geography and recency.</Text>
 
       <View style={styles.searchRow}>
         <TextInput
@@ -140,7 +140,7 @@ export default function SearchScreen(){
       <Section>
         <SectionHeader
           title={submitted||hasFilters ? "Article results" : "Current HealthTimes coverage"}
-          eyebrow="SOURCE-BACKED DISCOVERY"
+          eyebrow="HEALTHTIMES DISCOVERY"
         />
         {results.data?.articles.length
           ? <StoryGrid stories={results.data.articles} />
@@ -194,7 +194,15 @@ export default function SearchScreen(){
         !results.data.videos.length &&
         !results.data.audio.length &&
         !results.data.live.length && (
-          <Text style={[styles.privacyNote,{color:palette.inkMuted}]}>Search terms remain privacy-sensitive. Raw health queries are not sent to analytics by this client.</Text>
+          <Section>
+            <SectionHeader title="Refine your search" />
+            <Text style={[styles.refineText,{color:palette.inkMuted}]}>Try fewer words, a related topic, an author name, or remove a filter.</Text>
+            <View style={styles.suggestions}>
+              {hasFilters&&<Chip onPress={clearFilters}>Clear filters</Chip>}
+              {suggestions.slice(0,6).map((item)=><Chip key={"refine-"+item} onPress={()=>submit(item)}>{item}</Chip>)}
+            </View>
+            <Text style={[styles.privacyNote,{color:palette.inkMuted}]}>Raw health search terms are not sent to analytics by this Reader.</Text>
+          </Section>
       )}
     </Page>
   );
@@ -219,5 +227,6 @@ const styles=StyleSheet.create({
   authorAction:{fontSize:12,fontWeight:"800",marginTop:spacing.sm},
   mediaGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xl},
   mediaItem:{minWidth:260,flex:1},
+  refineText:{fontSize:14,lineHeight:21,marginBottom:spacing.md},
   privacyNote:{fontSize:12,lineHeight:18,marginTop:spacing.lg}
 });
