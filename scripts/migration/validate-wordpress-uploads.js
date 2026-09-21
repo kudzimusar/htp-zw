@@ -2,9 +2,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
-const VALIDATOR_VERSION = '1.1.0';
+const VALIDATOR_VERSION = '1.2.0';
 const SCRIPT_EXTENSIONS = new Set(['php','phtml','phar','cgi','pl','py','rb','sh','bash','zsh','js','mjs','cjs','exe','dll','bat','cmd','ps1']);
 const MIME_BY_EXTENSION = {
   jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp',
@@ -138,43 +138,95 @@ function validateExtractedDirectory(rootDir) {
   };
 }
 
-function listArchiveEntries(artifact, format) {
+function runCommandToFile(command, args, outputPath) {
+  const fd = fs.openSync(outputPath, 'w');
   try {
-    const raw = format === 'tar.gz'
-      ? execFileSync('tar', ['-tzf', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] })
-      : execFileSync('unzip', ['-Z1', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
-    return raw.split(/\r?\n/).filter(Boolean);
-  } catch {
-    return null;
+    const result = spawnSync(command, args, { stdio: ['ignore', fd, 'ignore'] });
+    return !result.error && result.status === 0;
+  } finally {
+    fs.closeSync(fd);
   }
+}
+
+function forEachLineSync(filePath, visitor) {
+  const fd = fs.openSync(filePath, 'r');
+  const chunk = Buffer.allocUnsafe(64 * 1024);
+  let carry = '';
+  try {
+    let bytesRead;
+    while ((bytesRead = fs.readSync(fd, chunk, 0, chunk.length, null)) > 0) {
+      carry += chunk.subarray(0, bytesRead).toString('utf8');
+      let newline;
+      while ((newline = carry.indexOf('\n')) >= 0) {
+        let line = carry.slice(0, newline);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        visitor(line);
+        carry = carry.slice(newline + 1);
+      }
+    }
+    if (carry) visitor(carry);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function streamArchiveCommandLines(artifact, format, verbose, visitor) {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'healthtimes-archive-list-'));
+  const output = path.join(temp, 'listing.txt');
+  try {
+    const args = format === 'tar.gz'
+      ? (verbose ? ['-tvzf', artifact] : ['-tzf', artifact])
+      : (verbose ? ['-Z', '-l', artifact] : ['-Z1', artifact]);
+    const ok = runCommandToFile(format === 'tar.gz' ? 'tar' : 'unzip', args, output);
+    if (!ok) return false;
+    forEachLineSync(output, visitor);
+    return true;
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function inspectArchivePaths(artifact, format) {
+  let entry_count = 0;
+  let malformed_path_count = 0;
+  const ok = streamArchiveCommandLines(artifact, format, false, line => {
+    if (!line) return;
+    entry_count += 1;
+    if (isMalformedArchivePath(line)) {
+      malformed_path_count += 1;
+      return;
+    }
+    try {
+      assertTargetInside('/healthtimes-archive-validation-root', line);
+    } catch {
+      malformed_path_count += 1;
+    }
+  });
+  return ok
+    ? { status: 'INSPECTED', entry_count, malformed_path_count }
+    : { status: 'INSPECTION_FAILED', entry_count: null, malformed_path_count: null };
 }
 
 function inspectArchiveMemberTypes(artifact, format) {
-  try {
-    const raw = format === 'tar.gz'
-      ? execFileSync('tar', ['-tvzf', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] })
-      : execFileSync('unzip', ['-Z', '-l', artifact], { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
-    let symlink_count = 0;
-    let hardlink_count = 0;
-    for (const line of raw.split(/\r?\n/)) {
-      const trimmed = line.trimStart();
-      if (!trimmed) continue;
-      const type = trimmed[0];
-      if (type === 'l') symlink_count += 1;
-      if (type === 'h') hardlink_count += 1;
-    }
-    return { status: 'INSPECTED', symlink_count, hardlink_count };
-  } catch {
-    return { status: 'INSPECTION_FAILED', symlink_count: null, hardlink_count: null };
-  }
+  let symlink_count = 0;
+  let hardlink_count = 0;
+  const ok = streamArchiveCommandLines(artifact, format, true, line => {
+    const trimmed = line.trimStart();
+    if (!trimmed) return;
+    const type = trimmed[0];
+    if (type === 'l') symlink_count += 1;
+    if (type === 'h') hardlink_count += 1;
+  });
+  return ok
+    ? { status: 'INSPECTED', symlink_count, hardlink_count }
+    : { status: 'INSPECTION_FAILED', symlink_count: null, hardlink_count: null };
 }
 
 function testArchiveIntegrity(artifact, format) {
-  try {
-    if (format === 'tar.gz') execFileSync('tar', ['-tzf', artifact], { stdio: ['ignore','ignore','ignore'] });
-    else execFileSync('unzip', ['-tqq', artifact], { stdio: ['ignore','ignore','ignore'] });
-    return true;
-  } catch { return false; }
+  const result = format === 'tar.gz'
+    ? spawnSync('tar', ['-tzf', artifact], { stdio: ['ignore','ignore','ignore'] })
+    : spawnSync('unzip', ['-tqq', artifact], { stdio: ['ignore','ignore','ignore'] });
+  return !result.error && result.status === 0;
 }
 
 function assertTargetInside(targetRoot, relativePath) {
@@ -183,16 +235,11 @@ function assertTargetInside(targetRoot, relativePath) {
   if (candidate !== root && !candidate.startsWith(root + path.sep)) throw new Error('ARCHIVE_PATH_ESCAPE');
 }
 
-function extractArchive(artifact, format, target, entries) {
-  for (const entry of entries) {
-    if (isMalformedArchivePath(entry)) throw new Error('ARCHIVE_PATH_ESCAPE');
-    assertTargetInside(target, entry);
-  }
-  if (format === 'tar.gz') {
-    execFileSync('tar', ['-xzf', artifact, '-C', target, '--no-same-owner', '--no-same-permissions'], { stdio: ['ignore','ignore','ignore'] });
-  } else {
-    execFileSync('unzip', ['-qq', artifact, '-d', target], { stdio: ['ignore','ignore','ignore'] });
-  }
+function extractArchive(artifact, format, target) {
+  const result = format === 'tar.gz'
+    ? spawnSync('tar', ['-xzf', artifact, '-C', target, '--no-same-owner', '--no-same-permissions'], { stdio: ['ignore','ignore','ignore'] })
+    : spawnSync('unzip', ['-qq', artifact, '-d', target], { stdio: ['ignore','ignore','ignore'] });
+  if (result.error || result.status !== 0) throw new Error('ARCHIVE_EXTRACTION_FAILED');
 }
 
 function detectFormat(artifact) {
@@ -251,17 +298,16 @@ function validateUploadsArtifact(artifact) {
     report.size_bytes = stat.size;
     report.sha256 = sha256File(artifact);
 
-    const entries = listArchiveEntries(artifact, format);
-    if (!entries) {
+    const pathInspection = inspectArchivePaths(artifact, format);
+    if (pathInspection.status !== 'INSPECTED') {
       report.archive_integrity = 'FAIL';
       report.errors.push({ code: 'ARCHIVE_LIST_FAILED', message: 'Archive could not be listed safely.' });
       return report;
     }
 
-    const malformedCount = entries.filter(isMalformedArchivePath).length;
-    if (malformedCount) {
+    if (pathInspection.malformed_path_count) {
       report.archive_integrity = 'FAIL';
-      report.errors.push({ code: 'MALFORMED_ARCHIVE_PATH', message: 'Archive contains unsafe or malformed paths.', count: malformedCount });
+      report.errors.push({ code: 'MALFORMED_ARCHIVE_PATH', message: 'Archive contains unsafe or malformed paths.', count: pathInspection.malformed_path_count });
       return report;
     }
 
@@ -291,7 +337,7 @@ function validateUploadsArtifact(artifact) {
 
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'healthtimes-uploads-validate-'));
     try {
-      extractArchive(artifact, format, temp, entries);
+      extractArchive(artifact, format, temp);
       report.metrics = validateExtractedDirectory(temp);
     } catch {
       report.errors.push({ code: 'ARCHIVE_EXTRACTION_FAILED', message: 'Archive could not be extracted safely into the disposable validation workspace.' });
@@ -361,6 +407,7 @@ module.exports = {
   detectFormat,
   extensionOf,
   inspectArchiveMemberTypes,
+  inspectArchivePaths,
   isMalformedArchivePath,
   mimeForExtension,
   validateExtractedDirectory,
