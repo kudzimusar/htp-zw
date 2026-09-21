@@ -1,6 +1,6 @@
 # AG-03 — Source Data Capture Report
 
-Status: **CP3 NOT READY — authoritative source captured; frozen validator execution still required**
+Status: **CP3 NOT READY — authoritative source certified; direct-ad/HOSPAZ continuity package still unavailable**
 
 ## A. Repository state
 
@@ -61,7 +61,7 @@ Expected private workspace is referred to only as **secure source package worksp
 - Site identity verified from `siteurl` and `home`: `https://healthtimes.co.zw`
 - Private database rows committed to Git: **NO**
 
-The capture was produced read/export-only from the authenticated hosting environment and retained outside Git. The frozen AG-03 branch contains the required `migration:validate-source` script; the Work checkout that reported the script missing was therefore stale or not on the frozen AG-03 branch. CP3 certification remains pending only until the exact frozen validator is executed against the private artifacts and its sanitized result is recorded.
+The capture was produced read/export-only from the authenticated hosting environment and retained outside Git. The repaired unified validator was executed against the authoritative database with explicit WordPress prefix `wpyg_` selected from `wp-config.php` evidence. Database validation result: **VALID**. Prefix selection source: **WP_CONFIG_EXPLICIT**.
 
 ### Uploads/media archive
 
@@ -69,11 +69,19 @@ The capture was produced read/export-only from the authenticated hosting environ
 - Source snapshot date: **2026-09-21**
 - Archive format: **tar.gz**
 - Archive SHA-256: `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c`
-- Archive entries reported by capture: **23,262**
-- Capture-side validation: **COMPLETED**
+- Archive size: **2,863,789,110 bytes**
+- Archive entries: **23,262**
+- Extracted files: **23,141**
+- Archive integrity: **PASS**
+- Zero-byte files: **7**
+- Unreadable files: **0**
+- Symlink findings: **0**
+- Hardlink findings: **0**
+- Validator result: **VALID_REQUIRES_REVIEW**
+- Automated review finding: `UNEXPECTED_EXECUTABLE_OR_SCRIPT_IN_UPLOADS`
+- Human security disposition: **COMPLETED — review gate dispositioned, not bypassed**
 - Source media uploaded to Supabase/staging: **NO**
 - Private media package committed to Git: **NO**
-- Frozen-validator archive/tree metrics (byte size, year/month distribution, MIME distribution, zero-byte/unreadable/duplicate/script/link findings): **PENDING EXACT AG-03 VALIDATOR RUN**
 
 ### WXR
 
@@ -105,7 +113,7 @@ Additional post-state evidence from the authoritative database:
 - latest published post ID: **33190**
 - latest published post date: **2026-09-18 17:04:57 GMT**
 
-Core source drift classification for the captured snapshot is **MATCH**. No historical count was silently substituted.
+Core source drift classification for the captured snapshot is **MATCH**. Unified validator reconciliation result: **RECONCILED**; core: **CORE_CONTENT_RECONCILED**; authors: **AUTHOR_COUNT_RECONCILED**. No historical count was silently substituted.
 
 ## F. WordPress configuration provenance
 
@@ -123,14 +131,19 @@ Core source drift classification for the captured snapshot is **MATCH**. No hist
 
 ## G. Provenance identifiers
 
-The current REST/import tooling already preserves stable WordPress source identities such as post ID, author ID, category/tag IDs, featured-media ID and legacy URL/path. Authoritative database verification remains pending for:
+Unified database/source validation reached **PROVENANCE_READY**.
+
+The selected authoritative prefix `wpyg_` supports the required source identity/provenance relationships for:
 
 - post/page IDs;
 - attachment/media IDs;
 - user/author IDs;
 - term IDs and term_taxonomy IDs;
-- comment IDs where relevant;
-- WooCommerce order/subscription/member identifiers where relevant.
+- postmeta relationships including featured media;
+- permalink structure evidence;
+- commerce/source table classification under the selected live prefix.
+
+The validator did not derive source counts from the competing WordPress-looking prefix family.
 
 ## H. Google Analytics
 
@@ -225,10 +238,13 @@ The presence of WPForms structures/logs is not treated as proof of a subscriber 
 ## N. Direct advertising
 
 - HOSPAZ is a specifically known direct-campaign source that must be preserved.
-- Authoritative advertiser register, campaign dates, creative originals, approvals and destination URLs: **NOT YET RECEIVED**.
-- Historical impressions/clicks are not fabricated.
+- Ad Inserter/direct-ad capability is evidenced in the WordPress/admin configuration.
+- **Authoritative HOSPAZ/direct-campaign source material has not been captured in the evidence available to AG-03 closure.**
+- Missing continuity evidence includes the advertiser/campaign register and, where applicable, campaign dates, creative originals, approvals and destination URLs.
+- No historical impressions/clicks are fabricated.
+- Classification: **CP3 HARD BLOCKER — DIRECT-AD/HOSPAZ SOURCE CONTINUITY NOT YET CAPTURED**.
 
-Expected private package: advertiser/campaign spreadsheet or system export plus original creative files in the secure source package workspace.
+Expected private package remains an advertiser/campaign spreadsheet/system export and the original creative/source materials required to preserve the known HOSPAZ/direct-ad relationship.
 
 ## O. PageSpeed / Web Vitals
 
@@ -238,8 +254,7 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 
 ### HARD BLOCKERS
 
-1. **Exact frozen AG-03 validator execution against the captured private database and uploads artifacts.** The authoritative artifacts now exist, but the prior Work attempt ran from a checkout where `migration:validate-source` was absent. At frozen SHA `866912999857b363170b60cdf65e2f47119287a3`, that script is present in `package.json`.
-2. **Frozen-validator uploads disposition output.** The capture reports the uploads package as already validated, but CP3 still requires the exact AG-03 validator's sanitized archive/tree metrics and any executable/link review disposition.
+1. **Direct advertiser/campaign/creative source continuity including HOSPAZ.** The canonical source requirement remains known, but the advertiser/campaign register and source creative/campaign evidence have not been captured in the evidence available to this checkpoint. CP3 cannot be accepted while this known migration source remains unresolved.
 
 ### SOFT BLOCKERS
 
@@ -250,8 +265,7 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 5. Payment-provider operational evidence — needed to classify Paynow/PayPal historical relevance outside the zero WooCommerce order/subscription/payment-token snapshot.
 6. Newsletter/subscriber platform evidence — needed for audience continuity beyond the observed WPForms structures/logs.
 7. WhatsApp distribution/provider evidence — needed for audience continuity.
-8. Direct advertiser/campaign/creative package including HOSPAZ — needed for commercial continuity.
-9. Google Ads account evidence — needed only if HealthTimes confirms commercially active spend/dependence.
+8. Google Ads account evidence — needed only if HealthTimes confirms commercially active spend/dependence.
 
 ### NON-BLOCKING / DEFERRED
 
@@ -320,26 +334,55 @@ Synthetic fixture coverage includes:
 - cPanel/phpMyAdmin/mysqldump-style SQL containing comments, `DROP TABLE IF EXISTS`, `CREATE TABLE`, `LOCK TABLES`, extended multi-row `INSERT INTO`, MySQL version directives and `UNLOCK TABLES`;
 - output checks that private fixture filenames, absolute paths and fake row contents are not emitted.
 
-Current frozen-tooling runtime SHA: `c33c56fb0f75b993d5751103cbcd56e96f6c5375`.
+Current real-source remediation SHA: `4eabf518492ef025551d22e69b5b17ec27de4916`.
 
-Required command `npm run test:migration`: **PASS** on that runtime SHA.
+Real-source validator version: **1.2.0**.
 
-CI at that runtime SHA:
+Required command `npm run test:migration`: **32/32 PASS** on that remediation SHA.
+
+CI at that remediation SHA:
 
 - Validate HealthTimes 2.0: **SUCCESS**
 - Migration Tests: **SUCCESS**
 
+Real-source validation outcome:
+
+- database: **VALID**
+- uploads: **VALID_REQUIRES_REVIEW**
+- provenance: **PROVENANCE_READY**
+- reconciliation: **RECONCILED**
+- core reconciliation: **CORE_CONTENT_RECONCILED**
+- author reconciliation: **AUTHOR_COUNT_RECONCILED**
+- hard gates: **0**
+- automated unified state: **ARTIFACT_VALID_RECONCILIATION_INCOMPLETE** solely because the uploads executable/script review gate required human disposition
+
 No failing migration test was waived or reclassified.
 
-### Final pre-source hardening disposition
+### Final real-source validation and security disposition
 
-- Public REST fallback: **HARDENED** — five core content counts survive a blocked public `/users` endpoint; author count remains explicit and separately classified.
-- Sanitized admin author-count fallback: **SUPPORTED** via explicit input only; no stale count is silently substituted.
-- Upload executables/scripts: **VALID_REQUIRES_REVIEW**; never auto-deleted.
-- Tar/ZIP link handling: **BLOCKING** — symlink/hardlink archive members are rejected before extraction; extracted-tree links are also blocking findings.
-- Artifact ambiguity: **EXPLICIT** — multiple database/uploads candidates return `ARTIFACT_AMBIGUOUS`; filenames/paths are not exposed.
-- cPanel/phpMyAdmin/mysqldump compatibility: **PASS** on synthetic realistic dump fixture.
-- Pre-source tooling scope: **FROZEN after final-tip CI**. No additional pre-source features should be added before the authoritative cPanel artifacts arrive.
+- Large-archive handling: **REMEDIATED AND TESTED** — archive listing/member inspection no longer fails through child-process output buffering on large media packages.
+- Explicit WordPress prefix: **SUPPORTED AND USED** — authoritative prefix `wpyg_`, selection source `WP_CONFIG_EXPLICIT`.
+- Database validator: **VALID**.
+- Uploads validator: **VALID_REQUIRES_REVIEW**.
+- Provenance: **PROVENANCE_READY**.
+- Reconciliation: **RECONCILED**.
+- Automated review gate: `UNEXPECTED_EXECUTABLE_OR_SCRIPT_IN_UPLOADS`.
+- Review gate status: **HUMAN-REVIEWED AND DISPOSITIONED — NOT BYPASSED**.
+
+Two PHP artifacts were reviewed without execution:
+
+| Review ID | SHA-256 | Classification | Media attachment reference | Content reference | Disposition |
+| --- | --- | --- | --- | --- | --- |
+| `PHP-UPLOAD-001` | `783cdc75398980c451cadaa9c97279a24f6df1de971c3e654b25eb43bf7b037f` | `BENIGN_INERT_PLACEHOLDER` | NO | NO | `EXCLUDE_FROM_PUBLIC_MEDIA_MIGRATION` |
+| `PHP-UPLOAD-002` | `76e7cd6781911a19d14c02f36b30ef35ebf891c9bcff7bdce70b366f66d06c6f` | `BENIGN_PLUGIN_GENERATED` | NO | NO | `EXCLUDE_FROM_PUBLIC_MEDIA_MIGRATION` |
+
+`PUBLIC_MEDIA_MIGRATION_IMPACT: NONE`
+
+AG-04 carry-forward requirements:
+
+1. exclude both reviewed PHP artifacts from the public `migrated-media` bucket;
+2. retain their hashes/dispositions only in private source custody/provenance;
+3. carry all **7 zero-byte upload files** into the AG-04 exception/reconciliation ledger rather than silently discarding them.
 
 ## R. Security / production safety
 
@@ -360,13 +403,11 @@ No failing migration test was waived or reclassified.
 
 ## S. Downstream readiness
 
-- AG-04 content/media rehearsal readiness: **BLOCKED only on CP3 certification** — authoritative database and uploads artifacts are now captured, but the frozen unified validator has not yet been executed from the correct checkout.
+- AG-04 content/media rehearsal readiness: **SOURCE/VALIDATOR READY BUT CP3 BLOCKED** — database, uploads, provenance and reconciliation are certified; reviewed PHP exclusions and seven zero-byte exceptions are explicitly carried forward. Release still depends on resolution of the direct-ad/HOSPAZ CP3 blocker.
 - AG-05 SEO/analytics/monetization readiness: **BLOCKED for certification** — core public/Site Kit identities are known, but account-level ownership/history evidence remains pending.
 - AG-06 Newsroom backend readiness: **READY from CP2 architecture perspective**; AG-03 has not modified its staging backend boundary.
 
-## T. CP3 closure template — placeholders only
-
-Do not populate these fields until the actual private artifacts have been received and validated.
+## T. CP3 certification summary
 
 | Closure field | Value |
 | --- | --- |
@@ -374,26 +415,41 @@ Do not populate these fields until the actual private artifacts have been receiv
 | Database size | `18,680,797 bytes` |
 | Database table count | `146 total / 132 wpyg_ prefix` |
 | WordPress table prefix | `wpyg_` |
-| Database validation result | `CAPTURE-SIDE PASS; FROZEN UNIFIED VALIDATOR PENDING` |
-| Uploads SHA-256 / tree SHA-256 | `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c` archive SHA-256; frozen tree hash pending |
-| Uploads total bytes | `PENDING_FROZEN_VALIDATOR_OUTPUT` |
-| Uploads file count | `23,262 archive entries reported by capture` |
-| Uploads archive integrity | `CAPTURE-SIDE VALIDATED; FROZEN VALIDATOR OUTPUT PENDING` |
+| Prefix selection source | `WP_CONFIG_EXPLICIT` |
+| Database validation result | `VALID` |
+| Uploads SHA-256 | `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c` |
+| Uploads size | `2,863,789,110 bytes` |
+| Uploads archive entries | `23,262` |
+| Uploads extracted files | `23,141` |
+| Uploads archive integrity | `PASS` |
+| Zero-byte files | `7 — carry to AG-04 exception ledger` |
+| Unreadable files | `0` |
+| Symlink/hardlink findings | `0 / 0` |
+| Uploads validation result | `VALID_REQUIRES_REVIEW` |
+| Automated review finding | `UNEXPECTED_EXECUTABLE_OR_SCRIPT_IN_UPLOADS` |
+| Human security review | `COMPLETED / DISPOSITIONED, NOT BYPASSED` |
+| Public media migration impact | `NONE` |
 | Authoritative published-post count | `5,737` |
 | Authoritative page count | `49` |
 | Authoritative media count | `3,277` |
 | Authoritative category count | `83` |
 | Authoritative tag count | `10,283` |
-| Authoritative author/user count | `3 users / 3 published authors` |
-| Drift reconciliation | `MATCH on all five public core metrics; admin user count 3` |
-| Provenance readiness | `PENDING FROZEN VALIDATOR CERTIFICATION` |
-| WooCommerce/subscriptions classification | `TABLES PRESENT; 0 orders; 0 subscriptions; 0 payment tokens` |
-| Newsletter/audience classification | `WPForms structures present; 15 log rows; subscriber population unverified` |
-| Payment historical relevance | `NO WooCommerce order/subscription/payment-token history; external/provider history UNVERIFIED` |
-| Unresolved source items | `FROZEN_VALIDATOR_RUN; uploads review disposition; Google/account-level soft blockers; newsletter/WhatsApp/direct-ad evidence` |
+| Authoritative author/user count | `3` |
+| Reconciliation | `RECONCILED` |
+| Core reconciliation | `CORE_CONTENT_RECONCILED` |
+| Author reconciliation | `AUTHOR_COUNT_RECONCILED` |
+| Provenance readiness | `PROVENANCE_READY` |
+| WooCommerce/subscriptions classification | `STRUCTURES PRESENT; 0 orders; 0 subscriptions; 0 payment tokens; 1 membership plan; SureMembers structures present` |
+| Newsletter/audience classification | `WPForms structures present; 15 log rows; WPForms payments 0; subscriber population unverified` |
+| Payment historical relevance | `Paynow/PayPal capability observed; historical provider activity unverified` |
+| GA4 classification | `IDs verified from Site Kit; account ownership/settings/history pending for AG-05 where access is unavailable` |
+| Search Console classification | `property identity known; property type/owners/history not account-level verified` |
+| AdSense classification | `publisher/client/slot known; account-level reporting/history/owner evidence pending for AG-05` |
+| Direct-ad/HOSPAZ classification | `KNOWN SOURCE REQUIREMENT; AUTHORITATIVE CAMPAIGN/CREATIVE PACKAGE NOT YET CAPTURED — CP3 BLOCKER` |
+| Private source custody | `DATABASE/UPLOADS/PHP SOURCE ARTIFACTS REMAIN OUTSIDE GIT` |
 
 ## U. CP3 decision
 
-The authoritative database and uploads package have now been captured outside Git, and the live database/core REST counts reconcile. However, the exact frozen unified validator has not yet been executed against those private artifacts from the correct AG-03 checkout. CP3 therefore remains open until that final certification command succeeds and any uploads review finding is dispositioned.
+The authoritative database and uploads package are captured outside Git. Database validation is VALID; uploads validation reached VALID_REQUIRES_REVIEW; the sole executable/script gate was human-reviewed and dispositioned without bypass; provenance is PROVENANCE_READY; source reconciliation is RECONCILED with both core and author counts reconciled. The remaining CP3 blocker is the canonical direct-ad/HOSPAZ source-continuity package, which has not been captured in the evidence available to this checkpoint. CP3 therefore remains open.
 
 **CP3 NOT READY — downstream migration remains blocked**
