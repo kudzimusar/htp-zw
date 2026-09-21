@@ -43,6 +43,34 @@ export default function AboutScreen(){
               </Pressable>
             </View>
           </Section>
+
+          {!!publication.data.sourceLinks?.length && (
+            <Section>
+              <SectionHeader title="HealthTimes products & channels" eyebrow="SOURCE-VERIFIED" />
+              <Text style={[styles.note,{color:palette.inkMuted}]}>
+                These public destinations are preserved from the current HealthTimes publication while their final migrated product records remain an AG-04 responsibility.
+              </Text>
+              <View style={styles.linkGroups}>
+                {(["product","contact","social"] as const).map((kind)=>{
+                  const links=publication.data!.sourceLinks!.filter((link)=>link.kind===kind);
+                  if(!links.length) return null;
+                  const label=kind==="product" ? "Products" : kind==="contact" ? "Contact" : "Social";
+                  return (
+                    <View key={kind} style={styles.linkGroup}>
+                      <Text style={[styles.linkGroupTitle,{color:palette.ink}]}>{label}</Text>
+                      <View style={styles.actions}>
+                        {links.map((link)=>(
+                          <Pressable key={link.key} style={[styles.action,{borderColor:palette.border}]} onPress={()=>void Linking.openURL(link.url)}>
+                            <Text style={[styles.actionText,{color:palette.blue}]}>{link.label}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </Section>
+          )}
         </>
       )}
     </Page>
@@ -57,6 +85,9 @@ const styles=StyleSheet.create({
   principle:{fontSize:15,lineHeight:25},
   note:{fontSize:14,lineHeight:22,maxWidth:760},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.lg},
+  linkGroups:{gap:spacing.lg,marginTop:spacing.lg},
+  linkGroup:{gap:spacing.xs},
+  linkGroupTitle:{fontSize:13,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.7},
   action:{minHeight:44,justifyContent:"center",paddingHorizontal:14,borderWidth:1,borderRadius:radius.sm},
   actionText:{fontWeight:"900"}
 });
