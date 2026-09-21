@@ -35,6 +35,7 @@ test('generic article shell cannot be indexed as if it were migrated story metad
 
 test('public analytics is production-host and consent gated', () => {
   const js = read('analytics.js');
+  expect(() => new Function(js)).not.toThrow();
   expect(js).toContain("new Set(['healthtimes.co.zw', 'www.healthtimes.co.zw'])");
   expect(js).toContain("const MEASUREMENT_ID = 'G-S39LN2KX4X'");
   expect(js).toContain("const TAG_ID = 'GT-PLTTGPL'");
