@@ -1,0 +1,9 @@
+# HealthTimes production robots policy — AG-05 candidate
+User-agent: *
+Allow: /
+Disallow: /newsroom
+Disallow: /newsroom/
+Disallow: /api/internal/
+Disallow: /internal/
+
+Sitemap: https://healthtimes.co.zw/sitemap.xml
