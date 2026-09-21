@@ -182,9 +182,9 @@ export function AdSlot({
     [placement,sensitiveHealthContext]
   );
 
-  const noInventory=!decision.data || decision.data.source === "none";
-  if(noInventory) return null;
-  const message=decision.data.policyReason ?? "Advertising delivery is controlled by the HealthTimes advertising service.";
+  const adDecision=decision.data;
+  if(!adDecision || adDecision.source === "none") return null;
+  const message=adDecision.policyReason ?? "Advertising delivery is controlled by the HealthTimes advertising service.";
 
   return (
     <View
@@ -192,7 +192,7 @@ export function AdSlot({
       accessibilityLabel={"Advertising placement " + placement}
     >
       <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
-      <Text style={[styles.adPlacement,{color:palette.ink}]}>{decision.data.disclosureLabel ?? "Sponsored"}</Text>
+      <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel ?? "Sponsored"}</Text>
       <Text style={[styles.adMessage,{color:palette.inkMuted}]}>{message}</Text>
     </View>
   );
