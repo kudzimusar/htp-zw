@@ -206,7 +206,7 @@ test("offline Reader persistence is versioned and fail-closed independently of U
   assert.match(persistence,/downloads:v2/);
   assert.match(persistence,/legacyDownloads/);
   assert.match(persistence,/bodyHtml: null|offlineRecordForArticle/);
-  assert.match(persistence,/syncMode: "local-only"|syncMode/);
+  assert.match(offline,/syncMode: "local-only"/);
   assert.match(offline,/"not-downloaded"|OfflineAvailabilityState/);
   assert.match(offline,/compareSourceFreshness/);
   assert.match(article,/canOpenOffline/);
