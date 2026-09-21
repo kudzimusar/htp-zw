@@ -281,6 +281,8 @@ test("Pages workflow proves exact deployed SHA and critical owner-preview routes
   const pages=read("../../.github/workflows/pages.yml");
   assert.match(pages,/build-info\.json/);
   assert.match(pages,/Exact-head Pages deployment: PASS/);
+  assert.match(pages,/access-control-allow-origin/);
+  assert.doesNotMatch(pages,/sub\(\/\\r\$\/,\\\"\\\"\)/);
   for(const route of ["live","explore","search","premium","watch","my","article\/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"]){
     assert.ok(pages.includes(route),route);
   }
