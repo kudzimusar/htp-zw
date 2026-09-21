@@ -45,7 +45,7 @@ test("source provenance and legacy taxonomy stay explicit",()=>{
   const models=read("src/domain/models.ts");
   const snapshot=read("src/source-parity/snapshot.ts");
   const service=read("src/services/source-parity.ts");
-  assert.match(models,/legacyTaxonomy\\?: LegacyTaxonomyRef\\[\\]/);
+  assert.ok(models.includes("legacyTaxonomy?: LegacyTaxonomyRef[];"));
   assert.match(snapshot,/wordpress-url:/);
   assert.match(snapshot,/legacyMembershipSignal/);
   assert.match(service,/categoryIds:/);
