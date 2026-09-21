@@ -200,12 +200,12 @@ export default function HomeScreen() {
 
       {hero ? <HeroStory story={hero} /> : null}
 
-      <Section>
-        <SectionHeader title="Live Now" eyebrow="LIVE" action="Open Live" onAction={() => router.push("/live" as never)} />
-        {live.data?.some((item)=>item.status==="live")
-          ? <LiveRail items={live.data.filter((item)=>item.status==="live")} />
-          : <EmptyState title="No verified live event right now" message="The Live rail remains part of the approved front page and activates only when the existing Live service has a verified event." />}
-      </Section>
+      {!!live.data?.some((item)=>item.status==="live") && (
+        <Section>
+          <SectionHeader title="Live Now" eyebrow="LIVE" action="Open Live" onAction={() => router.push("/live" as never)} />
+          <LiveRail items={live.data.filter((item)=>item.status==="live")} />
+        </Section>
+      )}
 
       <Section><AdSlot placement="home_after_live" /></Section>
 
