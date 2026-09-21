@@ -78,11 +78,24 @@ export default function ArticleScreen(){
 
   if(article.loading || offlineRecord.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   const cachedArticle=canOpenOffline(offlineRecord.data ?? null) ? offlineRecord.data!.article : null;
-  const story=article.data ?? cachedArticle;
+  const repositoryArticle=article.data;
+  const repositoryAccessUnresolved=(repositoryArticle?.sourceProvenance?.exceptions ?? []).some((exception)=>
+    exception.kind==="taxonomy-unresolved" && exception.field==="legacyTaxonomy"
+  );
+  const mayUseCachedPublicBody=Boolean(
+    cachedArticle &&
+    cachedArticle.accessPolicy==="public" &&
+    (!repositoryArticle || (
+      repositoryArticle.accessPolicy==="public" &&
+      !repositoryArticle.bodyHtml &&
+      !repositoryAccessUnresolved
+    ))
+  );
+  const story=mayUseCachedPublicBody ? cachedArticle : repositoryArticle;
   if(!story) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article is unavailable on this device while offline.</Text></Page>;
 
-  const usingOfflineCopy=!article.data && Boolean(cachedArticle);
-  const cachedState=offlineRecord.data ? compareSourceFreshness(offlineRecord.data,article.data?.modifiedAt ?? null) : "not-downloaded";
+  const usingOfflineCopy=Boolean(mayUseCachedPublicBody);
+  const cachedState=offlineRecord.data ? compareSourceFreshness(offlineRecord.data,repositoryArticle?.modifiedAt ?? null) : "not-downloaded";
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
   const blocks=parseArticleContent(story.bodyHtml,story.canonicalUrl);
   const desktop=width >= breakpoints.desktop;
