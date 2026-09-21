@@ -1,6 +1,6 @@
 # AG-03 — Source Data Capture Report
 
-Status: **CP3 NOT READY — authoritative source certified; direct-ad/HOSPAZ continuity package still unavailable**
+Status: **CP3 ACCEPTED — authoritative source capture and continuity evidence certified**
 
 ## A. Repository state
 
@@ -126,7 +126,7 @@ Core source drift classification for the captured snapshot is **MATCH**. Unified
 - Other installed theme observed: Twenty Twenty-Five
 - Site Kit connected modules observed: Search Console, AdSense, Analytics, PageSpeed Insights; Google Ads module present but incomplete
 - Commerce stack observed: WooCommerce, WooCommerce Memberships, WooCommerce Subscriptions, WooCommerce PayPal Payments, Paynow Zimbabwe, Google for WooCommerce and other channel plugins
-- Advertising stack observed: Ad Inserter plus AdSense code; HOSPAZ remains a known direct-campaign source requirement
+- Advertising stack observed: Ad Inserter plus AdSense code; HOSPAZ direct-ad continuity is separately reconstructed from WordPress/Elementor source evidence. Ad Inserter is AdSense-oriented and is **not** the HOSPAZ placement mechanism.
 - SEO plugin state: Rank Math SEO observed inactive; no assumption is made that all historical SEO metadata is absent
 
 ## G. Provenance identifiers
@@ -237,14 +237,64 @@ The presence of WPForms structures/logs is not treated as proof of a subscriber 
 
 ## N. Direct advertising
 
-- HOSPAZ is a specifically known direct-campaign source that must be preserved.
-- Ad Inserter/direct-ad capability is evidenced in the WordPress/admin configuration.
-- **Authoritative HOSPAZ/direct-campaign source material has not been captured in the evidence available to AG-03 closure.**
-- Missing continuity evidence includes the advertiser/campaign register and, where applicable, campaign dates, creative originals, approvals and destination URLs.
-- No historical impressions/clicks are fabricated.
-- Classification: **CP3 HARD BLOCKER — DIRECT-AD/HOSPAZ SOURCE CONTINUITY NOT YET CAPTURED**.
+Classification: **DIRECT_AD_CONTINUITY_CAPTURED**
 
-Expected private package remains an advertiser/campaign spreadsheet/system export and the original creative/source materials required to preserve the known HOSPAZ/direct-ad relationship.
+### HOSPAZ commercial creative
+
+The authenticated private-source investigation reconstructed one logical HOSPAZ commercial creative from first-party WordPress source evidence.
+
+- Logical commercial creative count: **1**
+- WordPress attachment IDs: `32960`, `32971`
+- Byte relationship: **byte-identical source files**
+- SHA-256: `50d7b7363c35df79a17102c81e0d5d37db1abe6c780f4ba189df09f26cd8456f`
+- Dimensions: **1200x400**
+- MIME: `image/jpeg`
+- Classification: `DIRECT_AD_COMMERCIAL_CREATIVE`
+
+Both WordPress attachment IDs must be preserved as provenance even where checksum-aware storage avoids creating duplicate stored binaries.
+
+### Separate current AGM asset
+
+A separate HOSPAZ AGM media asset exists at WordPress attachment `33005`.
+
+Its source and placement provenance are intentionally distinct:
+
+- `ASSET_SOURCE_PROVENANCE = EDITORIAL`
+- `PLACEMENT_USAGE_PROVENANCE = DIRECT_AD / HEADER_PLACEMENT`
+
+Attachment `33005` remains a legitimate WordPress media asset and must follow the normal AG-04 media/content migration path. AG-05 must separately preserve the fact that the current commercial/header placement references that asset.
+
+### Placement relationship
+
+Direct HOSPAZ placement was reconstructed from the published Elementor/header-footer source:
+
+- Elementor/header-footer template post: `21`
+- post type: `elementor-hf`
+- title: `main`
+- status: `publish`
+- historical revisions referencing the August commercial banner: `32974`, `32975`, `32976`, `32977`, `32979`, `32980`
+- current published placement attachment: `33005`
+- destination URL: **UNKNOWN**
+- schedule: **UNKNOWN**
+- placement conditions: **UNKNOWN**
+
+Destination, schedule and conditions are preserved as unknown. They are not inferred from AGM dates, upload dates, article dates or revision dates.
+
+### Ad Inserter distinction
+
+- `HOSPAZ_AD_INSERTER_PLACEMENT: NO`
+- inspected Ad Inserter configuration is AdSense-oriented;
+- HOSPAZ must not be reconstructed as an Ad Inserter/AdSense placement;
+- HOSPAZ belongs to the direct-ad/commercial placement abstraction, separate from AdSense.
+
+### Campaign-register truth
+
+- `NO_STANDALONE_CAMPAIGN_REGISTER_FOUND_IN_CAPTURED_SOURCE`
+- no standalone advertiser contract/approval record was found in the captured WordPress/cPanel source;
+- this absence is **not classified as lost data**, because there is no evidence such records existed in those source systems;
+- no destination URL, approval date, campaign start/end date, pricing, impressions, clicks or revenue is fabricated.
+
+The absence of a separate campaign spreadsheet/register is not a CP3 blocker because the actual first-party WordPress/Elementor source relationship is sufficient to reproduce the known placement safely in staging. Client-supplied commercial records may later enrich this metadata without changing the source-continuity classification.
 
 ## O. PageSpeed / Web Vitals
 
@@ -254,18 +304,19 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 
 ### HARD BLOCKERS
 
-1. **Direct advertiser/campaign/creative source continuity including HOSPAZ.** The canonical source requirement remains known, but the advertiser/campaign register and source creative/campaign evidence have not been captured in the evidence available to this checkpoint. CP3 cannot be accepted while this known migration source remains unresolved.
+**NONE.** The final direct-ad/HOSPAZ source-continuity blocker was resolved by authenticated private-source reconstruction from WordPress/Elementor evidence.
 
-### SOFT BLOCKERS
+### SOFT / DOWNSTREAM EVIDENCE GAPS
 
-1. Reliable WXR export — supplementary because database + uploads are the preferred authoritative path.
-2. GA4 account-level ownership/settings/history evidence — affects AG-05 continuity validation.
-3. Search Console property type/owners/history evidence — affects AG-05 SEO continuity validation.
-4. AdSense account-level reporting/authorized-site/history evidence — affects AG-05 monetization continuity.
-5. Payment-provider operational evidence — needed to classify Paynow/PayPal historical relevance outside the zero WooCommerce order/subscription/payment-token snapshot.
-6. Newsletter/subscriber platform evidence — needed for audience continuity beyond the observed WPForms structures/logs.
-7. WhatsApp distribution/provider evidence — needed for audience continuity.
-8. Google Ads account evidence — needed only if HealthTimes confirms commercially active spend/dependence.
+1. Reliable WXR export — supplementary only; database + uploads remain the authoritative source path.
+2. GA4 account-level ownership/settings/history evidence — AG-05 continuity evidence where account access remains unavailable.
+3. Search Console property type/owners/history evidence — AG-05 SEO continuity evidence.
+4. AdSense account-level reporting/authorized-site/history evidence — AG-05 monetization continuity evidence.
+5. Paynow/PayPal provider operational evidence — historical activity remains unverified outside the authoritative zero-order/subscription/payment-token WooCommerce snapshot.
+6. Newsletter/subscriber platform evidence — WPForms structures/logs are known, but subscriber population is not inferred.
+7. WhatsApp distribution/provider evidence — provider/list model remains unverified.
+8. Google Ads account evidence — only required if HealthTimes later establishes commercially active spend/dependence.
+9. Client-supplied HOSPAZ contracts/approvals/schedule/destination/pricing/history — optional enrichment only; not required for CP3 source continuity because the WordPress/Elementor placement relationship is now reconstructed.
 
 ### NON-BLOCKING / DEFERRED
 
@@ -275,7 +326,7 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 - Final content-freeze snapshot.
 - Final delta media sync.
 
-These belong to later production lanes and must not be requested merely to complete rehearsal source capture.
+These belong to later production lanes and are not prerequisites for CP3 acceptance.
 
 ## Q. Pre-source validation tooling and test state
 
@@ -401,11 +452,48 @@ AG-04 carry-forward requirements:
 - Production commerce modified: **NO**
 - Production systems modified: **NO**
 
-## S. Downstream readiness
+## S. Downstream readiness and dispatch contracts
 
-- AG-04 content/media rehearsal readiness: **SOURCE/VALIDATOR READY BUT CP3 BLOCKED** — database, uploads, provenance and reconciliation are certified; reviewed PHP exclusions and seven zero-byte exceptions are explicitly carried forward. Release still depends on resolution of the direct-ad/HOSPAZ CP3 blocker.
-- AG-05 SEO/analytics/monetization readiness: **BLOCKED for certification** — core public/Site Kit identities are known, but account-level ownership/history evidence remains pending.
-- AG-06 Newsroom backend readiness: **READY from CP2 architecture perspective**; AG-03 has not modified its staging backend boundary.
+CP3 source capture is accepted. AG-03 itself does not start downstream execution.
+
+### AG-04 dispatch contract — content/media rehearsal
+
+AG-04 may proceed and must:
+
+1. migrate the August HOSPAZ commercial creative as commercial/direct-ad media;
+2. retain WordPress attachment provenance for both `32960` and `32971`;
+3. avoid duplicate stored binaries unnecessarily where checksum deduplication is supported, while preserving both source attachment identifiers;
+4. preserve attachment `33005` through the ordinary WordPress media/content migration path because its source provenance is editorial;
+5. preserve source identifiers and the distinction between asset-source provenance and placement-usage provenance;
+6. carry all **7 zero-byte upload files** in the AG-04 exception/reconciliation ledger;
+7. exclude `PHP-UPLOAD-001` and `PHP-UPLOAD-002` from public `migrated-media`;
+8. never serve executable PHP through `migrated-media`.
+
+### AG-05 dispatch contract — SEO/analytics/monetization/direct ads
+
+AG-05 may proceed with the following direct-ad evidence:
+
+- advertiser: **HOSPAZ**
+- classification: `DIRECT_AD_CONTINUITY_CAPTURED`
+- logical commercial creative count: **1**
+- commercial creative attachment IDs: `32960`, `32971`
+- commercial creative SHA-256: `50d7b7363c35df79a17102c81e0d5d37db1abe6c780f4ba189df09f26cd8456f`
+- current placement attachment: `33005`
+- Elementor/header-footer template: `21`
+- historical revisions: `32974`, `32975`, `32976`, `32977`, `32979`, `32980`
+- destination URL: **UNKNOWN**
+- schedule: **UNKNOWN**
+- placement conditions: **UNKNOWN**
+- `HOSPAZ_AD_INSERTER_PLACEMENT: NO`
+- `NO_STANDALONE_CAMPAIGN_REGISTER_FOUND_IN_CAPTURED_SOURCE`
+
+AG-05 must implement HOSPAZ through the new **direct-ad placement abstraction**, separate from AdSense. It must preserve current-versus-historical asset relationships and must not invent missing campaign metadata.
+
+Google Analytics, Search Console and AdSense account-level evidence gaps remain downstream AG-05 continuity tasks where access is unavailable; their identities already recorded in this report are not reclassified as fully verified.
+
+### AG-06 dispatch
+
+AG-06 remains **READY from the accepted CP2 architecture perspective**. AG-03 made no staging backend changes.
 
 ## T. CP3 certification summary
 
@@ -445,11 +533,15 @@ AG-04 carry-forward requirements:
 | GA4 classification | `IDs verified from Site Kit; account ownership/settings/history pending for AG-05 where access is unavailable` |
 | Search Console classification | `property identity known; property type/owners/history not account-level verified` |
 | AdSense classification | `publisher/client/slot known; account-level reporting/history/owner evidence pending for AG-05` |
-| Direct-ad/HOSPAZ classification | `KNOWN SOURCE REQUIREMENT; AUTHORITATIVE CAMPAIGN/CREATIVE PACKAGE NOT YET CAPTURED — CP3 BLOCKER` |
+| Direct-ad/HOSPAZ classification | `DIRECT_AD_CONTINUITY_CAPTURED — first-party WordPress/Elementor creative + placement relationship reconstructed; destination/schedule/conditions UNKNOWN; no standalone campaign register found in captured source` |
 | Private source custody | `DATABASE/UPLOADS/PHP SOURCE ARTIFACTS REMAIN OUTSIDE GIT` |
 
 ## U. CP3 decision
 
-The authoritative database and uploads package are captured outside Git. Database validation is VALID; uploads validation reached VALID_REQUIRES_REVIEW; the sole executable/script gate was human-reviewed and dispositioned without bypass; provenance is PROVENANCE_READY; source reconciliation is RECONCILED with both core and author counts reconciled. The remaining CP3 blocker is the canonical direct-ad/HOSPAZ source-continuity package, which has not been captured in the evidence available to this checkpoint. CP3 therefore remains open.
+The authoritative database and uploads package are captured outside Git. Database validation is **VALID**; uploads validation reached **VALID_REQUIRES_REVIEW**; the sole executable/script review gate was human-reviewed and dispositioned without bypass; provenance is **PROVENANCE_READY**; source reconciliation is **RECONCILED** with both core and author counts reconciled.
 
-**CP3 NOT READY — downstream migration remains blocked**
+The final previously recorded source-continuity blocker is now resolved. HOSPAZ direct-ad continuity has been reconstructed from first-party WordPress/Elementor evidence, including the logical commercial creative, duplicate attachment provenance, separate current AGM asset, current and historical placement relationships, direct-ad versus AdSense distinction, and explicit preservation of unknown campaign fields.
+
+No CP3 hard blockers remain. Remaining Google/account-level, audience/provider and optional client commercial-record gaps are documented as downstream/soft evidence gaps and are not converted into fabricated facts.
+
+**CP3 ACCEPTED — AG-04 / AG-05 / AG-06 may proceed**
