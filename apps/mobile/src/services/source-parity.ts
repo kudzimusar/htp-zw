@@ -445,7 +445,7 @@ const searchService:SearchService={
             author.bio ?? ""
           ].join(" ").toLowerCase().includes(q);
         });
-    const videos=query.format && query.format!=="video"
+    const videos=query.country || query.topic || (query.format && query.format!=="video")
       ? []
       : sourceParityVideos.filter((item)=>!q || item.title.toLowerCase().includes(q));
     return {articles,authors,videos,audio:[],live:[]};
