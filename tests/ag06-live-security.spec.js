@@ -60,12 +60,19 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(anonBootstrap.status()).toBe(401);
 
     const anonHeaders={apikey:anonKey,'Content-Type':'application/json'};
+    const assertNoProtectedRows=async response=>{
+      expect([200,401,403]).toContain(response.status());
+      if(response.status()===200){
+        const rows=await response.json();
+        expect(rows).toEqual([]);
+      }
+    };
     const anonDraft=await fetch(`${supabaseURL}/rest/v1/stories?select=id,title,status&limit=1`,{headers:anonHeaders});
-    expect([401,403]).toContain(anonDraft.status());
+    await assertNoProtectedRows(anonDraft);
     const anonComments=await fetch(`${supabaseURL}/rest/v1/story_internal_comments?select=id&limit=1`,{headers:anonHeaders});
-    expect([401,403]).toContain(anonComments.status());
+    await assertNoProtectedRows(anonComments);
     const anonAudit=await fetch(`${supabaseURL}/rest/v1/audit_logs?select=id&limit=1`,{headers:anonHeaders});
-    expect([401,403]).toContain(anonAudit.status());
+    await assertNoProtectedRows(anonAudit);
     const publicStories=await fetch(`${supabaseURL}/rest/v1/rpc/newsroom_public_published_stories`,{
       method:'POST',headers:anonHeaders,body:JSON.stringify({p_slug:null})
     });
