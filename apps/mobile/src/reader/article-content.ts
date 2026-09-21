@@ -27,6 +27,7 @@ const ALLOWED_TAGS=new Set([
 ]);
 const VOID_TAGS=new Set(["img","br","source"]);
 const DROP_TAGS=new Set(["script","style","iframe","object","embed","form","input","button","template","noscript"]);
+const DROP_VOID_TAGS=new Set(["embed","input"]);
 const KEPT_ATTRIBUTES=new Set(["href","src","alt","title","class","poster","type","download"]);
 
 function decodeEntities(value:string){
@@ -58,7 +59,7 @@ function parseHtml(html:string){
   const close=findTagEnd(html,open+1);if(close<0){if(!blocked){const p=stack[stack.length-1];if(p)p.children.push({kind:"text",value:html.slice(open)});}break;}
   const tag=parseTag(html.slice(open+1,close));cursor=close+1;if(!tag)continue;
   if(blocked){if(!tag.closing&&tag.name===blocked&&!tag.selfClosing)depth+=1;if(tag.closing&&tag.name===blocked){depth-=1;if(depth<=0){blocked=null;depth=0;}}continue;}
-  if(!tag.closing&&DROP_TAGS.has(tag.name)){if(!tag.selfClosing){blocked=tag.name;depth=1;}continue;}if(!ALLOWED_TAGS.has(tag.name))continue;
+  if(!tag.closing&&DROP_TAGS.has(tag.name)){if(!tag.selfClosing&&!DROP_VOID_TAGS.has(tag.name)){blocked=tag.name;depth=1;}continue;}if(!ALLOWED_TAGS.has(tag.name))continue;
   if(tag.closing){for(let i=stack.length-1;i>0;i-=1){if(stack[i]?.name===tag.name){stack.length=i;break;}}continue;}
   const p=stack[stack.length-1];if(!p)continue;const el:ElementNode={kind:"element",name:tag.name,attrs:tag.attrs,children:[]};p.children.push(el);if(!tag.selfClosing)stack.push(el);}
  return root;
