@@ -45,12 +45,12 @@ test("source provenance and legacy taxonomy stay explicit",()=>{
   const models=read("src/domain/models.ts");
   const snapshot=read("src/source-parity/snapshot.ts");
   const service=read("src/services/source-parity.ts");
-  assert.match(models,/legacyTaxonomy\?: TaxonomyRef\[\]/);
+  assert.ok(models.includes("legacyTaxonomy?: LegacyTaxonomyRef[];"));
   assert.match(snapshot,/wordpress-url:/);
   assert.match(snapshot,/legacyMembershipSignal/);
   assert.match(service,/categoryIds:/);
   assert.match(service,/tagIds:/);
-  assert.match(service,/canonicalSectionForLegacy/);
+  assert.match(service,/approvedCanonicalSectionForLegacy/);
 });
 
 test("Premium body never crosses the parity bridge without entitlement authority",()=>{
@@ -79,7 +79,7 @@ test("requested Reader surfaces consume the repository bridge instead of a secon
   const about=read("app/about.tsx");
   for(const source of [home,explore,search,premium,watch]) assert.match(source,/services\./);
   assert.match(article,/SOURCE_PARITY_STATIC_ARTICLE_IDS/);
-  assert.match(article,/View article on HealthTimes\.co\.zw/);
+  assert.match(article,/Open current source article/);
   assert.match(author,/services\.publication\.getAuthor/);
   assert.match(author,/services\.articles\.listByAuthor/);
   assert.match(about,/services\.publication\.getProfile/);
@@ -136,9 +136,10 @@ test("new live posts remain readable through the existing ArticleRepository cont
 
 test("fallbackless live posts preserve uncertainty instead of fabricating canonical truth",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/function inferPrimarySection/);
-  assert.match(service,/if\(!normalized\.some\(\(name\)=>canonicalLegacyNames\.has\(name\)\)\) return null/);
-  assert.match(service,/Geography is left unassigned because the public source metadata does not provide enough evidence/);
+  assert.match(service,/approvedCanonicalSectionForLegacy/);
+  assert.match(service,/function inferredGeographyEvidence/);
+  assert.match(service,/authority:"inferred-requires-review"/);
+  assert.match(service,/not promoted to canonical geography without approved AG-01\/AG-04 mapping evidence/);
   assert.match(service,/No AG-01 canonical desk is inferred/);
   assert.match(service,/author-unresolved/);
   assert.match(service,/taxonomy-unresolved/);
@@ -167,16 +168,17 @@ test("Premium content is excluded from browser REST requests before mapping",()=
   assert.match(service,/const wpMetadataFields=/);
   assert.match(service,/const wpPublicDetailFields=wpMetadataFields\+",content"/);
   assert.match(service,/wpPostQuery\(\{includeContent:false\}\)/);
-  assert.match(service,/const includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
+  assert.match(service,/const includeContent=current\.accessPolicy==="public" && !accessTaxonomyUnresolved/);
   assert.match(service,/wpPostQuery\(\{includeContent\}\)/);
   assert.match(service,/fallback\?\.accessPolicy==="premium"/);
 });
 
-test("uncertain live taxonomy fails closed for detail body retrieval",()=>{
+test("unresolved legacy taxonomy fails closed before detail-body retrieval",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/exception\.kind==="taxonomy-unresolved"/);
-  assert.match(service,/exception\.field==="legacyTaxonomy" \|\| exception\.field==="primarySection"/);
-  assert.match(service,/includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
+  assert.match(service,/const accessTaxonomyUnresolved=/);
+  assert.match(service,/exception\.kind==="taxonomy-unresolved" && exception\.field==="legacyTaxonomy"/);
+  assert.match(service,/includeContent=current\.accessPolicy==="public" && !accessTaxonomyUnresolved/);
+  assert.doesNotMatch(service,/exception\.field==="legacyTaxonomy" \|\| exception\.field==="primarySection"/);
 });
 
 
@@ -248,7 +250,7 @@ test("source search returns authors and fails closed for unsupported video taxon
   const search=read("app/search.tsx");
   assert.match(models,/authors: AuthorProfile\[\]/);
   assert.match(service,/const authors=query\.format/);
-  assert.match(service,/query\.country\|\|query\.topic\|\|\(query\.format&&query\.format!=="video"\)/);
+  assert.match(service,/query\.country \|\| query\.topic \|\| \(query\.format && query\.format!=="video"\)/);
   assert.match(search,/Author matches/);
   assert.match(search,/country,setCountry/);
   assert.match(search,/topic,setTopic/);
@@ -286,6 +288,61 @@ test("Pages workflow proves exact deployed SHA and critical owner-preview routes
   for(const route of ["live","explore","search","premium","watch","my","article\/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"]){
     assert.ok(pages.includes(route),route);
   }
+});
+
+
+test("text-derived geography is review evidence and never canonical Reader geography",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/function inferredGeographyEvidence/);
+  assert.match(service,/evidence:"headline-excerpt"/);
+  assert.match(service,/authority:"inferred-requires-review"/);
+  assert.match(service,/const canonicalApproved=fallback\?\.geographyResolution\?\.canonicalApproved \?\? fallback\?\.geographyRefs \?\? \[\]/);
+  assert.match(service,/normalizeCanonicalGeography\(geographyResolution\.canonicalApproved\)/);
+  assert.doesNotMatch(service,/return \[\{id:"zone-zimbabwe",name:"Zimbabwe",slug:"zimbabwe"\}\]/);
+});
+
+test("Source Parity feed is explicitly bounded and reports inventory headers without crawling",()=>{
+  const source=read("src/domain/source.ts");
+  const service=read("src/services/source-parity.ts");
+  assert.match(source,/mode: "bounded-public-feed"/);
+  assert.match(source,/corpusComplete: false/);
+  assert.match(service,/SOURCE_PARITY_FEED_PAGE_SIZE=50/);
+  assert.match(service,/x-wp-total/);
+  assert.match(service,/x-wp-totalpages/);
+  assert.match(service,/corpusComplete:false/);
+  assert.match(service,/getSourceParityFeedContract/);
+  assert.doesNotMatch(service,/while\s*\([^)]*page|for\s*\([^)]*page/i);
+});
+
+test("legacy taxonomy carries raw WordPress identity and explicit observed authority",()=>{
+  const models=read("src/domain/models.ts");
+  const service=read("src/services/source-parity.ts");
+  assert.match(models,/export type LegacyTaxonomyRef/);
+  assert.match(models,/authority: Extract<SourceMappingAuthority, "observed-source">/);
+  assert.match(service,/sourceId:String\(term\.id\)/);
+  assert.match(service,/sourceKind:term\.taxonomy==="category" \? "category" : "post_tag"/);
+  assert.match(service,/taxonomyResolution:\{/);
+  assert.match(service,/observedWordPress:legacy/);
+  assert.match(service,/approvedCanonical:primarySection \? \[primarySection\] : \[\]/);
+  assert.match(service,/inferredRequiresReview:\[\]/);
+});
+
+
+test("fallbackless author uncertainty is preserved instead of inventing a byline",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/const author=embeddedAuthor \? \{/);
+  assert.match(service,/\} : fallback\?\.author \?\? null;/);
+  assert.doesNotMatch(service,/displayName:authorName/);
+  assert.doesNotMatch(service,/source-author-"\+authorSlug/);
+});
+
+
+test("Source Parity stable keys match the AG importer identity format",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/stableKey:"wordpress:post:"\+post\.id/);
+  assert.match(service,/stableKey:"wordpress:media:"\+media\.id/);
+  assert.doesNotMatch(service,/stableKey:"wordpress-post:"/);
+  assert.doesNotMatch(service,/stableKey:"wordpress-media:"/);
 });
 
 test("Watch uses verified destinations rather than the HealthTimes root",()=>{
