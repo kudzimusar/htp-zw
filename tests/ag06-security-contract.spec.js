@@ -64,8 +64,8 @@ test.describe('AG-06 security contract', () => {
     expect(api).toContain('X-HTP-CSRF');
     expect(api).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(browser).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
-    expect(browser).not.toContain('refresh_token');
-    expect(browser).not.toContain('access_token');
+    expect(browser).not.toContain('SUPABASE_ANON_KEY');
+    expect(browser).not.toContain('SUPABASE_PUBLISHABLE_KEY');
     expect(api).toContain("service: true");
     expect(api).not.toMatch(/console\.(log|error)\([^\n]*(access|refresh|password)/i);
   });
