@@ -221,11 +221,19 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
   }
   const refreshed=new Map<string,ArticleDetail>();
   for(const post of live){
-    const fallback=fallbackBySlug.get(post.slug);
-    if(!fallback) continue;
+    const fallback=fallbackBySlug.get(post.slug) ?? null;
     refreshed.set(post.slug,mapWpPost(post,fallback));
   }
-  const merged=sourceParityArticles.map((fallback)=>refreshed.get(fallback.slug) ?? fallback);
+
+  const liveArticles=Array.from(refreshed.values()).sort((a,b)=>{
+    const aTime=a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+    const bTime=b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+    return bTime-aTime;
+  });
+  const liveSlugs=new Set(liveArticles.map((article)=>article.slug));
+  const snapshotFallbacks=sourceParityArticles.filter((article)=>!liveSlugs.has(article.slug));
+  const merged=[...liveArticles,...snapshotFallbacks];
+
   cache.at=Date.now();
   cache.articles=merged;
   return merged;

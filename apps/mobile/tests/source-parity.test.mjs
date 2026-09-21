@@ -108,3 +108,14 @@ test("verified source photography is available in deterministic parity fallback"
   }
   assert.match(snapshot,/publicUrl:input\.imageUrl \?\? null/);
 });
+
+
+test("live public WordPress refresh can surface newly published posts without replacing the fallback snapshot",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/fallbackBySlug\.get\(post\.slug\) \?\? null/);
+  assert.match(service,/mapWpPost\(post,fallback\)/);
+  assert.match(service,/const liveArticles=Array\.from\(refreshed\.values\(\)\)/);
+  assert.match(service,/const snapshotFallbacks=sourceParityArticles\.filter/);
+  assert.match(service,/const merged=\[\.\.\.liveArticles,\.\.\.snapshotFallbacks\]/);
+  assert.doesNotMatch(service,/if\(!fallback\) continue/);
+});
