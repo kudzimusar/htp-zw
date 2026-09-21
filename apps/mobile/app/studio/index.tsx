@@ -25,7 +25,13 @@ const dependencies=[
 export default function StudioToday(){
   const router=useRouter();
   const authorization=useAsync(()=>services.authorization.getSnapshot(),[]);
+  const stories=useAsync(()=>services.articles.getHome(),[]);
+  const publication=useAsync(()=>services.publication.getProfile(),[]);
   const authStatus=authorization.data?.status ?? "checking";
+  const sourceStories=stories.data ?? [];
+  const sourceBacked=sourceStories.filter((story)=>story.sourceProvenance?.system==="wordpress");
+  const premiumStories=sourceStories.filter((story)=>story.accessPolicy==="premium");
+  const reviewStories=sourceStories.filter((story)=>story.contentIntegrity==="requires-review");
   return (
     <StudioShell title="Today">
       <StudioPlaceholder owner="AG-06 / AG-05" description="Studio layout and capability gates are ready for service integration, but newsroom identity, permissions, analytics and commercial data remain service-owned and are not invented by the client." />
@@ -44,6 +50,53 @@ export default function StudioToday(){
           <Text style={styles.statusValue}>NOT AUTHORIZED</Text>
         </View>
       </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Publication visibility</Text>
+        <Text style={styles.sectionText}>Read-only Reader context is safe to inspect here. It does not grant editorial write authority.</Text>
+      </View>
+
+      <View style={styles.statusStrip}>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>SOURCE-BACKED STORIES</Text>
+          <Text style={styles.metricValue}>{sourceBacked.length}</Text>
+        </View>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>PREMIUM-LABELLED</Text>
+          <Text style={styles.metricValue}>{premiumStories.length}</Text>
+        </View>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>REQUIRES REVIEW</Text>
+          <Text style={styles.metricValue}>{reviewStories.length}</Text>
+        </View>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>PUBLICATION</Text>
+          <Text style={styles.statusValue}>{publication.data?.name ?? "HealthTimes"}</Text>
+        </View>
+      </View>
+
+      {!!sourceBacked.length && (
+        <View style={styles.sourcePanel}>
+          <View style={styles.sourcePanelHeader}>
+            <Text style={styles.sourcePanelTitle}>Current public source context</Text>
+            <Text style={styles.sourceBadge}>READ-ONLY</Text>
+          </View>
+          {sourceBacked.slice(0,5).map((story)=>(
+            <View key={story.id} style={styles.sourceRow}>
+              <View style={styles.sourceCopy}>
+                <Text style={styles.sourceTitle}>{story.title}</Text>
+                <Text style={styles.sourceMeta}>
+                  {story.author?.displayName ?? "HealthTimes"} · {story.primarySection?.name ?? "Canonical desk pending"}
+                </Text>
+              </View>
+              <Text style={story.accessPolicy==="premium" ? styles.premiumState : styles.publicState}>
+                {story.accessPolicy==="premium" ? "PREMIUM" : "PUBLIC"}
+              </Text>
+            </View>
+          ))}
+          <Text style={styles.sourceFootnote}>SOURCE-BACKED = public WordPress parity only. AG-04 remains authoritative for migrated story/media records and editorial workflow state.</Text>
+        </View>
+      )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Workspace</Text>
@@ -83,6 +136,18 @@ const styles=StyleSheet.create({
   statusBlock:{minWidth:190,flexGrow:1,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,padding:spacing.lg,borderRadius:radius.md,gap:4},
   statusLabel:{fontSize:9,fontWeight:"900",letterSpacing:1,color:colors.inkMuted},
   statusValue:{fontSize:14,fontWeight:"900",color:colors.ink,textTransform:"uppercase"},
+  metricValue:{fontSize:26,fontWeight:"900",color:colors.ink,letterSpacing:-.5},
+  sourcePanel:{marginTop:spacing.lg,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
+  sourcePanelHeader:{padding:spacing.lg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md,borderBottomWidth:1,borderBottomColor:colors.border},
+  sourcePanelTitle:{fontSize:16,fontWeight:"900",color:colors.ink},
+  sourceBadge:{fontSize:9,fontWeight:"900",letterSpacing:.9,color:colors.blue},
+  sourceRow:{padding:spacing.lg,flexDirection:"row",alignItems:"center",gap:spacing.md,borderBottomWidth:1,borderBottomColor:colors.border},
+  sourceCopy:{flex:1,gap:3},
+  sourceTitle:{fontSize:14,fontWeight:"800",color:colors.ink},
+  sourceMeta:{fontSize:11,lineHeight:16,color:colors.inkMuted},
+  publicState:{fontSize:9,fontWeight:"900",letterSpacing:.8,color:colors.success},
+  premiumState:{fontSize:9,fontWeight:"900",letterSpacing:.8,color:colors.premium},
+  sourceFootnote:{fontSize:11,lineHeight:17,color:colors.inkMuted,padding:spacing.lg},
   sectionHeader:{marginTop:spacing.xl,gap:4},
   sectionTitle:{fontSize:20,fontWeight:"900",color:colors.ink},
   sectionText:{fontSize:13,lineHeight:20,color:colors.inkMuted},
