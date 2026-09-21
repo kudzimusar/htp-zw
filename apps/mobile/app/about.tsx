@@ -27,6 +27,21 @@ export default function AboutScreen(){
             ))}
           </Section>
           <Section>
+            <SectionHeader title="Corrections & editorial standards" eyebrow="READER TRUST" />
+            <Text style={[styles.note,{color:palette.inkMuted}]}>
+              HealthTimes editorial principles are preserved from the current public publication. A separate verified corrections-policy URL is not present in the current parity record, so this interface does not invent one. Readers can contact the editorial desk directly for corrections while AG-04 reconciles final institutional pages.
+            </Text>
+            <View style={styles.actions}>
+              <Pressable
+                style={[styles.action,{borderColor:palette.border}]}
+                onPress={()=>void Linking.openURL("mailto:"+publication.data!.editorialEmail+"?subject="+encodeURIComponent("Correction request — HealthTimes"))}
+              >
+                <Text style={[styles.actionText,{color:palette.blue}]}>Request a correction</Text>
+              </Pressable>
+            </View>
+          </Section>
+
+          <Section>
             <SectionHeader title="Source publication" />
             <Text style={[styles.note,{color:palette.inkMuted}]}>
               This page is a read-only source-parity view. AG-03/AG-04 still own migration completeness, source capture and the final Supabase-backed institutional records.
