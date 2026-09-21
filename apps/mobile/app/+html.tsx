@@ -19,6 +19,17 @@ const serviceWorkerRegistration =
   '});' +
   '}';
 
+const deepLinkRestoreScript =
+  '(function(){try{' +
+  'var key="ht:nm04:pwa-deep-link";' +
+  'var base=' + JSON.stringify(configuredBaseUrl) + ';' +
+  'var route=sessionStorage.getItem(key);' +
+  'if(!route)return;' +
+  'sessionStorage.removeItem(key);' +
+  'var allowed=base?(route===base||route.indexOf(base+"/")===0):route.charAt(0)==="/";' +
+  'if(allowed)history.replaceState(null,"",route);' +
+  '}catch(_){}})();';
+
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="en">
@@ -34,6 +45,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="manifest" href={assetPath("manifest.json")} />
         <link rel="icon" href={assetPath("healthtimes-icon.svg")} />
         <ScrollViewStyleReset />
+        <script dangerouslySetInnerHTML={{ __html: deepLinkRestoreScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRegistration }} />
       </head>
       <body>{children}</body>

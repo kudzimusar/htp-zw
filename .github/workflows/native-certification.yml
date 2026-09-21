@@ -43,6 +43,7 @@ jobs:
           npm --prefix apps/mobile run test:staging
           npm --prefix apps/mobile run test:content-contracts
           npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
           npm --prefix apps/mobile run test:growth-commercial
           npm --prefix apps/mobile run test:identity-security
           npm --prefix apps/mobile run test:native-certification

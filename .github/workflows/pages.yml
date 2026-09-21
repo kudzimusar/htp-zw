@@ -42,6 +42,9 @@ jobs:
       - name: Validate read-only source parity bridge
         run: npm --prefix apps/mobile run test:source-parity
 
+      - name: Validate NM-04 article fidelity and bounded search ranking
+        run: npm --prefix apps/mobile run test:reader-fidelity
+
       - name: Probe public WordPress source reachability and browser CORS
         shell: bash
         run: |
@@ -125,6 +128,18 @@ jobs:
             fs.readdirSync(articleDir).some((name) => name.endsWith(".html") || fs.existsSync(path.join(articleDir, name, "index.html")));
           if (!articleExported) throw new Error("No statically exported Article Reader route found.");
           NODE
+          node <<'NODE'
+          const fs=require("fs");
+          const marker="HEALTHTIMES_PWA_DEEP_LINK_FALLBACK";
+          const base="/htp-zw";
+          const storageKey="ht:nm04:pwa-deep-link";
+          const script=`(function(){try{var base=${JSON.stringify(base)};var key=${JSON.stringify(storageKey)};var route=location.pathname+location.search+location.hash;if(!(route===base||route.indexOf(base+"/")===0))route=base+"/";sessionStorage.setItem(key,route);location.replace(base+"/?__ht_pwa_deep_link=1");}catch(_){location.replace(base+"/");}})();`;
+          fs.writeFileSync("apps/mobile/dist/404.html","<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>HealthTimes</title></head><body><!-- "+marker+" --><script>"+script+"</script></body></html>");
+          const rootHtml=fs.readFileSync("apps/mobile/dist/index.html","utf8");
+          if(!rootHtml.includes(storageKey)) throw new Error("PWA root is missing the deep-link restore handshake.");
+          const fallback=fs.readFileSync("apps/mobile/dist/404.html","utf8");
+          if(!fallback.includes(marker)||!fallback.includes(storageKey)||!fallback.includes(base)) throw new Error("PWA deep-link fallback is incomplete.");
+          NODE
           printf '{"sha":"%s","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$GITHUB_SHA" > apps/mobile/dist/build-info.json
           touch apps/mobile/dist/.nojekyll
           echo "HealthTimes source-parity PWA preview ready at /htp-zw/."
@@ -198,3 +213,14 @@ jobs:
           curl -fsSL --max-time 20 "$base/sw.js" >/dev/null
           curl -fsSL --max-time 20 "$base/healthtimes-icon.svg" >/dev/null
           echo "Manifest, service worker and icon: PASS"
+
+          synthetic_route="article/source-nm04-live-discovered-${expected_sha:0:12}"
+          fallback_body="$(mktemp)"
+          fallback_status="$(curl -sS --max-time 20 -o "$fallback_body" -w '%{http_code}' "$base/$synthetic_route")"
+          if [[ "$fallback_status" != "404" ]]; then
+            echo "::error::Expected GitHub Pages to enter the custom fallback for a non-exported article route; status was $fallback_status."
+            exit 1
+          fi
+          grep -q 'HEALTHTIMES_PWA_DEEP_LINK_FALLBACK' "$fallback_body"
+          grep -q 'ht:nm04:pwa-deep-link' "$fallback_body"
+          echo "Fresh non-exported Article deep-link fallback: PASS (/$synthetic_route)"

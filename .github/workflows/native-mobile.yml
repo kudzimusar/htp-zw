@@ -59,7 +59,9 @@ jobs:
         run: npm --prefix apps/mobile run test:content-contracts
 
       - name: Run NM-04 Reader product hardening tests
-        run: npm --prefix apps/mobile run test:reader-product
+        run: |
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
 
       - name: Run NM-05 growth commercial safety tests
         run: npm --prefix apps/mobile run test:growth-commercial

@@ -296,3 +296,26 @@ test("Watch uses verified destinations rather than the HealthTimes root",()=>{
   }
   assert.match(cards,/verifiedVideoDestination/);assert.match(cards,/Video unavailable/);assert.match(cards,/Linking\.openURL/);
 });
+
+test("public Reader surfaces keep programme language in diagnostics, not editorial UI",()=>{
+  const publicSurfaces=[
+    read("app/(reader)/index.tsx"),read("app/(reader)/explore.tsx"),read("app/(reader)/live.tsx"),
+    read("app/(reader)/watch.tsx"),read("app/article/[id].tsx"),read("app/search.tsx"),read("app/about.tsx")
+  ].join("\n");
+  assert.doesNotMatch(publicSurfaces,/SOURCE PARITY PREVIEW|SOURCE-BACKED DISCOVERY|AG-0[1-7]|migration completeness|temporary read-only parity bridge/i);
+  const status=read("app/system-status.tsx");
+  assert.match(status,/NM-04 DIAGNOSTICS/);
+  assert.match(status,/AG-04 reconciliation/);
+});
+test("live-discovered stories retain dynamic internal article navigation",()=>{
+  const service=read("src/services/source-parity.ts"),cards=read("src/ui/Cards.tsx");
+  assert.match(service,/id:fallback\?\.id \?\? "source-"\+post\.slug/);
+  assert.match(cards,/router\.push\(\("\/article\/" \+ story\.id\)/);
+});
+test("GitHub Pages preview includes fresh-load deep-link fallback handshake",()=>{
+  const html=read("app/+html.tsx"),workflow=read("../../.github/workflows/pages.yml");
+  assert.match(html,/ht:nm04:pwa-deep-link/);
+  assert.match(html,/history\.replaceState/);
+  assert.match(workflow,/HEALTHTIMES_PWA_DEEP_LINK_FALLBACK/);
+  assert.match(workflow,/source-nm04-live-discovered/);
+});
