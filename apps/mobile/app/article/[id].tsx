@@ -34,9 +34,12 @@ function articleBlocks(value:string|null):ArticleBlock[]{
   const matcher=/<(p|h2|h3|blockquote|li)[^>]*>([\s\S]*?)<\/\1>/gi;
   let match:RegExpExecArray|null;
   while((match=matcher.exec(value))){
-    const text=stripHtml(match[2]);
+    const rawTag=match[1];
+    const rawText=match[2];
+    if(!rawTag || !rawText) continue;
+    const text=stripHtml(rawText);
     if(!text) continue;
-    const tag=match[1].toLowerCase();
+    const tag=rawTag.toLowerCase();
     blocks.push({
       kind:tag==="h2"||tag==="h3" ? "heading" : tag==="blockquote" ? "quote" : tag==="li" ? "list" : "paragraph",
       text
