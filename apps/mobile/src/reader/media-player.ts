@@ -80,7 +80,7 @@ export function verifiedAudioSource(item: AudioItem): ReaderMediaSource | null {
   }
 }
 
-type WebAudioTransport = {
+export type WebAudioTransport = {
   currentTime: number;
   duration: number;
   playbackRate: number;
@@ -98,17 +98,49 @@ function webAudioConstructor(): WebAudioConstructor | null {
   return candidate ?? null;
 }
 
+export function attachWebAudioListeners(
+  audio: WebAudioTransport,
+  fallbackDuration: number | null,
+  isCurrent: () => boolean,
+  dispatch: (action: MediaPlaybackAction) => void
+) {
+  const guarded = (listener: () => void) => () => {
+    if (isCurrent()) listener();
+  };
+  const listeners: Array<[string, () => void]> = [
+    ["timeupdate", guarded(() => dispatch({
+      type: "progress",
+      elapsedSeconds: audio.currentTime,
+      durationSeconds: Number.isFinite(audio.duration) ? audio.duration : fallbackDuration
+    }))],
+    ["loadedmetadata", guarded(() => dispatch({
+      type: "progress",
+      elapsedSeconds: audio.currentTime,
+      durationSeconds: Number.isFinite(audio.duration) ? audio.duration : fallbackDuration
+    }))],
+    ["ended", guarded(() => dispatch({ type: "ended" }))],
+    ["error", guarded(() => dispatch({ type: "error", message: "The verified media source could not be played." }))]
+  ];
+
+  for (const [name, listener] of listeners) audio.addEventListener(name, listener);
+  return () => {
+    for (const [name, listener] of listeners) audio.removeEventListener(name, listener);
+  };
+}
+
 export function useReaderAudioPlayer() {
   const [state, setState] = useState<MediaPlaybackState>(INITIAL_MEDIA_PLAYBACK_STATE);
   const transport = useRef<WebAudioTransport | null>(null);
+  const detachListeners = useRef<(() => void) | null>(null);
 
   const dispatch = (action: MediaPlaybackAction) => setState((current) => reduceMediaPlaybackState(current, action));
 
   const detach = () => {
+    detachListeners.current?.();
+    detachListeners.current = null;
     const current = transport.current;
-    if (!current) return;
-    current.pause();
     transport.current = null;
+    current?.pause();
   };
 
   useEffect(() => () => detach(), []);
@@ -130,20 +162,20 @@ export function useReaderAudioPlayer() {
       const audio = new AudioCtor(source.url ?? undefined);
       transport.current = audio;
       dispatch({ type: "load", itemId: item.id, durationSeconds: item.durationSeconds });
-      const progress = () => dispatch({
-        type: "progress",
-        elapsedSeconds: audio.currentTime,
-        durationSeconds: Number.isFinite(audio.duration) ? audio.duration : item.durationSeconds
-      });
-      audio.addEventListener("timeupdate", progress);
-      audio.addEventListener("loadedmetadata", progress);
-      audio.addEventListener("ended", () => dispatch({ type: "ended" }));
-      audio.addEventListener("error", () => dispatch({ type: "error", message: "The verified media source could not be played." }));
+      detachListeners.current = attachWebAudioListeners(
+        audio,
+        item.durationSeconds,
+        () => transport.current === audio,
+        dispatch
+      );
       audio.playbackRate = state.playbackRate;
     }
 
+    const activeTransport = transport.current;
+    if (!activeTransport) return false;
     try {
-      await transport.current!.play();
+      await activeTransport.play();
+      if (transport.current !== activeTransport) return false;
       dispatch({ type: "playing" });
       return true;
     } catch {
