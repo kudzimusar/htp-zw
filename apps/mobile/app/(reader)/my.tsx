@@ -98,7 +98,10 @@ export default function MyHealthTimesScreen(){
               <Pressable
                 key={item.label}
                 disabled={!item.path && !item.url}
-                onPress={item.path ? ()=>router.push(item.path as never) : item.url ? ()=>void Linking.openURL(item.url) : undefined}
+                onPress={()=>{
+                  if(item.path) return router.push(item.path as never);
+                  if(item.url) return void Linking.openURL(item.url);
+                }}
                 style={[styles.row,{borderBottomColor:palette.border}]}
                 accessibilityRole={item.url ? "link" : item.path ? "button" : undefined}
               >
