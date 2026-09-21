@@ -6,6 +6,7 @@ on:
       - feat/native-mobile-nm01-foundation
       - feat/native-mobile-nm02-staging-connectivity
       - feat/native-mobile-nm03-content-contracts
+      - 'feat/native-mobile-nm03-*'
       - feat/native-mobile-nm04-reader-product
       - feat/native-mobile-nm05-growth-commercial
       - feat/native-mobile-nm06-identity-security
