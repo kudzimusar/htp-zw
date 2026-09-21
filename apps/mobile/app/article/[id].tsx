@@ -23,12 +23,39 @@ function stripHtml(value:string){
   return value.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
 }
 
-function articleParagraphs(value:string|null){
+type ArticleBlock={
+  kind:"paragraph"|"heading"|"quote"|"list";
+  text:string;
+};
+
+function articleBlocks(value:string|null):ArticleBlock[]{
   if(!value) return [];
-  return value
-    .split(/<\/p>/i)
-    .map((part)=>stripHtml(part))
-    .filter(Boolean);
+  const blocks:ArticleBlock[]=[];
+  const matcher=/<(p|h2|h3|blockquote|li)[^>]*>([\s\S]*?)<\/\1>/gi;
+  let match:RegExpExecArray|null;
+  while((match=matcher.exec(value))){
+    const text=stripHtml(match[2]);
+    if(!text) continue;
+    const tag=match[1].toLowerCase();
+    blocks.push({
+      kind:tag==="h2"||tag==="h3" ? "heading" : tag==="blockquote" ? "quote" : tag==="li" ? "list" : "paragraph",
+      text
+    });
+  }
+  if(blocks.length) return blocks;
+  const text=stripHtml(value);
+  return text ? [{kind:"paragraph",text}] : [];
+}
+
+function formatArticleTime(value:string|null){
+  if(!value) return "";
+  return new Date(value).toLocaleString(undefined,{
+    year:"numeric",
+    month:"short",
+    day:"numeric",
+    hour:"numeric",
+    minute:"2-digit"
+  });
 }
 
 export default function ArticleScreen(){
@@ -76,8 +103,11 @@ export default function ArticleScreen(){
 
   const story=article.data;
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
-  const paragraphs=articleParagraphs(story.bodyHtml);
+  const blocks=articleBlocks(story.bodyHtml);
   const desktop=width >= breakpoints.desktop;
+  const publishedLabel=formatArticleTime(story.publishedAt);
+  const modifiedLabel=formatArticleTime(story.modifiedAt);
+  const showUpdated=Boolean(story.modifiedAt && story.modifiedAt!==story.publishedAt);
 
   const persistProgress=(progress:number)=>{
     const now=Date.now();
@@ -163,12 +193,24 @@ export default function ArticleScreen(){
         </View>
         <Text style={[styles.title,{color:palette.ink},desktop && styles.titleDesktop]}>{story.title}</Text>
         {!!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
-        {story.author ? (
-          <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
-            <Text style={[styles.byline,{color:palette.blue}]}>By {story.author.displayName} · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
-          </Pressable>
-        ) : (
-          <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes · {story.publishedAt ? new Date(story.publishedAt).toLocaleDateString() : ""}</Text>
+        <View style={styles.publicationMeta}>
+          {story.author ? (
+            <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
+              <Text style={[styles.byline,{color:palette.blue}]}>By {story.author.displayName}</Text>
+            </Pressable>
+          ) : (
+            <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes</Text>
+          )}
+          {!!publishedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Published {publishedLabel}</Text>}
+          {showUpdated && !!modifiedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Updated {modifiedLabel}</Text>}
+        </View>
+        {!!story.primarySection && (
+          <View style={styles.sourceTaxonomy}>
+            <Text style={[styles.sourceTaxonomyLabel,{color:palette.blue}]}>Canonical desk</Text>
+            <View style={styles.geography}>
+              <Text style={[styles.geoLabel,{color:palette.ink,borderColor:palette.border}]}>{story.primarySection.name}</Text>
+            </View>
+          </View>
         )}
         {!!story.geography.length && (
           <View style={styles.geography}>
@@ -205,10 +247,23 @@ export default function ArticleScreen(){
           </>
         ):(
           <>
-            {paragraphs.length ? (
-              paragraphs.map((paragraph,index)=>(
+            {blocks.length ? (
+              blocks.map((block,index)=>(
                 <View key={String(index)}>
-                  <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{paragraph}</Text>
+                  {block.kind==="heading" ? (
+                    <Text style={[styles.bodyHeading,{fontSize:24*textScale,lineHeight:31*textScale,color:palette.ink}]}>{block.text}</Text>
+                  ) : block.kind==="quote" ? (
+                    <View style={[styles.quote,{borderLeftColor:palette.blue}]}>
+                      <Text style={[styles.quoteText,{fontSize:19*textScale,lineHeight:29*textScale,color:palette.ink}]}>{block.text}</Text>
+                    </View>
+                  ) : block.kind==="list" ? (
+                    <View style={styles.listRow}>
+                      <Text style={[styles.listBullet,{color:palette.blue}]}>•</Text>
+                      <Text style={[styles.listText,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{block.text}</Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{block.text}</Text>
+                  )}
                   {index===0 && (
                     <View style={styles.inlineAd}>
                       <AdSlot placement="article_after_intro" />
@@ -265,7 +320,9 @@ const styles=StyleSheet.create({
   title:{fontSize:36,lineHeight:42,fontWeight:"900",letterSpacing:-0.9},
   titleDesktop:{fontSize:48,lineHeight:54,letterSpacing:-1.2},
   standfirst:{fontSize:18,lineHeight:27},
+  publicationMeta:{gap:3},
   byline:{fontSize:13,fontWeight:"800"},
+  timeMeta:{fontSize:11,lineHeight:17},
   geography:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   sourceTaxonomy:{gap:spacing.sm,marginTop:spacing.xs},
   sourceTaxonomyLabel:{fontSize:10,fontWeight:"900",letterSpacing:0.8,textTransform:"uppercase"},
@@ -276,6 +333,12 @@ const styles=StyleSheet.create({
   credit:{fontSize:11,marginTop:spacing.xs},
   body:{maxWidth:layout.articleMax,alignSelf:"center",width:"100%",marginTop:spacing.xl},
   paragraph:{marginBottom:spacing.lg},
+  bodyHeading:{fontWeight:"900",letterSpacing:-.4,marginTop:spacing.lg,marginBottom:spacing.md},
+  quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.lg},
+  quoteText:{fontWeight:"700",fontStyle:"italic"},
+  listRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,marginBottom:spacing.md},
+  listBullet:{fontSize:18,fontWeight:"900",lineHeight:29},
+  listText:{flex:1},
   inlineAd:{marginVertical:spacing.lg},
   lock:{marginTop:spacing.xl,borderTopWidth:3,paddingTop:spacing.xl,gap:spacing.sm},
   lockTitle:{fontSize:24,fontWeight:"900"},
