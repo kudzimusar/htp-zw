@@ -369,6 +369,15 @@ async function handle(req, res) {
     }
 
     if (action === 'logout') {
+      try {
+        const context = await rpc('newsroom_current_context', {}, token);
+        if (context?.id && context?.session_id) {
+          await rpc('newsroom_revoke_session', {
+            p_staff_id: context.id,
+            p_provider_session_id: context.session_id
+          }, token);
+        }
+      } catch {}
       try { await supabaseRequest('/auth/v1/logout', { method: 'POST', token }); } catch {}
       clearSessionCookies(res);
       return json(res, 200, { ok: true });
@@ -463,6 +472,15 @@ async function handle(req, res) {
     if (action === 'setPremium') {
       const policy = await call('newsroom_set_story_access', { p_story_id: body.storyId, p_access_policy: body.accessPolicy });
       return json(res, 200, { ok: true, accessPolicy: policy });
+    }
+    if (action === 'createCampaign') {
+      const id = await call('newsroom_create_campaign', {
+        p_advertiser_id: body.advertiserId,
+        p_name: body.name,
+        p_start_at: body.startAt || null,
+        p_end_at: body.endAt || null
+      });
+      return json(res, 200, { ok: true, id });
     }
     if (action === 'approveCampaign') {
       const reviewStatus = await call('newsroom_approve_campaign', { p_campaign_id: body.campaignId, p_approved: Boolean(body.approved) });
