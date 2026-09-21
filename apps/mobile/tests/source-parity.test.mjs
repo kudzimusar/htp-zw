@@ -335,3 +335,12 @@ test("fallbackless author uncertainty is preserved instead of inventing a byline
   assert.doesNotMatch(service,/displayName:authorName/);
   assert.doesNotMatch(service,/source-author-"\+authorSlug/);
 });
+
+
+test("Source Parity stable keys match the AG importer identity format",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/stableKey:"wordpress:post:"\+post\.id/);
+  assert.match(service,/stableKey:"wordpress:media:"\+media\.id/);
+  assert.doesNotMatch(service,/stableKey:"wordpress-post:"/);
+  assert.doesNotMatch(service,/stableKey:"wordpress-media:"/);
+});
