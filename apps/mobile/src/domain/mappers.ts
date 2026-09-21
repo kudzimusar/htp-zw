@@ -270,7 +270,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     geographyResolution: {
       canonicalApproved: geographyRefs,
       observedSource: [],
-      inferredRequiresReview: inferredCanonical
+      inferredRequiresReview: []
     },
     topics,
     legacyTaxonomy,
@@ -280,7 +280,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
         ...(primarySection ? [primarySection] : []),
         ...topics
       ],
-      inferredRequiresReview: []
+      inferredRequiresReview: inferredCanonical
     },
     heroMedia: relations.heroMedia ? mapMediaRow(relations.heroMedia) : null,
     sourceProvenance,
