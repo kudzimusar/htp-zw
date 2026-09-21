@@ -91,19 +91,10 @@ const approvedLegacyDeskAliases: Record<string, keyof typeof AG01_CANONICAL_DESK
   "global health": "global-health",
   africa: "africa",
   research: "research",
-  "reseach findings": "research",
-  "research & findings": "research",
-  "academic & research": "research",
   policy: "policy",
   investigations: "investigations",
   "public health": "public-health",
-  "health news": "public-health",
-  "hiv/aids": "public-health",
-  epidemics: "public-health",
-  "family health": "public-health",
-  srhr: "public-health",
   "health systems": "health-systems",
-  "health financing": "health-business",
   "health business": "health-business"
 };
 
