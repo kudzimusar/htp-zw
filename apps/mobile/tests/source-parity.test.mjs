@@ -13,6 +13,7 @@ test("Source Parity Bridge is public, read-only and replaceable",()=>{
   assert.match(snapshot,/https:\/\/healthtimes\.co\.zw/);
   assert.match(service,/EXPO_PUBLIC_HEALTHTIMES_SOURCE_BASE_URL/);
   assert.match(service,/method:"GET"/);
+  assert.match(service,/credentials:"omit"/);
   assert.doesNotMatch(service,/method:"POST"|method:"PUT"|method:"PATCH"|method:"DELETE"/);
   assert.doesNotMatch(service,/service_role|subscriber|payment_method|private draft/i);
   assert.match(service,/ag04ReplacementRequired:true/);
