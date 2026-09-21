@@ -108,6 +108,8 @@ test("typed mappers cover article, author, media, geography, provenance and Prem
     "mapAuthorRow",
     "mapMediaRow",
     "mapSectionRow",
+    "mapTagRow",
+    "mapLegacyTagRow",
     "mapGeographicZoneRow",
     "mapSourceProvenance",
     "mapStoryRow"
@@ -117,4 +119,73 @@ test("typed mappers cover article, author, media, geography, provenance and Prem
   assert.match(mapper, /premiumSourceContext/);
   assert.match(mapper, /legacyMembershipSignal/);
   assert.match(mapper, /sourceProvenance/);
+  assert.match(mapper, /taxonomyResolution/);
+  assert.match(mapper, /geographyResolution/);
 });
+
+test("taxonomy authority separates observed WordPress, approved canonical, and inferred review states", () => {
+  const models = read("src/domain/models.ts");
+  const authority = read("src/domain/taxonomy-authority.ts");
+  const sourceParity = read("src/services/source-parity.ts");
+  for (const state of ["observedWordPress", "approvedCanonical", "inferredRequiresReview"]) {
+    assert.match(models, new RegExp(state));
+  }
+  assert.match(authority, /approvedLegacyDeskAliases/);
+  assert.match(authority, /approvedCanonicalSectionForLegacy/);
+  assert.match(sourceParity, /observedWordPress:legacy/);
+  assert.match(sourceParity, /approvedCanonical:primarySection/);
+  assert.doesNotMatch(authority, /return AG01_CANONICAL_DESKS\["public-health"\]/);
+});
+
+test("Source Parity and AG-04 mapper share one canonical geography projection", () => {
+  const authority = read("src/domain/taxonomy-authority.ts");
+  const sourceParity = read("src/services/source-parity.ts");
+  const mapper = read("src/domain/mappers.ts");
+  assert.match(authority, /function normalizeCanonicalGeography/);
+  assert.match(authority, /geography: projectCanonicalGeography\(refs\)/);
+  assert.match(sourceParity, /normalizeCanonicalGeography\(geographyResolution\.canonicalApproved\)/);
+  assert.match(mapper, /normalizeCanonicalGeography\(geographyRefs\)/);
+  assert.match(mapper, /canonicalApproved: geographyRefs/);
+  assert.match(sourceParity, /inferredRequiresReview:inferredGeographyEvidence\(post\)/);
+});
+
+test("AG-04 mapped provenance preserves WordPress reconciliation identities and exceptions", () => {
+  const mapper = read("src/domain/mappers.ts");
+  for (const field of [
+    "authorSourceId",
+    "featuredMediaSourceId",
+    "categorySourceIds",
+    "tagSourceIds",
+    "legacyPath"
+  ]) {
+    assert.match(mapper, new RegExp(field));
+  }
+  assert.match(mapper, /exceptionsFromLegacySource/);
+  assert.match(mapper, /unknown-shortcode/);
+  assert.match(mapper, /unmapped-custom-field/);
+  assert.match(mapper, /migrationExceptions/);
+});
+
+test("repository implementations expose the same Reader-facing semantic contract", () => {
+  const sourceParity = read("src/services/source-parity.ts");
+  const mapper = read("src/domain/mappers.ts");
+  const semantics = [
+    ["identity", /id:/, /id: row\.id/],
+    ["title", /title:/, /title: row\.title/],
+    ["author", /author:/, /author: relations\.author/],
+    ["canonical URL", /canonicalUrl/, /canonicalUrl: row\.canonical_url/],
+    ["publication date", /publishedAt/, /publishedAt: row\.published_at/],
+    ["modified date", /modifiedAt/, /modifiedAt: row\.modified_at/],
+    ["access policy", /accessPolicy/, /accessPolicy,/],
+    ["media", /heroMedia:/, /heroMedia: relations\.heroMedia/],
+    ["taxonomy", /taxonomyResolution/, /taxonomyResolution/],
+    ["geography", /geographyResolution/, /geographyResolution/],
+    ["source provenance", /sourceProvenance:/, /sourceProvenance,/],
+    ["migration exceptions", /mappingExceptions/, /migrationExceptions/]
+  ];
+  for (const [label, sourcePattern, stagingPattern] of semantics) {
+    assert.match(sourceParity, sourcePattern, `Source Parity missing ${label}`);
+    assert.match(mapper, stagingPattern, `AG-04 mapper missing ${label}`);
+  }
+});
+
