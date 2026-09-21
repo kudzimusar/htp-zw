@@ -54,7 +54,7 @@ jobs:
             -H 'Accept: application/json' \
             "$endpoint" || true)"
           echo "HealthTimes public REST HTTP status: ${status:-curl-failed}"
-          cors_origin="$(awk 'BEGIN{IGNORECASE=1} /^access-control-allow-origin:/ {sub(/\r$/,\"\"); sub(/^[^:]+:[[:space:]]*/,\"\"); print}' "$headers" | tail -n 1)"
+          cors_origin="$(awk 'BEGIN{IGNORECASE=1} /^access-control-allow-origin:/ {sub(/\r$/,""); sub(/^[^:]+:[[:space:]]*/,""); print}' "$headers" | tail -n 1)"
           echo "Access-Control-Allow-Origin: ${cors_origin:-<missing>}"
 
           if [[ "$status" == "200" && -s "$body" ]]; then
