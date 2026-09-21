@@ -152,15 +152,24 @@
     const data=payload?.data||payload||{};
     const ctx=data.context||{};
     const roles=new Map((data.roles||[]).map(r=>[r.id,r.name]));
-    const rawStaff=data.staff||[];
-    const byId=new Map(rawStaff.map(s=>[s.id,s]));
-    const handleFor=id=>{const s=byId.get(id);return s?.handle||s?.id||'';};
-    const staff=(rawStaff||[]).map(s=>({
-      id:s.id,authUserId:s.auth_user_id,username:s.handle||s.id,name:s.display_name,email:s.email||'',
-      role:roles.get(s.role_id)||'Staff',desk:s.desk||'',beat:s.beat||'',country:s.country||'',region:s.region||'',
-      status:String(s.status||'').replace(/^./,x=>x.toUpperCase()),editor:handleFor(s.assigned_editor_id),
-      lastLogin:displayTime(s.last_login_at),mfa:s.mfa_enrolled_at?'Enrolled':(s.mfa_required?'Required':'Available')
+    const adminStaff=new Map((data.staff||[]).map(s=>[s.id,s]));
+    const rawDirectory=(data.directory||[]).length?data.directory:(data.staff||[]).map(s=>({
+      id:s.id,handle:s.handle,display_name:s.display_name,role:roles.get(s.role_id)||'Staff',
+      desk:s.desk,beat:s.beat,country:s.country,region:s.region,status:s.status,assigned_editor_id:s.assigned_editor_id
     }));
+    const directoryById=new Map(rawDirectory.map(s=>[s.id,s]));
+    const handleFor=id=>{const s=directoryById.get(id)||adminStaff.get(id);return s?.handle||s?.id||'';};
+    const staff=rawDirectory.map(s=>{
+      const admin=adminStaff.get(s.id)||{};
+      return {
+        id:s.id,authUserId:admin.auth_user_id||'',username:s.handle||admin.handle||s.id,name:s.display_name||admin.display_name||'Staff',
+        email:admin.email||'',role:s.role||roles.get(admin.role_id)||'Staff',desk:s.desk||admin.desk||'',beat:s.beat||admin.beat||'',
+        country:s.country||admin.country||'',region:s.region||admin.region||'',
+        status:String(s.status||admin.status||'active').replace(/^./,x=>x.toUpperCase()),
+        editor:handleFor(s.assigned_editor_id||admin.assigned_editor_id),
+        lastLogin:displayTime(admin.last_login_at),mfa:admin.mfa_enrolled_at?'Enrolled':(admin.mfa_required?'Required':'Available')
+      };
+    });
     setStaff(staff);
     const staffById=new Map(staff.map(s=>[s.id,s]));
     const revisionGroups={};
