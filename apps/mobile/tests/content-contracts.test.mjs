@@ -168,6 +168,9 @@ test("AG-04 mapped provenance preserves WordPress reconciliation identities and 
   assert.match(mapper, /primarySectionAuthority/);
   assert.match(mapper, /primarySectionAuthority === "canonical-approved"/);
   assert.match(mapper, /primarySectionAuthority === "observed-source"/);
+  assert.match(mapper, /topicsAuthority\?: SourceMappingAuthority/);
+  assert.match(mapper, /relations\.topicsAuthority === "canonical-approved"/);
+  assert.match(mapper, /relations\.topicsAuthority === "inferred-requires-review"/);
 });
 
 test("repository implementations expose the same Reader-facing semantic contract", () => {
