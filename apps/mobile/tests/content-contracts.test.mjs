@@ -207,3 +207,27 @@ test("staging section rows require explicit canonical authority", () => {
   assert.match(mapper, /sourceKind: "category"/);
   assert.match(mapper, /inferredRequiresReview: inferredCanonical/);
 });
+
+
+test("only explicit AG-01 desk names are approved legacy-to-canonical desk mappings", () => {
+  const authority = read("src/domain/taxonomy-authority.ts");
+  for (const approved of [
+    '"global health": "global-health"',
+    'africa: "africa"',
+    'research: "research"',
+    'policy: "policy"',
+    'investigations: "investigations"',
+    '"public health": "public-health"',
+    '"health systems": "health-systems"',
+    '"health business": "health-business"'
+  ]) assert.ok(authority.includes(approved), approved);
+  for (const inferred of [
+    '"health news":',
+    '"hiv/aids":',
+    'epidemics:',
+    '"family health":',
+    'srhr:',
+    '"health financing":',
+    '"research & findings":'
+  ]) assert.ok(!authority.includes(inferred), inferred);
+});
