@@ -48,7 +48,7 @@ The canonical desk mapper has no generic Public Health fallback. A source label 
 - capture timestamp;
 - shortcode/custom-field migration exceptions.
 
-Author provenance keeps the stable WordPress author key when `wordpress_source_id` exists. Media mapping accepts the related `legacy_sources` row through `heroMediaLegacySource`; if AG-04 omits that relation while `media_assets.legacy_source_id` is present, the media provenance remains explicitly `requires-review` rather than being fabricated.
+Runtime Source Parity post/media stable keys now use the same importer format (`wordpress:post:<id>`, `wordpress:media:<id>`) defined by the migration transform. Author provenance keeps the stable WordPress author key when `wordpress_source_id` exists. Media mapping accepts the related `legacy_sources` row through `heroMediaLegacySource`; if AG-04 omits that relation while `media_assets.legacy_source_id` is present, the media provenance remains explicitly `requires-review` rather than being fabricated.
 
 AG-04 may also supply explicit migration exceptions through `StoryRelations.migrationExceptions`.
 
