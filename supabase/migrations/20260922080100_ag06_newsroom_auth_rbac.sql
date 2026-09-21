@@ -23,6 +23,15 @@ create unique index if not exists idx_staff_profiles_handle_unique
   on public.staff_profiles (lower(handle))
   where handle is not null;
 
+alter table public.ad_campaigns
+  add column if not exists created_by uuid references public.staff_profiles(id) on delete set null,
+  add column if not exists approved_by uuid references public.staff_profiles(id) on delete set null,
+  add column if not exists approved_at timestamptz;
+
+alter table public.ad_creatives
+  add column if not exists created_by uuid references public.staff_profiles(id) on delete set null,
+  add column if not exists status text not null default 'draft';
+
 alter table public.stories
   add column if not exists workflow_status text,
   add column if not exists owner_staff_id uuid references public.staff_profiles(id) on delete set null,
@@ -1206,8 +1215,8 @@ begin
   if not public.newsroom_has_capability('ads.create') then
     raise exception using errcode='42501',message='ads.create capability required';
   end if;
-  insert into public.ad_campaigns(advertiser_id,name,status,start_at,end_at,review_status)
-  values(p_advertiser_id,trim(p_name),'draft',p_start_at,p_end_at,'pending')
+  insert into public.ad_campaigns(advertiser_id,name,status,start_at,end_at,review_status,created_by)
+  values(p_advertiser_id,trim(p_name),'draft',p_start_at,p_end_at,'pending',v_actor)
   returning id into v_id;
   insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
   values(v_actor,'campaign.created','ad_campaigns',v_id,jsonb_build_object('status','draft','review_status','pending'));
@@ -1231,7 +1240,9 @@ begin
   perform set_config('app.newsroom_rpc','1',true);
   update public.ad_campaigns
   set review_status=v_review,
-      status=case when p_approved and status='draft' then 'approved' else status end
+      status=case when p_approved and status='draft' then 'approved' else status end,
+      approved_by=case when p_approved then v_actor else null end,
+      approved_at=case when p_approved then now() else null end
   where id=p_campaign_id;
   if not found then raise exception using errcode='P0002',message='Campaign not found'; end if;
   insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
@@ -1323,7 +1334,10 @@ set search_path = public
 as $$
 begin
   if current_setting('app.newsroom_rpc',true) is distinct from '1'
-     and (new.status is distinct from old.status or new.review_status is distinct from old.review_status) then
+     and (new.status is distinct from old.status
+       or new.review_status is distinct from old.review_status
+       or new.approved_by is distinct from old.approved_by
+       or new.approved_at is distinct from old.approved_at) then
     raise exception using errcode='42501',message='Campaign authority fields require an approved Newsroom RPC';
   end if;
   return new;
