@@ -1056,7 +1056,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public, auth
-as $
+as $$
 declare
   v_actor uuid := public.newsroom_current_staff_id_basic();
   v_type text := lower(trim(p_review_type));
@@ -1093,14 +1093,14 @@ begin
 
   return v_id;
 end;
-$;
+$$;
 
 create or replace function public.newsroom_restore_revision(p_story_id uuid, p_revision_id uuid, p_expected_version integer)
 returns integer
 language plpgsql
 security definer
 set search_path = public, auth
-as $
+as $$
 declare
   v_actor uuid := public.newsroom_current_staff_id_basic();
   v_revision public.story_revisions%rowtype;
@@ -1141,7 +1141,7 @@ begin
 
   return v_new_version;
 end;
-$;
+$$;
 
 create or replace function public.newsroom_create_campaign(
   p_advertiser_id uuid,
@@ -1153,7 +1153,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public, auth
-as $
+as $$
 declare
   v_actor uuid := public.newsroom_current_staff_id_basic();
   v_id uuid;
@@ -1168,14 +1168,14 @@ begin
   values(v_actor,'campaign.created','ad_campaigns',v_id,jsonb_build_object('status','draft','review_status','pending'));
   return v_id;
 end;
-$;
+$$;
 
 create or replace function public.newsroom_approve_campaign(p_campaign_id uuid, p_approved boolean)
 returns text
 language plpgsql
 security definer
 set search_path = public, auth
-as $
+as $$
 declare
   v_actor uuid := public.newsroom_current_staff_id_basic();
   v_review text := case when p_approved then 'approved' else 'rejected' end;
@@ -1193,7 +1193,7 @@ begin
   values(v_actor,'campaign.reviewed','ad_campaigns',p_campaign_id,jsonb_build_object('review_status',v_review));
   return v_review;
 end;
-$;
+$$;
 
 create or replace function public.newsroom_set_story_access(p_story_id uuid, p_access_policy text)
 returns text
@@ -1269,7 +1269,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 create or replace function public.newsroom_protect_campaign_authority_fields()
 returns trigger
@@ -1283,7 +1283,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists trg_newsroom_protect_campaign_authority on public.ad_campaigns;
 create trigger trg_newsroom_protect_campaign_authority
