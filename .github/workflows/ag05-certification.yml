@@ -1,0 +1,123 @@
+name: AG-05 Certification
+
+on:
+  push:
+    branches:
+      - migration/ag-05-seo-analytics-monetization
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    name: Browser smoke 375 / 430 / 1440
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run AG-05 browser smoke
+        run: npx playwright test tests/ag05-browser-smoke.spec.js
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-browser-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  staging-performance:
+    name: Staging Lighthouse baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      STAGING_ORIGIN: https://healthtimes-staging.vercel.app
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: Capture mobile and desktop Lighthouse baselines
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-output/ag05-performance
+
+          declare -A URLS
+          URLS[home]="$STAGING_ORIGIN/"
+          URLS[article]="$STAGING_ORIGIN/article.html?id=natpharm-supply-chain"
+          URLS[premium]="$STAGING_ORIGIN/premium.html"
+          URLS[archive]="$STAGING_ORIGIN/archive.html"
+
+          for page in home article premium archive; do
+            npx --yes lighthouse@12 "${URLS[$page]}"               --quiet               --chrome-path="$CHROME_PATH"               --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"               --only-categories=performance               --output=json               --output-path="migration-output/ag05-performance/${page}-mobile.json"
+
+            npx --yes lighthouse@12 "${URLS[$page]}"               --quiet               --chrome-path="$CHROME_PATH"               --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"               --preset=desktop               --only-categories=performance               --output=json               --output-path="migration-output/ag05-performance/${page}-desktop.json"
+          done
+
+      - name: Summarize performance evidence
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = 'migration-output/ag05-performance';
+          const files = fs.readdirSync(dir).filter(name => name.endsWith('.json') && name !== 'summary.json').sort();
+          const rows = files.map(name => {
+            const lhr = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+            const audit = key => lhr.audits?.[key]?.numericValue ?? null;
+            return {
+              file: name,
+              requested_url: lhr.requestedUrl,
+              final_url: lhr.finalUrl,
+              performance_score: lhr.categories?.performance?.score == null ? null : Math.round(lhr.categories.performance.score * 100),
+              lcp_ms: audit('largest-contentful-paint'),
+              cls: audit('cumulative-layout-shift'),
+              inp_ms: audit('interaction-to-next-paint'),
+              total_blocking_time_ms: audit('total-blocking-time'),
+              speed_index_ms: audit('speed-index'),
+              fetch_time: lhr.fetchTime
+            };
+          });
+          const summary = {
+            source: 'Google Lighthouse lab measurement',
+            staging_origin: process.env.STAGING_ORIGIN,
+            note: 'INP may be null where Lighthouse has no interaction-based audit value; do not fabricate it.',
+            rows
+          };
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - name: Upload Lighthouse baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-lighthouse-baseline
+          path: migration-output/ag05-performance/
+          retention-days: 14
