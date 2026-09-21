@@ -26,6 +26,11 @@ test("current public HealthTimes source replaces generic editorial fixtures in p
     "Africa CDC Warns Ebola Response Is Missing Most Expected Contacts as Community Deaths Rise",
     "US medical team brings specialist surgical expertise to Zimbabwe in 15-year partnership",
     "Meet Dr Neddy Makonza",
+    "Zimbabwe Joins Africa-Led Trial Testing Long-Acting HIV Treatment to Protect Babies",
+    "DatCitizen Launches Backpack Walk in Solidarity With Girls Facing Unwanted Pregnancies",
+    "Ken Sharpe appointed to lead Zimbabwe’s End Malaria Council",
+    "Global Commission calls for end to punitive drug policies targeting children",
+    "Zika-Carrying Mosquito Breeds in London, Raising Climate Change Concerns",
     "Parliament Probes NatPharm"
   ]){
     assert.ok(snapshot.includes(title),title);
