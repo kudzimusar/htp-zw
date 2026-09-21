@@ -87,7 +87,12 @@ function sourceArticle(input:{
         system:"wordpress",
         sourceId:null,
         stableKey:"wordpress-author:"+author.slug,
-        sourceUrl:author.slug==="kuda-pembere" ? SOURCE_PARITY_PUBLIC_BASE_URL+"/author/kuda-pembere/" : null,
+        sourceUrl:
+          author.slug==="michael-gwarisa"
+            ? SOURCE_PARITY_PUBLIC_BASE_URL+"/author/michael-gwarisa/"
+            : author.slug==="kuda-pembere"
+              ? SOURCE_PARITY_PUBLIC_BASE_URL+"/author/kuda-pembere/"
+              : null,
         checksum:null,
         capturedAt:SOURCE_PARITY_VERIFIED_AT,
         exceptions:[]
@@ -399,7 +404,7 @@ export const sourceParityVideos:VideoItem[]=[
 ];
 
 export const sourceParityAuthors:AuthorProfile[]=[
-  {id:"source-author-michael-gwarisa",displayName:"Michael Gwarisa",slug:"michael-gwarisa",role:"Editor-in-Chief",bio:null,sourceUrl:null},
+  {id:"source-author-michael-gwarisa",displayName:"Michael Gwarisa",slug:"michael-gwarisa",role:"Editor-in-Chief",bio:null,sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/author/michael-gwarisa/"},
   {id:"source-author-kuda-pembere",displayName:"Kudakwashe Pembere",slug:"kuda-pembere",role:"Assistant Editor",bio:null,sourceUrl:SOURCE_PARITY_PUBLIC_BASE_URL+"/author/kuda-pembere/"},
   {id:"source-author-ntokozo-gudu",displayName:"Ntokozo Gudu",slug:"ntokozo-gudu",role:"Reporter",bio:null,sourceUrl:null},
   {id:"source-author-patson-gumbo",displayName:"Patson Gumbo",slug:"patson-gumbo",role:"Reporter",bio:null,sourceUrl:null},
