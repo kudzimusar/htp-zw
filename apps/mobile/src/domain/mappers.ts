@@ -90,7 +90,7 @@ export function mapAuthorRow(row: AuthorRow): AuthorRef {
       ? {
           system: "wordpress",
           sourceId: row.wordpress_source_id,
-          stableKey: null,
+          stableKey: "wordpress-author:" + row.wordpress_source_id,
           sourceUrl: null,
           checksum: null,
           capturedAt: null,
@@ -101,24 +101,35 @@ export function mapAuthorRow(row: AuthorRow): AuthorRef {
   };
 }
 
-export function mapMediaRow(row: MediaRow): MediaRef {
+export function mapMediaRow(
+  row: MediaRow,
+  legacySource: LegacySourceRow | null = null
+): MediaRef {
+  const sourceProvenance = legacySource
+    ? mapSourceProvenance(legacySource)
+    : row.legacy_source_id
+      ? {
+          system: "wordpress" as const,
+          sourceId: null,
+          stableKey: null,
+          sourceUrl: row.source_url,
+          checksum: row.checksum,
+          capturedAt: null,
+          exceptions: [{
+            kind: "other" as const,
+            classification: "requires-review" as const,
+            field: "heroMedia.sourceProvenance",
+            note: "Media has a legacy_source_id, but the AG-04 repository did not supply the related legacy_sources row."
+          }]
+        }
+      : null;
   return {
     id: row.id,
     publicUrl: row.public_url,
     altText: row.alt_text,
     caption: row.caption,
     credit: row.credit,
-    sourceProvenance: row.legacy_source_id
-      ? {
-          system: "wordpress",
-          sourceId: null,
-          stableKey: null,
-          sourceUrl: row.source_url,
-          checksum: row.checksum,
-          capturedAt: null,
-          exceptions: []
-        }
-      : null
+    sourceProvenance
   };
 }
 
@@ -207,6 +218,7 @@ export type StoryRelations = {
    */
   primarySectionAuthority?: SourceMappingAuthority;
   heroMedia?: MediaRow | null;
+  heroMediaLegacySource?: LegacySourceRow | null;
   geography?: ZoneRow[];
   /**
    * Canonical AG-01/AG-04 topics only. Imported WordPress terms remain in
@@ -287,7 +299,9 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
       ],
       inferredRequiresReview: [...inferredCanonical, ...inferredTopics]
     },
-    heroMedia: relations.heroMedia ? mapMediaRow(relations.heroMedia) : null,
+    heroMedia: relations.heroMedia
+      ? mapMediaRow(relations.heroMedia, relations.heroMediaLegacySource ?? null)
+      : null,
     sourceProvenance,
     contentIntegrity: sourceProvenance?.exceptions.length ? "requires-review" : "unknown",
     premiumSourceContext: {
