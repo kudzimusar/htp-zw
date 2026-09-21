@@ -241,3 +241,41 @@ test("AG-04 media mapping can retain the related legacy-source provenance", () =
   assert.match(mapper, /Media has a legacy_source_id, but the AG-04 repository did not supply/);
   assert.match(mapper, /stableKey: "wordpress-author:" \+ row\.wordpress_source_id/);
 });
+
+
+test("AG-04 Reader projection bundle and readiness gate are explicit while staging stays locked", () => {
+  const mapper = read("src/domain/mappers.ts");
+  const conformance = read("src/domain/ag04-conformance.ts");
+  const services = read("src/services/index.ts");
+
+  assert.match(mapper, /export type AG04ReaderProjectionBundle/);
+  for (const field of [
+    "story:",
+    "author?:",
+    "primarySection?:",
+    "primarySectionAuthority?:",
+    "topics?:",
+    "topicsAuthority?:",
+    "legacyTaxonomy?:",
+    "geography?:",
+    "geographyAuthority?:",
+    "heroMedia?:",
+    "heroMediaLegacySource?:",
+    "legacySource?:",
+    "migrationExceptions?:",
+    "premiumSourceContext?:"
+  ]) assert.ok(mapper.includes(field), field);
+
+  assert.match(conformance, /evaluateAG04ReaderRepositoryReadiness/);
+  assert.match(conformance, /CURRENT_AG04_READER_REPOSITORY_READINESS/);
+  assert.match(conformance, /ag03-source-package-not-accepted/);
+  assert.match(conformance, /story-geography-relation-not-certified/);
+  assert.match(conformance, /reader-safe-public-read-policy-not-certified/);
+  assert.match(conformance, /premium-body-boundary-not-certified/);
+
+  assert.match(
+    services,
+    /Staging editorial-data mode is locked until AG-04 migrated content and required public read policies are certified/
+  );
+  assert.doesNotMatch(services, /StagingArticleRepository/);
+});
