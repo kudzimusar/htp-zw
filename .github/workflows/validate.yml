@@ -111,7 +111,7 @@ jobs:
           if leaked:
               raise SystemExit(f'Browser-local Newsroom authority/credentials remain: {leaked}')
           api = Path('api/newsroom.js').read_text(encoding='utf-8')
-          for required_api in ('HttpOnly','X-HTP-CSRF','newsroom_register_session','SUPABASE_SERVICE_ROLE_KEY'):
+          for required_api in ('HttpOnly','x-htp-csrf','newsroom_register_session','SUPABASE_SERVICE_ROLE_KEY'):
               if required_api not in api:
                   raise SystemExit(f'Missing AG-06 API security contract: {required_api}')
 
