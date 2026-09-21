@@ -60,6 +60,15 @@ const sourceBase=(process.env.EXPO_PUBLIC_HEALTHTIMES_SOURCE_BASE_URL || SOURCE_
 const wpBase=sourceBase+"/wp-json/wp/v2";
 const cache={at:0,articles:null as ArticleDetail[]|null};
 const cacheMs=5*60*1000;
+const wpMetadataFields=[
+  "id","date","modified","slug","link","author","featured_media","categories","tags",
+  "title","excerpt","_links","_embedded"
+].join(",");
+const wpPublicDetailFields=wpMetadataFields+",content";
+
+function wpPostQuery(options:{includeContent:boolean}){
+  return "&_embed=1&_fields="+encodeURIComponent(options.includeContent ? wpPublicDetailFields : wpMetadataFields);
+}
 
 function decodeEntities(value:string){
   const named:Record<string,string>={
@@ -202,7 +211,11 @@ function mappingExceptions(
 function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const legacy=legacyTaxonomy(post);
   const legacyNames=legacy.map((term)=>term.name);
-  const accessPolicy=legacyNames.some((name)=>name.toLowerCase()==="healthtimes premium") ? "premium" : "public";
+  const accessPolicy=
+    fallback?.accessPolicy==="premium" ||
+    legacyNames.some((name)=>name.toLowerCase()==="healthtimes premium")
+      ? "premium"
+      : "public";
   const embeddedAuthor=post._embedded?.author?.[0];
   const media=post._embedded?.["wp:featuredmedia"]?.[0];
   const canonicalUrl=post.link || fallback?.canonicalUrl || sourceBase+"/"+post.slug+"/";
@@ -319,7 +332,7 @@ function snapshotBySlug(){
 async function refreshedArticles():Promise<ArticleDetail[]>{
   if(cache.articles && Date.now()-cache.at<cacheMs) return cache.articles;
   const fallbackBySlug=snapshotBySlug();
-  const live=await sourceGet<WpPost[]>("/posts?per_page=50&status=publish&orderby=date&order=desc&_embed=1");
+  const live=await sourceGet<WpPost[]>("/posts?per_page=50&status=publish&orderby=date&order=desc"+wpPostQuery({includeContent:false}));
   if(!live){
     cache.at=Date.now();
     cache.articles=sourceParityArticles;
@@ -352,7 +365,14 @@ const articleRepository:ArticleRepository={
   async getById(id){
     const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
     if(!current) return null;
-    const live=await sourceGet<WpPost[]>("/posts?slug="+encodeURIComponent(current.slug)+"&status=publish&_embed=1");
+    const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
+      exception.kind==="taxonomy-unresolved" &&
+      (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
+    );
+    const includeContent=current.accessPolicy==="public" && !taxonomyUnresolved;
+    const live=await sourceGet<WpPost[]>(
+      "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+wpPostQuery({includeContent})
+    );
     return live?.[0] ? mapWpPost(live[0],current) : current;
   },
   async getRelated(id){
