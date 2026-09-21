@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/native-mobile-nm07-native-certification
+      - integration/native-mobile-nm00-convergence
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -44,6 +45,9 @@ jobs:
 
       - name: Validate NM-04 article fidelity and bounded search ranking
         run: npm --prefix apps/mobile run test:reader-fidelity
+
+      - name: Validate NM-04 bounded Search ranking
+        run: npm --prefix apps/mobile run test:search-ranking
 
       - name: Probe public WordPress source reachability and browser CORS
         shell: bash
