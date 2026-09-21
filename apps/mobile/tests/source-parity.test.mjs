@@ -159,3 +159,21 @@ test("source-parity search respects contract filters as well as the live corpus"
   assert.match(service,/if\(query\.topic\)/);
   assert.match(service,/article\.legacyTaxonomy/);
 });
+
+
+test("Premium content is excluded from browser REST requests before mapping",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/const wpMetadataFields=/);
+  assert.match(service,/const wpPublicDetailFields=wpMetadataFields\+",content"/);
+  assert.match(service,/wpPostQuery\(\{includeContent:false\}\)/);
+  assert.match(service,/const includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
+  assert.match(service,/wpPostQuery\(\{includeContent\}\)/);
+  assert.match(service,/fallback\?\.accessPolicy==="premium"/);
+});
+
+test("uncertain live taxonomy fails closed for detail body retrieval",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/exception\.kind==="taxonomy-unresolved"/);
+  assert.match(service,/exception\.field==="legacyTaxonomy" \|\| exception\.field==="primarySection"/);
+  assert.match(service,/includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
+});
