@@ -118,6 +118,17 @@ export type LiveItem = {
   sourceProvenance?: SourceProvenance | null;
 };
 
+export type MediaTranscriptState = "unavailable" | "available" | "pending" | "unknown";
+
+export type ReaderMediaSource = {
+  url: string | null;
+  provider: string | null;
+  providerAssetId: string | null;
+  mimeType: string | null;
+  verified: boolean;
+  downloadable: boolean;
+};
+
 export type VideoItem = {
   id: string;
   title: string;
@@ -125,7 +136,13 @@ export type VideoItem = {
   publishedAt: string | null;
   thumbnail: MediaRef | null;
   sourceUrl?: string | null;
+  provider?: string | null;
+  providerAssetId?: string | null;
+  description?: string | null;
+  transcriptState?: MediaTranscriptState;
   relatedArticleId?: string | null;
+  accessPolicy?: AccessPolicy | null;
+  presentation?: "recorded" | "live" | null;
   sourceProvenance?: SourceProvenance | null;
 };
 
@@ -134,6 +151,47 @@ export type AudioItem = {
   title: string;
   durationSeconds: number | null;
   publishedAt: string | null;
+  artwork?: MediaRef | null;
+  source?: ReaderMediaSource | null;
+  relatedArticleId?: string | null;
+  transcriptState?: MediaTranscriptState;
+  accessPolicy?: AccessPolicy | null;
+};
+
+export type MediaPlaybackStatus = "idle" | "loading" | "playing" | "paused" | "ended" | "error";
+export type MediaPlayerPresentation = "mini" | "full";
+
+export type MediaPlaybackState = {
+  status: MediaPlaybackStatus;
+  currentItemId: string | null;
+  elapsedSeconds: number;
+  durationSeconds: number | null;
+  playbackRate: number;
+  presentation: MediaPlayerPresentation;
+  error: string | null;
+};
+
+export type ReaderConnectivityState = "online" | "offline" | "unknown";
+
+export type OfflineAvailabilityState =
+  | "not-downloaded"
+  | "downloading"
+  | "available"
+  | "stale"
+  | "failed"
+  | "unavailable"
+  | "pending-sync";
+
+export type OfflineArticleRecord = {
+  schemaVersion: 2;
+  article: ArticleDetail;
+  state: OfflineAvailabilityState;
+  downloadedAt: string | null;
+  sourceModifiedAt: string | null;
+  textAvailable: boolean;
+  mediaAvailable: boolean;
+  syncMode: "local-only";
+  failureReason: string | null;
 };
 
 export type EditionPreference = {

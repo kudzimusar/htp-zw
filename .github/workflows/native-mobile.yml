@@ -8,6 +8,7 @@ on:
       - feat/native-mobile-nm03-content-contracts
       - 'feat/native-mobile-nm03-*'
       - feat/native-mobile-nm04-reader-product
+      - feat/native-mobile-nm04-reader-media-offline
       - feat/native-mobile-nm05-growth-commercial
       - feat/native-mobile-nm06-identity-security
       - feat/native-mobile-nm07-native-certification

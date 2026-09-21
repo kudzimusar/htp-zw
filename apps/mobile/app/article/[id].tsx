@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Image, Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
 import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
@@ -9,7 +9,8 @@ import { breakpoints, colors, layout, radius, spacing, type } from "../../src/th
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
-import { parseArticleContent, type ArticleInline } from "../../src/reader/article-content";
+import { parseArticleContent, type ArticleContentBlock, type ArticleInline, type ArticleListBlock } from "../../src/reader/article-content";
+import { canOpenOffline, compareSourceFreshness, useReaderConnectivity } from "../../src/reader/offline-state";
 
 export function generateStaticParams() {
   return [
@@ -44,13 +45,15 @@ export default function ArticleScreen(){
   const trackedArticleId=useRef<string|null>(null);
   const trackedProgressEvents=useRef(new Set<string>());
   const premiumLockTracked=useRef(false);
+  const connectivity=useReaderConnectivity();
   const article=useAsync(()=>services.articles.getById(String(id)),[id]);
+  const offlineRecord=useAsync(()=>services.reader.getOfflineArticleRecord(String(id)),[id]);
   const related=useAsync(()=>services.articles.getRelated(String(id)),[id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
 
   useEffect(()=>{
-    const current=article.data;
+    const current=article.data ?? (canOpenOffline(offlineRecord.data ?? null) ? offlineRecord.data!.article : null);
     if(!current) return;
 
     void services.reader.recordReadingHistory(current.id);
@@ -71,12 +74,28 @@ export default function ArticleScreen(){
         seconds_elapsed:0
       },{storyId:current.id,pagePath:"/article/"+current.id}));
     }
-  },[article.data?.id,entitlement.data]);
+  },[article.data?.id,offlineRecord.data?.article.id,entitlement.data]);
 
-  if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
-  if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
+  if(article.loading || offlineRecord.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
+  const cachedArticle=canOpenOffline(offlineRecord.data ?? null) ? offlineRecord.data!.article : null;
+  const repositoryArticle=article.data;
+  const repositoryAccessUnresolved=(repositoryArticle?.sourceProvenance?.exceptions ?? []).some((exception)=>
+    exception.kind==="taxonomy-unresolved" && exception.field==="legacyTaxonomy"
+  );
+  const mayUseCachedPublicBody=Boolean(
+    cachedArticle &&
+    cachedArticle.accessPolicy==="public" &&
+    (!repositoryArticle || (
+      repositoryArticle.accessPolicy==="public" &&
+      !repositoryArticle.bodyHtml &&
+      !repositoryAccessUnresolved
+    ))
+  );
+  const story=mayUseCachedPublicBody ? cachedArticle : repositoryArticle;
+  if(!story) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article is unavailable on this device while offline.</Text></Page>;
 
-  const story=article.data;
+  const usingOfflineCopy=Boolean(mayUseCachedPublicBody);
+  const cachedState=offlineRecord.data ? compareSourceFreshness(offlineRecord.data,repositoryArticle?.modifiedAt ?? null) : "not-downloaded";
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
   const blocks=parseArticleContent(story.bodyHtml,story.canonicalUrl);
   const desktop=width >= breakpoints.desktop;
@@ -131,7 +150,8 @@ export default function ArticleScreen(){
       return;
     }
     await services.reader.downloadArticle(story);
-    setActionStatus("Available offline");
+    const record=await services.reader.getOfflineArticleRecord(story.id);
+    setActionStatus(record?.textAvailable ? "Available offline" : "This article is not eligible for offline storage.");
   };
 
   const actionButton=(label:string,onPress:()=>void,accessibilityLabel=label)=>(
@@ -145,6 +165,33 @@ export default function ArticleScreen(){
       <Text style={[styles.actionText,{color:palette.ink}]}>{label}</Text>
     </Pressable>
   );
+
+  const renderList=(list:ArticleListBlock,keyPrefix:string,depth=0)=>(
+    <View style={[styles.articleList,depth>0&&styles.nestedList]} key={keyPrefix}>
+      {list.items.map((item,itemIndex)=>(
+        <View key={keyPrefix+"-"+itemIndex}>
+          <View style={styles.listRow}>
+            <Text style={[styles.listBullet,{color:palette.blue}]}>{list.ordered?String(itemIndex+1)+".":"•"}</Text>
+            <Text style={[styles.listText,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(item.inlines,keyPrefix+"-"+itemIndex,palette.blue)}</Text>
+          </View>
+          {item.children.map((child,childIndex)=>renderList(child,keyPrefix+"-"+itemIndex+"-nested-"+childIndex,depth+1))}
+        </View>
+      ))}
+    </View>
+  );
+
+  const renderBlock=(block:ArticleContentBlock,index:number)=>{
+    if(block.kind==="heading") return <Text style={[styles.bodyHeading,{fontSize:(block.level===2?24:20)*textScale,lineHeight:(block.level===2?31:27)*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"heading-"+index,palette.blue)}</Text>;
+    if(block.kind==="blockquote") return <View style={[styles.quote,{borderLeftColor:palette.blue}]}><Text style={[styles.quoteText,{fontSize:19*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"quote-"+index,palette.blue)}</Text></View>;
+    if(block.kind==="pullquote") return <View style={[styles.pullquote,{borderTopColor:palette.blue,borderBottomColor:palette.blue}]}><Text style={[styles.pullquoteText,{fontSize:24*textScale,lineHeight:34*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"pullquote-"+index,palette.blue)}</Text>{!!block.credit.length&&<Text style={[styles.credit,{color:palette.inkMuted}]}>{renderInlines(block.credit,"pullquote-credit-"+index,palette.blue)}</Text>}</View>;
+    if(block.kind==="list") return renderList(block,"list-"+index);
+    if(block.kind==="figure") return <View style={styles.inlineFigure}>{block.href?<Pressable accessibilityRole="link" accessibilityLabel={block.alt??"Open article image"} onPress={()=>{void Linking.openURL(block.href!);}}><Image source={{uri:block.src}} style={[styles.inlineFigureImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={block.alt??"Article image"} /></Pressable>:<Image source={{uri:block.src}} style={[styles.inlineFigureImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={block.alt??"Article image"} />}{!!block.caption.length&&<Text style={[styles.caption,{color:palette.inkMuted}]}>{renderInlines(block.caption,"caption-"+index,palette.blue)}</Text>}{!!block.credit.length&&<Text style={[styles.credit,{color:palette.inkMuted}]}>{renderInlines(block.credit,"credit-"+index,palette.blue)}</Text>}</View>;
+    if(block.kind==="gallery") return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery} accessibilityLabel="Article image gallery">{block.items.map((item,itemIndex)=><View style={styles.galleryItem} key={"gallery-"+index+"-"+itemIndex}><Image source={{uri:item.src}} style={[styles.galleryImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.alt??"Gallery image"} />{!!item.caption.length&&<Text style={[styles.caption,{color:palette.inkMuted}]}>{renderInlines(item.caption,"gallery-caption-"+index+"-"+itemIndex,palette.blue)}</Text>}{!!item.credit.length&&<Text style={[styles.credit,{color:palette.inkMuted}]}>{renderInlines(item.credit,"gallery-credit-"+index+"-"+itemIndex,palette.blue)}</Text>}</View>)}</ScrollView>;
+    if(block.kind==="table") return <ScrollView horizontal showsHorizontalScrollIndicator accessibilityLabel="Article data table"><View style={[styles.table,{borderColor:palette.border}]}>{!!block.caption.length&&<Text style={[styles.tableCaption,{color:palette.ink}]}>{renderInlines(block.caption,"table-caption-"+index,palette.blue)}</Text>}{block.rows.map((row,rowIndex)=><View style={styles.tableRow} key={"row-"+index+"-"+rowIndex}>{row.cells.map((cell,cellIndex)=><View style={[styles.tableCell,{borderColor:palette.border,backgroundColor:cell.header?palette.paperMuted:palette.paper}]} key={"cell-"+index+"-"+rowIndex+"-"+cellIndex}><Text style={[styles.tableText,cell.header&&styles.tableHeader,{color:palette.ink}]}>{renderInlines(cell.inlines,"table-"+index+"-"+rowIndex+"-"+cellIndex,palette.blue)}</Text></View>)}</View>)}</View></ScrollView>;
+    if(block.kind==="document") return <Pressable accessibilityRole="link" accessibilityLabel={"Open document "+block.label.map(item=>item.text).join("")} style={[styles.referenceCard,{borderColor:palette.border}]} onPress={()=>void Linking.openURL(block.href)}><Text style={[styles.referenceLabel,{color:palette.blue}]}>DOCUMENT</Text><Text style={[styles.referenceText,{color:palette.ink}]}>{renderInlines(block.label,"document-"+index,palette.blue)}</Text></Pressable>;
+    if(block.kind==="media") return <Pressable accessibilityRole="link" accessibilityLabel={"Open "+block.mediaType+" reference"} style={[styles.referenceCard,{borderColor:palette.border}]} onPress={()=>void Linking.openURL(block.src)}><Text style={[styles.referenceLabel,{color:palette.blue}]}>{block.mediaType.toUpperCase()}</Text><Text style={[styles.referenceText,{color:palette.ink}]}>Open verified {block.mediaType} reference ↗</Text>{!!block.caption.length&&<Text style={[styles.caption,{color:palette.inkMuted}]}>{renderInlines(block.caption,"media-caption-"+index,palette.blue)}</Text>}</Pressable>;
+    return <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"paragraph-"+index,palette.blue)}</Text>;
+  };
 
   return (
     <Page
@@ -160,6 +207,7 @@ export default function ArticleScreen(){
         {actionButton("Share",()=>{void share();},"Share article")}
       </View>
       {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:colors.success}]}>{actionStatus}</Text>}
+      {(usingOfflineCopy||connectivity==="offline"||cachedState==="stale")&&<View style={[styles.offlineNotice,{borderColor:palette.border,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite"><Text style={[styles.offlineNoticeTitle,{color:palette.ink}]}>{usingOfflineCopy?"Offline copy":cachedState==="stale"?"Cached copy may be stale":"Offline"}</Text><Text style={[styles.offlineNoticeText,{color:palette.inkMuted}]}>{usingOfflineCopy?"This downloaded article is being read from local device storage.":cachedState==="stale"?"A newer source version exists; this device still has the older downloaded copy.":"Network access is unavailable. Downloaded stories remain readable."}</Text></View>}
 
       <View style={styles.articleHeader}>
         <View style={styles.metaRow}>
@@ -225,17 +273,7 @@ export default function ArticleScreen(){
             {blocks.length ? (
               blocks.map((block,index)=>(
                 <View key={String(index)}>
-                  {block.kind==="heading" ? (
-                    <Text style={[styles.bodyHeading,{fontSize:(block.level===2?24:20)*textScale,lineHeight:(block.level===2?31:27)*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"heading-"+index,palette.blue)}</Text>
-                  ) : block.kind==="blockquote" ? (
-                    <View style={[styles.quote,{borderLeftColor:palette.blue}]}><Text style={[styles.quoteText,{fontSize:19*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"quote-"+index,palette.blue)}</Text></View>
-                  ) : block.kind==="list" ? (
-                    <View style={styles.articleList}>{block.items.map((item,itemIndex)=><View style={styles.listRow} key={"list-"+index+"-"+itemIndex}><Text style={[styles.listBullet,{color:palette.blue}]}>{block.ordered?String(itemIndex+1)+".":"•"}</Text><Text style={[styles.listText,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(item,"list-"+index+"-"+itemIndex,palette.blue)}</Text></View>)}</View>
-                  ) : block.kind==="figure" ? (
-                    <View style={styles.inlineFigure}>{block.href?<Pressable accessibilityRole="link" onPress={()=>{void Linking.openURL(block.href!);}}><Image source={{uri:block.src}} style={[styles.inlineFigureImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={block.alt??"Article image"} /></Pressable>:<Image source={{uri:block.src}} style={[styles.inlineFigureImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={block.alt??"Article image"} />}{!!block.caption.length&&<Text style={[styles.caption,{color:palette.inkMuted}]}>{renderInlines(block.caption,"caption-"+index,palette.blue)}</Text>}</View>
-                  ) : (
-                    <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"paragraph-"+index,palette.blue)}</Text>
-                  )}
+                  {renderBlock(block,index)}
                   {index===0 && (
                     <View style={styles.inlineAd}>
                       <AdSlot placement="article_after_intro" />
@@ -268,6 +306,9 @@ const styles=StyleSheet.create({
   action:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderRadius:radius.sm},
   actionText:{fontSize:13,fontWeight:"800"},
   actionStatus:{fontSize:12,fontWeight:"700",marginTop:spacing.sm},
+  offlineNotice:{marginTop:spacing.md,borderWidth:1,borderRadius:radius.sm,padding:spacing.md,gap:4},
+  offlineNoticeTitle:{fontSize:13,fontWeight:"900"},
+  offlineNoticeText:{fontSize:12,lineHeight:18},
   articleHeader:{marginTop:spacing.xl,gap:spacing.md,maxWidth:layout.articleMax,alignSelf:"center",width:"100%"},
   metaRow:{flexDirection:"row",gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
   kicker:{fontSize:12,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
@@ -291,11 +332,26 @@ const styles=StyleSheet.create({
   quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.lg},
   quoteText:{fontWeight:"700",fontStyle:"italic"},
   articleList:{marginBottom:spacing.md},
+  nestedList:{marginLeft:spacing.xl,marginBottom:0},
   listRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,marginBottom:spacing.md},
   listBullet:{fontSize:18,fontWeight:"900",lineHeight:29},
   listText:{flex:1},
   inlineFigure:{marginBottom:spacing.xl,gap:spacing.sm},
   inlineFigureImage:{width:"100%",aspectRatio:16/9},
+  pullquote:{borderTopWidth:2,borderBottomWidth:2,paddingVertical:spacing.xl,marginVertical:spacing.xl,gap:spacing.sm},
+  pullquoteText:{fontWeight:"900",letterSpacing:-.3},
+  gallery:{gap:spacing.md,paddingBottom:spacing.lg},
+  galleryItem:{width:320,gap:spacing.xs},
+  galleryImage:{width:320,aspectRatio:4/3},
+  table:{borderWidth:1,marginBottom:spacing.xl,minWidth:520},
+  tableCaption:{fontSize:13,fontWeight:"900",padding:spacing.md},
+  tableRow:{flexDirection:"row"},
+  tableCell:{minWidth:150,maxWidth:260,flexGrow:1,borderTopWidth:1,borderRightWidth:1,padding:spacing.sm},
+  tableText:{fontSize:13,lineHeight:19},
+  tableHeader:{fontWeight:"900"},
+  referenceCard:{borderWidth:1,borderRadius:radius.sm,padding:spacing.lg,marginBottom:spacing.lg,gap:spacing.xs,minHeight:44,justifyContent:"center"},
+  referenceLabel:{fontSize:10,fontWeight:"900",letterSpacing:1},
+  referenceText:{fontSize:14,fontWeight:"800",lineHeight:20},
   inlineStrong:{fontWeight:"900"},
   inlineEmphasis:{fontStyle:"italic"},
   inlineAd:{marginVertical:spacing.lg},
