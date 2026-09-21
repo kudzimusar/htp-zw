@@ -73,15 +73,7 @@
     'Analyst':[CAP.ANALYTICS]
   };
 
-  const ACCOUNTS = {
-    publisher:{password:'HealthTimes#Publisher26',name:'Publisher Office',email:'publisher@healthtimes.co.zw',role:'Publisher / Owner',desk:'Executive',beat:'Organisation',country:'Zimbabwe'},
-    editor:{password:'HealthTimes#Editor26',name:'Michael Gwarisa',email:'editor@healthtimes.co.zw',role:'Editor-in-Chief',desk:'Global Health',beat:'Policy & Health Systems',country:'Zimbabwe'},
-    reporter:{password:'HealthTimes#Reporter26',name:'Kuda Pembere',email:'reporter@healthtimes.co.zw',role:'Reporter / Journalist',desk:'Africa',beat:'Public Health',country:'Zimbabwe'},
-    audience:{password:'HealthTimes#Audience26',name:'Audience Desk',email:'audience@healthtimes.co.zw',role:'Newsletter Editor',desk:'Audience',beat:'Distribution',country:'Zimbabwe'},
-    commercial:{password:'HealthTimes#Commercial26',name:'Commercial Desk',email:'commercial@healthtimes.co.zw',role:'Commercial Manager',desk:'Commercial',beat:'Advertising & Membership',country:'Zimbabwe'}
-  };
-
-  const DESKS=['Global Health','Africa','Southern Africa','East Africa','West Africa','Central Africa','North Africa','Zimbabwe','Research','Policy','Investigations','Health Business','Audience','Commercial'];
+  // Demo credential fixtures removed: real staging staff authenticate through Supabase Auth.\n  const DESKS=['Global Health','Africa','Southern Africa','East Africa','West Africa','Central Africa','North Africa','Zimbabwe','Research','Policy','Investigations','Health Business','Audience','Commercial'];
   const REGIONS=['Global','Africa','Southern Africa','East Africa','West Africa','Central Africa','North Africa','Zimbabwe'];
   const WORKFLOW=['Pitch','Approved','Assigned','Reporting','Draft','Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready','Scheduled','Published','Updated / Corrected','Archived'];
   const titleToId={
