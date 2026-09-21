@@ -1,0 +1,4 @@
+# HealthTimes staging robots policy — AG-05
+# Staging must not become the indexed replacement before AG-08 cutover.
+User-agent: *
+Disallow: /
