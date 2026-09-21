@@ -477,11 +477,14 @@ begin
     raise exception using errcode='42501', message='Active Newsroom session required';
   end if;
 
-  select sp.*, r.name into v_staff, v_role
+  select sp.* into v_staff
   from public.staff_profiles sp
-  left join public.newsroom_roles r on r.id=sp.role_id
   where sp.auth_user_id=auth.uid()
   limit 1;
+
+  select r.name into v_role
+  from public.newsroom_roles r
+  where r.id=v_staff.role_id;
 
   select coalesce(array_agg(capability_key order by capability_key), array[]::text[])
   into v_caps
@@ -936,6 +939,7 @@ begin
   if v_role_id is null then raise exception using errcode='22023',message='Unknown newsroom role'; end if;
   select r.name into v_previous from public.staff_profiles sp left join public.newsroom_roles r on r.id=sp.role_id where sp.id=p_staff_id;
   if v_previous is null then raise exception using errcode='P0002',message='Staff profile not found'; end if;
+  perform set_config('app.newsroom_rpc','1',true);
   update public.staff_profiles set role_id=v_role_id,updated_at=now() where id=p_staff_id;
   insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
   values(v_actor,'staff.role.changed','staff_profiles',p_staff_id,jsonb_build_object('previous',v_previous,'new',p_role_name));
@@ -959,6 +963,7 @@ begin
   if v_status not in ('suspended','revoked','deactivated') then
     raise exception using errcode='22023',message='Invalid access status';
   end if;
+  perform set_config('app.newsroom_rpc','1',true);
   update public.staff_profiles
   set status=v_status,revoked_at=case when v_status='revoked' then now() else revoked_at end,updated_at=now()
   where id=p_staff_id;
@@ -994,6 +999,127 @@ begin
   return v_count;
 end;
 $$;
+
+create or replace function public.newsroom_record_review(
+  p_story_id uuid,
+  p_review_type text,
+  p_status text,
+  p_notes text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, auth
+as $
+declare
+  v_actor uuid := public.newsroom_current_staff_id_basic();
+  v_type text := lower(trim(p_review_type));
+  v_cap text;
+  v_id uuid;
+begin
+  v_cap := case v_type
+    when 'fact_check' then 'story.fact_check'
+    when 'health_review' then 'story.health_review'
+    when 'science_review' then 'story.health_review'
+    when 'copy_edit' then 'story.copy_edit'
+    when 'editor_review' then 'story.edit_all'
+    else null
+  end;
+  if v_cap is null or not public.newsroom_has_capability(v_cap) then
+    raise exception using errcode='42501',message='Review capability required';
+  end if;
+  if not public.newsroom_can_read_story(p_story_id) then
+    raise exception using errcode='42501',message='Story access required';
+  end if;
+
+  insert into public.story_reviews(story_id,review_type,assigned_to,status,notes,completed_at,completed_by,created_by)
+  values(
+    p_story_id,v_type,v_actor,lower(coalesce(nullif(trim(p_status),''),'completed')),
+    public.newsroom_safe_editor_text(p_notes),
+    case when lower(coalesce(p_status,'')) in ('completed','approved','changes_requested') then now() else null end,
+    case when lower(coalesce(p_status,'')) in ('completed','approved','changes_requested') then v_actor else null end,
+    v_actor
+  ) returning id into v_id;
+
+  insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
+  values(v_actor,'story.review.recorded','stories',p_story_id,
+    jsonb_build_object('review_id',v_id,'review_type',v_type,'status',p_status));
+
+  return v_id;
+end;
+$;
+
+create or replace function public.newsroom_restore_revision(p_story_id uuid, p_revision_id uuid, p_expected_version integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public, auth
+as $
+declare
+  v_actor uuid := public.newsroom_current_staff_id_basic();
+  v_revision public.story_revisions%rowtype;
+  v_current public.stories%rowtype;
+  v_new_version integer;
+  v_next_revision integer;
+begin
+  if not public.newsroom_can_edit_story(p_story_id) then
+    raise exception using errcode='42501',message='Story edit authority required';
+  end if;
+  select * into v_current from public.stories where id=p_story_id for update;
+  if v_current.lock_version<>p_expected_version then
+    raise exception using errcode='40001',message='VERSION_CONFLICT';
+  end if;
+  select * into v_revision from public.story_revisions where id=p_revision_id and story_id=p_story_id;
+  if v_revision.id is null then raise exception using errcode='P0002',message='Revision not found'; end if;
+
+  perform set_config('app.newsroom_rpc','1',true);
+  update public.stories
+  set title=coalesce(v_revision.title,title),
+      body_html=v_revision.body_html,
+      body_json=v_revision.body_json,
+      lock_version=lock_version+1,
+      last_saved_by=v_actor,
+      modified_at=now(),
+      updated_at=now()
+  where id=p_story_id
+  returning lock_version into v_new_version;
+
+  select coalesce(max(revision_number),0)+1 into v_next_revision from public.story_revisions where story_id=p_story_id;
+  insert into public.story_revisions(story_id,revision_number,title,body_html,body_json,editor_id,change_summary)
+  values(p_story_id,v_next_revision,coalesce(v_revision.title,v_current.title),v_revision.body_html,v_revision.body_json,v_actor,
+         'Restored revision '||v_revision.revision_number::text);
+
+  insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
+  values(v_actor,'story.revision.restored','stories',p_story_id,
+    jsonb_build_object('revision_id',p_revision_id,'revision_number',v_revision.revision_number));
+
+  return v_new_version;
+end;
+$;
+
+create or replace function public.newsroom_approve_campaign(p_campaign_id uuid, p_approved boolean)
+returns text
+language plpgsql
+security definer
+set search_path = public, auth
+as $
+declare
+  v_actor uuid := public.newsroom_current_staff_id_basic();
+  v_review text := case when p_approved then 'approved' else 'rejected' end;
+begin
+  if not public.newsroom_has_capability('ads.approve') then
+    raise exception using errcode='42501',message='ads.approve capability required';
+  end if;
+  update public.ad_campaigns
+  set review_status=v_review,
+      status=case when p_approved and status='draft' then 'approved' else status end
+  where id=p_campaign_id;
+  if not found then raise exception using errcode='P0002',message='Campaign not found'; end if;
+  insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
+  values(v_actor,'campaign.reviewed','ad_campaigns',p_campaign_id,jsonb_build_object('review_status',v_review));
+  return v_review;
+end;
+$;
 
 create or replace function public.newsroom_set_story_access(p_story_id uuid, p_access_policy text)
 returns text
@@ -1049,6 +1175,33 @@ create trigger trg_newsroom_protect_story_authority
 before update on public.stories
 for each row execute function public.newsroom_protect_story_authority_fields();
 
+create or replace function public.newsroom_protect_staff_authority_fields()
+returns trigger
+language plpgsql
+set search_path = public
+as $
+begin
+  if current_setting('app.newsroom_rpc',true) is distinct from '1' then
+    if new.auth_user_id is distinct from old.auth_user_id
+       or new.email is distinct from old.email
+       or new.role_id is distinct from old.role_id
+       or new.status is distinct from old.status
+       or new.mfa_required is distinct from old.mfa_required
+       or new.mfa_enrolled_at is distinct from old.mfa_enrolled_at
+       or new.revoked_at is distinct from old.revoked_at
+       or new.assigned_editor_id is distinct from old.assigned_editor_id then
+      raise exception using errcode='42501',message='Protected staff authority fields require an approved Newsroom RPC';
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists trg_newsroom_protect_staff_authority on public.staff_profiles;
+create trigger trg_newsroom_protect_staff_authority
+before update on public.staff_profiles
+for each row execute function public.newsroom_protect_staff_authority_fields();
+
 create or replace function public.newsroom_sync_staff_from_auth()
 returns trigger
 language plpgsql
@@ -1074,6 +1227,7 @@ begin
       end if;
       v_status := case when new.email_confirmed_at is not null then 'active' else 'invited' end;
 
+      perform set_config('app.newsroom_rpc','1',true);
       insert into public.staff_profiles(auth_user_id,display_name,email,role_id,desk,country,status,handle,assigned_editor_id,created_at,updated_at)
       values(new.id,v_invite.display_name,lower(new.email),v_invite.invited_role_id,v_invite.desk,v_invite.country,v_status,v_handle,v_invite.assigned_editor_id,now(),now())
       on conflict (email) do update set
@@ -1128,8 +1282,8 @@ create policy ag06_stories_read on public.stories for select to authenticated
 using (public.newsroom_can_read_story(id));
 
 drop policy if exists ag06_stories_insert on public.stories;
-create policy ag06_stories_insert on public.stories for insert to authenticated
-with check (public.newsroom_has_capability('story.create') and owner_staff_id=public.newsroom_current_staff_id_basic());
+-- Intentionally no direct INSERT policy. Story creation must use newsroom_create_story(),
+-- which derives ownership from the authenticated staff identity and writes audit history.
 
 drop policy if exists ag06_stories_update on public.stories;
 create policy ag06_stories_update on public.stories for update to authenticated
@@ -1267,6 +1421,9 @@ grant execute on function public.newsroom_change_staff_role(uuid,text) to authen
 grant execute on function public.newsroom_revoke_staff(uuid,text) to authenticated;
 grant execute on function public.newsroom_revoke_session(uuid,text) to authenticated;
 grant execute on function public.newsroom_set_story_access(uuid,text) to authenticated;
+grant execute on function public.newsroom_record_review(uuid,text,text,text) to authenticated;
+grant execute on function public.newsroom_restore_revision(uuid,uuid,integer) to authenticated;
+grant execute on function public.newsroom_approve_campaign(uuid,boolean) to authenticated;
 
 revoke execute on function public.newsroom_has_capability(text) from anon;
 revoke execute on function public.newsroom_session_authorized() from anon;
