@@ -14,8 +14,11 @@ export default function WatchScreen(){
   const router=useRouter();
   const { palette }=useAppearance();
   const [active,setActive]=useState<WatchTab>("latest");
+  const [libraryVersion,setLibraryVersion]=useState(0);
   const videos=useAsync(()=>services.video.list(),[]);
+  const savedVideoIds=useAsync(()=>services.reader.getSavedMediaIds("video"),[libraryVersion]);
   const featured=videos.data?.[0];
+  const toggleSaved=async(id:string)=>{await services.reader.toggleSavedMedia("video",id);setLibraryVersion((value)=>value+1);};
   const remaining=videos.data?.slice(1) ?? [];
 
   const unavailableCopy:Record<Exclude<WatchTab,"latest">,string>={
@@ -42,13 +45,13 @@ export default function WatchScreen(){
         <>
           <Section>
             <SectionHeader title="Featured video" eyebrow="WATCH" />
-            {featured ? <VideoCard item={featured} /> : <EmptyState title="No featured video" message="New HealthTimes videos will appear here when published." />}
+            {featured ? <VideoCard item={featured} saved={savedVideoIds.data?.includes(featured.id)} onToggleSaved={()=>void toggleSaved(featured.id)} /> : <EmptyState title="No featured video" message="New HealthTimes videos will appear here when published." />}
           </Section>
           <Section>
             <SectionHeader title="Latest" />
             {remaining.length ? (
               <View style={styles.grid}>
-                {remaining.map((item)=><View style={styles.item} key={item.id}><VideoCard item={item} /></View>)}
+                {remaining.map((item)=><View style={styles.item} key={item.id}><VideoCard item={item} saved={savedVideoIds.data?.includes(item.id)} onToggleSaved={()=>void toggleSaved(item.id)} /></View>)}
               </View>
             ) : (
               <EmptyState title="No additional videos" message="There are no more HealthTimes videos in this view." />

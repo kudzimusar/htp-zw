@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/native-mobile-nm07-native-certification
+      - feat/native-mobile-nm04-reader-media-offline
       - integration/native-mobile-nm00-convergence
     paths:
       - 'apps/mobile/**'
