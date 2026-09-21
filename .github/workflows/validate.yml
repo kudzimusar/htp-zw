@@ -2,7 +2,7 @@ name: Validate HealthTimes 2.0
 
 on:
   push:
-    branches: [main]
+    branches: [main, integration/native-mobile-nm00-convergence]
   pull_request:
 
 permissions:
