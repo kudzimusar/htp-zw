@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
@@ -7,7 +7,7 @@ import { layout, radius, spacing } from "../../src/theme/tokens";
 import { appEnvironment } from "../../src/platform/config";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 
-type MenuItem={label:string;path?:string;detail?:string};
+type MenuItem={label:string;path?:string;url?:string;detail?:string};
 
 const groups:{title:string;items:MenuItem[]}[]=[
   {title:"Account",items:[
@@ -39,7 +39,15 @@ export default function MyHealthTimesScreen(){
   const router=useRouter();
   const { palette }=useAppearance();
   const profile=useAsync(()=>services.auth.getReader(),[]);
+  const publication=useAsync(()=>services.publication.getProfile(),[]);
   const membership=profile.data?.membership ?? "anonymous";
+  const publicationItems:MenuItem[]=[
+    {label:"About HealthTimes",path:"/about"},
+    {label:"Authors",path:"/authors"},
+    {label:"Corrections & Editorial Standards",path:"/about",detail:"Editorial contact + verified principles"},
+    ...(publication.data ? [{label:"Contact HealthTimes",url:publication.data.contactUrl}] : []),
+    ...(publication.data?.sourceLinks ?? []).map((link)=>({label:link.label,url:link.url,detail:link.kind==="product"?"Publication product":link.kind==="social"?"Social channel":"Contact channel"}))
+  ];
 
   return (
     <Page title="My HealthTimes">
@@ -58,6 +66,30 @@ export default function MyHealthTimesScreen(){
         </Pressable>
       </View>
 
+      <Section>
+        <SectionHeader title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL" />
+        <View>
+          {publicationItems.map((item)=>(
+            <Pressable
+              key={item.label}
+              onPress={item.path
+                ? ()=>router.push(item.path as never)
+                : item.url
+                  ? ()=>void Linking.openURL(item.url!)
+                  : undefined}
+              style={[styles.row,{borderBottomColor:palette.border}]}
+              accessibilityRole={item.url?"link":"button"}
+            >
+              <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
+              <View style={styles.rowEnd}>
+                {!!item.detail && <Text style={[styles.detail,{color:palette.inkMuted}]}>{item.detail}</Text>}
+                <Text style={[styles.chevron,{color:palette.inkMuted}]}>{item.url?"↗":"›"}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </Section>
+
       {groups.map((group)=>(
         <Section key={group.title}>
           <SectionHeader title={group.title} />
@@ -65,10 +97,10 @@ export default function MyHealthTimesScreen(){
             {group.items.map((item)=>(
               <Pressable
                 key={item.label}
-                disabled={!item.path}
-                onPress={item.path ? ()=>router.push(item.path as never) : undefined}
+                disabled={!item.path && !item.url}
+                onPress={item.path ? ()=>router.push(item.path as never) : item.url ? ()=>void Linking.openURL(item.url) : undefined}
                 style={[styles.row,{borderBottomColor:palette.border}]}
-                accessibilityRole={item.path ? "button" : undefined}
+                accessibilityRole={item.url ? "link" : item.path ? "button" : undefined}
               >
                 <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
                 <View style={styles.rowEnd}>
