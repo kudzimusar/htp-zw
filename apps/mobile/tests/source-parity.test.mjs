@@ -287,3 +287,12 @@ test("Pages workflow proves exact deployed SHA and critical owner-preview routes
     assert.ok(pages.includes(route),route);
   }
 });
+
+test("Watch uses verified destinations rather than the HealthTimes root",()=>{
+  const snapshot=read("src/source-parity/snapshot.ts"),cards=read("src/ui/Cards.tsx");
+  for(const id of ["lezgDMK2lPg","8rU5X2X6CNc","v4Sjv8-kz3I","zEDRwL6NYak","8K9nxwmj-1k"]){
+    assert.ok(snapshot.includes("https://www.youtube.com/watch?v="+id),id);
+    assert.ok(snapshot.includes("https://img.youtube.com/vi/"+id+"/maxresdefault.jpg"),id+" thumbnail");
+  }
+  assert.match(cards,/verifiedVideoDestination/);assert.match(cards,/Video unavailable/);assert.match(cards,/Linking\.openURL/);
+});

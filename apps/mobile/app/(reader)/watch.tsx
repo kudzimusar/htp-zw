@@ -19,15 +19,15 @@ export default function WatchScreen(){
   const remaining=videos.data?.slice(1) ?? [];
 
   const unavailableCopy:Record<Exclude<WatchTab,"latest">,string>={
-    popular:"AG-05 audience signals will determine verified popularity; the client does not fabricate rankings.",
-    series:"The public source confirms a HealthTimes video playlist, but authoritative series grouping remains an AG-04 metadata responsibility.",
-    live:"Live video is routed through the HealthTimes Live service so status remains authoritative.",
-    shorts:"Short-form classification will come from authoritative AG-04 video metadata; the source bridge does not infer it from duration alone."
+    popular:"Popular videos will appear when HealthTimes audience ranking is available.",
+    series:"HealthTimes series will appear when programme grouping is available.",
+    live:"Open Live to see current and scheduled HealthTimes live coverage.",
+    shorts:"Short-form videos will appear when HealthTimes publishes them with that format."
   };
 
   return (
     <Page title="Watch">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>HealthTimes video is a first-class editorial destination. Latest currently reflects verified video relationships exposed by the public source publication; playback URLs are not invented when the source does not expose them.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Watch HealthTimes interviews, explainers, investigations and health coverage. Videos open only when a published viewing destination is available.</Text>
       <View style={styles.tabs}>
         {([
           ["latest","Latest"],
@@ -42,7 +42,7 @@ export default function WatchScreen(){
         <>
           <Section>
             <SectionHeader title="Featured video" eyebrow="WATCH" />
-            {featured ? <VideoCard item={featured} /> : <EmptyState title="No featured video" message="Video content will appear when the Video service returns published items." />}
+            {featured ? <VideoCard item={featured} /> : <EmptyState title="No featured video" message="New HealthTimes videos will appear here when published." />}
           </Section>
           <Section>
             <SectionHeader title="Latest" />
@@ -51,14 +51,14 @@ export default function WatchScreen(){
                 {remaining.map((item)=><View style={styles.item} key={item.id}><VideoCard item={item} /></View>)}
               </View>
             ) : (
-              <EmptyState title="No additional videos" message="The current service has no more published video items." />
+              <EmptyState title="No additional videos" message="There are no more HealthTimes videos in this view." />
             )}
           </Section>
         </>
       ) : (
         <Section>
           <EmptyState
-            title={active==="live" ? "Open live video coverage" : "Authoritative metadata required"}
+            title={active==="live" ? "Open live video coverage" : "Nothing here yet"}
             message={unavailableCopy[active]}
             action={active==="live" ? (
               <Pressable accessibilityRole="button" style={[styles.liveAction,{borderColor:palette.border}]} onPress={()=>router.push("/live" as never)}>

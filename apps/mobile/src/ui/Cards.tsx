@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
 import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
@@ -126,29 +126,24 @@ export function LiveRail({ items }: { items: LiveItem[] }) {
   );
 }
 
-export function VideoCard({ item }: { item: VideoItem }) {
-  const { palette }=useAppearance();
-  const duration=item.durationSeconds ? Math.floor(item.durationSeconds/60) + ":" + String(item.durationSeconds%60).padStart(2,"0") : "";
-  const sourceBacked=item.sourceProvenance?.system==="wordpress";
+function verifiedVideoDestination(item:VideoItem){
+  const value=item.sourceUrl?.trim();
+  if(!value||!/^https:\/\//i.test(value)||/^https:\/\/(?:www\.)?healthtimes\.co\.zw\/?$/i.test(value)) return null;
+  const unresolved=(item.sourceProvenance?.exceptions??[]).some((exception)=>exception.classification==="requires-review"&&exception.field==="sourceUrl");
+  return unresolved?null:value;
+}
+export function VideoCard({item}:{item:VideoItem}){
+  const{palette}=useAppearance();
+  const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
+  const destination=verifiedVideoDestination(item);
   return (
-    <View style={styles.videoCard}>
-      {item.thumbnail?.publicUrl ? (
-        <Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText ?? item.title} />
-      ) : (
-        <View style={[styles.videoFallback,{backgroundColor:palette.navy}]}>
-          <Text style={styles.videoFallbackBrand}>HealthTimes</Text>
-          <Text style={styles.videoFallbackLabel}>VIDEO</Text>
-          <Text style={styles.videoFallbackNote}>Source relationship verified · visual pending authoritative media metadata</Text>
-        </View>
-      )}
-      <View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>
-      {!!duration && <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
+    <Pressable style={styles.videoCard} disabled={!destination} accessibilityRole={destination?"link":undefined} accessibilityState={{disabled:!destination}} accessibilityLabel={destination?"Watch "+item.title:item.title+" video unavailable"} onPress={destination?()=>{void Linking.openURL(destination);}:undefined}>
+      {item.thumbnail?.publicUrl?<Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText??item.title}/>:<View style={[styles.videoFallback,{backgroundColor:palette.navy}]}><Text style={styles.videoFallbackBrand}>HealthTimes</Text><Text style={styles.videoFallbackLabel}>VIDEO</Text><Text style={styles.videoFallbackNote}>Thumbnail unavailable</Text></View>}
+      {destination&&<View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>}
+      {!!duration&&<View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
       <Text style={[styles.videoTitle,{color:palette.ink}]}>{item.title}</Text>
-      <View style={styles.videoMetaRow}>
-        {!!item.publishedAt && <Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}
-        {sourceBacked && <Text style={[styles.videoSource,{color:palette.blue}]}>SOURCE-BACKED</Text>}
-      </View>
-    </View>
+      <View style={styles.videoMetaRow}>{!!item.publishedAt&&<Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}<Text style={[styles.videoAction,{color:destination?palette.blue:palette.inkMuted}]}>{destination?"Watch video ↗":"Video unavailable"}</Text></View>
+    </Pressable>
   );
 }
 
@@ -254,7 +249,7 @@ const styles=StyleSheet.create({
   durationText:{color:"#FFFFFF",fontSize:11,fontWeight:"800"},
   videoTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
   videoMetaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
-  videoSource:{fontSize:9,fontWeight:"900",letterSpacing:.8},
+  videoAction:{fontSize:10,fontWeight:"900",letterSpacing:.5},
   audioCard:{flexDirection:"row",alignItems:"center",gap:spacing.md,borderBottomWidth:1,paddingVertical:spacing.lg},
   audioButton:{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center"},
   audioButtonText:{fontSize:18},
