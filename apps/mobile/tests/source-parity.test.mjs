@@ -278,7 +278,7 @@ test("institutional continuity is discoverable from My HealthTimes and About",()
 });
 
 test("Pages workflow proves exact deployed SHA and critical owner-preview routes",()=>{
-  const pages=read("../.github/workflows/pages.yml");
+  const pages=read("../../.github/workflows/pages.yml");
   assert.match(pages,/build-info\.json/);
   assert.match(pages,/Exact-head Pages deployment: PASS/);
   for(const route of ["live","explore","search","premium","watch","my","article\/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"]){
