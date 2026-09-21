@@ -116,13 +116,13 @@ export default function SavedScreen(){
 
       {active==="videos" && (
         <Section>
-          <EmptyState title="Saved video is not connected yet" message="The Video service contract exists; persistent video downloads require a certified native media adapter rather than a second storage model." />
+          <EmptyState title="No saved videos yet" message="Saved video will appear here when that feature is available." />
         </Section>
       )}
 
       {active==="audio" && (
         <Section>
-          <EmptyState title="Saved audio is not connected yet" message="The Audio service contract exists; persistent audio downloads require a certified native media adapter rather than a second storage model." />
+          <EmptyState title="No saved audio yet" message="Saved audio will appear here when that feature is available." />
         </Section>
       )}
 

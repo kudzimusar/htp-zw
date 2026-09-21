@@ -30,7 +30,7 @@ const groups:{title:string;items:MenuItem[]}[]=[
     {label:"Devices / Sessions",path:"/devices-sessions"},
     {label:"System Status",path:"/system-status"},
     {label:"Growth & Commercial Readiness",path:"/growth-status"},
-    {label:"Help & Support",detail:"Support service pending"},
+    {label:"Help & Support",detail:"Contact and reader help"},
     {label:"Sign Out / Account deletion",path:"/devices-sessions"}
   ]}
 ];
@@ -119,7 +119,7 @@ export default function MyHealthTimesScreen(){
       <Section>
         <Pressable style={[styles.studio,{backgroundColor:palette.navy,borderRadius:radius.md}]} onPress={()=>router.push("/studio" as never)}>
           <Text style={styles.studioTitle}>HealthTimes Studio</Text>
-          <Text style={styles.studioText}>Open the staff workspace. Access remains capability-gated by AG-06 server authority; this Reader cannot grant roles locally.</Text>
+          <Text style={styles.studioText}>Open the HealthTimes staff workspace. Staff access requires an authorized HealthTimes account.</Text>
         </Pressable>
       </Section>
     </Page>

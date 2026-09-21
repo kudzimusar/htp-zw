@@ -46,11 +46,11 @@ export default function PremiumScreen(){
         <SectionHeader title="From HealthTimes Premium" eyebrow="CURRENT PUBLIC SOURCE" />
         {premiumStories.length
           ? <StoryGrid stories={premiumStories} />
-          : <EmptyState title="No Premium source stories in this snapshot" message="Premium labels remain source-owned and will be fully reconciled by AG-04." />}
+          : <EmptyState title="No Premium stories available" message="Premium reporting will appear here when published." />}
       </Section>
 
       <Section>
-        <SectionHeader title="Choose your plan" eyebrow="VERIFIED STOREFRONT" />
+        <SectionHeader title="Choose your plan" eyebrow="MEMBERSHIP OPTIONS" />
         {store.data?.status==="available" && store.data.offers.length ? (
           <View style={styles.plans}>
             {store.data.offers.map((offer)=>(
@@ -85,7 +85,7 @@ export default function PremiumScreen(){
           </Pressable>
         </View>
         {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
-        <Text style={[styles.signin,{color:palette.inkMuted}]}>Server entitlement remains authoritative under AG-06. Store purchase UI never grants access locally.</Text>
+        <Text style={[styles.signin,{color:palette.inkMuted}]}>Already a member? Sign in to restore your HealthTimes Premium access.</Text>
       </Section>
     </Page>
   );

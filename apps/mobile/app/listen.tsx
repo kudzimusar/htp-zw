@@ -42,7 +42,7 @@ export default function ListenScreen(){
                     accessibilityRole="button"
                     accessibilityLabel="Play featured audio"
                     style={styles.play}
-                    onPress={()=>setStatus("Playback source is not exposed by the current AudioService contract. UI remains ready for the certified media adapter.")}
+                    onPress={()=>setStatus("Playback is not available for this item yet.")}
                   >
                     <Text style={styles.playText}>Play</Text>
                   </Pressable>
@@ -51,11 +51,11 @@ export default function ListenScreen(){
                 </View>
                 {!!status && <Text accessibilityLiveRegion="polite" style={styles.playerMeta}>{status}</Text>}
               </View>
-            ) : <EmptyState title="No featured audio" message="Audio appears here when the Audio service returns a published item." />}
+            ) : <EmptyState title="No featured audio" message="HealthTimes audio will appear here when published." />}
           </Section>
           <Section>
             <SectionHeader title="Latest" />
-            {audio.data?.length ? audio.data.map((item)=><AudioCard key={item.id} item={item} />) : <EmptyState title="No audio yet" message="Published audio will appear through the existing AudioService." />}
+            {audio.data?.length ? audio.data.map((item)=><AudioCard key={item.id} item={item} />) : <EmptyState title="No audio yet" message="Published HealthTimes audio will appear here." />}
           </Section>
         </>
       ) : (
@@ -64,7 +64,7 @@ export default function ListenScreen(){
             title={active==="offline" ? "Offline audio is not connected yet" : "Classification metadata required"}
             message={active==="offline"
               ? "Persistent native audio downloads require the later media playback lane; no duplicate storage model is created here."
-              : "Podcast/article-audio classification will come from authoritative migrated media metadata rather than client guesses."}
+              : "No audio is available in this category yet."}
           />
         </Section>
       )}
