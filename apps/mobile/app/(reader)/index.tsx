@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { ArticleSummary, EditionPreference } from "../../src/domain/models";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
 import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
@@ -13,6 +13,19 @@ type HomeFilter="for-you"|"latest"|"edition"|"world"|"health";
 
 function publishedTime(story:ArticleSummary){
   return story.publishedAt ? new Date(story.publishedAt).getTime() : 0;
+}
+
+function normalized(value:string){
+  return value.trim().toLowerCase();
+}
+
+function sourceTerms(story:ArticleSummary){
+  return new Set((story.legacyTaxonomy ?? story.topics).map((term)=>normalized(term.name)));
+}
+
+function hasSourceTerm(story:ArticleSummary,...names:string[]){
+  const terms=sourceTerms(story);
+  return names.some((name)=>terms.has(normalized(name)));
 }
 
 function matchesPreferences(story:ArticleSummary,preferences:EditionPreference){
@@ -32,6 +45,57 @@ function isHealthStory(story:ArticleSummary){
   return section.includes("health") || story.topics.some((topic)=>topic.name.toLowerCase().includes("health"));
 }
 
+function uniqueStories(stories:ArticleSummary[]){
+  const seen=new Set<string>();
+  return stories.filter((story)=>{
+    if(seen.has(story.id)) return false;
+    seen.add(story.id);
+    return true;
+  });
+}
+
+function EditorialSection({
+  title,
+  eyebrow,
+  stories,
+  onExplore
+}:{
+  title:string;
+  eyebrow?:string;
+  stories:ArticleSummary[];
+  onExplore?:()=>void;
+}){
+  if(!stories.length) return null;
+  return (
+    <Section>
+      <SectionHeader title={title} eyebrow={eyebrow} action={onExplore?"Explore":undefined} onAction={onExplore} />
+      <StoryGrid stories={stories.slice(0,3)} />
+    </Section>
+  );
+}
+
+function OpportunityLinks({links}:{links:PublicationLink[]}){
+  const { palette }=useAppearance();
+  if(!links.length) return null;
+  return (
+    <View style={styles.opportunityGrid}>
+      {links.map((link)=>(
+        <Pressable
+          key={link.key}
+          accessibilityRole="link"
+          accessibilityLabel={link.label}
+          style={[styles.opportunityCard,{borderColor:palette.border,backgroundColor:palette.paper}]}
+          onPress={()=>void Linking.openURL(link.url)}
+        >
+          <Text style={[styles.opportunityEyebrow,{color:palette.blue}]}>HEALTHTIMES</Text>
+          <Text style={[styles.opportunityTitle,{color:palette.ink}]}>{link.label}</Text>
+          <Text style={[styles.opportunityAction,{color:palette.inkMuted}]}>Open current publication destination →</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router=useRouter();
   const { palette }=useAppearance();
@@ -39,25 +103,22 @@ export default function HomeScreen() {
   const home=useAsync(() => services.articles.getHome(), []);
   const live=useAsync(() => services.live.list(), []);
   const video=useAsync(() => services.video.list(), []);
+  const publication=useAsync(()=>services.publication.getProfile(),[]);
   const preferences=useAsync(() => services.reader.getPreferences(), []);
 
   if (home.loading || !home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
 
+  const source=[...home.data].sort((a,b)=>publishedTime(b)-publishedTime(a));
   const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
   const edition=preferenceState.primaryEdition?.trim() || "Global";
   const editionStories=edition.toLowerCase()==="global"
-    ? home.data.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
-    : home.data.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
+    ? source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
+    : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
 
   const filteredStories=useMemo(()=>{
-    const source=home.data ?? [];
-    if(activeFilter==="latest"){
-      return [...source].sort((a,b)=>publishedTime(b)-publishedTime(a));
-    }
-    if(activeFilter==="edition"){
-      return editionStories.length ? editionStories : source;
-    }
+    if(activeFilter==="latest") return source;
+    if(activeFilter==="edition") return editionStories.length ? editionStories : source;
     if(activeFilter==="world"){
       const matches=source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"));
       return matches.length ? matches : source;
@@ -76,7 +137,46 @@ export default function HomeScreen() {
     preferenceState.followedTopics.join("|")
   ]);
 
-  const [hero,...topStories]=filteredStories;
+  const [hero,...filteredRemainder]=filteredStories;
+  const topStories=filteredRemainder.slice(0,6);
+  const latest=source.filter((story)=>story.id!==hero?.id).slice(0,6);
+  const features=source.filter((story)=>hasSourceTerm(story,"Features"));
+  const research=source.filter((story)=>
+    story.primarySection?.slug==="research" ||
+    hasSourceTerm(story,"Research & Findings","Reseach Findings","Academic & Research")
+  );
+  const financing=source.filter((story)=>
+    story.primarySection?.slug==="health-business" ||
+    hasSourceTerm(story,"Health Financing")
+  );
+  const hiv=source.filter((story)=>hasSourceTerm(story,"HIV/AIDS"));
+  const globalHealth=source.filter((story)=>
+    story.primarySection?.slug==="global-health" ||
+    story.geography.some((zone)=>zone.slug==="global")
+  );
+  const publicHealth=source.filter((story)=>
+    story.primarySection?.slug==="public-health" &&
+    !hasSourceTerm(story,"Features","Health Financing","HIV/AIDS")
+  );
+  const premium=source.filter((story)=>story.accessPolicy==="premium");
+  const featuredVideos=video.data?.slice(0,4) ?? [];
+  const opportunityLinks=(publication.data?.sourceLinks ?? []).filter((link)=>
+    ["jobs","fellowships-grants","training-courses","academic-research","baraza-e-paper"].includes(link.key)
+  );
+  const usedIds=new Set(uniqueStories([
+    ...(hero?[hero]:[]),
+    ...topStories,
+    ...latest.slice(0,3),
+    ...features.slice(0,3),
+    ...publicHealth.slice(0,3),
+    ...research.slice(0,3),
+    ...financing.slice(0,3),
+    ...hiv.slice(0,3),
+    ...globalHealth.slice(0,3),
+    ...premium.slice(0,3)
+  ]).map((story)=>story.id));
+  const furtherCoverage=source.filter((story)=>!usedIds.has(story.id)).slice(0,6);
+
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},
     {key:"latest",label:"Latest"},
@@ -95,81 +195,77 @@ export default function HomeScreen() {
 
       <View style={[styles.previewNotice,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
         <Text style={[styles.previewLabel,{color:palette.blue}]}>SOURCE PARITY PREVIEW</Text>
-        <Text style={[styles.previewText,{color:palette.inkMuted}]}>Current public HealthTimes stories are presented through a read-only bridge. WordPress is never mutated; AG-03/AG-04 remain authoritative for migration completeness and the final Supabase repository.</Text>
+        <Text style={[styles.previewText,{color:palette.inkMuted}]}>The approved HealthTimes design is presenting current public HealthTimes journalism through a read-only bridge. AG-03/AG-04 remain authoritative for migration completeness and the final repository.</Text>
       </View>
 
       {hero ? <HeroStory story={hero} /> : null}
 
-      {!!live.data?.length && (
-        <Section>
-          <SectionHeader title="Live Now" eyebrow="NOW" action="Open Live" onAction={() => router.push("/live" as never)} />
-          <LiveRail items={live.data.filter((item)=>item.status==="live")} />
-        </Section>
-      )}
-
       <Section>
-        <AdSlot placement="home_after_live" />
+        <SectionHeader title="Live Now" eyebrow="LIVE" action="Open Live" onAction={() => router.push("/live" as never)} />
+        {live.data?.some((item)=>item.status==="live")
+          ? <LiveRail items={live.data.filter((item)=>item.status==="live")} />
+          : <EmptyState title="No verified live event right now" message="The Live rail remains part of the approved front page and activates only when the existing Live service has a verified event." />}
       </Section>
+
+      <Section><AdSlot placement="home_after_live" /></Section>
 
       <Section>
         <SectionHeader title="Top Stories" eyebrow="EDITOR'S DESK" action="Explore" onAction={() => router.push("/explore" as never)} />
         {topStories.length
           ? <StoryList stories={topStories} />
-          : <EmptyState title="No additional stories in this view" message="Choose another filter or Explore the wider HealthTimes taxonomy." />}
+          : <EmptyState title="No additional stories in this view" message="Choose another front-page filter or Explore the wider HealthTimes taxonomy." />}
       </Section>
 
+      <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} onExplore={()=>setActiveFilter("latest")} />
+      <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Public Health" stories={publicHealth} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Research & Findings" stories={research} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Health Financing" stories={financing} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="HIV/AIDS" stories={hiv} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Global Health" stories={globalHealth} onExplore={()=>router.push("/explore" as never)} />
+
       <Section>
-        <SectionHeader title="For You" eyebrow="PERSONALIZED DISCOVERY" />
-        <View style={[styles.callout,{backgroundColor:palette.paperMuted}]}>
-          <View style={styles.calloutCopy}>
-            <Text style={[styles.calloutTitle,{color:palette.ink}]}>Your HealthTimes, without losing the front page</Text>
-            <Text style={[styles.calloutText,{color:palette.inkMuted}]}>Edition, followed countries and topics shape discovery while editor-controlled lead journalism stays authoritative.</Text>
+        <SectionHeader title="Watch" eyebrow="HEALTHTIMES VIDEO" action="Open Watch" onAction={() => router.push("/watch" as never)} />
+        {featuredVideos.length ? (
+          <View style={styles.watchGrid}>
+            {featuredVideos.map((item) => <View key={item.id} style={styles.watchItem}><VideoCard item={item} /></View>)}
           </View>
-          <Pressable style={[styles.calloutButton,{backgroundColor:palette.blue}]} onPress={() => router.push("/edition" as never)}>
-            <Text style={[styles.calloutButtonText,{color:palette.paper}]}>Choose edition and interests</Text>
-          </Pressable>
-        </View>
-      </Section>
-
-      <Section>
-        <SectionHeader title={edition + " Edition"} eyebrow="Primary Edition" action="Change edition" onAction={() => router.push("/edition" as never)} />
-        {editionStories.length ? (
-          <StoryGrid stories={editionStories.slice(0,3)} />
         ) : (
-          <EmptyState title="Edition coverage is being prepared" message="The selected edition is supported by the global model, but the current bounded source-parity snapshot does not yet contain matching stories." />
+          <EmptyState title="No verified video available" message="Watch activates only with source-backed video metadata through the existing VideoService." />
         )}
       </Section>
 
       <Section>
-        <SectionHeader title="Research & Findings" />
-        <StoryGrid stories={home.data.filter((item) => item.primarySection?.slug === "research").slice(0, 3)} />
+        <SectionHeader title="Premium" eyebrow="MEMBER REPORTING" action="View Premium" onAction={() => router.push("/premium" as never)} />
+        {premium.length
+          ? <StoryGrid stories={premium.slice(0,3)} />
+          : <EmptyState title="Premium reporting unavailable in this source window" message="Premium presentation remains fail-closed until source metadata and entitlement authority are available." />}
       </Section>
 
-      <Section>
-        <SectionHeader title="Health Business" />
-        <StoryGrid stories={home.data.filter((item) => item.primarySection?.slug === "health-business").slice(0, 3)} />
-      </Section>
+      <Section><AdSlot placement="home_watch" /></Section>
+
+      {!!opportunityLinks.length && (
+        <Section>
+          <SectionHeader title="Opportunities" eyebrow="CAREERS, LEARNING & RESEARCH" action="Explore" onAction={() => router.push("/explore" as never)} />
+          <OpportunityLinks links={opportunityLinks} />
+        </Section>
+      )}
 
       <Section>
-        <SectionHeader title="Premium Intelligence" eyebrow="MEMBER REPORTING" action="View Premium" onAction={() => router.push("/premium" as never)} />
-        <StoryGrid stories={home.data.filter((item) => item.accessPolicy === "premium").slice(0, 3)} />
+        <SectionHeader title={edition + " Edition"} eyebrow="PRIMARY EDITION" action="Change edition" onAction={() => router.push("/edition" as never)} />
+        {editionStories.length ? (
+          <StoryGrid stories={editionStories.slice(0,3)} />
+        ) : (
+          <EmptyState title="Edition coverage is being prepared" message="The edition is supported by the global model, but the current bounded public source does not contain enough matching reporting yet." />
+        )}
       </Section>
 
-      <Section>
-        <SectionHeader title="Watch" eyebrow="VIDEO" action="Open Watch" onAction={() => router.push("/watch" as never)} />
-        <View style={styles.watchGrid}>
-          {video.data?.map((item) => <View key={item.id} style={styles.watchItem}><VideoCard item={item} /></View>)}
-        </View>
-      </Section>
-
-      <Section>
-        <AdSlot placement="home_watch" />
-      </Section>
-
-      <Section>
-        <SectionHeader title="Global Health" />
-        <StoryGrid stories={home.data.filter((item) => item.geography.some((zone) => zone.slug === "global")).slice(0, 3)} />
-      </Section>
+      {!!furtherCoverage.length && (
+        <Section>
+          <SectionHeader title="Further Coverage" eyebrow="MORE FROM HEALTHTIMES" action="Explore all" onAction={() => router.push("/explore" as never)} />
+          <StoryGrid stories={furtherCoverage} />
+        </Section>
+      )}
 
       <Section>
         <SectionHeader title="Most Read / Trending" />
@@ -179,9 +275,7 @@ export default function HomeScreen() {
         />
       </Section>
 
-      <Section>
-        <AdSlot placement="home_deep_feed" />
-      </Section>
+      <Section><AdSlot placement="home_deep_feed" /></Section>
     </Page>
   );
 }
@@ -191,12 +285,11 @@ const styles=StyleSheet.create({
   previewNotice:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.md,paddingHorizontal:spacing.lg,marginBottom:spacing.xl,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.2},
   previewText:{fontSize:12,lineHeight:18,flex:1,minWidth:220},
-  callout:{borderRadius:radius.md,padding:spacing.xl,gap:spacing.lg,flexDirection:"row",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"},
-  calloutCopy:{gap:spacing.sm,flex:1,minWidth:240},
-  calloutTitle:{fontSize:20,fontWeight:"900"},
-  calloutText:{fontSize:15,lineHeight:22,maxWidth:720},
-  calloutButton:{alignSelf:"flex-start",minHeight:44,justifyContent:"center",paddingHorizontal:16,borderRadius:radius.sm},
-  calloutButtonText:{fontWeight:"900"},
   watchGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xl},
-  watchItem:{minWidth:260,flex:1}
+  watchItem:{minWidth:260,flex:1},
+  opportunityGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.md},
+  opportunityCard:{minWidth:220,flexGrow:1,flexBasis:220,borderWidth:1,borderRadius:radius.md,padding:spacing.lg,gap:spacing.sm},
+  opportunityEyebrow:{fontSize:9,fontWeight:"900",letterSpacing:1.1},
+  opportunityTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
+  opportunityAction:{fontSize:12,lineHeight:18}
 });
