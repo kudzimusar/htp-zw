@@ -139,7 +139,7 @@
     ['System',[['settings','Settings','⚙',CAP.SETTINGS],['integrations','Integrations','⌁','admin'],['security','Security','⌾','security']]]
   ];
 
-  let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null;
+  let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null, recoveryMode=false;
   function ensureSeed(){}
   function getStories(){return read(KEYS.stories,[])} function setStories(v){write(KEYS.stories,v)}
   function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
@@ -233,6 +233,20 @@
     serverUser={...self,capabilities:Array.isArray(ctx.capabilities)?ctx.capabilities:[],sessionId:ctx.session_id,initials:initials(self.name)};
   }
 
+  async function consumeProviderCallback(){
+    if(!location.hash||!location.hash.includes('access_token='))return;
+    const p=new URLSearchParams(location.hash.slice(1));
+    const type=p.get('type')||'';
+    const accessToken=p.get('access_token'),refreshToken=p.get('refresh_token');
+    if(!accessToken||!refreshToken)return;
+    const result=await api('adoptSession',{accessToken,refreshToken,expiresIn:Number(p.get('expires_in')||3600)});
+    recoveryMode=type==='recovery';
+    history.replaceState({},document.title,location.pathname+location.search);
+    if(result.context){
+      serverUser={...(result.context||{}),username:result.context?.handle||result.context?.id,name:result.context?.display_name,initials:initials(result.context?.display_name),capabilities:result.context?.capabilities||[]};
+    }
+  }
+
   async function refreshData(){
     const result=await api('bootstrap',{},'GET');
     applyBootstrap(result.data);
@@ -252,6 +266,7 @@
 
   async function init(){
     bindGlobal();
+    try{await consumeProviderCallback();}catch(error){console.warn('Provider callback rejected safely:',error.message);}
     try{await refreshData();}catch(error){
       if(error.status!==401&&error.status!==403)console.warn('Newsroom bootstrap unavailable:',error.message);
       serverUser=null;
@@ -259,6 +274,7 @@
     const u=currentUser();
     if(!u){$('[data-login-view]').hidden=false;$('[data-newsroom-app]').hidden=true;return;}
     $('[data-login-view]').hidden=true;$('[data-newsroom-app]').hidden=false;renderUser();renderNav();showModule('overview');
+    if(recoveryMode)$('[data-password-reset-modal]').hidden=false;
   }
 
   function renderUser(){const u=currentUser();$('[data-user-mini]').innerHTML=`<div class="nr-user-mini-row"><span class="nr-avatar">${esc(u.initials)}</span><span><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></span><button type="button" data-sign-out aria-label="Sign out">↪</button></div>`;$('[data-user-menu]').textContent=u.initials;$('[data-topline]').textContent=`${u.name} · ${u.role}`;}
@@ -413,6 +429,7 @@
     document.addEventListener('click',async e=>{
       const mod=e.target.closest('[data-module]');if(mod){showModule(mod.dataset.module);return;}
       const jump=e.target.closest('[data-module-jump]');if(jump){showModule(jump.dataset.moduleJump);$('[data-user-popover]')?.setAttribute('hidden','');return;}
+      if(e.target.closest('[data-recover-account]')){const email=$('[data-login-form] input[name="email"]')?.value?.trim();if(!email){$('[data-login-error]').textContent='Enter your staff email first.';return;}try{const result=await api('recover',{email});$('[data-login-error]').textContent=result.message||'Recovery email requested.';}catch(error){$('[data-login-error]').textContent=error.message;}return;}
       if(e.target.closest('[data-sign-out]')){await logout();return;}
       if(e.target.closest('[data-user-menu]')){userPopover();return;}
       if(e.target.closest('[data-quick-create]')){await openStory();return;}
@@ -443,6 +460,7 @@
     document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);});
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
+    $('[data-password-reset-form]')?.addEventListener('submit',async e=>{e.preventDefault();const password=e.currentTarget.elements.password.value,confirmPassword=e.currentTarget.elements.confirmPassword.value,error=$('[data-password-reset-error]');error.textContent='';if(password!==confirmPassword){error.textContent='Passwords do not match.';return;}try{await api('setPassword',{password});$('[data-password-reset-modal]').hidden=true;recoveryMode=false;e.currentTarget.reset();toast('Password updated securely.');}catch(ex){error.textContent=ex.message;}});
     $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text});e.currentTarget.reset();await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
     window.addEventListener('beforeunload',()=>{if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;}});
 
