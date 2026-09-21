@@ -63,6 +63,7 @@ const searchService: SearchService = {
     });
     return {
       articles: articleMatches,
+      authors: [],
       videos: query.format && query.format !== "video" ? [] : videos,
       audio: query.format && query.format !== "audio" ? [] : audioItems,
       live: query.format && query.format !== "live" ? [] : liveItems
