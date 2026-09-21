@@ -6,7 +6,7 @@ import type {
   VideoItem
 } from "../domain/models";
 
-export const SOURCE_PARITY_VERIFIED_AT = "2026-09-20T11:00:00Z";
+export const SOURCE_PARITY_VERIFIED_AT = "2026-09-21T00:00:00Z";
 export const SOURCE_PARITY_PUBLIC_BASE_URL = "https://healthtimes.co.zw";
 
 const canonicalSections = {
@@ -240,6 +240,64 @@ export const sourceParityArticles:ArticleDetail[]=[
     imageAlt:"Zimbabwean parliamentarians at an engagement on teenage pregnancy and child marriage",
     imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg",
     geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Zimbabwe Joins Africa-Led Trial Testing Long-Acting HIV Treatment to Protect Babies",
+    slug:"zimbabwe-long-acting-hiv-treatment-mother-to-child-transmission",
+    date:"2026-09-14",
+    author:"Michael Gwarisa",
+    categories:["Breaking News"],
+    excerpt:"Zimbabwe will participate in an Africa-led Phase 3 study testing whether long-acting HIV treatment can help sustain maternal viral suppression and reduce transmission to babies during pregnancy and breastfeeding.",
+    imageAlt:"African mother and baby representing a trial of long-acting HIV treatment to prevent mother-to-child transmission",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"DatCitizen Launches Backpack Walk in Solidarity With Girls Facing Unwanted Pregnancies",
+    slug:"datcitizen-backpack-walk-teenage-pregnancy-zimbabwe",
+    date:"2026-09-14",
+    author:"Michael Gwarisa",
+    categories:["Gender Matrix","Health News"],
+    excerpt:"Women and girls marched in Harare carrying weighted backpacks to highlight the education, health and social burden of unintended teenage pregnancy and sexual violence.",
+    imageAlt:"Women and girls march during the DatCitizen Not Her Choice Backpack Walk in Harare, Zimbabwe",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Ken Sharpe appointed to lead Zimbabwe’s End Malaria Council",
+    slug:"kenneth-sharpe-appointed-zimbabwe-end-malaria-council",
+    date:"2026-09-11",
+    author:"Kuda Pembere",
+    categories:["Health News"],
+    excerpt:"Kenneth Sharpe has been appointed chairperson of Zimbabwe’s End Malaria Council, which is expected to mobilise resources and partnerships for malaria elimination.",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"‘I Bled Non-Stop For Seven Days’: Can Zimbabwe’s New Health Law Stop Girls Turning to Unsafe Abortion?",
+    slug:"i-bled-non-stop-for-seven-days-can-zimbabwes-new-health-law-stop-girls-turning-to-unsafe-abortion",
+    date:"2026-09-11",
+    author:"Michael Gwarisa",
+    categories:["Features"],
+    excerpt:"A survivor’s account of unsafe abortion frames questions about how Zimbabwe’s evolving health law, children’s rights and abortion framework operate in practice for pregnant minors.",
+    imageAlt:"Memory Pamella Kadau, a reproductive health advocate, discussing abortion rights in Zimbabwe",
+    geography:"zimbabwe"
+  }),
+  sourceArticle({
+    title:"Global Commission calls for end to punitive drug policies targeting children",
+    slug:"global-commission-punitive-drug-policies-children",
+    date:"2026-09-10",
+    author:"Michael Gwarisa",
+    categories:["Health News"],
+    excerpt:"The Global Commission on Drug Policy is urging governments to replace punitive approaches affecting children and young people with policies centred on public health, rights and child welfare.",
+    imageAlt:"Global Commission on Drug Policy logo",
+    geography:"global"
+  }),
+  sourceArticle({
+    title:"Zika-Carrying Mosquito Breeds in London, Raising Climate Change Concerns",
+    slug:"zika-mosquito-breeds-london-climate-change",
+    date:"2026-09-09",
+    author:"Michael Gwarisa",
+    categories:["Global Health","Health News"],
+    excerpt:"The first recorded breeding of Aedes aegypti in residential areas of east London has renewed attention to how warming conditions may change the geography of mosquito-borne disease risk.",
+    geography:"global"
   }),
   sourceArticle({
     title:"Harare STI Cases Fall Below 2,000 Per Quarter, NAC Says",
