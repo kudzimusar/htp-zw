@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import { EmptyState, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { StoryGrid } from "../../src/ui/Cards";
@@ -14,6 +14,7 @@ export default function ExploreScreen(){
   const { width }=useWindowDimensions();
   const stories=useAsync(()=>services.articles.getHome(),[]);
   const taxonomy=useAsync(()=>services.taxonomy.getSnapshot(),[]);
+  const publication=useAsync(()=>services.publication.getProfile(),[]);
   const [active,setActive]=useState("Global");
 
   const zones=taxonomy.data?.geographicZones ?? [];
@@ -28,7 +29,7 @@ export default function ExploreScreen(){
     ["Topics",topics],
     ["Desks",desks],
     ["Formats",["Articles","Live","Video","Audio","Premium"]],
-    ["More",["Authors","About HealthTimes","Jobs","Fellowships & Grants","E-Paper","Archive"]]
+    ["More",["Authors","About HealthTimes","Jobs","Fellowships & Grants","Training & Courses","Academic & Research","BARAZA E-PAPER"]]
   ] as const;
 
   const filteredStories=useMemo(()=>{
@@ -63,24 +64,29 @@ export default function ExploreScreen(){
               <Text style={[styles.gatewayTitle,{color:palette.ink}]}>{title}</Text>
               {items.length ? (
                 <View style={styles.tiles}>
-                  {items.slice(0,title==="More"?6:12).map((item)=>(
-                    <Pressable
-                      key={item}
-                      onPress={()=>{
-                        if(item==="Authors") return router.push("/authors" as never);
-                        if(item==="About HealthTimes") return router.push("/about" as never);
-                        setActive(item);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityState={{selected:active===item}}
-                      style={[
-                        styles.tile,
-                        {width:tileWidth,borderColor:active===item?palette.blue:palette.border,backgroundColor:active===item?palette.paperMuted:palette.paper}
-                      ]}
-                    >
-                      <Text numberOfLines={2} style={[styles.tileText,{color:active===item?palette.blue:palette.ink}]}>{item}</Text>
-                    </Pressable>
-                  ))}
+                  {items.slice(0,title==="More"?8:12).map((item)=>{
+                    const sourceLink=publication.data?.sourceLinks?.find((link)=>link.label===item);
+                    const external=Boolean(sourceLink);
+                    return (
+                      <Pressable
+                        key={item}
+                        onPress={()=>{
+                          if(item==="Authors") return router.push("/authors" as never);
+                          if(item==="About HealthTimes") return router.push("/about" as never);
+                          if(sourceLink) return void Linking.openURL(sourceLink.url);
+                          setActive(item);
+                        }}
+                        accessibilityRole={external?"link":"button"}
+                        accessibilityState={external?undefined:{selected:active===item}}
+                        style={[
+                          styles.tile,
+                          {width:tileWidth,borderColor:active===item?palette.blue:palette.border,backgroundColor:active===item?palette.paperMuted:palette.paper}
+                        ]}
+                      >
+                        <Text numberOfLines={2} style={[styles.tileText,{color:external||active===item?palette.blue:palette.ink}]}>{item}</Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               ) : (
                 <EmptyState
