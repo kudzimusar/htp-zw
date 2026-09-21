@@ -79,7 +79,7 @@ test("requested Reader surfaces consume the repository bridge instead of a secon
   const about=read("app/about.tsx");
   for(const source of [home,explore,search,premium,watch]) assert.match(source,/services\./);
   assert.match(article,/SOURCE_PARITY_STATIC_ARTICLE_IDS/);
-  assert.match(article,/Open current source article/);
+  assert.match(article,/View article on HealthTimes\.co\.zw/);
   assert.match(author,/services\.publication\.getAuthor/);
   assert.match(author,/services\.articles\.listByAuthor/);
   assert.match(about,/services\.publication\.getProfile/);
@@ -248,7 +248,7 @@ test("source search returns authors and fails closed for unsupported video taxon
   const search=read("app/search.tsx");
   assert.match(models,/authors: AuthorProfile\[\]/);
   assert.match(service,/const authors=query\.format/);
-  assert.match(service,/query\.country \|\| query\.topic \|\| \(query\.format && query\.format!=="video"\)/);
+  assert.match(service,/query\.country\|\|query\.topic\|\|\(query\.format&&query\.format!=="video"\)/);
   assert.match(search,/Author matches/);
   assert.match(search,/country,setCountry/);
   assert.match(search,/topic,setTopic/);

@@ -132,8 +132,8 @@ test("media and personal surfaces remain service-owned and globally edition-safe
   assert.match(onboarding, /saveNotificationPreferences/);
   assert.doesNotMatch(edition, /Zimbabwe/);
   assert.doesNotMatch(onboarding, /Zimbabwe/);
-  assert.match(premium, /Server entitlement remains authoritative under AG-06/);
-  assert.match(notifications, /Native token registration and remote delivery remain AG-06/);
+  assert.match(premium, /Already a member\? Sign in to restore your HealthTimes Premium access/);
+  assert.match(notifications, /Choose which HealthTimes alerts you want to receive/);
 });
 
 
