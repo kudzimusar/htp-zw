@@ -90,7 +90,7 @@ Certified runtime candidate: `1546639cce38028b8daac9fa620ac89b8a0a3cc9`
 | Historical metric provenance architecture | PASS STAGING | Integration/run/source-property/date provenance schema is present; no historical metrics fabricated |
 | Citation/backlink architecture | PARTIAL | Citation model ready; provider not connected |
 | Browser smoke | PASS | AG-05 workflow run `35668045741`: 8/8 pass at 375, 430 and 1440 plus SEO/Newsroom/seller checks |
-| Migration/continuity tests | PASS | Migration Tests run `35667903655`: 50/50 pass in 3.9s; Validate run `35667903627`: SUCCESS |
+| Migration/continuity tests | PASS | Migration Tests run `35668048273`: 50/50 pass in 4.1s; Validate run `35668048259`: SUCCESS |
 | Staging Lighthouse baseline | PASS WITH PERFORMANCE FINDINGS | Run `35668045741`; artifact `10670690414`; INP unavailable in lab and not fabricated |
 | Production systems untouched | PASS | WordPress/DNS/GA/Search Console/AdSense/Google Ads production settings were not modified |
 
