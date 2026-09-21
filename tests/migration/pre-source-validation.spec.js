@@ -111,6 +111,22 @@ function cpanelStyleSql(prefix = 'cp_') {
   ].join('\n');
 }
 
+function multiPrefixSql() {
+  let sql = validSql('wprq_', false);
+  sql += '\n' + coreCreate('wpyg_');
+  sql += '\nINSERT INTO `wpyg_posts` VALUES ' +
+    "(101,1,0,'live-one','https://example.invalid/live-one/','publish','post')," +
+    "(102,2,0,'live-two','https://example.invalid/live-two/','publish','post')," +
+    "(103,1,0,'live-page','https://example.invalid/live-page/','publish','page')," +
+    "(104,1,0,'live-image','https://example.invalid/wp-content/uploads/2026/09/live.jpg','inherit','attachment');\n";
+  sql += "INSERT INTO `wpyg_postmeta` VALUES (1,101,'_thumbnail_id','104');\n";
+  sql += "INSERT INTO `wpyg_users` VALUES (1,'one'),(2,'two');\n";
+  sql += "INSERT INTO `wpyg_terms` VALUES (1,'Health','health'),(2,'Zimbabwe','zimbabwe');\n";
+  sql += "INSERT INTO `wpyg_term_taxonomy` VALUES (1,1,'category'),(2,2,'post_tag');\n";
+  sql += "INSERT INTO `wpyg_options` VALUES (1,'permalink_structure','/%postname%/');\n";
+  return sql;
+}
+
 function tempDir(label) {
   return fs.mkdtempSync(path.join(os.tmpdir(), label));
 }
@@ -200,6 +216,56 @@ test('consumes cPanel/phpMyAdmin/mysqldump-style SQL without exposing row conten
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('automatic prefix detection rejects indistinguishable complete WordPress prefix families', async () => {
+  const root = tempDir('ht-ag03-prefix-ambiguous-');
+  const file = path.join(root, 'multi-prefix.sql');
+  fs.writeFileSync(file, validSql('wprq_', false) + '\n' + validSql('wpyg_', false));
+
+  const report = await validateDatabaseArtifact(file);
+  expect(report.validation_status).toBe('INVALID');
+  expect(report.wordpress_table_prefix).toBeNull();
+  expect(report.wordpress_prefix_selection_source).toBe('AUTO_AMBIGUOUS');
+  expect(report.wordpress_prefix_candidate_count).toBe(2);
+  expect(report.errors.map(e => e.code)).toContain('WORDPRESS_PREFIX_AMBIGUOUS');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('explicit WordPress prefix is selected before INSERT classification and drives counts', async () => {
+  const root = tempDir('ht-ag03-prefix-explicit-');
+  const file = path.join(root, 'multi-prefix.sql');
+  fs.writeFileSync(file, multiPrefixSql());
+
+  const report = await validateDatabaseArtifact(file, { wordpressPrefix: 'wpyg_' });
+  expect(report.validation_status).toBe('VALID');
+  expect(report.wordpress_table_prefix).toBe('wpyg_');
+  expect(report.wordpress_prefix_selection_source).toBe('WP_CONFIG_EXPLICIT');
+  expect(report.authoritative_inventory).toEqual({
+    published_posts: 2,
+    pages: 1,
+    media: 1,
+    categories: 1,
+    tags: 1,
+    authors_users: 2
+  });
+  expect(report.content_signals.featured_media_relationships).toBe(true);
+  expect(report.content_signals.permalink_structure_key_seen).toBe(true);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('explicit incomplete WordPress prefix is rejected without falling back to another family', async () => {
+  const root = tempDir('ht-ag03-prefix-incomplete-');
+  const file = path.join(root, 'multi-prefix.sql');
+  fs.writeFileSync(file, validSql('wprq_', false) + '\n' + coreCreate('wpyg_', ['users']));
+
+  const report = await validateDatabaseArtifact(file, { wordpressPrefix: 'wpyg_' });
+  expect(report.validation_status).toBe('INVALID');
+  expect(report.wordpress_table_prefix).toBe('wpyg_');
+  expect(report.wordpress_prefix_selection_source).toBe('WP_CONFIG_EXPLICIT');
+  expect(report.missing_essential_core_tables).toContain('wpyg_users');
+  expect(report.errors.map(e => e.code)).toContain('MISSING_ESSENTIAL_WORDPRESS_CORE');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('PHP in uploads is valid only with mandatory review', () => {
   const root = tempDir('ht-ag03-uploads-script-');
   const uploads = path.join(root, 'uploads');
@@ -235,6 +301,29 @@ test('ordinary uploads archive remains valid with zero-byte and duplicate metada
   expect(report.metrics.zero_byte_file_count).toBe(1);
   expect(report.metrics.duplicate_hash_groups[0].copies).toBe(2);
   expect(report.metrics.year_month_distribution['2026/09']).toBe(3);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+
+test('large uploads archive listing beyond the legacy child-process buffer validates successfully', () => {
+  const root = tempDir('ht-ag03-uploads-large-listing-');
+  const month = path.join(root, 'uploads', '2026', '09');
+  fs.mkdirSync(month, { recursive: true });
+
+  const fileCount = 4500;
+  for (let i = 0; i < fileCount; i += 1) {
+    const name = 'asset-' + String(i).padStart(5, '0') + '-' + 'x'.repeat(210) + '.jpg';
+    fs.writeFileSync(path.join(month, name), 'x');
+  }
+
+  const archive = path.join(root, 'large-listing.tar.gz');
+  execFileSync('tar', ['-czf', archive, '-C', root, 'uploads']);
+  const report = validateUploadsArtifact(archive);
+
+  expect(report.validation_status).toBe('VALID');
+  expect(report.archive_integrity).toBe('PASS');
+  expect(report.metrics.file_count).toBe(fileCount);
+  expect(report.errors.map(e => e.code)).not.toContain('ARCHIVE_LIST_FAILED');
   fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -435,6 +524,33 @@ test('explicit database selection resolves ambiguity without leaking selection p
   expect(report.status).toBe('SOURCE_VALIDATION_READY');
   expect(report.discovery.database.selection_status).toBe('EXPLICIT_OVERRIDE');
   expect(JSON.stringify(report)).not.toContain(first);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+
+test('unified validator propagates explicit WordPress prefix through multi-prefix database validation', async () => {
+  const root = tempDir('ht-ag03-unified-prefix-');
+  const wordpress = path.join(root, 'wordpress');
+  const uploads = path.join(wordpress, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  fs.writeFileSync(path.join(uploads, 'asset.jpg'), 'asset');
+  fs.writeFileSync(path.join(wordpress, 'snapshot.sql'), multiPrefixSql());
+  const liveFile = path.join(root, 'live-inventory.json');
+  fs.writeFileSync(liveFile, JSON.stringify({
+    captured_at: '2026-09-21T00:00:00.000Z',
+    counts: { published_posts: 2, pages: 1, media: 1, categories: 1, tags: 1, authors_users: 2 }
+  }));
+
+  const report = await validateSourcePackage(root, {
+    repoDir: process.cwd(),
+    liveInventory: liveFile,
+    exportTimestamp: '2026-09-21T00:00:00.000Z',
+    wordpressPrefix: 'wpyg_'
+  });
+  expect(report.status).toBe('SOURCE_VALIDATION_READY');
+  expect(report.database.wordpress_table_prefix).toBe('wpyg_');
+  expect(report.database.wordpress_prefix_selection_source).toBe('WP_CONFIG_EXPLICIT');
+  expect(report.database.authoritative_inventory.published_posts).toBe(2);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
