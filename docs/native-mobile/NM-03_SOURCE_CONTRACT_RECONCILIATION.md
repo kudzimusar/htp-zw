@@ -48,6 +48,8 @@ The canonical desk mapper has no generic Public Health fallback. A source label 
 - capture timestamp;
 - shortcode/custom-field migration exceptions.
 
+Author provenance keeps the stable WordPress author key when `wordpress_source_id` exists. Media mapping accepts the related `legacy_sources` row through `heroMediaLegacySource`; if AG-04 omits that relation while `media_assets.legacy_source_id` is present, the media provenance remains explicitly `requires-review` rather than being fabricated.
+
 AG-04 may also supply explicit migration exceptions through `StoryRelations.migrationExceptions`.
 
 ## Source Parity bounded-feed contract
@@ -80,8 +82,8 @@ The WordPress Source Parity bridge may be replaced by an AG-04 Supabase `Article
 2. AG-04 accounts for every expected published post/page, author, required media item and source term, or records a deterministic explicit exception.
 3. Imported stories preserve canonical URL, publication/modified dates, author/byline, access policy, body/standfirst/excerpt, media relationships and stable WordPress provenance.
 4. Legacy WordPress categories/tags remain queryable for reconciliation and canonical mappings are explicit; no inferred/review mapping is exposed as canonical.
-5. Canonical geography relationships are available to the repository and map through the same `geographyRefs → geography` compatibility rule.
-6. `legacy_sources` retains stable key, source ID, source URL, checksum/raw source context and migration exceptions needed by the mobile mapper.
+5. Canonical geography relationships are available to the repository and map through the same `geographyRefs → geography` compatibility rule. The currently generated staging types expose `geographic_zones` but no direct story↔geography relation, so AG-04 must provide that certified relation through its query/view/repository layer (or an AG-owned schema evolution) before replacement; NM-03 does not invent the relation.
+6. `legacy_sources` retains stable key, source ID, source URL, checksum/raw source context and migration exceptions needed by the mobile mapper, and media queries provide the related legacy-source row when a media asset carries `legacy_source_id`.
 7. Public staging read policies expose only the required published/public Reader data and media to the publishable client; Premium protected bodies remain fail-closed and no privileged key is shipped to the app.
 8. Representative and full reconciliation show no unexplained content loss or broken required media/links.
 9. NM-03 content-contract/source-parity tests and the native TypeScript/build suite pass against the candidate.
