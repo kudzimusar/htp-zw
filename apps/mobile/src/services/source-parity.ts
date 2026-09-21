@@ -248,9 +248,22 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const media=post._embedded?.["wp:featuredmedia"]?.[0];
   const canonicalUrl=post.link || fallback?.canonicalUrl || sourceBase+"/"+post.slug+"/";
   const excerpt=stripHtml(post.excerpt?.rendered) || fallback?.excerpt || null;
-  const authorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : fallback?.author?.displayName ?? "HealthTimes";
-  const authorSlug=embeddedAuthor?.slug || fallback?.author?.slug || "healthtimes";
   const authorId=embeddedAuthor?.id ?? post.author ?? null;
+  const author=embeddedAuthor ? {
+    id:"wordpress-author-"+embeddedAuthor.id,
+    displayName:decodeEntities(embeddedAuthor.name),
+    slug:embeddedAuthor.slug,
+    sourceProvenance:{
+      system:"wordpress" as const,
+      sourceId:String(embeddedAuthor.id),
+      stableKey:"wordpress-author:"+embeddedAuthor.id,
+      sourceUrl:embeddedAuthor.link ?? null,
+      checksum:null,
+      capturedAt:new Date().toISOString(),
+      wordpress:{authorId:String(embeddedAuthor.id)},
+      exceptions:[]
+    }
+  } : fallback?.author ?? null;
   const primarySection=fallback?.primarySection ?? approvedCanonicalSectionForLegacy(legacyNames);
   const geographyResolution=resolveGeography(post,fallback);
   const canonicalGeography=normalizeCanonicalGeography(geographyResolution.canonicalApproved);
@@ -277,26 +290,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     status:"published",
     publishedAt:post.date || fallback?.publishedAt || null,
     modifiedAt:post.modified || fallback?.modifiedAt || null,
-    author:{
-      id:authorId ? "wordpress-author-"+authorId : fallback?.author?.id ?? "source-author-"+authorSlug,
-      displayName:authorName,
-      slug:authorSlug,
-      sourceProvenance:{
-        system:"wordpress",
-        sourceId:authorId ? String(authorId) : null,
-        stableKey:authorId ? "wordpress-author:"+authorId : "wordpress-author:"+authorSlug,
-        sourceUrl:embeddedAuthor?.link ?? fallback?.author?.sourceProvenance?.sourceUrl ?? null,
-        checksum:null,
-        capturedAt:new Date().toISOString(),
-        wordpress:{authorId:authorId ? String(authorId) : undefined},
-        exceptions:post.author && !embeddedAuthor && !fallback?.author ? [{
-          kind:"author-unresolved",
-          classification:"requires-review",
-          field:"author",
-          note:"The WordPress author ID is preserved but the public _embed response did not provide a verified display identity."
-        }] : []
-      }
-    },
+    author,
     primarySection,
     ...canonicalGeography,
     geographyResolution,
@@ -439,11 +433,10 @@ const articleRepository:ArticleRepository={
   async getById(id){
     const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
     if(!current) return null;
-    const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
-      exception.kind==="taxonomy-unresolved" &&
-      (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
+    const accessTaxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
+      exception.kind==="taxonomy-unresolved" && exception.field==="legacyTaxonomy"
     );
-    const includeContent=current.accessPolicy==="public" && !taxonomyUnresolved;
+    const includeContent=current.accessPolicy==="public" && !accessTaxonomyUnresolved;
     const live=await sourceGet<WpPost[]>(
       "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+wpPostQuery({includeContent})
     );
