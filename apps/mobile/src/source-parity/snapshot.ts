@@ -422,6 +422,19 @@ export const sourceParityPublication:PublicationProfile={
     "Respect for privacy and dignity",
     "Transparent sourcing and corrections"
   ],
+  sourceLinks:[
+    {key:"jobs",label:"Jobs",url:SOURCE_PARITY_PUBLIC_BASE_URL+"/jobs/",kind:"product"},
+    {key:"fellowships-grants",label:"Fellowships & Grants",url:SOURCE_PARITY_PUBLIC_BASE_URL+"/fellowships-grants/",kind:"product"},
+    {key:"training-courses",label:"Training & Courses",url:SOURCE_PARITY_PUBLIC_BASE_URL+"/training-courses/",kind:"product"},
+    {key:"academic-research",label:"Academic & Research",url:SOURCE_PARITY_PUBLIC_BASE_URL+"/academic-research/",kind:"product"},
+    {key:"baraza-e-paper",label:"BARAZA E-PAPER",url:SOURCE_PARITY_PUBLIC_BASE_URL+"/baraza-e-paper/",kind:"product"},
+    {key:"whatsapp",label:"WhatsApp",url:"https://wa.me/263776280754",kind:"contact"},
+    {key:"x",label:"X",url:"https://x.com/healthtimeszim",kind:"social"},
+    {key:"facebook",label:"Facebook",url:"https://www.facebook.com/healthtimeszw",kind:"social"},
+    {key:"linkedin",label:"LinkedIn",url:"https://www.linkedin.com/in/healthtimes-zim-060079198/",kind:"social"},
+    {key:"instagram",label:"Instagram",url:"https://www.instagram.com/healthtimesnews/",kind:"social"},
+    {key:"youtube",label:"YouTube",url:"https://www.youtube.com/@HealthTimesTV",kind:"social"}
+  ],
   sourceVerifiedAt:SOURCE_PARITY_VERIFIED_AT
 };
 
