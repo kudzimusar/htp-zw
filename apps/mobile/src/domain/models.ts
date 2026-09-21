@@ -129,6 +129,7 @@ export type SearchQuery = {
 
 export type SearchResult = {
   articles: ArticleSummary[];
+  authors: AuthorProfile[];
   videos: VideoItem[];
   audio: AudioItem[];
   live: LiveItem[];
