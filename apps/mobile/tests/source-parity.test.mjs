@@ -177,3 +177,29 @@ test("uncertain live taxonomy fails closed for detail body retrieval",()=>{
   assert.match(service,/exception\.field==="legacyTaxonomy" \|\| exception\.field==="primarySection"/);
   assert.match(service,/includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
 });
+
+
+test("institutional products and social channels remain source-verifiably reachable",()=>{
+  const models=read("src/domain/models.ts");
+  const snapshot=read("src/source-parity/snapshot.ts");
+  const explore=read("app/(reader)/explore.tsx");
+  const about=read("app/about.tsx");
+  assert.match(models,/sourceLinks\?: PublicationLink\[\]/);
+  for(const path of [
+    "/jobs/",
+    "/fellowships-grants/",
+    "/training-courses/",
+    "/academic-research/",
+    "/baraza-e-paper/"
+  ]) assert.ok(snapshot.includes(path),path);
+  for(const destination of [
+    "x.com/healthtimeszim",
+    "facebook.com/healthtimeszw",
+    "instagram.com/healthtimesnews",
+    "youtube.com/@HealthTimesTV"
+  ]) assert.ok(snapshot.includes(destination),destination);
+  assert.match(explore,/services\.publication\.getProfile/);
+  assert.match(explore,/Linking\.openURL\(sourceLink\.url\)/);
+  assert.match(about,/HealthTimes products & channels/);
+  assert.match(about,/publication\.data\.sourceLinks/);
+});
