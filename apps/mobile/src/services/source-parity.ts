@@ -10,16 +10,22 @@ import type {
   ArticleDetail,
   ArticleSummary,
   AuthorProfile,
+  GeographyEvidence,
+  LegacyTaxonomyRef,
   SearchQuery,
   TaxonomyRef
 } from "../domain/models";
-import type { SourceException } from "../domain/source";
+import type { SourceException, SourceFeedContract } from "../domain/source";
+import {
+  approvedCanonicalSectionForLegacy,
+  canonicalGeographyBySlug,
+  normalizeCanonicalGeography
+} from "../domain/taxonomy-authority";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import {
   SOURCE_PARITY_PUBLIC_BASE_URL,
   SOURCE_PARITY_VERIFIED_AT,
-  canonicalSectionForLegacy,
   sourceParityAdvertisingReference,
   sourceParityArticles,
   sourceParityAuthors,
@@ -61,6 +67,15 @@ const sourceBase=(process.env.EXPO_PUBLIC_HEALTHTIMES_SOURCE_BASE_URL || SOURCE_
 const wpBase=sourceBase+"/wp-json/wp/v2";
 const cache={at:0,articles:null as ArticleDetail[]|null};
 const cacheMs=5*60*1000;
+const SOURCE_PARITY_FEED_PAGE_SIZE=50;
+const sourceFeedContract:SourceFeedContract={
+  mode:"bounded-public-feed",
+  requestedPageSize:SOURCE_PARITY_FEED_PAGE_SIZE,
+  corpusComplete:false,
+  totalItemsObserved:null,
+  totalPagesObserved:null,
+  inventoryDiagnostics:"unavailable"
+};
 const wpMetadataFields=[
   "id","date","modified","slug","link","author","featured_media","categories","tags",
   "title","excerpt","_links","_embedded"
@@ -89,7 +104,7 @@ function flattenTerms(post:WpPost){
   return (post._embedded?.["wp:term"] ?? []).flat().filter(Boolean);
 }
 
-function legacyTaxonomy(post:WpPost):TaxonomyRef[]{
+function legacyTaxonomy(post:WpPost):LegacyTaxonomyRef[]{
   const terms=flattenTerms(post);
   const seen=new Set<string>();
   return terms
@@ -100,42 +115,51 @@ function legacyTaxonomy(post:WpPost):TaxonomyRef[]{
       seen.add(key);
       return true;
     })
-    .map((term)=>({id:"wordpress-term-"+term.id,name:decodeEntities(term.name),slug:term.slug}));
+    .map((term)=>({
+      id:"wordpress-term-"+term.id,
+      name:decodeEntities(term.name),
+      slug:term.slug,
+      authority:"observed-source",
+      sourceSystem:"wordpress",
+      sourceId:String(term.id),
+      sourceKind:term.taxonomy==="category" ? "category" : "post_tag"
+    }));
 }
 
-const canonicalLegacyNames=new Set([
-  "africa",
-  "global health",
-  "health financing",
-  "reseach findings",
-  "research & findings",
-  "academic & research",
-  "policy",
-  "public health",
-  "health news",
-  "hiv/aids",
-  "epidemics",
-  "family health",
-  "srhr"
-]);
-
-function inferPrimarySection(legacyNames:string[],fallback:ArticleDetail|null){
-  if(fallback?.primarySection) return fallback.primarySection;
-  const normalized=legacyNames.map((name)=>name.toLowerCase());
-  if(!normalized.some((name)=>canonicalLegacyNames.has(name))) return null;
-  return canonicalSectionForLegacy(legacyNames);
+function observedGeographyEvidence(legacy:LegacyTaxonomyRef[]):GeographyEvidence[]{
+  return legacy.flatMap((term)=>{
+    const candidate=canonicalGeographyBySlug(term.slug);
+    if(!candidate) return [];
+    return [{
+      candidate,
+      authority:"observed-source" as const,
+      evidence:"wordpress-taxonomy" as const,
+      sourceValue:term.name
+    }];
+  });
 }
 
-function inferGeography(post:WpPost,fallback:ArticleDetail|null){
-  if(fallback?.geography?.length) return fallback.geography;
-  const categories=legacyTaxonomy(post).map((term)=>term.name.toLowerCase());
+function inferredGeographyEvidence(post:WpPost):GeographyEvidence[]{
   const text=(stripHtml(post.title?.rendered)+" "+stripHtml(post.excerpt?.rendered)).toLowerCase();
-  if(categories.includes("africa")) return [{id:"zone-africa",name:"Africa",slug:"africa"}];
-  if(categories.includes("global health")) return [{id:"zone-global",name:"Global",slug:"global"}];
-  if(/\bzimbabwe\b|\bharare\b|\bbulawayo\b|\bmutare\b|\bmasvingo\b|\bmidlands\b/.test(text)){
-    return [{id:"zone-zimbabwe",name:"Zimbabwe",slug:"zimbabwe"}];
-  }
-  return [];
+  const match=text.match(/\bzimbabwe\b|\bharare\b|\bbulawayo\b|\bmutare\b|\bmasvingo\b|\bmidlands\b/);
+  if(!match) return [];
+  const candidate=canonicalGeographyBySlug("zimbabwe");
+  if(!candidate) return [];
+  return [{
+    candidate,
+    authority:"inferred-requires-review",
+    evidence:"headline-excerpt",
+    sourceValue:match[0]
+  }];
+}
+
+function resolveGeography(post:WpPost,fallback:ArticleDetail|null){
+  const canonicalApproved=fallback?.geographyResolution?.canonicalApproved ?? fallback?.geographyRefs ?? [];
+  return {
+    canonicalApproved,
+    observedSource:observedGeographyEvidence(legacyTaxonomy(post)),
+    inferredRequiresReview:inferredGeographyEvidence(post)
+  };
 }
 
 function mappingExceptions(
@@ -145,7 +169,8 @@ function mappingExceptions(
   embeddedAuthor:WpAuthor|undefined,
   media:WpMedia|undefined,
   primarySection:TaxonomyRef|null,
-  geography:TaxonomyRef[]
+  geography:TaxonomyRef[],
+  geographyEvidenceCount:number
 ):SourceException[]{
   const exceptions:SourceException[]=[];
   const taxonomyIds=[...(post.categories ?? []),...(post.tags ?? [])];
@@ -186,7 +211,9 @@ function mappingExceptions(
       kind:"other",
       classification:"requires-review",
       field:"geography",
-      note:"Geography is left unassigned because the public source metadata does not provide enough evidence for a verified mapping."
+      note:geographyEvidenceCount
+        ? "Observed or text-inferred geography evidence is preserved for review but is not promoted to canonical geography without approved AG-01/AG-04 mapping evidence."
+        : "Geography is left unassigned because the public source metadata does not provide enough evidence for a verified mapping."
     });
   }
   const rawBody=post.content?.rendered ?? "";
@@ -224,9 +251,20 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const authorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : fallback?.author?.displayName ?? "HealthTimes";
   const authorSlug=embeddedAuthor?.slug || fallback?.author?.slug || "healthtimes";
   const authorId=embeddedAuthor?.id ?? post.author ?? null;
-  const primarySection=inferPrimarySection(legacyNames,fallback);
-  const geography=inferGeography(post,fallback);
-  const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,media,primarySection,geography);
+  const primarySection=fallback?.primarySection ?? approvedCanonicalSectionForLegacy(legacyNames);
+  const geographyResolution=resolveGeography(post,fallback);
+  const canonicalGeography=normalizeCanonicalGeography(geographyResolution.canonicalApproved);
+  const geographyEvidenceCount=geographyResolution.observedSource.length+geographyResolution.inferredRequiresReview.length;
+  const exceptions=mappingExceptions(
+    post,
+    fallback,
+    legacy,
+    embeddedAuthor,
+    media,
+    primarySection,
+    canonicalGeography.geography,
+    geographyEvidenceCount
+  );
   return {
     id:fallback?.id ?? "source-"+post.slug,
     title:stripHtml(post.title?.rendered) || fallback?.title || post.slug,
@@ -260,10 +298,15 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
       }
     },
     primarySection,
-    geography,
-    geographyRefs:fallback?.geographyRefs,
-    topics:legacy,
+    ...canonicalGeography,
+    geographyResolution,
+    topics:[],
     legacyTaxonomy:legacy,
+    taxonomyResolution:{
+      observedWordPress:legacy,
+      approvedCanonical:primarySection ? [primarySection] : [],
+      inferredRequiresReview:[]
+    },
     heroMedia:media?.source_url ? {
       id:"wordpress-media-"+media.id,
       publicUrl:media.source_url,
@@ -308,7 +351,13 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   };
 }
 
-async function sourceGet<T>(path:string):Promise<T|null>{
+type SourceEnvelope<T>={
+  data:T;
+  totalItems:number|null;
+  totalPages:number|null;
+};
+
+async function sourceGetEnvelope<T>(path:string):Promise<SourceEnvelope<T>|null>{
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),7000);
   try{
@@ -319,12 +368,22 @@ async function sourceGet<T>(path:string):Promise<T|null>{
       signal:controller.signal
     });
     if(!response.ok) return null;
-    return await response.json() as T;
+    const totalItems=Number(response.headers.get("x-wp-total"));
+    const totalPages=Number(response.headers.get("x-wp-totalpages"));
+    return {
+      data:await response.json() as T,
+      totalItems:Number.isFinite(totalItems) ? totalItems : null,
+      totalPages:Number.isFinite(totalPages) ? totalPages : null
+    };
   }catch{
     return null;
   }finally{
     clearTimeout(timeout);
   }
+}
+
+async function sourceGet<T>(path:string):Promise<T|null>{
+  return (await sourceGetEnvelope<T>(path))?.data ?? null;
 }
 
 function snapshotBySlug(){
@@ -334,7 +393,18 @@ function snapshotBySlug(){
 async function refreshedArticles():Promise<ArticleDetail[]>{
   if(cache.articles && Date.now()-cache.at<cacheMs) return cache.articles;
   const fallbackBySlug=snapshotBySlug();
-  const live=await sourceGet<WpPost[]>("/posts?per_page=50&status=publish&orderby=date&order=desc"+wpPostQuery({includeContent:false}));
+  const liveResponse=await sourceGetEnvelope<WpPost[]>(
+    "/posts?per_page="+SOURCE_PARITY_FEED_PAGE_SIZE+"&status=publish&orderby=date&order=desc"+wpPostQuery({includeContent:false})
+  );
+  const live=liveResponse?.data ?? null;
+  if(liveResponse){
+    sourceFeedContract.totalItemsObserved=liveResponse.totalItems;
+    sourceFeedContract.totalPagesObserved=liveResponse.totalPages;
+    sourceFeedContract.inventoryDiagnostics=
+      liveResponse.totalItems!==null || liveResponse.totalPages!==null
+        ? "wordpress-total-headers"
+        : "unavailable";
+  }
   if(!live){
     cache.at=Date.now();
     cache.articles=sourceParityArticles;
@@ -545,10 +615,15 @@ export const sourceParityServices={
   advertising:advertisingService
 };
 
+export function getSourceParityFeedContract():SourceFeedContract{
+  return {...sourceFeedContract};
+}
+
 export const sourceParityStatus={
   mode:"read-only-public-source" as const,
   sourceBase,
   verifiedAt:SOURCE_PARITY_VERIFIED_AT,
+  feed:sourceFeedContract,
   ag03AuthoritativeSnapshotRequired:true,
   ag04ReplacementRequired:true
 };
