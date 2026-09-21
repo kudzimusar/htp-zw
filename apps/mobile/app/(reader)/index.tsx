@@ -160,6 +160,7 @@ export default function HomeScreen() {
   );
   const premium=source.filter((story)=>story.accessPolicy==="premium");
   const featuredVideos=video.data?.slice(0,4) ?? [];
+  const liveItems=live.data?.length ? live.data.filter((item)=>item.status==="live") : [];
   const opportunityLinks=(publication.data?.sourceLinks ?? []).filter((link)=>
     ["jobs","fellowships-grants","training-courses","academic-research","baraza-e-paper"].includes(link.key)
   );
@@ -200,10 +201,10 @@ export default function HomeScreen() {
 
       {hero ? <HeroStory story={hero} /> : null}
 
-      {!!live.data?.some((item)=>item.status==="live") && (
+      {!!liveItems.length && (
         <Section>
           <SectionHeader title="Live Now" eyebrow="LIVE" action="Open Live" onAction={() => router.push("/live" as never)} />
-          <LiveRail items={live.data.filter((item)=>item.status==="live")} />
+          <LiveRail items={liveItems} />
         </Section>
       )}
 
