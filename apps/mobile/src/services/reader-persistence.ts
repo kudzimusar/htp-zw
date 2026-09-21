@@ -50,27 +50,88 @@ function clampProgress(value: number) {
   return Math.max(0, Math.min(1, value));
 }
 
-async function readOfflineRecords(): Promise<Record<string, OfflineArticleRecord>> {
-  const current = await readJson<Record<string, OfflineArticleRecord>>(keys.downloads, {});
-  if (Object.keys(current).length) return current;
+const OFFLINE_STORAGE_VERSION = 2;
 
-  const legacy = await readJson<Record<string, ArticleDetail>>(keys.legacyDownloads, {});
-  if (!Object.keys(legacy).length) {
-    await writeJson(keys.storageVersion, 2);
+function parseObjectRecord(raw: string | null): Record<string, unknown> | null {
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
     return {};
   }
+}
 
-  const migrated = Object.fromEntries(
-    Object.values(legacy).map((article) => [article.id, offlineRecordForArticle(article)])
+function isLegacyArticleDetail(value: unknown): value is ArticleDetail {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const article = value as Partial<ArticleDetail>;
+  return (
+    typeof article.id === "string" &&
+    article.id.trim().length > 0 &&
+    (article.accessPolicy === "public" || article.accessPolicy === "premium") &&
+    (typeof article.bodyHtml === "string" || article.bodyHtml === null)
   );
+}
+
+function parseOfflineRecordMap(raw: string | null): Record<string, OfflineArticleRecord> {
+  const parsed = parseObjectRecord(raw);
+  if (!parsed) return {};
+  return Object.fromEntries(
+    Object.entries(parsed).filter(([, value]) =>
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as Partial<OfflineArticleRecord>).schemaVersion === OFFLINE_STORAGE_VERSION &&
+      typeof (value as Partial<OfflineArticleRecord>).article?.id === "string"
+    )
+  ) as Record<string, OfflineArticleRecord>;
+}
+
+function migrateLegacyRecordMap(raw: string | null): Record<string, OfflineArticleRecord> {
+  const parsed = parseObjectRecord(raw);
+  if (!parsed) return {};
+  const migrated: Record<string, OfflineArticleRecord> = {};
+  for (const value of Object.values(parsed)) {
+    if (!isLegacyArticleDetail(value)) continue;
+    migrated[value.id] = offlineRecordForArticle(value);
+  }
+  return migrated;
+}
+
+async function readOfflineRecords(): Promise<Record<string, OfflineArticleRecord>> {
+  const version = await readJson<number>(keys.storageVersion, 0);
+  const currentRaw = await AsyncStorage.getItem(keys.downloads);
+
+  // Either a committed version marker or the existence of the v2 key makes v2
+  // authoritative, including an intentionally empty "{}" store. This prevents
+  // deleted migrated downloads from being resurrected from the legacy key.
+  if (version >= OFFLINE_STORAGE_VERSION || currentRaw !== null) {
+    if (version < OFFLINE_STORAGE_VERSION) {
+      await writeJson(keys.storageVersion, OFFLINE_STORAGE_VERSION);
+    }
+    return parseOfflineRecordMap(currentRaw);
+  }
+
+  const legacyRaw = await AsyncStorage.getItem(keys.legacyDownloads);
+  const migrated = migrateLegacyRecordMap(legacyRaw);
+
+  // Commit v2 first, then mark migration complete. Legacy cleanup is best-effort:
+  // the marker remains the durable authority even when removeItem is unavailable.
   await writeJson(keys.downloads, migrated);
-  await writeJson(keys.storageVersion, 2);
+  await writeJson(keys.storageVersion, OFFLINE_STORAGE_VERSION);
+  try {
+    await AsyncStorage.removeItem(keys.legacyDownloads);
+  } catch {
+    // A stale v1 key cannot repopulate v2 once the migration marker is committed.
+  }
   return migrated;
 }
 
 async function writeOfflineRecords(records: Record<string, OfflineArticleRecord>) {
   await writeJson(keys.downloads, records);
-  await writeJson(keys.storageVersion, 2);
+  await writeJson(keys.storageVersion, OFFLINE_STORAGE_VERSION);
 }
 
 export const persistentReaderRepository: ReaderRepository = {
