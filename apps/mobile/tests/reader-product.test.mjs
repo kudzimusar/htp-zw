@@ -12,7 +12,11 @@ test("ReaderRepository exposes deterministic persistent Reader capabilities", ()
   for (const method of [
     "getSavedArticleIds",
     "toggleSavedArticle",
+    "getSavedMediaIds",
+    "toggleSavedMedia",
     "getDownloadedArticles",
+    "getOfflineArticleRecords",
+    "getOfflineArticleRecord",
     "downloadArticle",
     "removeDownloadedArticle",
     "getReadPosition",
@@ -55,10 +59,13 @@ test("Article Reader restores progress and blocks unauthorized Premium offline b
 test("Saved and Offline library keeps bookmarks, downloads and history distinct", () => {
   const saved = read("app/saved.tsx");
   assert.match(saved, /type LibraryTab = "articles" \| "videos" \| "audio" \| "offline" \| "history"/);
-  assert.match(saved, /Available offline/);
-  assert.match(saved, /Remove download/);
+  assert.match(saved, /Offline article state/);
+  assert.match(saved, /Remove/);
   assert.match(saved, /Reading history/);
-  assert.match(saved, /stored separately from bookmarks/);
+  assert.match(saved, /Saving does not download article content/);
+  assert.match(saved, /Saved videos/);
+  assert.match(saved, /Saved audio/);
+  assert.match(saved, /local-only/);
 });
 
 test("appearance, accessibility and tablet density are wired into Reader UI", () => {
@@ -171,4 +178,37 @@ test("Home editorial filters are functional and default country preferences stay
   assert.ok(home.includes('live.data?.length'));
   assert.ok(persistence.includes("followedCountries: []"));
   assert.equal(persistence.includes('followedCountries: ["Zimbabwe"]'), false);
+});
+
+
+test("Listen and Watch consume provider-independent media state without inventing production playback", () => {
+  const models=read("src/domain/models.ts");
+  const media=read("src/reader/media-player.ts");
+  const listen=read("app/listen.tsx");
+  const watch=read("app/(reader)/watch.tsx");
+  const cards=read("src/ui/Cards.tsx");
+  for (const token of ["ReaderMediaSource","MediaPlaybackStatus","providerAssetId","transcriptState","presentation"]) assert.ok(models.includes(token),token);
+  for (const status of ["idle","loading","playing","paused","ended","error"]) assert.ok(models.includes(status),status);
+  assert.match(media,/verifiedAudioSource/);
+  assert.match(media,/Native playback requires the certified media adapter/);
+  assert.match(listen,/useReaderAudioPlayer/);
+  assert.match(listen,/Seek back 15 seconds/);
+  assert.match(listen,/Playback speed/);
+  assert.match(watch,/getSavedMediaIds\("video"\)/);
+  assert.match(cards,/item\.provider/);
+  assert.doesNotMatch(watch,/youtube\.com|youtu\.be/i);
+});
+
+test("offline Reader persistence is versioned and fail-closed independently of UI", () => {
+  const persistence=read("src/services/reader-persistence.ts");
+  const offline=read("src/reader/offline-state.ts");
+  const article=read("app/article/[id].tsx");
+  assert.match(persistence,/downloads:v2/);
+  assert.match(persistence,/legacyDownloads/);
+  assert.match(persistence,/bodyHtml: null|offlineRecordForArticle/);
+  assert.match(persistence,/syncMode: "local-only"|syncMode/);
+  assert.match(offline,/"not-downloaded"|OfflineAvailabilityState/);
+  assert.match(offline,/compareSourceFreshness/);
+  assert.match(article,/canOpenOffline/);
+  assert.match(article,/Offline copy/);
 });
