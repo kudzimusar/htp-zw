@@ -205,7 +205,7 @@ test("staging section rows require explicit canonical authority", () => {
   assert.match(mapper, /primarySectionAuthority === "canonical-approved" \? primarySectionCandidate : null/);
   assert.match(mapper, /mapLegacySectionRow\(relations\.primarySection\)/);
   assert.match(mapper, /sourceKind: "category"/);
-  assert.match(mapper, /inferredRequiresReview: inferredCanonical/);
+  assert.match(mapper, /inferredRequiresReview: \[\.\.\.inferredCanonical, \.\.\.inferredTopics\]/);
 });
 
 
