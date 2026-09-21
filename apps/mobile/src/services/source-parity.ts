@@ -435,10 +435,20 @@ const searchService:SearchService={
       ].join(" ").toLowerCase();
       return haystack.includes(q);
     });
+    const authors=query.format
+      ? []
+      : (await parityAuthors()).filter((author)=>{
+          if(!q) return true;
+          return [
+            author.displayName,
+            author.role ?? "",
+            author.bio ?? ""
+          ].join(" ").toLowerCase().includes(q);
+        });
     const videos=query.format && query.format!=="video"
       ? []
       : sourceParityVideos.filter((item)=>!q || item.title.toLowerCase().includes(q));
-    return {articles,videos,audio:[],live:[]};
+    return {articles,authors,videos,audio:[],live:[]};
   }
 };
 
