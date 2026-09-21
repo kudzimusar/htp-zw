@@ -213,6 +213,7 @@ export type StoryRelations = {
    * legacyTaxonomy until AG-04 explicitly maps them.
    */
   topics?: TaxonomyRef[];
+  topicsAuthority?: SourceMappingAuthority;
   legacyTaxonomy?: LegacyTaxonomyRef[];
   legacySource?: LegacySourceRow | null;
   migrationExceptions?: SourceException[];
@@ -234,7 +235,11 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     primarySectionAuthority === "observed-source" && relations.primarySection
       ? mapLegacySectionRow(relations.primarySection)
       : null;
-  const topics = relations.topics ?? [];
+  const topicCandidates = relations.topics ?? [];
+  const topics =
+    relations.topicsAuthority === "canonical-approved" ? topicCandidates : [];
+  const inferredTopics =
+    relations.topicsAuthority === "inferred-requires-review" ? topicCandidates : [];
   const legacyTaxonomy = Array.from(new Map(
     [
       ...(relations.legacyTaxonomy ?? []),
@@ -280,7 +285,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
         ...(primarySection ? [primarySection] : []),
         ...topics
       ],
-      inferredRequiresReview: inferredCanonical
+      inferredRequiresReview: [...inferredCanonical, ...inferredTopics]
     },
     heroMedia: relations.heroMedia ? mapMediaRow(relations.heroMedia) : null,
     sourceProvenance,
