@@ -88,7 +88,7 @@ export default function ListenScreen(){
                     <Text style={styles.playText}>{player.state.status==="playing"?"Pause":"Play"}</Text>
                   </Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Seek back 15 seconds" style={styles.seek} onPress={()=>player.seek(Math.max(0,player.state.elapsedSeconds-15))}><Text style={styles.seekText}>−15s</Text></Pressable>
-                  <View style={styles.progress} accessibilityLabel={"Playback progress "+Math.round(progress)+" percent"}><View style={[styles.progressFill,{width:progress+"%"}]} /></View>
+                  <View style={styles.progress} accessibilityLabel={"Playback progress "+Math.round(progress)+" percent"}><View style={[styles.progressFill,{width:(progress+"%") as `${number}%`}]} /></View>
                   <Pressable accessibilityRole="button" accessibilityLabel="Seek forward 15 seconds" style={styles.seek} onPress={()=>player.seek(player.state.elapsedSeconds+15)}><Text style={styles.seekText}>+15s</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel={"Playback speed "+player.state.playbackRate+" times"} style={styles.speedButton} onPress={cycleSpeed}><Text style={styles.speed}>{player.state.playbackRate}×</Text></Pressable>
                 </View>
