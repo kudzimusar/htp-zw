@@ -313,6 +313,7 @@ async function sourceGet<T>(path:string):Promise<T|null>{
   try{
     const response=await fetch(wpBase+path,{
       method:"GET",
+      credentials:"omit",
       headers:{Accept:"application/json"},
       signal:controller.signal
     });
