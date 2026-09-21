@@ -1,28 +1,19 @@
 import type {
   ArticleDetail,
   AuthorProfile,
+  LegacyTaxonomyRef,
   PublicationProfile,
   TaxonomyRef,
   VideoItem
 } from "../domain/models";
+import {
+  approvedCanonicalSectionForLegacy,
+  canonicalGeographyBySlug,
+  normalizeCanonicalGeography
+} from "../domain/taxonomy-authority";
 
 export const SOURCE_PARITY_VERIFIED_AT = "2026-09-21T00:00:00Z";
 export const SOURCE_PARITY_PUBLIC_BASE_URL = "https://healthtimes.co.zw";
-
-const canonicalSections = {
-  "global-health": { id: "desk-global-health", name: "Global Health", slug: "global-health" },
-  africa: { id: "desk-africa", name: "Africa", slug: "africa" },
-  research: { id: "desk-research", name: "Research", slug: "research" },
-  policy: { id: "desk-policy", name: "Policy", slug: "policy" },
-  "public-health": { id: "desk-public-health", name: "Public Health", slug: "public-health" },
-  "health-business": { id: "desk-health-business", name: "Health Business", slug: "health-business" }
-} as const;
-
-const geography = {
-  global: { id: "zone-global", name: "Global", slug: "global" },
-  africa: { id: "zone-africa", name: "Africa", slug: "africa" },
-  zimbabwe: { id: "zone-zimbabwe", name: "Zimbabwe", slug: "zimbabwe" }
-} as const;
 
 const authorIdentity: Record<string,{id:string;displayName:string;slug:string}> = {
   "Michael Gwarisa": { id: "source-author-michael-gwarisa", displayName: "Michael Gwarisa", slug: "michael-gwarisa" },
@@ -35,18 +26,16 @@ function slugify(value:string){
   return value.toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 }
 
-export function canonicalSectionForLegacy(names:string[]):TaxonomyRef {
-  const set=new Set(names.map((name)=>name.toLowerCase()));
-  if(set.has("africa")) return canonicalSections.africa;
-  if(set.has("global health")) return canonicalSections["global-health"];
-  if(set.has("health financing")) return canonicalSections["health-business"];
-  if(set.has("reseach findings") || set.has("research & findings") || set.has("academic & research")) return canonicalSections.research;
-  if(set.has("policy")) return canonicalSections.policy;
-  return canonicalSections["public-health"];
-}
-
-function legacyRefs(names:string[]):TaxonomyRef[]{
-  return names.map((name)=>({id:"legacy-"+slugify(name),name,slug:slugify(name)}));
+function legacyRefs(names:string[]):LegacyTaxonomyRef[]{
+  return names.map((name)=>({
+    id:"legacy-"+slugify(name),
+    name,
+    slug:slugify(name),
+    authority:"observed-source",
+    sourceSystem:"wordpress",
+    sourceId:null,
+    sourceKind:"category"
+  }));
 }
 
 function sourceArticle(input:{
@@ -67,8 +56,11 @@ function sourceArticle(input:{
     displayName:input.author,
     slug:slugify(input.author)
   };
-  const geo=input.geography==="zimbabwe" ? geography.zimbabwe : input.geography==="africa" ? geography.africa : geography.global;
+  const geographyRef=canonicalGeographyBySlug(input.geography);
+  if(!geographyRef) throw new Error("Unknown certified Source Parity geography: "+input.geography);
+  const canonicalGeography=normalizeCanonicalGeography([geographyRef]);
   const legacy=legacyRefs(input.categories);
+  const primarySection=approvedCanonicalSectionForLegacy(input.categories);
   return {
     id:"source-"+input.slug,
     title:input.title,
@@ -98,10 +90,25 @@ function sourceArticle(input:{
         exceptions:[]
       }
     },
-    primarySection:canonicalSectionForLegacy(input.categories),
-    geography:[geo],
-    topics:legacy,
+    primarySection,
+    ...canonicalGeography,
+    geographyResolution:{
+      canonicalApproved:[geographyRef],
+      observedSource:[{
+        candidate:geographyRef,
+        authority:"observed-source",
+        evidence:"certified-source-snapshot",
+        sourceValue:input.geography
+      }],
+      inferredRequiresReview:[]
+    },
+    topics:[],
     legacyTaxonomy:legacy,
+    taxonomyResolution:{
+      observedWordPress:legacy,
+      approvedCanonical:primarySection ? [primarySection] : [],
+      inferredRequiresReview:[]
+    },
     heroMedia:input.imageAlt ? {
       id:"source-media-"+input.slug,
       publicUrl:input.imageUrl ?? null,
