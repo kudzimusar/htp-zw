@@ -1,6 +1,6 @@
 # AG-03 — Source Data Capture Report
 
-Status: **CP3 NOT READY — authoritative private source package still required**
+Status: **CP3 NOT READY — authoritative source captured; frozen validator execution still required**
 
 ## A. Repository state
 
@@ -45,33 +45,35 @@ Expected private workspace is referred to only as **secure source package worksp
 
 ### Database export
 
-- Received: **NO / NOT AVAILABLE TO AG-03 EXECUTION CONTEXT**
-- Validated: **NO**
-- Checksum: unavailable
-- Table count/prefix/schema: unavailable
-- Provenance-key verification from database: pending
+- Received: **YES**
+- Source snapshot date: **2026-09-21**
+- Source database identity: `healthtimesco_wp551`
+- Database host class: local hosting database (`localhost`)
+- Engine/version: **MariaDB 10.6.28**
+- Export format: **SQL.GZip**
+- Export size: **18,680,797 bytes**
+- SHA-256: `16d525727bb451318a6658e710b20098213c846579b7601338a9c9dc91ad4060`
+- Gzip integrity: **PASS**
+- SQL readability: **PASS**
+- WordPress table prefix: `wpyg_`
+- Prefix table count: **132**
+- Total database table count: **146**
+- Site identity verified from `siteurl` and `home`: `https://healthtimes.co.zw`
+- Private database rows committed to Git: **NO**
 
-**WORK ASSISTANCE REQUIRED**
-
-- Service: HealthTimes hosting / cPanel / Plesk / SFTP / WP-CLI / database administration layer
-- Required action: create a read-only or export-only WordPress database snapshot using hosting backup, `wp db export`, phpMyAdmin/MySQL dump or equivalent
-- Access needed: temporary least-privilege export access; no credential sharing in Git/docs
-- Expected artifact: compressed SQL/database export stored in the secure source package workspace
-- Security boundary: private customer/order/member/plugin values must remain outside Git; report only checksum, size, schema metadata, counts and validation state
+The capture was produced read/export-only from the authenticated hosting environment and retained outside Git. The frozen AG-03 branch contains the required `migration:validate-source` script; the Work checkout that reported the script missing was therefore stale or not on the frozen AG-03 branch. CP3 certification remains pending only until the exact frozen validator is executed against the private artifacts and its sanitized result is recorded.
 
 ### Uploads/media archive
 
-- Complete `wp-content/uploads/` archive received: **NO / NOT AVAILABLE TO AG-03 EXECUTION CONTEXT**
-- Validated: **NO**
-- File count/bytes/MIME distribution: pending authoritative archive
-
-**WORK ASSISTANCE REQUIRED**
-
-- Service: HealthTimes hosting / SFTP / cPanel / Plesk
-- Required action: export the complete `wp-content/uploads/` tree without changing production files
-- Access needed: read-only file access or hosting backup export
-- Expected artifact: complete uploads archive stored in the secure source package workspace
-- Security boundary: archive must remain outside Git and must not be uploaded to staging; AG-04 owns media migration
+- Complete `wp-content/uploads/` package received: **YES**
+- Source snapshot date: **2026-09-21**
+- Archive format: **tar.gz**
+- Archive SHA-256: `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c`
+- Archive entries reported by capture: **23,262**
+- Capture-side validation: **COMPLETED**
+- Source media uploaded to Supabase/staging: **NO**
+- Private media package committed to Git: **NO**
+- Frozen-validator archive/tree metrics (byte size, year/month distribution, MIME distribution, zero-byte/unreadable/duplicate/script/link findings): **PENDING EXACT AG-03 VALIDATOR RUN**
 
 ### WXR
 
@@ -80,22 +82,30 @@ Expected private workspace is referred to only as **secure source package worksp
 - Previous result: all-content and split admin exports stalled on the live production host
 - Disposition: WXR is supplementary; database + uploads are the authoritative source path
 
-## E. Current WordPress inventory baseline
+## E. Authoritative WordPress rehearsal snapshot
 
-Read-only public/admin capture dated 2026-09-09 and 2026-09-14 records:
+Authoritative database snapshot and fresh live REST/admin reconciliation on 2026-09-21:
 
-| Object | Verified baseline |
-| --- | ---: |
-| Published posts | 5,721 |
-| Published pages | 49 |
-| Media records | 3,260 |
-| Categories | 83 |
-| Tags | 10,238 |
-| Public users/authors | 3 |
+| Object | Database snapshot | Fresh live source | Reconciliation |
+| --- | ---: | ---: | --- |
+| Published posts | 5,737 | 5,737 | MATCH |
+| Published pages | 49 | 49 | MATCH |
+| Media/attachments | 3,277 | 3,277 | MATCH |
+| Categories | 83 | 83 | MATCH |
+| Tags | 10,283 | 10,283 | MATCH |
+| Users | 3 | 3 (admin-captured) | MATCH |
+| Authors with published posts | 3 | 3 | MATCH |
 
-Admin listing additionally recorded 5,800 total posts with 5,721 published, 9 drafts, 2 pending and 2 trash.
+Additional post-state evidence from the authoritative database:
 
-These figures are **historical baseline evidence**, not current authoritative snapshot reconciliation. They must not be hard-coded as current counts. The AG-03 reconciler now performs a fresh read-only REST inventory when source validation runs and records its own capture timestamp. A fresh count was not substituted during this checkpoint because the available external REST access path did not return usable inventory envelope data. Editorial publishing remains live, so differences in the eventual database snapshot must be classified by the reconciler rather than automatically treated as migration failure.
+- archived: **68**
+- drafts: **11**
+- pending: **2**
+- trash: **2**
+- latest published post ID: **33190**
+- latest published post date: **2026-09-18 17:04:57 GMT**
+
+Core source drift classification for the captured snapshot is **MATCH**. No historical count was silently substituted.
 
 ## F. WordPress configuration provenance
 
@@ -183,30 +193,34 @@ Do not infer active spend from module presence alone. Account-level evidence is 
 
 ## L. WooCommerce / Premium / subscriptions / payments
 
-Observed stack confirms commerce capability exists, including WooCommerce, Memberships, Subscriptions, PayPal and Paynow. The visible WooCommerce analytics screen for early September 2026 showed no month-to-date orders/sales.
+Authoritative database evidence now establishes the following rehearsal truth:
 
-Current classification: **UNVERIFIED — authoritative private database/export history required**.
+- WooCommerce tables: **PRESENT**
+- historical WooCommerce orders: **0**
+- WooCommerce subscriptions: **0**
+- WooCommerce payment tokens: **0**
+- WooCommerce membership plans: **1**
+- SureMembers-related tables: **PRESENT**
+- active/historical member entitlement population: **NOT ESTABLISHED BY THE HANDOFF EVIDENCE**
+- WPForms payment rows: **0**
+- Paynow/PayPal plugin capability: previously observed; historical transaction relevance remains **UNVERIFIED unless represented by authoritative provider/account evidence outside WooCommerce**
 
-Pending database/export evidence must determine:
+Plugin/table presence is not treated as proof of active commerce. The authoritative database currently supports the classification: **commerce capability present; no WooCommerce order/subscription/payment-token history in the captured snapshot**.
 
-- whether historical orders exist;
-- whether subscriptions/memberships are active;
-- whether Premium/e-paper/advertising/donation or other commerce depends on WooCommerce;
-- active payment-provider relationships;
-- payment historical relevance: **UNVERIFIED** until authoritative records arrive;
-- legally/accounting-relevant retention requirements;
-- current entitlement model.
-
-No customer/payment rows may be copied into Git or this report.
+No customer/payment rows are included in this report.
 
 ## M. Newsletter / WhatsApp / audience
 
-Public product and admin evidence show audience/distribution capability, but authoritative provider/account/export evidence is not yet captured.
+Authoritative database inspection found:
 
-- Newsletter provider/list storage: **UNVERIFIED / access pending**
-- Subscriber export availability: **UNVERIFIED / access pending**
-- WhatsApp distribution model/provider: **UNVERIFIED / access pending**
-- Personal phone/email lists committed to Git: **NO**
+- WPForms/audience-related structures: **PRESENT**
+- WPForms log rows: **15**
+- WPForms payment rows: **0**
+- newsletter subscriber population: **NOT YET AUTHORITATIVELY CLASSIFIED FROM THE SUPPLIED HANDOFF**
+- WhatsApp provider/list model: **UNVERIFIED / access pending**
+- personal phone/email rows committed to Git: **NO**
+
+The presence of WPForms structures/logs is not treated as proof of a subscriber list. Any subscriber/customer classification remains conservative until the frozen validator/report evidence identifies the relevant authoritative structures and sanitized counts.
 
 ## N. Direct advertising
 
@@ -224,8 +238,8 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 
 ### HARD BLOCKERS
 
-1. Authoritative WordPress database export — blocks database/schema/provenance reconciliation and AG-04 content rehearsal.
-2. Complete `wp-content/uploads/` archive — blocks authoritative media reconciliation and AG-04 media rehearsal.
+1. **Exact frozen AG-03 validator execution against the captured private database and uploads artifacts.** The authoritative artifacts now exist, but the prior Work attempt ran from a checkout where `migration:validate-source` was absent. At frozen SHA `866912999857b363170b60cdf65e2f47119287a3`, that script is present in `package.json`.
+2. **Frozen-validator uploads disposition output.** The capture reports the uploads package as already validated, but CP3 still requires the exact AG-03 validator's sanitized archive/tree metrics and any executable/link review disposition.
 
 ### SOFT BLOCKERS
 
@@ -233,12 +247,11 @@ Site Kit confirms PageSpeed Insights integration. Account/source configuration i
 2. GA4 account-level ownership/settings/history evidence — affects AG-05 continuity validation.
 3. Search Console property type/owners/history evidence — affects AG-05 SEO continuity validation.
 4. AdSense account-level reporting/authorized-site/history evidence — affects AG-05 monetization continuity.
-5. WooCommerce/order/subscription/member export — required to classify commerce migration scope correctly.
-6. Payment-provider operational evidence — needed to classify Paynow/PayPal migration relevance.
-7. Newsletter/subscriber platform evidence — needed for audience continuity.
-8. WhatsApp distribution/provider evidence — needed for audience continuity.
-9. Direct advertiser/campaign/creative package including HOSPAZ — needed for commercial continuity.
-10. Google Ads account evidence — needed only if HealthTimes confirms commercially active spend/dependence.
+5. Payment-provider operational evidence — needed to classify Paynow/PayPal historical relevance outside the zero WooCommerce order/subscription/payment-token snapshot.
+6. Newsletter/subscriber platform evidence — needed for audience continuity beyond the observed WPForms structures/logs.
+7. WhatsApp distribution/provider evidence — needed for audience continuity.
+8. Direct advertiser/campaign/creative package including HOSPAZ — needed for commercial continuity.
+9. Google Ads account evidence — needed only if HealthTimes confirms commercially active spend/dependence.
 
 ### NON-BLOCKING / DEFERRED
 
@@ -347,7 +360,7 @@ No failing migration test was waived or reclassified.
 
 ## S. Downstream readiness
 
-- AG-04 content/media rehearsal readiness: **BLOCKED** — authoritative database export and complete uploads archive are missing.
+- AG-04 content/media rehearsal readiness: **BLOCKED only on CP3 certification** — authoritative database and uploads artifacts are now captured, but the frozen unified validator has not yet been executed from the correct checkout.
 - AG-05 SEO/analytics/monetization readiness: **BLOCKED for certification** — core public/Site Kit identities are known, but account-level ownership/history evidence remains pending.
 - AG-06 Newsroom backend readiness: **READY from CP2 architecture perspective**; AG-03 has not modified its staging backend boundary.
 
@@ -357,30 +370,30 @@ Do not populate these fields until the actual private artifacts have been receiv
 
 | Closure field | Value |
 | --- | --- |
-| Database SHA-256 | `PENDING_PRIVATE_ARTIFACT` |
-| Database size | `PENDING_PRIVATE_ARTIFACT` |
-| Database table count | `PENDING_PRIVATE_ARTIFACT` |
-| WordPress table prefix | `PENDING_PRIVATE_ARTIFACT` |
-| Database validation result | `PENDING_PRIVATE_ARTIFACT` |
-| Uploads SHA-256 / tree SHA-256 | `PENDING_PRIVATE_ARTIFACT` |
-| Uploads total bytes | `PENDING_PRIVATE_ARTIFACT` |
-| Uploads file count | `PENDING_PRIVATE_ARTIFACT` |
-| Uploads archive integrity | `PENDING_PRIVATE_ARTIFACT` |
-| Authoritative published-post count | `PENDING_PRIVATE_ARTIFACT` |
-| Authoritative page count | `PENDING_PRIVATE_ARTIFACT` |
-| Authoritative media count | `PENDING_PRIVATE_ARTIFACT` |
-| Authoritative category count | `PENDING_PRIVATE_ARTIFACT` |
-| Authoritative tag count | `PENDING_PRIVATE_ARTIFACT` |
-| Authoritative author/user count | `PENDING_PRIVATE_ARTIFACT` |
-| Drift reconciliation | `PENDING_PRIVATE_ARTIFACT` |
-| Provenance readiness | `PENDING_PRIVATE_ARTIFACT` |
-| WooCommerce/subscriptions classification | `UNVERIFIED` |
-| Newsletter/audience classification | `UNVERIFIED` |
-| Payment historical relevance | `UNVERIFIED` |
-| Unresolved source items | `PENDING_PRIVATE_ARTIFACT_REVIEW` |
+| Database SHA-256 | `16d525727bb451318a6658e710b20098213c846579b7601338a9c9dc91ad4060` |
+| Database size | `18,680,797 bytes` |
+| Database table count | `146 total / 132 wpyg_ prefix` |
+| WordPress table prefix | `wpyg_` |
+| Database validation result | `CAPTURE-SIDE PASS; FROZEN UNIFIED VALIDATOR PENDING` |
+| Uploads SHA-256 / tree SHA-256 | `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c` archive SHA-256; frozen tree hash pending |
+| Uploads total bytes | `PENDING_FROZEN_VALIDATOR_OUTPUT` |
+| Uploads file count | `23,262 archive entries reported by capture` |
+| Uploads archive integrity | `CAPTURE-SIDE VALIDATED; FROZEN VALIDATOR OUTPUT PENDING` |
+| Authoritative published-post count | `5,737` |
+| Authoritative page count | `49` |
+| Authoritative media count | `3,277` |
+| Authoritative category count | `83` |
+| Authoritative tag count | `10,283` |
+| Authoritative author/user count | `3 users / 3 published authors` |
+| Drift reconciliation | `MATCH on all five public core metrics; admin user count 3` |
+| Provenance readiness | `PENDING FROZEN VALIDATOR CERTIFICATION` |
+| WooCommerce/subscriptions classification | `TABLES PRESENT; 0 orders; 0 subscriptions; 0 payment tokens` |
+| Newsletter/audience classification | `WPForms structures present; 15 log rows; subscriber population unverified` |
+| Payment historical relevance | `NO WooCommerce order/subscription/payment-token history; external/provider history UNVERIFIED` |
+| Unresolved source items | `FROZEN_VALIDATOR_RUN; uploads review disposition; Google/account-level soft blockers; newsletter/WhatsApp/direct-ad evidence` |
 
 ## U. CP3 decision
 
-The pre-source validation toolchain is implemented and tested, but the actual authoritative private database and uploads package has not yet been received. CP3 therefore remains open.
+The authoritative database and uploads package have now been captured outside Git, and the live database/core REST counts reconcile. However, the exact frozen unified validator has not yet been executed against those private artifacts from the correct AG-03 checkout. CP3 therefore remains open until that final certification command succeeds and any uploads review finding is dispositioned.
 
 **CP3 NOT READY — downstream migration remains blocked**
