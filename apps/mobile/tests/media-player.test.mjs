@@ -48,3 +48,47 @@ test("audio playback source must be verified and HTTP(S)",()=>{
   assert.equal(media.verifiedAudioSource({...base,source:{url:"javascript:alert(1)",provider:"fixture",providerAssetId:"a",mimeType:"audio/mpeg",verified:true,downloadable:false}}),null);
   assert.equal(media.verifiedAudioSource({...base,source:{url:"https://media.example.test/a.mp3",provider:"fixture",providerAssetId:"a",mimeType:"audio/mpeg",verified:true,downloadable:false}}).url,"https://media.example.test/a.mp3");
 });
+
+
+test("old audio listeners are removed and cannot dispatch after item switch",()=>{
+  class FakeAudio {
+    constructor(){this.currentTime=0;this.duration=30;this.playbackRate=1;this.listeners=new Map();}
+    pause(){}
+    async play(){}
+    addEventListener(name,listener){const list=this.listeners.get(name)??[];list.push(listener);this.listeners.set(name,list);}
+    removeEventListener(name,listener){this.listeners.set(name,(this.listeners.get(name)??[]).filter((value)=>value!==listener));}
+    emit(name){for(const listener of this.listeners.get(name)??[]) listener();}
+  }
+  const oldAudio=new FakeAudio(),nextAudio=new FakeAudio(),actions=[];
+  let current=oldAudio;
+  const cleanupOld=media.attachWebAudioListeners(oldAudio,30,()=>current===oldAudio,(action)=>actions.push(action));
+  oldAudio.currentTime=5;oldAudio.emit("timeupdate");
+  assert.equal(actions.at(-1).type,"progress");
+  cleanupOld();
+  current=nextAudio;
+  media.attachWebAudioListeners(nextAudio,30,()=>current===nextAudio,(action)=>actions.push(action));
+  const before=actions.length;
+  oldAudio.currentTime=20;oldAudio.emit("timeupdate");
+  oldAudio.emit("ended");
+  oldAudio.emit("error");
+  assert.equal(actions.length,before,"detached old transport must not dispatch");
+  nextAudio.currentTime=7;nextAudio.emit("timeupdate");
+  assert.equal(actions.at(-1).elapsedSeconds,7);
+});
+
+test("listener guard rejects stale transport callbacks even before physical removal",()=>{
+  class FakeAudio {
+    constructor(){this.currentTime=1;this.duration=10;this.playbackRate=1;this.listeners=new Map();}
+    pause(){}
+    async play(){}
+    addEventListener(name,listener){this.listeners.set(name,[...(this.listeners.get(name)??[]),listener]);}
+    removeEventListener(){}
+    emit(name){for(const listener of this.listeners.get(name)??[]) listener();}
+  }
+  const audio=new FakeAudio(),actions=[];
+  let current=true;
+  media.attachWebAudioListeners(audio,10,()=>current,(action)=>actions.push(action));
+  current=false;
+  audio.emit("timeupdate");audio.emit("ended");audio.emit("error");
+  assert.equal(actions.length,0);
+});
