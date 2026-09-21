@@ -202,4 +202,6 @@ test("institutional products and social channels remain source-verifiably reacha
   assert.match(explore,/Linking\.openURL\(sourceLink\.url\)/);
   assert.match(about,/HealthTimes products & channels/);
   assert.match(about,/publication\.data\.sourceLinks/);
+  assert.match(snapshot,/\/author\/michael-gwarisa\//);
+  assert.match(snapshot,/\/author\/kuda-pembere\//);
 });
