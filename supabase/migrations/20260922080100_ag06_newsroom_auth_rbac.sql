@@ -604,15 +604,15 @@ begin
     public.newsroom_safe_editor_text(p_story->>'standfirst'),
     public.newsroom_safe_editor_text(p_story->>'body'),
     'draft','Draft','public',v_actor,
-    nullif(p_story->>'assigned_editor_staff_id','')::uuid,
+    null,
     p_story->>'desk',p_story->>'topic',p_story->>'country',p_story->>'region',
     public.newsroom_safe_editor_text(p_story->>'sources'),
     public.newsroom_safe_editor_text(p_story->>'notes'),
     nullif(p_story->>'deadline_at','')::timestamptz,
     p_story->>'seo_title',p_story->>'seo_description',
-    nullif(p_story->>'scheduled_at','')::timestamptz,
-    coalesce(p_story->'distribution','{}'::jsonb),
-    coalesce(nullif(p_story->>'ad_setting',''),'Standard'),
+    null,
+    '{}'::jsonb,
+    'Standard',
     v_actor,now()
   ) returning id into v_story_id;
 
@@ -644,6 +644,9 @@ declare
   v_editor uuid;
   v_checker uuid;
   v_access text;
+  v_scheduled_at timestamptz;
+  v_distribution jsonb;
+  v_ad_setting text;
   v_next_revision integer;
 begin
   if not public.newsroom_can_edit_story(p_story_id) then
@@ -660,6 +663,9 @@ begin
   v_editor := v_old.assigned_editor_staff_id;
   v_checker := v_old.fact_checker_staff_id;
   v_access := v_old.access_policy;
+  v_scheduled_at := v_old.scheduled_at;
+  v_distribution := v_old.distribution;
+  v_ad_setting := v_old.ad_setting;
 
   if p_patch ? 'owner_staff_id' and coalesce(p_patch->>'owner_staff_id','') <> coalesce(v_owner::text,'') then
     if not public.newsroom_has_capability('story.edit_all') then raise exception using errcode='42501',message='story.edit_all required to reassign owner'; end if;
@@ -678,6 +684,25 @@ begin
       raise exception using errcode='42501',message='Premium policy capability required';
     end if;
     v_access := lower(p_patch->>'access_policy');
+  end if;
+  if p_patch ? 'scheduled_at' then
+    v_scheduled_at := nullif(p_patch->>'scheduled_at','')::timestamptz;
+    if v_scheduled_at is distinct from v_old.scheduled_at and not public.newsroom_has_capability('story.publish') then
+      raise exception using errcode='42501',message='story.publish capability required to schedule publication';
+    end if;
+  end if;
+  if p_patch ? 'distribution' then
+    v_distribution := coalesce(p_patch->'distribution','{}'::jsonb);
+    if v_distribution is distinct from v_old.distribution
+       and not (public.newsroom_has_capability('distribution.manage') or public.newsroom_has_capability('story.edit_all')) then
+      raise exception using errcode='42501',message='Distribution authority required';
+    end if;
+  end if;
+  if p_patch ? 'ad_setting' then
+    v_ad_setting := coalesce(nullif(p_patch->>'ad_setting',''),'Standard');
+    if v_ad_setting is distinct from v_old.ad_setting and not public.newsroom_has_capability('story.edit_all') then
+      raise exception using errcode='42501',message='Editorial authority required to change story advertising policy';
+    end if;
   end if;
 
   perform set_config('app.newsroom_rpc','1',true);
@@ -700,9 +725,9 @@ begin
       seo_title=case when p_patch ? 'seo_title' then p_patch->>'seo_title' else seo_title end,
       seo_description=case when p_patch ? 'seo_description' then p_patch->>'seo_description' else seo_description end,
       slug=case when nullif(trim(p_patch->>'slug'),'') is not null then trim(p_patch->>'slug') else slug end,
-      scheduled_at=case when p_patch ? 'scheduled_at' then nullif(p_patch->>'scheduled_at','')::timestamptz else scheduled_at end,
-      distribution=case when p_patch ? 'distribution' then coalesce(p_patch->'distribution','{}'::jsonb) else distribution end,
-      ad_setting=case when p_patch ? 'ad_setting' then coalesce(nullif(p_patch->>'ad_setting',''),'Standard') else ad_setting end,
+      scheduled_at=v_scheduled_at,
+      distribution=v_distribution,
+      ad_setting=v_ad_setting,
       lock_version=lock_version+1,
       last_saved_by=v_actor,
       modified_at=now(),
@@ -719,6 +744,11 @@ begin
     insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
     values(v_actor,'story.access_policy.changed','stories',p_story_id,
       jsonb_build_object('previous',v_old.access_policy,'new',v_access));
+  end if;
+  if v_scheduled_at is distinct from v_old.scheduled_at then
+    insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
+    values(v_actor,'story.schedule.changed','stories',p_story_id,
+      jsonb_build_object('previous',v_old.scheduled_at,'new',v_scheduled_at));
   end if;
 
   return v_new_version;
@@ -759,9 +789,9 @@ begin
   elsif v_next='Scheduled' then
     v_allowed := public.newsroom_has_capability('story.publish') and v_current in ('Ready','Scheduled');
   elsif v_next='Published' then
-    v_allowed := public.newsroom_has_capability('story.publish') and v_current in ('Ready','Scheduled','Editor review');
+    v_allowed := public.newsroom_has_capability('story.publish') and v_current in ('Ready','Scheduled');
   elsif v_next='Updated / Corrected' then
-    v_allowed := public.newsroom_has_capability('story.correct') and v_current='Published';
+    v_allowed := public.newsroom_has_capability('story.correct') and v_current='Published' and nullif(trim(coalesce(p_reason,'')),'') is not null;
   elsif v_next='Archived' then
     v_allowed := public.newsroom_has_capability('story.edit_all') and v_current <> 'Published';
   end if;
@@ -786,6 +816,22 @@ begin
 
   insert into public.story_lifecycle_events(story_id,from_status,to_status,actor_staff_id,reason)
   values(p_story_id,v_current,v_next,v_actor,p_reason);
+
+  if v_current in ('Fact check','Health / Science review','Copy edit','Editor review') and v_next<>v_current then
+    insert into public.story_reviews(story_id,review_type,assigned_to,status,notes,completed_at,completed_by,created_by)
+    values(
+      p_story_id,
+      case v_current when 'Fact check' then 'fact_check' when 'Health / Science review' then 'health_review' when 'Copy edit' then 'copy_edit' else 'editor_review' end,
+      v_actor,'approved',public.newsroom_safe_editor_text(p_reason),now(),v_actor,v_actor
+    );
+  end if;
+
+  if v_next='Updated / Corrected' then
+    insert into public.story_corrections(story_id,reason,changed_by,previous_revision_id,new_revision_id)
+    select p_story_id,p_reason,v_actor,
+      (select id from public.story_revisions where story_id=p_story_id order by revision_number desc offset 1 limit 1),
+      (select id from public.story_revisions where story_id=p_story_id order by revision_number desc limit 1);
+  end if;
 
   insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
   values(v_actor,
