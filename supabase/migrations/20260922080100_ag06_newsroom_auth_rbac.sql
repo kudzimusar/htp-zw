@@ -85,6 +85,16 @@ create table if not exists public.newsroom_sessions (
   unique (auth_user_id, provider_session_id)
 );
 
+create table if not exists public.story_autosaves (
+  story_id uuid primary key references public.stories(id) on delete cascade,
+  title text,
+  standfirst text,
+  body_html text,
+  saved_by uuid not null references public.staff_profiles(id),
+  lock_version integer not null,
+  saved_at timestamptz not null default now()
+);
+
 create table if not exists public.story_assignments (
   id uuid primary key default gen_random_uuid(),
   story_id uuid references public.stories(id) on delete cascade,
@@ -421,6 +431,7 @@ as $$
 declare
   v_staff public.staff_profiles%rowtype;
   v_session_id text := public.newsroom_jwt_session_id();
+  v_was_registered boolean := false;
 begin
   if auth.uid() is null or v_session_id is null then
     raise exception using errcode='28000', message='Authenticated provider session required';
@@ -435,6 +446,11 @@ begin
   if v_staff.id is null then
     raise exception using errcode='42501', message='Active Newsroom staff profile required';
   end if;
+
+  select exists(
+    select 1 from public.newsroom_sessions
+    where auth_user_id=auth.uid() and provider_session_id=v_session_id and revoked_at is null
+  ) into v_was_registered;
 
   insert into public.newsroom_sessions(auth_user_id, staff_profile_id, provider_session_id, user_agent, last_seen_at, revoked_at, revoked_by)
   values(auth.uid(), v_staff.id, v_session_id, left(p_user_agent,500), now(), null, null)
@@ -454,7 +470,13 @@ begin
     raise exception using errcode='42501', message='Newsroom session has been revoked';
   end if;
 
+  perform set_config('app.newsroom_rpc','1',true);
   update public.staff_profiles set last_login_at=now(), updated_at=now() where id=v_staff.id;
+
+  if not v_was_registered then
+    insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
+    values(v_staff.id,'staff.login','staff_profiles',v_staff.id,jsonb_build_object('session_id',v_session_id));
+  end if;
 
   return jsonb_build_object('staff_profile_id',v_staff.id,'session_id',v_session_id);
 end;
@@ -735,10 +757,24 @@ begin
   where id=p_story_id
   returning lock_version into v_new_version;
 
-  select coalesce(max(revision_number),0)+1 into v_next_revision from public.story_revisions where story_id=p_story_id;
-  insert into public.story_revisions(story_id,revision_number,title,body_html,editor_id,change_summary)
-  select id,v_next_revision,title,body_html,v_actor,left(coalesce(p_reason,'Autosave'),240)
-  from public.stories where id=p_story_id;
+  if lower(coalesce(p_reason,'autosave'))='autosave' then
+    insert into public.story_autosaves(story_id,title,standfirst,body_html,saved_by,lock_version,saved_at)
+    select id,title,standfirst,body_html,v_actor,lock_version,now()
+    from public.stories where id=p_story_id
+    on conflict (story_id) do update set
+      title=excluded.title,
+      standfirst=excluded.standfirst,
+      body_html=excluded.body_html,
+      saved_by=excluded.saved_by,
+      lock_version=excluded.lock_version,
+      saved_at=excluded.saved_at;
+  else
+    select coalesce(max(revision_number),0)+1 into v_next_revision from public.story_revisions where story_id=p_story_id;
+    insert into public.story_revisions(story_id,revision_number,title,body_html,editor_id,change_summary)
+    select id,v_next_revision,title,body_html,v_actor,left(coalesce(p_reason,'Manual save'),240)
+    from public.stories where id=p_story_id;
+    delete from public.story_autosaves where story_id=p_story_id;
+  end if;
 
   if v_access is distinct from v_old.access_policy then
     insert into public.audit_logs(actor_staff_id,action,target_table,target_id,metadata)
@@ -767,6 +803,7 @@ declare
   v_current text;
   v_next text := trim(p_next_status);
   v_allowed boolean := false;
+  v_next_revision integer;
 begin
   select * into v_old from public.stories where id=p_story_id for update;
   if v_old.id is null then raise exception using errcode='P0002',message='Story not found'; end if;
@@ -816,6 +853,14 @@ begin
 
   insert into public.story_lifecycle_events(story_id,from_status,to_status,actor_staff_id,reason)
   values(p_story_id,v_current,v_next,v_actor,p_reason);
+
+  if v_next in ('Submitted','Published','Updated / Corrected') then
+    select coalesce(max(revision_number),0)+1 into v_next_revision from public.story_revisions where story_id=p_story_id;
+    insert into public.story_revisions(story_id,revision_number,title,body_html,body_json,editor_id,change_summary)
+    select id,v_next_revision,title,body_html,body_json,v_actor,'Workflow milestone: '||v_next
+    from public.stories where id=p_story_id;
+    delete from public.story_autosaves where story_id=p_story_id;
+  end if;
 
   if v_current in ('Fact check','Health / Science review','Copy edit','Editor review') and v_next<>v_current then
     insert into public.story_reviews(story_id,review_type,assigned_to,status,notes,completed_at,completed_by,created_by)
@@ -1311,6 +1356,8 @@ begin
     from public.newsroom_staff_invitations
     where id=(new.raw_user_meta_data->>'newsroom_invitation_id')::uuid
       and lower(invited_email)=lower(new.email)
+      and expires_at > now()
+      and status in ('pending','sent')
     limit 1;
 
     if v_invite.id is not null then
@@ -1353,6 +1400,7 @@ for each row execute function public.newsroom_sync_staff_from_auth();
 alter table public.newsroom_staff_invitations enable row level security;
 alter table public.newsroom_staff_capability_overrides enable row level security;
 alter table public.newsroom_sessions enable row level security;
+alter table public.story_autosaves enable row level security;
 alter table public.story_assignments enable row level security;
 alter table public.story_reviews enable row level security;
 alter table public.story_internal_comments enable row level security;
@@ -1389,6 +1437,10 @@ using (public.newsroom_can_read_story(story_id));
 
 drop policy if exists ag06_story_lifecycle_read on public.story_lifecycle_events;
 create policy ag06_story_lifecycle_read on public.story_lifecycle_events for select to authenticated
+using (public.newsroom_can_read_story(story_id));
+
+drop policy if exists ag06_autosaves_read on public.story_autosaves;
+create policy ag06_autosaves_read on public.story_autosaves for select to authenticated
 using (public.newsroom_can_read_story(story_id));
 
 drop policy if exists ag06_assignments_read on public.story_assignments;
@@ -1487,6 +1539,7 @@ revoke all on public.audit_logs from anon;
 revoke all on public.newsroom_staff_invitations from anon;
 revoke all on public.newsroom_staff_capability_overrides from anon;
 revoke all on public.newsroom_sessions from anon;
+revoke all on public.story_autosaves from anon;
 revoke all on public.story_assignments from anon;
 revoke all on public.story_reviews from anon;
 revoke all on public.story_internal_comments from anon;
