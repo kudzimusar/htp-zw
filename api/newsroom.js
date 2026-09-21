@@ -116,7 +116,9 @@ function requireCsrf(req) {
   const cookies = parseCookies(req);
   const expected = cookies[COOKIE_CSRF];
   const received = String(req.headers['x-htp-csrf'] || '');
-  return Boolean(expected && received && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received)));
+  if (!expected || !received) return false;
+  const a=Buffer.from(expected), b=Buffer.from(received);
+  return a.length===b.length && crypto.timingSafeEqual(a,b);
 }
 
 async function readBody(req) {
@@ -305,10 +307,10 @@ async function handle(req, res) {
   const action = String(body.action || url.searchParams.get('action') || (req.method === 'GET' ? 'bootstrap' : ''));
 
   if (!rateLimit(req, action)) return json(res, 429, { ok: false, error: 'Too many requests. Try again later.' });
-  if (req.method === 'POST' && !['login', 'recover'].includes(action) && !requireCsrf(req)) {
+  if (req.method === 'POST' && !['login', 'recover', 'adoptSession'].includes(action) && !requireCsrf(req)) {
     return json(res, 403, { ok: false, error: 'Request integrity check failed.' });
   }
-  if (req.method === 'POST' && ['login', 'recover'].includes(action) && !sameOrigin(req)) {
+  if (req.method === 'POST' && ['login', 'recover', 'adoptSession'].includes(action) && !sameOrigin(req)) {
     return json(res, 403, { ok: false, error: 'Origin check failed.' });
   }
 
@@ -329,6 +331,23 @@ async function handle(req, res) {
       }
     }
 
+    if (action === 'adoptSession') {
+      const access = String(body.accessToken || '');
+      const refresh = String(body.refreshToken || '');
+      if (!access || !refresh) return json(res, 400, { ok: false, error: 'Provider session tokens are required.' });
+      await supabaseRequest('/auth/v1/user', { token: access });
+      const session = { access_token: access, refresh_token: refresh, expires_in: Number(body.expiresIn || 3600) };
+      setSessionCookies(res, session);
+      setCsrfCookie(res);
+      try {
+        const context = await registerAndContext(access, req);
+        return json(res, 200, { ok: true, context });
+      } catch (error) {
+        clearSessionCookies(res);
+        throw error;
+      }
+    }
+
     if (action === 'recover') {
       const email = String(body.email || '').trim().toLowerCase();
       if (!email) return json(res, 400, { ok: false, error: 'Staff email is required.' });
@@ -341,6 +360,13 @@ async function handle(req, res) {
     }
 
     const token = await accessToken(req, res);
+
+    if (action === 'setPassword') {
+      const password = String(body.password || '');
+      if (password.length < 12) return json(res, 400, { ok: false, error: 'Use a password of at least 12 characters.' });
+      await supabaseRequest('/auth/v1/user', { method: 'PUT', token, body: { password } });
+      return json(res, 200, { ok: true });
+    }
 
     if (action === 'logout') {
       try { await supabaseRequest('/auth/v1/logout', { method: 'POST', token }); } catch {}
