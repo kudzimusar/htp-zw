@@ -368,12 +368,14 @@ async function sourceGetEnvelope<T>(path:string):Promise<SourceEnvelope<T>|null>
       signal:controller.signal
     });
     if(!response.ok) return null;
-    const totalItems=Number(response.headers.get("x-wp-total"));
-    const totalPages=Number(response.headers.get("x-wp-totalpages"));
+    const totalItemsHeader=response.headers.get("x-wp-total");
+    const totalPagesHeader=response.headers.get("x-wp-totalpages");
+    const totalItems=totalItemsHeader===null ? null : Number(totalItemsHeader);
+    const totalPages=totalPagesHeader===null ? null : Number(totalPagesHeader);
     return {
       data:await response.json() as T,
-      totalItems:Number.isFinite(totalItems) ? totalItems : null,
-      totalPages:Number.isFinite(totalPages) ? totalPages : null
+      totalItems:totalItems!==null && Number.isFinite(totalItems) ? totalItems : null,
+      totalPages:totalPages!==null && Number.isFinite(totalPages) ? totalPages : null
     };
   }catch{
     return null;
