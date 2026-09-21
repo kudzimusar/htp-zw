@@ -1253,7 +1253,7 @@ create or replace function public.newsroom_protect_staff_authority_fields()
 returns trigger
 language plpgsql
 set search_path = public
-as $
+as $$
 begin
   if current_setting('app.newsroom_rpc',true) is distinct from '1' then
     if new.auth_user_id is distinct from old.auth_user_id
@@ -1275,7 +1275,7 @@ create or replace function public.newsroom_protect_campaign_authority_fields()
 returns trigger
 language plpgsql
 set search_path = public
-as $
+as $$
 begin
   if current_setting('app.newsroom_rpc',true) is distinct from '1'
      and (new.status is distinct from old.status or new.review_status is distinct from old.review_status) then
