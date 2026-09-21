@@ -6,7 +6,7 @@ const { validateUploadsArtifact } = require('./validate-wordpress-uploads');
 const { validateProvenanceReadiness } = require('./validate-provenance-readiness');
 const { fetchLiveInventory, reconcileInventories } = require('./reconcile-source-inventory');
 
-const VALIDATOR_VERSION = '1.1.0';
+const VALIDATOR_VERSION = '1.2.0';
 
 function walk(root) {
   const found = [];
@@ -70,6 +70,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--live-rest-base') args.liveRestBase = argv[++i];
     else if (argv[i] === '--admin-user-count') args.adminUserCount = Number(argv[++i]);
     else if (argv[i] === '--export-timestamp') args.exportTimestamp = argv[++i];
+    else if (argv[i] === '--wordpress-prefix') args.wordpressPrefix = argv[++i];
   }
   if (!args.root) throw new Error('ROOT_REQUIRED');
   return args;
@@ -130,7 +131,10 @@ async function validateSourcePackage(root, options = {}) {
   if (!discovered.uploads) result.hard_gates.push({ gate: 'authoritative_uploads', status: 'ARTIFACT_MISSING' });
   if (result.hard_gates.length) return result;
 
-  result.database = await validateDatabaseArtifact(discovered.database, { exportTimestamp: options.exportTimestamp || null });
+  result.database = await validateDatabaseArtifact(discovered.database, {
+    exportTimestamp: options.exportTimestamp || null,
+    wordpressPrefix: options.wordpressPrefix
+  });
   result.uploads = validateUploadsArtifact(discovered.uploads);
 
   if (result.database.validation_status !== 'VALID' || result.uploads.validation_status === 'INVALID') {
