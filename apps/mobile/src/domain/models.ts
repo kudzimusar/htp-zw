@@ -68,7 +68,7 @@ export type TaxonomyResolution = {
 export type GeographyEvidence = {
   candidate: GeographyRef;
   authority: Extract<SourceMappingAuthority, "observed-source" | "inferred-requires-review">;
-  evidence: "wordpress-taxonomy" | "headline-excerpt" | "certified-source-snapshot";
+  evidence: "wordpress-taxonomy" | "headline-excerpt" | "certified-source-snapshot" | "ag04-repository";
   sourceValue: string | null;
 };
 
