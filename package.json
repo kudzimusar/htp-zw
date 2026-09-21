@@ -7,6 +7,12 @@
     "migration:inventory": "node scripts/migration/wordpress-importer.js --mode rest-inventory --out-dir migration-output",
     "migration:dry-run": "node scripts/migration/wordpress-importer.js --mode rest --limit 100 --out-dir migration-output",
     "migration:wp-admin-capture": "node scripts/migration/wordpress-admin-capture.js",
+    "migration:source-manifest": "node scripts/migration/source-package-manifest.js",
+    "migration:validate-database": "node scripts/migration/validate-wordpress-database.js",
+    "migration:validate-uploads": "node scripts/migration/validate-wordpress-uploads.js",
+    "migration:validate-provenance": "node scripts/migration/validate-provenance-readiness.js",
+    "migration:reconcile-source": "node scripts/migration/reconcile-source-inventory.js",
+    "migration:validate-source": "node scripts/migration/validate-source-package.js",
     "test:uat": "playwright test",
     "test:migration": "playwright test tests/migration",
     "test:uat:headed": "playwright test --headed"
