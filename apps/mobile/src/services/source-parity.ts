@@ -310,7 +310,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
       sourceProvenance:{
         system:"wordpress",
         sourceId:String(media.id),
-        stableKey:"wordpress-media:"+media.id,
+        stableKey:"wordpress:media:"+media.id,
         sourceUrl:media.source_url,
         checksum:null,
         capturedAt:new Date().toISOString(),
@@ -321,7 +321,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     sourceProvenance:{
       system:"wordpress",
       sourceId:String(post.id),
-      stableKey:"wordpress-post:"+post.id,
+      stableKey:"wordpress:post:"+post.id,
       sourceUrl:canonicalUrl,
       checksum:null,
       capturedAt:new Date().toISOString(),
