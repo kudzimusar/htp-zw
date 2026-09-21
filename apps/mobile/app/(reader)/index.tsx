@@ -220,7 +220,7 @@ export default function HomeScreen() {
       <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Public Health" stories={publicHealth} onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Research & Findings" stories={research} onExplore={()=>router.push("/explore" as never)} />
-      <EditorialSection title="Health Financing" stories={financing} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Health Financing & Health Business" stories={financing} onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="HIV/AIDS" stories={hiv} onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Global Health" stories={globalHealth} onExplore={()=>router.push("/explore" as never)} />
 
@@ -236,7 +236,7 @@ export default function HomeScreen() {
       </Section>
 
       <Section>
-        <SectionHeader title="Premium" eyebrow="MEMBER REPORTING" action="View Premium" onAction={() => router.push("/premium" as never)} />
+        <SectionHeader title="Premium Intelligence" eyebrow="MEMBER REPORTING" action="View Premium" onAction={() => router.push("/premium" as never)} />
         {premium.length
           ? <StoryGrid stories={premium.slice(0,3)} />
           : <EmptyState title="Premium reporting unavailable in this source window" message="Premium presentation remains fail-closed until source metadata and entitlement authority are available." />}
@@ -252,7 +252,7 @@ export default function HomeScreen() {
       )}
 
       <Section>
-        <SectionHeader title={edition + " Edition"} eyebrow="PRIMARY EDITION" action="Change edition" onAction={() => router.push("/edition" as never)} />
+        <SectionHeader title={edition + " Edition"} eyebrow="Primary Edition" action="Change edition" onAction={() => router.push("/edition" as never)} />
         {editionStories.length ? (
           <StoryGrid stories={editionStories.slice(0,3)} />
         ) : (
