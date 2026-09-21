@@ -129,13 +129,25 @@ export function LiveRail({ items }: { items: LiveItem[] }) {
 export function VideoCard({ item }: { item: VideoItem }) {
   const { palette }=useAppearance();
   const duration=item.durationSeconds ? Math.floor(item.durationSeconds/60) + ":" + String(item.durationSeconds%60).padStart(2,"0") : "";
+  const sourceBacked=item.sourceProvenance?.system==="wordpress";
   return (
     <View style={styles.videoCard}>
-      {item.thumbnail?.publicUrl ? <Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText ?? item.title} /> : null}
+      {item.thumbnail?.publicUrl ? (
+        <Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText ?? item.title} />
+      ) : (
+        <View style={[styles.videoFallback,{backgroundColor:palette.navy}]}>
+          <Text style={styles.videoFallbackBrand}>HealthTimes</Text>
+          <Text style={styles.videoFallbackLabel}>VIDEO</Text>
+          <Text style={styles.videoFallbackNote}>Source relationship verified · visual pending authoritative media metadata</Text>
+        </View>
+      )}
       <View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>
       {!!duration && <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
       <Text style={[styles.videoTitle,{color:palette.ink}]}>{item.title}</Text>
-      <Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>
+      <View style={styles.videoMetaRow}>
+        {!!item.publishedAt && <Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}
+        {sourceBacked && <Text style={[styles.videoSource,{color:palette.blue}]}>SOURCE-BACKED</Text>}
+      </View>
     </View>
   );
 }
@@ -233,11 +245,17 @@ const styles=StyleSheet.create({
   liveTitle:{fontSize:18,lineHeight:23,fontWeight:"900"},
   videoCard:{gap:spacing.sm,position:"relative"},
   videoImage:{width:"100%",aspectRatio:16/9},
+  videoFallback:{width:"100%",aspectRatio:16/9,alignItems:"center",justifyContent:"center",padding:spacing.xl,gap:4},
+  videoFallbackBrand:{color:"#FFFFFF",fontSize:22,fontWeight:"900",letterSpacing:-.5},
+  videoFallbackLabel:{color:"#69D1C5",fontSize:10,fontWeight:"900",letterSpacing:1.8},
+  videoFallbackNote:{color:"#C9D5E1",fontSize:10,lineHeight:15,textAlign:"center",maxWidth:260,marginTop:spacing.sm},
   playBadge:{position:"absolute",left:12,top:12,width:42,height:42,borderRadius:21,backgroundColor:"rgba(7,26,43,0.86)",alignItems:"center",justifyContent:"center"},
   playText:{color:"#FFFFFF",fontSize:16},
   duration:{position:"absolute",right:8,top:8,backgroundColor:"rgba(7,26,43,0.86)",paddingHorizontal:6,paddingVertical:4,borderRadius:4},
   durationText:{color:"#FFFFFF",fontSize:11,fontWeight:"800"},
   videoTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
+  videoMetaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
+  videoSource:{fontSize:9,fontWeight:"900",letterSpacing:.8},
   audioCard:{flexDirection:"row",alignItems:"center",gap:spacing.md,borderBottomWidth:1,paddingVertical:spacing.lg},
   audioButton:{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center"},
   audioButtonText:{fontSize:18},
