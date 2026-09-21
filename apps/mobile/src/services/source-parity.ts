@@ -23,6 +23,7 @@ import {
   sourceParityAdvertisingReference,
   sourceParityArticles,
   sourceParityAuthors,
+  sourceParityLegacyNavigation,
   sourceParityPublication,
   sourceParityVideos
 } from "../source-parity/snapshot";
@@ -496,7 +497,10 @@ const taxonomyService:TaxonomyService={
     const canonical=await certifiedTaxonomyFixtureService.getSnapshot();
     const articles=await refreshedArticles();
     const observedLegacy=Array.from(new Map(
-      articles.flatMap((article)=>article.legacyTaxonomy ?? []).map((term)=>[term.slug,term])
+      [
+        ...sourceParityLegacyNavigation,
+        ...articles.flatMap((article)=>article.legacyTaxonomy ?? [])
+      ].map((term)=>[term.slug,term])
     ).values());
     const observedSections=Array.from(new Map(
       articles
