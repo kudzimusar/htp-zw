@@ -3,6 +3,7 @@ import type {
   AuthorProfile,
   LegacyTaxonomyRef,
   PublicationProfile,
+  TaxonomyRef,
   VideoItem
 } from "../domain/models";
 import {
