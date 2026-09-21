@@ -17,6 +17,13 @@ export type AuthorProfile = AuthorRef & {
   sourceUrl: string | null;
 };
 
+export type PublicationLink = {
+  key: string;
+  label: string;
+  url: string;
+  kind: "product" | "social" | "contact";
+};
+
 export type PublicationProfile = {
   name: string;
   description: string;
@@ -26,6 +33,7 @@ export type PublicationProfile = {
   aboutUrl: string;
   contactUrl: string;
   editorialPrinciples: string[];
+  sourceLinks?: PublicationLink[];
   sourceVerifiedAt: string;
 };
 
