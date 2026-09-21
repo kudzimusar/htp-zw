@@ -45,12 +45,12 @@ test("source provenance and legacy taxonomy stay explicit",()=>{
   const models=read("src/domain/models.ts");
   const snapshot=read("src/source-parity/snapshot.ts");
   const service=read("src/services/source-parity.ts");
-  assert.match(models,/legacyTaxonomy\?: TaxonomyRef\[\]/);
+  assert.match(models,/legacyTaxonomy\\?: LegacyTaxonomyRef\\[\\]/);
   assert.match(snapshot,/wordpress-url:/);
   assert.match(snapshot,/legacyMembershipSignal/);
   assert.match(service,/categoryIds:/);
   assert.match(service,/tagIds:/);
-  assert.match(service,/canonicalSectionForLegacy/);
+  assert.match(service,/approvedCanonicalSectionForLegacy/);
 });
 
 test("Premium body never crosses the parity bridge without entitlement authority",()=>{
@@ -136,9 +136,10 @@ test("new live posts remain readable through the existing ArticleRepository cont
 
 test("fallbackless live posts preserve uncertainty instead of fabricating canonical truth",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/function inferPrimarySection/);
-  assert.match(service,/if\(!normalized\.some\(\(name\)=>canonicalLegacyNames\.has\(name\)\)\) return null/);
-  assert.match(service,/Geography is left unassigned because the public source metadata does not provide enough evidence/);
+  assert.match(service,/approvedCanonicalSectionForLegacy/);
+  assert.match(service,/function inferredGeographyEvidence/);
+  assert.match(service,/authority:"inferred-requires-review"/);
+  assert.match(service,/not promoted to canonical geography without approved AG-01\/AG-04 mapping evidence/);
   assert.match(service,/No AG-01 canonical desk is inferred/);
   assert.match(service,/author-unresolved/);
   assert.match(service,/taxonomy-unresolved/);
@@ -286,4 +287,41 @@ test("Pages workflow proves exact deployed SHA and critical owner-preview routes
   for(const route of ["live","explore","search","premium","watch","my","article\/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"]){
     assert.ok(pages.includes(route),route);
   }
+});
+
+
+test("text-derived geography is review evidence and never canonical Reader geography",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/function inferredGeographyEvidence/);
+  assert.match(service,/evidence:"headline-excerpt"/);
+  assert.match(service,/authority:"inferred-requires-review"/);
+  assert.match(service,/const canonicalApproved=fallback\?\.geographyResolution\?\.canonicalApproved \?\? fallback\?\.geographyRefs \?\? \[\]/);
+  assert.match(service,/normalizeCanonicalGeography\(geographyResolution\.canonicalApproved\)/);
+  assert.doesNotMatch(service,/return \[\{id:"zone-zimbabwe",name:"Zimbabwe",slug:"zimbabwe"\}\]/);
+});
+
+test("Source Parity feed is explicitly bounded and reports inventory headers without crawling",()=>{
+  const source=read("src/domain/source.ts");
+  const service=read("src/services/source-parity.ts");
+  assert.match(source,/mode: "bounded-public-feed"/);
+  assert.match(source,/corpusComplete: false/);
+  assert.match(service,/SOURCE_PARITY_FEED_PAGE_SIZE=50/);
+  assert.match(service,/x-wp-total/);
+  assert.match(service,/x-wp-totalpages/);
+  assert.match(service,/corpusComplete:false/);
+  assert.match(service,/getSourceParityFeedContract/);
+  assert.doesNotMatch(service,/while\s*\([^)]*page|for\s*\([^)]*page/i);
+});
+
+test("legacy taxonomy carries raw WordPress identity and explicit observed authority",()=>{
+  const models=read("src/domain/models.ts");
+  const service=read("src/services/source-parity.ts");
+  assert.match(models,/export type LegacyTaxonomyRef/);
+  assert.match(models,/authority: Extract<SourceMappingAuthority, "observed-source">/);
+  assert.match(service,/sourceId:String\(term\.id\)/);
+  assert.match(service,/sourceKind:term\.taxonomy==="category" \? "category" : "post_tag"/);
+  assert.match(service,/taxonomyResolution:\{/);
+  assert.match(service,/observedWordPress:legacy/);
+  assert.match(service,/approvedCanonical:primarySection \? \[primarySection\] : \[\]/);
+  assert.match(service,/inferredRequiresReview:\[\]/);
 });
