@@ -9,9 +9,11 @@ import type {
 import type {
   ArticleDetail,
   ArticleSummary,
+  AuthorProfile,
   SearchQuery,
   TaxonomyRef
 } from "../domain/models";
+import type { SourceException } from "../domain/source";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import {
@@ -91,15 +93,110 @@ function legacyTaxonomy(post:WpPost):TaxonomyRef[]{
     .map((term)=>({id:"wordpress-term-"+term.id,name:decodeEntities(term.name),slug:term.slug}));
 }
 
+const canonicalLegacyNames=new Set([
+  "africa",
+  "global health",
+  "health financing",
+  "reseach findings",
+  "research & findings",
+  "academic & research",
+  "policy",
+  "public health",
+  "health news",
+  "hiv/aids",
+  "epidemics",
+  "family health",
+  "srhr"
+]);
+
+function inferPrimarySection(legacyNames:string[],fallback:ArticleDetail|null){
+  if(fallback?.primarySection) return fallback.primarySection;
+  const normalized=legacyNames.map((name)=>name.toLowerCase());
+  if(!normalized.some((name)=>canonicalLegacyNames.has(name))) return null;
+  return canonicalSectionForLegacy(legacyNames);
+}
+
 function inferGeography(post:WpPost,fallback:ArticleDetail|null){
   if(fallback?.geography?.length) return fallback.geography;
   const categories=legacyTaxonomy(post).map((term)=>term.name.toLowerCase());
   const text=(stripHtml(post.title?.rendered)+" "+stripHtml(post.excerpt?.rendered)).toLowerCase();
   if(categories.includes("africa")) return [{id:"zone-africa",name:"Africa",slug:"africa"}];
-  if(categories.includes("global health") || !/zimbabwe|harare|bulawayo|mutare|masvingo|midlands/.test(text)){
-    return [{id:"zone-global",name:"Global",slug:"global"}];
+  if(categories.includes("global health")) return [{id:"zone-global",name:"Global",slug:"global"}];
+  if(/\bzimbabwe\b|\bharare\b|\bbulawayo\b|\bmutare\b|\bmasvingo\b|\bmidlands\b/.test(text)){
+    return [{id:"zone-zimbabwe",name:"Zimbabwe",slug:"zimbabwe"}];
   }
-  return [{id:"zone-zimbabwe",name:"Zimbabwe",slug:"zimbabwe"}];
+  return [];
+}
+
+function mappingExceptions(
+  post:WpPost,
+  fallback:ArticleDetail|null,
+  legacy:TaxonomyRef[],
+  embeddedAuthor:WpAuthor|undefined,
+  media:WpMedia|undefined,
+  primarySection:TaxonomyRef|null,
+  geography:TaxonomyRef[]
+):SourceException[]{
+  const exceptions:SourceException[]=[];
+  const taxonomyIds=[...(post.categories ?? []),...(post.tags ?? [])];
+  if(taxonomyIds.length && !legacy.length){
+    exceptions.push({
+      kind:"taxonomy-unresolved",
+      classification:"requires-review",
+      field:"legacyTaxonomy",
+      note:"WordPress term IDs were present but _embed did not supply resolvable category/tag records."
+    });
+  }
+  if(post.author && !embeddedAuthor && !fallback?.author){
+    exceptions.push({
+      kind:"author-unresolved",
+      classification:"requires-review",
+      field:"author",
+      note:"WordPress author ID is preserved, but the public _embed response did not include a verified display identity."
+    });
+  }
+  if(post.featured_media && !media && !fallback?.heroMedia){
+    exceptions.push({
+      kind:"missing-media",
+      classification:"requires-review",
+      field:"heroMedia",
+      note:"WordPress featured-media ID is preserved, but the public _embed response did not include a verified media record."
+    });
+  }
+  if(!primarySection){
+    exceptions.push({
+      kind:"taxonomy-unresolved",
+      classification:"requires-review",
+      field:"primarySection",
+      note:"No AG-01 canonical desk is inferred because the observed legacy taxonomy has no explicit approved mapping."
+    });
+  }
+  if(!geography.length){
+    exceptions.push({
+      kind:"other",
+      classification:"requires-review",
+      field:"geography",
+      note:"Geography is left unassigned because the public source metadata does not provide enough evidence for a verified mapping."
+    });
+  }
+  const rawBody=post.content?.rendered ?? "";
+  if(/\[[a-z][a-z0-9_-]*(?:\s[^\]]*)?\]/i.test(rawBody)){
+    exceptions.push({
+      kind:"unknown-shortcode",
+      classification:"requires-review",
+      field:"bodyHtml",
+      note:"The public rendered body still contains shortcode-like syntax and requires migration-time reconciliation."
+    });
+  }
+  if(!stripHtml(post.excerpt?.rendered) && !fallback?.excerpt){
+    exceptions.push({
+      kind:"other",
+      classification:"requires-review",
+      field:"excerpt",
+      note:"No public excerpt/standfirst was supplied for this post."
+    });
+  }
+  return exceptions;
 }
 
 function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
@@ -112,6 +209,10 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const excerpt=stripHtml(post.excerpt?.rendered) || fallback?.excerpt || null;
   const authorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : fallback?.author?.displayName ?? "HealthTimes";
   const authorSlug=embeddedAuthor?.slug || fallback?.author?.slug || "healthtimes";
+  const authorId=embeddedAuthor?.id ?? post.author ?? null;
+  const primarySection=inferPrimarySection(legacyNames,fallback);
+  const geography=inferGeography(post,fallback);
+  const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,media,primarySection,geography);
   return {
     id:fallback?.id ?? "source-"+post.slug,
     title:stripHtml(post.title?.rendered) || fallback?.title || post.slug,
@@ -125,22 +226,27 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     publishedAt:post.date || fallback?.publishedAt || null,
     modifiedAt:post.modified || fallback?.modifiedAt || null,
     author:{
-      id:embeddedAuthor?.id ? "wordpress-author-"+embeddedAuthor.id : fallback?.author?.id ?? "source-author-"+authorSlug,
+      id:authorId ? "wordpress-author-"+authorId : fallback?.author?.id ?? "source-author-"+authorSlug,
       displayName:authorName,
       slug:authorSlug,
       sourceProvenance:{
         system:"wordpress",
-        sourceId:embeddedAuthor?.id ? String(embeddedAuthor.id) : null,
-        stableKey:embeddedAuthor?.id ? "wordpress-author:"+embeddedAuthor.id : "wordpress-author:"+authorSlug,
+        sourceId:authorId ? String(authorId) : null,
+        stableKey:authorId ? "wordpress-author:"+authorId : "wordpress-author:"+authorSlug,
         sourceUrl:embeddedAuthor?.link ?? fallback?.author?.sourceProvenance?.sourceUrl ?? null,
         checksum:null,
         capturedAt:new Date().toISOString(),
-        wordpress:{authorId:embeddedAuthor?.id ? String(embeddedAuthor.id) : undefined},
-        exceptions:[]
+        wordpress:{authorId:authorId ? String(authorId) : undefined},
+        exceptions:post.author && !embeddedAuthor && !fallback?.author ? [{
+          kind:"author-unresolved",
+          classification:"requires-review",
+          field:"author",
+          note:"The WordPress author ID is preserved but the public _embed response did not provide a verified display identity."
+        }] : []
       }
     },
-    primarySection:canonicalSectionForLegacy(legacyNames),
-    geography:inferGeography(post,fallback),
+    primarySection,
+    geography,
     geographyRefs:fallback?.geographyRefs,
     topics:legacy,
     legacyTaxonomy:legacy,
@@ -176,7 +282,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
         tagIds:(post.tags ?? []).map(String),
         legacyPath:"/"+post.slug+"/"
       },
-      exceptions:[]
+      exceptions
     },
     contentIntegrity:"requires-review",
     premiumSourceContext:{
@@ -244,10 +350,10 @@ const articleRepository:ArticleRepository={
     return refreshedArticles();
   },
   async getById(id){
-    const fallback=sourceParityArticles.find((article)=>article.id===id) ?? null;
-    if(!fallback) return null;
-    const live=await sourceGet<WpPost[]>("/posts?slug="+encodeURIComponent(fallback.slug)+"&status=publish&_embed=1");
-    return live?.[0] ? mapWpPost(live[0],fallback) : fallback;
+    const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
+    if(!current) return null;
+    const live=await sourceGet<WpPost[]>("/posts?slug="+encodeURIComponent(current.slug)+"&status=publish&_embed=1");
+    return live?.[0] ? mapWpPost(live[0],current) : current;
   },
   async getRelated(id){
     const all=await refreshedArticles();
@@ -283,6 +389,19 @@ const searchService:SearchService={
     const all=await refreshedArticles();
     const q=normalized(query.text);
     const articles=query.format && query.format!=="article" ? [] : all.filter((article)=>{
+      if(query.country){
+        const country=normalized(query.country);
+        if(!article.geography.some((zone)=>normalized(zone.name)===country || normalized(zone.slug)===country)) return false;
+      }
+      if(query.topic){
+        const topic=normalized(query.topic);
+        const topicMatch=
+          normalized(article.primarySection?.name ?? "")===topic ||
+          normalized(article.primarySection?.slug ?? "")===topic ||
+          article.topics.some((term)=>normalized(term.name)===topic || normalized(term.slug)===topic) ||
+          (article.legacyTaxonomy ?? []).some((term)=>normalized(term.name)===topic || normalized(term.slug)===topic);
+        if(!topicMatch) return false;
+      }
       if(!q) return true;
       const haystack=[
         article.title,
@@ -308,26 +427,48 @@ const videoService:VideoService={
   }
 };
 
+async function parityAuthors():Promise<AuthorProfile[]>{
+  const profiles=new Map(sourceParityAuthors.map((author)=>[author.slug,author]));
+  const articles=await refreshedArticles();
+  for(const article of articles){
+    const author=article.author;
+    if(!author) continue;
+    const existing=profiles.get(author.slug);
+    profiles.set(author.slug,{
+      id:author.id,
+      displayName:author.displayName,
+      slug:author.slug,
+      role:existing?.role ?? null,
+      bio:existing?.bio ?? null,
+      sourceUrl:author.sourceProvenance?.sourceUrl ?? existing?.sourceUrl ?? null,
+      sourceProvenance:author.sourceProvenance ?? existing?.sourceProvenance ?? null
+    });
+  }
+  return Array.from(profiles.values()).sort((a,b)=>a.displayName.localeCompare(b.displayName));
+}
+
 const publicationRepository:PublicationRepository={
   async getProfile(){
     return sourceParityPublication;
   },
   async listAuthors(){
-    return sourceParityAuthors;
+    return parityAuthors();
   },
   async getAuthor(slug){
-    return sourceParityAuthors.find((author)=>author.slug===slug) ?? null;
+    const authors=await parityAuthors();
+    return authors.find((author)=>author.slug===slug) ?? null;
   }
 };
 
 const taxonomyService:TaxonomyService={
   async getSnapshot(){
     const canonical=await certifiedTaxonomyFixtureService.getSnapshot();
+    const articles=await refreshedArticles();
     const observedLegacy=Array.from(new Map(
-      sourceParityArticles.flatMap((article)=>article.legacyTaxonomy ?? []).map((term)=>[term.slug,term])
+      articles.flatMap((article)=>article.legacyTaxonomy ?? []).map((term)=>[term.slug,term])
     ).values());
     const observedSections=Array.from(new Map(
-      sourceParityArticles
+      articles
         .map((article)=>article.primarySection)
         .filter((section):section is TaxonomyRef=>Boolean(section))
         .map((section)=>[section.slug,{...section,parentId:null}])
