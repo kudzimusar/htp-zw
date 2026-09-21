@@ -108,6 +108,7 @@ test("typed mappers cover article, author, media, geography, provenance and Prem
     "mapAuthorRow",
     "mapMediaRow",
     "mapSectionRow",
+    "mapLegacySectionRow",
     "mapTagRow",
     "mapLegacyTagRow",
     "mapGeographicZoneRow",
@@ -164,6 +165,9 @@ test("AG-04 mapped provenance preserves WordPress reconciliation identities and 
   assert.match(mapper, /unknown-shortcode/);
   assert.match(mapper, /unmapped-custom-field/);
   assert.match(mapper, /migrationExceptions/);
+  assert.match(mapper, /primarySectionAuthority/);
+  assert.match(mapper, /primarySectionAuthority === "canonical-approved"/);
+  assert.match(mapper, /primarySectionAuthority === "observed-source"/);
 });
 
 test("repository implementations expose the same Reader-facing semantic contract", () => {
@@ -189,3 +193,14 @@ test("repository implementations expose the same Reader-facing semantic contract
   }
 });
 
+
+
+test("staging section rows require explicit canonical authority", () => {
+  const mapper = read("src/domain/mappers.ts");
+  assert.match(mapper, /primarySectionAuthority\?: SourceMappingAuthority/);
+  assert.match(mapper, /relations\.primarySection\?\.wordpress_source_id \? "observed-source" : null/);
+  assert.match(mapper, /primarySectionAuthority === "canonical-approved" \? primarySectionCandidate : null/);
+  assert.match(mapper, /mapLegacySectionRow\(relations\.primarySection\)/);
+  assert.match(mapper, /sourceKind: "category"/);
+  assert.match(mapper, /inferredRequiresReview: inferredCanonical/);
+});
