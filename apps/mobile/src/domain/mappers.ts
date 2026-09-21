@@ -8,6 +8,7 @@ import type {
 } from "./models";
 import type {
   GeographyRef,
+  PremiumSourceContext,
   SourceException,
   SourceMappingAuthority,
   SourceProvenance,
@@ -219,7 +220,12 @@ export type StoryRelations = {
   primarySectionAuthority?: SourceMappingAuthority;
   heroMedia?: MediaRow | null;
   heroMediaLegacySource?: LegacySourceRow | null;
+  /**
+   * Geography rows are candidates only. They become Reader-canonical only
+   * when AG-04 explicitly marks them canonical-approved.
+   */
   geography?: ZoneRow[];
+  geographyAuthority?: SourceMappingAuthority;
   /**
    * Canonical AG-01/AG-04 topics only. Imported WordPress terms remain in
    * legacyTaxonomy until AG-04 explicitly maps them.
@@ -229,10 +235,36 @@ export type StoryRelations = {
   legacyTaxonomy?: LegacyTaxonomyRef[];
   legacySource?: LegacySourceRow | null;
   migrationExceptions?: SourceException[];
+  /**
+   * Migration provenance only. This never grants a Premium entitlement and
+   * never authorizes a protected body to cross the public Reader projection.
+   */
+  premiumSourceContext?: Omit<PremiumSourceContext, "accessPolicy">;
 };
 
+export type AG04ReaderProjectionBundle = StoryRelations & {
+  story: StoryRow;
+};
+
+function geographyReviewEvidence(
+  refs: GeographyRef[],
+  authority: Extract<SourceMappingAuthority, "observed-source" | "inferred-requires-review">
+) {
+  return refs.map((candidate) => ({
+    candidate,
+    authority,
+    evidence: "ag04-repository" as const,
+    sourceValue: candidate.name
+  }));
+}
+
+export function mapAG04ReaderProjection(bundle: AG04ReaderProjectionBundle): ArticleDetail {
+  const { story, ...relations } = bundle;
+  return mapStoryRow(story, relations);
+}
+
 export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): ArticleDetail {
-  const accessPolicy = row.access_policy === "premium" ? "premium" : "public";
+  const accessPolicy = row.access_policy === "public" ? "public" : "premium";
   const status =
     row.status === "scheduled" || row.status === "published" || row.status === "archived"
       ? row.status
@@ -262,12 +294,27 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     primarySectionAuthority === "inferred-requires-review" && primarySectionCandidate
       ? [primarySectionCandidate]
       : [];
-  const geographyRefs = (relations.geography ?? []).map(mapGeographicZoneRow);
+
+  const geographyCandidates = (relations.geography ?? []).map(mapGeographicZoneRow);
+  const geographyAuthority =
+    relations.geographyAuthority ?? "inferred-requires-review";
+  const geographyRefs =
+    geographyAuthority === "canonical-approved" ? geographyCandidates : [];
   const canonicalGeography = normalizeCanonicalGeography(geographyRefs);
+  const observedGeography =
+    geographyAuthority === "observed-source"
+      ? geographyReviewEvidence(geographyCandidates, "observed-source")
+      : [];
+  const inferredGeography =
+    geographyAuthority === "inferred-requires-review"
+      ? geographyReviewEvidence(geographyCandidates, "inferred-requires-review")
+      : [];
+
   const sourceProvenance = mapSourceProvenance(
     relations.legacySource ?? null,
     relations.migrationExceptions ?? []
   );
+  const premiumSourceContext = relations.premiumSourceContext;
 
   return {
     id: row.id,
@@ -275,7 +322,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     slug: row.slug,
     standfirst: row.standfirst,
     excerpt: row.excerpt,
-    bodyHtml: row.body_html,
+    bodyHtml: accessPolicy === "premium" ? null : row.body_html,
     canonicalUrl: row.canonical_url,
     status,
     accessPolicy,
@@ -286,8 +333,8 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     ...canonicalGeography,
     geographyResolution: {
       canonicalApproved: geographyRefs,
-      observedSource: [],
-      inferredRequiresReview: []
+      observedSource: observedGeography,
+      inferredRequiresReview: inferredGeography
     },
     topics,
     legacyTaxonomy,
@@ -306,9 +353,9 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     contentIntegrity: sourceProvenance?.exceptions.length ? "requires-review" : "unknown",
     premiumSourceContext: {
       accessPolicy,
-      legacyMembershipSignal: "unknown",
-      providerReferencePresent: false,
-      reconciliation: null
+      legacyMembershipSignal: premiumSourceContext?.legacyMembershipSignal ?? "unknown",
+      providerReferencePresent: premiumSourceContext?.providerReferencePresent ?? false,
+      reconciliation: premiumSourceContext?.reconciliation ?? null
     }
   };
 }
