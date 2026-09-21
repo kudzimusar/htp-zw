@@ -41,7 +41,7 @@ export default function AuthorScreen(){
         <SectionHeader title="Recent source-parity coverage" eyebrow="CURRENT PUBLIC SOURCE" />
         {stories.data?.length
           ? <StoryGrid stories={stories.data} />
-          : <EmptyState title="No snapshot stories for this author yet" message="The author identity is preserved; AG-04 will reconcile the complete author archive." />}
+          : <EmptyState title="No stories found for this author" message="Published HealthTimes stories will appear here." />}
       </Section>
     </Page>
   );

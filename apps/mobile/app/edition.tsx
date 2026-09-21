@@ -60,7 +60,7 @@ export default function EditionScreen(){
         <SectionHeader title="Primary Edition" eyebrow="DISCOVERY" />
         {filteredEditions.length ? (
           <View style={styles.chips}>{filteredEditions.map((item)=><Chip key={item} active={primary===item} onPress={()=>setPrimary(item)}>{item}</Chip>)}</View>
-        ) : <EmptyState title="No matching edition" message="Try a broader country or region name. Edition values come from the taxonomy service." />}
+        ) : <EmptyState title="No matching edition" message="Try a broader country or region name." />}
       </Section>
 
       <Section>
@@ -74,13 +74,13 @@ export default function EditionScreen(){
         <SectionHeader title="Content preferences" />
         {interestOptions.length ? (
           <View style={styles.chips}>{interestOptions.map((item)=><Chip key={item} active={selectedTopics.includes(item)} onPress={()=>toggle(item,selectedTopics,setSelectedTopics)}>{item}</Chip>)}</View>
-        ) : <EmptyState title="Topic taxonomy is not populated yet" message="The screen remains bound to the canonical taxonomy contract and will populate without redesign when authoritative topics arrive." />}
+        ) : <EmptyState title="No topics available yet" message="HealthTimes topics will appear here as they become available." />}
       </Section>
 
       <Section>
         <View style={[styles.note,{backgroundColor:palette.paperMuted}]}>
           <Text style={[styles.noteTitle,{color:palette.ink}]}>Edition and billing country are different</Text>
-          <Text style={[styles.noteText,{color:palette.inkMuted}]}>This screen controls editorial discovery only. Residence, billing country, storefront and currency remain separate service-owned concepts.</Text>
+          <Text style={[styles.noteText,{color:palette.inkMuted}]}>Edition preferences shape editorial discovery. Residence, billing country and storefront currency are managed separately.</Text>
         </View>
         <Pressable style={[styles.save,{backgroundColor:palette.blue}]} onPress={()=>void save()}><Text style={[styles.saveText,{color:palette.paper}]}>Save Preferences</Text></Pressable>
         {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}

@@ -29,7 +29,7 @@ export default function AboutScreen(){
           <Section>
             <SectionHeader title="Corrections & editorial standards" eyebrow="READER TRUST" />
             <Text style={[styles.note,{color:palette.inkMuted}]}>
-              HealthTimes editorial principles are preserved from the current public publication. A separate verified corrections-policy URL is not present in the current parity record, so this interface does not invent one. Readers can contact the editorial desk directly for corrections while AG-04 reconciles final institutional pages.
+              HealthTimes welcomes correction requests. Readers can contact the editorial desk directly, and published editorial principles are shown below.
             </Text>
             <View style={styles.actions}>
               <Pressable
@@ -44,7 +44,7 @@ export default function AboutScreen(){
           <Section>
             <SectionHeader title="Source publication" />
             <Text style={[styles.note,{color:palette.inkMuted}]}>
-              This page is a read-only source-parity view. AG-03/AG-04 still own migration completeness, source capture and the final Supabase-backed institutional records.
+              Learn more about HealthTimes, its editorial principles and ways to contact the publication.
             </Text>
             <View style={styles.actions}>
               <Pressable style={[styles.action,{borderColor:palette.border}]} onPress={()=>void Linking.openURL(publication.data!.aboutUrl)}>
@@ -61,9 +61,9 @@ export default function AboutScreen(){
 
           {!!publication.data.sourceLinks?.length && (
             <Section>
-              <SectionHeader title="HealthTimes products & channels" eyebrow="SOURCE-VERIFIED" />
+              <SectionHeader title="HealthTimes products & channels" eyebrow="HEALTHTIMES" />
               <Text style={[styles.note,{color:palette.inkMuted}]}>
-                These public destinations are preserved from the current HealthTimes publication while their final migrated product records remain an AG-04 responsibility.
+                Explore HealthTimes products and official public channels.
               </Text>
               <View style={styles.linkGroups}>
                 {(["product","contact","social"] as const).map((kind)=>{
