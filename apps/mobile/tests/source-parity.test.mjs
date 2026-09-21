@@ -262,7 +262,7 @@ test("verified lead photography survives deterministic source fallback",()=>{
 
 test("unfilled advertising inventory collapses instead of rendering wireframe placeholders",()=>{
   const cards=read("src/ui/Cards.tsx");
-  assert.match(cards,/if\(noInventory\) return null/);
+  assert.match(cards,/if\(!adDecision \|\| adDecision\.source === "none"\) return null/);
   assert.doesNotMatch(cards,/Advertising space/);
   assert.doesNotMatch(cards,/Reserved advertising placement/);
 });
