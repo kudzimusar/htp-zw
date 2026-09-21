@@ -28,6 +28,8 @@ Article taxonomy now separates:
 
 `legacyTaxonomy` uses `LegacyTaxonomyRef` and retains source authority, source system, WordPress term ID when known, slug, name and category/tag kind.
 
+The staging mapper also requires explicit `canonical-approved` authority before section or topic candidates are exposed as canonical Reader taxonomy. WordPress-backed section rows default to observed-source; inferred section/topic candidates remain review-only.
+
 The canonical desk mapper has no generic Public Health fallback. A source label becomes a canonical desk only through an explicit alias in the audited mapping table.
 
 ### Provenance continuity
@@ -90,3 +92,8 @@ The WordPress Source Parity bridge may be replaced by an AG-04 Supabase `Article
 No Reader visual/layout change was made for NM-04. No advertising/analytics implementation was changed for NM-05. No authorization/session implementation was changed for NM-06.
 
 If later UI work wants to display review-state geography or taxonomy evidence, that is an NM-04 presentation decision; the NM-03 contract now exposes the state without forcing UI changes.
+
+
+## Validation lane
+
+PR #10 is a **draft validation PR only**. Its base is the temporary fixed branch `validation/nm03-81cf7665-base`, which points exactly at the authorized starting SHA `81cf766531a614e4abaa2246a2552974f3df58cc`. This isolates NM-03 certification from concurrent NM-04/Reader commits on the shared native branch. The validation PR must not be merged into that temporary base; the NM-03 continuation branch remains the deliverable.
