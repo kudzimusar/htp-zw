@@ -40,6 +40,9 @@ const articleRepository: ArticleRepository = {
   },
   async listBySection(sectionSlug) {
     return articles.filter((item) => item.primarySection?.slug === sectionSlug);
+  },
+  async listByAuthor(authorSlug) {
+    return articles.filter((item) => item.author?.slug === authorSlug);
   }
 };
 
@@ -60,6 +63,7 @@ const searchService: SearchService = {
     });
     return {
       articles: articleMatches,
+      authors: [],
       videos: query.format && query.format !== "video" ? [] : videos,
       audio: query.format && query.format !== "audio" ? [] : audioItems,
       live: query.format && query.format !== "live" ? [] : liveItems
@@ -220,6 +224,23 @@ export const fixtureServices: HealthTimesServices = {
   audio: audioService,
   notifications: notificationService,
   taxonomy: certifiedTaxonomyFixtureService,
+  publication: {
+    async getProfile() {
+      return {
+        name: "HealthTimes",
+        description: "Controlled fixture publication profile.",
+        publisher: "Fixture",
+        location: "Global",
+        editorialEmail: "editorial@example.invalid",
+        aboutUrl: "",
+        contactUrl: "",
+        editorialPrinciples: [],
+        sourceVerifiedAt: ""
+      };
+    },
+    async listAuthors() { return []; },
+    async getAuthor() { return null; }
+  },
   platform: platformService,
   social: socialService
 };

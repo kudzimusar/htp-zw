@@ -13,7 +13,7 @@ const keys = {
 
 const defaultPreferences: EditionPreference = {
   primaryEdition: "Global",
-  followedCountries: ["Zimbabwe"],
+  followedCountries: [],
   followedTopics: ["Public Health", "Research"]
 };
 

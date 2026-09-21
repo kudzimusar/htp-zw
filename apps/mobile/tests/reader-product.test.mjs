@@ -22,7 +22,7 @@ test("ReaderRepository exposes deterministic persistent Reader capabilities", ()
     "getAppearance",
     "setAppearance"
   ]) {
-    assert.match(contracts, new RegExp(`\\b${method}\\b`), `missing ReaderRepository method: ${method}`);
+    assert.match(contracts, new RegExp("\\b" + method + "\\b"), "missing ReaderRepository method: " + method);
   }
 });
 
@@ -36,7 +36,7 @@ test("device persistence separates saved, downloads, progress, history and appea
     "progress",
     "history"
   ]) {
-    assert.match(persistence, new RegExp(`ht:nm04:reader:${key}:v1`));
+    assert.match(persistence, new RegExp("ht:nm04:reader:" + key + ":v1"));
   }
   assert.match(persistence, /Math\.max\(0, Math\.min\(1, value\)\)/);
   assert.match(persistence, /slice\(0, 100\)/, "reading history must be bounded");
@@ -87,4 +87,88 @@ test("NM-04 cannot claim real migrated content before AG-04", () => {
   assert.match(source, /status: "blocked"/);
   assert.match(source, /authoritativeDatabaseValidated: false/);
   assert.match(source, /completeUploadsValidated: false/);
+});
+
+test("unified UI milestone follows approved Reader and PWA design authority", () => {
+  const layout = read("src/ui/Layout.tsx");
+  const cards = read("src/ui/Cards.tsx");
+  const home = read("app/(reader)/index.tsx");
+  const explore = read("app/(reader)/explore.tsx");
+  const search = read("app/search.tsx");
+  const article = read("app/article/[id].tsx");
+
+  assert.match(layout, /EDITION/);
+  assert.match(layout, /My HealthTimes/);
+  assert.match(layout, /breakpoints\.desktop/);
+  assert.match(cards, /export function StoryList/);
+  assert.match(cards, /heroDesktop/);
+  assert.match(home, /Editorial filters/);
+  assert.doesNotMatch(home, /zone\.slug === "zimbabwe"/i, "Home must not permanently hard-code Zimbabwe as the active edition");
+  assert.match(explore, /TAXONOMY GATEWAY/);
+  assert.match(search, /Suggested searches/);
+  assert.match(search, /VideoCard/);
+  assert.match(search, /AudioCard/);
+  assert.match(search, /LiveRail/);
+  assert.match(article, /parseArticleContent/);
+  assert.match(article, /article_after_intro/);
+  assert.match(article, /This Premium article is available to members/);
+});
+
+
+test("media and personal surfaces remain service-owned and globally edition-safe", () => {
+  const live = read("app/(reader)/live.tsx");
+  const watch = read("app/(reader)/watch.tsx");
+  const listen = read("app/listen.tsx");
+  const edition = read("app/edition.tsx");
+  const onboarding = read("app/onboarding.tsx");
+  const premium = read("app/premium.tsx");
+  const notifications = read("app/notifications.tsx");
+
+  assert.match(live, /services\.live\.list/);
+  assert.match(watch, /services\.video\.list/);
+  assert.match(listen, /services\.audio\.list/);
+  assert.match(edition, /services\.reader\.getPreferences/);
+  assert.match(onboarding, /services\.taxonomy\.getSnapshot/);
+  assert.match(onboarding, /saveNotificationPreferences/);
+  assert.doesNotMatch(edition, /Zimbabwe/);
+  assert.doesNotMatch(onboarding, /Zimbabwe/);
+  assert.match(premium, /Already a member\? Sign in to restore your HealthTimes Premium access/);
+  assert.match(notifications, /Choose which HealthTimes alerts you want to receive/);
+});
+
+
+test("responsive Reader shell keeps mobile native and desktop editorial navigation aligned", () => {
+  const tabs = read("app/(reader)/_layout.tsx");
+  const layout = read("src/ui/Layout.tsx");
+
+  for (const label of ["Home","Explore","Live","Watch","My HT"]) {
+    assert.ok(tabs.includes('title:"' + label + '"'), "missing bottom tab: " + label);
+  }
+  for (const kind of ["home","explore","live","watch","profile"]) {
+    assert.ok(tabs.includes('icon("' + kind + '")'), "missing bottom-tab icon: " + kind);
+  }
+  assert.ok(tabs.includes("tabBarActiveTintColor:palette.blue"));
+  assert.ok(tabs.includes("tabBarInactiveTintColor:palette.inkMuted"));
+  assert.ok(layout.includes("phone = width < breakpoints.tablet"));
+  assert.ok(layout.includes("mobileUtilityWrap"));
+  assert.ok(layout.includes("Search HealthTimes"));
+  assert.ok(layout.includes("Notifications"));
+  assert.ok(layout.includes("Change edition"));
+  assert.ok(layout.includes("mobileTabsVisible ? 96 : 64"));
+});
+
+
+test("Home editorial filters are functional and default country preferences stay global-neutral", () => {
+  const home = read("app/(reader)/index.tsx");
+  const persistence = read("src/services/reader-persistence.ts");
+  assert.ok(home.includes('type HomeFilter="for-you"|"latest"|"edition"|"world"|"health"'));
+  assert.ok(home.includes("setActiveFilter(item.key)"));
+  assert.ok(home.includes("matchesPreferences"));
+  assert.ok(home.includes('activeFilter==="latest"'));
+  assert.ok(home.includes('activeFilter==="edition"'));
+  assert.ok(home.includes('activeFilter==="world"'));
+  assert.ok(home.includes('activeFilter==="health"'));
+  assert.ok(home.includes('live.data?.length'));
+  assert.ok(persistence.includes("followedCountries: []"));
+  assert.equal(persistence.includes('followedCountries: ["Zimbabwe"]'), false);
 });

@@ -79,7 +79,8 @@ test("Studio modules require server-issued capabilities",()=>{
   const modules=read("app/studio/[module].tsx");
   assert.ok(studio.includes("StudioAccessGate"));
   assert.ok(studio.includes("hasServerCapability"));
-  assert.ok(studio.includes("Signing in, changing local state, or editing the client cannot grant this capability"));
+  assert.ok(studio.includes("cannot grant this capability"));
+  assert.ok(studio.includes("navigating directly to this route"));
   for(const value of [
     'capability:"story.create"',
     'capability:"story.publish"',
@@ -155,4 +156,18 @@ test("account recovery callback is consumed before password replacement",()=>{
   assert.ok(staging.includes("auth.setSession"));
   assert.ok(staging.includes("auth.updateUser"));
   assert.ok(staging.includes("A verified password-recovery session is required"));
+});
+
+
+test("Studio operational UX remains fail-closed and capability-oriented",()=>{
+  const studio=read("src/ui/Studio.tsx");
+  const today=read("app/studio/index.tsx");
+  const modules=read("app/studio/[module].tsx");
+  assert.ok(studio.includes("SERVER POLICY PENDING"));
+  assert.ok(studio.includes("Authority: AG-06 server roles only"));
+  assert.ok(studio.includes("Required capability"));
+  assert.ok(today.includes("CP7"));
+  assert.ok(today.includes("NOT AUTHORIZED"));
+  assert.ok(modules.includes("Implementation readiness"));
+  assert.equal(/setRole|switchRole|assumeRole|grantCapability/i.test(studio+"\n"+today+"\n"+modules),false);
 });

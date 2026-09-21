@@ -77,12 +77,19 @@ test("deep links and outgoing shares are attributable and domain-bounded",()=>{
   const links=read("src/growth/deepLinks.ts");
   for(const value of [
     "Linking.createURL",
+    "ht_article_id",
     "utm_source",
     "utm_medium",
     "utm_campaign",
     "healthtimes.co.zw",
     "parseSocialReferral"
   ]) assert.ok(links.includes(value), "missing deep-link behavior: "+value);
+  assert.ok(links.includes("allowedHosts"));
+  const root=read("app/_layout.tsx");
+  assert.ok(root.includes("parseHealthTimesDeepLink"));
+  assert.ok(root.includes("Linking.getInitialURL"));
+  assert.ok(root.includes('Linking.addEventListener("url"'));
+  assert.ok(root.includes('router.push(("/article/"'));
 });
 
 test("Premium storefront remains configuration-driven and server entitlement remains authoritative",()=>{

@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Linking from "expo-linking";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
-import { colors, layout, radius, spacing } from "../src/theme/tokens";
+import { layout, radius, spacing } from "../src/theme/tokens";
+import { useAppearance } from "../src/theme/AppearanceProvider";
 
 type Mode = "sign-in" | "register" | "recovery" | "new-password";
 
 export default function AccountAccessScreen(){
+  const { palette }=useAppearance();
   const [mode,setMode]=useState<Mode>("sign-in");
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
@@ -99,8 +101,12 @@ export default function AccountAccessScreen(){
     mode==="recovery" ? "Password recovery" :
     "Set a new password";
 
+  const inputStyle=[styles.input,{borderColor:palette.border,color:palette.ink,backgroundColor:palette.paper}];
+
   return (
     <Page title="Account Access">
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Reader identity is available across the shared app source. Staff authority remains a separate server-issued capability layer.</Text>
+
       <Section>
         <View style={styles.tabs}>
           <Chip active={mode==="sign-in"} onPress={()=>setMode("sign-in")}>Sign in</Chip>
@@ -110,15 +116,16 @@ export default function AccountAccessScreen(){
       </Section>
 
       <Section>
-        <SectionHeader title={title} />
+        <SectionHeader title={title} eyebrow="READER IDENTITY" />
         <View style={styles.form}>
           {mode==="register" && (
             <TextInput
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="Display name"
+              placeholderTextColor={palette.inkMuted}
               autoComplete="name"
-              style={styles.input}
+              style={inputStyle}
               accessibilityLabel="Display name"
             />
           )}
@@ -128,10 +135,11 @@ export default function AccountAccessScreen(){
               value={email}
               onChangeText={setEmail}
               placeholder="Email address"
+              placeholderTextColor={palette.inkMuted}
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
-              style={styles.input}
+              style={inputStyle}
               accessibilityLabel="Email address"
             />
           )}
@@ -141,15 +149,16 @@ export default function AccountAccessScreen(){
               value={password}
               onChangeText={setPassword}
               placeholder={mode==="new-password" ? "New password" : "Password"}
+              placeholderTextColor={palette.inkMuted}
               secureTextEntry
               autoComplete={mode==="sign-in" ? "current-password" : "new-password"}
-              style={styles.input}
+              style={inputStyle}
               accessibilityLabel={mode==="new-password" ? "New password" : "Password"}
             />
           )}
 
-          <Pressable accessibilityRole="button" style={styles.primary} onPress={()=>void submit()}>
-            <Text style={styles.primaryText}>
+          <Pressable accessibilityRole="button" style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>void submit()}>
+            <Text style={[styles.primaryText,{color:palette.paper}]}>
               {mode==="sign-in" ? "Sign in" :
                mode==="register" ? "Create account" :
                mode==="recovery" ? "Request reset" :
@@ -159,23 +168,19 @@ export default function AccountAccessScreen(){
 
           {mode==="register" && (
             <Pressable accessibilityRole="button" style={styles.secondary} onPress={()=>void resend()}>
-              <Text style={styles.secondaryText}>Resend verification email</Text>
+              <Text style={[styles.secondaryText,{color:palette.blue}]}>Resend verification email</Text>
             </Pressable>
           )}
 
-          {!!status && <Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>}
+          {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
         </View>
       </Section>
 
       <Section>
-        <View style={styles.security}>
-          <Text style={styles.securityTitle}>Reader identity is not Studio authority</Text>
-          <Text style={styles.securityText}>
-            A signed-in reader cannot grant themselves staff roles or publishing capabilities. Studio privileges require an AG-06 server-issued capability snapshot.
-          </Text>
-          <Text style={styles.securityText}>
-            Email verification and password-recovery links return to this screen. Native sessions are persisted with SecureStore; web uses the compatible browser storage fallback.
-          </Text>
+        <View style={[styles.security,{borderLeftColor:palette.blue}]}>
+          <Text style={[styles.securityTitle,{color:palette.ink}]}>Reader identity is not Studio authority</Text>
+          <Text style={[styles.securityText,{color:palette.inkMuted}]}>A signed-in reader cannot grant themselves staff roles or publishing capabilities. Studio privileges require an AG-06 server-issued capability snapshot.</Text>
+          <Text style={[styles.securityText,{color:palette.inkMuted}]}>Email verification and password-recovery links return to this screen. Native sessions are persisted with SecureStore; web uses the compatible browser storage fallback.</Text>
         </View>
       </Section>
     </Page>
@@ -183,15 +188,16 @@ export default function AccountAccessScreen(){
 }
 
 const styles=StyleSheet.create({
+  lede:{fontSize:15,lineHeight:23,maxWidth:760,marginTop:spacing.sm},
   tabs:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   form:{maxWidth:560,gap:spacing.md},
-  input:{minHeight:52,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,paddingHorizontal:spacing.lg,fontSize:16,color:colors.ink,backgroundColor:"#FFFFFF"},
-  primary:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:18,backgroundColor:colors.blue,borderRadius:radius.sm},
-  primaryText:{color:"#FFFFFF",fontWeight:"900"},
+  input:{minHeight:52,borderWidth:1,borderRadius:radius.md,paddingHorizontal:spacing.lg,fontSize:16},
+  primary:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:18,borderRadius:radius.sm},
+  primaryText:{fontWeight:"900"},
   secondary:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center"},
-  secondaryText:{color:colors.blue,fontWeight:"800"},
-  status:{fontSize:13,lineHeight:20,color:colors.inkMuted},
-  security:{borderLeftWidth:4,borderLeftColor:colors.blue,paddingLeft:spacing.lg,gap:spacing.sm,maxWidth:720},
-  securityTitle:{fontSize:17,fontWeight:"900",color:colors.ink},
-  securityText:{fontSize:14,lineHeight:22,color:colors.inkMuted}
+  secondaryText:{fontWeight:"800"},
+  status:{fontSize:13,lineHeight:20},
+  security:{borderLeftWidth:4,paddingLeft:spacing.lg,gap:spacing.sm,maxWidth:720},
+  securityTitle:{fontSize:17,fontWeight:"900"},
+  securityText:{fontSize:14,lineHeight:22}
 });

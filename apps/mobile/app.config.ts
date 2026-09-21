@@ -13,6 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const suffix = environment === "production" ? "" : environment === "staging" ? ".staging" : ".dev";
   const displayName =
     environment === "production" ? "HealthTimes" : environment === "staging" ? "HealthTimes Staging" : "HealthTimes Dev";
+  const webBaseUrl = process.env.HEALTHTIMES_WEB_BASE_URL?.trim();
 
   return {
     ...config,
@@ -23,7 +24,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: "default",
     userInterfaceStyle: "automatic",
     plugins: ["expo-router", "expo-secure-store", "expo-notifications"],
-    experiments: { typedRoutes: true },
+    experiments: {
+      typedRoutes: true,
+      ...(webBaseUrl ? { baseUrl: webBaseUrl } : {})
+    },
     ios: {
       ...config.ios,
       supportsTablet: true,

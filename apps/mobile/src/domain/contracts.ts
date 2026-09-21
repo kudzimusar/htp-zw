@@ -8,6 +8,7 @@ import type {
   AuthActionResult,
   ArticleDetail,
   ArticleSummary,
+  AuthorProfile,
   AudioItem,
   AuthSessionState,
   CurrentDeviceSession,
@@ -16,6 +17,7 @@ import type {
   NotificationItem,
   PlatformConnectivityReport,
   PremiumRestoreResult,
+  PublicationProfile,
   PremiumStoreState,
   ReaderProfile,
   SearchQuery,
@@ -32,6 +34,13 @@ export interface ArticleRepository {
   getById(id: string): Promise<ArticleDetail | null>;
   getRelated(id: string): Promise<ArticleSummary[]>;
   listBySection(sectionSlug: string): Promise<ArticleSummary[]>;
+  listByAuthor(authorSlug: string): Promise<ArticleSummary[]>;
+}
+
+export interface PublicationRepository {
+  getProfile(): Promise<PublicationProfile>;
+  listAuthors(): Promise<AuthorProfile[]>;
+  getAuthor(slug: string): Promise<AuthorProfile | null>;
 }
 
 export interface SearchService {
@@ -147,6 +156,7 @@ export interface HealthTimesServices {
   audio: AudioService;
   notifications: NotificationService;
   taxonomy: TaxonomyService;
+  publication: PublicationRepository;
   platform: PlatformService;
   social: SocialAttributionService;
 }
