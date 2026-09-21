@@ -61,7 +61,7 @@ test("AG-03 readiness stays blocked until authoritative private source evidence 
 });
 
 test("global taxonomy model is not Zimbabwe-only", () => {
-  const taxonomy = read("src/services/taxonomy.ts");
+  const taxonomy = read("src/services/taxonomy.ts") + "\n" + read("src/domain/taxonomy-authority.ts");
   for (const desk of [
     "Global Health",
     "Africa",
@@ -108,6 +108,9 @@ test("typed mappers cover article, author, media, geography, provenance and Prem
     "mapAuthorRow",
     "mapMediaRow",
     "mapSectionRow",
+    "mapLegacySectionRow",
+    "mapTagRow",
+    "mapLegacyTagRow",
     "mapGeographicZoneRow",
     "mapSourceProvenance",
     "mapStoryRow"
@@ -117,4 +120,124 @@ test("typed mappers cover article, author, media, geography, provenance and Prem
   assert.match(mapper, /premiumSourceContext/);
   assert.match(mapper, /legacyMembershipSignal/);
   assert.match(mapper, /sourceProvenance/);
+  assert.match(mapper, /taxonomyResolution/);
+  assert.match(mapper, /geographyResolution/);
+});
+
+test("taxonomy authority separates observed WordPress, approved canonical, and inferred review states", () => {
+  const models = read("src/domain/models.ts");
+  const authority = read("src/domain/taxonomy-authority.ts");
+  const sourceParity = read("src/services/source-parity.ts");
+  for (const state of ["observedWordPress", "approvedCanonical", "inferredRequiresReview"]) {
+    assert.match(models, new RegExp(state));
+  }
+  assert.match(authority, /approvedLegacyDeskAliases/);
+  assert.match(authority, /approvedCanonicalSectionForLegacy/);
+  assert.match(sourceParity, /observedWordPress:legacy/);
+  assert.match(sourceParity, /approvedCanonical:primarySection/);
+  assert.doesNotMatch(authority, /return AG01_CANONICAL_DESKS\["public-health"\]/);
+});
+
+test("Source Parity and AG-04 mapper share one canonical geography projection", () => {
+  const authority = read("src/domain/taxonomy-authority.ts");
+  const sourceParity = read("src/services/source-parity.ts");
+  const mapper = read("src/domain/mappers.ts");
+  assert.match(authority, /function normalizeCanonicalGeography/);
+  assert.match(authority, /geography: projectCanonicalGeography\(refs\)/);
+  assert.match(sourceParity, /normalizeCanonicalGeography\(geographyResolution\.canonicalApproved\)/);
+  assert.match(mapper, /normalizeCanonicalGeography\(geographyRefs\)/);
+  assert.match(mapper, /canonicalApproved: geographyRefs/);
+  assert.match(sourceParity, /inferredRequiresReview:inferredGeographyEvidence\(post\)/);
+});
+
+test("AG-04 mapped provenance preserves WordPress reconciliation identities and exceptions", () => {
+  const mapper = read("src/domain/mappers.ts");
+  for (const field of [
+    "authorSourceId",
+    "featuredMediaSourceId",
+    "categorySourceIds",
+    "tagSourceIds",
+    "legacyPath"
+  ]) {
+    assert.match(mapper, new RegExp(field));
+  }
+  assert.match(mapper, /exceptionsFromLegacySource/);
+  assert.match(mapper, /unknown-shortcode/);
+  assert.match(mapper, /unmapped-custom-field/);
+  assert.match(mapper, /migrationExceptions/);
+  assert.match(mapper, /primarySectionAuthority/);
+  assert.match(mapper, /primarySectionAuthority === "canonical-approved"/);
+  assert.match(mapper, /primarySectionAuthority === "observed-source"/);
+  assert.match(mapper, /topicsAuthority\?: SourceMappingAuthority/);
+  assert.match(mapper, /relations\.topicsAuthority === "canonical-approved"/);
+  assert.match(mapper, /relations\.topicsAuthority === "inferred-requires-review"/);
+});
+
+test("repository implementations expose the same Reader-facing semantic contract", () => {
+  const sourceParity = read("src/services/source-parity.ts");
+  const mapper = read("src/domain/mappers.ts");
+  const semantics = [
+    ["identity", /id:/, /id: row\.id/],
+    ["title", /title:/, /title: row\.title/],
+    ["author", /author:/, /author: relations\.author/],
+    ["canonical URL", /canonicalUrl/, /canonicalUrl: row\.canonical_url/],
+    ["publication date", /publishedAt/, /publishedAt: row\.published_at/],
+    ["modified date", /modifiedAt/, /modifiedAt: row\.modified_at/],
+    ["access policy", /accessPolicy/, /accessPolicy,/],
+    ["media", /heroMedia:/, /heroMedia: relations\.heroMedia/],
+    ["taxonomy", /taxonomyResolution/, /taxonomyResolution/],
+    ["geography", /geographyResolution/, /geographyResolution/],
+    ["source provenance", /sourceProvenance:/, /sourceProvenance,/],
+    ["migration exceptions", /mappingExceptions/, /migrationExceptions/]
+  ];
+  for (const [label, sourcePattern, stagingPattern] of semantics) {
+    assert.match(sourceParity, sourcePattern, `Source Parity missing ${label}`);
+    assert.match(mapper, stagingPattern, `AG-04 mapper missing ${label}`);
+  }
+});
+
+
+
+test("staging section rows require explicit canonical authority", () => {
+  const mapper = read("src/domain/mappers.ts");
+  assert.match(mapper, /primarySectionAuthority\?: SourceMappingAuthority/);
+  assert.match(mapper, /relations\.primarySection\?\.wordpress_source_id \? "observed-source" : null/);
+  assert.match(mapper, /primarySectionAuthority === "canonical-approved" \? primarySectionCandidate : null/);
+  assert.match(mapper, /mapLegacySectionRow\(relations\.primarySection\)/);
+  assert.match(mapper, /sourceKind: "category"/);
+  assert.match(mapper, /inferredRequiresReview: \[\.\.\.inferredCanonical, \.\.\.inferredTopics\]/);
+});
+
+
+test("only explicit AG-01 desk names are approved legacy-to-canonical desk mappings", () => {
+  const authority = read("src/domain/taxonomy-authority.ts");
+  for (const approved of [
+    '"global health": "global-health"',
+    'africa: "africa"',
+    'research: "research"',
+    'policy: "policy"',
+    'investigations: "investigations"',
+    '"public health": "public-health"',
+    '"health systems": "health-systems"',
+    '"health business": "health-business"'
+  ]) assert.ok(authority.includes(approved), approved);
+  for (const inferred of [
+    '"health news":',
+    '"hiv/aids":',
+    'epidemics:',
+    '"family health":',
+    'srhr:',
+    '"health financing":',
+    '"research & findings":'
+  ]) assert.ok(!authority.includes(inferred), inferred);
+});
+
+
+test("AG-04 media mapping can retain the related legacy-source provenance", () => {
+  const mapper = read("src/domain/mappers.ts");
+  assert.match(mapper, /heroMediaLegacySource\?: LegacySourceRow \| null/);
+  assert.match(mapper, /mapMediaRow\(relations\.heroMedia, relations\.heroMediaLegacySource \?\? null\)/);
+  assert.match(mapper, /legacySource\s*\? mapSourceProvenance\(legacySource\)/);
+  assert.match(mapper, /Media has a legacy_source_id, but the AG-04 repository did not supply/);
+  assert.match(mapper, /stableKey: "wordpress-author:" \+ row\.wordpress_source_id/);
 });
