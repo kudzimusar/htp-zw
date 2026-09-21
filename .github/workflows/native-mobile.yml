@@ -6,10 +6,12 @@ on:
       - feat/native-mobile-nm01-foundation
       - feat/native-mobile-nm02-staging-connectivity
       - feat/native-mobile-nm03-content-contracts
+      - 'feat/native-mobile-nm03-*'
       - feat/native-mobile-nm04-reader-product
       - feat/native-mobile-nm05-growth-commercial
       - feat/native-mobile-nm06-identity-security
       - feat/native-mobile-nm07-native-certification
+      - integration/native-mobile-nm00-convergence
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -62,6 +64,7 @@ jobs:
         run: |
           npm --prefix apps/mobile run test:reader-product
           npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:search-ranking
 
       - name: Run NM-05 growth commercial safety tests
         run: npm --prefix apps/mobile run test:growth-commercial
