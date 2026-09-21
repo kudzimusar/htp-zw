@@ -42,6 +42,44 @@ jobs:
       - name: Validate read-only source parity bridge
         run: npm --prefix apps/mobile run test:source-parity
 
+      - name: Probe public WordPress source reachability and browser CORS
+        shell: bash
+        run: |
+          set -u
+          endpoint='https://healthtimes.co.zw/wp-json/wp/v2/posts?per_page=1&status=publish&orderby=date&order=desc&_embed=1'
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl -sS --connect-timeout 10 --max-time 20 -D "$headers" -o "$body" -w '%{http_code}' \
+            -H 'Origin: https://kudzimusar.github.io' \
+            -H 'Accept: application/json' \
+            "$endpoint" || true)"
+          echo "HealthTimes public REST HTTP status: ${status:-curl-failed}"
+          cors_origin="$(awk 'BEGIN{IGNORECASE=1} /^access-control-allow-origin:/ {sub(/\r$/,\"\"); sub(/^[^:]+:[[:space:]]*/,\"\"); print}' "$headers" | tail -n 1)"
+          echo "Access-Control-Allow-Origin: ${cors_origin:-<missing>}"
+
+          if [[ "$status" == "200" && -s "$body" ]]; then
+            node - "$body" <<'NODE'
+          const fs = require("fs");
+          const path = process.argv[2];
+          const payload = JSON.parse(fs.readFileSync(path, "utf8"));
+          if (!Array.isArray(payload)) throw new Error("Public WordPress posts response is not an array.");
+          const post = payload[0] || {};
+          console.log("Public REST payload: PASS");
+          console.log("Latest public post slug:", post.slug || "<none>");
+          console.log("Embedded author:", Boolean(post._embedded?.author?.length));
+          console.log("Embedded media:", Boolean(post._embedded?.["wp:featuredmedia"]?.length));
+          console.log("Embedded taxonomy:", Boolean(post._embedded?.["wp:term"]?.flat?.().length));
+          NODE
+          else
+            echo "::warning::Public WordPress REST probe was unavailable; deterministic source-parity snapshot remains the intended fallback."
+          fi
+
+          if [[ "$cors_origin" == "*" || "$cors_origin" == "https://kudzimusar.github.io" ]]; then
+            echo "GitHub Pages browser CORS compatibility: PASS"
+          else
+            echo "::warning::GitHub Pages live refresh is not CORS-confirmed from the public response. The PWA will continue using its deterministic fallback when browser fetch is blocked."
+          fi
+
       - name: Export HealthTimes PWA for GitHub Pages
         env:
           APP_ENV: development
