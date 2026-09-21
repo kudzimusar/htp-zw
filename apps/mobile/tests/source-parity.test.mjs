@@ -206,3 +206,82 @@ test("institutional products and social channels remain source-verifiably reacha
   assert.match(snapshot,/\/author\/michael-gwarisa\//);
   assert.match(snapshot,/\/author\/kuda-pembere\//);
 });
+
+
+test("premium Reader Home consumes broad real-publication sections without fixture-style scaffolding",()=>{
+  const home=read("app/(reader)/index.tsx");
+  for(const label of [
+    "Top Stories",
+    "Latest",
+    "Features",
+    "Public Health",
+    "Research & Findings",
+    "Health Financing",
+    "HIV/AIDS",
+    "Global Health",
+    "Watch",
+    "Premium",
+    "Opportunities",
+    "Further Coverage"
+  ]) assert.ok(home.includes(label),label);
+  assert.doesNotMatch(home,/No verified live event right now/);
+});
+
+test("Explore separates canonical taxonomy from preserved legacy publication navigation",()=>{
+  const explore=read("app/(reader)/explore.tsx");
+  const snapshot=read("src/source-parity/snapshot.ts");
+  const service=read("src/services/source-parity.ts");
+  assert.match(explore,/Canonical desks/);
+  assert.match(explore,/Legacy publication categories/);
+  for(const family of [
+    "Communicable Diseases",
+    "Noncommunicable Diseases",
+    "Opinion & Analysis",
+    "Research & Findings"
+  ]) assert.ok(snapshot.includes(family),family);
+  assert.match(service,/sourceParityLegacyNavigation/);
+});
+
+test("source search returns authors and fails closed for unsupported video taxonomy filters",()=>{
+  const models=read("src/domain/models.ts");
+  const service=read("src/services/source-parity.ts");
+  const search=read("app/search.tsx");
+  assert.match(models,/authors: AuthorProfile\[\]/);
+  assert.match(service,/const authors=query\.format/);
+  assert.match(service,/query\.country \|\| query\.topic \|\| \(query\.format && query\.format!=="video"\)/);
+  assert.match(search,/Author matches/);
+  assert.match(search,/country,setCountry/);
+  assert.match(search,/topic,setTopic/);
+});
+
+test("verified lead photography survives deterministic source fallback",()=>{
+  const snapshot=read("src/source-parity/snapshot.ts");
+  assert.match(snapshot,/zimbabwe-social-contracting-hiv-financing-dialogue\.jpg/);
+  assert.match(snapshot,/enerst-chikwati-ahf-zimbabwe-country-director\.jpeg/);
+});
+
+test("unfilled advertising inventory collapses instead of rendering wireframe placeholders",()=>{
+  const cards=read("src/ui/Cards.tsx");
+  assert.match(cards,/if\(noInventory\) return null/);
+  assert.doesNotMatch(cards,/Advertising space/);
+  assert.doesNotMatch(cards,/Reserved advertising placement/);
+});
+
+test("institutional continuity is discoverable from My HealthTimes and About",()=>{
+  const my=read("app/(reader)/my.tsx");
+  const about=read("app/about.tsx");
+  assert.match(my,/PUBLICATION & INSTITUTIONAL/);
+  assert.match(my,/Corrections & Editorial Standards/);
+  assert.match(my,/services\.publication\.getProfile/);
+  assert.match(about,/Corrections & editorial standards/);
+  assert.match(about,/Request a correction/);
+});
+
+test("Pages workflow proves exact deployed SHA and critical owner-preview routes",()=>{
+  const pages=read("../.github/workflows/pages.yml");
+  assert.match(pages,/build-info\.json/);
+  assert.match(pages,/Exact-head Pages deployment: PASS/);
+  for(const route of ["live","explore","search","premium","watch","my","article\/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"]){
+    assert.ok(pages.includes(route),route);
+  }
+});
