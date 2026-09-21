@@ -61,7 +61,7 @@ test.describe('AG-06 security contract', () => {
     expect(api).toContain("'HttpOnly'");
     expect(api).toContain("'SameSite=Lax'");
     expect(api).toContain("'Secure'");
-    expect(api).toContain('X-HTP-CSRF');
+    expect(api).toContain('x-htp-csrf');
     expect(api).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(browser).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(browser).not.toContain('SUPABASE_ANON_KEY');
