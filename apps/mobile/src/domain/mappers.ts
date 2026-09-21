@@ -1,13 +1,86 @@
 import type { Database } from "../generated/database.types";
-import type { ArticleDetail, AuthorRef, MediaRef, TaxonomyRef } from "./models";
-import type { GeographyRef, SourceProvenance } from "./source";
+import type {
+  ArticleDetail,
+  AuthorRef,
+  LegacyTaxonomyRef,
+  MediaRef,
+  TaxonomyRef
+} from "./models";
+import type {
+  GeographyRef,
+  PremiumSourceContext,
+  SourceException,
+  SourceMappingAuthority,
+  SourceProvenance,
+  WordPressSourceIdentity
+} from "./source";
+import { normalizeCanonicalGeography } from "./taxonomy-authority";
 
 type StoryRow = Database["public"]["Tables"]["stories"]["Row"];
 type AuthorRow = Database["public"]["Tables"]["authors"]["Row"];
 type MediaRow = Database["public"]["Tables"]["media_assets"]["Row"];
 type SectionRow = Database["public"]["Tables"]["sections"]["Row"];
+type TagRow = Database["public"]["Tables"]["tags"]["Row"];
 type ZoneRow = Database["public"]["Tables"]["geographic_zones"]["Row"];
 type LegacySourceRow = Database["public"]["Tables"]["legacy_sources"]["Row"];
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function stringIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids = value
+    .map((item) => typeof item === "string" || typeof item === "number" ? String(item) : "")
+    .filter(Boolean);
+  return ids.length ? ids : undefined;
+}
+
+function wordpressIdentityFromLegacySource(row: LegacySourceRow): WordPressSourceIdentity | undefined {
+  if (row.system !== "wordpress") return undefined;
+  const raw = asRecord(row.raw);
+  const source = asRecord(raw?.source);
+  const story = asRecord(raw?.story);
+  const sourceType = nonEmptyString(source?.type) ?? row.source_type;
+  return {
+    postId: sourceType === "post" || sourceType === "page" ? row.source_id : undefined,
+    authorId: nonEmptyString(story?.authorSourceId),
+    featuredMediaId: nonEmptyString(story?.featuredMediaSourceId),
+    categoryIds: stringIds(story?.categorySourceIds),
+    tagIds: stringIds(story?.tagSourceIds),
+    legacyPath: nonEmptyString(source?.legacyPath)
+  };
+}
+
+function exceptionsFromLegacySource(row: LegacySourceRow): SourceException[] {
+  const raw = asRecord(row.raw);
+  const rawExceptions = Array.isArray(raw?.exceptions) ? raw.exceptions : [];
+  return rawExceptions.map((value): SourceException => {
+    const exception = asRecord(value);
+    const type = nonEmptyString(exception?.type);
+    const detail = asRecord(exception?.detail);
+    return {
+      kind:
+        type === "shortcode"
+          ? "unknown-shortcode"
+          : type === "unknown_field"
+            ? "unmapped-custom-field"
+            : "other",
+      classification: "requires-review",
+      field:
+        type === "shortcode"
+          ? "bodyHtml"
+          : nonEmptyString(detail?.field),
+      note: "Preserved from the AG-04 legacy source exception payload."
+    };
+  });
+}
 
 export function mapAuthorRow(row: AuthorRow): AuthorRef {
   return {
@@ -18,7 +91,7 @@ export function mapAuthorRow(row: AuthorRow): AuthorRef {
       ? {
           system: "wordpress",
           sourceId: row.wordpress_source_id,
-          stableKey: null,
+          stableKey: "wordpress-author:" + row.wordpress_source_id,
           sourceUrl: null,
           checksum: null,
           capturedAt: null,
@@ -29,24 +102,35 @@ export function mapAuthorRow(row: AuthorRow): AuthorRef {
   };
 }
 
-export function mapMediaRow(row: MediaRow): MediaRef {
+export function mapMediaRow(
+  row: MediaRow,
+  legacySource: LegacySourceRow | null = null
+): MediaRef {
+  const sourceProvenance = legacySource
+    ? mapSourceProvenance(legacySource)
+    : row.legacy_source_id
+      ? {
+          system: "wordpress" as const,
+          sourceId: null,
+          stableKey: null,
+          sourceUrl: row.source_url,
+          checksum: row.checksum,
+          capturedAt: null,
+          exceptions: [{
+            kind: "other" as const,
+            classification: "requires-review" as const,
+            field: "heroMedia.sourceProvenance",
+            note: "Media has a legacy_source_id, but the AG-04 repository did not supply the related legacy_sources row."
+          }]
+        }
+      : null;
   return {
     id: row.id,
     publicUrl: row.public_url,
     altText: row.alt_text,
     caption: row.caption,
     credit: row.credit,
-    sourceProvenance: row.legacy_source_id
-      ? {
-          system: "wordpress",
-          sourceId: null,
-          stableKey: null,
-          sourceUrl: row.source_url,
-          checksum: row.checksum,
-          capturedAt: null,
-          exceptions: []
-        }
-      : null
+    sourceProvenance
   };
 }
 
@@ -55,6 +139,36 @@ export function mapSectionRow(row: SectionRow): TaxonomyRef {
     id: row.id,
     name: row.name,
     slug: row.slug
+  };
+}
+
+export function mapLegacySectionRow(row: SectionRow): LegacyTaxonomyRef | null {
+  if (!row.wordpress_source_id) return null;
+  return {
+    ...mapSectionRow(row),
+    authority: "observed-source",
+    sourceSystem: "wordpress",
+    sourceId: row.wordpress_source_id,
+    sourceKind: "category"
+  };
+}
+
+export function mapTagRow(row: TagRow): TaxonomyRef {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug
+  };
+}
+
+export function mapLegacyTagRow(row: TagRow): LegacyTaxonomyRef | null {
+  if (!row.wordpress_source_id) return null;
+  return {
+    ...mapTagRow(row),
+    authority: "observed-source",
+    sourceSystem: "wordpress",
+    sourceId: row.wordpress_source_id,
+    sourceKind: "post_tag"
   };
 }
 
@@ -78,7 +192,10 @@ export function mapGeographicZoneRow(row: ZoneRow): GeographyRef {
   };
 }
 
-export function mapSourceProvenance(row: LegacySourceRow | null): SourceProvenance | null {
+export function mapSourceProvenance(
+  row: LegacySourceRow | null,
+  additionalExceptions: SourceException[] = []
+): SourceProvenance | null {
   if (!row) return null;
   return {
     system: row.system === "wordpress" ? "wordpress" : "healthtimes-native",
@@ -87,25 +204,117 @@ export function mapSourceProvenance(row: LegacySourceRow | null): SourceProvenan
     sourceUrl: row.source_url,
     checksum: row.checksum,
     capturedAt: row.last_seen_at,
-    exceptions: []
+    wordpress: wordpressIdentityFromLegacySource(row),
+    exceptions: [...exceptionsFromLegacySource(row), ...additionalExceptions]
   };
 }
 
 export type StoryRelations = {
   author?: AuthorRow | null;
   primarySection?: SectionRow | null;
+  /**
+   * A section row is Reader-canonical only when the repository can prove that
+   * AG-04 mapped it to the AG-01 vocabulary. WordPress-backed section rows
+   * default to observed-source and remain legacy taxonomy.
+   */
+  primarySectionAuthority?: SourceMappingAuthority;
   heroMedia?: MediaRow | null;
+  heroMediaLegacySource?: LegacySourceRow | null;
+  /**
+   * Geography rows are candidates only. They become Reader-canonical only
+   * when AG-04 explicitly marks them canonical-approved.
+   */
   geography?: ZoneRow[];
-  topics?: Array<{ id: string; name: string; slug: string }>;
+  geographyAuthority?: SourceMappingAuthority;
+  /**
+   * Canonical AG-01/AG-04 topics only. Imported WordPress terms remain in
+   * legacyTaxonomy until AG-04 explicitly maps them.
+   */
+  topics?: TaxonomyRef[];
+  topicsAuthority?: SourceMappingAuthority;
+  legacyTaxonomy?: LegacyTaxonomyRef[];
   legacySource?: LegacySourceRow | null;
+  migrationExceptions?: SourceException[];
+  /**
+   * Migration provenance only. This never grants a Premium entitlement and
+   * never authorizes a protected body to cross the public Reader projection.
+   */
+  premiumSourceContext?: Omit<PremiumSourceContext, "accessPolicy">;
 };
 
+export type AG04ReaderProjectionBundle = StoryRelations & {
+  story: StoryRow;
+};
+
+function geographyReviewEvidence(
+  refs: GeographyRef[],
+  authority: Extract<SourceMappingAuthority, "observed-source" | "inferred-requires-review">
+) {
+  return refs.map((candidate) => ({
+    candidate,
+    authority,
+    evidence: "ag04-repository" as const,
+    sourceValue: candidate.name
+  }));
+}
+
+export function mapAG04ReaderProjection(bundle: AG04ReaderProjectionBundle): ArticleDetail {
+  const { story, ...relations } = bundle;
+  return mapStoryRow(story, relations);
+}
+
 export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): ArticleDetail {
-  const accessPolicy = row.access_policy === "premium" ? "premium" : "public";
+  const accessPolicy = row.access_policy === "public" ? "public" : "premium";
   const status =
     row.status === "scheduled" || row.status === "published" || row.status === "archived"
       ? row.status
       : "draft";
+  const primarySectionCandidate = relations.primarySection ? mapSectionRow(relations.primarySection) : null;
+  const primarySectionAuthority =
+    relations.primarySectionAuthority ??
+    (relations.primarySection?.wordpress_source_id ? "observed-source" : null);
+  const primarySection =
+    primarySectionAuthority === "canonical-approved" ? primarySectionCandidate : null;
+  const observedPrimarySection =
+    primarySectionAuthority === "observed-source" && relations.primarySection
+      ? mapLegacySectionRow(relations.primarySection)
+      : null;
+  const topicCandidates = relations.topics ?? [];
+  const topics =
+    relations.topicsAuthority === "canonical-approved" ? topicCandidates : [];
+  const inferredTopics =
+    relations.topicsAuthority === "inferred-requires-review" ? topicCandidates : [];
+  const legacyTaxonomy = Array.from(new Map(
+    [
+      ...(relations.legacyTaxonomy ?? []),
+      ...(observedPrimarySection ? [observedPrimarySection] : [])
+    ].map((term) => [term.sourceKind + ":" + (term.sourceId ?? term.slug), term])
+  ).values());
+  const inferredCanonical =
+    primarySectionAuthority === "inferred-requires-review" && primarySectionCandidate
+      ? [primarySectionCandidate]
+      : [];
+
+  const geographyCandidates = (relations.geography ?? []).map(mapGeographicZoneRow);
+  const geographyAuthority =
+    relations.geographyAuthority ?? "inferred-requires-review";
+  const geographyRefs =
+    geographyAuthority === "canonical-approved" ? geographyCandidates : [];
+  const canonicalGeography = normalizeCanonicalGeography(geographyRefs);
+  const observedGeography =
+    geographyAuthority === "observed-source"
+      ? geographyReviewEvidence(geographyCandidates, "observed-source")
+      : [];
+  const inferredGeography =
+    geographyAuthority === "inferred-requires-review"
+      ? geographyReviewEvidence(geographyCandidates, "inferred-requires-review")
+      : [];
+
+  const sourceProvenance = mapSourceProvenance(
+    relations.legacySource ?? null,
+    relations.migrationExceptions ?? []
+  );
+  const premiumSourceContext = relations.premiumSourceContext;
 
   return {
     id: row.id,
@@ -113,25 +322,40 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
     slug: row.slug,
     standfirst: row.standfirst,
     excerpt: row.excerpt,
-    bodyHtml: row.body_html,
+    bodyHtml: accessPolicy === "premium" ? null : row.body_html,
     canonicalUrl: row.canonical_url,
     status,
     accessPolicy,
     publishedAt: row.published_at,
     modifiedAt: row.modified_at,
     author: relations.author ? mapAuthorRow(relations.author) : null,
-    primarySection: relations.primarySection ? mapSectionRow(relations.primarySection) : null,
-    geography: [],
-    geographyRefs: (relations.geography ?? []).map(mapGeographicZoneRow),
-    topics: relations.topics ?? [],
-    heroMedia: relations.heroMedia ? mapMediaRow(relations.heroMedia) : null,
-    sourceProvenance: mapSourceProvenance(relations.legacySource ?? null),
-    contentIntegrity: "unknown",
+    primarySection,
+    ...canonicalGeography,
+    geographyResolution: {
+      canonicalApproved: geographyRefs,
+      observedSource: observedGeography,
+      inferredRequiresReview: inferredGeography
+    },
+    topics,
+    legacyTaxonomy,
+    taxonomyResolution: {
+      observedWordPress: legacyTaxonomy,
+      approvedCanonical: [
+        ...(primarySection ? [primarySection] : []),
+        ...topics
+      ],
+      inferredRequiresReview: [...inferredCanonical, ...inferredTopics]
+    },
+    heroMedia: relations.heroMedia
+      ? mapMediaRow(relations.heroMedia, relations.heroMediaLegacySource ?? null)
+      : null,
+    sourceProvenance,
+    contentIntegrity: sourceProvenance?.exceptions.length ? "requires-review" : "unknown",
     premiumSourceContext: {
       accessPolicy,
-      legacyMembershipSignal: "unknown",
-      providerReferencePresent: false,
-      reconciliation: null
+      legacyMembershipSignal: premiumSourceContext?.legacyMembershipSignal ?? "unknown",
+      providerReferencePresent: premiumSourceContext?.providerReferencePresent ?? false,
+      reconciliation: premiumSourceContext?.reconciliation ?? null
     }
   };
 }

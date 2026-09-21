@@ -1,5 +1,21 @@
 export type SourceSystem = "wordpress" | "healthtimes-native";
 
+export type SourceMappingAuthority =
+  | "observed-source"
+  | "canonical-approved"
+  | "inferred-requires-review";
+
+export type SourceTaxonomyKind = "category" | "post_tag";
+
+export type SourceFeedContract = {
+  mode: "bounded-public-feed";
+  requestedPageSize: number;
+  corpusComplete: false;
+  totalItemsObserved: number | null;
+  totalPagesObserved: number | null;
+  inventoryDiagnostics: "wordpress-total-headers" | "unavailable";
+};
+
 export type SourceReconciliationClassification =
   | "match"
   | "expected-source-drift"

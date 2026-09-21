@@ -1,4 +1,4 @@
-import type { CommercialSourceContext, ContentIntegrityState, GeographyRef, PremiumSourceContext, SourceProvenance } from "./source";
+import type { CommercialSourceContext, ContentIntegrityState, GeographyRef, PremiumSourceContext, SourceMappingAuthority, SourceProvenance, SourceTaxonomyKind } from "./source";
 
 export type AppearancePreference = "light" | "dark" | "system";
 export type AccessPolicy = "public" | "premium";
@@ -52,6 +52,32 @@ export type TaxonomyRef = {
   slug: string;
 };
 
+export type LegacyTaxonomyRef = TaxonomyRef & {
+  authority: Extract<SourceMappingAuthority, "observed-source">;
+  sourceSystem: "wordpress";
+  sourceId: string | null;
+  sourceKind: SourceTaxonomyKind | null;
+};
+
+export type TaxonomyResolution = {
+  observedWordPress: LegacyTaxonomyRef[];
+  approvedCanonical: TaxonomyRef[];
+  inferredRequiresReview: TaxonomyRef[];
+};
+
+export type GeographyEvidence = {
+  candidate: GeographyRef;
+  authority: Extract<SourceMappingAuthority, "observed-source" | "inferred-requires-review">;
+  evidence: "wordpress-taxonomy" | "headline-excerpt" | "certified-source-snapshot" | "ag04-repository";
+  sourceValue: string | null;
+};
+
+export type GeographyResolution = {
+  canonicalApproved: GeographyRef[];
+  observedSource: GeographyEvidence[];
+  inferredRequiresReview: GeographyEvidence[];
+};
+
 export type ArticleSummary = {
   id: string;
   title: string;
@@ -66,8 +92,10 @@ export type ArticleSummary = {
   primarySection: TaxonomyRef | null;
   geography: TaxonomyRef[];
   geographyRefs?: GeographyRef[];
+  geographyResolution?: GeographyResolution;
   topics: TaxonomyRef[];
-  legacyTaxonomy?: TaxonomyRef[];
+  legacyTaxonomy?: LegacyTaxonomyRef[];
+  taxonomyResolution?: TaxonomyResolution;
   heroMedia: MediaRef | null;
   sourceProvenance?: SourceProvenance | null;
   contentIntegrity?: ContentIntegrityState;
