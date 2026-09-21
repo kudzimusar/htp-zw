@@ -168,16 +168,17 @@ test("Premium content is excluded from browser REST requests before mapping",()=
   assert.match(service,/const wpMetadataFields=/);
   assert.match(service,/const wpPublicDetailFields=wpMetadataFields\+",content"/);
   assert.match(service,/wpPostQuery\(\{includeContent:false\}\)/);
-  assert.match(service,/const includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
+  assert.match(service,/const includeContent=current\.accessPolicy==="public" && !accessTaxonomyUnresolved/);
   assert.match(service,/wpPostQuery\(\{includeContent\}\)/);
   assert.match(service,/fallback\?\.accessPolicy==="premium"/);
 });
 
-test("uncertain live taxonomy fails closed for detail body retrieval",()=>{
+test("unresolved legacy taxonomy fails closed before detail-body retrieval",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/exception\.kind==="taxonomy-unresolved"/);
-  assert.match(service,/exception\.field==="legacyTaxonomy" \|\| exception\.field==="primarySection"/);
-  assert.match(service,/includeContent=current\.accessPolicy==="public" && !taxonomyUnresolved/);
+  assert.match(service,/const accessTaxonomyUnresolved=/);
+  assert.match(service,/exception\.kind==="taxonomy-unresolved" && exception\.field==="legacyTaxonomy"/);
+  assert.match(service,/includeContent=current\.accessPolicy==="public" && !accessTaxonomyUnresolved/);
+  assert.doesNotMatch(service,/exception\.field==="legacyTaxonomy" \|\| exception\.field==="primarySection"/);
 });
 
 
@@ -324,4 +325,13 @@ test("legacy taxonomy carries raw WordPress identity and explicit observed autho
   assert.match(service,/observedWordPress:legacy/);
   assert.match(service,/approvedCanonical:primarySection \? \[primarySection\] : \[\]/);
   assert.match(service,/inferredRequiresReview:\[\]/);
+});
+
+
+test("fallbackless author uncertainty is preserved instead of inventing a byline",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/const author=embeddedAuthor \? \{/);
+  assert.match(service,/\} : fallback\?\.author \?\? null;/);
+  assert.doesNotMatch(service,/displayName:authorName/);
+  assert.doesNotMatch(service,/source-author-"\+authorSlug/);
 });
