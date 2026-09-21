@@ -572,7 +572,7 @@ as $$
   from public.staff_profiles sp
   left join public.newsroom_roles r on r.id=sp.role_id
   where public.newsroom_session_authorized()
-    and lower(sp.status) in ('active','invited')
+    and (lower(sp.status)='active' or public.newsroom_has_capability('staff.view'))
   order by sp.display_name;
 $$;
 
