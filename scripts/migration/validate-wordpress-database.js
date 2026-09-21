@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const readline = require('readline');
 const { execFileSync } = require('child_process');
 
-const VALIDATOR_VERSION = '1.0.0';
+const VALIDATOR_VERSION = '1.1.0';
 
 const CORE_SUFFIXES = [
   'commentmeta','comments','links','options','postmeta','posts',
@@ -37,7 +37,7 @@ function normalizeIdentifier(value) {
   return String(value || '').replace(/^[`"']+|[`"']+$/g, '');
 }
 
-function detectPrefix(tableNames) {
+function scorePrefixes(tableNames) {
   const scores = new Map();
   for (const table of tableNames) {
     for (const suffix of CORE_SUFFIXES) {
@@ -48,8 +48,35 @@ function detectPrefix(tableNames) {
       }
     }
   }
-  const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  return ranked.length && ranked[0][1] >= 4 ? ranked[0][0] : null;
+  return [...scores.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function selectWordPressPrefix(tableNames, explicitPrefix) {
+  if (explicitPrefix !== undefined && explicitPrefix !== null) {
+    const prefix = String(explicitPrefix);
+    if (!/^[A-Za-z0-9_]*$/.test(prefix)) {
+      return { status: 'INVALID_EXPLICIT', prefix, source: 'WP_CONFIG_EXPLICIT', candidate_count: 0, score: null };
+    }
+    return { status: 'SELECTED', prefix, source: 'WP_CONFIG_EXPLICIT', candidate_count: 1, score: null };
+  }
+
+  const ranked = scorePrefixes(tableNames);
+  if (!ranked.length || ranked[0][1] < 4) {
+    return { status: 'NOT_DETECTED', prefix: null, source: 'AUTO_DETECTION', candidate_count: 0, score: ranked.length ? ranked[0][1] : null };
+  }
+
+  const topScore = ranked[0][1];
+  const tied = ranked.filter(([, score]) => score === topScore && score >= 4);
+  if (tied.length > 1) {
+    return { status: 'AMBIGUOUS', prefix: null, source: 'AUTO_AMBIGUOUS', candidate_count: tied.length, score: topScore };
+  }
+
+  return { status: 'SELECTED', prefix: ranked[0][0], source: 'AUTO_DETECTED', candidate_count: 1, score: topScore };
+}
+
+function detectPrefix(tableNames) {
+  const selection = selectWordPressPrefix(tableNames);
+  return selection.status === 'SELECTED' ? selection.prefix : null;
 }
 
 function splitSqlFields(rowBody) {
@@ -185,6 +212,7 @@ function classifyTables(tableNames, prefix) {
     custom_plugin: []
   };
   for (const table of tableNames) {
+    if (prefix != null && !table.startsWith(prefix)) continue;
     const lower = table.toLowerCase();
     if (core.has(table)) groups.wordpress_core.push(table);
     else if (/(subscription|wcs_)/.test(lower)) groups.subscriptions.push(table);
@@ -230,6 +258,7 @@ function parseArgs(argv) {
     else if (key === '--mysql-host') out.mysqlHost = argv[++i];
     else if (key === '--mysql-port') out.mysqlPort = argv[++i];
     else if (key === '--mysql-socket') out.mysqlSocket = argv[++i];
+    else if (key === '--wordpress-prefix') out.wordpressPrefix = argv[++i];
   }
   if (!out.artifact) throw new Error('ARTIFACT_ARGUMENT_REQUIRED');
   return out;
@@ -260,6 +289,38 @@ function queryDisposableRestore(options = {}) {
   }
 }
 
+async function forEachSqlStatement(filePath, isGzip, visitor) {
+  let source = fs.createReadStream(filePath);
+  if (isGzip) source = source.pipe(zlib.createGunzip());
+
+  let mode = null;
+  let buffer = '';
+  const rl = readline.createInterface({ input: source, crlfDelay: Infinity });
+  for await (const line of rl) {
+    const trimmed = line.trimStart();
+    if (!mode) {
+      if (/^CREATE\s+TABLE/i.test(trimmed)) {
+        mode = 'CREATE';
+        buffer = line;
+      } else if (/^INSERT\s+INTO/i.test(trimmed)) {
+        mode = 'INSERT';
+        buffer = line;
+      } else {
+        continue;
+      }
+    } else {
+      buffer += '\n' + line;
+    }
+
+    if (/;\s*$/.test(line.trim())) {
+      visitor(mode, buffer);
+      mode = null;
+      buffer = '';
+    }
+  }
+  if (buffer) visitor(mode, buffer);
+}
+
 async function validateDatabaseArtifact(filePath, options = {}) {
   const report = {
     validator: 'wordpress_database',
@@ -276,6 +337,8 @@ async function validateDatabaseArtifact(filePath, options = {}) {
     sql_structure_readable: false,
     validation_status: 'INVALID',
     wordpress_table_prefix: null,
+    wordpress_prefix_selection_source: null,
+    wordpress_prefix_candidate_count: 0,
     table_count: 0,
     tables: [],
     table_groups: {},
@@ -341,80 +404,12 @@ async function validateDatabaseArtifact(filePath, options = {}) {
   let shopOrderRowsSeen = false;
   let shopSubscriptionRowsSeen = false;
 
-  let source = fs.createReadStream(filePath);
-  if (isGzip) {
-    const gunzip = zlib.createGunzip();
-    source = source.pipe(gunzip);
-    report.gzip_integrity = 'PENDING';
-  }
-
-  let mode = null;
-  let buffer = '';
-  const processStatement = statement => {
-    if (mode === 'CREATE') {
+  try {
+    await forEachSqlStatement(filePath, isGzip, (statementMode, statement) => {
+      if (statementMode !== 'CREATE') return;
       const parsed = parseCreateStatement(statement);
       if (parsed) schema.set(parsed.table, parsed.columns);
-      return;
-    }
-    if (mode !== 'INSERT') return;
-    const parsed = parseInsertStatement(statement);
-    if (!parsed) return;
-    const columns = parsed.explicitColumns || schema.get(parsed.table) || [];
-    const rows = extractValueRows(parsed.valuesSql);
-    rowCounts[parsed.table] = (rowCounts[parsed.table] || 0) + rows.length;
-    if (prefix == null) prefix = detectPrefix([...schema.keys(), parsed.table]);
-    const tablePrefix = prefix == null ? '' : prefix;
-    const idx = name => columns.indexOf(name);
-
-    for (const body of rows) {
-      if (parsed.table === tablePrefix + 'posts' && columns.length) {
-        const fields = splitSqlFields(body);
-        const postType = idx('post_type') >= 0 ? decodeSqlScalar(fields[idx('post_type')]) : null;
-        const postStatus = idx('post_status') >= 0 ? decodeSqlScalar(fields[idx('post_status')]) : null;
-        const author = idx('post_author') >= 0 ? decodeSqlScalar(fields[idx('post_author')]) : null;
-        if (postType === 'post' && postStatus === 'publish') report.authoritative_inventory.published_posts = (report.authoritative_inventory.published_posts || 0) + 1;
-        if (postType === 'page' && postStatus === 'publish') report.authoritative_inventory.pages = (report.authoritative_inventory.pages || 0) + 1;
-        if (postType === 'attachment') report.authoritative_inventory.media = (report.authoritative_inventory.media || 0) + 1;
-        if ((postType === 'post' || postType === 'page') && postStatus === 'publish' && author != null) publishedAuthors.add(String(author));
-        if (postType === 'shop_order') shopOrderRowsSeen = true;
-        if (postType === 'shop_subscription') shopSubscriptionRowsSeen = true;
-      } else if (parsed.table === tablePrefix + 'term_taxonomy' && columns.length) {
-        const fields = splitSqlFields(body);
-        const taxonomy = idx('taxonomy') >= 0 ? decodeSqlScalar(fields[idx('taxonomy')]) : null;
-        if (taxonomy === 'category') report.authoritative_inventory.categories = (report.authoritative_inventory.categories || 0) + 1;
-        if (taxonomy === 'post_tag') report.authoritative_inventory.tags = (report.authoritative_inventory.tags || 0) + 1;
-      } else if (parsed.table === tablePrefix + 'postmeta') {
-        if (body.includes('_thumbnail_id')) featuredMediaKeySeen = true;
-      } else if (parsed.table === tablePrefix + 'options') {
-        if (body.includes('permalink_structure')) permalinkKeySeen = true;
-      }
-    }
-  };
-
-  try {
-    const rl = readline.createInterface({ input: source, crlfDelay: Infinity });
-    for await (const line of rl) {
-      const trimmed = line.trimStart();
-      if (!mode) {
-        if (/^CREATE\s+TABLE/i.test(trimmed)) {
-          mode = 'CREATE';
-          buffer = line;
-        } else if (/^INSERT\s+INTO/i.test(trimmed)) {
-          mode = 'INSERT';
-          buffer = line;
-        } else {
-          continue;
-        }
-      } else {
-        buffer += '\n' + line;
-      }
-      if (/;\s*$/.test(line.trim())) {
-        processStatement(buffer);
-        mode = null;
-        buffer = '';
-      }
-    }
-    if (buffer) processStatement(buffer);
+    });
     if (isGzip) report.gzip_integrity = 'PASS';
   } catch {
     if (isGzip) report.gzip_integrity = 'FAIL';
@@ -423,26 +418,80 @@ async function validateDatabaseArtifact(filePath, options = {}) {
   }
 
   const tables = [...schema.keys()].sort();
-  prefix = detectPrefix(tables);
+  const prefixSelection = selectWordPressPrefix(tables, options.wordpressPrefix);
+  prefix = prefixSelection.prefix;
   report.wordpress_table_prefix = prefix;
+  report.wordpress_prefix_selection_source = prefixSelection.source;
+  report.wordpress_prefix_candidate_count = prefixSelection.candidate_count;
   report.tables = tables;
   report.table_count = tables.length;
-  report.estimated_insert_rows_by_table = Object.fromEntries(Object.entries(rowCounts).sort(([a], [b]) => a.localeCompare(b)));
   report.sql_structure_readable = tables.length > 0;
+
+  if (prefixSelection.status === 'AMBIGUOUS') {
+    report.errors.push(safeError('WORDPRESS_PREFIX_AMBIGUOUS', 'Multiple equally plausible WordPress table prefixes were detected; provide --wordpress-prefix from authoritative configuration evidence.'));
+  } else if (prefixSelection.status === 'INVALID_EXPLICIT') {
+    report.errors.push(safeError('WORDPRESS_PREFIX_INVALID', 'Explicit WordPress table prefix is not a valid table-prefix identifier.'));
+  } else if (prefixSelection.status === 'NOT_DETECTED') {
+    report.errors.push(safeError('WORDPRESS_PREFIX_NOT_DETECTED', 'Could not detect a WordPress table prefix from core schema structures.'));
+  }
 
   if (prefix != null) {
     report.missing_expected_core_tables = CORE_SUFFIXES.map(s => prefix + s).filter(t => !schema.has(t));
     report.missing_essential_core_tables = ESSENTIAL_CORE_SUFFIXES.map(s => prefix + s).filter(t => !schema.has(t));
     report.table_groups = classifyTables(tables, prefix);
     report.provenance_signals = buildColumnSignals(schema, prefix);
+  }
+
+  try {
+    await forEachSqlStatement(filePath, isGzip, (statementMode, statement) => {
+      if (statementMode !== 'INSERT') return;
+      const parsed = parseInsertStatement(statement);
+      if (!parsed) return;
+      const columns = parsed.explicitColumns || schema.get(parsed.table) || [];
+      const rows = extractValueRows(parsed.valuesSql);
+      rowCounts[parsed.table] = (rowCounts[parsed.table] || 0) + rows.length;
+      if (prefix == null) return;
+
+      const idx = name => columns.indexOf(name);
+      for (const body of rows) {
+        if (parsed.table === prefix + 'posts' && columns.length) {
+          const fields = splitSqlFields(body);
+          const postType = idx('post_type') >= 0 ? decodeSqlScalar(fields[idx('post_type')]) : null;
+          const postStatus = idx('post_status') >= 0 ? decodeSqlScalar(fields[idx('post_status')]) : null;
+          const author = idx('post_author') >= 0 ? decodeSqlScalar(fields[idx('post_author')]) : null;
+          if (postType === 'post' && postStatus === 'publish') report.authoritative_inventory.published_posts = (report.authoritative_inventory.published_posts || 0) + 1;
+          if (postType === 'page' && postStatus === 'publish') report.authoritative_inventory.pages = (report.authoritative_inventory.pages || 0) + 1;
+          if (postType === 'attachment') report.authoritative_inventory.media = (report.authoritative_inventory.media || 0) + 1;
+          if ((postType === 'post' || postType === 'page') && postStatus === 'publish' && author != null) publishedAuthors.add(String(author));
+          if (postType === 'shop_order') shopOrderRowsSeen = true;
+          if (postType === 'shop_subscription') shopSubscriptionRowsSeen = true;
+        } else if (parsed.table === prefix + 'term_taxonomy' && columns.length) {
+          const fields = splitSqlFields(body);
+          const taxonomy = idx('taxonomy') >= 0 ? decodeSqlScalar(fields[idx('taxonomy')]) : null;
+          if (taxonomy === 'category') report.authoritative_inventory.categories = (report.authoritative_inventory.categories || 0) + 1;
+          if (taxonomy === 'post_tag') report.authoritative_inventory.tags = (report.authoritative_inventory.tags || 0) + 1;
+        } else if (parsed.table === prefix + 'postmeta') {
+          if (body.includes('_thumbnail_id')) featuredMediaKeySeen = true;
+        } else if (parsed.table === prefix + 'options') {
+          if (body.includes('permalink_structure')) permalinkKeySeen = true;
+        }
+      }
+    });
+  } catch {
+    if (isGzip) report.gzip_integrity = 'FAIL';
+    report.errors.push(safeError(isGzip ? 'GZIP_INTEGRITY_FAILED' : 'SQL_READ_FAILED', isGzip ? 'Gzip stream is corrupt or incomplete.' : 'SQL stream could not be read.'));
+    return report;
+  }
+
+  report.estimated_insert_rows_by_table = Object.fromEntries(Object.entries(rowCounts).sort(([a], [b]) => a.localeCompare(b)));
+
+  if (prefix != null) {
     report.authoritative_inventory.authors_users = publishedAuthors.size;
     if (report.authoritative_inventory.published_posts == null) report.authoritative_inventory.published_posts = 0;
     if (report.authoritative_inventory.pages == null) report.authoritative_inventory.pages = 0;
     if (report.authoritative_inventory.media == null) report.authoritative_inventory.media = 0;
     if (report.authoritative_inventory.categories == null) report.authoritative_inventory.categories = 0;
     if (report.authoritative_inventory.tags == null) report.authoritative_inventory.tags = 0;
-  } else {
-    report.errors.push(safeError('WORDPRESS_PREFIX_NOT_DETECTED', 'Could not detect a WordPress table prefix from core schema structures.'));
   }
 
   const groups = report.table_groups;
@@ -461,7 +510,7 @@ async function validateDatabaseArtifact(filePath, options = {}) {
     report.errors.push(safeError('SQL_STRUCTURE_NOT_DETECTED', 'No CREATE TABLE structures were detected.'));
   }
   if (report.missing_essential_core_tables.length) {
-    report.errors.push(safeError('MISSING_ESSENTIAL_WORDPRESS_CORE', 'One or more essential WordPress core tables are missing.'));
+    report.errors.push(safeError('MISSING_ESSENTIAL_WORDPRESS_CORE', 'One or more essential WordPress core tables are missing for the selected WordPress prefix.'));
   }
   report.validation_status = report.errors.length ? 'INVALID' : 'VALID';
   return report;
@@ -498,6 +547,8 @@ module.exports = {
   parseCreateStatement,
   parseInsertStatement,
   queryDisposableRestore,
+  scorePrefixes,
+  selectWordPressPrefix,
   splitSqlFields,
   validateDatabaseArtifact
 };
