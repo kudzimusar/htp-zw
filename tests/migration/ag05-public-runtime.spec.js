@@ -3,6 +3,7 @@ const {
   sanitizeHtml,
   structuredGraph,
   renderStoryPage,
+  renderContextPage,
   renderSitemap,
   renderFeed,
   renderAdPreview
@@ -103,4 +104,28 @@ test('HOSPAZ preview preserves unknown commercial fields and has no invented cli
   expect(html).toContain('UNKNOWN');
   expect(html).toContain('No click target or schedule is invented');
   expect(html).not.toContain('<a ');
+});
+
+
+test('context renderer preserves imported taxonomy identity and stays noindex',()=>{
+  const html=renderContextPage({
+    kind:'category',
+    slug:'health_news',
+    name:'Health News',
+    path:'/category/health_news/',
+    canonical_url:'https://healthtimes.co.zw/category/health_news/',
+    robots:'noindex,follow',
+    routing_disposition:'PRESERVE_CONTEXT_NOINDEX',
+    items:[{
+      title:'Imported story',
+      canonical_url:'https://healthtimes.co.zw/imported-story/',
+      published_at:'2026-09-18T00:00:00Z',
+      author_name:'Michael Gwarisa'
+    }]
+  });
+  expect(html).toContain('<title>Health News — HealthTimes</title>');
+  expect(html).toContain('<meta name="robots" content="noindex,follow">');
+  expect(html).toContain('<link rel="canonical" href="https://healthtimes.co.zw/category/health_news/">');
+  expect(html).toContain('"@type":"CollectionPage"');
+  expect(html).toContain('Imported story');
 });
