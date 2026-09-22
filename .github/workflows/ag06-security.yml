@@ -105,6 +105,7 @@ jobs:
           set -euo pipefail
           npm install --no-save --package-lock=false --ignore-scripts bcryptjs@2.4.3 >/dev/null 2>&1
           tag="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          : > /tmp/ag06-activation-manifest.txt
           for role in reporter editor commercial publisher; do
             upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
             email="ag06-${role}-${tag}@healthtimes.co.zw"
@@ -113,8 +114,16 @@ jobs:
             echo "::add-mask::$password"
             echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
             echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
-            echo "AG06_STAGING_IDENTITY_COORD role=$role email=$email bcrypt=$hash"
+            echo "$role|$email|$hash" >> /tmp/ag06-activation-manifest.txt
+            echo "AG06_STAGING_IDENTITY_COORD role=$role email=$email"
           done
+      - name: Upload activation manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag06-activation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/ag06-activation-manifest.txt
+          if-no-files-found: error
+          retention-days: 1
       - name: Wait for moderator role activation
         shell: bash
         run: |
