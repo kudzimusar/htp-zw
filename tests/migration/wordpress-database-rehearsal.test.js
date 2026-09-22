@@ -4,9 +4,14 @@ const os = require('os');
 const path = require('path');
 
 const {
+  buildMediaRewriteIndex,
+  buildPublicUrlManifest,
   buildRehearsal,
+  buildTaxonomyDisposition,
   createStagingSql,
   parseDatabase,
+  rewriteWordPressUploadUrls,
+  storageKeyForOriginalPath,
   splitCells,
   splitRows
 } = require('../../scripts/migration/wordpress-database-rehearsal');
@@ -69,5 +74,53 @@ test('emits idempotent staging SQL with WordPress provenance keys', async () => 
   expect(sql).toContain("wordpress:post:10");
   expect(sql).toContain("wordpress:media:11");
   expect(sql).toContain("on conflict (legacy_source_id) do update");
+  expect(sql).toContain("200, 'PRESERVE_DIRECTLY'");
+  expect(sql).not.toContain("301, 'preserve'");
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('uses deterministic safe storage keys while preserving source path provenance', () => {
+  expect(storageKeyForOriginalPath('uploads/2025/12/DALL·E-photo.webp'))
+    .toBe('wordpress/2025/12/DALL-E-photo.webp');
+  expect(storageKeyForOriginalPath('uploads/2018/12/HealthTimes-•-Instagram.png'))
+    .toBe('wordpress/2018/12/HealthTimes-Instagram.png');
+  expect(storageKeyForOriginalPath('uploads/2019/01/Review-–-Fine.jpg'))
+    .toBe('wordpress/2019/01/Review-Fine.jpg');
+});
+
+test('rewrites WordPress derivatives to canonical attachment storage and records unresolved fallbacks', () => {
+  const attachments = [{
+    id: '11',
+    status: 'pending',
+    original_path: 'uploads/2026/09/photo-scaled.jpg',
+    storage_key: 'wordpress/2026/09/photo-scaled.jpg',
+    public_url: 'https://example.test/migrated-media/wordpress/2026/09/photo-scaled.jpg'
+  }];
+  const index = buildMediaRewriteIndex(attachments, 'https://example.test/migrated-media');
+  const result = rewriteWordPressUploadUrls(
+    '<img src="https://healthtimes.co.zw/wp-content/uploads/2026/09/photo-300x200.jpg">' +
+    '<img src="https://healthtimes.co.zw/wp-content/uploads/2026/09/unattached-300x200.jpg">',
+    index
+  );
+  expect(result.html).toContain('/photo-scaled.jpg');
+  expect(result.html).not.toContain('healthtimes.co.zw/wp-content/uploads');
+  expect(result.unresolved).toHaveLength(1);
+  expect(result.unresolved[0].fallback_key).toBe('wordpress/2026/09/unattached-300x200.jpg');
+});
+
+test('emits the exact direct-preservation URL and taxonomy disposition contracts', async () => {
+  const root = tempDir();
+  const file = writeFixture(root);
+  const source = await parseDatabase(file, 'wpyg_');
+  const rehearsal = buildRehearsal(source, {
+    tarMetadata: path.join(root, 'tar.txt'),
+    storagePublicBase: 'https://example.test/migrated-media'
+  });
+  const urls = buildPublicUrlManifest(rehearsal.stories);
+  expect(urls).toHaveLength(2);
+  expect(urls.every(item => item.handling === 'PRESERVE_DIRECTLY' && item.HTTP_status === 200)).toBeTruthy();
+  const taxonomy = buildTaxonomyDisposition(rehearsal.categories, rehearsal.tags);
+  expect(taxonomy.categories[0].mapping_status).toBe('CANONICAL_NAVIGATION_CANDIDATE');
+  expect(taxonomy.tags[0].mapping_status).toBe('LEGACY_ONLY');
   fs.rmSync(root, { recursive: true, force: true });
 });
