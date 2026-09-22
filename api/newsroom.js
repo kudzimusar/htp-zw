@@ -259,7 +259,7 @@ async function bootstrap(token, req) {
     lifecycle: 'story_lifecycle_events?select=' + encodeSelect('id,story_id,from_status,to_status,actor_staff_id,reason,created_at') + '&order=created_at.desc&limit=500',
     assignments: 'story_assignments?select=' + encodeSelect('id,story_id,title,reporter_staff_id,assigned_editor_staff_id,desk,deadline_at,priority,notes,status,assigned_by,created_at,updated_at') + '&order=updated_at.desc',
     reviews: 'story_reviews?select=' + encodeSelect('id,story_id,review_type,assigned_to,status,notes,completed_at,completed_by,created_by,created_at,updated_at') + '&order=created_at.desc',
-    comments: 'story_internal_comments?select=' + encodeSelect('id,story_id,author_staff_id,body,created_at,resolved_at,resolved_by') + '&order=created_at.asc',
+    comments: 'story_internal_comments?select=' + encodeSelect('id,story_id,author_staff_id,body,parent_comment_id,created_at,edited_at,edited_by,resolved_at,resolved_by') + '&order=created_at.asc',
     staff: 'staff_profiles?select=' + encodeSelect('id,auth_user_id,handle,display_name,email,role_id,desk,beat,country,region,status,assigned_editor_id,last_login_at,mfa_required,mfa_enrolled_at,created_at,updated_at') + '&order=display_name.asc',
     roles: 'newsroom_roles?select=' + encodeSelect('id,name,description') + '&order=name.asc',
     audit: 'audit_logs?select=' + encodeSelect('id,actor_staff_id,action,target_table,target_id,metadata,created_at') + '&order=created_at.desc&limit=200',
