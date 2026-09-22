@@ -157,7 +157,7 @@ export function attachWebAudioListeners(
     ["ended", guarded(() => {
       dispatch({ type: "ended" });
       onEnded?.();
-    }))],
+    })],
     ["error", guarded(() => dispatch({ type: "error", message: "The verified media source could not be played." }))]
   ];
 
