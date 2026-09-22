@@ -244,9 +244,25 @@ Deno.serve(async(req:Request)=>{
       readerCreated.push({kind,email,verified,auth_user_id:user.id});
     }
 
+    const storyQuery=await admin.from("stories")
+      .select("id,slug,title,status,access_policy,published_at,comment_policy")
+      .in("status",["publish","published"])
+      .eq("access_policy","public")
+      .order("published_at",{ascending:false,nullsFirst:false})
+      .limit(1);
+    if(storyQuery.error) throw storyQuery.error;
+    const testStory=(storyQuery.data||[])[0]||null;
+    if(!testStory?.id) throw new Error("no canonical published public story is available for CA-01 certification");
+
     return response(200,{
       ok:true,action:"provision",project_ref:new URL(url).hostname.split(".")[0],
-      staff:staffCreated,readers:readerCreated
+      staff:staffCreated,readers:readerCreated,
+      test_story:{
+        id:testStory.id,
+        slug:testStory.slug,
+        title:testStory.title,
+        original_comment_policy:testStory.comment_policy||"disabled"
+      }
     });
   }catch(error){
     const message=error instanceof Error?error.message:String((error as any)?.message||"certification operation denied");
