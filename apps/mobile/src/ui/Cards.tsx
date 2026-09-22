@@ -6,6 +6,7 @@ import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
+import { verifiedAudioSource } from "../reader/media-player";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -132,31 +133,71 @@ function verifiedVideoDestination(item:VideoItem){
   const unresolved=(item.sourceProvenance?.exceptions??[]).some((exception)=>exception.classification==="requires-review"&&exception.field==="sourceUrl");
   return unresolved?null:value;
 }
-export function VideoCard({item}:{item:VideoItem}){
+
+export function VideoCard({
+  item,
+  saved=false,
+  onToggleSaved
+}:{item:VideoItem;saved?:boolean;onToggleSaved?:()=>void}){
   const{palette}=useAppearance();
   const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
   const destination=verifiedVideoDestination(item);
+  const provider=item.provider?.trim()||"Video";
   return (
-    <Pressable style={styles.videoCard} disabled={!destination} accessibilityRole={destination?"link":undefined} accessibilityState={{disabled:!destination}} accessibilityLabel={destination?"Watch "+item.title:item.title+" video unavailable"} onPress={destination?()=>{void Linking.openURL(destination);}:undefined}>
-      {item.thumbnail?.publicUrl?<Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText??item.title}/>:<View style={[styles.videoFallback,{backgroundColor:palette.navy}]}><Text style={styles.videoFallbackBrand}>HealthTimes</Text><Text style={styles.videoFallbackLabel}>VIDEO</Text><Text style={styles.videoFallbackNote}>Thumbnail unavailable</Text></View>}
-      {destination&&<View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>}
-      {!!duration&&<View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
+    <View style={styles.videoCard}>
+      <Pressable disabled={!destination} accessibilityRole={destination?"link":undefined} accessibilityState={{disabled:!destination}} accessibilityLabel={destination?"Watch "+item.title:item.title+" video unavailable"} onPress={destination?()=>{void Linking.openURL(destination);}:undefined}>
+        {item.thumbnail?.publicUrl?<Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText??item.title}/>:<View style={[styles.videoFallback,{backgroundColor:palette.navy}]}><Text style={styles.videoFallbackBrand}>HealthTimes</Text><Text style={styles.videoFallbackLabel}>VIDEO</Text><Text style={styles.videoFallbackNote}>Thumbnail unavailable</Text></View>}
+        {destination&&<View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>}
+        {!!duration&&<View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
+      </Pressable>
       <Text style={[styles.videoTitle,{color:palette.ink}]}>{item.title}</Text>
-      <View style={styles.videoMetaRow}>{!!item.publishedAt&&<Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}<Text style={[styles.videoAction,{color:destination?palette.blue:palette.inkMuted}]}>{destination?"Watch video ↗":"Video unavailable"}</Text></View>
-    </Pressable>
+      <View style={styles.videoMetaRow}>
+        {!!item.publishedAt&&<Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}
+        <Text style={[styles.meta,{color:palette.inkMuted}]}>{provider}{item.presentation==="live"?" · Live":""}</Text>
+        <Text style={[styles.videoAction,{color:destination?palette.blue:palette.inkMuted}]}>{destination?"Watch video ↗":"Video unavailable"}</Text>
+      </View>
+      {!!item.description&&<Text style={[styles.excerpt,{color:palette.inkMuted}]}>{item.description}</Text>}
+      <View style={styles.mediaUtilityRow}>
+        {!!item.transcriptState&&item.transcriptState!=="unknown"&&<Text style={[styles.mediaCapability,{color:palette.inkMuted}]}>Transcript: {item.transcriptState}</Text>}
+        {onToggleSaved&&<Pressable accessibilityRole="button" accessibilityLabel={(saved?"Remove ":"Save ")+item.title} style={[styles.mediaSave,{borderColor:palette.border}]} onPress={onToggleSaved}><Text style={[styles.mediaSaveText,{color:palette.blue}]}>{saved?"Saved":"Save"}</Text></Pressable>}
+      </View>
+    </View>
   );
 }
 
-export function AudioCard({ item }: { item: AudioItem }) {
+export function AudioCard({
+  item,
+  saved=false,
+  onPlay,
+  onToggleSaved
+}:{
+  item:AudioItem;
+  saved?:boolean;
+  onPlay?:(item:AudioItem)=>void;
+  onToggleSaved?:()=>void;
+}) {
   const { palette }=useAppearance();
   const minutes=item.durationSeconds ? Math.round(item.durationSeconds/60) : null;
+  const source=verifiedAudioSource(item);
   return (
     <View style={[styles.audioCard,{borderBottomColor:palette.border}]}>
-      <View style={[styles.audioButton,{backgroundColor:palette.ink}]}><Text style={[styles.audioButtonText,{color:palette.paper}]}>▶</Text></View>
-      <View style={{flex:1}}>
+      {item.artwork?.publicUrl?<Image source={{uri:item.artwork.publicUrl}} style={styles.audioArtwork} accessibilityLabel={item.artwork.altText??item.title}/>:null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={source?"Play "+item.title:item.title+" playback unavailable"}
+        accessibilityState={{disabled:!source}}
+        disabled={!source}
+        style={[styles.audioButton,{backgroundColor:source?palette.ink:palette.paperMuted}]}
+        onPress={source&&onPlay?()=>onPlay(item):undefined}
+      >
+        <Text style={[styles.audioButtonText,{color:source?palette.paper:palette.inkMuted}]}>▶</Text>
+      </Pressable>
+      <View style={{flex:1,gap:4}}>
         <Text style={[styles.audioTitle,{color:palette.ink}]}>{item.title}</Text>
         <Text style={[styles.meta,{color:palette.inkMuted}]}>{minutes ? minutes + " min" : "Audio"} · {formatDate(item.publishedAt)}</Text>
+        <Text style={[styles.mediaCapability,{color:palette.inkMuted}]}>{source?"Verified playback source":"Playback unavailable"}{item.source?.downloadable?" · Offline-capable source":""}</Text>
       </View>
+      {onToggleSaved&&<Pressable accessibilityRole="button" accessibilityLabel={(saved?"Remove ":"Save ")+item.title} style={[styles.mediaSave,{borderColor:palette.border}]} onPress={onToggleSaved}><Text style={[styles.mediaSaveText,{color:palette.blue}]}>{saved?"Saved":"Save"}</Text></Pressable>}
     </View>
   );
 }
@@ -250,7 +291,12 @@ const styles=StyleSheet.create({
   videoTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
   videoMetaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   videoAction:{fontSize:10,fontWeight:"900",letterSpacing:.5},
+  mediaUtilityRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.sm,flexWrap:"wrap"},
+  mediaCapability:{fontSize:10,fontWeight:"700",lineHeight:15},
+  mediaSave:{minHeight:44,minWidth:58,borderWidth:1,borderRadius:radius.sm,alignItems:"center",justifyContent:"center",paddingHorizontal:10},
+  mediaSaveText:{fontSize:11,fontWeight:"900"},
   audioCard:{flexDirection:"row",alignItems:"center",gap:spacing.md,borderBottomWidth:1,paddingVertical:spacing.lg},
+  audioArtwork:{width:64,height:64,borderRadius:radius.sm},
   audioButton:{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center"},
   audioButtonText:{fontSize:18},
   audioTitle:{fontSize:17,fontWeight:"900",lineHeight:22},
