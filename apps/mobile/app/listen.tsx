@@ -27,16 +27,13 @@ export default function ListenScreen(){
   const savedAudioIds=useAsync(()=>services.reader.getSavedMediaIds("audio"),[libraryVersion]);
   const player=useReaderAudioPlayer({
     onLifecycleEvent:(lifecycle)=>{
-      const parameters = lifecycle.type==="listen_completed"
-        ? {
-            media_id:lifecycle.itemId,
-            duration_seconds:lifecycle.durationSeconds ?? 0,
-            elapsed_seconds:lifecycle.elapsedSeconds
-          }
-        : {
-            media_id:lifecycle.itemId,
-            duration_seconds:lifecycle.durationSeconds ?? 0
-          };
+      const parameters:Record<string,string|number|boolean|null>={
+        media_id:lifecycle.itemId,
+        duration_seconds:lifecycle.durationSeconds ?? 0
+      };
+      if(lifecycle.type==="listen_completed"){
+        parameters.elapsed_seconds=lifecycle.elapsedSeconds;
+      }
       void services.analytics.track(event(lifecycle.type,parameters,{pagePath:"/listen"}));
     }
   });
