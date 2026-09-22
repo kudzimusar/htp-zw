@@ -18,7 +18,7 @@ function csrfFrom(state){
   return state.cookies.find(c=>c.name==='htp_nr_csrf')?.value || '';
 }
 async function appLogin(kind){
-  const ctx=await request.newContext({baseURL,extraHTTPHeaders:{Origin:baseURL}});
+  const ctx=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
   const response=await ctx.post('/api/newsroom',{data:{action:'login',...accounts[kind]}});
   expect(statusOf(response),`${kind} login`).toBe(200);
   const state=await ctx.storageState();
@@ -58,7 +58,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
   test.skip(!configured,'Requires HealthTimes Staging URL/publishable key and four staging-only role accounts.');
 
   test('anonymous, Reporter, Commercial, Editor and Publisher boundaries hold below the UI',async()=>{
-    const anonymous=await request.newContext({baseURL,extraHTTPHeaders:{Origin:baseURL}});
+    const anonymous=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
     expect(statusOf(anonBootstrap)).toBe(401);
 
