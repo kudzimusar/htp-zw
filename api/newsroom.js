@@ -277,6 +277,13 @@ async function bootstrap(token, req) {
 function backendError(res, error) {
   const status = Number(error.status) || 500;
   const safeStatus = status >= 400 && status < 600 ? status : 500;
+  if (process.env.AG06_CERTIFICATION_DEBUG === '1') {
+    console.error('AG06_CERTIFICATION_BACKEND_ERROR', JSON.stringify({
+      status: safeStatus,
+      message: String(error.message || ''),
+      backend: error.backend && typeof error.backend === 'object' ? error.backend : null
+    }));
+  }
   const message = safeStatus >= 500 ? 'Newsroom backend request failed safely.' : String(error.message || 'Request denied.');
   return json(res, safeStatus, { ok: false, error: message });
 }
