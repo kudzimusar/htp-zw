@@ -222,7 +222,9 @@ begin
   if v_type='assignment' then
     select * into v_assignment from public.story_assignments where id=p_assignment_id;
     if v_assignment.id is null then raise exception using errcode='P0002',message='Assignment not found'; end if;
-    if v_actor not in (v_assignment.reporter_staff_id,coalesce(v_assignment.assigned_editor_staff_id,v_actor),v_assignment.assigned_by)
+    if v_actor<>v_assignment.reporter_staff_id
+       and v_actor is distinct from v_assignment.assigned_editor_staff_id
+       and v_actor<>v_assignment.assigned_by
        and not public.newsroom_has_capability('assignment.manage') then
       raise exception using errcode='42501',message='Assignment thread authority required';
     end if;
