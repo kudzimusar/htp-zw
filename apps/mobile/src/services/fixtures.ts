@@ -213,7 +213,7 @@ const newsroomCommunicationService: NewsroomCommunicationService = {
       items: [],
       summary: {
         unreadTotal: 0, mentions: 0, assignments: 0, reviews: 0,
-        urgent: 0, announcements: 0, moderation: 0, unacknowledged: 0
+        urgent: 0, announcements: 0, newsletter: 0, moderation: 0, unacknowledged: 0
       }
     };
   },
