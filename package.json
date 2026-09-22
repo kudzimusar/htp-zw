@@ -25,7 +25,8 @@
     "native:ios": "npm --prefix apps/mobile run ios",
     "native:web": "npm --prefix apps/mobile run web",
     "native:check": "npm --prefix apps/mobile run check",
-    "native:export:web": "npm --prefix apps/mobile run export:web"
+    "native:export:web": "npm --prefix apps/mobile run export:web",
+    "test:com01:contract": "playwright test tests/com01-contract.spec.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"

@@ -215,7 +215,7 @@ Deno.serve(async(req:Request)=>{
         email,role_id:roleId,
         desk:key==="commercial"?"Commercial":(key==="health"?"Health & Science":"Health News"),
         beat:"CA-01 staging certification",country:"Zimbabwe",region:"Africa",
-        status:"active",handle:`ca01-${key}-${runId}`,mfa_required:key==="editor"||key==="publisher",
+        status:"active",handle:`ca01-${key}-${runId}-${runAttempt}`,mfa_required:key==="editor"||key==="publisher",
         revoked_at:null,updated_at:new Date().toISOString()
       },{onConflict:"email"}).select("id,email").single();
       if(profile.error) throw profile.error;

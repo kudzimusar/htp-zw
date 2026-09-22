@@ -1,0 +1,177 @@
+name: COM-01 Communications
+
+on:
+  pull_request:
+    paths:
+      - 'api/communications.js'
+      - 'supabase/migrations/**'
+      - 'supabase/functions/com01-certification-provision/**'
+      - 'tests/com01-*.spec.js'
+      - 'package.json'
+      - '.github/workflows/com01-communications.yml'
+      - 'docs/migration/agent-reports/COM-01_COMMUNICATIONS_EMAIL_DISTRIBUTION.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Parse COM-01 server route
+        run: node --check api/communications.js
+      - name: COM-01 contract tests
+        run: npm run test:com01:contract
+      - name: Secret-pattern guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! git grep -nE 're_[A-Za-z0-9_-]{20,}' -- ':!docs/**'
+          ! git grep -nE 'xkeysib-[A-Za-z0-9_-]{20,}' -- ':!docs/**'
+          ! git grep -nE 'whsec_[A-Za-z0-9+/=_-]{20,}' -- ':!docs/**'
+          ! git grep -nE 'postgres(ql)?://[^[:space:]@]+:[^[:space:]@]+@' -- ':!docs/**'
+
+  disposable-supabase-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Initialize local Supabase config
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            npx --yes supabase@2.117.0 init
+          fi
+      - name: Start disposable Supabase
+        run: npx --yes supabase@2.117.0 start
+      - name: Apply all migrations from zero
+        run: npx --yes supabase@2.117.0 db reset --local
+      - name: Stop disposable Supabase
+        if: always()
+        run: npx --yes supabase@2.117.0 stop --no-backup || true
+
+  live-staging-contract:
+    needs: [contract]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      COM01_FUNCTION_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co/functions/v1/com01-certification-provision
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run bounded COM-01 staging proof
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          get_oidc() {
+            curl -fsS \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=healthtimes-com01-certification" |
+              jq -er '.value'
+          }
+
+          make_password() {
+            printf 'C1_%s_Aa!' "$(openssl rand -hex 18)"
+          }
+
+          REPORTER_PASSWORD="$(make_password)"
+          EDITOR_PASSWORD="$(make_password)"
+          COMMERCIAL_PASSWORD="$(make_password)"
+          PUBLISHER_PASSWORD="$(make_password)"
+
+          for secret in "$REPORTER_PASSWORD" "$EDITOR_PASSWORD" "$COMMERCIAL_PASSWORD" "$PUBLISHER_PASSWORD"; do
+            echo "::add-mask::$secret"
+          done
+
+          RUN_ID="$GITHUB_RUN_ID"
+          ATTEMPT="$GITHUB_RUN_ATTEMPT"
+
+          BODY="$(jq -n \
+            --arg run_id "$RUN_ID" \
+            --arg run_attempt "$ATTEMPT" \
+            --arg reporter_email "com01-reporter-$RUN_ID-$ATTEMPT@healthtimes.co.zw" \
+            --arg reporter_password "$REPORTER_PASSWORD" \
+            --arg editor_email "com01-editor-$RUN_ID-$ATTEMPT@healthtimes.co.zw" \
+            --arg editor_password "$EDITOR_PASSWORD" \
+            --arg commercial_email "com01-commercial-$RUN_ID-$ATTEMPT@healthtimes.co.zw" \
+            --arg commercial_password "$COMMERCIAL_PASSWORD" \
+            --arg publisher_email "com01-publisher-$RUN_ID-$ATTEMPT@healthtimes.co.zw" \
+            --arg publisher_password "$PUBLISHER_PASSWORD" \
+            '{
+              action:"run",
+              run_id:$run_id,
+              run_attempt:$run_attempt,
+              staff_accounts:[
+                {role:"reporter",email:$reporter_email,password:$reporter_password},
+                {role:"editor",email:$editor_email,password:$editor_password},
+                {role:"commercial",email:$commercial_email,password:$commercial_password},
+                {role:"publisher",email:$publisher_email,password:$publisher_password}
+              ]
+            }')"
+
+          OIDC="$(get_oidc)"
+          HTTP_CODE="$(curl -sS \
+            -o com01-staging-evidence.json \
+            -w '%{http_code}' \
+            -X POST "$COM01_FUNCTION_URL" \
+            -H "Authorization: Bearer $OIDC" \
+            -H 'Content-Type: application/json' \
+            --data "$BODY")"
+
+          jq . com01-staging-evidence.json
+          test "$HTTP_CODE" = "200"
+          jq -e '.ok == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.role_boundaries.ok == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.inbound.first_duplicate == false' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.inbound.replay_duplicate == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.inbound.reply_same_thread == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.provider_event_logic.normalized_event_count == 1' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.consent.granted_eligible == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.consent.no_consent_eligible == false' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.consent.opted_out_marketing_eligible == false' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.consent.security_transactional_eligible_after_marketing_opt_out == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.privacy.anonymous_private_access_denied == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.privacy.dangerous_attachment_status == "quarantined"' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.social.unapproved_publish_denied == true' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.social.approved_attempt_status == "unconfigured"' com01-staging-evidence.json >/dev/null
+          jq -e '.evidence.social.provenance_recorded == true' com01-staging-evidence.json >/dev/null
+
+      - name: Cleanup bounded COM-01 staging fixtures
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OIDC="$(curl -fsS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=healthtimes-com01-certification" |
+            jq -er '.value')"
+          BODY="$(jq -n \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{action:"cleanup",run_id:$run_id,run_attempt:$run_attempt}')"
+          curl -fsS \
+            -X POST "$COM01_FUNCTION_URL" \
+            -H "Authorization: Bearer $OIDC" \
+            -H 'Content-Type: application/json' \
+            --data "$BODY" | jq . || true
+
+      - name: Upload staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: com01-staging-evidence
+          path: com01-staging-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
