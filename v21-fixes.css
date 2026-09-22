@@ -57,7 +57,7 @@ html[data-theme="dark"] .v21-ad-sponsored{background:var(--v21-card);color:var(-
    Migrated legacy story routes are server-rendered and do not need these placeholders. */
 @media (min-width:901px){
   body:not([data-page="migrated-article"]) #app-header{min-height:146px}
-  body[data-page="home"] .hero-grid{min-height:520px}
+  body[data-page="home"] .hero-grid{min-height:520px!important}
   body[data-page="article"] #article-mount{min-height:1650px}
 }
 @media (max-width:900px){
