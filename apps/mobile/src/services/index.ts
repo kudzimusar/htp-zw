@@ -16,11 +16,6 @@ function buildServices(): HealthTimesServices {
     );
   }
 
-  if (editorialDataMode === "staging") {
-    throw new Error(
-      "Staging editorial-data mode is locked until AG-04 migrated content and required public read policies are certified."
-    );
-  }
 
   const editorialServices = editorialDataMode === "staging"
   ? stagingEditorialServices

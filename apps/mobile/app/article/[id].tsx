@@ -12,6 +12,7 @@ import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapsh
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline, type ArticleListBlock } from "../../src/reader/article-content";
 import { canOpenOffline, compareSourceFreshness, useReaderConnectivity } from "../../src/reader/offline-state";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
+import type { LegacyTaxonomyRef, TaxonomyRef } from "../../src/domain/models";
 
 export function generateStaticParams() {
   return [
@@ -238,14 +239,14 @@ export default function ArticleScreen(){
         )}
         {!!story.geography.length && (
           <View style={styles.geography}>
-            {story.geography.map((zone)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
+            {story.geography.map((zone:TaxonomyRef)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
           </View>
         )}
         {!!story.legacyTaxonomy?.length && (
           <View style={styles.sourceTaxonomy}>
             <Text style={[styles.sourceTaxonomyLabel,{color:palette.inkMuted}]}>Legacy source taxonomy</Text>
             <View style={styles.geography}>
-              {story.legacyTaxonomy.map((term)=><Text key={term.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{term.name}</Text>)}
+              {story.legacyTaxonomy.map((term:LegacyTaxonomyRef)=><Text key={term.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{term.name}</Text>)}
             </View>
           </View>
         )}

@@ -15,6 +15,7 @@ import type {
   EditionPreference,
   LiveItem,
   NotificationItem,
+  OfflineArticleRecord,
   PlatformConnectivityReport,
   PremiumRestoreResult,
   ReaderCommentEligibility,

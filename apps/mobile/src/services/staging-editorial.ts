@@ -112,7 +112,7 @@ async function mapInBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>){
 async function refreshedArticles(){
   if(cache && Date.now()-cache.at<CACHE_MS) return cache.articles;
   const feed=await rpc<FeedRow[]>("ag05_public_feed_rows",{p_limit:60});
-  const mapped=await mapInBatches(feed ?? [],6,storyDocumentForUrl);
+  const mapped=await mapInBatches((feed ?? []).map((row)=>row.canonical_url),6,storyDocumentForUrl);
   const articles=mapped.filter((article):article is ArticleDetail=>Boolean(article));
   cache={at:Date.now(),articles};return articles;
 }
