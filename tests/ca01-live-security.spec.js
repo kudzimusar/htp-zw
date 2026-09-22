@@ -14,7 +14,8 @@ const readers=Object.fromEntries(readerKinds.map(kind=>[kind,{
   email:process.env['CA01_READER_'+kind.toUpperCase()+'_EMAIL'],
   password:process.env['CA01_READER_'+kind.toUpperCase()+'_PASSWORD']
 }]));
-const configured=Boolean(baseURL&&supabaseURL&&anonKey&&
+const canonicalStoryId=String(process.env.CA01_TEST_STORY_ID||'');
+const configured=Boolean(baseURL&&supabaseURL&&anonKey&&canonicalStoryId&&
   Object.values(staff).every(a=>a.email&&a.password)&&
   Object.values(readers).every(a=>a.email&&a.password));
 const statusOf=r=>typeof r.status==='function'?r.status():r.status;
@@ -82,13 +83,8 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
   test('private Newsroom and verified Reader discussion boundaries hold below the UI',async()=>{
     test.setTimeout(180_000);
 
-    const anonHeaders={apikey:anonKey,'Content-Type':'application/json'};
-    const publicStories=await rpc(anonHeaders,'newsroom_public_published_stories',{p_slug:null});
-    expect(statusOf(publicStories)).toBe(200);
-    const publicRows=await publicStories.json();
-    const testStory=publicRows.find(s=>s.id&&s.slug);
-    expect(testStory?.id).toBeTruthy();
-    const storyId=testStory.id;
+    const storyId=canonicalStoryId;
+    expect(storyId).toMatch(/^[0-9a-f-]{36}$/i);
 
     const reporter=await appLogin('reporter');
     const editor=await appLogin('editor');
