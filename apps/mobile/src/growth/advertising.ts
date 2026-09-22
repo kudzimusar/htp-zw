@@ -79,7 +79,7 @@ export function createAdvertisingService(
 
       try {
         const inventory = await provider.request(placementKey, context);
-        if (!inventory) {
+        if (!inventory || inventory.source === "none") {
           return noneDecision(
             placementKey,
             "eligible-no-inventory",
