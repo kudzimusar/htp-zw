@@ -17,6 +17,10 @@ import type {
   NotificationItem,
   PlatformConnectivityReport,
   PremiumRestoreResult,
+  ReaderCommentEligibility,
+  ReaderStoryComment,
+  NewsroomInboxItem,
+  NewsroomInboxSummary,
   PublicationProfile,
   PremiumStoreState,
   ReaderProfile,
@@ -124,6 +128,23 @@ export interface NotificationService {
   registerDevice(): Promise<{ status: "fixture" | "registered" | "blocked" }>;
 }
 
+export interface ReaderDiscussionService {
+  registerProfile(displayName: string): Promise<string>;
+  getEligibility(canonicalStoryId: string | null): Promise<ReaderCommentEligibility>;
+  listPublic(canonicalStoryId: string | null): Promise<ReaderStoryComment[]>;
+  submit(canonicalStoryId: string | null, body: string, parentCommentId?: string | null): Promise<string>;
+  edit(commentId: string, body: string): Promise<void>;
+  withdraw(commentId: string): Promise<void>;
+  report(commentId: string, reasonCode: string, details?: string | null): Promise<string>;
+}
+
+export interface NewsroomCommunicationService {
+  listInbox(filter?: string, limit?: number): Promise<{ items: NewsroomInboxItem[]; summary: NewsroomInboxSummary }>;
+  markRead(notificationId: string, read?: boolean): Promise<void>;
+  acknowledge(notificationId: string): Promise<void>;
+  archive(notificationId: string): Promise<void>;
+}
+
 export interface TaxonomyService {
   getSnapshot(): Promise<TaxonomySnapshot>;
 }
@@ -155,6 +176,8 @@ export interface HealthTimesServices {
   video: VideoService;
   audio: AudioService;
   notifications: NotificationService;
+  readerDiscussion: ReaderDiscussionService;
+  newsroomCommunication: NewsroomCommunicationService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;
