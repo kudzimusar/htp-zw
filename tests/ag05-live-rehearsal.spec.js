@@ -84,6 +84,26 @@ test.describe('AG-05 completed rehearsal runtime',()=>{
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
+
+  test('category and tag context routes use imported identities while unverifiable author alias stays 404',async({request})=>{
+    const category=await request.get(baseURL+'/category/health_news/');
+    expect(category.status()).toBe(200);
+    expect(category.headers()['x-ag05-resolution']).toBe('PRESERVE_CONTEXT_NOINDEX');
+    const categoryHtml=await category.text();
+    expect(categoryHtml).toContain('<title>Health News — HealthTimes</title>');
+    expect(categoryHtml).toContain('<meta name="robots" content="noindex,follow">');
+    expect(categoryHtml).toContain('<link rel="canonical" href="https://healthtimes.co.zw/category/health_news/">');
+
+    const tag=await request.get(baseURL+'/tag/cpu/');
+    expect(tag.status()).toBe(200);
+    expect(tag.headers()['x-ag05-resolution']).toBe('LEGACY_CONTEXT_NOINDEX');
+    expect(await tag.text()).toContain('<title>CPU — HealthTimes</title>');
+
+    const authorAlias=await request.get(baseURL+'/author/michael-gwarisa/',{maxRedirects:0});
+    expect(authorAlias.status()).toBe(404);
+    expect(authorAlias.headers()['x-ag05-resolution']).toBe('context_alias_evidence_missing');
+  });
+
   test('historical alias is one hop and unmatched path remains explicit 404',async({request})=>{
     const alias=await request.get(baseURL+aliasPath,{maxRedirects:0});
     expect(alias.status()).toBe(301);
