@@ -33,13 +33,17 @@ test("fixture and WordPress source-parity stories cannot become comment authorit
   assert.equal(parity.includes("canonicalStoryId:post."),false);
 });
 
-test("reader discussion adapter fails closed without a canonical story UUID",()=>{
+test("reader discussion adapter fails closed without a canonical story UUID and stays separate from staff discussion",()=>{
   const communications=read("src/services/communications.ts");
-  assert.ok(communications.includes("canonicalStoryPattern"));
+  const readerSection=communications.slice(
+    communications.indexOf("stagingReaderDiscussionService"),
+    communications.indexOf("function inboxItem")
+  );
+  assert.ok(readerSection.includes("canonicalStoryPattern"));
   assert.ok(communications.includes("Canonical HealthTimes story identity is required"));
-  assert.ok(communications.includes('"reader_submit_story_comment"'));
-  assert.ok(communications.includes('"reader_public_story_comments"'));
-  assert.equal(communications.includes("story_internal_comments"),false);
+  assert.ok(readerSection.includes('"reader_submit_story_comment"'));
+  assert.ok(readerSection.includes('"reader_public_story_comments"'));
+  assert.equal(readerSection.includes("story_internal_comments"),false);
 });
 
 test("Studio communication routes are gated by server authority or server capability",()=>{
@@ -70,4 +74,51 @@ test("Reader article discussion is visibly unavailable on non-canonical stories"
   assert.ok(panel.includes("source-parity or fixture story"));
   assert.ok(panel.includes("services.readerDiscussion"));
   assert.equal(panel.includes("story_internal_comments"),false);
+});
+
+
+test("Native staff communication adapter mirrors CA-01 specialized server records instead of a universal messages API",()=>{
+  const contracts=read("src/domain/contracts.ts");
+  const communications=read("src/services/communications.ts");
+  for(const method of [
+    "listStoryDiscussion","addStoryComment","editStoryComment","setStoryCommentResolved",
+    "listDesks","listThreads","createThread","listThreadMessages","postThreadMessage",
+    "markThreadRead","listAnnouncements"
+  ]) assert.ok(contracts.includes(method), "missing Newsroom communication method: "+method);
+  assert.ok(communications.includes('"story_internal_comments"'));
+  assert.ok(communications.includes('"newsroom_threads"'));
+  assert.ok(communications.includes('"newsroom_messages"'));
+  assert.ok(communications.includes('"newsroom_announcements"'));
+  assert.ok(communications.includes('"newsroom_add_internal_comment"'));
+  assert.equal(communications.includes('"universal_messages"'),false);
+});
+
+test("Native moderation is a dedicated service and remains capability-gated",()=>{
+  const contracts=read("src/domain/contracts.ts");
+  const communications=read("src/services/communications.ts");
+  const module=read("app/studio/[module].tsx");
+  const panels=read("src/ui/StudioCommunications.tsx");
+  assert.ok(contracts.includes("CommentModerationService"));
+  assert.ok(contracts.includes("commentModeration: CommentModerationService"));
+  for(const rpc of [
+    "newsroom_list_comment_moderation_queue",
+    "newsroom_moderate_story_comment",
+    "newsroom_set_story_comment_policy",
+    "newsroom_restrict_reader_comments",
+    "newsroom_lift_reader_comment_restriction"
+  ]) assert.ok(communications.includes('"'+rpc+'"'), "missing moderation RPC: "+rpc);
+  assert.ok(module.includes('capability:"comment.moderate"'));
+  assert.ok(panels.includes("services.commentModeration"));
+});
+
+test("Desks and Breaking Native panels are rendered only inside Studio server-authority gates",()=>{
+  const module=read("app/studio/[module].tsx");
+  const panels=read("src/ui/StudioCommunications.tsx");
+  assert.ok(module.includes("<StudioAuthorityGate>"));
+  assert.ok(module.includes("<StudioDesksPanel"));
+  assert.ok(module.includes("<StudioDeskThreadsPanel"));
+  assert.ok(module.includes("<StudioBreakingPanel"));
+  assert.ok(module.includes("<StudioThreadPanel"));
+  assert.ok(panels.includes("services.newsroomCommunication"));
+  assert.equal(panels.includes("user.role"),false);
 });
