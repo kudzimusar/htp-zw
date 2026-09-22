@@ -303,7 +303,14 @@ async function bootstrap(token, req) {
 }
 
 function backendError(res, error) {
-  const status = Number(error.status) || 500;
+  const backendCode = error?.backend && typeof error.backend === 'object' ? String(error.backend.code || '') : '';
+  const mappedStatus =
+    backendCode === 'P0002' ? 404 :
+    backendCode === '42501' ? 403 :
+    backendCode === '22023' ? 400 :
+    backendCode === '23505' ? 409 :
+    0;
+  const status = mappedStatus || Number(error.status) || 500;
   const safeStatus = status >= 400 && status < 600 ? status : 500;
   if (process.env.AG06_CERTIFICATION_DEBUG === '1') {
     console.error('AG06_CERTIFICATION_BACKEND_ERROR', JSON.stringify({
