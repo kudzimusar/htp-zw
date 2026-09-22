@@ -67,3 +67,16 @@ html[data-theme="dark"] .v21-ad-sponsored{background:var(--v21-card);color:var(-
 .ag05-server-header{min-height:72px}
 .ag05-reserved-media{aspect-ratio:16/9;min-height:220px}
 .ag05-reserved-media img{width:100%;height:100%;object-fit:cover}
+
+
+/* AG-05 legacy body containment: imported WordPress markup must fit narrow readers
+   without globally clipping layout or hiding legitimate scrollable data. */
+body[data-page="migrated-article"] .article-body{min-width:0;max-width:100%;overflow-wrap:anywhere}
+body[data-page="migrated-article"] .article-body :where(img,video,canvas,svg,figure,blockquote,table,iframe,pre){
+  max-width:100%!important;
+}
+body[data-page="migrated-article"] .article-body :where(figure,blockquote){margin-inline:0!important}
+body[data-page="migrated-article"] .article-body iframe{width:100%!important}
+body[data-page="migrated-article"] .article-body table{display:block;overflow-x:auto}
+body[data-page="migrated-article"] .article-body pre{overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+body[data-page="migrated-article"] .article-body a{overflow-wrap:anywhere;word-break:break-word}
