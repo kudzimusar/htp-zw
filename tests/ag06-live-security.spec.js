@@ -9,7 +9,8 @@ const accounts = {
   commercial: { email: process.env.AG06_COMMERCIAL_EMAIL, password: process.env.AG06_COMMERCIAL_PASSWORD },
   publisher: { email: process.env.AG06_PUBLISHER_EMAIL, password: process.env.AG06_PUBLISHER_PASSWORD }
 };
-const configured = Boolean(baseURL && supabaseURL && anonKey && Object.values(accounts).every(a=>a.email&&a.password));
+const configured = Boolean(baseURL && Object.values(accounts).every(a=>a.email&&a.password));
+const directSupabaseConfigured = Boolean(supabaseURL && anonKey);
 
 function csrfFrom(state){
   return state.cookies.find(c=>c.name==='htp_nr_csrf')?.value || '';
@@ -59,30 +60,34 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
     expect(anonBootstrap.status()).toBe(401);
 
-    const anonHeaders={apikey:anonKey,'Content-Type':'application/json'};
-    const assertNoProtectedRows=async response=>{
-      expect([200,401,403]).toContain(response.status());
-      if(response.status()===200){
-        const rows=await response.json();
-        expect(rows).toEqual([]);
+    if(directSupabaseConfigured){
+      const anonHeaders={apikey:anonKey,'Content-Type':'application/json'};
+      const assertNoProtectedRows=async response=>{
+        expect([200,401,403]).toContain(response.status());
+        if(response.status()===200){
+          const rows=await response.json();
+          expect(rows).toEqual([]);
+        }
+      };
+      const anonDraft=await fetch(`${supabaseURL}/rest/v1/stories?select=id,title,status&limit=1`,{headers:anonHeaders});
+      await assertNoProtectedRows(anonDraft);
+      const anonComments=await fetch(`${supabaseURL}/rest/v1/story_internal_comments?select=id&limit=1`,{headers:anonHeaders});
+      await assertNoProtectedRows(anonComments);
+      const anonAudit=await fetch(`${supabaseURL}/rest/v1/audit_logs?select=id&limit=1`,{headers:anonHeaders});
+      await assertNoProtectedRows(anonAudit);
+      const publicStories=await fetch(`${supabaseURL}/rest/v1/rpc/newsroom_public_published_stories`,{
+        method:'POST',headers:anonHeaders,body:JSON.stringify({p_slug:null})
+      });
+      expect(publicStories.status()).toBe(200);
+      const publicRows=await publicStories.json();
+      for(const row of publicRows.slice(0,3)){
+        expect(row).not.toHaveProperty('internal_notes');
+        expect(row).not.toHaveProperty('source_notes');
+        expect(row).not.toHaveProperty('owner_staff_id');
+        expect(row).not.toHaveProperty('lock_version');
       }
-    };
-    const anonDraft=await fetch(`${supabaseURL}/rest/v1/stories?select=id,title,status&limit=1`,{headers:anonHeaders});
-    await assertNoProtectedRows(anonDraft);
-    const anonComments=await fetch(`${supabaseURL}/rest/v1/story_internal_comments?select=id&limit=1`,{headers:anonHeaders});
-    await assertNoProtectedRows(anonComments);
-    const anonAudit=await fetch(`${supabaseURL}/rest/v1/audit_logs?select=id&limit=1`,{headers:anonHeaders});
-    await assertNoProtectedRows(anonAudit);
-    const publicStories=await fetch(`${supabaseURL}/rest/v1/rpc/newsroom_public_published_stories`,{
-      method:'POST',headers:anonHeaders,body:JSON.stringify({p_slug:null})
-    });
-    expect(publicStories.status()).toBe(200);
-    const publicRows=await publicStories.json();
-    for(const row of publicRows.slice(0,3)){
-      expect(row).not.toHaveProperty('internal_notes');
-      expect(row).not.toHaveProperty('source_notes');
-      expect(row).not.toHaveProperty('owner_staff_id');
-      expect(row).not.toHaveProperty('lock_version');
+    } else {
+      test.info().annotations.push({type:'live-postgrest',description:'Optional direct PostgREST probes skipped: staging publishable key is not configured.'});
     }
 
     const reporter=await appLogin('reporter');
@@ -123,23 +128,25 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const reporterAdApprove=await appPost(reporter,'approveCampaign',{campaignId:'00000000-0000-0000-0000-000000000000',approved:true});
     expect(reporterAdApprove.status()).toBe(403);
 
-    const rawReporter=await rawAuth('reporter');
-    const roleRead=await fetch(`${supabaseURL}/rest/v1/newsroom_roles?select=id,name&name=eq.${encodeURIComponent('Publisher / Owner')}`,{headers:rawReporter.headers});
-    expect(roleRead.status()).toBe(200);
-    const publisherRole=(await roleRead.json())[0];
-    expect(publisherRole?.id).toBeTruthy();
-    const directRoleEscalation=await fetch(`${supabaseURL}/rest/v1/staff_profiles?id=eq.${boot.body.data.context.id}`,{
-      method:'PATCH',
-      headers:{...rawReporter.headers,Prefer:'return=representation'},
-      body:JSON.stringify({role_id:publisherRole.id,status:'active'})
-    });
-    expect([400,401,403,409]).toContain(directRoleEscalation.status());
-    const directPublish=await fetch(`${supabaseURL}/rest/v1/stories?id=eq.${storyId}`,{
-      method:'PATCH',
-      headers:{...rawReporter.headers,Prefer:'return=representation'},
-      body:JSON.stringify({status:'publish',workflow_status:'Published',published_at:new Date().toISOString()})
-    });
-    expect([400,401,403,409]).toContain(directPublish.status());
+    if(directSupabaseConfigured){
+      const rawReporter=await rawAuth('reporter');
+      const roleRead=await fetch(`${supabaseURL}/rest/v1/newsroom_roles?select=id,name&name=eq.${encodeURIComponent('Publisher / Owner')}`,{headers:rawReporter.headers});
+      expect(roleRead.status()).toBe(200);
+      const publisherRole=(await roleRead.json())[0];
+      expect(publisherRole?.id).toBeTruthy();
+      const directRoleEscalation=await fetch(`${supabaseURL}/rest/v1/staff_profiles?id=eq.${boot.body.data.context.id}`,{
+        method:'PATCH',
+        headers:{...rawReporter.headers,Prefer:'return=representation'},
+        body:JSON.stringify({role_id:publisherRole.id,status:'active'})
+      });
+      expect([400,401,403,409]).toContain(directRoleEscalation.status());
+      const directPublish=await fetch(`${supabaseURL}/rest/v1/stories?id=eq.${storyId}`,{
+        method:'PATCH',
+        headers:{...rawReporter.headers,Prefer:'return=representation'},
+        body:JSON.stringify({status:'publish',workflow_status:'Published',published_at:new Date().toISOString()})
+      });
+      expect([400,401,403,409]).toContain(directPublish.status());
+    }
 
     const commercial=await appLogin('commercial');
     const commercialBoot=await appBootstrap(commercial);
@@ -155,16 +162,18 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const commercialPublish=await appPost(commercial,'transitionStory',{storyId,nextStatus:'Published'});
     expect(commercialPublish.status()).toBe(403);
 
-    const rawCommercial=await rawAuth('commercial');
-    const directCommercialEdit=await fetch(`${supabaseURL}/rest/v1/stories?id=eq.${storyId}`,{
-      method:'PATCH',
-      headers:{...rawCommercial.headers,Prefer:'return=representation'},
-      body:JSON.stringify({body_html:'Commercial attempted direct PostgREST editorial mutation.'})
-    });
-    expect([200,204,400,401,403]).toContain(directCommercialEdit.status());
-    if(directCommercialEdit.status()===200){
-      const rows=await directCommercialEdit.json();
-      expect(rows).toEqual([]);
+    if(directSupabaseConfigured){
+      const rawCommercial=await rawAuth('commercial');
+      const directCommercialEdit=await fetch(`${supabaseURL}/rest/v1/stories?id=eq.${storyId}`,{
+        method:'PATCH',
+        headers:{...rawCommercial.headers,Prefer:'return=representation'},
+        body:JSON.stringify({body_html:'Commercial attempted direct PostgREST editorial mutation.'})
+      });
+      expect([200,204,400,401,403]).toContain(directCommercialEdit.status());
+      if(directCommercialEdit.status()===200){
+        const rows=await directCommercialEdit.json();
+        expect(rows).toEqual([]);
+      }
     }
 
     const editor=await appLogin('editor');
