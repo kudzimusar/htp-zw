@@ -8,42 +8,42 @@ export const READER_AD_PLACEMENTS: Record<AdPlacementKey, AdPlacementDefinition>
     key: "home_top",
     surface: "home",
     format: "banner",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   home_after_live: {
     key: "home_after_live",
     surface: "home",
     format: "inline-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   home_feed_1: {
     key: "home_feed_1",
     surface: "home",
     format: "feed-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   home_feed_2: {
     key: "home_feed_2",
     surface: "home",
     format: "feed-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   home_watch: {
     key: "home_watch",
     surface: "home",
     format: "inline-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   home_deep_feed: {
     key: "home_deep_feed",
     surface: "home",
     format: "feed-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   article_after_intro: {
@@ -71,14 +71,14 @@ export const READER_AD_PLACEMENTS: Record<AdPlacementKey, AdPlacementDefinition>
     key: "live_feed",
     surface: "live",
     format: "feed-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   },
   watch_feed: {
     key: "watch_feed",
     surface: "watch",
     format: "feed-display",
-    sensitiveHealthEligibility: "blocked",
+    sensitiveHealthEligibility: "non-personalized-only",
     personalizationAllowed: false
   }
 };
