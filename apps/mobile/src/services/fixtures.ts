@@ -221,6 +221,7 @@ const newsroomCommunicationService: NewsroomCommunicationService = {
   async markRead() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
   async acknowledge() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
   async archive() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listAssignments() { return []; },
   async listStoryDiscussion() { return []; },
   async addStoryComment() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
   async editStoryComment() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
