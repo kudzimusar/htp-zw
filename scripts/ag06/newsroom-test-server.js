@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const newsroom = require('../../api/newsroom.js');
@@ -14,9 +15,13 @@ const mime = {
   '.webmanifest':'application/manifest+json; charset=utf-8'
 };
 
-const server = http.createServer(async (req,res) => {
+const tlsKeyPath = process.env.AG06_TEST_TLS_KEY || '';
+const tlsCertPath = process.env.AG06_TEST_TLS_CERT || '';
+const useTls = Boolean(tlsKeyPath && tlsCertPath);
+
+const handler = async (req,res) => {
   try {
-    const url = new URL(req.url, 'http://127.0.0.1');
+    const url = new URL(req.url, useTls ? 'https://localhost' : 'http://127.0.0.1');
     if (url.pathname === '/api/newsroom') return newsroom(req,res);
     let pathname = decodeURIComponent(url.pathname);
     if (pathname === '/') pathname = '/index.html';
@@ -38,6 +43,11 @@ const server = http.createServer(async (req,res) => {
     res.setHeader('Content-Type','application/json');
     res.end(JSON.stringify({error:'AG-06 certification gateway failure'}));
   }
-});
-server.listen(port,'127.0.0.1',()=>process.stdout.write(`AG06_TEST_SERVER_READY port=${port}\n`));
+};
+
+const server = useTls
+  ? https.createServer({ key: fs.readFileSync(tlsKeyPath), cert: fs.readFileSync(tlsCertPath) }, handler)
+  : http.createServer(handler);
+
+server.listen(port,'127.0.0.1',()=>process.stdout.write(`AG06_TEST_SERVER_READY scheme=${useTls?'https':'http'} port=${port}\n`));
 process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
