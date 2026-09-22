@@ -1,206 +1,491 @@
-# AG-04 Rehearsal Content, Media and Taxonomy Report
+# AG-04 — Rehearsal Content, Media & Taxonomy Final Certification Report
 
 Date: 2026-09-22
 
 Branch: `migration/ag-04-rehearsal-content-media-taxonomy`
 
-Starting SHA: `ea599bf9ed3db9dc8fa7085e25bea20375c28e11`
+Accepted CP3 start SHA: `ea599bf9ed3db9dc8fa7085e25bea20375c28e11`
 
-## Boundary
+Interrupted-work remote checkpoint: `8f71ae5d502346bbc2fbe707a59df20ecf1d1429`
 
-AG-04 used the accepted CP3 private source package only. The production WordPress site, production database, DNS, email, Google configuration and payment systems were not modified.
+Repository implementation candidate before this report: `7fc2d6f537985c0f0b24d9bd80cada3f18b9f35d`
 
-Private WordPress artifacts stayed outside the repository.
+## Decision
 
-Target environment used for rehearsal writes:
+**CP4 NOT READY.**
 
-- Supabase project: HealthTimes Staging / `gcdohgbmqhqwydgaxrcr`
-- Storage bucket: `migrated-media`
+The full content corpus is present and idempotent at the database identity layer, the canonical public URL inventory is now exactly 5,786/5,786, taxonomy provenance is complete, and the reconstructed importer implementation is covered by green migration tests.
 
-## Source Revalidation
+CP4 cannot be accepted because the real staging candidate still has unresolved migrated-media references, missing canonical media objects, unresolved internal links, and the representative preserved public routes return the HealthTimes 404 page instead of migrated content.
 
-The AG-03 validator was rerun against the authoritative private database and uploads package.
+This report deliberately distinguishes a successful bulk import from a certified migration.
 
-- Validator version: `1.2.0`
-- Database checksum: `16d525727bb451318a6658e710b20098213c846579b7601338a9c9dc91ad4060`
-- Uploads checksum: `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c`
-- Database status: `VALID`
-- Prefix: `wpyg_`
-- Uploads status: `VALID_REQUIRES_REVIEW`
-- Known CP3 review carry-forward: 7 zero-byte files and 2 PHP files excluded from public media migration
-- Revalidation status this run: `ARTIFACT_VALID_RECONCILIATION_INCOMPLETE`
-- Hard gates: none
+## 1. Authoritative source baseline
 
-The reconciliation review state is attributable to live read-only source drift/unavailable public author evidence during this run. AG-04 used the certified CP3 snapshot baseline supplied in the task.
+Source snapshot: **2026-09-21**
 
-## Importer Work
-
-Added a database-source rehearsal importer:
-
-- `scripts/migration/wordpress-database-rehearsal.js`
-- `tests/migration/wordpress-database-rehearsal.test.js`
-
-Capabilities added:
-
-- Parses authoritative WordPress SQL exports without committing source data.
-- Preserves WordPress source IDs through `legacy_sources`.
-- Imports authors, sections/categories, tags, media records, posts, pages, URL mappings, SEO metadata, featured media usage and story-tag relationships.
-- Produces dry-run manifests and exception ledgers outside Git.
-- Generates idempotent SQL chunks for staging execution.
-- Detects shortcodes, Elementor metadata, embeds, tables, downloads, media embeds, internal links and media references.
-- Carries forward PHP and zero-byte media exceptions.
-- Preserves HOSPAZ media provenance markers for AG-04 asset ownership while leaving placement reconstruction to AG-05.
-
-## Dry-Run Baseline
-
-Dry-run parsed the authoritative source snapshot as:
-
-| Record type | Count |
+| Source object | Authoritative count |
 | --- | ---: |
 | Published posts | 5,737 |
 | Published pages | 49 |
-| Media attachments | 3,277 |
+| Media records | 3,277 |
 | Categories | 83 |
 | Tags | 10,283 |
 | Authors | 3 |
-| Content transform/review entries | 1,725 |
-| Media record exceptions | 2 |
-| Upload archive exceptions | 9 |
-| Zero-byte upload files | 7 |
-| Executable/PHP upload exclusions | 2 |
-| Internal URL references detected | 7,908 |
-| Inline media references detected | 1,380 |
 
-## Staging Database Rehearsal
+Authoritative database SHA-256:
 
-The first import was executed in 101 ordered SQL chunks after a single-file request was rejected by the Supabase API request-size limit.
+`16d525727bb451318a6658e710b20098213c846579b7601338a9c9dc91ad4060`
 
-The mandatory idempotency rerun was then executed against the same staging target using regenerated chunks after fixing legacy URL path derivation.
+WordPress table prefix:
 
-Final staging counts after rerun:
+`wpyg_`
 
-| Target table | Count |
+Authoritative uploads SHA-256:
+
+`4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c`
+
+Private database/uploads artifacts remained outside Git.
+
+## 2. Repository remediation reconstructed after interrupted Work session
+
+The pushed checkpoint `8f71ae5d...` did not contain all repository-safe changes already reflected in parts of staging.
+
+The continuation reconstructed and committed the missing implementation contract in:
+
+- `scripts/migration/wordpress-database-rehearsal.js`
+- `tests/migration/wordpress-database-rehearsal.test.js`
+- `docs/migration/14_AG04_AG05_URL_CONTINUITY_CONTRACT.md`
+- `.github/workflows/migration-tests.yml`
+
+The reconstructed importer now contains:
+
+- `PRESERVE_DIRECTLY` / HTTP `200` semantics for unchanged public paths;
+- no source-to-self 301 generation;
+- exactly one AG-05 manifest row per published post/page;
+- deterministic safe media storage keys under `wordpress/YYYY/MM/...`;
+- source-path retention in provenance even when a safe storage key differs;
+- WordPress body media URL rewriting;
+- deterministic image derivative/original resolution;
+- deterministic unique edited/scaled attachment-family resolution;
+- explicit unresolved media fallback ledger entries rather than silent loss;
+- taxonomy disposition output;
+- categories classified as canonical-navigation candidates;
+- tags classified as `LEGACY_ONLY`;
+- generated `ag04-public-url-manifest.json`;
+- generated safe-key and media-rewrite exception manifests.
+
+No private source export was committed while reconstructing these changes.
+
+## 3. Final live staging database state
+
+Target:
+
+- Supabase project: **HealthTimes Staging**
+- project ref: `gcdohgbmqhqwydgaxrcr`
+
+Measured staging counts:
+
+| Target | Count |
 | --- | ---: |
-| `authors` | 3 |
-| `sections` | 83 |
-| `tags` | 10,283 |
-| `media_assets` | 3,277 |
-| `stories` | 5,786 |
-| `story_tags` | 20,586 |
-| `media_usage` | 3,298 |
-| `legacy_sources` | 9,063 |
-| `legacy_url_mappings` | 5,787 |
-| `seo_metadata` | 5,786 |
-| `migration_runs` | 2 |
+| Stories/pages total | 5,786 |
+| WordPress posts represented | 5,737 |
+| WordPress pages represented | 49 |
+| Authors | 3 |
+| Sections/categories | 83 |
+| Tags | 10,283 |
+| Media assets | 3,277 |
+| Story-tag relationships | 20,586 |
+| Media-usage relationships | 3,298 |
+| Legacy sources | 9,063 |
+| Legacy URL mappings | 5,786 |
+| SEO metadata rows | 5,786 |
+| WordPress migration-run rows | 4 |
 
-Story/page reconciliation:
+Duplicate checks:
 
-- Posts: 5,737 imported
-- Pages: 49 imported
-- Total published content: 5,786 imported
+- duplicate story source IDs: **0**
+- duplicate story stable keys: **0**
+- duplicate story-tag relationships: **0**
+- duplicate media-usage relationships: **0**
+- duplicate URL paths: **0**
+- orphan public URL mappings: **0**
 
-Duplicate checks after rerun:
+All four WordPress migration-run rows are marked `completed`. They share the same manifest checksum and converge to the same logical record counts.
 
-- Duplicate story legacy source IDs: 0
-- Duplicate media legacy source IDs: 0
-- Duplicate author WordPress IDs: 0
-- Duplicate section WordPress IDs: 0
-- Duplicate tag WordPress IDs: 0
-- Duplicate story-tag relationships: 0
-- Duplicate media-usage relationships: 0
-- Duplicate legacy URL paths: 0
+This proves database-level idempotency for the already-executed rehearsal/reruns.
 
-## Taxonomy
+## 4. Public URL continuity and AG-05 handoff
 
-All legacy categories and tags were preserved for staging reconciliation:
+Current staging URL accounting:
 
-- Categories: 83
-- Tags: 10,283
+- posts: **5,737**
+- pages: **49**
+- total: **5,786 / 5,786**
+- `PRESERVE_DIRECTLY` + HTTP 200 records: **5,786**
+- self-301 records: **0**
+- distinct mapped source identities: **5,786**
+- mappings joining a migrated story/page: **5,786**
+- duplicate old paths: **0**
+- orphan mappings: **0**
+- non-empty canonical URL values: **5,786**
+- non-empty robots policy values: **5,786**
+- source URL values: **5,786**
+- source-derived SEO title values currently non-empty: **2**
+- source-derived SEO description values currently non-empty: **1,973**
+- measured sanitized manifest fingerprint (MD5 over ordered handoff fields): `ef2f5b3b04b1e823ea071672941d599f`
 
-The importer keeps legacy tag inventory separate from canonical navigation. Global Taxonomy v1 curation remains a later editorial/product mapping step.
+The public handoff schema is defined by:
 
-## Media
+`docs/migration/14_AG04_AG05_URL_CONTINUITY_CONTRACT.md`
 
-Media records imported:
+and the importer emits:
 
-- WordPress media attachments: 3,277
-- Pending legitimate media binaries identified for transfer: 3,275
-- Missing-from-uploads media records: 2
-- Zero-byte upload files: 7 archive-level exceptions
-- PHP upload files: 2 archive-level exclusions
+`migration-output/ag04-public-url-manifest.json`
 
-HOSPAZ media handling:
+with source ID/type, source URL, destination URL, handling, HTTP status, canonical URL, robots, verification status and available source SEO fields.
 
-- Commercial creative WordPress attachment IDs: 32960 and 32971
-- Logical binary treatment: one commercial creative, two preserved WordPress source identities
-- Creative SHA-256: `50d7b7363c35df79a17102c81e0d5d37db1abe6c780f4ba189df09f26cd8456f`
-- Attachment 33005 remains ordinary editorial media and was kept in the normal media path.
-- Placement reconstruction is intentionally not performed by AG-04.
+### Former 5,787-row observation
 
-Storage transfer result:
+The earlier report observed **5,787** `legacy_url_mappings` rows while only 5,786 public objects existed.
 
-- Extracted legitimate attachment files into a private, non-web-served transfer directory.
-- Initial storage upload stopped on an object key rejected by Supabase storage.
-- Three object-key exceptions were isolated in the private transfer copy; the source archive was not modified.
-- A resumed upload was interrupted after it stopped making observable progress.
-- Staging storage currently contains objects under two prefixes:
-  - `wordpress`: 927 objects
-  - `wordpress/uploads`: 2,430 objects
-- Current importer `media_assets.storage_key` values match 927 stored objects.
+That was a stale pre-remediation mapping row left by the earlier path strategy; it was not an additional source content object.
 
-Media storage is therefore not CP4-clean yet. The next AG-04 action should normalize the storage destination strategy, either by uploading each year/month folder directly to `wordpress/YYYY/MM/...` or by updating `media_assets.storage_key` and content rewrite rules to the confirmed `wordpress/uploads/...` convention. The three invalid object keys must be kept as explicit exceptions or mapped to safe destination keys with provenance.
+The corrected per-source reconciliation now proves:
 
-## Content Quality
+- current mapping rows: **5,786**
+- distinct mapped source identities: **5,786**
+- migrated public objects: **5,786**
+- duplicate paths: **0**
+- orphan mappings: **0**
 
-The importer generated private ledgers for:
+Therefore the former extra row no longer creates public-object ambiguity.
 
-- Unsupported/review shortcodes
-- Elementor metadata
-- Embeds
-- Tables
-- Downloads
-- Media embeds
-- Internal HealthTimes URL references
-- Inline media references
-- Missing media files
-- Archive-level media exceptions
+The **URL manifest itself is ready for AG-05 consumption**, but this does not constitute CP4 acceptance because runtime route/media certification remains red.
 
-No unsupported structure is silently discarded; unresolved structures remain in the exception ledgers.
+## 5. Taxonomy
 
-Rendered-content verification and broken-link scanning were not fully completed because media storage remains inconsistent. CP4 should not be accepted until storage keys and rendered migrated pages are verified against representative migrated content.
+Exact source taxonomy accounting:
 
-## Tests
+`83 + 10,283 = 10,366` legacy terms.
 
-Migration tests:
+Current staging:
 
-- `npm run test:migration`
-- Result: 35 passed
+- categories/sections: **83**
+- tags: **10,283**
+- duplicate WordPress category IDs: **0**
+- duplicate WordPress tag IDs: **0**
 
-The suite includes AG-04 database rehearsal importer coverage for:
+Disposition:
 
-- mysqldump row parsing
-- source-counted rehearsal manifest generation
-- idempotent staging SQL/provenance key generation
+- 83 categories → `CANONICAL_NAVIGATION_CANDIDATE`
+- 10,283 tags → `LEGACY_ONLY`
 
-## Remaining CP4 Blockers
+No claim is made that all 83 categories have completed editorial Global Taxonomy v1 curation.
 
-1. Media storage prefix mismatch: stored objects are split between `wordpress/...` and `wordpress/uploads/...`.
-2. Only 927 media records currently match their expected `storage_key`.
-3. Three media object keys contain storage-invalid characters and need explicit safe-key mapping or exception disposition.
-4. Rendered-content verification is still pending.
-5. Broken-link verification is still pending.
-6. Content media URL rewrite from WordPress URLs to staging storage URLs is still pending.
+No claim is made that the 10,283 tags should be exposed as canonical navigation.
 
-## Safety Statements
+## 6. Media reconciliation
 
-Private source artifacts committed to Git: NO
+Media source records:
 
-Production WordPress modified: NO
+- total WordPress media records: **3,277**
+- records with a canonical storage key: **3,275**
+- explicit `missing_from_uploads_archive` records: **2**
+- media records whose canonical key currently matches a staging object: **3,229**
+- canonical-key media records currently missing their staging object: **46**
+- of those 46, records with a `media_usage` relationship: **41**
 
-Production database modified: NO
+The two explicit source-package missing-media exceptions are WordPress attachment IDs:
 
-Production DNS/email modified: NO
+- `29309`
+- `29314`
 
-Production systems modified: NO
+The 46 canonical-object gaps are not silently converted into success. They remain unresolved staging media objects.
 
-Source data imported to production: NO
+### Canonical storage accounting
+
+Storage bucket `migrated-media` currently contains:
+
+- total objects: **5,658**
+- canonical `wordpress/... ` objects excluding old prefix: **3,228**
+- stale `wordpress/uploads/...` objects: **2,430**
+- executable PHP/PHTML/PHAR objects: **0**
+- zero-sized storage objects: **0**
+
+There are **3,229** media-record→canonical-object matches against **3,228** distinct canonical objects because one canonical object key is intentionally shared by two source media records:
+
+- storage key: `wordpress/2025/12/prof-matope.jpg`
+- source IDs: `29306`, `29547`
+
+That difference is therefore source-identity reuse, not an unexplained missing object.
+
+### Stale old-prefix objects
+
+The 2,430 `wordpress/uploads/...` objects are classified as **staging-only orphan duplicate residue**:
+
+- referenced by `media_assets.storage_key`: **0**
+- referenced by `media_assets.public_url`: **0**
+- referenced by migrated story bodies: **0**
+
+They are not used to mask missing canonical objects.
+
+They should be removed only through supported Supabase Storage operations. AG-04 did not bypass protected storage metadata/API controls.
+
+## 7. Safe-key dispositions
+
+Exactly three source filenames required deterministic safe destination keys while retaining the original path in provenance.
+
+1. WordPress media source ID `1129`
+   - original contains `DALL·E`
+   - safe canonical key uses `DALL-E`
+   - canonical object exists: **YES**
+
+2. WordPress media source ID `5098`
+   - original contains the bullet character `•`
+   - safe canonical key removes/replaces the invalid punctuation
+   - canonical object exists: **YES**
+
+3. WordPress media source ID `5409`
+   - original contains the en dash `–`
+   - safe canonical key uses a storage-safe hyphen
+   - canonical object exists: **YES**
+
+The original paths remain in legacy source provenance.
+
+## 8. Mandatory source-media exceptions
+
+### Zero-byte uploads
+
+Exactly **7** zero-byte upload files remain explicit archive-level exceptions.
+
+They were not silently treated as successfully migrated binaries.
+
+### PHP exclusions
+
+The following two reviewed PHP artifacts remain excluded from public `migrated-media`:
+
+- `783cdc75398980c451cadaa9c97279a24f6df1de971c3e654b25eb43bf7b037f`
+- `76e7cd6781911a19d14c02f36b30ef35ebf891c9bcff7bdce70b366f66d06c6f`
+
+Current public storage executable-PHP count: **0**.
+
+## 9. HOSPAZ provenance
+
+WordPress source identities:
+
+- `32960`
+- `32971`
+
+Both retain checksum:
+
+`50d7b7363c35df79a17102c81e0d5d37db1abe6c780f4ba189df09f26cd8456f`
+
+This proves one byte-identical commercial creative with two retained WordPress source identities.
+
+Current staging storage keys are:
+
+- `wordpress/2026/08/HOSPAZ.jpg`
+- `wordpress/2026/08/HOSPAZ-1.jpg`
+
+The source identities and byte identity are preserved. Physical object-key deduplication is not claimed.
+
+Attachment `33005` remains ordinary editorial-source WordPress media with canonical key:
+
+`wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg`
+
+Its canonical storage object exists.
+
+`ASSET_SOURCE_PROVENANCE` remains separate from `PLACEMENT_USAGE_PROVENANCE`. AG-05 retains ownership of placement reconstruction.
+
+## 10. WordPress media hotlinks and broken migrated-media references
+
+Old source dependency check:
+
+- migrated story bodies still containing `healthtimes.co.zw/wp-content/uploads/`: **0**
+- old-prefix `wordpress/uploads/...` body references: **0**
+
+Therefore:
+
+**unexplained old WordPress upload hotlinks = 0**
+
+However, replacing a source hotlink with a non-existent staging URL is not migration success.
+
+Current migrated-body storage scan:
+
+- migrated-media URL occurrences: **2,260**
+- distinct migrated-media keys referenced: **1,194**
+- occurrences whose exact storage object is missing: **1,826**
+- distinct missing exact keys before deterministic reconciliation: **1,039**
+- affected stories before deterministic reconciliation: **451**
+
+Read-only analysis proved that:
+
+- **1,051** broken occurrences resolve to an existing canonical original after deterministic WordPress `-WIDTHxHEIGHT` derivative normalization;
+- a further **105** occurrences resolve to one unambiguous existing edited/scaled attachment-family candidate;
+- **670** occurrences remain unresolved after those safe rules;
+- the unresolved remainder affects **267** stories and **476** distinct keys.
+
+The reconstructed importer now contains both safe deterministic rules so a future authorized rerun cannot reproduce the earlier broken fallback behavior.
+
+The available Supabase execution connection is read-only. The attempted bounded staging repair failed closed with:
+
+`ERROR 25006: cannot execute UPDATE in a read-only transaction`
+
+No protected database/storage control was bypassed.
+
+## 11. Internal HealthTimes link verification
+
+Absolute HealthTimes links found in migrated story bodies:
+
+- total occurrences: **5,667**
+- occurrences resolving to a current public content mapping: **4,476**
+- currently unmapped occurrences: **1,191**
+- currently unmapped distinct URLs: **444**
+- stories containing at least one unmapped absolute HealthTimes URL: **397**
+
+Unmapped occurrence classification:
+
+| Classification | Occurrences |
+| --- | ---: |
+| Unique slug matching exactly one imported story | 661 |
+| Category archive | 429 |
+| Home | 25 |
+| Author archive | 7 |
+| Tag archive | 1 |
+| Other historical/malformed internal path | 68 |
+
+The 661 unique-story-slug occurrences demonstrate that a material portion is repairable/reconcilable, but the current staging body still contains the unresolved path form.
+
+These findings are not silently reclassified as valid.
+
+## 12. Rendered-content certification
+
+Representative source records were selected from live staging data for:
+
+- old article;
+- recent/Premium-marked article;
+- long-form article;
+- Elementor-like content;
+- gallery content;
+- table content;
+- embedded/video content;
+- download content.
+
+The real Vercel staging deployment was then fetched at each preserved legacy path.
+
+Result for every tested migrated legacy path:
+
+**HTTP 404 — HealthTimes “Page not found” shell**
+
+Representative routes included:
+
+- a 2016 old article;
+- the 2026-09-18 recent/Premium-marked article;
+- a 52k-character long-form article;
+- a 2025 Elementor-like story;
+- a gallery story;
+- a table story;
+- an embedded-video story;
+- the `/baraza-e-paper/` download page.
+
+Therefore title/byline/date/body/media/link parity cannot be certified on rendered staging routes yet.
+
+The base deployment is live, but migrated legacy routes are not currently serving migrated content.
+
+This is a hard CP4 acceptance failure.
+
+## 13. Idempotency and restartability
+
+Evidence from the already-executed staging rehearsal:
+
+- WordPress migration-run rows: **4**
+- all four: `completed`
+- shared manifest checksum: **same**
+- final stories/pages: **5,786**
+- duplicate story source IDs: **0**
+- duplicate story-tag relationships: **0**
+- duplicate media-usage relationships: **0**
+- duplicate URL paths: **0**
+- current URL mapping count: **5,786**, exactly one per public object.
+
+This proves core import idempotency for the executed staging package and confirms the interrupted final rerun completed.
+
+A final staging rerun of the **newly reconstructed media-repair implementation** cannot be certified in this runtime because staging write access is unavailable/read-only. That final repair-rerun gate remains open.
+
+## 14. Tests and CI
+
+Repository implementation certification at `e850dcf8cceb2d508f8863e57b35aa810ac904b6`:
+
+- `npm run test:migration`: **38 / 38 PASS**
+- GitHub Actions Migration Tests run: `35680604617` — **SUCCESS**
+- GitHub Actions migration-tests job: `106596544932` — **SUCCESS**
+- normal HealthTimes validation run: `35680604603` — **SUCCESS**
+- validate job: `106596544000` — **SUCCESS**
+- Vercel deployment status: **READY**
+
+The migration workflow was additionally updated so final AG-04 report/continuity-contract changes themselves trigger migration certification on the draft PR.
+
+PR:
+
+- **#14**
+- state: **Draft / Open / Unmerged**
+- base: accepted CP3 branch
+- production merge: **NO**
+
+## 15. WooCommerce / Premium truth
+
+Authoritative source state remains:
+
+- WooCommerce orders: **0**
+- subscriptions: **0**
+- payment tokens: **0**
+- membership plans: **1**
+
+No subscriber entitlement population was fabricated.
+
+Historic source markers that triggered `premium_marker_review` remain review markers, not invented subscriber entitlement.
+
+## 16. Production and custody safety
+
+Private source artifacts committed to Git: **NO**
+
+Production WordPress modified: **NO**
+
+Production database modified: **NO**
+
+Production storage modified: **NO**
+
+Production DNS modified: **NO**
+
+Production email modified: **NO**
+
+Production systems modified: **NO**
+
+## 17. Downstream readiness
+
+### AG-05 URL/SEO handoff
+
+The canonical **5,786 / 5,786** source-content URL accounting is ready for AG-05 consumption.
+
+AG-05 must not interpret that as proof that staging routes currently serve those URLs. The real staging route probes are still 404.
+
+### AG-07
+
+**NOT READY.**
+
+AG-07 must not treat CP4 as accepted while the media/link/render gates above remain red.
+
+## 18. Exact remaining CP4 blockers
+
+1. **46** legitimate media records have canonical storage keys but no corresponding canonical staging object; **41** are referenced through `media_usage`.
+2. Migrated story bodies contain **1,826** migrated-media URL occurrences whose exact object is absent. Deterministic analysis resolves 1,156 of those to existing canonical objects, but that repair cannot be applied with the available read-only staging connection; **670** occurrences remain unresolved after the safe rules.
+3. **1,191** internal HealthTimes link occurrences remain outside the current public-object mapping; **661** of these are unique-story-slug links that should reconcile to imported stories.
+4. Representative migrated legacy routes on real HealthTimes Staging return **HTTP 404**, preventing rendered-content parity certification.
+5. A final staging rerun of the reconstructed repair implementation cannot be performed/certified through the available read-only staging connection.
+
+The stale `wordpress/uploads/...` duplicate objects are **not** themselves a CP4 runtime blocker because they are unreferenced by media records, public media URLs and migrated bodies.
+
+---
+
+**CP4 NOT READY — media object/rewrite integrity, internal-link reconciliation, migrated-route rendering, and final repaired staging rerun remain unclosed.**
