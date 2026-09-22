@@ -5,6 +5,7 @@ on:
     branches:
       - feat/native-mobile-nm07-native-certification
       - feat/native-mobile-nm04-reader-media-offline
+      - 'feat/native-mobile-nm05-*'
       - integration/native-mobile-nm00-convergence
     paths:
       - 'apps/mobile/**'
@@ -48,6 +49,7 @@ jobs:
           npm --prefix apps/mobile run test:reader-fidelity
           npm --prefix apps/mobile run test:search-ranking
           npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:source-parity
           npm --prefix apps/mobile run test:identity-security
           npm --prefix apps/mobile run test:native-certification
 
