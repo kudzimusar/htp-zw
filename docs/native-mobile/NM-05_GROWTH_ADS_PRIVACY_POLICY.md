@@ -2,13 +2,13 @@
 
 ## Status
 
-This policy governs the HealthTimes universal Reader during NM-05.
+This policy governs the HealthTimes universal Reader during the NM-05 provider-readiness checkpoint.
 
-AG-03 has verified the existing **web** Google/AdSense identities, but CP3 is not accepted and AG-05 has not completed account-level continuity certification. Native GA4/Firebase streams, AdMob application/ad-unit IDs, App Store products, Google Play products and server entitlement authority remain unverified.
+The repository contains verified **web continuity** identities, but native analytics, native advertising and native storefront activation remain evidence-gated. NM-05 must not transpose a web identity into a native provider identity or infer commercial readiness from seller declarations alone.
 
-## 1. Identity separation
+## 1. Provider identity separation
 
-Verified web identities may be displayed for continuity/readiness purposes:
+The existing web continuity record includes:
 
 - Google tag: `GT-PLTTGPL`
 - GA4 account: `137814020`
@@ -20,80 +20,101 @@ Verified web identities may be displayed for continuity/readiness purposes:
 - AdSense client: `ca-pub-8744434739998394`
 - known web slot: `7971959240`
 
-These are **not** automatically valid native GA4/Firebase, AdMob, App Store or Play Store identifiers. The native app must not transpose or derive those missing identities.
+These values remain web continuity evidence only. Native GA4/Firebase stream identity, AdMob application/ad-unit IDs, App Store product IDs and Google Play product IDs remain unresolved.
 
 ## 2. Public analytics boundary
 
-The public Reader uses the event version `2026-09-09` and only the approved event-name catalogue in `src/growth/events.ts`.
+The public Reader uses event version `2026-09-09` and the approved event catalogue in `src/growth/events.ts`.
 
-Until the approved native analytics provider is configured, the AnalyticsService validates event shape but does not transmit production analytics.
+Analytics has three explicit provider boundaries:
 
-Public analytics must not include:
+- development/test: in-memory sink;
+- PWA web: the existing web measurement identity may emit only on canonical `healthtimes.co.zw` hosts when the web transport is initialized;
+- native: `configuration-required` until AG-05 supplies approved native provider evidence.
 
+GitHub Pages, localhost and native builds do not inherit the web stream.
+
+The public event validator is allowlist-based. Reader analytics must not include:
+
+- raw health search text;
 - passwords, tokens or authorization values;
 - subscriber email/phone/name;
-- staff roles or editorial drafts/notes;
+- draft bodies, protected Premium bodies, editorial notes or newsroom/Studio fields;
+- staff roles, capabilities or permissions;
 - patient/medical-record identifiers;
-- diagnosis, disease, condition, medication/prescription or symptom attributes.
+- diagnosis, disease, condition, medication/prescription, symptom or inferred health-interest attributes.
 
-Search queries can reveal sensitive health interests. NM-05 therefore emits result count/format with `query_redacted: true` and does not transmit raw query text.
+Search emits bounded result/filter metadata with `query_redacted: true`.
 
-Newsroom/Studio operational activity must not be routed into public Reader analytics.
+Analytics/provider failure is non-blocking and must never break reading, saving, sharing or playback.
 
-## 3. Advertising / sensitive health targeting
+## 3. Media analytics
 
-Sensitive health context is ineligible for personalized advertising.
+`listen_started` follows an actual successful player transition to playing.
 
-NM-05 rules:
+`listen_completed` follows the actual ended transition for the same started item.
 
-- no diagnosis targeting;
-- no disease/condition targeting;
-- no medication or prescription targeting;
-- no symptom targeting;
-- no patient/profile targeting;
-- no article-body keyword targeting for sensitive health personalization;
-- no personalized delivery without appropriate consent;
-- no ad provider is activated until its mobile IDs and policy are verified;
-- when no verified compliant inventory exists, the placement returns `source: "none"`.
+Button impressions do not count as playback. Native background/lock-screen playback analytics is not claimed.
 
-HealthTimes direct campaigns, Google inventory and house promotions remain separate sources under the AdvertisingService abstraction.
+## 4. Advertising provider and placement policy
 
-## 4. Seller authorization
+`AdvertisingService` distinguishes:
 
-The only seller declaration NM-05 publishes is the AG-03-verified line:
+- `unconfigured`;
+- `blocked-by-policy`;
+- `eligible-no-inventory`;
+- `available`;
+- `error`.
 
-`google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0`
+No verified inventory means no ad.
 
-Both `ads.txt` and `app-ads.txt` in the universal app export contain only this verified line.
+Reader placements are registered in `src/growth/ad-placements.ts`. Arbitrary insertion is not accepted. Registered surfaces include Home, article after intro, article mid-body, article end, Live and Watch.
 
-This does **not** assert that AdMob is configured. No AdMob application ID or ad-unit ID is claimed.
+Article placements are sensitive-health blocked. Home/Live/Watch placements are non-personalized-only when otherwise policy-eligible. No diagnosis, medication, condition, symptom, raw query, article-body sensitive keyword or inferred health-interest targeting is allowed.
 
-## 5. Deep links and social attribution
+Ad impression/click analytics is emitted only after an `available` provider decision. Ad destinations must be HTTPS.
 
-Native article deep links use the configured `healthtimes` app scheme/Expo Router route.
+## 5. Seller authorization
 
-Outgoing social shares use the canonical HealthTimes web article URL plus bounded UTM attribution:
+Web and native seller evidence are separate:
 
-- `utm_source=healthtimes_share`
-- `utm_medium=<approved share channel>`
-- `utm_campaign=organic_share`
+- `ads.txt`: contains the recorded web seller declaration `google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0`;
+- `app-ads.txt`: intentionally declaration-free until AG-05 supplies certified native app seller evidence;
+- native advertising provider configuration: `configuration-required`.
 
-Incoming attribution is accepted only from `healthtimes.co.zw` / `www.healthtimes.co.zw`.
+No `ca-app-pub-*` value is invented. A web seller declaration is not proof of active AdMob configuration.
 
-## 6. Premium / store boundary
+## 6. Deep links and social attribution
 
-Premium plan names, product identifiers and localized prices must come from App Store / Google Play configuration.
+Native article deep links use the configured HealthTimes scheme and bounded article identifiers.
 
-NM-05 must not:
+Canonical web article links resolve by the HealthTimes slug. Inbound `ht_article_id` is attribution metadata only and is never trusted as the destination identifier.
 
-- invent product IDs;
-- hardcode production prices;
-- mark a purchase complete solely from client state;
-- unlock Premium full bodies from a local flag.
+Outgoing shares use canonical HealthTimes URLs plus bounded attribution:
 
-The storefront layer remains `configuration-required` until verified products exist. AG-06/NM-06 supplies the server entitlement authority and receipt/session security.
+- `utm_source=healthtimes_share`;
+- `utm_medium=<approved share channel>`;
+- `utm_campaign=organic_share`.
 
-## 7. Production safety
+Referral parsing accepts HTTPS HealthTimes hosts only and normalizes UTM values.
+
+## 7. Premium storefront and entitlement boundary
+
+The storefront abstraction supports:
+
+- `configuration-required`;
+- `loading`;
+- `available`;
+- `unavailable`;
+- `error`.
+
+Offers, product IDs, localized prices and currencies must originate from the platform storefront response.
+
+A client purchase or restore result is never an entitlement. Successful store activity remains `pending-server-entitlement` / `restored-pending-server-entitlement` until NM-06 / AG-06 confirms authoritative server entitlement.
+
+No purchase path may populate or unlock a protected Premium body directly.
+
+## 8. Production safety
 
 - production Google configuration modified: **NO**
 - production AdSense modified: **NO**
