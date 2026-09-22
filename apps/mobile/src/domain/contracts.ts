@@ -3,6 +3,7 @@ import type {
   AdPlacementKey,
   AdRequestContext,
   AnalyticsEvent,
+  AnalyticsProviderStatus,
   AppearancePreference,
   AccountDeletionState,
   AuthActionResult,
@@ -17,6 +18,7 @@ import type {
   NotificationItem,
   OfflineArticleRecord,
   PlatformConnectivityReport,
+  PremiumPurchaseResult,
   PremiumRestoreResult,
   PublicationProfile,
   PremiumStoreState,
@@ -33,6 +35,7 @@ import type { PushRegistrationResult } from "../security/push";
 export interface ArticleRepository {
   getHome(): Promise<ArticleSummary[]>;
   getById(id: string): Promise<ArticleDetail | null>;
+  getBySlug(slug: string): Promise<ArticleDetail | null>;
   getRelated(id: string): Promise<ArticleSummary[]>;
   listBySection(sectionSlug: string): Promise<ArticleSummary[]>;
   listByAuthor(authorSlug: string): Promise<ArticleSummary[]>;
@@ -100,7 +103,7 @@ export interface PremiumService {
 
 export interface PremiumStoreService {
   getState(): Promise<PremiumStoreState>;
-  startPurchase(storeProductId: string): Promise<void>;
+  startPurchase(storeProductId: string): Promise<PremiumPurchaseResult>;
   restorePurchases(): Promise<PremiumRestoreResult>;
 }
 
@@ -109,6 +112,7 @@ export interface AdvertisingService {
 }
 
 export interface AnalyticsService {
+  getStatus(): Promise<AnalyticsProviderStatus>;
   track(event: AnalyticsEvent): Promise<void>;
 }
 
