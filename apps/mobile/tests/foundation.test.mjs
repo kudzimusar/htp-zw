@@ -70,7 +70,7 @@ test("staging composition is transparent and production remains fail-closed", ()
 
   const fixtures = read("src/services/fixtures.ts");
   const advertising = read("src/growth/advertising.ts");
-  assert.match(fixtures, /decideFixtureAd/, "fixture advertising must route through the NM-05 policy service");
+  assert.match(fixtures, /createAdvertisingService/, "fixture advertising must route through the NM-05 policy service");
   assert.match(advertising, /source: "none"/, "fixture advertising must not masquerade as real inventory");
   assert.match(fixtures, /getProtectedArticle\(\)[\s\S]*return null/, "fixture Premium service must not return protected bodies");
 });
