@@ -23,7 +23,8 @@ export default function PremiumScreen(){
         plan_key:productKey,
         source_path:"/premium"
       },{pagePath:"/premium"}));
-      await services.premiumStore.startPurchase(storeProductId);
+      const result=await services.premiumStore.startPurchase(storeProductId);
+      setStatus(result.message);
     }catch(error){
       setStatus(error instanceof Error ? error.message : String(error));
     }
@@ -31,7 +32,13 @@ export default function PremiumScreen(){
 
   const restore=async()=>{
     const result=await services.premiumStore.restorePurchases();
-    setStatus(result.restored ? "Purchase restored. Server entitlement verification is pending." : "No verified purchase was restored.");
+    setStatus(
+      result.restored
+        ? "Store purchase records were restored. Premium access remains locked until NM-06 / AG-06 confirms server entitlement."
+        : result.reason==="configuration-required"
+          ? "Storefront configuration is required before purchases can be restored."
+          : "No verified purchase was restored."
+    );
   };
 
   return (
@@ -67,7 +74,13 @@ export default function PremiumScreen(){
           </View>
         ) : (
           <EmptyState
-            title="Native storefront configuration required"
+            title={
+              store.data?.status==="error"
+                ? "Storefront unavailable"
+                : store.data?.status==="loading"
+                  ? "Storefront loading"
+                  : "Native storefront configuration required"
+            }
             message={store.data?.message ?? "Storefront state is loading. No plan or price is shown until the platform returns verified products."}
           />
         )}
