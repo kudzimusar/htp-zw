@@ -4,6 +4,7 @@ Date: 2026-09-22
 Repository: kudzimusar/htp-zw  
 Branch: migration/ag-05-seo-analytics-monetization  
 PR: #12 — DRAFT / OPEN / UNMERGED
+Moderator CP5 decision: **CP5 ACCEPTED** at certified runtime 0ba7240d018efa2472a00f56453e9aa8be34e1c5
 
 ## 1. Resume lineage
 
@@ -102,7 +103,7 @@ Fresh checks on that primary alias still return HTTP 404 for:
 - /2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/
 - /global-health/
 
-Therefore the moderator-requested primary rehearsal alias gate is not closed.
+This stale alias is **not a CP5 blocker**. It is reclassified as a **CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT** and must be reassigned before integrated CP7 UAT.
 
 ## 5. Initial-HTML SEO
 
@@ -146,7 +147,7 @@ On the guarded AG-05 rehearsal runtime backed by the completed staging corpus:
 
 The production robots candidate remains separate and unactivated.
 
-The primary alias healthtimes-staging.vercel.app still returns HTTP 404 for all three because it is pinned to the older AG-02 deployment. No production Search Console submission was made.
+The primary alias healthtimes-staging.vercel.app still returns HTTP 404 for all three because it is pinned to the older AG-02 deployment. This is carried forward as a **CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT**, not a CP5 blocker. No production Search Console submission was made.
 
 ## 8. Internal-link destination contract supplied to AG-04
 
@@ -272,31 +273,31 @@ Known identities and continuity contracts remain preserved, but the following ev
 
 No account-level fact was fabricated and no production Google property was modified.
 
-## 14. Remaining CP5 blocker
+## 14. CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT
 
-One acceptance gate remains red:
+The stale primary staging alias is no longer classified as a CP5 blocker.
 
-Primary rehearsal alias deployment.
+Current factual state remains unchanged:
 
-healthtimes-staging.vercel.app still serves the AG-02 deployment and returns the 404 shell for required migrated routes and discovery artifacts. AG-05's exact-head implementation is READY and fully certified against the completed staging corpus, but the named rehearsal alias has not been promoted/repointed to it.
+- healthtimes-staging.vercel.app still serves the AG-02 deployment;
+- deployment: dpl_4xmfSenLQtJTQbNMpK7g3boFboaK;
+- SHA: 4512b7d647eda850ec1e70ad440d459fbd1d82d0;
+- branch: migration/ag-02-staging-platform;
+- required migrated routes and discovery artifacts still return the AG-02 404 shell on that alias.
 
-The connected Vercel actions available in this execution environment expose deployment inspection and preview access but not an alias-promotion operation. PR #12 must also remain unmerged. AG-05 therefore does not mutate another lane or bypass deployment governance to force the alias.
+Moderator classification:
 
-Once the primary staging alias is promoted to an AG-05-capable deployment, the required closure check is bounded:
+**CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT**
 
-- verify old / recent / long / page / Premium / context routes
-- verify /sitemap.xml = 5,786
-- verify staging /robots.txt
-- verify /feed/
-- verify alias 301 and explicit 404 behavior
-- verify HOSPAZ noindex preview
-- confirm no production system was modified
+The alias must be reassigned to an AG-05-capable integrated staging candidate before integrated CP7 UAT.
 
-Google/account and HOSPAZ commercial unknowns remain evidence gaps, not invented blockers.
+This routing requirement does not alter the certified CP5 runtime and does not reopen CP5 implementation or certification.
+
+Google/account-level evidence gaps and HOSPAZ commercial unknowns remain unchanged and are not fabricated.
 
 ## 15. Decision
 
-CP5 NOT ACCEPTED — implementation and exact-runtime certification are green, but the moderator-required primary HealthTimes Staging alias still serves the older AG-02 deployment and returns 404 for the required migrated routes/artifacts.
+**CP5 ACCEPTED** — moderator-accepted at certified runtime 0ba7240d018efa2472a00f56453e9aa8be34e1c5. The stale healthtimes-staging.vercel.app alias is carried forward as a **CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT** and must be reassigned before integrated CP7 UAT.
 
 Production WordPress modified: NO  
 Production DNS modified: NO  

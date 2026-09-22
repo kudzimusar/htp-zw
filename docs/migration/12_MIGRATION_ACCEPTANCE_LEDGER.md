@@ -59,9 +59,11 @@
 - Historical imported metrics retain provenance.
 - Global country reporting becomes available after integration.
 
-## CP5 — SEO / Analytics / Monetization Continuity — POST-AG04 — 2026-09-22
+## CP5 — SEO / Analytics / Monetization Continuity — MODERATOR ACCEPTED — 2026-09-22
 
 Certified runtime candidate: 0ba7240d018efa2472a00f56453e9aa8be34e1c5
+
+Moderator decision: **CP5 ACCEPTED**
 
 | CP5 gate | State | Evidence |
 | --- | --- | --- |
@@ -75,10 +77,10 @@ Certified runtime candidate: 0ba7240d018efa2472a00f56453e9aa8be34e1c5
 | Source SEO metadata preservation | PASS WITH SOURCE SPARSITY | 2 source SEO titles; 1,973 source SEO descriptions; no plugin metadata invented |
 | Initial-HTML SEO | PASS ON CERTIFIED RUNTIME | story/page renderer emits title, permitted description fallback, canonical, robots, OG/Twitter, dates, author/section where real |
 | Structured data | PASS | NewsArticle, Article, Person when real, Organization, BreadcrumbList, CollectionPage |
-| Sitemap | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | guarded runtime HTTP 200 with 5,786 URLs; healthtimes-staging.vercel.app still HTTP 404 |
-| robots.txt | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | guarded runtime HTTP 200 and staging Disallow policy; primary alias still HTTP 404 |
-| RSS/feed | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | guarded runtime HTTP 200, 50-item sample; primary alias still HTTP 404 |
-| Representative legacy routes | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | 13/13 live rehearsal tests green; primary alias still serves AG-02 404 shell |
+| Sitemap | PASS | guarded runtime HTTP 200 with 5,786 URLs; stale primary alias is carried to CP7 integrated-staging routing |
+| robots.txt | PASS | guarded runtime HTTP 200 and staging Disallow policy; stale primary alias is carried to CP7 integrated-staging routing |
+| RSS/feed | PASS | guarded runtime HTTP 200, 50-item sample; stale primary alias is carried to CP7 integrated-staging routing |
+| Representative legacy routes | PASS | 13/13 live rehearsal tests green; stale primary alias remains an integrated CP7 routing requirement |
 | HOSPAZ provenance binding | PASS | 32960, 32971, 33005 bound to migrated media identities; canonical storage objects exist |
 | HOSPAZ commercial fields | EVIDENCE GAP | destination, schedule, conditions remain UNKNOWN; no click target invented |
 | AG-04 media/content parity | OUTSIDE AG-05 / CP4 STILL NOT ACCEPTED | no AG-04 parity claim made; supplied CP4 blocker boundary preserved |
@@ -89,7 +91,7 @@ Certified runtime candidate: 0ba7240d018efa2472a00f56453e9aa8be34e1c5
 | CLS / Lighthouse | PASS | job 106612369495; all tested CLS <= 0.10 |
 | AG-05 certification | PASS | run 35685656455 |
 | Exact-head Vercel preview | PASS | dpl_DiC5U13hXBfgotJo921KqoqoXPrq READY at runtime SHA 0ba7240d... |
-| Primary rehearsal alias | BLOCKED | healthtimes-staging.vercel.app remains on AG-02 SHA 4512b7d... and returns 404 for migrated routes, sitemap, robots and feed |
+| CP7 integrated staging candidate / platform routing requirement | CARRIED TO CP7 | healthtimes-staging.vercel.app remains on AG-02 SHA 4512b7d... and must be reassigned before integrated CP7 UAT |
 | GA4 / Search Console / AdSense account proof | EVIDENCE GAP | ownership/settings/history unavailable; not fabricated |
 | Google Ads truth | EVIDENCE GAP | incomplete configuration; no campaign/conversion truth invented |
 | Production systems untouched | PASS | WordPress/DNS/GA/Search Console/AdSense/Google Ads production systems unchanged |
@@ -111,6 +113,6 @@ Certified runtime candidate: 0ba7240d018efa2472a00f56453e9aa8be34e1c5
 
 INP was unavailable from the lab runs and is not fabricated.
 
-**CP5 NOT ACCEPTED — the implementation and exact runtime are certified, but the moderator-required primary HealthTimes Staging alias is still pinned to AG-02 and returns 404 for the required migrated routes and discovery artifacts.**
+**CP5 ACCEPTED — moderator-accepted at certified runtime 0ba7240d018efa2472a00f56453e9aa8be34e1c5. The stale healthtimes-staging.vercel.app alias is reclassified as a CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT and must be reassigned before integrated CP7 UAT.**
 
 Production systems modified: NO
