@@ -65,7 +65,8 @@ test("default development editorial mode is source parity while production stays
   assert.match(config,/source-parity/);
   assert.match(services,/sourceParityServices/);
   assert.match(services,/Production service adapters are locked/);
-  assert.match(services,/Staging editorial-data mode is locked until AG-04/);
+  assert.match(services,/stagingEditorialServices/);
+  assert.doesNotMatch(services,/Staging editorial-data mode is locked until AG-04/);
 });
 
 test("requested Reader surfaces consume the repository bridge instead of a second source architecture",()=>{
@@ -129,7 +130,7 @@ test("live public WordPress refresh can surface newly published posts without re
 
 test("new live posts remain readable through the existing ArticleRepository contract",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/const current=\(await refreshedArticles\(\)\)\.find\(\(article\)=>article\.id===id\)/);
+  assert.match(service,/const current=\(await refreshedArticles\(\)\)\.find\(\(article\)=>article\.id===id \|\| article\.slug===id\)/);
   assert.match(service,/encodeURIComponent\(current\.slug\)/);
   assert.doesNotMatch(service,/if\(!fallback\) return null/);
 });
