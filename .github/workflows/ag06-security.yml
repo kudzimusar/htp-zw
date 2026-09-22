@@ -106,7 +106,7 @@ jobs:
           tag="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           for role in reporter editor commercial publisher; do
             upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
-            email="ag06-${role}-${tag}@healthtimes-staging.example.com"
+            email="ag06-${role}-${tag}@healthtimes.co.zw"
             password="Ht!$(openssl rand -hex 18)Aa7"
             echo "::add-mask::$password"
             echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
