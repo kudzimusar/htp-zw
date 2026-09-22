@@ -41,13 +41,22 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
   let reporterStoryTitle = '';
 
   test('Reporter saves, reloads, resumes and submits without browser-local authority', async ({ page }) => {
+    page.on('pageerror', error => console.log('AG06_UI_PAGEERROR', error.message));
+    page.on('console', msg => {
+      if (['error','warning'].includes(msg.type())) console.log('AG06_UI_CONSOLE', msg.type(), msg.text());
+    });
     await signIn(page, 'reporter');
     await expect(page.locator('[data-newsroom-nav] [data-module="review"]')).toHaveCount(0);
     await expect(page.locator('[data-newsroom-nav] [data-module="advertising"]')).toHaveCount(0);
 
     reporterStoryTitle = `AG06 UI Autosave ${Date.now()}`;
     await page.locator('[data-quick-create]').first().click();
-    await expect(page.locator('[data-story-modal]')).toBeVisible();
+    try {
+      await expect(page.locator('[data-story-modal]')).toBeVisible();
+    } catch (error) {
+      console.log('AG06_UI_TOAST', await page.locator('[data-newsroom-toast]').textContent().catch(()=>'')); 
+      throw error;
+    }
     await page.locator('[data-story-form] textarea[name="title"]').fill(reporterStoryTitle);
     await page.locator('[data-story-form] textarea[name="standfirst"]').fill('Server-backed Newsroom UAT draft.');
     await page.locator('[data-story-form] textarea[name="body"]').fill('This copy must survive a browser refresh because Supabase is authoritative.');
