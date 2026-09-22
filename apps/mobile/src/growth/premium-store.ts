@@ -78,24 +78,26 @@ function configurationRequiredPurchase(storeProductId: string): PremiumPurchaseR
 export function createPremiumStoreService(
   provider: PremiumStorefrontProvider | null = null
 ): PremiumStoreService {
+  const getState = async (): Promise<PremiumStoreState> => {
+    if (!provider) return PREMIUM_CONFIGURATION_REQUIRED_STATE;
+    try {
+      return normalizeProviderState(await provider.getState());
+    } catch {
+      return {
+        status: "error",
+        offers: [],
+        message: "The platform storefront could not be read safely."
+      };
+    }
+  };
+
   return {
-    async getState() {
-      if (!provider) return PREMIUM_CONFIGURATION_REQUIRED_STATE;
-      try {
-        return normalizeProviderState(await provider.getState());
-      } catch {
-        return {
-          status: "error",
-          offers: [],
-          message: "The platform storefront could not be read safely."
-        };
-      }
-    },
+    getState,
 
     async startPurchase(storeProductId) {
       if (!provider) return configurationRequiredPurchase(storeProductId);
 
-      const state = await this.getState();
+      const state = await getState();
       if (state.status !== "available") {
         return {
           status: state.status === "configuration-required" ? "configuration-required" : "unavailable",
