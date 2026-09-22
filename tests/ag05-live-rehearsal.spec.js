@@ -120,8 +120,16 @@ test.describe('AG-05 completed rehearsal runtime',()=>{
       await page.setViewportSize({width,height:Math.max(812,Math.round(width*1.8))});
       await page.goto(baseURL+publicPath,{waitUntil:'domcontentloaded'});
       await expect(page.locator('h1')).toContainText('Who Should Not Take Lenacapavir');
-      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
-      expect(overflow).toBeLessThanOrEqual(2);
+      const diagnostics=await page.evaluate(()=>{
+        const overflow=document.documentElement.scrollWidth-window.innerWidth;
+        const offenders=[...document.querySelectorAll('body *')].map((el,index)=>{
+          const r=el.getBoundingClientRect();
+          return {index,tag:el.tagName,cls:el.className||'',left:r.left,right:r.right,width:r.width,html:el.outerHTML.slice(0,220)};
+        }).filter(row=>row.right>window.innerWidth+2||row.left<-2).slice(0,20);
+        return {overflow,innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth,offenders};
+      });
+      if(diagnostics.overflow>2) console.log('AG05_OVERFLOW_DIAGNOSTICS',JSON.stringify(diagnostics));
+      expect(diagnostics.overflow).toBeLessThanOrEqual(2);
     });
   }
 
