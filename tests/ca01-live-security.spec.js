@@ -1,4 +1,5 @@
 const { test, expect, request } = require('@playwright/test');
+const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 
 const baseURL=String(process.env.CA01_STAGING_BASE_URL||'').replace(/\/$/,'');
@@ -84,6 +85,33 @@ async function discussionPost(token,action,payload={}){
   return ctx.post('/api/discussion',{
     headers:{Authorization:'Bearer '+token},
     data:{action,...payload}
+  });
+}
+
+async function privateRealtimeChannel(token,topic){
+  const client=createClient(supabaseURL,anonKey,{
+    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
+  });
+  await client.realtime.setAuth(token);
+  return {client,channel:client.channel(topic,{config:{private:true}})};
+}
+function subscriptionStatus(channel,timeoutMs=12000){
+  return new Promise((resolve)=>{
+    let done=false;
+    const finish=(status)=>{if(done)return;done=true;clearTimeout(timer);resolve(status);};
+    const timer=setTimeout(()=>finish('TIMED_OUT'),timeoutMs);
+    channel.subscribe(status=>{
+      if(['SUBSCRIBED','CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)) finish(status);
+    });
+  });
+}
+function nextBroadcast(channel,event,timeoutMs=12000){
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error('Realtime broadcast timed out for '+event)),timeoutMs);
+    channel.on('broadcast',{event},message=>{
+      clearTimeout(timer);
+      resolve(message?.payload ?? message);
+    });
   });
 }
 
@@ -181,7 +209,17 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     expect(statusOf(breaking)).toBe(200);
     const breakingThreadId=(await breaking.json()).id;
     expect(statusOf(await appPost(editor,'setThreadMember',{threadId:breakingThreadId,staffId:reporterId}))).toBe(200);
+
+    const rawReporter=await rawStaff('reporter');
+    const staffRealtime=await privateRealtimeChannel(rawReporter.session.access_token,'newsroom:thread:'+breakingThreadId);
+    const staffSubscription=await subscriptionStatus(staffRealtime.channel);
+    expect(staffSubscription).toBe('SUBSCRIBED');
+    const staffEventPromise=nextBroadcast(staffRealtime.channel,'newsroom_message.created');
     expect(statusOf(await appPost(reporter,'postThreadMessage',{threadId:breakingThreadId,message:'Breaking room update.'}))).toBe(200);
+    const staffEvent=await staffEventPromise;
+    expect(staffEvent.thread_id).toBe(breakingThreadId);
+    expect(typeof staffEvent.object_id).toBe('string');
+    expect(staffEvent).not.toHaveProperty('body');
     expect(statusOf(await appPost(commercial,'postThreadMessage',{threadId:breakingThreadId,message:'Commercial breaking intrusion.'}))).toBe(403);
 
     const announcement=await appPost(editor,'publishAnnouncement',{
@@ -217,7 +255,6 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     await uiContext.close();
 
     // Direct Inbox insertion is impossible even for a logged-in staff identity.
-    const rawReporter=await rawStaff('reporter');
     const directNotificationInsert=await fetch(supabaseURL+'/rest/v1/newsroom_notifications',{
       method:'POST',
       headers:{...rawReporter.headers,Prefer:'return=representation'},
@@ -256,6 +293,9 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     const readerNewsroomTopic=await rpc(authorReader.headers,'newsroom_can_join_realtime_topic',{p_topic:'newsroom:story:'+storyId});
     expect(statusOf(readerNewsroomTopic)).toBe(200);
     expect(await readerNewsroomTopic.json()).toBe(false);
+    const deniedRealtime=await privateRealtimeChannel(authorReader.session.access_token,'newsroom:story:'+storyId);
+    const deniedRealtimeStatus=await subscriptionStatus(deniedRealtime.channel);
+    expect(deniedRealtimeStatus).not.toBe('SUBSCRIBED');
 
     // Comment policy defaults closed; Publisher explicitly opens only this canonical test story.
     const policy=await appPost(publisher,'setStoryCommentPolicy',{storyId,policy:'open'});
@@ -280,11 +320,20 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     });
     expect(statusOf(anonymousSubmit)).toBe(401);
 
+    const readerRealtime=await privateRealtimeChannel(authorReader.session.access_token,'reader:story-comments:'+storyId);
+    const readerRealtimeStatus=await subscriptionStatus(readerRealtime.channel);
+    expect(readerRealtimeStatus).toBe('SUBSCRIBED');
+    const readerEventPromise=nextBroadcast(readerRealtime.channel,'reader_story_comment.changed');
+
     const submitted=await discussionPost(authorReader.session.access_token,'submitComment',{
       storyId,comment:'A verified reader comment awaiting moderation.'
     });
     expect(statusOf(submitted)).toBe(200);
     const commentId=(await submitted.json()).id;
+    const readerEvent=await readerEventPromise;
+    expect(readerEvent.story_id).toBe(storyId);
+    expect(readerEvent.object_id).toBe(commentId);
+    expect(readerEvent).not.toHaveProperty('body');
 
     let queue=await appPost(publisher,'listModerationQueue',{limit:50});
     expect(statusOf(queue)).toBe(200);
@@ -366,7 +415,9 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
         desk_thread_id:deskThreadId,
         breaking_thread_id:breakingThreadId,
         announcement_ack:true,
-        forged_inbox_insert_denied:statusOf(directNotificationInsert)
+        forged_inbox_insert_denied:statusOf(directNotificationInsert),
+        staff_private_channel_allowed:staffSubscription,
+        staff_event_minimal:true
       },
       reader:{
         anonymous_denied:statusOf(anonymousSubmit),
@@ -376,7 +427,10 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
         health_restrict_denied:statusOf(healthRestriction),
         restricted_reader_denied:statusOf(restrictedSubmit),
         newsroom_realtime_predicate_denied:true,
-        comment_realtime_predicate_allowed:true
+        newsroom_private_channel_denied:deniedRealtimeStatus,
+        comment_realtime_predicate_allowed:true,
+        comment_private_channel_allowed:readerRealtimeStatus,
+        comment_event_minimal:true
       },
       storage:{
         metadata_id:preparedBody.id,
@@ -387,6 +441,11 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     fs.writeFileSync(process.env.CA01_EVIDENCE_PATH||'/tmp/ca01-live-evidence.json',JSON.stringify(evidence,null,2));
     console.log('CA01_LIVE_EVIDENCE',JSON.stringify(evidence));
 
+    await Promise.all([
+      staffRealtime.client.removeChannel(staffRealtime.channel),
+      deniedRealtime.client.removeChannel(deniedRealtime.channel),
+      readerRealtime.client.removeChannel(readerRealtime.channel)
+    ]).catch(()=>{});
     await Promise.all([reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose(),publisher.ctx.dispose(),health.ctx.dispose()]);
     if(localGatewayContext) await localGatewayContext.dispose();
   });
