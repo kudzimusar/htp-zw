@@ -10,7 +10,7 @@ const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.Co
 const module={exports:{}};
 const linking={
   createURL(path){return "healthtimes://"+path;},
-  parse(value){const u=new URL(value);return {path:u.protocol==="healthtimes:"?(u.host+u.pathname).replace(/^\\/+|\\/+$/g,""):u.pathname.replace(/^\\/+|\\/+$/g,"")};}
+  parse(value){const u=new URL(value);return {path:u.protocol==="healthtimes:"?(u.host+u.pathname).replace(/^\/+|\/+$/g,""):u.pathname.replace(/^\/+|\/+$/g,"")};}
 };
 new Function("module","exports","require",output)(module,module.exports,(name)=>{if(name==="expo-linking")return linking;throw new Error("Unexpected require "+name);});
 const links=module.exports;
