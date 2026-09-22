@@ -55,9 +55,14 @@ html[data-theme="dark"] .v21-ad-sponsored{background:var(--v21-card);color:var(-
 
 /* AG-05 CLS reservation: reserve space for client-rendered publication chrome.
    Migrated legacy story routes are server-rendered and do not need these placeholders. */
-@media (min-width:901px){
+@media (min-width:1101px){
   body:not([data-page="migrated-article"]) #app-header{min-height:146px}
-  body[data-page="home"] .hero-grid{min-height:520px!important}
+  body[data-page="home"] .hero-grid{min-height:680px!important}
+  body[data-page="article"] #article-mount{min-height:1650px}
+}
+@media (min-width:901px) and (max-width:1100px){
+  body:not([data-page="migrated-article"]) #app-header{min-height:146px}
+  body[data-page="home"] .hero-grid{min-height:820px!important}
   body[data-page="article"] #article-mount{min-height:1650px}
 }
 @media (max-width:900px){
