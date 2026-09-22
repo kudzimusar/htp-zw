@@ -99,6 +99,13 @@ test.describe('AG-05 completed rehearsal runtime',()=>{
     expect(tag.headers()['x-ag05-resolution']).toBe('LEGACY_CONTEXT_NOINDEX');
     expect(await tag.text()).toContain('<title>CPU — HealthTimes</title>');
 
+    const nestedCategory=await request.get(baseURL+'/category/special_projects/tobacco_harm_reduction/');
+    expect(nestedCategory.status()).toBe(200);
+    expect(nestedCategory.headers()['x-ag05-resolution']).toBe('PRESERVE_CONTEXT_NOINDEX');
+    const nestedCategoryHtml=await nestedCategory.text();
+    expect(nestedCategoryHtml).toContain('<link rel="canonical" href="https://healthtimes.co.zw/category/special_projects/tobacco_harm_reduction/">');
+    expect(nestedCategoryHtml).toContain('<meta name="robots" content="noindex,follow">');
+
     const authorAlias=await request.get(baseURL+'/author/michael-gwarisa/',{maxRedirects:0});
     expect(authorAlias.status()).toBe(404);
     expect(authorAlias.headers()['x-ag05-resolution']).toBe('context_alias_evidence_missing');
