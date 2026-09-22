@@ -115,6 +115,7 @@ function inboxSummary(row:any):NewsroomInboxSummary{
     reviews:numberValue(row?.reviews),
     urgent:numberValue(row?.urgent),
     announcements:numberValue(row?.announcements),
+    newsletter:numberValue(row?.newsletter),
     moderation:numberValue(row?.moderation),
     unacknowledged:numberValue(row?.unacknowledged)
   };
