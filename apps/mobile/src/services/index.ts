@@ -2,6 +2,7 @@ import type { HealthTimesServices } from "../domain/contracts";
 import { appEnvironment, editorialDataMode } from "../platform/config";
 import { fixtureServices } from "./fixtures";
 import { sourceParityServices } from "./source-parity";
+import { stagingEditorialServices } from "./staging-editorial";
 import { stagingAuthService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
@@ -21,7 +22,11 @@ function buildServices(): HealthTimesServices {
     );
   }
 
-  const editorialServices = editorialDataMode === "source-parity" ? sourceParityServices : fixtureServices;
+  const editorialServices = editorialDataMode === "staging"
+  ? stagingEditorialServices
+  : editorialDataMode === "source-parity"
+    ? sourceParityServices
+    : fixtureServices;
 
   if (appEnvironment === "staging") {
     return {

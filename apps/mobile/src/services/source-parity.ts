@@ -372,7 +372,7 @@ const articleRepository:ArticleRepository={
     return refreshedArticles();
   },
   async getById(id){
-    const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
+    const current=(await refreshedArticles()).find((article)=>article.id===id || article.slug===id) ?? null;
     if(!current) return null;
     const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
       exception.kind==="taxonomy-unresolved" &&
