@@ -1,0 +1,219 @@
+name: Native Binary Certification
+
+on:
+  push:
+    branches:
+      - feat/native-mobile-nm07-native-certification
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/native-certification.yml'
+      - 'docs/native-mobile/**'
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/native-certification.yml'
+      - 'docs/native-mobile/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-certification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install mobile workspace
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Validate universal source and NM-01 through NM-06 gates
+        run: |
+          npm run native:check
+          npm --prefix apps/mobile run test:foundation
+          npm --prefix apps/mobile run test:staging
+          npm --prefix apps/mobile run test:content-contracts
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:identity-security
+          npm --prefix apps/mobile run test:ca01-communications
+          npm --prefix apps/mobile run test:native-certification
+
+      - name: Capture development Expo config
+        working-directory: apps/mobile
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: fixture
+        run: npx expo config --json > development-config.json
+
+      - name: Capture staging Expo config
+        working-directory: apps/mobile
+        env:
+          APP_ENV: staging
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: fixture
+          EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+        run: npx expo config --json > staging-config.json
+
+      - name: Capture production Expo config without running production services
+        working-directory: apps/mobile
+        env:
+          APP_ENV: production
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: production
+        run: npx expo config --json > production-config.json
+
+      - name: Verify environment identities
+        working-directory: apps/mobile
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const dev=JSON.parse(fs.readFileSync('development-config.json','utf8'));
+          const stg=JSON.parse(fs.readFileSync('staging-config.json','utf8'));
+          const prod=JSON.parse(fs.readFileSync('production-config.json','utf8'));
+          const expected=[
+            [dev,'zw.co.healthtimes.app.dev','HealthTimes Dev'],
+            [stg,'zw.co.healthtimes.app.staging','HealthTimes Staging'],
+            [prod,'zw.co.healthtimes.app','HealthTimes']
+          ];
+          for(const [cfg,id,name] of expected){
+            if(cfg.android?.package!==id) throw new Error('Android identity mismatch: '+cfg.android?.package+' != '+id);
+            if(cfg.ios?.bundleIdentifier!==id) throw new Error('iOS identity mismatch: '+cfg.ios?.bundleIdentifier+' != '+id);
+            if(cfg.name!==name) throw new Error('display name mismatch: '+cfg.name+' != '+name);
+            if(cfg.scheme!=='healthtimes') throw new Error('deep-link scheme mismatch');
+          }
+          NODE
+
+      - name: Upload resolved native configuration evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthtimes-native-config-matrix
+          path: |
+            apps/mobile/development-config.json
+            apps/mobile/staging-config.json
+            apps/mobile/production-config.json
+          retention-days: 14
+
+  android-debug-binary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install mobile workspace
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Generate Android native project
+        working-directory: apps/mobile
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: fixture
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build Android debug APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Verify Android APK
+        run: test -f apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Android binary evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthtimes-android-debug-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+  ios-simulator-binary:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install mobile workspace
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Generate iOS native project
+        working-directory: apps/mobile
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: fixture
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: pod install
+
+      - name: Resolve Xcode workspace and app scheme
+        working-directory: apps/mobile/ios
+        run: |
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          test -n "$WORKSPACE"
+          WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild -list -json -workspace "$WORKSPACE" > xcode-list.json
+          SCHEME=$(WORKSPACE_NAME="$WORKSPACE_NAME" python3 - <<'PY'
+          import json, os
+          data=json.load(open('xcode-list.json'))
+          schemes=data.get('workspace',{}).get('schemes',[])
+          if not schemes:
+              raise SystemExit('No Xcode scheme found')
+          preferred=os.environ['WORKSPACE_NAME']
+          if preferred in schemes:
+              print(preferred)
+          else:
+              non_pod=[s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))]
+              if not non_pod:
+                  raise SystemExit('No application Xcode scheme found; schemes='+','.join(schemes))
+              print(non_pod[0])
+          PY
+          )
+          echo "WORKSPACE=$WORKSPACE" >> "$GITHUB_ENV"
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          echo "Resolved application scheme: $SCHEME"
+
+      - name: Build iOS Simulator app
+        working-directory: apps/mobile/ios
+        run: |
+          xcodebuild             -workspace "$WORKSPACE"             -scheme "$SCHEME"             -configuration Debug             -sdk iphonesimulator             -derivedDataPath "$PWD/DerivedData"             CODE_SIGNING_ALLOWED=NO             build
+
+      - name: Verify iOS Simulator app
+        working-directory: apps/mobile/ios
+        run: |
+          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
+          test -n "$APP"
+          test -f "$APP/Info.plist"
+          echo "Resolved iOS app: $APP"
+          echo "IOS_APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Archive iOS Simulator app
+        working-directory: apps/mobile/ios
+        run: ditto -c -k --sequesterRsrc --keepParent "$IOS_APP" healthtimes-ios-simulator.zip
+
+      - name: Upload iOS Simulator binary evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthtimes-ios-simulator-app
+          path: apps/mobile/ios/healthtimes-ios-simulator.zip
+          retention-days: 14

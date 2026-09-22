@@ -1,0 +1,98 @@
+name: Native Mobile Foundation + Staging + Contracts + Reader + Growth + Security + Certification
+
+on:
+  push:
+    branches:
+      - feat/native-mobile-nm01-foundation
+      - feat/native-mobile-nm02-staging-connectivity
+      - feat/native-mobile-nm03-content-contracts
+      - feat/native-mobile-nm04-reader-product
+      - feat/native-mobile-nm05-growth-commercial
+      - feat/native-mobile-nm06-identity-security
+      - feat/native-mobile-nm07-native-certification
+    paths:
+      - 'apps/mobile/**'
+      - 'package.json'
+      - '.github/workflows/native-mobile.yml'
+      - 'docs/native-mobile/**'
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'package.json'
+      - '.github/workflows/native-mobile.yml'
+      - 'docs/native-mobile/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  universal-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install native workspace dependencies
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Validate Expo dependency compatibility and TypeScript
+        run: npm run native:check
+
+      - name: Run NM-01/NM-02 foundation integrity tests
+        run: npm --prefix apps/mobile run test:foundation
+
+      - name: Run live HealthTimes Staging connectivity smoke
+        run: npm --prefix apps/mobile run test:staging
+
+      - name: Run NM-03 content contract reconciliation tests
+        run: npm --prefix apps/mobile run test:content-contracts
+
+      - name: Run NM-04 Reader product hardening tests
+        run: |
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+
+      - name: Run NM-05 growth commercial safety tests
+        run: npm --prefix apps/mobile run test:growth-commercial
+
+      - name: Run NM-06 identity and Studio security tests
+        run: npm --prefix apps/mobile run test:identity-security
+
+      - name: Run NM-07 certification readiness tests
+        run: npm --prefix apps/mobile run test:native-certification
+
+      - name: Run read-only source parity bridge tests
+        run: npm --prefix apps/mobile run test:source-parity
+
+      - name: Export universal web/PWA build
+        run: npm run native:export:web
+
+      - name: Verify PWA output
+        shell: bash
+        run: |
+          test -f apps/mobile/dist/index.html
+          test -f apps/mobile/dist/manifest.json
+          test -f apps/mobile/dist/sw.js
+          test -f apps/mobile/dist/healthtimes-icon.svg
+          test -f apps/mobile/dist/ads.txt
+          test -f apps/mobile/dist/app-ads.txt
+          grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/ads.txt
+          grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/app-ads.txt
+
+      - name: Upload PWA build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthtimes-native-web-dist
+          path: apps/mobile/dist/
+          retention-days: 14

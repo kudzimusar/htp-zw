@@ -19,7 +19,13 @@
     "test:ag06:contract": "playwright test tests/ag06-security-contract.spec.js",
     "test:ag06:live": "playwright test tests/ag06-live-security.spec.js tests/newsroom-os.spec.js",
     "test:ca01:contract": "playwright test tests/ca01-contract.spec.js",
-    "test:ca01:live": "playwright test tests/ca01-live-security.spec.js"
+    "test:ca01:live": "playwright test tests/ca01-live-security.spec.js",
+    "native:start": "npm --prefix apps/mobile run start",
+    "native:android": "npm --prefix apps/mobile run android",
+    "native:ios": "npm --prefix apps/mobile run ios",
+    "native:web": "npm --prefix apps/mobile run web",
+    "native:check": "npm --prefix apps/mobile run check",
+    "native:export:web": "npm --prefix apps/mobile run export:web"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"

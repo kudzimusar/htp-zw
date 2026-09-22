@@ -1,0 +1,46 @@
+{
+  "name": "@healthtimes/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "typecheck": "tsc --noEmit",
+    "check": "npx expo install --check && npm run typecheck",
+    "test:foundation": "node --test tests/foundation.test.mjs",
+    "test:staging": "node --test tests/staging-connectivity.test.mjs",
+    "test:content-contracts": "node --test tests/content-contracts.test.mjs",
+    "test:reader-product": "node --test tests/reader-product.test.mjs",
+    "test:reader-fidelity": "node --test tests/article-content.test.mjs tests/search-ranking.test.mjs",
+    "test:growth-commercial": "node --test tests/growth-commercial.test.mjs",
+    "test:identity-security": "node --test tests/identity-security.test.mjs",
+    "test:native-certification": "node --test tests/native-certification.test.mjs",
+    "test:source-parity": "node --test tests/source-parity.test.mjs",
+    "test:ca01-communications": "node --test tests/ca01-communications.test.mjs"
+  },
+  "dependencies": {
+    "expo": "~57.0.10",
+    "expo-constants": "~57.0.9",
+    "expo-linking": "~57.0.5",
+    "expo-router": "~57.0.10",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "2.116.0",
+    "expo-secure-store": "~57.0.4",
+    "expo-notifications": "~57.0.20"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}

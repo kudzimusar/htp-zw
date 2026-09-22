@@ -80,6 +80,9 @@ jobs:
 
   # Staging-only certification uses GitHub OIDC and ephemeral Auth users; no repository secrets.
   live-staging-security:
+    concurrency:
+      group: healthtimes-staging-security-live
+      cancel-in-progress: false
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read

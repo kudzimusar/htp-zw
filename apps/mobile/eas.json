@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 16.0.0"
+  },
+  "build": {
+    "development": {
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE": "fixture"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "staging",
+        "EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE": "fixture",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gcdohgbmqhqwydgaxrcr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE": "production"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
