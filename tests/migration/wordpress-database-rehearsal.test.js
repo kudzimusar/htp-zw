@@ -95,14 +95,22 @@ test('rewrites WordPress derivatives to canonical attachment storage and records
     original_path: 'uploads/2026/09/photo-scaled.jpg',
     storage_key: 'wordpress/2026/09/photo-scaled.jpg',
     public_url: 'https://example.test/migrated-media/wordpress/2026/09/photo-scaled.jpg'
+  }, {
+    id: '12',
+    status: 'pending',
+    original_path: 'uploads/2026/09/report-520x1024-1.jpg',
+    storage_key: 'wordpress/2026/09/report-520x1024-1.jpg',
+    public_url: 'https://example.test/migrated-media/wordpress/2026/09/report-520x1024-1.jpg'
   }];
   const index = buildMediaRewriteIndex(attachments, 'https://example.test/migrated-media');
   const result = rewriteWordPressUploadUrls(
     '<img src="https://healthtimes.co.zw/wp-content/uploads/2026/09/photo-300x200.jpg">' +
+    '<img src="https://healthtimes.co.zw/wp-content/uploads/2026/09/report-520x1024.jpg">' +
     '<img src="https://healthtimes.co.zw/wp-content/uploads/2026/09/unattached-300x200.jpg">',
     index
   );
   expect(result.html).toContain('/photo-scaled.jpg');
+  expect(result.html).toContain('/report-520x1024-1.jpg');
   expect(result.html).not.toContain('healthtimes.co.zw/wp-content/uploads');
   expect(result.unresolved).toHaveLength(1);
   expect(result.unresolved[0].fallback_key).toBe('wordpress/2026/09/unattached-300x200.jpg');
