@@ -5,6 +5,7 @@ on:
     branches:
       - feat/native-mobile-nm07-native-certification
       - feat/native-mobile-nm04-reader-media-offline
+      - 'feat/native-mobile-nm05-*'
       - integration/native-mobile-nm00-convergence
     paths:
       - 'apps/mobile/**'
@@ -49,6 +50,9 @@ jobs:
 
       - name: Validate NM-04 bounded Search ranking
         run: npm --prefix apps/mobile run test:search-ranking
+
+      - name: Validate NM-05 growth and commercial provider readiness
+        run: npm --prefix apps/mobile run test:growth-commercial
 
       - name: Probe public WordPress source reachability and browser CORS
         shell: bash
@@ -102,6 +106,11 @@ jobs:
           test -f apps/mobile/dist/manifest.json
           test -f apps/mobile/dist/sw.js
           test -f apps/mobile/dist/healthtimes-icon.svg
+          test -f apps/mobile/dist/ads.txt
+          test -f apps/mobile/dist/app-ads.txt
+          grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/ads.txt
+          test ! -s apps/mobile/dist/app-ads.txt
+          ! grep -Riq 'ca-app-pub-' apps/mobile/dist/ads.txt apps/mobile/dist/app-ads.txt
           node <<'NODE'
           const fs = require("fs");
           const html = fs.readFileSync("apps/mobile/dist/index.html", "utf8");
