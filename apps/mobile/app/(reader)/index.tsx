@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
@@ -106,8 +106,9 @@ export default function HomeScreen() {
   const publication=useAsync(()=>services.publication.getProfile(),[]);
   const preferences=useAsync(() => services.reader.getPreferences(), []);
 
-  if (home.loading || !home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
+  if (home.loading) return <Page><LoadingBlock label="Loading Home…" /></Page>;
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
+  if (!home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
 
   const source=[...home.data].sort((a,b)=>publishedTime(b)-publishedTime(a));
   const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
@@ -116,7 +117,7 @@ export default function HomeScreen() {
     ? source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
     : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
 
-  const filteredStories=useMemo(()=>{
+  const filteredStories=(()=>{
     if(activeFilter==="latest") return source;
     if(activeFilter==="edition") return editionStories.length ? editionStories : source;
     if(activeFilter==="world"){
@@ -129,13 +130,7 @@ export default function HomeScreen() {
     }
     const matches=source.filter((item)=>matchesPreferences(item,preferenceState));
     return matches.length ? matches : source;
-  },[
-    activeFilter,
-    home.data,
-    edition,
-    preferenceState.followedCountries.join("|"),
-    preferenceState.followedTopics.join("|")
-  ]);
+  })();
 
   const [hero,...filteredRemainder]=filteredStories;
   const topStories=filteredRemainder.slice(0,6);
