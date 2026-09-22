@@ -11,6 +11,7 @@ import type {
   NewsroomThread,
   NewsroomMessage,
   NewsroomAnnouncement,
+  NewsroomAssignment,
   ReaderCommentEligibility,
   ReaderCommentModerationItem,
   ReaderStoryComment
@@ -166,6 +167,27 @@ export const stagingNewsroomCommunicationService:NewsroomCommunicationService={
   async archive(notificationId){
     await ensureNewsroomSession();
     await rpc("newsroom_archive_notification",{p_notification_id:notificationId});
+  },
+
+  async listAssignments(){
+    await ensureNewsroomSession();
+    const rows=await selectRows<any>("story_assignments",builder=>
+      builder.order("updated_at",{ascending:false}).limit(200)
+    );
+    return rows.map((row):NewsroomAssignment=>({
+      id:String(row.id),
+      storyId:row.story_id ? String(row.story_id) : null,
+      title:String(row.title ?? "Assignment"),
+      reporterStaffId:String(row.reporter_staff_id),
+      assignedEditorStaffId:row.assigned_editor_staff_id ? String(row.assigned_editor_staff_id) : null,
+      desk:row.desk ? String(row.desk) : null,
+      deadlineAt:row.deadline_at ? String(row.deadline_at) : null,
+      priority:String(row.priority ?? "Normal"),
+      notes:row.notes ? String(row.notes) : null,
+      status:String(row.status ?? "Assigned"),
+      assignedBy:String(row.assigned_by),
+      updatedAt:String(row.updated_at ?? "")
+    }));
   },
 
   async listStoryDiscussion(storyId){
