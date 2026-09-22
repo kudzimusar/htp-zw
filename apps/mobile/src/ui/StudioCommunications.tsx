@@ -55,15 +55,15 @@ export function StudioDeskThreadsPanel({deskId}:{deskId:string}){
       </View>
       {!!status&&<Text style={styles.meta}>{status}</Text>}
       <LoadingOrError loading={rows.loading} error={rows.error}/>
-      {(rows.data??[]).map(thread)=><StudioThreadCard key={thread.id} thread={thread}/>)}
+      {(rows.data??[]).map(thread=><StudioThreadCard key={thread.id} thread={thread} destination="desks" />)}
     </View>
   );
 }
 
-function StudioThreadCard({thread}:{thread:{id:string;title:string;threadType:string;priority:string;status:string;updatedAt:string}}){
+function StudioThreadCard({thread,destination}:{thread:{id:string;title:string;threadType:string;priority:string;status:string;updatedAt:string};destination:"desks"|"breaking"}){
   const router=useRouter();
   return (
-    <Pressable style={styles.card} onPress={()=>router.push({pathname:"/studio/breaking",params:{threadId:thread.id}} as never)}>
+    <Pressable style={styles.card} onPress={()=>router.push({pathname:destination==="desks"?"/studio/desks":"/studio/breaking",params:{threadId:thread.id}} as never)}>
       <View style={styles.row}>
         <Text style={styles.cardTitle}>{thread.title}</Text>
         <Text style={styles.badge}>{thread.priority.toUpperCase()}</Text>
@@ -78,7 +78,7 @@ export function StudioBreakingPanel(){
   return (
     <View style={styles.stack}>
       <LoadingOrError loading={rows.loading} error={rows.error}/>
-      {(rows.data??[]).filter(thread=>thread.status==="open").map(thread)=><StudioThreadCard key={thread.id} thread={thread}/>)}
+      {(rows.data??[]).filter(thread=>thread.status==="open").map(thread=><StudioThreadCard key={thread.id} thread={thread} destination="breaking" />)}
       {!rows.loading&&!(rows.data??[]).filter(thread=>thread.status==="open").length&&<Text style={styles.muted}>No active breaking rooms.</Text>}
     </View>
   );
