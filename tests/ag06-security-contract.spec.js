@@ -83,6 +83,16 @@ test.describe('AG-06 security contract', () => {
     expect(api).not.toMatch(/console\.(log|error)\([^\n]*(access|refresh|password)/i);
   });
 
+  test('synthetic certification identities never send outbound Auth email', async () => {
+    const workflow = read('.github/workflows/ag06-security.yml');
+    const provisioner = read('supabase/functions/ag06-certification-provision/index.ts');
+    expect(workflow).not.toContain('probe_email:true');
+    expect(provisioner).not.toContain('inviteUserByEmail');
+    expect(provisioner).not.toContain('resetPasswordForEmail');
+    expect(provisioner).toContain('probe_enabled:false');
+    expect(provisioner).toContain('requested_probe_suppressed:body.probe_email === true');
+  });
+
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
     const vercel = read('vercel.json');
