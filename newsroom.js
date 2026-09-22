@@ -5,7 +5,11 @@
     session: 'htpNewsroomSession', stories: 'htpNewsroomStories', assignments: 'htpNewsroomAssignmentsV3',
     staff: 'htpNewsroomStaffV3', audit: 'htpNewsroomAudit', media: 'htpNewsroomMediaV3',
     comments: 'htpNewsroomCommentsV3', campaigns: 'htpAdCampaigns', overrides: 'htpStoryOverrides',
-    sessions: 'htpNewsroomSessionsV3', notifications: 'htpNewsroomNotificationsV3'
+    sessions: 'htpNewsroomSessionsV3', notifications: 'htpNewsroomNotificationsV3',
+    inboxSummary: 'htpNewsroomInboxSummaryV1', desks: 'htpNewsroomDesksV1',
+    deskMembers: 'htpNewsroomDeskMembersV1', threads: 'htpNewsroomThreadsV1',
+    threadMembers: 'htpNewsroomThreadMembersV1', messages: 'htpNewsroomMessagesV1',
+    announcements: 'htpNewsroomAnnouncementsV1', moderation: 'htpNewsroomModerationV1'
   };
   const HOSPAZ = 'https://healthtimes.co.zw/wp-content/uploads/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg';
   const $ = (s, r=document) => r.querySelector(s);
@@ -52,7 +56,9 @@
     ASSIGN_CREATE:'assignment.create', ASSIGN_MANAGE:'assignment.manage', PREMIUM_ASSIGN:'premium.assign', PREMIUM_MANAGE:'premium.manage',
     ADS_VIEW:'ads.view', ADS_CREATE:'ads.create', ADS_APPROVE:'ads.approve', SUB_VIEW:'subscriber.view', SUB_MANAGE:'subscriber.manage',
     STAFF_VIEW:'staff.view', STAFF_INVITE:'staff.invite', STAFF_ROLE:'staff.change_role', STAFF_REVOKE:'staff.revoke',
-    ANALYTICS:'analytics.view', SETTINGS:'settings.manage', SECURITY:'security.manage', DISTRIBUTION:'distribution.manage', MEDIA:'media.manage'
+    ANALYTICS:'analytics.view', SETTINGS:'settings.manage', SECURITY:'security.manage', DISTRIBUTION:'distribution.manage', MEDIA:'media.manage',
+    DESK_MANAGE:'communication.desk.manage', BREAKING_MANAGE:'communication.breaking.manage', ANNOUNCE:'communication.announce',
+    COMMENT_CONFIGURE:'comment.configure', COMMENT_MODERATE:'comment.moderate', COMMENT_RESTRICT:'comment.restrict', COMMENT_AUDIT:'comment.audit'
   };
 
   const ROLE_CAPS = {
@@ -122,8 +128,8 @@
   const initialCampaigns=[{id:'hospaz-agm-2026',advertiser:'HOSPAZ',name:'HOSPAZ Annual General Meeting',creative:HOSPAZ,destination:'https://healthtimes.co.zw/',placement:['masthead','home-infeed','article'],start:'2026-09-01',end:'2026-09-25',status:'Active',review:'Approved',label:'Advertisement',impressions:0,clicks:0}];
 
   const NAV=[
-    ['My Newsroom',[['overview','Overview','⌂'],['my-assignments','My assignments','✓'],['my-stories','My stories','▤'],['saved','Saved','☆']]],
-    ['Editorial',[['stories','Stories','▤','editorial'],['assignments','Assignments','✓',CAP.ASSIGN_MANAGE],['review','Review Queue','◫','review'],['calendar','Editorial Calendar','□','editorial'],['breaking','Breaking News','!','editorial'],['corrections','Corrections','↺','editorial']]],
+    ['My Newsroom',[['overview','Overview','⌂'],['inbox','Inbox','✉'],['my-assignments','My assignments','✓'],['my-stories','My stories','▤'],['saved','Saved','☆']]],
+    ['Editorial',[['stories','Stories','▤','editorial'],['assignments','Assignments','✓'],['review','Review Queue','◫','review'],['calendar','Editorial Calendar','□','editorial'],['desks','Desks','◎'],['breaking','Breaking','!'],['corrections','Corrections','↺','editorial'],['moderation','Moderation','⚑',CAP.COMMENT_MODERATE]]],
     ['Content',[['media','Media Library','▧',CAP.MEDIA],['authors','Authors','◎','editorial'],['topics','Topics','⌗','editorial'],['regions','Countries & regions','◌','editorial'],['sources','Research / Sources','≡','editorial'],['archive','Archive','▱','editorial']]],
     ['Distribution',[['homepage','Homepage','⌂',CAP.DISTRIBUTION],['newsletter','Newsletters','✉',CAP.DISTRIBUTION],['whatsapp','WhatsApp','◉',CAP.DISTRIBUTION],['social','Social','↗',CAP.DISTRIBUTION],['push','Push alerts','●',CAP.DISTRIBUTION]]],
     ['Intelligence',[['analytics','Analytics','↗',CAP.ANALYTICS],['trending','Trending','↗',CAP.ANALYTICS],['seo','SEO','⌕','editorial'],['citations','Citations & Impact','§',CAP.ANALYTICS],['ai','AI Desk','✦','editorial']]],
@@ -189,7 +195,7 @@
       status:s.workflow_status||(String(s.status||'').toLowerCase()==='publish'?'Published':'Draft'),
       deadline:localTime(s.deadline_at),schedule:localTime(s.scheduled_at),updated:displayTime(s.updated_at||s.modified_at),
       seoTitle:s.seo_title||'',metaDescription:s.seo_description||'',slug:s.slug||'',adSetting:s.ad_setting||'Standard',
-      distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1)
+      distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1),commentPolicy:s.comment_policy||'disabled'
     }));
     setStories(stories);
     const assignments=(data.assignments||[]).map(a=>({
@@ -202,7 +208,8 @@
     for(const row of data.comments||[]){
       const a=staffById.get(row.author_staff_id);
       (comments[row.story_id]||(comments[row.story_id]=[])).push({
-        id:row.id,user:a?.name||'Newsroom',at:row.created_at,text:row.body,resolved:!!row.resolved_at
+        id:row.id,authorStaffId:row.author_staff_id,user:a?.name||'Newsroom',at:row.created_at,text:row.body,
+        parentCommentId:row.parent_comment_id||null,editedAt:row.edited_at||null,resolved:!!row.resolved_at
       });
     }
     write(KEYS.comments,comments);
@@ -226,7 +233,9 @@
       id:x.id,advertiser:advertisers.get(x.advertiser_id)||'Advertiser',name:x.name,status:x.status,
       start:x.start_at||'',end:x.end_at||'',review:x.review_status||'pending',placement:[],impressions:0,clicks:0
     })));
-    write(KEYS.notifications,[]);
+    write(KEYS.notifications,(data.notifications||[]).map(n=>({id:n.id,eventType:n.event_type,targetTable:n.target_table,targetId:n.target_id,payload:n.payload||{},actorStaffId:n.actor_staff_id||null,category:n.category||'general',priority:n.priority||'normal',readAt:n.read_at||null,requiresAck:!!n.requires_ack,acknowledgedAt:n.acknowledged_at||null,archivedAt:n.archived_at||null,expiresAt:n.expires_at||null,createdAt:n.created_at})));
+    write(KEYS.inboxSummary,data.inboxSummary||{});
+    write(KEYS.desks,data.desks||[]);write(KEYS.deskMembers,data.deskMembers||[]);write(KEYS.threads,data.threads||[]);write(KEYS.threadMembers,data.threadMembers||[]);write(KEYS.messages,data.messages||[]);write(KEYS.announcements,data.announcements||[]);
     const self=staff.find(s=>s.id===ctx.id)||{
       id:ctx.id,username:ctx.handle||ctx.id,name:ctx.display_name,email:ctx.email,role:ctx.role,
       desk:ctx.desk||'',beat:ctx.beat||'',country:ctx.country||'',region:ctx.region||'',status:'Active',
@@ -280,7 +289,7 @@
   }
 
   function renderUser(){const u=currentUser();$('[data-user-mini]').innerHTML=`<div class="nr-user-mini-row"><span class="nr-avatar">${esc(u.initials)}</span><span><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></span><button type="button" data-sign-out aria-label="Sign out">↪</button></div>`;$('[data-user-menu]').textContent=u.initials;$('[data-topline]').textContent=`${u.name} · ${u.role}`;}
-  function navCount(id){const u=currentUser(), stories=getStories(), assignments=getAssignments();if(id==='my-assignments')return assignments.filter(a=>a.reporter===u.username&&!['Complete'].includes(a.status)).length;if(id==='my-stories')return stories.filter(s=>s.owner===u.username&&!['Archived'].includes(s.status)).length;if(id==='review')return stories.filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)).length;if(id==='corrections')return stories.filter(s=>s.status==='Updated / Corrected').length;if(id==='premium')return stories.filter(s=>s.premium).length;return 0;}
+  function navCount(id){const u=currentUser(), stories=getStories(), assignments=getAssignments();if(id==='inbox')return Number(read(KEYS.inboxSummary,{}).unread_total||0);if(id==='my-assignments')return assignments.filter(a=>a.reporter===u.username&&!['Complete'].includes(a.status)).length;if(id==='my-stories')return stories.filter(s=>s.owner===u.username&&!['Archived'].includes(s.status)).length;if(id==='review')return stories.filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)).length;if(id==='corrections')return stories.filter(s=>s.status==='Updated / Corrected').length;if(id==='premium')return stories.filter(s=>s.premium).length;if(id==='moderation')return Number(read(KEYS.inboxSummary,{}).moderation||0);return 0;}
   function renderNav(){const nav=$('[data-newsroom-nav]');nav.innerHTML=NAV.map(([group,items])=>{const visible=items.filter(([id,, ,rule])=>canModule(id,rule));if(!visible.length)return'';return `<section class="nr-nav-group"><div class="nr-nav-label">${esc(group)}</div>${visible.map(([id,label,icon])=>`<button type="button" data-module="${id}" ${id==='advertising'?'data-v21-module="ads"':''} class="${active===id?'active':''}"><span class="nr-nav-icon">${icon}</span><span>${esc(label)}</span>${navCount(id)?`<span class="nr-nav-count">${navCount(id)}</span>`:''}</button>`).join('')}</section>`}).join('');}
   function setCrumb(label){$('[data-breadcrumb]').textContent=label;}
   function head(title,copy,actions=''){return `<div class="nr-workspace-head"><div><span class="nr-kicker">HealthTimes Newsroom</span><h1>${esc(title)}</h1><p>${esc(copy)}</p></div><div class="nr-workspace-actions">${actions}</div></div>`;}
@@ -288,7 +297,7 @@
   function status(s){return `<span class="nr-status" data-status="${esc(s)}">${esc(s)}</span>`;}
   function button(label,attr='',cls='nr-secondary'){return `<button type="button" class="${cls}" ${attr}>${esc(label)}</button>`;}
 
-  function showModule(id){const item=NAV.flatMap(g=>g[1]).find(x=>x[0]===id);if(!item||!canModule(id,item[3])){toast('This workspace is not available to your role.');return;}active=id;renderNav();setCrumb(item[1]);const renderers={overview:renderOverview,'my-assignments':renderMyAssignments,'my-stories':renderMyStories,saved:renderSaved,stories:renderStories,assignments:renderAssignments,review:renderReview,calendar:renderCalendar,breaking:renderBreaking,corrections:renderCorrections,media:renderMedia,authors:renderAuthors,topics:renderTopics,regions:renderRegions,sources:renderSources,archive:renderArchive,homepage:renderHomepage,newsletter:renderNewsletter,whatsapp:renderWhatsApp,social:renderSocial,push:renderPush,analytics:renderAnalytics,trending:renderTrending,seo:renderSEO,citations:renderCitations,ai:renderAI,premium:renderPremium,subscribers:renderSubscribers,advertising:renderAdvertising,staff:renderStaff,roles:renderRoles,audit:renderAudit,settings:renderSettings,integrations:renderIntegrations,security:renderSecurity};$('[data-workspace]').innerHTML=(renderers[id]||renderOverview)();}
+  function showModule(id){const item=NAV.flatMap(g=>g[1]).find(x=>x[0]===id);if(!item||!canModule(id,item[3])){toast('This workspace is not available to your role.');return;}active=id;renderNav();setCrumb(item[1]);const renderers={overview:renderOverview,inbox:renderInbox,'my-assignments':renderMyAssignments,'my-stories':renderMyStories,saved:renderSaved,stories:renderStories,assignments:renderAssignments,review:renderReview,calendar:renderCalendar,desks:renderDesks,breaking:renderBreaking,corrections:renderCorrections,moderation:renderModeration,media:renderMedia,authors:renderAuthors,topics:renderTopics,regions:renderRegions,sources:renderSources,archive:renderArchive,homepage:renderHomepage,newsletter:renderNewsletter,whatsapp:renderWhatsApp,social:renderSocial,push:renderPush,analytics:renderAnalytics,trending:renderTrending,seo:renderSEO,citations:renderCitations,ai:renderAI,premium:renderPremium,subscribers:renderSubscribers,advertising:renderAdvertising,staff:renderStaff,roles:renderRoles,audit:renderAudit,settings:renderSettings,integrations:renderIntegrations,security:renderSecurity};$('[data-workspace]').innerHTML=(renderers[id]||renderOverview)();if(id==='moderation')setTimeout(()=>refreshModeration(),0);}
 
   function roleDashboard(){const role=currentUser().role;if(role==='Reporter / Journalist')return renderReporterDashboard();if(role==='Commercial Manager')return renderCommercialDashboard();if(role==='Newsletter Editor')return renderAudienceDashboard();if(role==='Publisher / Owner')return renderPublisherDashboard();return renderEditorDashboard();}
   function renderOverview(){return roleDashboard();}
@@ -305,8 +314,121 @@
   function reviewCard(s){return `<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>${esc(s.title)}</h3><p>${esc(s.author)} · ${esc(s.desk)} · ${esc(s.premium?'Premium':'Public')} · Updated ${esc(s.updated)}</p></div>${status(s.status)}</div><div class="nr-queue-meta">${button('Open review',`data-open-story="${esc(s.id)}"`,'nr-secondary')}${nextReviewButton(s)}</div></article>`;}
   function nextReviewButton(s){if(!isEditor())return'';const next={'Submitted':'Fact check','Fact check':'Health / Science review','Health / Science review':'Copy edit','Copy edit':'Editor review','Editor review':'Ready','Ready':'Published'}[s.status];return next?button(next==='Published'?'Publish':`Move to ${next}`,`data-transition-story="${esc(s.id)}" data-next="${esc(next)}"`,'nr-primary'):'';}
   function emptyRow(text){return `<li class="nr-empty"><strong>${esc(text)}</strong></li>`;} function empty(text){return `<div class="nr-empty"><strong>${esc(text)}</strong><p>There is nothing waiting here right now.</p></div>`;}
+
+  function notificationTitle(n){
+    const labels={mention:'Mention',assignment:'Assignment',review:'Review',urgent:'Urgent',announcement:'Announcement',newsletter:'Newsletter',moderation:'Moderation'};
+    return labels[n.category]||String(n.eventType||'Newsroom update').replace(/[._]/g,' ');
+  }
+  function notificationItem(n,compact=false){
+    const unread=!n.readAt;
+    const detail=n.payload?.title||n.payload?.to_status||n.payload?.status||n.eventType||'Newsroom activity';
+    const actions=[];
+    if(!compact&&!n.readAt)actions.push(button('Mark read','data-notification-read="'+esc(n.id)+'"'));
+    if(!compact&&n.requiresAck&&!n.acknowledgedAt)actions.push(button('Acknowledge','data-notification-ack="'+esc(n.id)+'"','nr-primary'));
+    if(!compact)actions.push(button('Archive','data-notification-archive="'+esc(n.id)+'"'));
+    return '<li class="nr-list-item '+(unread?'nr-unread':'')+'" data-inbox-row="'+esc(n.id)+'"><div><strong>'+esc(notificationTitle(n))+'</strong><p>'+esc(detail)+' · '+esc(displayTime(n.createdAt))+'</p></div><div class="nr-list-actions">'+(n.priority==='urgent'?'<span class="nr-tag">Urgent</span>':'')+actions.join('')+'</div></li>';
+  }
+  function renderInbox(){
+    const rows=read(KEYS.notifications,[]).filter(n=>!n.archivedAt);
+    const sum=read(KEYS.inboxSummary,{});
+    return head('Inbox','Assignments, mentions, reviews, urgent work and announcements from the server-backed Newsroom.')
+      +'<div class="nr-grid nr-grid-4">'
+      +stat('Unread',sum.unread_total||0,'Items you have not read','blue')
+      +stat('Mentions',sum.mentions||0,'Direct staff mentions','teal')
+      +stat('Urgent',sum.urgent||0,'Priority coordination','red')
+      +stat('Needs acknowledgement',sum.unacknowledged||0,'Required acknowledgements','amber')
+      +'</div><section class="nr-panel nr-section-space"><div class="nr-filterbar">'
+      +'<select data-inbox-filter><option value="all">All</option><option value="mentions">Mentions</option><option value="assignments">Assignments</option><option value="reviews">Reviews</option><option value="urgent">Urgent</option><option value="announcements">Announcements</option><option value="moderation">Moderation</option></select>'
+      +'<button type="button" class="nr-secondary" data-inbox-refresh>Refresh</button></div><ul class="nr-list" data-inbox-list>'
+      +(rows.map(n=>notificationItem(n)).join('')||emptyRow('Your Inbox is clear'))+'</ul></section>';
+  }
+  async function refreshInbox(filter='all'){
+    try{
+      const result=await api('listInbox',{filter,limit:50});
+      write(KEYS.notifications,(result.rows||[]).map(n=>({id:n.id,eventType:n.event_type,targetTable:n.target_table,targetId:n.target_id,payload:n.payload||{},actorStaffId:n.actor_staff_id||null,category:n.category||'general',priority:n.priority||'normal',readAt:n.read_at||null,requiresAck:!!n.requires_ack,acknowledgedAt:n.acknowledged_at||null,archivedAt:n.archived_at||null,expiresAt:n.expires_at||null,createdAt:n.created_at})));
+      write(KEYS.inboxSummary,result.summary||{});
+      if(active==='inbox')showModule('inbox');else renderNav();
+    }catch(error){toast(error.message);}
+  }
+  function threadMessages(threadId){return read(KEYS.messages,[]).filter(m=>m.thread_id===threadId);}
+  function threadCard(t){
+    const count=threadMessages(t.id).length;
+    return '<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>'+esc(t.title)+'</h3><p>'+esc(t.thread_type)+' · '+esc(t.priority)+' · '+count+' messages</p></div>'+status(t.status)+'</div><div class="nr-queue-meta">'+button('Open','data-thread-open="'+esc(t.id)+'"','nr-secondary')+'</div></article>';
+  }
+  function renderDesks(){
+    const desks=read(KEYS.desks,[]).filter(d=>!d.archived_at);
+    const threads=read(KEYS.threads,[]);
+    const actions=has(CAP.DESK_MANAGE)?button('＋ Desk','data-create-desk','nr-primary'):'';
+    return head('Desks','Private specialist coordination built on the AG-06 staff authority model.',actions)
+      +'<div class="nr-grid nr-grid-2">'+(desks.map(d=>{
+        const mine=threads.filter(t=>t.desk_id===d.id&&t.thread_type==='desk'&&t.status==='open');
+        return '<section class="nr-panel"><div class="nr-panel-head"><div><h2>'+esc(d.name)+'</h2><p>'+esc(d.description||'Newsroom desk')+'</p></div>'+button('New thread','data-desk-thread-create="'+esc(d.id)+'"')+'</div>'+(mine.map(threadCard).join('')||empty('No active desk threads'))+'</section>';
+      }).join('')||empty('No desks are available to this session'))+'</div>';
+  }
+  function renderThreadWorkspace(threadId){
+    const t=read(KEYS.threads,[]).find(x=>x.id===threadId);
+    if(!t)return empty('Thread is not available');
+    const messages=threadMessages(threadId);
+    return head(t.title,'Private '+t.thread_type+' coordination. Persisted messages remain server-authoritative.',button('Back',t.thread_type==='breaking'?'data-module-jump="breaking"':'data-module-jump="desks"'))
+      +'<section class="nr-panel"><div class="nr-thread-messages">'+(messages.map(m=>{
+        const person=getStaff().find(s=>s.id===m.author_staff_id);
+        return '<article class="nr-comment"><strong>'+esc(person?.name||'Newsroom')+'</strong><time>'+esc(displayTime(m.created_at))+'</time><p>'+esc(m.body)+'</p></article>';
+      }).join('')||empty('No messages yet'))+'</div>'
+      +(t.status==='open'?'<form class="nr-comment-form" data-thread-message-form="'+esc(t.id)+'"><textarea name="message" rows="3" placeholder="Message this coordination room. Use @handle to mention authorised staff."></textarea><button class="nr-primary" type="submit">Send</button></form>':'')+'</section>';
+  }
+  function openThreadWorkspace(threadId){
+    if(!read(KEYS.threads,[]).some(t=>t.id===threadId)){toast('Thread is not available to this session.');return;}
+    $('[data-workspace]').innerHTML=renderThreadWorkspace(threadId);setCrumb('Discussion');
+  }
+  async function openAssignmentDiscussion(assignmentId){
+    let thread=read(KEYS.threads,[]).find(t=>t.thread_type==='assignment'&&t.assignment_id===assignmentId&&t.status==='open');
+    try{
+      if(!thread){
+        const assignment=getAssignments().find(a=>a.id===assignmentId);
+        const result=await api('createThread',{threadType:'assignment',title:(assignment?.title||'Assignment')+' discussion',assignmentId});
+        await refreshData();
+        thread=read(KEYS.threads,[]).find(t=>t.id===result.id);
+      }
+      if(thread)openThreadWorkspace(thread.id);
+    }catch(error){toast(error.message);}
+  }
+  async function createDeskFromUi(){
+    const name=prompt('Desk name');if(!name)return;
+    const key=prompt('Desk key (letters, numbers, dash or underscore)',slugify(name).replace(/-/g,'_'));if(!key)return;
+    try{await api('createDesk',{key,name});await refreshData();showModule('desks');toast('Desk created');}catch(error){toast(error.message);}
+  }
+  async function createDeskThreadFromUi(deskId){
+    const title=prompt('Desk thread title');if(!title)return;
+    try{const result=await api('createThread',{threadType:'desk',title,deskId});await refreshData();openThreadWorkspace(result.id);}catch(error){toast(error.message);}
+  }
+  async function createBreakingFromUi(){
+    const title=prompt('Breaking room title');if(!title)return;
+    try{const result=await api('createThread',{threadType:'breaking',title,priority:'urgent'});await refreshData();openThreadWorkspace(result.id);}catch(error){toast(error.message);}
+  }
+  async function refreshModeration(){
+    if(!has(CAP.COMMENT_MODERATE))return;
+    try{
+      const result=await api('listModerationQueue',{limit:50});
+      write(KEYS.moderation,result.rows||[]);
+      if(active==='moderation')$('[data-workspace]').innerHTML=renderModeration();
+    }catch(error){toast(error.message);}
+  }
+  function renderModeration(){
+    const rows=read(KEYS.moderation,[]);
+    return head('Moderation','Verified-reader discussion review. Verification is not treated as trust.',button('Refresh','data-moderation-refresh','nr-secondary'))
+      +'<section class="nr-panel">'+(rows.map(c=>{
+        const actions=[];
+        if(c.state==='PENDING'||c.state==='HELD'||c.state==='HIDDEN'||c.state==='REJECTED')actions.push(button('Publish','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="publish"','nr-primary'));
+        if(c.state==='PENDING')actions.push(button('Hold','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="hold"'));
+        if(c.state==='PENDING'||c.state==='HELD')actions.push(button('Reject','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="reject"'));
+        if(c.state==='PUBLISHED')actions.push(button('Hide','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="hide"'));
+        if(c.state!=='REMOVED')actions.push(button('Remove','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="remove"','nr-danger'));
+        if(has(CAP.COMMENT_RESTRICT))actions.push(button('Restrict reader','data-restrict-reader="'+esc(c.author_profile_id)+'"'));
+        return '<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>Reader comment</h3><p>'+esc(c.body)+'</p><small>Story '+esc(c.story_id)+' · '+esc(displayTime(c.created_at))+'</small></div>'+status(c.state)+'</div><div class="nr-queue-meta">'+actions.join('')+'</div></article>';
+      }).join('')||empty('Moderation queue is clear'))+'</section>';
+  }
   function todayPanel(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Today</h2><p>Editorial agenda</p></div><button data-module-jump="calendar">Calendar →</button></div><div class="nr-calendar"><div class="nr-calendar-time">09:00</div><div class="nr-calendar-event" data-kind="Meeting"><strong>Editorial conference</strong><span>Global + Africa desks</span></div><div class="nr-calendar-time">12:00</div><div class="nr-calendar-event" data-kind="Deadline"><strong>STI analysis review</strong><span>Editor deadline</span></div><div class="nr-calendar-time">15:30</div><div class="nr-calendar-event" data-kind="Briefing"><strong>WhatsApp briefing lock</strong><span>Audience Desk</span></div></div></section>`;}
-  function notificationPanel(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Notifications</h2><p>Activity requiring your attention</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Story submitted for review</strong><p>Community Prevention Follow-up</p></div><span class="nr-tag">24m</span></li><li class="nr-list-item"><div><strong>Source verification requested</strong><p>National Health Strategy tracker</p></div><span class="nr-tag">1h</span></li><li class="nr-list-item"><div><strong>Briefing selection closes today</strong><p>Friday HealthTimes Weekly</p></div><span class="nr-tag">Today</span></li></ul></section>`;}
+  function notificationPanel(){const rows=read(KEYS.notifications,[]).filter(n=>!n.archivedAt).slice(0,5);return '<section class="nr-panel"><div class="nr-panel-head"><div><h2>Notifications</h2><p>Durable activity requiring your attention</p></div><button data-module-jump="inbox">Open Inbox →</button></div><ul class="nr-list">'+(rows.map(n=>notificationItem(n,true)).join('')||emptyRow('Your Inbox is clear'))+'</ul></section>';}
   function personalPerformancePanel(stories){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Your work</h2><p>Current publishing record</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Stories in workspace</strong><p>Owned or assigned</p></div><span class="nr-tag">${stories.length}</span></li><li class="nr-list-item"><div><strong>Published</strong><p>Current local publication dataset</p></div><span class="nr-tag">${stories.filter(s=>s.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>Premium research</strong><p>Research-led work</p></div><span class="nr-tag">${stories.filter(s=>s.premium).length}</span></li></ul></section>`;}
   function publicationPulse(){const s=getStories();return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Publication pulse</h2><p>Structural newsroom metrics</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Published</strong><p>Current story dataset</p></div><span class="nr-tag">${s.filter(x=>x.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>In production</strong><p>Not yet published or archived</p></div><span class="nr-tag">${s.filter(x=>!['Published','Archived'].includes(x.status)).length}</span></li><li class="nr-list-item"><div><strong>Desks represented</strong><p>Active editorial coverage</p></div><span class="nr-tag">${new Set(s.map(x=>x.desk)).size}</span></li></ul></section>`;}
   function commercialPulse(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Commercial operations</h2><p>Inventory and membership readiness</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>HOSPAZ campaign</strong><p>Masthead · homepage · article</p></div>${status('Active')}</li><li class="nr-list-item"><div><strong>Premium proposition</strong><p>US$5 / month · research access</p></div><span class="nr-tag">Live</span></li><li class="nr-list-item"><div><strong>Commercial/editorial wall</strong><p>Story editing withheld from commercial role</p></div><span class="nr-tag">Enforced</span></li></ul></section>`;}
@@ -322,10 +444,10 @@
   function renderMyStories(){const u=currentUser(),assignedIds=new Set(getAssignments().filter(a=>a.reporter===u.username).map(a=>a.storyId)),list=getStories().filter(s=>s.owner===u.username||assignedIds.has(s.id));return `${head('My stories','Everything you own or are actively reporting.',has(CAP.STORY_CREATE)?button('＋ New story','data-quick-create','nr-primary'):'')}<section class="nr-panel">${storyTable(list)}</section>`;}
   function renderSaved(){return `${head('Saved','Pinned working views and important newsroom references.')}${empty('No saved newsroom views yet')}`;}
   function renderMyAssignments(){const u=currentUser(),list=getAssignments().filter(a=>a.reporter===u.username);return `${head('My assignments','Accept, report and submit work assigned to you.')}<section class="nr-panel"><ul class="nr-list">${list.map(a=>assignmentList(a)).join('')||emptyRow('No assignments')}</ul></section>`;}
-  function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}</td></tr>`}).join('')}</tbody></table></div></section>`;}
+  function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}${button('Discuss',`data-assignment-discuss="${esc(a.id)}"`)}</td></tr>`}).join('')}</tbody></table></div></section>`;}
   function renderReview(){const list=getStories().filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status));return `${head('Review Queue','Submitted work, evidence checks and publication decisions.')}<section class="nr-panel">${list.map(reviewCard).join('')||empty('Review queue is clear')}</section>`;}
   function renderCalendar(){const events=[['09 Sep · 09:00','Editorial conference','Meeting','Global + Africa desks'],['09 Sep · 12:00','STI analysis editor deadline','Deadline','Community Prevention Follow-up'],['09 Sep · 15:30','WhatsApp briefing lock','Briefing','Audience Desk'],['10 Sep · 12:00','National Health Strategy fact check','Deadline','Policy desk'],['10 Sep · 16:00','World Suicide Prevention Day coverage','Health date','Mental Health desk'],['11 Sep · 12:00','Friday HealthTimes Weekly','Briefing','Email + WhatsApp']];return `${head('Editorial Calendar','Deadlines, interviews, publication, briefings and global-health dates.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-calendar">${events.map(e=>`<div class="nr-calendar-time">${esc(e[0])}</div><div class="nr-calendar-event" data-kind="${esc(e[2])}"><strong>${esc(e[1])}</strong><span>${esc(e[2])} · ${esc(e[3])}</span></div>`).join('')}</div></section>`;}
-  function renderBreaking(){return `${head('Breaking News','Fast-moving coverage requiring clear ownership and update discipline.')}<section class="nr-panel">${getStories().filter(s=>s.distribution?.breaking||s.section==='Breaking News').map(storyList).join('')||empty('No active breaking desk items')}</section>`;}
+  function renderBreaking(){const rows=read(KEYS.threads,[]).filter(t=>t.thread_type==='breaking'&&t.status==='open');const actions=has(CAP.BREAKING_MANAGE)?button('＋ Breaking room','data-create-breaking','nr-primary'):'';return head('Breaking','Temporary event coordination with bounded membership and optional Presence.',actions)+'<section class="nr-panel">'+(rows.map(threadCard).join('')||empty('No active breaking rooms'))+'</section>';}
   function renderCorrections(){return `${head('Corrections','Published changes, corrections and accountability record.')}<section class="nr-panel">${getStories().filter(s=>['Updated / Corrected'].includes(s.status)).map(storyList).join('')||empty('No corrections are waiting')}</section>`;}
   function renderMedia(){return `${head('Media Library','Editorial images, documents, campaign assets and source media.',has(CAP.MEDIA)?button('＋ Add media','','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input placeholder="Search media…"><select><option>All types</option><option>Image</option><option>Video</option><option>Audio</option><option>Document</option></select></div><div class="nr-media-grid">${getMedia().map(m=>`<article class="nr-media-card"><span class="nr-tag">${esc(m.type)}</span><strong>${esc(m.filename)}</strong><span>${esc(m.caption)}</span><span>Credit: ${esc(m.credit)}</span><span>Used in: ${esc(m.usedIn)}</span><span>${esc(m.date)}</span></article>`).join('')}</div></section>`;}
   function personCard(s){return `<article class="nr-person-card"><span class="nr-avatar">${esc(initials(s.name))}</span><div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span><span>${esc(s.desk)} · ${esc(s.beat)}</span></div></article>`;}
@@ -402,7 +524,30 @@
   function scheduleAutosave(){if(!editingStoryId)return;$('[data-save-state]').textContent='Saving…';clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>{autosaveTimer=null;saveStory(false).catch(()=>{});},700);}
   async function flushAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;try{await saveStory(false);}catch{}}}
   function renderVersions(s){$('[data-version-list]').innerHTML=(s.versions||[]).slice(0,8).map(v=>`<div class="nr-version"><strong>${esc(v.label)}</strong><span>${esc(v.by)} · ${esc(new Date(v.at).toLocaleString())}</span></div>`).join('')||'<div class="nr-version"><span>No saved versions yet</span></div>';}
-  function renderComments(s){const map=read(KEYS.comments,{}),items=map[s.id]||[];$('[data-editor-comments]').innerHTML=items.map(c=>`<article class="nr-comment"><strong>${esc(c.user)}</strong><time>${esc(new Date(c.at).toLocaleString())}</time><p>${esc(c.text)}</p>${c.resolved?'<span class="nr-tag">Resolved</span>':''}</article>`).join('')||'<div class="nr-empty"><p>No internal comments yet.</p></div>';}
+  function extractMentionStaffIds(text){
+    const ids=[],seen=new Set();
+    const re=/@([a-zA-Z0-9._-]+)/g;let match;
+    while((match=re.exec(String(text||'')))){
+      const person=getStaff().find(s=>String(s.username||'').toLowerCase()===match[1].toLowerCase());
+      if(person?.id&&!seen.has(person.id)){seen.add(person.id);ids.push(person.id);}
+    }
+    return ids;
+  }
+  function renderCommentNode(c,items){
+    const children=items.filter(x=>x.parentCommentId===c.id);
+    const actions=[
+      button('Reply','data-comment-reply="'+esc(c.id)+'"'),
+      c.authorStaffId===currentUser()?.id?button('Edit','data-comment-edit="'+esc(c.id)+'"'):'',
+      (!c.resolved&&(c.authorStaffId===currentUser()?.id||has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_PUBLISH)))?button('Resolve','data-comment-resolve="'+esc(c.id)+'"'):'',
+      (c.resolved&&(c.authorStaffId===currentUser()?.id||has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_PUBLISH)))?button('Reopen','data-comment-reopen="'+esc(c.id)+'"'):''
+    ].join('');
+    return '<article class="nr-comment" data-comment-id="'+esc(c.id)+'"><strong>'+esc(c.user)+'</strong><time>'+esc(displayTime(c.at))+(c.editedAt?' · edited':'')+'</time><p>'+esc(c.text)+'</p><div class="nr-comment-actions">'+(c.resolved?'<span class="nr-tag">Resolved</span>':'')+actions+'</div>'+(children.length?'<div class="nr-comment-replies">'+children.map(child=>renderCommentNode(child,items)).join('')+'</div>':'')+'</article>';
+  }
+  function renderComments(s){
+    const map=read(KEYS.comments,{}),items=map[s.id]||[],roots=items.filter(c=>!c.parentCommentId);
+    const policy=has(CAP.COMMENT_CONFIGURE)?'<div class="nr-discussion-policy"><span class="nr-tag">Reader discussion: '+esc(s.commentPolicy||'disabled')+'</span>'+['disabled','read_only','open'].map(p=>button(p,'data-story-comment-policy="'+p+'" data-story-id="'+esc(s.id)+'"',p===(s.commentPolicy||'disabled')?'nr-primary':'nr-secondary')).join('')+'</div>':'';
+    $('[data-editor-comments]').innerHTML=policy+(roots.map(c=>renderCommentNode(c,items)).join('')||'<div class="nr-empty"><p>No internal comments yet.</p></div>');
+  }
   function configureEditorAction(s){const btn=$('[data-editor-primary]');btn.disabled=false;if(has(CAP.STORY_PUBLISH)&&['Ready','Scheduled'].includes(s.status)){btn.textContent='Publish';btn.dataset.action='publish';return;}if(has(CAP.STORY_FACT)&&s.status==='Submitted'){btn.textContent='Send to fact check';btn.dataset.action='fact';return;}if(has(CAP.STORY_HEALTH)&&s.status==='Fact check'){btn.textContent='Health / science review';btn.dataset.action='health';return;}if(has(CAP.STORY_COPY)&&s.status==='Health / Science review'){btn.textContent='Copy edit';btn.dataset.action='copy';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Copy edit'){btn.textContent='Editor review';btn.dataset.action='editor';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Editor review'){btn.textContent='Mark ready';btn.dataset.action='ready';return;}btn.textContent='Submit for review';btn.dataset.action='submit';btn.disabled=!has(CAP.STORY_SUBMIT);}
   async function primaryEditorAction(){await flushAutosave();const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const action=$('[data-editor-primary]').dataset.action;const next={publish:'Published',fact:'Fact check',health:'Health / Science review',copy:'Copy edit',editor:'Editor review',ready:'Ready',submit:'Submitted'}[action]||'Submitted';await transitionStory(s.id,next);}
   async function transitionStory(id,next){
@@ -454,7 +599,23 @@
       if(e.target.closest('[data-confirm-accept]')){const fn=pendingConfirm;$('[data-confirm-modal]').hidden=true;pendingConfirm=null;if(fn)fn();return;}
       if(e.target.closest('[data-global-search]')){openSearch();return;}
       if(e.target.closest('[data-search-close]')){$('[data-search-modal]').hidden=true;return;}
-      if(e.target.closest('[data-notifications]')){showModule('overview');toast('Notifications are shown in your workspace.');return;}
+      const nr=e.target.closest('[data-notification-read]');if(nr){try{await api('markNotificationRead',{notificationId:nr.dataset.notificationRead});await refreshInbox($('[data-inbox-filter]')?.value||'all');}catch(error){toast(error.message);}return;}
+      const na=e.target.closest('[data-notification-ack]');if(na){try{await api('ackNotification',{notificationId:na.dataset.notificationAck});await refreshInbox($('[data-inbox-filter]')?.value||'all');}catch(error){toast(error.message);}return;}
+      const nx=e.target.closest('[data-notification-archive]');if(nx){try{await api('archiveNotification',{notificationId:nx.dataset.notificationArchive});await refreshInbox($('[data-inbox-filter]')?.value||'all');}catch(error){toast(error.message);}return;}
+      if(e.target.closest('[data-inbox-refresh]')){await refreshInbox($('[data-inbox-filter]')?.value||'all');return;}
+      const ad=e.target.closest('[data-assignment-discuss]');if(ad){await openAssignmentDiscussion(ad.dataset.assignmentDiscuss);return;}
+      const to=e.target.closest('[data-thread-open]');if(to){openThreadWorkspace(to.dataset.threadOpen);return;}
+      if(e.target.closest('[data-create-desk]')){await createDeskFromUi();return;}
+      const dt=e.target.closest('[data-desk-thread-create]');if(dt){await createDeskThreadFromUi(dt.dataset.deskThreadCreate);return;}
+      if(e.target.closest('[data-create-breaking]')){await createBreakingFromUi();return;}
+      if(e.target.closest('[data-moderation-refresh]')){await refreshModeration();return;}
+      const mc=e.target.closest('[data-moderate-comment]');if(mc){try{await api('moderateComment',{commentId:mc.dataset.moderateComment,moderationAction:mc.dataset.moderationAction,reasonCode:'editorial_policy'});await refreshModeration();}catch(error){toast(error.message);}return;}
+      const rr=e.target.closest('[data-restrict-reader]');if(rr){const kind=prompt('Restriction: pre_moderation, comment_block or link_block','pre_moderation');if(!kind)return;const reason=prompt('Reason code','moderation_history')||'moderation_history';try{await api('restrictReader',{readerProfileId:rr.dataset.restrictReader,kind,reasonCode:reason});await refreshModeration();toast('Reader restriction recorded');}catch(error){toast(error.message);}return;}
+      const cp=e.target.closest('[data-story-comment-policy]');if(cp){try{await api('setStoryCommentPolicy',{storyId:cp.dataset.storyId,policy:cp.dataset.storyCommentPolicy});await refreshData();if(editingStoryId===cp.dataset.storyId)renderComments(getStories().find(x=>x.id===editingStoryId));toast('Reader discussion policy updated');}catch(error){toast(error.message);}return;}
+      const cr=e.target.closest('[data-comment-reply]');if(cr){const form=$('[data-comment-form]');form.dataset.parentCommentId=cr.dataset.commentReply;form.elements.comment.placeholder='Reply to this internal comment…';form.elements.comment.focus();return;}
+      const ce=e.target.closest('[data-comment-edit]');if(ce){const all=Object.values(read(KEYS.comments,{})).flat(),row=all.find(x=>x.id===ce.dataset.commentEdit);const next=prompt('Edit your internal comment',row?.text||'');if(next&&next.trim()){try{await api('editComment',{commentId:ce.dataset.commentEdit,comment:next.trim(),mentionStaffIds:extractMentionStaffIds(next)});await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}}return;}
+      const cres=e.target.closest('[data-comment-resolve],[data-comment-reopen]');if(cres){const id=cres.dataset.commentResolve||cres.dataset.commentReopen;try{await api('resolveComment',{commentId:id,resolved:!!cres.dataset.commentResolve});await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}return;}
+      if(e.target.closest('[data-notifications]')){showModule('inbox');return;}
       if(e.target.closest('[data-sidebar-open]')){$('[data-newsroom-sidebar]').classList.add('open');return;}
       if(e.target.closest('[data-sidebar-close]')){$('[data-newsroom-sidebar]').classList.remove('open');return;}
       const ins=e.target.closest('[data-insert]');if(ins){toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
@@ -463,7 +624,8 @@
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
     $('[data-password-reset-form]')?.addEventListener('submit',async e=>{e.preventDefault();const password=e.currentTarget.elements.password.value,confirmPassword=e.currentTarget.elements.confirmPassword.value,error=$('[data-password-reset-error]');error.textContent='';if(password!==confirmPassword){error.textContent='Passwords do not match.';return;}try{await api('setPassword',{password});$('[data-password-reset-modal]').hidden=true;recoveryMode=false;e.currentTarget.reset();toast('Password updated securely.');}catch(ex){error.textContent=ex.message;}});
-    $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text});e.currentTarget.reset();await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
+    $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text,parentCommentId:e.currentTarget.dataset.parentCommentId||null,mentionStaffIds:extractMentionStaffIds(text)});e.currentTarget.reset();delete e.currentTarget.dataset.parentCommentId;e.currentTarget.elements.comment.placeholder='Add an internal note…';await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
+    document.addEventListener('submit',async e=>{const form=e.target.closest('[data-thread-message-form]');if(!form)return;e.preventDefault();const text=form.elements.message.value.trim();if(!text)return;try{await api('postThreadMessage',{threadId:form.dataset.threadMessageForm,message:text,mentionStaffIds:extractMentionStaffIds(text)});form.reset();await refreshData();openThreadWorkspace(form.dataset.threadMessageForm);}catch(error){toast(error.message);}});
     window.addEventListener('beforeunload',()=>{if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;}});
 
   }

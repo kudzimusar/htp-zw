@@ -252,6 +252,17 @@ function encodeSelect(value) {
   return encodeURIComponent(value).replace(/%2C/g, ',');
 }
 
+function storageObjectPath(bucket, objectPath) {
+  const clean = String(objectPath || '').replace(/^\/+|\/+$/g, '');
+  return encodeURIComponent(String(bucket || '')) + '/' + clean.split('/').map(encodeURIComponent).join('/');
+}
+
+function signedStorageUrl(fragment) {
+  const base = config().url + '/storage/v1';
+  return new URL(String(fragment || ''), base + '/').toString();
+}
+
+
 async function bootstrap(token, req) {
   const context = await registerAndContext(token, req);
   const queries = {
@@ -259,30 +270,47 @@ async function bootstrap(token, req) {
     lifecycle: 'story_lifecycle_events?select=' + encodeSelect('id,story_id,from_status,to_status,actor_staff_id,reason,created_at') + '&order=created_at.desc&limit=500',
     assignments: 'story_assignments?select=' + encodeSelect('id,story_id,title,reporter_staff_id,assigned_editor_staff_id,desk,deadline_at,priority,notes,status,assigned_by,created_at,updated_at') + '&order=updated_at.desc',
     reviews: 'story_reviews?select=' + encodeSelect('id,story_id,review_type,assigned_to,status,notes,completed_at,completed_by,created_by,created_at,updated_at') + '&order=created_at.desc',
-    comments: 'story_internal_comments?select=' + encodeSelect('id,story_id,author_staff_id,body,created_at,resolved_at,resolved_by') + '&order=created_at.asc',
+    comments: 'story_internal_comments?select=' + encodeSelect('id,story_id,author_staff_id,body,parent_comment_id,created_at,edited_at,edited_by,resolved_at,resolved_by') + '&order=created_at.asc',
     staff: 'staff_profiles?select=' + encodeSelect('id,auth_user_id,handle,display_name,email,role_id,desk,beat,country,region,status,assigned_editor_id,last_login_at,mfa_required,mfa_enrolled_at,created_at,updated_at') + '&order=display_name.asc',
     roles: 'newsroom_roles?select=' + encodeSelect('id,name,description') + '&order=name.asc',
     audit: 'audit_logs?select=' + encodeSelect('id,actor_staff_id,action,target_table,target_id,metadata,created_at') + '&order=created_at.desc&limit=200',
     sessions: 'newsroom_sessions?select=' + encodeSelect('id,staff_profile_id,provider_session_id,user_agent,created_at,last_seen_at,revoked_at,revoked_by') + '&order=last_seen_at.desc&limit=200',
+    desks: 'newsroom_desks?select=' + encodeSelect('id,key,name,description,created_by,created_at,updated_at,archived_at') + '&order=name.asc',
+    deskMembers: 'newsroom_desk_members?select=' + encodeSelect('desk_id,staff_profile_id,member_role,joined_at,left_at') + '&order=joined_at.asc',
+    threads: 'newsroom_threads?select=' + encodeSelect('id,thread_type,title,assignment_id,desk_id,created_by,priority,status,opened_at,closed_at,expires_at,created_at,updated_at') + '&order=updated_at.desc&limit=200',
+    threadMembers: 'newsroom_thread_members?select=' + encodeSelect('thread_id,staff_profile_id,member_role,joined_at,left_at,last_read_at') + '&order=joined_at.asc&limit=500',
+    messages: 'newsroom_messages?select=' + encodeSelect('id,thread_id,author_staff_id,parent_message_id,body,created_at') + '&order=created_at.asc&limit=500',
+    announcements: 'newsroom_announcements?select=' + encodeSelect('id,title,body,audience_scope,desk_id,priority,requires_ack,created_by,published_at,expires_at,archived_at,created_at') + '&order=published_at.desc&limit=100',
     campaigns: 'ad_campaigns?select=' + encodeSelect('id,advertiser_id,name,status,start_at,end_at,review_status,created_at') + '&order=created_at.desc',
     advertisers: 'advertisers?select=' + encodeSelect('id,name') + '&order=name.asc',
     subscribers: 'subscribers?select=' + encodeSelect('id,email,display_name,status,created_at') + '&order=created_at.desc&limit=200'
   };
-  const [stories, entries, directory] = await Promise.all([
+  const [stories, entries, directory, notifications, inboxSummary] = await Promise.all([
     rpc('newsroom_list_stories', { p_limit: 200 }, token),
     Promise.all(Object.entries(queries).map(async ([key, query]) => [key, await optionalRows(query, token)])),
-    rpc('newsroom_staff_directory', {}, token)
+    rpc('newsroom_staff_directory', {}, token),
+    rpc('newsroom_list_inbox', { p_filter: 'all', p_limit: 50, p_before: null }, token),
+    rpc('newsroom_inbox_summary', {}, token)
   ]);
   return {
     context,
     stories: Array.isArray(stories) ? stories : [],
     directory: Array.isArray(directory) ? directory : [],
+    notifications: Array.isArray(notifications) ? notifications : [],
+    inboxSummary: inboxSummary && typeof inboxSummary === 'object' ? inboxSummary : {},
     ...Object.fromEntries(entries)
   };
 }
 
 function backendError(res, error) {
-  const status = Number(error.status) || 500;
+  const backendCode = error?.backend && typeof error.backend === 'object' ? String(error.backend.code || '') : '';
+  const mappedStatus =
+    backendCode === 'P0002' ? 404 :
+    backendCode === '42501' ? 403 :
+    backendCode === '22023' ? 400 :
+    backendCode === '23505' ? 409 :
+    0;
+  const status = mappedStatus || Number(error.status) || 500;
   const safeStatus = status >= 400 && status < 600 ? status : 500;
   if (process.env.AG06_CERTIFICATION_DEBUG === '1') {
     console.error('AG06_CERTIFICATION_BACKEND_ERROR', JSON.stringify({
@@ -435,8 +463,226 @@ async function handle(req, res) {
       return json(res, 200, { ok: true, status });
     }
     if (action === 'addComment') {
-      const id = await call('newsroom_add_comment', { p_story_id: body.storyId, p_body: body.comment });
+      const id = await call('newsroom_add_internal_comment', {
+        p_story_id: body.storyId,
+        p_body: body.comment,
+        p_parent_comment_id: body.parentCommentId || null,
+        p_mention_staff_ids: Array.isArray(body.mentionStaffIds) ? body.mentionStaffIds : []
+      });
       return json(res, 200, { ok: true, id });
+    }
+    if (action === 'editComment') {
+      await call('newsroom_edit_internal_comment', {
+        p_comment_id: body.commentId,
+        p_body: body.comment,
+        p_mention_staff_ids: Array.isArray(body.mentionStaffIds) ? body.mentionStaffIds : null
+      });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'resolveComment') {
+      await call('newsroom_set_internal_comment_resolved', {
+        p_comment_id: body.commentId,
+        p_resolved: body.resolved !== false
+      });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'listInbox') {
+      const rows = await call('newsroom_list_inbox', {
+        p_filter: body.filter || 'all',
+        p_limit: Number(body.limit || 50),
+        p_before: body.before || null
+      });
+      const summary = await call('newsroom_inbox_summary', {});
+      return json(res, 200, { ok: true, rows: Array.isArray(rows) ? rows : [], summary: summary || {} });
+    }
+    if (action === 'markNotificationRead') {
+      await call('newsroom_mark_notification_read', {
+        p_notification_id: body.notificationId,
+        p_read: body.read !== false
+      });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'ackNotification') {
+      await call('newsroom_ack_notification', { p_notification_id: body.notificationId });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'archiveNotification') {
+      await call('newsroom_archive_notification', { p_notification_id: body.notificationId });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'updateNotificationPreferences') {
+      const preferences = await call('newsroom_update_notification_preferences', {
+        p_preferences: body.preferences || {}
+      });
+      return json(res, 200, { ok: true, preferences });
+    }
+    if (action === 'createDesk') {
+      const id = await call('newsroom_create_desk', {
+        p_key: body.key,
+        p_name: body.name,
+        p_description: body.description || null
+      });
+      return json(res, 200, { ok: true, id });
+    }
+    if (action === 'setDeskMember') {
+      await call('newsroom_set_desk_member', {
+        p_desk_id: body.deskId,
+        p_staff_id: body.staffId,
+        p_member_role: body.memberRole || 'member',
+        p_active: body.active !== false
+      });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'createThread') {
+      const id = await call('newsroom_create_thread', {
+        p_thread_type: body.threadType,
+        p_title: body.title,
+        p_assignment_id: body.assignmentId || null,
+        p_desk_id: body.deskId || null,
+        p_priority: body.priority || 'normal',
+        p_expires_at: body.expiresAt || null
+      });
+      return json(res, 200, { ok: true, id });
+    }
+    if (action === 'setThreadMember') {
+      await call('newsroom_set_thread_member', {
+        p_thread_id: body.threadId,
+        p_staff_id: body.staffId,
+        p_active: body.active !== false
+      });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'postThreadMessage') {
+      const id = await call('newsroom_post_thread_message', {
+        p_thread_id: body.threadId,
+        p_body: body.message,
+        p_parent_message_id: body.parentMessageId || null,
+        p_mention_staff_ids: Array.isArray(body.mentionStaffIds) ? body.mentionStaffIds : []
+      });
+      return json(res, 200, { ok: true, id });
+    }
+    if (action === 'markThreadRead') {
+      await call('newsroom_mark_thread_read', { p_thread_id: body.threadId });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'closeThread') {
+      await call('newsroom_close_thread', { p_thread_id: body.threadId });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'publishAnnouncement') {
+      const id = await call('newsroom_publish_announcement', {
+        p_title: body.title,
+        p_body: body.message,
+        p_audience_scope: body.audienceScope || 'all_staff',
+        p_desk_id: body.deskId || null,
+        p_priority: body.priority || 'normal',
+        p_requires_ack: Boolean(body.requiresAck),
+        p_expires_at: body.expiresAt || null
+      });
+      return json(res, 200, { ok: true, id });
+    }
+    if (action === 'archiveAnnouncement') {
+      await call('newsroom_archive_announcement', { p_announcement_id: body.announcementId });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'setStoryCommentPolicy') {
+      const policy = await call('newsroom_set_story_comment_policy', {
+        p_story_id: body.storyId,
+        p_policy: body.policy
+      });
+      return json(res, 200, { ok: true, policy });
+    }
+    if (action === 'listModerationQueue') {
+      const rows = await call('newsroom_list_comment_moderation_queue', {
+        p_state: body.state || null,
+        p_limit: Number(body.limit || 50)
+      });
+      return json(res, 200, { ok: true, rows: Array.isArray(rows) ? rows : [] });
+    }
+    if (action === 'moderateComment') {
+      const state = await call('newsroom_moderate_story_comment', {
+        p_comment_id: body.commentId,
+        p_action: body.moderationAction,
+        p_reason_code: body.reasonCode || 'policy',
+        p_notes: body.notes || null
+      });
+      return json(res, 200, { ok: true, state });
+    }
+    if (action === 'restrictReader') {
+      const id = await call('newsroom_restrict_reader_comments', {
+        p_reader_profile_id: body.readerProfileId,
+        p_kind: body.kind,
+        p_reason_code: body.reasonCode || 'policy',
+        p_ends_at: body.endsAt || null,
+        p_notes: body.notes || null
+      });
+      return json(res, 200, { ok: true, id });
+    }
+    if (action === 'liftReaderRestriction') {
+      await call('newsroom_lift_reader_comment_restriction', {
+        p_restriction_id: body.restrictionId,
+        p_notes: body.notes || null
+      });
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'prepareAttachment') {
+      if (!config().service) return json(res, 503, { ok: false, error: 'Private attachment signing is not configured on staging.' });
+      const attachment = await call('newsroom_prepare_communication_attachment', {
+        p_story_internal_comment_id: body.storyCommentId || null,
+        p_newsroom_message_id: body.messageId || null,
+        p_filename: body.filename,
+        p_mime_type: body.mimeType,
+        p_byte_size: Number(body.byteSize),
+        p_sha256: body.sha256 || null
+      });
+      const objectPath = storageObjectPath(attachment.bucket, attachment.path);
+      const signed = await supabaseRequest('/storage/v1/object/upload/sign/' + objectPath, {
+        method: 'POST',
+        service: true,
+        body: {}
+      });
+      const uploadUrl = signedStorageUrl(signed?.url || signed?.signedURL);
+      return json(res, 200, {
+        ok: true,
+        attachment,
+        upload: {
+          signedUrl: uploadUrl,
+          method: 'PUT',
+          expiresInSeconds: 7200
+        }
+      });
+    }
+    if (action === 'finalizeAttachment') {
+      const attachment = await call('newsroom_finalize_communication_attachment', { p_attachment_id: body.attachmentId });
+      return json(res, 200, { ok: true, attachment });
+    }
+    if (action === 'attachmentDownload') {
+      if (!config().service) return json(res, 503, { ok: false, error: 'Private attachment signing is not configured on staging.' });
+      const rows = await call('newsroom_get_communication_attachment', { p_attachment_id: body.attachmentId });
+      const attachment = Array.isArray(rows) ? rows[0] : rows;
+      if (!attachment || attachment.status !== 'ready') return json(res, 404, { ok: false, error: 'Ready attachment not found.' });
+      const objectPath = storageObjectPath(attachment.storage_bucket, attachment.storage_path);
+      const signed = await supabaseRequest('/storage/v1/object/sign/' + objectPath, {
+        method: 'POST',
+        service: true,
+        body: { expiresIn: 60 }
+      });
+      let downloadUrl = signedStorageUrl(signed?.signedURL || signed?.url);
+      downloadUrl += (downloadUrl.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(attachment.filename);
+      return json(res, 200, { ok: true, url: downloadUrl, expiresInSeconds: 60, filename: attachment.filename });
+    }
+    if (action === 'markAttachmentDeleted') {
+      if (!config().service) return json(res, 503, { ok: false, error: 'Private attachment deletion is not configured on staging.' });
+      const rows = await call('newsroom_get_communication_attachment', { p_attachment_id: body.attachmentId });
+      const attachment = Array.isArray(rows) ? rows[0] : rows;
+      if (!attachment) return json(res, 404, { ok: false, error: 'Attachment not found.' });
+      await supabaseRequest('/storage/v1/object/' + encodeURIComponent(attachment.storage_bucket), {
+        method: 'DELETE',
+        service: true,
+        body: { prefixes: [attachment.storage_path] }
+      });
+      await call('newsroom_mark_communication_attachment_deleted', { p_attachment_id: body.attachmentId });
+      return json(res, 200, { ok: true });
     }
     if (action === 'recordReview') {
       const id = await call('newsroom_record_review', {
