@@ -21,6 +21,12 @@ import type {
   ReaderStoryComment,
   NewsroomInboxItem,
   NewsroomInboxSummary,
+  NewsroomInternalComment,
+  NewsroomDesk,
+  NewsroomThread,
+  NewsroomMessage,
+  NewsroomAnnouncement,
+  ReaderCommentModerationItem,
   PublicationProfile,
   PremiumStoreState,
   ReaderProfile,
@@ -143,6 +149,34 @@ export interface NewsroomCommunicationService {
   markRead(notificationId: string, read?: boolean): Promise<void>;
   acknowledge(notificationId: string): Promise<void>;
   archive(notificationId: string): Promise<void>;
+
+  listStoryDiscussion(storyId: string): Promise<NewsroomInternalComment[]>;
+  addStoryComment(storyId: string, body: string, parentCommentId?: string | null, mentionStaffIds?: string[]): Promise<string>;
+  editStoryComment(commentId: string, body: string, mentionStaffIds?: string[] | null): Promise<void>;
+  setStoryCommentResolved(commentId: string, resolved: boolean): Promise<void>;
+
+  listDesks(): Promise<NewsroomDesk[]>;
+  listThreads(options?: { deskId?: string | null; threadType?: NewsroomThread["threadType"] | null }): Promise<NewsroomThread[]>;
+  createThread(input: {
+    threadType: NewsroomThread["threadType"];
+    title: string;
+    assignmentId?: string | null;
+    deskId?: string | null;
+    priority?: NewsroomThread["priority"];
+    expiresAt?: string | null;
+  }): Promise<string>;
+  listThreadMessages(threadId: string): Promise<NewsroomMessage[]>;
+  postThreadMessage(threadId: string, body: string, parentMessageId?: string | null, mentionStaffIds?: string[]): Promise<string>;
+  markThreadRead(threadId: string): Promise<void>;
+  listAnnouncements(): Promise<NewsroomAnnouncement[]>;
+}
+
+export interface CommentModerationService {
+  listQueue(state?: ReaderCommentModerationItem["state"] | null, limit?: number): Promise<ReaderCommentModerationItem[]>;
+  moderate(commentId: string, action: "publish" | "hold" | "reject" | "hide" | "remove" | "restore", reasonCode: string, notes?: string | null): Promise<string>;
+  setStoryCommentPolicy(storyId: string, policy: "disabled" | "read_only" | "open"): Promise<string>;
+  restrictReader(readerProfileId: string, kind: "pre_moderation" | "comment_block" | "link_block", reasonCode: string, endsAt?: string | null, notes?: string | null): Promise<string>;
+  liftRestriction(restrictionId: string, notes?: string | null): Promise<void>;
 }
 
 export interface TaxonomyService {
@@ -178,6 +212,7 @@ export interface HealthTimesServices {
   notifications: NotificationService;
   readerDiscussion: ReaderDiscussionService;
   newsroomCommunication: NewsroomCommunicationService;
+  commentModeration: CommentModerationService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;
