@@ -150,6 +150,7 @@ export interface NewsroomCommunicationService {
   acknowledge(notificationId: string): Promise<void>;
   archive(notificationId: string): Promise<void>;
 
+  listAssignments(): Promise<NewsroomAssignment[]>;
   listStoryDiscussion(storyId: string): Promise<NewsroomInternalComment[]>;
   addStoryComment(storyId: string, body: string, parentCommentId?: string | null, mentionStaffIds?: string[]): Promise<string>;
   editStoryComment(commentId: string, body: string, mentionStaffIds?: string[] | null): Promise<void>;
