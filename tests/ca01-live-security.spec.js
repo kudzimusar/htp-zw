@@ -91,7 +91,7 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
   test.describe.configure({mode:'serial'});
   test.skip(!configured,'Requires CA-01 staging staff and reader identities.');
 
-  test('private Newsroom and verified Reader discussion boundaries hold below the UI',async()=>{
+  test('private Newsroom and verified Reader discussion boundaries hold below the UI',async({browser})=>{
     test.setTimeout(180_000);
 
     const storyId=canonicalStoryId;
@@ -198,6 +198,23 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     expect(statusOf(await appPost(reporter,'ackNotification',{notificationId:ackNotice.id}))).toBe(200);
     const otherAck=await appPost(editor,'markNotificationRead',{notificationId:ackNotice.id});
     expect([400,403,404]).toContain(statusOf(otherAck));
+
+    // Desktop CA-01 surfaces consume the already-authorized server session, not local role state.
+    const editorState=await editor.ctx.storageState();
+    const uiContext=await browser.newContext({baseURL,ignoreHTTPSErrors:true,storageState:editorState});
+    const page=await uiContext.newPage();
+    await page.goto('/newsroom.html');
+    await expect(page.locator('[data-newsroom-app]')).toBeVisible({timeout:15_000});
+    await page.locator('[data-module="inbox"]').click();
+    await expect(page.getByRole('heading',{name:'Inbox',exact:true})).toBeVisible();
+    await expect(page.locator('[data-inbox-filter]')).toBeVisible();
+    await page.locator('[data-module="desks"]').click();
+    await expect(page.getByRole('heading',{name:'Desks',exact:true})).toBeVisible();
+    await page.locator('[data-module="breaking"]').click();
+    await expect(page.getByRole('heading',{name:'Breaking',exact:true})).toBeVisible();
+    await page.locator('[data-module="moderation"]').click();
+    await expect(page.getByRole('heading',{name:'Moderation',exact:true})).toBeVisible();
+    await uiContext.close();
 
     // Direct Inbox insertion is impossible even for a logged-in staff identity.
     const rawReporter=await rawStaff('reporter');
