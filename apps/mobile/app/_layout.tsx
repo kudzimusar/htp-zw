@@ -4,6 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AppearanceProvider } from "../src/theme/AppearanceProvider";
 import { parseHealthTimesDeepLink } from "../src/growth/deepLinks";
+import { services } from "../src/services";
 
 function DeepLinkBridge(){
   const router=useRouter();
@@ -11,16 +12,23 @@ function DeepLinkBridge(){
   useEffect(()=>{
     let active=true;
 
-    const routeUrl=(url:string|null)=>{
+    const routeUrl=async(url:string|null)=>{
       if(!active || !url) return;
       const destination=parseHealthTimesDeepLink(url);
       if(destination?.type==="article"){
         router.push(("/article/" + encodeURIComponent(destination.articleId)) as never);
+        return;
+      }
+      if(destination?.type==="article-slug"){
+        const article=await services.articles.getBySlug(destination.articleSlug);
+        if(active && article){
+          router.push(("/article/" + encodeURIComponent(article.id)) as never);
+        }
       }
     };
 
-    void Linking.getInitialURL().then(routeUrl);
-    const subscription=Linking.addEventListener("url",({url})=>routeUrl(url));
+    void Linking.getInitialURL().then((url)=>void routeUrl(url));
+    const subscription=Linking.addEventListener("url",({url})=>{void routeUrl(url);});
 
     return ()=>{
       active=false;
