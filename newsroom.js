@@ -376,6 +376,35 @@
       }).join('')||empty('No messages yet'))+'</div>'
       +(t.status==='open'?'<form class="nr-comment-form" data-thread-message-form="'+esc(t.id)+'"><textarea name="message" rows="3" placeholder="Message this coordination room. Use @handle to mention authorised staff."></textarea><button class="nr-primary" type="submit">Send</button></form>':'')+'</section>';
   }
+  function openThreadWorkspace(threadId){
+    if(!read(KEYS.threads,[]).some(t=>t.id===threadId)){toast('Thread is not available to this session.');return;}
+    $('[data-workspace]').innerHTML=renderThreadWorkspace(threadId);setCrumb('Discussion');
+  }
+  async function openAssignmentDiscussion(assignmentId){
+    let thread=read(KEYS.threads,[]).find(t=>t.thread_type==='assignment'&&t.assignment_id===assignmentId&&t.status==='open');
+    try{
+      if(!thread){
+        const assignment=getAssignments().find(a=>a.id===assignmentId);
+        const result=await api('createThread',{threadType:'assignment',title:(assignment?.title||'Assignment')+' discussion',assignmentId});
+        await refreshData();
+        thread=read(KEYS.threads,[]).find(t=>t.id===result.id);
+      }
+      if(thread)openThreadWorkspace(thread.id);
+    }catch(error){toast(error.message);}
+  }
+  async function createDeskFromUi(){
+    const name=prompt('Desk name');if(!name)return;
+    const key=prompt('Desk key (letters, numbers, dash or underscore)',slugify(name).replace(/-/g,'_'));if(!key)return;
+    try{await api('createDesk',{key,name});await refreshData();showModule('desks');toast('Desk created');}catch(error){toast(error.message);}
+  }
+  async function createDeskThreadFromUi(deskId){
+    const title=prompt('Desk thread title');if(!title)return;
+    try{const result=await api('createThread',{threadType:'desk',title,deskId});await refreshData();openThreadWorkspace(result.id);}catch(error){toast(error.message);}
+  }
+  async function createBreakingFromUi(){
+    const title=prompt('Breaking room title');if(!title)return;
+    try{const result=await api('createThread',{threadType:'breaking',title,priority:'urgent'});await refreshData();openThreadWorkspace(result.id);}catch(error){toast(error.message);}
+  }
   async function refreshModeration(){
     if(!has(CAP.COMMENT_MODERATE))return;
     try{
@@ -415,7 +444,7 @@
   function renderMyStories(){const u=currentUser(),assignedIds=new Set(getAssignments().filter(a=>a.reporter===u.username).map(a=>a.storyId)),list=getStories().filter(s=>s.owner===u.username||assignedIds.has(s.id));return `${head('My stories','Everything you own or are actively reporting.',has(CAP.STORY_CREATE)?button('＋ New story','data-quick-create','nr-primary'):'')}<section class="nr-panel">${storyTable(list)}</section>`;}
   function renderSaved(){return `${head('Saved','Pinned working views and important newsroom references.')}${empty('No saved newsroom views yet')}`;}
   function renderMyAssignments(){const u=currentUser(),list=getAssignments().filter(a=>a.reporter===u.username);return `${head('My assignments','Accept, report and submit work assigned to you.')}<section class="nr-panel"><ul class="nr-list">${list.map(a=>assignmentList(a)).join('')||emptyRow('No assignments')}</ul></section>`;}
-  function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}</td></tr>`}).join('')}</tbody></table></div></section>`;}
+  function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}${button('Discuss',`data-assignment-discuss="${esc(a.id)}"`)}</td></tr>`}).join('')}</tbody></table></div></section>`;}
   function renderReview(){const list=getStories().filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status));return `${head('Review Queue','Submitted work, evidence checks and publication decisions.')}<section class="nr-panel">${list.map(reviewCard).join('')||empty('Review queue is clear')}</section>`;}
   function renderCalendar(){const events=[['09 Sep · 09:00','Editorial conference','Meeting','Global + Africa desks'],['09 Sep · 12:00','STI analysis editor deadline','Deadline','Community Prevention Follow-up'],['09 Sep · 15:30','WhatsApp briefing lock','Briefing','Audience Desk'],['10 Sep · 12:00','National Health Strategy fact check','Deadline','Policy desk'],['10 Sep · 16:00','World Suicide Prevention Day coverage','Health date','Mental Health desk'],['11 Sep · 12:00','Friday HealthTimes Weekly','Briefing','Email + WhatsApp']];return `${head('Editorial Calendar','Deadlines, interviews, publication, briefings and global-health dates.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-calendar">${events.map(e=>`<div class="nr-calendar-time">${esc(e[0])}</div><div class="nr-calendar-event" data-kind="${esc(e[2])}"><strong>${esc(e[1])}</strong><span>${esc(e[2])} · ${esc(e[3])}</span></div>`).join('')}</div></section>`;}
   function renderBreaking(){const rows=read(KEYS.threads,[]).filter(t=>t.thread_type==='breaking'&&t.status==='open');const actions=has(CAP.BREAKING_MANAGE)?button('＋ Breaking room','data-create-breaking','nr-primary'):'';return head('Breaking','Temporary event coordination with bounded membership and optional Presence.',actions)+'<section class="nr-panel">'+(rows.map(threadCard).join('')||empty('No active breaking rooms'))+'</section>';}
@@ -495,7 +524,30 @@
   function scheduleAutosave(){if(!editingStoryId)return;$('[data-save-state]').textContent='Saving…';clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>{autosaveTimer=null;saveStory(false).catch(()=>{});},700);}
   async function flushAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;try{await saveStory(false);}catch{}}}
   function renderVersions(s){$('[data-version-list]').innerHTML=(s.versions||[]).slice(0,8).map(v=>`<div class="nr-version"><strong>${esc(v.label)}</strong><span>${esc(v.by)} · ${esc(new Date(v.at).toLocaleString())}</span></div>`).join('')||'<div class="nr-version"><span>No saved versions yet</span></div>';}
-  function renderComments(s){const map=read(KEYS.comments,{}),items=map[s.id]||[];$('[data-editor-comments]').innerHTML=items.map(c=>`<article class="nr-comment"><strong>${esc(c.user)}</strong><time>${esc(new Date(c.at).toLocaleString())}</time><p>${esc(c.text)}</p>${c.resolved?'<span class="nr-tag">Resolved</span>':''}</article>`).join('')||'<div class="nr-empty"><p>No internal comments yet.</p></div>';}
+  function extractMentionStaffIds(text){
+    const ids=[],seen=new Set();
+    const re=/@([a-zA-Z0-9._-]+)/g;let match;
+    while((match=re.exec(String(text||'')))){
+      const person=getStaff().find(s=>String(s.username||'').toLowerCase()===match[1].toLowerCase());
+      if(person?.id&&!seen.has(person.id)){seen.add(person.id);ids.push(person.id);}
+    }
+    return ids;
+  }
+  function renderCommentNode(c,items){
+    const children=items.filter(x=>x.parentCommentId===c.id);
+    const actions=[
+      button('Reply','data-comment-reply="'+esc(c.id)+'"'),
+      c.authorStaffId===currentUser()?.id?button('Edit','data-comment-edit="'+esc(c.id)+'"'):'',
+      (!c.resolved&&(c.authorStaffId===currentUser()?.id||has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_PUBLISH)))?button('Resolve','data-comment-resolve="'+esc(c.id)+'"'):'',
+      (c.resolved&&(c.authorStaffId===currentUser()?.id||has(CAP.STORY_EDIT_ALL)||has(CAP.STORY_PUBLISH)))?button('Reopen','data-comment-reopen="'+esc(c.id)+'"'):''
+    ].join('');
+    return '<article class="nr-comment" data-comment-id="'+esc(c.id)+'"><strong>'+esc(c.user)+'</strong><time>'+esc(displayTime(c.at))+(c.editedAt?' · edited':'')+'</time><p>'+esc(c.text)+'</p><div class="nr-comment-actions">'+(c.resolved?'<span class="nr-tag">Resolved</span>':'')+actions+'</div>'+(children.length?'<div class="nr-comment-replies">'+children.map(child=>renderCommentNode(child,items)).join('')+'</div>':'')+'</article>';
+  }
+  function renderComments(s){
+    const map=read(KEYS.comments,{}),items=map[s.id]||[],roots=items.filter(c=>!c.parentCommentId);
+    const policy=has(CAP.COMMENT_CONFIGURE)?'<div class="nr-discussion-policy"><span class="nr-tag">Reader discussion: '+esc(s.commentPolicy||'disabled')+'</span>'+['disabled','read_only','open'].map(p=>button(p,'data-story-comment-policy="'+p+'" data-story-id="'+esc(s.id)+'"',p===(s.commentPolicy||'disabled')?'nr-primary':'nr-secondary')).join('')+'</div>':'';
+    $('[data-editor-comments]').innerHTML=policy+(roots.map(c=>renderCommentNode(c,items)).join('')||'<div class="nr-empty"><p>No internal comments yet.</p></div>');
+  }
   function configureEditorAction(s){const btn=$('[data-editor-primary]');btn.disabled=false;if(has(CAP.STORY_PUBLISH)&&['Ready','Scheduled'].includes(s.status)){btn.textContent='Publish';btn.dataset.action='publish';return;}if(has(CAP.STORY_FACT)&&s.status==='Submitted'){btn.textContent='Send to fact check';btn.dataset.action='fact';return;}if(has(CAP.STORY_HEALTH)&&s.status==='Fact check'){btn.textContent='Health / science review';btn.dataset.action='health';return;}if(has(CAP.STORY_COPY)&&s.status==='Health / Science review'){btn.textContent='Copy edit';btn.dataset.action='copy';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Copy edit'){btn.textContent='Editor review';btn.dataset.action='editor';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Editor review'){btn.textContent='Mark ready';btn.dataset.action='ready';return;}btn.textContent='Submit for review';btn.dataset.action='submit';btn.disabled=!has(CAP.STORY_SUBMIT);}
   async function primaryEditorAction(){await flushAutosave();const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const action=$('[data-editor-primary]').dataset.action;const next={publish:'Published',fact:'Fact check',health:'Health / Science review',copy:'Copy edit',editor:'Editor review',ready:'Ready',submit:'Submitted'}[action]||'Submitted';await transitionStory(s.id,next);}
   async function transitionStory(id,next){
@@ -547,7 +599,23 @@
       if(e.target.closest('[data-confirm-accept]')){const fn=pendingConfirm;$('[data-confirm-modal]').hidden=true;pendingConfirm=null;if(fn)fn();return;}
       if(e.target.closest('[data-global-search]')){openSearch();return;}
       if(e.target.closest('[data-search-close]')){$('[data-search-modal]').hidden=true;return;}
-      if(e.target.closest('[data-notifications]')){showModule('overview');toast('Notifications are shown in your workspace.');return;}
+      const nr=e.target.closest('[data-notification-read]');if(nr){try{await api('markNotificationRead',{notificationId:nr.dataset.notificationRead});await refreshInbox($('[data-inbox-filter]')?.value||'all');}catch(error){toast(error.message);}return;}
+      const na=e.target.closest('[data-notification-ack]');if(na){try{await api('ackNotification',{notificationId:na.dataset.notificationAck});await refreshInbox($('[data-inbox-filter]')?.value||'all');}catch(error){toast(error.message);}return;}
+      const nx=e.target.closest('[data-notification-archive]');if(nx){try{await api('archiveNotification',{notificationId:nx.dataset.notificationArchive});await refreshInbox($('[data-inbox-filter]')?.value||'all');}catch(error){toast(error.message);}return;}
+      if(e.target.closest('[data-inbox-refresh]')){await refreshInbox($('[data-inbox-filter]')?.value||'all');return;}
+      const ad=e.target.closest('[data-assignment-discuss]');if(ad){await openAssignmentDiscussion(ad.dataset.assignmentDiscuss);return;}
+      const to=e.target.closest('[data-thread-open]');if(to){openThreadWorkspace(to.dataset.threadOpen);return;}
+      if(e.target.closest('[data-create-desk]')){await createDeskFromUi();return;}
+      const dt=e.target.closest('[data-desk-thread-create]');if(dt){await createDeskThreadFromUi(dt.dataset.deskThreadCreate);return;}
+      if(e.target.closest('[data-create-breaking]')){await createBreakingFromUi();return;}
+      if(e.target.closest('[data-moderation-refresh]')){await refreshModeration();return;}
+      const mc=e.target.closest('[data-moderate-comment]');if(mc){try{await api('moderateComment',{commentId:mc.dataset.moderateComment,moderationAction:mc.dataset.moderationAction,reasonCode:'editorial_policy'});await refreshModeration();}catch(error){toast(error.message);}return;}
+      const rr=e.target.closest('[data-restrict-reader]');if(rr){const kind=prompt('Restriction: pre_moderation, comment_block or link_block','pre_moderation');if(!kind)return;const reason=prompt('Reason code','moderation_history')||'moderation_history';try{await api('restrictReader',{readerProfileId:rr.dataset.restrictReader,kind,reasonCode:reason});await refreshModeration();toast('Reader restriction recorded');}catch(error){toast(error.message);}return;}
+      const cp=e.target.closest('[data-story-comment-policy]');if(cp){try{await api('setStoryCommentPolicy',{storyId:cp.dataset.storyId,policy:cp.dataset.storyCommentPolicy});await refreshData();if(editingStoryId===cp.dataset.storyId)renderComments(getStories().find(x=>x.id===editingStoryId));toast('Reader discussion policy updated');}catch(error){toast(error.message);}return;}
+      const cr=e.target.closest('[data-comment-reply]');if(cr){const form=$('[data-comment-form]');form.dataset.parentCommentId=cr.dataset.commentReply;form.elements.comment.placeholder='Reply to this internal comment…';form.elements.comment.focus();return;}
+      const ce=e.target.closest('[data-comment-edit]');if(ce){const all=Object.values(read(KEYS.comments,{})).flat(),row=all.find(x=>x.id===ce.dataset.commentEdit);const next=prompt('Edit your internal comment',row?.text||'');if(next&&next.trim()){try{await api('editComment',{commentId:ce.dataset.commentEdit,comment:next.trim(),mentionStaffIds:extractMentionStaffIds(next)});await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}}return;}
+      const cres=e.target.closest('[data-comment-resolve],[data-comment-reopen]');if(cres){const id=cres.dataset.commentResolve||cres.dataset.commentReopen;try{await api('resolveComment',{commentId:id,resolved:!!cres.dataset.commentResolve});await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}return;}
+      if(e.target.closest('[data-notifications]')){showModule('inbox');return;}
       if(e.target.closest('[data-sidebar-open]')){$('[data-newsroom-sidebar]').classList.add('open');return;}
       if(e.target.closest('[data-sidebar-close]')){$('[data-newsroom-sidebar]').classList.remove('open');return;}
       const ins=e.target.closest('[data-insert]');if(ins){toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
@@ -556,7 +624,8 @@
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
     $('[data-password-reset-form]')?.addEventListener('submit',async e=>{e.preventDefault();const password=e.currentTarget.elements.password.value,confirmPassword=e.currentTarget.elements.confirmPassword.value,error=$('[data-password-reset-error]');error.textContent='';if(password!==confirmPassword){error.textContent='Passwords do not match.';return;}try{await api('setPassword',{password});$('[data-password-reset-modal]').hidden=true;recoveryMode=false;e.currentTarget.reset();toast('Password updated securely.');}catch(ex){error.textContent=ex.message;}});
-    $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text});e.currentTarget.reset();await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
+    $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text,parentCommentId:e.currentTarget.dataset.parentCommentId||null,mentionStaffIds:extractMentionStaffIds(text)});e.currentTarget.reset();delete e.currentTarget.dataset.parentCommentId;e.currentTarget.elements.comment.placeholder='Add an internal note…';await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
+    document.addEventListener('submit',async e=>{const form=e.target.closest('[data-thread-message-form]');if(!form)return;e.preventDefault();const text=form.elements.message.value.trim();if(!text)return;try{await api('postThreadMessage',{threadId:form.dataset.threadMessageForm,message:text,mentionStaffIds:extractMentionStaffIds(text)});form.reset();await refreshData();openThreadWorkspace(form.dataset.threadMessageForm);}catch(error){toast(error.message);}});
     window.addEventListener('beforeunload',()=>{if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;}});
 
   }
