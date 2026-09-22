@@ -12,7 +12,7 @@ import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapsh
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline, type ArticleListBlock } from "../../src/reader/article-content";
 import { canOpenOffline, compareSourceFreshness, useReaderConnectivity } from "../../src/reader/offline-state";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
-import type { LegacyTaxonomyRef, TaxonomyRef } from "../../src/domain/models";
+import type { TaxonomyRef } from "../../src/domain/models";
 
 export function generateStaticParams() {
   return [
@@ -246,7 +246,7 @@ export default function ArticleScreen(){
           <View style={styles.sourceTaxonomy}>
             <Text style={[styles.sourceTaxonomyLabel,{color:palette.inkMuted}]}>Legacy source taxonomy</Text>
             <View style={styles.geography}>
-              {story.legacyTaxonomy.map((term:LegacyTaxonomyRef)=><Text key={term.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{term.name}</Text>)}
+              {story.legacyTaxonomy.map((term:TaxonomyRef)=><Text key={term.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{term.name}</Text>)}
             </View>
           </View>
         )}
