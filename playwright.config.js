@@ -14,6 +14,7 @@ module.exports = defineConfig({
   use: {
     baseURL,
     browserName: 'chromium',
+    ignoreHTTPSErrors: /^https:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(baseURL),
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'
