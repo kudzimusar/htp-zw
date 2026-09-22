@@ -5,7 +5,11 @@
     session: 'htpNewsroomSession', stories: 'htpNewsroomStories', assignments: 'htpNewsroomAssignmentsV3',
     staff: 'htpNewsroomStaffV3', audit: 'htpNewsroomAudit', media: 'htpNewsroomMediaV3',
     comments: 'htpNewsroomCommentsV3', campaigns: 'htpAdCampaigns', overrides: 'htpStoryOverrides',
-    sessions: 'htpNewsroomSessionsV3', notifications: 'htpNewsroomNotificationsV3'
+    sessions: 'htpNewsroomSessionsV3', notifications: 'htpNewsroomNotificationsV3',
+    inboxSummary: 'htpNewsroomInboxSummaryV1', desks: 'htpNewsroomDesksV1',
+    deskMembers: 'htpNewsroomDeskMembersV1', threads: 'htpNewsroomThreadsV1',
+    threadMembers: 'htpNewsroomThreadMembersV1', messages: 'htpNewsroomMessagesV1',
+    announcements: 'htpNewsroomAnnouncementsV1', moderation: 'htpNewsroomModerationV1'
   };
   const HOSPAZ = 'https://healthtimes.co.zw/wp-content/uploads/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg';
   const $ = (s, r=document) => r.querySelector(s);
@@ -52,7 +56,9 @@
     ASSIGN_CREATE:'assignment.create', ASSIGN_MANAGE:'assignment.manage', PREMIUM_ASSIGN:'premium.assign', PREMIUM_MANAGE:'premium.manage',
     ADS_VIEW:'ads.view', ADS_CREATE:'ads.create', ADS_APPROVE:'ads.approve', SUB_VIEW:'subscriber.view', SUB_MANAGE:'subscriber.manage',
     STAFF_VIEW:'staff.view', STAFF_INVITE:'staff.invite', STAFF_ROLE:'staff.change_role', STAFF_REVOKE:'staff.revoke',
-    ANALYTICS:'analytics.view', SETTINGS:'settings.manage', SECURITY:'security.manage', DISTRIBUTION:'distribution.manage', MEDIA:'media.manage'
+    ANALYTICS:'analytics.view', SETTINGS:'settings.manage', SECURITY:'security.manage', DISTRIBUTION:'distribution.manage', MEDIA:'media.manage',
+    DESK_MANAGE:'communication.desk.manage', BREAKING_MANAGE:'communication.breaking.manage', ANNOUNCE:'communication.announce',
+    COMMENT_CONFIGURE:'comment.configure', COMMENT_MODERATE:'comment.moderate', COMMENT_RESTRICT:'comment.restrict', COMMENT_AUDIT:'comment.audit'
   };
 
   const ROLE_CAPS = {
@@ -122,8 +128,8 @@
   const initialCampaigns=[{id:'hospaz-agm-2026',advertiser:'HOSPAZ',name:'HOSPAZ Annual General Meeting',creative:HOSPAZ,destination:'https://healthtimes.co.zw/',placement:['masthead','home-infeed','article'],start:'2026-09-01',end:'2026-09-25',status:'Active',review:'Approved',label:'Advertisement',impressions:0,clicks:0}];
 
   const NAV=[
-    ['My Newsroom',[['overview','Overview','⌂'],['my-assignments','My assignments','✓'],['my-stories','My stories','▤'],['saved','Saved','☆']]],
-    ['Editorial',[['stories','Stories','▤','editorial'],['assignments','Assignments','✓',CAP.ASSIGN_MANAGE],['review','Review Queue','◫','review'],['calendar','Editorial Calendar','□','editorial'],['breaking','Breaking News','!','editorial'],['corrections','Corrections','↺','editorial']]],
+    ['My Newsroom',[['overview','Overview','⌂'],['inbox','Inbox','✉'],['my-assignments','My assignments','✓'],['my-stories','My stories','▤'],['saved','Saved','☆']]],
+    ['Editorial',[['stories','Stories','▤','editorial'],['assignments','Assignments','✓'],['review','Review Queue','◫','review'],['calendar','Editorial Calendar','□','editorial'],['desks','Desks','◎'],['breaking','Breaking','!'],['corrections','Corrections','↺','editorial'],['moderation','Moderation','⚑',CAP.COMMENT_MODERATE]]],
     ['Content',[['media','Media Library','▧',CAP.MEDIA],['authors','Authors','◎','editorial'],['topics','Topics','⌗','editorial'],['regions','Countries & regions','◌','editorial'],['sources','Research / Sources','≡','editorial'],['archive','Archive','▱','editorial']]],
     ['Distribution',[['homepage','Homepage','⌂',CAP.DISTRIBUTION],['newsletter','Newsletters','✉',CAP.DISTRIBUTION],['whatsapp','WhatsApp','◉',CAP.DISTRIBUTION],['social','Social','↗',CAP.DISTRIBUTION],['push','Push alerts','●',CAP.DISTRIBUTION]]],
     ['Intelligence',[['analytics','Analytics','↗',CAP.ANALYTICS],['trending','Trending','↗',CAP.ANALYTICS],['seo','SEO','⌕','editorial'],['citations','Citations & Impact','§',CAP.ANALYTICS],['ai','AI Desk','✦','editorial']]],
@@ -189,7 +195,7 @@
       status:s.workflow_status||(String(s.status||'').toLowerCase()==='publish'?'Published':'Draft'),
       deadline:localTime(s.deadline_at),schedule:localTime(s.scheduled_at),updated:displayTime(s.updated_at||s.modified_at),
       seoTitle:s.seo_title||'',metaDescription:s.seo_description||'',slug:s.slug||'',adSetting:s.ad_setting||'Standard',
-      distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1)
+      distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1),commentPolicy:s.comment_policy||'disabled'
     }));
     setStories(stories);
     const assignments=(data.assignments||[]).map(a=>({
@@ -202,7 +208,8 @@
     for(const row of data.comments||[]){
       const a=staffById.get(row.author_staff_id);
       (comments[row.story_id]||(comments[row.story_id]=[])).push({
-        id:row.id,user:a?.name||'Newsroom',at:row.created_at,text:row.body,resolved:!!row.resolved_at
+        id:row.id,authorStaffId:row.author_staff_id,user:a?.name||'Newsroom',at:row.created_at,text:row.body,
+        parentCommentId:row.parent_comment_id||null,editedAt:row.edited_at||null,resolved:!!row.resolved_at
       });
     }
     write(KEYS.comments,comments);
@@ -226,7 +233,9 @@
       id:x.id,advertiser:advertisers.get(x.advertiser_id)||'Advertiser',name:x.name,status:x.status,
       start:x.start_at||'',end:x.end_at||'',review:x.review_status||'pending',placement:[],impressions:0,clicks:0
     })));
-    write(KEYS.notifications,[]);
+    write(KEYS.notifications,(data.notifications||[]).map(n=>({id:n.id,eventType:n.event_type,targetTable:n.target_table,targetId:n.target_id,payload:n.payload||{},actorStaffId:n.actor_staff_id||null,category:n.category||'general',priority:n.priority||'normal',readAt:n.read_at||null,requiresAck:!!n.requires_ack,acknowledgedAt:n.acknowledged_at||null,archivedAt:n.archived_at||null,expiresAt:n.expires_at||null,createdAt:n.created_at})));
+    write(KEYS.inboxSummary,data.inboxSummary||{});
+    write(KEYS.desks,data.desks||[]);write(KEYS.deskMembers,data.deskMembers||[]);write(KEYS.threads,data.threads||[]);write(KEYS.threadMembers,data.threadMembers||[]);write(KEYS.messages,data.messages||[]);write(KEYS.announcements,data.announcements||[]);
     const self=staff.find(s=>s.id===ctx.id)||{
       id:ctx.id,username:ctx.handle||ctx.id,name:ctx.display_name,email:ctx.email,role:ctx.role,
       desk:ctx.desk||'',beat:ctx.beat||'',country:ctx.country||'',region:ctx.region||'',status:'Active',
@@ -280,7 +289,7 @@
   }
 
   function renderUser(){const u=currentUser();$('[data-user-mini]').innerHTML=`<div class="nr-user-mini-row"><span class="nr-avatar">${esc(u.initials)}</span><span><strong>${esc(u.name)}</strong><small>${esc(u.role)}</small></span><button type="button" data-sign-out aria-label="Sign out">↪</button></div>`;$('[data-user-menu]').textContent=u.initials;$('[data-topline]').textContent=`${u.name} · ${u.role}`;}
-  function navCount(id){const u=currentUser(), stories=getStories(), assignments=getAssignments();if(id==='my-assignments')return assignments.filter(a=>a.reporter===u.username&&!['Complete'].includes(a.status)).length;if(id==='my-stories')return stories.filter(s=>s.owner===u.username&&!['Archived'].includes(s.status)).length;if(id==='review')return stories.filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)).length;if(id==='corrections')return stories.filter(s=>s.status==='Updated / Corrected').length;if(id==='premium')return stories.filter(s=>s.premium).length;return 0;}
+  function navCount(id){const u=currentUser(), stories=getStories(), assignments=getAssignments();if(id==='inbox')return Number(read(KEYS.inboxSummary,{}).unread_total||0);if(id==='my-assignments')return assignments.filter(a=>a.reporter===u.username&&!['Complete'].includes(a.status)).length;if(id==='my-stories')return stories.filter(s=>s.owner===u.username&&!['Archived'].includes(s.status)).length;if(id==='review')return stories.filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)).length;if(id==='corrections')return stories.filter(s=>s.status==='Updated / Corrected').length;if(id==='premium')return stories.filter(s=>s.premium).length;if(id==='moderation')return Number(read(KEYS.inboxSummary,{}).moderation||0);return 0;}
   function renderNav(){const nav=$('[data-newsroom-nav]');nav.innerHTML=NAV.map(([group,items])=>{const visible=items.filter(([id,, ,rule])=>canModule(id,rule));if(!visible.length)return'';return `<section class="nr-nav-group"><div class="nr-nav-label">${esc(group)}</div>${visible.map(([id,label,icon])=>`<button type="button" data-module="${id}" ${id==='advertising'?'data-v21-module="ads"':''} class="${active===id?'active':''}"><span class="nr-nav-icon">${icon}</span><span>${esc(label)}</span>${navCount(id)?`<span class="nr-nav-count">${navCount(id)}</span>`:''}</button>`).join('')}</section>`}).join('');}
   function setCrumb(label){$('[data-breadcrumb]').textContent=label;}
   function head(title,copy,actions=''){return `<div class="nr-workspace-head"><div><span class="nr-kicker">HealthTimes Newsroom</span><h1>${esc(title)}</h1><p>${esc(copy)}</p></div><div class="nr-workspace-actions">${actions}</div></div>`;}
@@ -288,7 +297,7 @@
   function status(s){return `<span class="nr-status" data-status="${esc(s)}">${esc(s)}</span>`;}
   function button(label,attr='',cls='nr-secondary'){return `<button type="button" class="${cls}" ${attr}>${esc(label)}</button>`;}
 
-  function showModule(id){const item=NAV.flatMap(g=>g[1]).find(x=>x[0]===id);if(!item||!canModule(id,item[3])){toast('This workspace is not available to your role.');return;}active=id;renderNav();setCrumb(item[1]);const renderers={overview:renderOverview,'my-assignments':renderMyAssignments,'my-stories':renderMyStories,saved:renderSaved,stories:renderStories,assignments:renderAssignments,review:renderReview,calendar:renderCalendar,breaking:renderBreaking,corrections:renderCorrections,media:renderMedia,authors:renderAuthors,topics:renderTopics,regions:renderRegions,sources:renderSources,archive:renderArchive,homepage:renderHomepage,newsletter:renderNewsletter,whatsapp:renderWhatsApp,social:renderSocial,push:renderPush,analytics:renderAnalytics,trending:renderTrending,seo:renderSEO,citations:renderCitations,ai:renderAI,premium:renderPremium,subscribers:renderSubscribers,advertising:renderAdvertising,staff:renderStaff,roles:renderRoles,audit:renderAudit,settings:renderSettings,integrations:renderIntegrations,security:renderSecurity};$('[data-workspace]').innerHTML=(renderers[id]||renderOverview)();}
+  function showModule(id){const item=NAV.flatMap(g=>g[1]).find(x=>x[0]===id);if(!item||!canModule(id,item[3])){toast('This workspace is not available to your role.');return;}active=id;renderNav();setCrumb(item[1]);const renderers={overview:renderOverview,inbox:renderInbox,'my-assignments':renderMyAssignments,'my-stories':renderMyStories,saved:renderSaved,stories:renderStories,assignments:renderAssignments,review:renderReview,calendar:renderCalendar,desks:renderDesks,breaking:renderBreaking,corrections:renderCorrections,moderation:renderModeration,media:renderMedia,authors:renderAuthors,topics:renderTopics,regions:renderRegions,sources:renderSources,archive:renderArchive,homepage:renderHomepage,newsletter:renderNewsletter,whatsapp:renderWhatsApp,social:renderSocial,push:renderPush,analytics:renderAnalytics,trending:renderTrending,seo:renderSEO,citations:renderCitations,ai:renderAI,premium:renderPremium,subscribers:renderSubscribers,advertising:renderAdvertising,staff:renderStaff,roles:renderRoles,audit:renderAudit,settings:renderSettings,integrations:renderIntegrations,security:renderSecurity};$('[data-workspace]').innerHTML=(renderers[id]||renderOverview)();if(id==='moderation')setTimeout(()=>refreshModeration(),0);}
 
   function roleDashboard(){const role=currentUser().role;if(role==='Reporter / Journalist')return renderReporterDashboard();if(role==='Commercial Manager')return renderCommercialDashboard();if(role==='Newsletter Editor')return renderAudienceDashboard();if(role==='Publisher / Owner')return renderPublisherDashboard();return renderEditorDashboard();}
   function renderOverview(){return roleDashboard();}
