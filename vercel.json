@@ -2,13 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "routes": [
     {
-      "src": "/api/public",
-      "headers": {
-        "Cache-Control": "no-store"
-      },
-      "continue": true
-    },
-    {
       "handle": "filesystem"
     },
     {
