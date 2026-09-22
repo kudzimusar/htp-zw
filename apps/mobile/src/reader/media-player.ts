@@ -12,6 +12,41 @@ export const INITIAL_MEDIA_PLAYBACK_STATE: MediaPlaybackState = {
   error: null
 };
 
+export type MediaAnalyticsLifecycleEvent = {
+  type: "listen_started" | "listen_completed";
+  itemId: string;
+  elapsedSeconds: number;
+  durationSeconds: number | null;
+};
+
+export function createMediaAnalyticsTracker(
+  emit: (event: MediaAnalyticsLifecycleEvent) => void
+) {
+  let startedItemId: string | null = null;
+  return {
+    started(itemId: string, durationSeconds: number | null) {
+      if (startedItemId === itemId) return;
+      startedItemId = itemId;
+      emit({
+        type: "listen_started",
+        itemId,
+        elapsedSeconds: 0,
+        durationSeconds
+      });
+    },
+    completed(itemId: string, elapsedSeconds: number, durationSeconds: number | null) {
+      if (startedItemId !== itemId) return;
+      emit({
+        type: "listen_completed",
+        itemId,
+        elapsedSeconds,
+        durationSeconds
+      });
+      startedItemId = null;
+    }
+  };
+}
+
 export type MediaPlaybackAction =
   | { type: "load"; itemId: string; durationSeconds: number | null }
   | { type: "playing" }
@@ -102,7 +137,8 @@ export function attachWebAudioListeners(
   audio: WebAudioTransport,
   fallbackDuration: number | null,
   isCurrent: () => boolean,
-  dispatch: (action: MediaPlaybackAction) => void
+  dispatch: (action: MediaPlaybackAction) => void,
+  onEnded?: () => void
 ) {
   const guarded = (listener: () => void) => () => {
     if (isCurrent()) listener();
@@ -118,7 +154,10 @@ export function attachWebAudioListeners(
       elapsedSeconds: audio.currentTime,
       durationSeconds: Number.isFinite(audio.duration) ? audio.duration : fallbackDuration
     }))],
-    ["ended", guarded(() => dispatch({ type: "ended" }))],
+    ["ended", guarded(() => {
+      dispatch({ type: "ended" });
+      onEnded?.();
+    }))],
     ["error", guarded(() => dispatch({ type: "error", message: "The verified media source could not be played." }))]
   ];
 
@@ -128,10 +167,17 @@ export function attachWebAudioListeners(
   };
 }
 
-export function useReaderAudioPlayer() {
+export function useReaderAudioPlayer(
+  options: { onLifecycleEvent?: (event: MediaAnalyticsLifecycleEvent) => void } = {}
+) {
   const [state, setState] = useState<MediaPlaybackState>(INITIAL_MEDIA_PLAYBACK_STATE);
   const transport = useRef<WebAudioTransport | null>(null);
   const detachListeners = useRef<(() => void) | null>(null);
+  const lifecycleCallback = useRef(options.onLifecycleEvent);
+  lifecycleCallback.current = options.onLifecycleEvent;
+  const lifecycleTracker = useRef(
+    createMediaAnalyticsTracker((event) => lifecycleCallback.current?.(event))
+  );
 
   const dispatch = (action: MediaPlaybackAction) => setState((current) => reduceMediaPlaybackState(current, action));
 
@@ -166,7 +212,12 @@ export function useReaderAudioPlayer() {
         audio,
         item.durationSeconds,
         () => transport.current === audio,
-        dispatch
+        dispatch,
+        () => lifecycleTracker.current.completed(
+          item.id,
+          audio.currentTime,
+          Number.isFinite(audio.duration) ? audio.duration : item.durationSeconds
+        )
       );
       audio.playbackRate = state.playbackRate;
     }
@@ -177,6 +228,10 @@ export function useReaderAudioPlayer() {
       await activeTransport.play();
       if (transport.current !== activeTransport) return false;
       dispatch({ type: "playing" });
+      lifecycleTracker.current.started(
+        item.id,
+        Number.isFinite(activeTransport.duration) ? activeTransport.duration : item.durationSeconds
+      );
       return true;
     } catch {
       dispatch({ type: "error", message: "Playback could not start on this device." });
