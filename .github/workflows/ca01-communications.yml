@@ -147,6 +147,8 @@ jobs:
           echo "CA01_TEST_STORY_SLUG=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.slug||"")')" >> "$GITHUB_ENV"
           echo "CA01_TEST_STORY_ORIGINAL_COMMENT_POLICY=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.original_comment_policy||"disabled")')" >> "$GITHUB_ENV"
       - run: npm install --no-audit --no-fund
+      - name: Install Realtime certification client
+        run: npm install --no-save --no-package-lock @supabase/supabase-js@2.57.4
       - run: npx playwright install --with-deps chromium
       - name: Start exact-branch CA-01 gateway
         shell: bash
