@@ -153,7 +153,7 @@ Deno.serve(async (req:Request) => {
         country:"Zimbabwe",
         region:"Africa",
         status:"active",
-        handle:`ag06-${key}-${runId}`,
+        handle:`ag06-${key}-${runId}-${runAttempt}`,
         mfa_required:key==="editor"||key==="publisher",
         revoked_at:null,
         updated_at:new Date().toISOString()
