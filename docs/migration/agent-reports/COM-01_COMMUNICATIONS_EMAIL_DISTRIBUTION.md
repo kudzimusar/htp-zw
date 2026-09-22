@@ -380,3 +380,89 @@ The existing connected Resend domain/webhook belong to another project and are i
 ## 12. Disposition
 
 **COM-01 NOT READY — HealthTimes-specific live external-provider evidence is still missing: no verified Resend staging sender/send/signed-webhook proof, no Brevo staging synchronization/webhook proof, and no Cloudflare staging inbound Email Worker route proof.**
+
+
+## 13. Final external-provider wiring certification attempt — 2026-09-22
+
+This final pass was intentionally restricted to provider/account wiring and live evidence. No Communications runtime, CP4, CP5, CP6, CA-01 or NM-07 authority was changed.
+
+### Resend account-access result
+
+The connected Resend account was inspected again before any provider mutation.
+
+Observed connected resources:
+
+- verified domain: `updates.wewed.pro`
+- domain status: `verified`
+- sending: enabled
+- receiving: disabled
+- region: `ap-northeast-1`
+- webhook endpoint: `https://wewed.pro/api/webhooks/resend`
+- webhook status: enabled
+- webhook events include sent/delivered/delayed/complained/bounced/failed/suppressed
+
+No `healthtimes.co.zw`, HealthTimes staging subdomain, HealthTimes sender identity or HealthTimes webhook exists in the connected Resend account.
+
+Per moderator instruction, the unrelated `wewed.pro` account resources were **not reused, altered or extended** for HealthTimes.
+
+**Exact Resend access requirement:** connect or authorize a Resend account/team explicitly designated for HealthTimes staging, with permission to:
+
+1. create and verify a non-production HealthTimes sender domain/subdomain;
+2. create a scoped sending credential for that staging domain;
+3. create a HealthTimes staging webhook and obtain its signing secret;
+4. send one bounded transactional certification email;
+5. inspect the resulting webhook delivery/event evidence.
+
+No Resend API key, webhook secret or sensitive mail content was written to the repository.
+
+### Brevo account-access result
+
+No Brevo account connector or Brevo provider action is available in the current execution environment.
+
+Therefore no HealthTimes-specific Brevo contact/list/webhook resource could be inspected, created or exercised.
+
+**Exact Brevo access requirement:** connect or authorize the HealthTimes Brevo account with staging-safe access to:
+
+1. API credential management or an already provisioned HealthTimes staging API credential;
+2. Contacts;
+3. Lists/segments used for NEWSLETTER / BREAKING_NEWS / MARKETING purposes;
+4. webhook creation/inspection for unsubscribe, bounce and complaint events;
+5. one bounded staging contact that is safe to use for certification.
+
+The required live contact synchronization and provider-originated unsubscribe/bounce/complaint proof cannot be produced until that account access exists.
+
+### Cloudflare account-access result
+
+No Cloudflare account/zone connector or Cloudflare provider action is available in the current execution environment.
+
+Therefore the HealthTimes zone, DNS records, Email Routing rules and Email Worker bindings could not be inspected or changed.
+
+**Exact Cloudflare access requirement:** connect or authorize the Cloudflare account containing the `healthtimes.co.zw` zone with bounded permission to:
+
+1. inspect existing DNS and Email Routing configuration;
+2. create a **staging-only** mail hostname/subdomain without replacing production MX;
+3. create or bind a staging Email Worker / Email Routing rule to the existing COM-01 ingestion endpoint;
+4. configure only the staging worker-to-COM shared secret;
+5. send and inspect one real inbound staging email;
+6. route one reply through the opaque HealthTimes reply identity and verify that it resolves to the same canonical thread.
+
+Production MX, live organizational mailboxes and existing production mail routing remain explicitly out of scope.
+
+### Live-provider evidence disposition
+
+Because the required HealthTimes-specific provider accounts/resources are not presently available, the following moderator-required proofs were not attempted with substitute infrastructure:
+
+- Resend real HealthTimes staging transactional send: **NOT AVAILABLE**
+- Resend genuine signed HealthTimes webhook normalized exactly once: **NOT AVAILABLE**
+- Brevo real consent-eligible HealthTimes contact synchronization: **NOT AVAILABLE**
+- Brevo real unsubscribe/bounce/complaint provider event: **NOT AVAILABLE**
+- Cloudflare real inbound HealthTimes staging email: **NOT AVAILABLE**
+- Cloudflare opaque-reply routing to the same canonical thread: **NOT AVAILABLE**
+
+This is an **account/provider-access blocker**, not a Communications runtime blocker.
+
+No unrelated provider account was repurposed. No provider secret was committed. No subscriber data or sensitive mail content was committed. No production DNS or mail system was modified.
+
+## 14. Final external-provider disposition
+
+**COM-01 NOT READY — provider-account access is missing: a HealthTimes-specific Resend account/team is not connected, Brevo account access is not connected, and Cloudflare access to the `healthtimes.co.zw` zone / staging Email Routing is not connected.**
