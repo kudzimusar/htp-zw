@@ -8,6 +8,8 @@ export const HEALTH_TIMES_CAPABILITIES = [
   "story.copy_edit",
   "story.publish",
   "story.correct",
+  "assignment.create",
+  "assignment.manage",
   "premium.assign",
   "premium.manage",
   "ads.view",
@@ -21,9 +23,19 @@ export const HEALTH_TIMES_CAPABILITIES = [
   "staff.revoke",
   "analytics.view",
   "settings.manage",
-  "security.sessions.view",
-  "security.sessions.revoke",
-  "security.audit.view"
+  "security.manage",
+  "security.view_sessions",
+  "security.revoke_session",
+  "security.view_audit",
+  "distribution.manage",
+  "media.manage",
+  "communication.desk.manage",
+  "communication.breaking.manage",
+  "communication.announce",
+  "comment.configure",
+  "comment.moderate",
+  "comment.restrict",
+  "comment.audit"
 ] as const;
 
 export type HealthTimesCapability = (typeof HEALTH_TIMES_CAPABILITIES)[number];
