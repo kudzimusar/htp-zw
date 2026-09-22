@@ -1,6 +1,10 @@
 import type { PropsWithChildren } from "react";
 import Constants from "expo-constants";
 import { ScrollViewStyleReset } from "expo-router/html";
+import {
+  CANONICAL_WEB_ANALYTICS_HOSTS,
+  VERIFIED_WEB_GROWTH_IDENTITIES
+} from "../src/growth/config";
 
 const configuredBaseUrl =
   ((Constants.expoConfig?.experiments as { baseUrl?: string } | undefined)?.baseUrl ?? "")
@@ -30,6 +34,21 @@ const deepLinkRestoreScript =
   'if(allowed)history.replaceState(null,"",route);' +
   '}catch(_){}})();';
 
+const webAnalyticsBootstrap =
+  '(function(){try{' +
+  'var hosts=' + JSON.stringify(CANONICAL_WEB_ANALYTICS_HOSTS) + ';' +
+  'if(hosts.indexOf(location.hostname)<0)return;' +
+  'var id=' + JSON.stringify(VERIFIED_WEB_GROWTH_IDENTITIES.ga4WebMeasurementId) + ';' +
+  'window.dataLayer=window.dataLayer||[];' +
+  'window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};' +
+  'window.gtag("js",new Date());' +
+  'window.gtag("config",id,{send_page_view:false});' +
+  'var script=document.createElement("script");' +
+  'script.async=true;' +
+  'script.src="https://www.googletagmanager.com/gtag/js?id="+encodeURIComponent(id);' +
+  'document.head.appendChild(script);' +
+  '}catch(_){}})();';
+
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="en">
@@ -45,6 +64,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="manifest" href={assetPath("manifest.json")} />
         <link rel="icon" href={assetPath("healthtimes-icon.svg")} />
         <ScrollViewStyleReset />
+        <script dangerouslySetInnerHTML={{ __html: webAnalyticsBootstrap }} />
         <script dangerouslySetInnerHTML={{ __html: deepLinkRestoreScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRegistration }} />
       </head>
