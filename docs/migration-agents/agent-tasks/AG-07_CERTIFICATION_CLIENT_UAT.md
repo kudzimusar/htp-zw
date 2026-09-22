@@ -9,6 +9,7 @@ Prove whether the integrated staging migration is complete enough for the owner 
 - CP4 / AG-04 accepted.
 - CP5 / AG-05 accepted.
 - CP6 / AG-06 accepted.
+- COM-01 / Communications, Email & Distribution accepted.
 - Moderator authorizes integration/certification.
 
 ## Required environment/tools
@@ -30,11 +31,14 @@ AG-07 is not allocated production mutation credentials or DNS-CONTROL.
 - `docs/migration/10_STAGING_REHEARSAL_RUNBOOK.md`;
 - `docs/migration/11_PRODUCTION_CUTOVER_ROLLBACK.md`;
 - `docs/migration/12_MIGRATION_ACCEPTANCE_LEDGER.md`;
-- all AG-04/05/06 reports/receipts.
+- all AG-04/05/06 reports/receipts;
+- COM-01 report/receipt and `docs/HEALTHTIMES_COMMUNICATIONS_PLATFORM_PLAN.md`.
 
 ## Integrated-candidate rule
 
-AG-07 must certify one actual integrated staging candidate, not three isolated agent branches. Record the AG-04/05/06 source SHAs, resolve integration conflicts deliberately, then freeze a certification-candidate SHA. Any fix after freeze creates a new candidate SHA and requires affected recertification.
+AG-07 must certify one actual integrated staging candidate, not isolated agent branches. Record the AG-04/05/06 and COM-01 source SHAs, resolve integration conflicts deliberately, then freeze a certification-candidate SHA. Any fix after freeze creates a new candidate SHA and requires affected recertification.
+
+Before integrated UAT starts, the designated integrated candidate must own the primary rehearsal routing surface. The stale `healthtimes-staging.vercel.app` assignment remains a **CP7 INTEGRATED STAGING CANDIDATE / PLATFORM ROUTING REQUIREMENT** and must be reassigned from the old AG-02 deployment to the frozen integrated candidate before primary-alias certification.
 
 ## Required work
 
@@ -52,11 +56,13 @@ AG-07 must certify one actual integrated staging candidate, not three isolated a
 12. Verify anonymous/public access cannot read drafts/internal Newsroom data.
 13. Verify no secrets/sensitive exports are committed or browser-exposed.
 14. Verify backup/restore evidence and AG-04 importer idempotency/resume evidence.
-15. Verify complete DNS/email pre-cutover worksheet covering A/AAAA/CNAME, MX, SPF, DKIM, DMARC, TTLs, new targets and rollback values.
-16. Prepare a client UAT package for Michael Gwarisa using staging-only access.
-17. Record client findings in the acceptance ledger with severity and retest status.
-18. Separate technical readiness, client acceptance and owner authorization; AG-07 can only certify the first two.
-19. Create `docs/migration/agent-reports/AG-07_CERTIFICATION_CLIENT_UAT.md`.
+15. Verify COM-01 communications integration end-to-end: inbound thread creation, transactional outbound/replies, consent/suppression, private attachments, webhook authentication/idempotency, internal notifications, human-approved social distribution and provider-secret isolation.
+16. Verify complete DNS/email pre-cutover worksheet covering A/AAAA/CNAME, MX, SPF, DKIM, DMARC, sender/routing subdomains, TTLs, new targets and rollback values.
+17. Reassign and verify `healthtimes-staging.vercel.app` against the frozen integrated candidate before primary-alias UAT.
+18. Prepare a client UAT package for Michael Gwarisa using staging-only access.
+19. Record client findings in the acceptance ledger with severity and retest status.
+20. Separate technical readiness, client acceptance and owner authorization; AG-07 can only certify the first two.
+21. Create `docs/migration/agent-reports/AG-07_CERTIFICATION_CLIENT_UAT.md`.
 
 ## Minimum hard gates
 
@@ -75,12 +81,14 @@ AG-07 must certify one actual integrated staging candidate, not three isolated a
 - performance baseline recorded and no release-blocking accessibility/responsive defect;
 - Reporter cannot publish; Commercial cannot publish editorial content; anonymous cannot read drafts/internal data;
 - session/access revocation and audit persistence proven;
+- COM-01 inbound/outbound email, consent/suppression, webhook, attachment-privacy, internal-notification and human-approved social-distribution gates proven;
 - no secrets/customer exports in source control;
 - backup/restore path verified;
 - importer idempotency/resume verified;
 - full relevant Chromium UAT green;
 - client UAT has no unresolved P0/P1;
 - DNS/email worksheet and rollback plan credible;
+- primary `healthtimes-staging.vercel.app` alias serves the frozen integrated CP7 candidate before integrated UAT;
 - production systems untouched.
 
 ## Client UAT severity
@@ -101,7 +109,7 @@ AG-07 must return `CP7 BLOCKED` if a hard gate is red, unexplained, fabricated o
 
 Return `# AG-07 — CP7 Integrated Certification & Client UAT Receipt` containing:
 
-- AG-04/05/06 source SHAs;
+- AG-04/05/06 and COM-01 source SHAs;
 - integrated branch and frozen candidate SHA;
 - staging URL/build identifier;
 - authoritative source snapshot and reconciliation counts;
@@ -112,6 +120,8 @@ Return `# AG-07 — CP7 Integrated Certification & Client UAT Receipt` containin
 - direct API/security results;
 - exact test pass/fail counts;
 - backup/restore/idempotency evidence;
+- Communications/Email/Distribution certification evidence;
+- primary staging-alias routing evidence;
 - DNS/email/rollback readiness;
 - client UAT findings and remaining severity counts;
 - acceptance-ledger status counts;
