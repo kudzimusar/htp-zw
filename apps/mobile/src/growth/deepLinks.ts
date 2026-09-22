@@ -84,7 +84,9 @@ export function parseHealthTimesDeepLink(url: string): HealthTimesDeepLink | nul
     if (web.protocol !== "https:" || !allowedHosts.has(web.hostname)) return null;
     const segments = web.pathname.split("/").filter(Boolean);
     if (segments.length !== 1) return null;
-    const articleSlug = normalizeArticleSlug(decodeURIComponent(segments[0]));
+    const rawSlug = segments[0];
+    if (!rawSlug) return null;
+    const articleSlug = normalizeArticleSlug(decodeURIComponent(rawSlug));
     if (!articleSlug) return null;
 
     // ht_article_id is attribution metadata only. It is deliberately never trusted
