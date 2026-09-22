@@ -59,61 +59,58 @@
 - Historical imported metrics retain provenance.
 - Global country reporting becomes available after integration.
 
-## CP5 — SEO / Analytics / Monetization Continuity — FINAL — 2026-09-22
+## CP5 — SEO / Analytics / Monetization Continuity — POST-AG04 — 2026-09-22
 
-Certified runtime candidate: `5c4bf4290debc68e8dc313b444c83fc290c74118`
+Certified runtime candidate: 0ba7240d018efa2472a00f56453e9aa8be34e1c5
 
 | CP5 gate | State | Evidence |
 | --- | --- | --- |
-| CP3 authoritative public-object baseline | PASS | 5,737 posts + 49 pages = **5,786** |
-| Complete migrated public URL accounting | PASS | `ag05_url_coverage_status`: **5,786 / 5,786**, 0 unresolved, 0 duplicate sources, 0 homepage catch-alls |
-| Canonical/redirect policy | PASS | 5,786 preserved-direct canonical objects; historical aliases are one-hop only; no redirect-chain candidates; no homepage catch-all aliases |
-| Historical internal-link exception ledger | PASS WITH EXPLICIT EXCEPTIONS | 2,325 preserved-direct paths, 341 deterministic aliases, 28 explicit 404 paths, 1 homepage/fragment target |
-| Source SEO metadata preservation | PASS WITH SOURCE SPARSITY | Source plugin metadata retained where present; authoritative story fields used only as fallback; no plugin metadata invented |
-| Initial-HTML SEO | PASS | Live migrated story/page emit title, description where available, canonical, robots/index state and Open Graph in server HTML |
-| Structured data | PASS | Live `NewsArticle`, `Article`, `Person`, `Organization`, `BreadcrumbList`; missing facts are not fabricated |
-| Sitemap | PASS | `/sitemap.xml` HTTP 200, **5,786** URLs |
-| robots.txt | PASS STAGING | Staging blocks indexing; production candidate remains separate and unactivated |
-| RSS/feed continuity | PASS | `/feed/` HTTP 200; 50-item live feed sample |
-| Representative legacy routes | PASS | preserved-direct story, public story, page, one-hop alias and explicit 404 all exercised |
-| GA4 identity continuity | PASS WITH ACCOUNT EVIDENCE GAPS | tag/account/property/stream/measurement preserved; ownership/settings/history unresolved |
-| Staging Analytics isolation | PASS | staging external Google delivery disabled; consent defaults denied |
-| Protected Newsroom Analytics boundary | PASS | protected/internal fields excluded |
-| Versioned public event contract | PASS | 24 events, version `2026-09-09` |
-| Search Console | PASS FOR CONTINUITY / ACCOUNT EVIDENCE GAPS | property known; type/owners/history unresolved; no production mutation |
-| AdSense identity | PASS FOR CONTINUITY / ACCOUNT EVIDENCE GAPS | publisher/client/slot preserved; reporting/ownership/history unresolved |
-| ads.txt | PASS | verified seller identity retained |
-| app-ads.txt | PASS / MOBILE SELLER UNKNOWN | no unverified mobile seller ID invented |
-| HOSPAZ direct-ad continuity | PASS FOR PROVENANCE | AG-04 media UUIDs bound; 33005 source provenance remains distinct from placement usage; destination/schedule/conditions remain UNKNOWN |
-| Fabricated HOSPAZ client defaults | PASS REMEDIATED | invented destination/dates/approval/fixed-date seed removed |
-| Google Ads | EVIDENCE GAP | no active campaign/conversion truth invented |
-| WooCommerce historical relevance | PASS SOURCE CLASSIFICATION | 0 orders / 0 subscriptions / 0 payment tokens / 1 membership plan retained |
-| Historical metric provenance | PASS | provenance architecture retained; no historical metrics fabricated |
-| Citation/backlink architecture | READY / PROVIDER GAP | provider not connected; no backlink coverage invented |
-| Browser smoke | PASS | job `106576109129` |
-| Live completed-rehearsal runtime | PASS | job `106576109323`: **10 / 10 PASS**, including 375 / 430 / 1440 |
-| Migration/continuity tests | PASS | run `35673867068`: **59 / 59 PASS** |
-| Validate HealthTimes 2.0 | PASS | run `35673867000` |
-| CLS final retest | PASS | Lighthouse job `106576269521`; all tested CLS <= **0.10** |
-| AG-05 certification | PASS | run `35673864117` |
-| Exact-head Vercel preview | PASS | `dpl_6NQFyTGwuZudHg2BHvxA3xMGVxQB` READY |
-| Production systems untouched | PASS | WordPress/DNS/GA/Search Console/AdSense/Google Ads production settings unchanged |
+| CP3 authoritative public-object baseline | PASS | 5,737 posts + 49 pages = 5,786 |
+| AG-04 canonical URL handoff | PASS | 5,786 / 5,786 mappings; 5,786 distinct sources; all PRESERVE_DIRECTLY / HTTP 200 |
+| Active-rerun race protection | PASS | certification now waits for 5,786 mappings, 5,786 distinct sources and zero active AG-04 rehearsal runs |
+| Canonical/redirect policy | PASS | 5,786 canonical preserved-direct objects; 0 canonical redirects; 0 canonical exceptions; 0 homepage catch-alls |
+| Historical story aliases | PASS WITH EXPLICIT EXCEPTIONS | 341 deterministic one-hop aliases / 661 occurrences; 28 explicit 404 paths / 66 occurrences; no redirect chains |
+| Category/context destination policy | PASS FOR AG-05 ROUTING | 429 category occurrences across 36 exact source paths; imported-section-backed HTTP 200 noindex context routes |
+| Historical author aliases | EXPLICIT EVIDENCE GAP | 7 occurrences remain 404 until authoritative source alias evidence is supplied |
+| Source SEO metadata preservation | PASS WITH SOURCE SPARSITY | 2 source SEO titles; 1,973 source SEO descriptions; no plugin metadata invented |
+| Initial-HTML SEO | PASS ON CERTIFIED RUNTIME | story/page renderer emits title, permitted description fallback, canonical, robots, OG/Twitter, dates, author/section where real |
+| Structured data | PASS | NewsArticle, Article, Person when real, Organization, BreadcrumbList, CollectionPage |
+| Sitemap | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | guarded runtime HTTP 200 with 5,786 URLs; healthtimes-staging.vercel.app still HTTP 404 |
+| robots.txt | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | guarded runtime HTTP 200 and staging Disallow policy; primary alias still HTTP 404 |
+| RSS/feed | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | guarded runtime HTTP 200, 50-item sample; primary alias still HTTP 404 |
+| Representative legacy routes | PASS ON CERTIFIED RUNTIME / PRIMARY ALIAS RED | 13/13 live rehearsal tests green; primary alias still serves AG-02 404 shell |
+| HOSPAZ provenance binding | PASS | 32960, 32971, 33005 bound to migrated media identities; canonical storage objects exist |
+| HOSPAZ commercial fields | EVIDENCE GAP | destination, schedule, conditions remain UNKNOWN; no click target invented |
+| AG-04 media/content parity | OUTSIDE AG-05 / CP4 STILL NOT ACCEPTED | no AG-04 parity claim made; supplied CP4 blocker boundary preserved |
+| Migration tests | PASS | run 35685659947: 60 / 60 |
+| Validate HealthTimes 2.0 | PASS | run 35685659694 |
+| Browser smoke | PASS | job 106611789132 |
+| Live completed-rehearsal runtime | PASS | job 106611789406: 13 / 13 |
+| CLS / Lighthouse | PASS | job 106612369495; all tested CLS <= 0.10 |
+| AG-05 certification | PASS | run 35685656455 |
+| Exact-head Vercel preview | PASS | dpl_DiC5U13hXBfgotJo921KqoqoXPrq READY at runtime SHA 0ba7240d... |
+| Primary rehearsal alias | BLOCKED | healthtimes-staging.vercel.app remains on AG-02 SHA 4512b7d... and returns 404 for migrated routes, sitemap, robots and feed |
+| GA4 / Search Console / AdSense account proof | EVIDENCE GAP | ownership/settings/history unavailable; not fabricated |
+| Google Ads truth | EVIDENCE GAP | incomplete configuration; no campaign/conversion truth invented |
+| Production systems untouched | PASS | WordPress/DNS/GA/Search Console/AdSense/Google Ads production systems unchanged |
 
-### CP5 final Lighthouse retest
+### Post-AG04 Lighthouse retest
 
 | Page | Strategy | Score | LCP | CLS | INP |
 | --- | --- | ---: | ---: | ---: | --- |
-| Archive | Desktop | 99 | 1042 ms | 0.0026 | N/A in lab |
-| Archive | Mobile | 99 | 1959 ms | 0.0000 | N/A in lab |
-| Direct-ad preview | Desktop | 97 | 1293 ms | 0.0000 | N/A in lab |
-| Direct-ad preview | Mobile | 100 | 902 ms | 0.0000 | N/A in lab |
-| Home | Desktop | 95 | 1471 ms | 0.0546 | N/A in lab |
-| Home | Mobile | 90 | 3485 ms | 0.0011 | N/A in lab |
-| Migrated story | Desktop | 95 | 1454 ms | 0.0000 | N/A in lab |
-| Migrated story | Mobile | 83 | 4478 ms | 0.0000 | N/A in lab |
-| Premium | Desktop | 100 | 449 ms | 0.0000 | N/A in lab |
-| Premium | Mobile | 98 | 1979 ms | 0.0000 | N/A in lab |
+| Archive | Desktop | 98 | 1047 ms | 0.0026 | N/A in lab |
+| Archive | Mobile | 98 | 2029 ms | 0.0631 | N/A in lab |
+| Direct-ad preview | Desktop | 100 | 708 ms | 0.0000 | N/A in lab |
+| Direct-ad preview | Mobile | 100 | 1007 ms | 0.0000 | N/A in lab |
+| Home | Desktop | 92 | 1805 ms | 0.0561 | N/A in lab |
+| Home | Mobile | 89 | 3750 ms | 0.0000 | N/A in lab |
+| Migrated story | Desktop | 100 | 752 ms | 0.0000 | N/A in lab |
+| Migrated story | Mobile | 91 | 3469 ms | 0.0000 | N/A in lab |
+| Premium | Desktop | 100 | 449 ms | 0.0026 | N/A in lab |
+| Premium | Mobile | 98 | 1981 ms | 0.0000 | N/A in lab |
 
-Account-level Google/Search Console/AdSense evidence, Google Ads truth, citation-provider connectivity, HOSPAZ destination/schedule/placement conditions, and lab INP remain explicit downstream evidence gaps. They were not fabricated.
+INP was unavailable from the lab runs and is not fabricated.
 
-**CP5 ACCEPTED — SEO, authority, audience and monetization continuity are certified for downstream UAT**
+**CP5 NOT ACCEPTED — the implementation and exact runtime are certified, but the moderator-required primary HealthTimes Staging alias is still pinned to AG-02 and returns 404 for the required migrated routes and discovery artifacts.**
+
+Production systems modified: NO
