@@ -32,7 +32,13 @@ Staging Postgres/Auth/Storage/schema/RLS operations. Production Supabase remains
 Staging frontend/API deployment, environment separation, deployment health and pre-production hosting verification.
 
 ### RESEND / TRANSACTIONAL EMAIL
-Staging/sandbox email for staff invitations, verification and password recovery. Production sender/domain activation remains a later controlled step.
+Staging/sandbox email for staff invitations, verification, password recovery, transactional/system communications and application-managed replies. Production sender/domain activation remains a later controlled step.
+
+### CLOUDFLARE-EMAIL
+Staging/test mail-edge capability for inbound routing, Email Workers where used, WAF/rate limiting and DNS/mail-topology validation. Production MX/DNS/mail-routing writes remain locked until AG-08 owner authorization.
+
+### BREVO
+Staging/test audience-marketing capability for contact synchronization, segmentation, newsletters, campaigns, automation and marketing webhooks. Production audience sends remain prohibited before authorized production rollout.
 
 ### GOOGLE-READ
 Read-only access to Analytics, Search Console, AdSense, Site Kit-derived configuration, PageSpeed data and Google Ads status where available. No production configuration changes before authorized cutover tasks.
@@ -60,6 +66,7 @@ Registrar/Cloudflare/DNS write capability. Explicitly NOT allocated to REC-01 th
 | **AG-04 Rehearsal Content/Media/Taxonomy** | LOCAL-TERMINAL, GITHUB, SUPABASE staging, WORDPRESS-READ/source package, BROWSER-UAT | staging object-storage tooling | production import, WordPress writes, Google writes, DNS-CONTROL |
 | **AG-05 SEO/Analytics/Monetization** | GITHUB, VERCEL staging, SUPABASE staging, GOOGLE-READ, BROWSER-UAT | PageSpeed/structured-data validators, read-only AdSense/Search Console/Analytics APIs | production Google/AdSense changes, production sitemap submission, DNS-CONTROL |
 | **AG-06 Newsroom Backend/Auth/Security** | GITHUB, SUPABASE staging, VERCEL staging, RESEND sandbox, BROWSER-UAT | direct API/RLS/security test tooling | production staff accounts, production email/domain changes, production Auth, DNS-CONTROL |
+| **COM-01 Communications/Email/Distribution** | GITHUB, SUPABASE staging, VERCEL staging, RESEND staging/sandbox, CLOUDFLARE-EMAIL staging/test, BREVO staging/test, BROWSER-UAT | direct API/webhook/RLS/security tools; social-provider test adapters where verified | production MX/DNS/mail routing, production sender activation, production bulk marketing, browser-exposed provider secrets, DNS-CONTROL |
 | **AG-07 Integrated Certification/UAT** | GITHUB, BROWSER-UAT, read access to staging Vercel/Supabase, GOOGLE-READ, acceptance-ledger tooling | accessibility/performance scanners; client UAT package tools | implementation outside bounded fixes, production writes, DNS-CONTROL |
 | **AG-08 Production Cutover/Rollback** | GITHUB, production VERCEL/SUPABASE as approved, CLIENT-SECURE-TRANSFER, WORDPRESS read/final-export, **DNS-CONTROL**, production Google verification tools | RESEND production sender, monitoring/backup tooling | any action before explicit owner unlock; destructive WordPress decommission during rollback window |
 
@@ -77,8 +84,11 @@ AG-03 receives staging destination identifiers but does not need write authority
 ### AG-03 → AG-04/05/06
 AG-04 receives the secure source snapshot/manifests and staging write access needed for rehearsal import. AG-05 receives Google read-only identities/configuration and staging deployment access. AG-06 receives staging Auth/database/API/email-sandbox access.
 
-### AG-04/05/06 → AG-07
-AG-07 gets read/test access to the integrated staging candidate plus GitHub evidence. It does not receive production mutation privileges.
+### AG-04/05/06 → COM-01
+COM-01 receives accepted CP4 content authority, CP5 audience/analytics/monetization contracts and CP6 Auth/RBAC/session/audit foundations. It may add bounded staging communications schema/runtime/provider integrations without reopening accepted checkpoint ownership.
+
+### COM-01 → AG-07
+AG-07 starts only after COM-01 is moderator-accepted. AG-07 gets read/test access to the integrated staging candidate plus communications-provider evidence and the production DNS/email worksheet. It does not receive production mutation privileges.
 
 ### AG-07 → AG-08
 AG-08 remains locked until the owner explicitly authorizes production cutover after reviewing the CP7 receipt. Only then may production credentials, DNS write access and production deployment tools be supplied.
