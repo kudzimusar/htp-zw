@@ -20,7 +20,8 @@
     "test:identity-security": "node --test tests/identity-security.test.mjs",
     "test:native-certification": "node --test tests/native-certification.test.mjs",
     "test:source-parity": "node --test tests/source-parity.test.mjs",
-    "test:ca01-communications": "node --test tests/ca01-communications.test.mjs"
+    "test:ca01-communications": "node --test tests/ca01-communications.test.mjs",
+    "test:reader-state": "node --test tests/offline-state.test.mjs tests/persistence-migration.test.mjs tests/media-player.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
