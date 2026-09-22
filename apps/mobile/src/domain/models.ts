@@ -59,7 +59,6 @@ export type ArticleSummary = {
    * identities must leave this null so permanent discussion cannot attach to them.
    */
   canonicalStoryId: string | null;
-  canonicalStoryId: string | null;
   title: string;
   slug: string;
   standfirst: string | null;
@@ -226,59 +225,6 @@ export type PremiumRestoreResult = {
   reason: "restored" | "nothing-to-restore" | "configuration-required" | "unavailable";
 };
 
-export type ReaderCommentEligibility = {
-  status: "blocked" | "pre_moderated" | "allowed";
-  reason: string;
-  profileId: string | null;
-  publishedCommentCount: number;
-};
-
-export type ReaderStoryComment = {
-  id: string;
-  storyId: string;
-  parentCommentId: string | null;
-  displayName: string;
-  body: string;
-  publishedAt: string;
-  edited: boolean;
-};
-
-export type NewsroomInboxCategory =
-  | "general"
-  | "mention"
-  | "assignment"
-  | "review"
-  | "urgent"
-  | "announcement"
-  | "newsletter"
-  | "moderation";
-
-export type NewsroomInboxItem = {
-  id: string;
-  eventType: string;
-  targetTable: string | null;
-  targetId: string | null;
-  category: NewsroomInboxCategory;
-  priority: "normal" | "high" | "urgent";
-  payload: Record<string, unknown>;
-  readAt: string | null;
-  requiresAck: boolean;
-  acknowledgedAt: string | null;
-  archivedAt: string | null;
-  createdAt: string;
-};
-
-export type NewsroomInboxSummary = {
-  unreadTotal: number;
-  mentions: number;
-  assignments: number;
-  reviews: number;
-  urgent: number;
-  announcements: number;
-  moderation: number;
-  unacknowledged: number;
-};
-
 export type NotificationItem = {
   id: string;
   category: "breaking" | "live" | "topic" | "premium" | "system";
@@ -378,6 +324,7 @@ export type NewsroomInboxItem = {
   readAt: string | null;
   requiresAck: boolean;
   acknowledgedAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
 };
 
