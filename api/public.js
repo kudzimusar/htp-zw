@@ -1,6 +1,6 @@
 'use strict';
 
-const { renderStoryPage, renderSitemap, renderFeed, renderAdPreview } = require('../lib/ag05-public-runtime');
+const { renderStoryPage, renderContextPage, renderSitemap, renderFeed, renderAdPreview } = require('../lib/ag05-public-runtime');
 
 function config() {
   const url=(process.env.SUPABASE_URL || process.env.HEALTHTIMES_SUPABASE_URL || '').replace(/\/$/,'');
@@ -89,6 +89,18 @@ module.exports=async function handler(req,res){
     }
 
     const path=requestedPath(req,url);
+
+    if(/^\/(category|tag|author)\//i.test(path)){
+      const context=await rpc('ag05_public_context_document',{p_path:path});
+      if(context){
+        const html=renderContextPage(context);
+        res.setHeader('X-AG05-Resolution',String(context.routing_disposition||'context'));
+        return send(res,200,req.method==='HEAD'?'':html,'text/html; charset=utf-8','public, max-age=60, s-maxage=300');
+      }
+      res.setHeader('X-AG05-Resolution','context_alias_evidence_missing');
+      return send(res,404,req.method==='HEAD'?'':notFound(path),'text/html; charset=utf-8','public, max-age=60');
+    }
+
     const resolution=await rpc('ag05_resolve_public_path',{p_path:path});
     const status=Number(resolution?.http_status||404);
 
