@@ -3,6 +3,7 @@ import { Text, View, StyleSheet } from "react-native";
 import { StudioAccessGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
 import type { HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
+import { StudioInboxPanel } from "../../src/ui/StudioInbox";
 
 export function generateStaticParams() {
   return [
@@ -54,6 +55,7 @@ export default function StudioModule(){
   const content=(
     <>
       <StudioPlaceholder owner={config.owner} description={config.description} />
+      {String(module)==="inbox" && <StudioInboxPanel />}
       <View style={styles.readiness}>
         <Text style={styles.readinessTitle}>Implementation readiness</Text>
         {config.readiness.map((item)=><View style={styles.readinessRow} key={item}><View style={styles.dot} /><Text style={styles.readinessText}>{item}</Text></View>)}
