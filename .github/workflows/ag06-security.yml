@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in AG06_STAGING_SUPABASE_PUBLISHABLE_KEY AG06_REPORTER_EMAIL AG06_REPORTER_PASSWORD AG06_EDITOR_EMAIL AG06_EDITOR_PASSWORD AG06_COMMERCIAL_EMAIL AG06_COMMERCIAL_PASSWORD AG06_PUBLISHER_EMAIL AG06_PUBLISHER_PASSWORD; do
+          for name in AG06_REPORTER_EMAIL AG06_REPORTER_PASSWORD AG06_EDITOR_EMAIL AG06_EDITOR_PASSWORD AG06_COMMERCIAL_EMAIL AG06_COMMERCIAL_PASSWORD AG06_PUBLISHER_EMAIL AG06_PUBLISHER_PASSWORD; do
             test -n "${!name:-}" || { echo "Missing required staging secret: $name"; exit 1; }
           done
           [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
