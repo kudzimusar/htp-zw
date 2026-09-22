@@ -339,3 +339,70 @@ export type NewsroomInboxSummary = {
   moderation: number;
   unacknowledged: number;
 };
+
+
+export type NewsroomInternalComment = {
+  id: string;
+  storyId: string;
+  authorStaffId: string;
+  body: string;
+  parentCommentId: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+};
+
+export type NewsroomDesk = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  archivedAt: string | null;
+};
+
+export type NewsroomThread = {
+  id: string;
+  threadType: "assignment" | "desk" | "breaking" | "general";
+  title: string;
+  assignmentId: string | null;
+  deskId: string | null;
+  priority: "normal" | "high" | "urgent";
+  status: "open" | "closed" | "archived";
+  expiresAt: string | null;
+  updatedAt: string;
+};
+
+export type NewsroomMessage = {
+  id: string;
+  threadId: string;
+  authorStaffId: string;
+  parentMessageId: string | null;
+  body: string;
+  createdAt: string;
+};
+
+export type NewsroomAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  audienceScope: "all_staff" | "desk";
+  deskId: string | null;
+  priority: "normal" | "high" | "urgent";
+  requiresAck: boolean;
+  publishedAt: string;
+  expiresAt: string | null;
+};
+
+export type ReaderCommentModerationItem = {
+  id: string;
+  storyId: string;
+  authorProfileId: string;
+  parentCommentId: string | null;
+  body: string;
+  state: "PENDING" | "PUBLISHED" | "HELD" | "REJECTED" | "HIDDEN" | "REMOVED";
+  riskFlags: string[];
+  createdAt: string;
+  editedAt: string | null;
+  publishedAt: string | null;
+};
