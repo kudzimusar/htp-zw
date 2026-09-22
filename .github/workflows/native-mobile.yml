@@ -62,9 +62,12 @@ jobs:
         run: |
           npm --prefix apps/mobile run test:reader-product
           npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:reader-state
 
       - name: Run NM-05 growth commercial safety tests
-        run: npm --prefix apps/mobile run test:growth-commercial
+        run: |
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:deep-links
 
       - name: Run NM-06 identity and Studio security tests
         run: npm --prefix apps/mobile run test:identity-security
