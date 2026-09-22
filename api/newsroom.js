@@ -265,7 +265,7 @@ async function bootstrap(token, req) {
     audit: 'audit_logs?select=' + encodeSelect('id,actor_staff_id,action,target_table,target_id,metadata,created_at') + '&order=created_at.desc&limit=200',
     sessions: 'newsroom_sessions?select=' + encodeSelect('id,staff_profile_id,provider_session_id,user_agent,created_at,last_seen_at,revoked_at,revoked_by') + '&order=last_seen_at.desc&limit=200',
     desks: 'newsroom_desks?select=' + encodeSelect('id,key,name,description,created_by,created_at,updated_at,archived_at') + '&order=name.asc',
-    deskMembers: 'newsroom_desk_members?select=' + encodeSelect('desk_id,staff_profile_id,member_role,joined_at,left_at,last_read_at') + '&order=joined_at.asc',
+    deskMembers: 'newsroom_desk_members?select=' + encodeSelect('desk_id,staff_profile_id,member_role,joined_at,left_at') + '&order=joined_at.asc',
     threads: 'newsroom_threads?select=' + encodeSelect('id,thread_type,title,assignment_id,desk_id,created_by,priority,status,opened_at,closed_at,expires_at,created_at,updated_at') + '&order=updated_at.desc&limit=200',
     threadMembers: 'newsroom_thread_members?select=' + encodeSelect('thread_id,staff_profile_id,member_role,joined_at,left_at,last_read_at') + '&order=joined_at.asc&limit=500',
     messages: 'newsroom_messages?select=' + encodeSelect('id,thread_id,author_staff_id,parent_message_id,body,created_at') + '&order=created_at.asc&limit=500',
