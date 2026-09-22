@@ -142,7 +142,10 @@ jobs:
           code="$(curl --silent --show-error -o /tmp/ca01-provision.json -w '%{http_code}' -X POST "$CA01_STAGING_SUPABASE_URL/functions/v1/ca01-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
           cat /tmp/ca01-provision.json
           [[ "$code" == "200" ]] || { echo "CA-01 staging identity provisioning failed with HTTP $code."; exit 1; }
-          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));if(!v.ok||v.project_ref!=="gcdohgbmqhqwydgaxrcr"||v.staff?.length!==5||v.readers?.length!==4)process.exit(1);'
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));if(!v.ok||v.project_ref!=="gcdohgbmqhqwydgaxrcr"||v.staff?.length!==5||v.readers?.length!==4||!v.test_story?.id)process.exit(1);'
+          echo "CA01_TEST_STORY_ID=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.id)')" >> "$GITHUB_ENV"
+          echo "CA01_TEST_STORY_SLUG=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.slug||"")')" >> "$GITHUB_ENV"
+          echo "CA01_TEST_STORY_ORIGINAL_COMMENT_POLICY=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.original_comment_policy||"disabled")')" >> "$GITHUB_ENV"
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - name: Start exact-branch CA-01 gateway
@@ -184,9 +187,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          story_id=""
+          story_id="${CA01_TEST_STORY_ID:-}"
           if [[ -f /tmp/ca01-live-evidence.json ]]; then
-            story_id="$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-live-evidence.json","utf8"));process.stdout.write(v.story_id||"")')"
+            evidence_story="$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-live-evidence.json","utf8"));process.stdout.write(v.story_id||"")')"
+            [[ -n "$evidence_story" ]] && story_id="$evidence_story"
           fi
           oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ca01-certification"
           oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
