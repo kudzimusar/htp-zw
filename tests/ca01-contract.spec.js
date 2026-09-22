@@ -51,13 +51,20 @@ test.describe('CA-01 implementation contract',()=>{
     expect(api).toContain("attachmentDownload");
   });
 
-  test('Realtime is private policy transport and does not grant client broadcast writes',()=>{
+  test('Realtime is private policy transport with minimal server-side event hints',()=>{
     const realtime=read('supabase/migrations/20260922140500_ca01_realtime_authorization.sql');
+    const emission=read('supabase/migrations/20260922140900_ca01_realtime_event_emission.sql');
     expect(realtime).toContain('newsroom_can_join_realtime_topic');
     expect(realtime).toContain('reader_can_join_comment_topic');
     expect(realtime).toContain("realtime.messages.extension='broadcast'");
     expect(realtime).toContain("realtime.messages.extension='presence'");
     expect(realtime).not.toMatch(/create policy\s+ca01_[^\n]*broadcast[^\n]*\n[\s\S]{0,160}for insert/i);
+    expect(emission).toContain('realtime.send');
+    expect(emission).toContain("'newsroom:story:'");
+    expect(emission).toContain("'newsroom:thread:'");
+    expect(emission).toContain("'newsroom:inbox:'");
+    expect(emission).toContain("'reader:story-comments:'");
+    expect(emission).not.toMatch(/jsonb_build_object\([\s\S]{0,400}'body'/i);
   });
 
   test('Newsroom Inbox uses durable server rows, not fixture notifications',()=>{
