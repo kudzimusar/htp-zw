@@ -26,6 +26,7 @@ import type {
   NewsroomThread,
   NewsroomMessage,
   NewsroomAnnouncement,
+  NewsroomAssignment,
   ReaderCommentModerationItem,
   PublicationProfile,
   PremiumStoreState,
