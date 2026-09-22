@@ -65,7 +65,7 @@ html[data-theme="dark"] .v21-ad-sponsored{background:var(--v21-card);color:var(-
   body[data-page="article"] #article-mount{min-height:1250px}
 }
 .ag05-server-header{min-height:72px}
-.ag05-reserved-media{aspect-ratio:16/9;min-height:220px}
+.ag05-reserved-media{aspect-ratio:16/9}
 .ag05-reserved-media img{width:100%;height:100%;object-fit:cover}
 
 
