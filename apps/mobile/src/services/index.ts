@@ -4,7 +4,7 @@ import { fixtureServices } from "./fixtures";
 import { sourceParityServices } from "./source-parity";
 import { stagingAuthService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
-import { stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
+import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
 
 export const serviceMode = editorialDataMode;
 
@@ -31,6 +31,7 @@ function buildServices(): HealthTimesServices {
       deviceSecurity: stagingDeviceSecurityService,
       readerDiscussion: stagingReaderDiscussionService,
       newsroomCommunication: stagingNewsroomCommunicationService,
+      commentModeration: stagingCommentModerationService,
       platform: stagingPlatformService
     };
   }
