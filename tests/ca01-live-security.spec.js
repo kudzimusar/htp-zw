@@ -68,11 +68,22 @@ async function rawStaff(kind){
 async function rpc(headers,name,args={}){
   return fetch(supabaseURL+'/rest/v1/rpc/'+name,{method:'POST',headers,body:JSON.stringify(args)});
 }
+let localGatewayContext=null;
+async function localGateway(){
+  if(!localGatewayContext){
+    localGatewayContext=await request.newContext({
+      baseURL,
+      ignoreHTTPSErrors:true,
+      extraHTTPHeaders:{Origin:baseURL}
+    });
+  }
+  return localGatewayContext;
+}
 async function discussionPost(token,action,payload={}){
-  return fetch(baseURL+'/api/discussion',{
-    method:'POST',
-    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Origin:baseURL},
-    body:JSON.stringify({action,...payload})
+  const ctx=await localGateway();
+  return ctx.post('/api/discussion',{
+    headers:{Authorization:'Bearer '+token},
+    data:{action,...payload}
   });
 }
 
@@ -246,9 +257,9 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     const tempSubmit=await discussionPost(authorReader.session.access_token,'submitComment',{storyId:tempId,comment:'Temporary ID must never persist.'});
     expect([400,403,404]).toContain(statusOf(tempSubmit));
 
-    const anonymousSubmit=await fetch(baseURL+'/api/discussion',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'submitComment',storyId,comment:'Anonymous attempt'})
+    const local=await localGateway();
+    const anonymousSubmit=await local.post('/api/discussion',{
+      data:{action:'submitComment',storyId,comment:'Anonymous attempt'}
     });
     expect(statusOf(anonymousSubmit)).toBe(401);
 
@@ -267,7 +278,7 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     });
     expect(statusOf(published)).toBe(200);
 
-    const publicDiscussion=await fetch(baseURL+'/api/discussion?storyId='+encodeURIComponent(storyId));
+    const publicDiscussion=await local.get('/api/discussion?storyId='+encodeURIComponent(storyId));
     expect(statusOf(publicDiscussion)).toBe(200);
     const publicBody=await publicDiscussion.json();
     const publicComment=publicBody.rows.find(c=>c.id===commentId);
@@ -360,5 +371,6 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     console.log('CA01_LIVE_EVIDENCE',JSON.stringify(evidence));
 
     await Promise.all([reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose(),publisher.ctx.dispose(),health.ctx.dispose()]);
+    if(localGatewayContext) await localGatewayContext.dispose();
   });
 });
