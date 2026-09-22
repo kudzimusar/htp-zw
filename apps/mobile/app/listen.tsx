@@ -7,6 +7,7 @@ import { useAsync } from "../src/hooks/useAsync";
 import { radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 import { useReaderAudioPlayer, verifiedAudioSource } from "../src/reader/media-player";
+import { event } from "../src/growth/events";
 import { useReaderConnectivity } from "../src/reader/offline-state";
 import type { AudioItem } from "../src/domain/models";
 
@@ -24,7 +25,21 @@ export default function ListenScreen(){
   const [libraryVersion,setLibraryVersion]=useState(0);
   const audio=useAsync(()=>services.audio.list(),[]);
   const savedAudioIds=useAsync(()=>services.reader.getSavedMediaIds("audio"),[libraryVersion]);
-  const player=useReaderAudioPlayer();
+  const player=useReaderAudioPlayer({
+    onLifecycleEvent:(lifecycle)=>{
+      const parameters = lifecycle.type==="listen_completed"
+        ? {
+            media_id:lifecycle.itemId,
+            duration_seconds:lifecycle.durationSeconds ?? 0,
+            elapsed_seconds:lifecycle.elapsedSeconds
+          }
+        : {
+            media_id:lifecycle.itemId,
+            duration_seconds:lifecycle.durationSeconds ?? 0
+          };
+      void services.analytics.track(event(lifecycle.type,parameters,{pagePath:"/listen"}));
+    }
+  });
   const featured=audio.data?.[0];
   const current=audio.data?.find((item)=>item.id===player.state.currentItemId) ?? featured ?? null;
   const progress=(player.state.durationSeconds&&player.state.durationSeconds>0)
