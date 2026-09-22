@@ -63,7 +63,7 @@ export default function StudioModule(){
     <>
       <StudioPlaceholder owner={config.owner} description={config.description} />
       {String(module)==="inbox" && <StudioInboxPanel />}
-      {String(module)==="desks" && (deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
+      {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}
       <View style={styles.readiness}>
