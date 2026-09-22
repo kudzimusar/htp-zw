@@ -58,6 +58,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
   test.skip(!configured,'Requires HealthTimes Staging URL/publishable key and four staging-only role accounts.');
 
   test('anonymous, Reporter, Commercial, Editor and Publisher boundaries hold below the UI',async()=>{
+    test.setTimeout(120_000);
     const anonymous=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
     expect(statusOf(anonBootstrap)).toBe(401);
