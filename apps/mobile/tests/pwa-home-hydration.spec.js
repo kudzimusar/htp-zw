@@ -1,13 +1,10 @@
-const { test, expect } = require("@playwright/test");
+const { chromium } = require("@playwright/test");
 const http = require("node:http");
 const { readFile, stat } = require("node:fs/promises");
 const { extname, join, normalize, resolve } = require("node:path");
 
 const distRoot=resolve(__dirname,"../dist");
 const basePath="/htp-zw";
-let server;
-let origin;
-
 const contentTypes={
   ".html":"text/html; charset=utf-8",
   ".js":"text/javascript; charset=utf-8",
@@ -37,78 +34,95 @@ async function resolveFile(pathname){
   }catch{}
 
   if(!extname(candidate)){
-    try{
-      const htmlCandidate=candidate+".html";
-      await stat(htmlCandidate);
-      return htmlCandidate;
-    }catch{}
-    try{
-      const indexCandidate=join(candidate,"index.html");
-      await stat(indexCandidate);
-      return indexCandidate;
-    }catch{}
+    for(const fallback of [candidate+".html",join(candidate,"index.html")]){
+      try{
+        await stat(fallback);
+        return fallback;
+      }catch{}
+    }
   }
   return null;
 }
 
-test.beforeAll(async()=>{
-  server=http.createServer(async(req,res)=>{
-    try{
-      const url=new URL(req.url || "/", "http://127.0.0.1");
-      const file=await resolveFile(url.pathname);
-      if(!file){
-        res.writeHead(404,{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"});
-        res.end("Not found");
-        return;
+function assert(condition,message){
+  if(!condition) throw new Error(message);
+}
+
+async function main(){
+  let server;
+  let browser;
+  try{
+    server=http.createServer(async(req,res)=>{
+      try{
+        const url=new URL(req.url || "/", "http://127.0.0.1");
+        const file=await resolveFile(url.pathname);
+        if(!file){
+          res.writeHead(404,{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"});
+          res.end("Not found");
+          return;
+        }
+        const body=await readFile(file);
+        res.writeHead(200,{
+          "content-type":contentTypes[extname(file)] || "application/octet-stream",
+          "cache-control":"no-store"
+        });
+        res.end(body);
+      }catch(error){
+        res.writeHead(500,{"content-type":"text/plain; charset=utf-8"});
+        res.end(String(error));
       }
-      const body=await readFile(file);
-      res.writeHead(200,{
-        "content-type":contentTypes[extname(file)] || "application/octet-stream",
-        "cache-control":"no-store"
-      });
-      res.end(body);
-    }catch(error){
-      res.writeHead(500,{"content-type":"text/plain; charset=utf-8"});
-      res.end(String(error));
-    }
-  });
-  await new Promise((resolveReady)=>server.listen(0,"127.0.0.1",resolveReady));
-  const address=server.address();
-  origin="http://127.0.0.1:"+address.port;
-});
+    });
 
-test.afterAll(async()=>{
-  if(server) await new Promise((resolveClose,reject)=>server.close((error)=>error?reject(error):resolveClose()));
-});
+    await new Promise((resolveReady)=>server.listen(0,"127.0.0.1",resolveReady));
+    const address=server.address();
+    const origin="http://127.0.0.1:"+address.port;
 
-test.use({ serviceWorkers:"block" });
+    browser=await chromium.launch({headless:true});
+    const context=await browser.newContext({serviceWorkers:"block"});
+    const page=await context.newPage();
+    const hookFailures=[];
+    let sourceRequests=0;
 
-test("Home survives loading to loaded hydration after an async source transition",async({page})=>{
-  const hookFailures=[];
-  let sourceRequests=0;
+    page.on("pageerror",(error)=>{
+      if(/hook|rendered more|rendered fewer/i.test(error.message)) hookFailures.push(error.message);
+    });
+    page.on("console",(message)=>{
+      const text=message.text();
+      if(message.type()==="error" && /rendered more hooks|rendered fewer hooks|change in the order of hooks/i.test(text)){
+        hookFailures.push(text);
+      }
+    });
 
-  page.on("pageerror",(error)=>{
-    if(/hook|rendered more|rendered fewer/i.test(error.message)) hookFailures.push(error.message);
-  });
-  page.on("console",(message)=>{
-    const text=message.text();
-    if(message.type()==="error" && /rendered more hooks|rendered fewer hooks|change in the order of hooks/i.test(text)){
-      hookFailures.push(text);
-    }
-  });
+    await page.route("https://healthtimes.co.zw/wp-json/**",async(route)=>{
+      sourceRequests+=1;
+      await new Promise((resolveDelay)=>setTimeout(resolveDelay,900));
+      await route.abort("failed");
+    });
 
-  await page.route("https://healthtimes.co.zw/wp-json/**",async(route)=>{
-    sourceRequests+=1;
-    await new Promise((resolveDelay)=>setTimeout(resolveDelay,900));
-    await route.abort("failed");
-  });
+    await page.goto(origin+basePath+"/",{waitUntil:"domcontentloaded"});
 
-  await page.goto(origin+basePath+"/",{waitUntil:"domcontentloaded"});
+    const loading=page.getByText("Loading Home…",{exact:true});
+    await loading.waitFor({state:"visible",timeout:5000});
 
-  await expect(page.getByText("Loading Home…",{exact:true})).toBeVisible({timeout:5000});
-  await expect(page.getByText("Top Stories",{exact:true})).toBeVisible({timeout:15000});
-  await expect(page.getByText("Loading Home…",{exact:true})).toHaveCount(0);
+    const topStories=page.getByText("Top Stories",{exact:true});
+    await topStories.waitFor({state:"visible",timeout:15000});
+    await loading.waitFor({state:"detached",timeout:5000});
 
-  expect(sourceRequests).toBeGreaterThan(0);
-  expect(hookFailures).toEqual([]);
+    assert(sourceRequests>0,"Expected the browser to exercise the delayed WordPress Source Parity request.");
+    assert(hookFailures.length===0,"React hook-order failure detected: "+hookFailures.join(" | "));
+
+    console.log("Home hydration transition: PASS");
+    console.log("Observed loading state: PASS");
+    console.log("Observed loaded Home state: PASS");
+    console.log("WordPress request delayed then failed closed to source snapshot: PASS");
+    console.log("React hook-order runtime errors: 0");
+  }finally{
+    if(browser) await browser.close();
+    if(server) await new Promise((resolveClose,reject)=>server.close((error)=>error?reject(error):resolveClose()));
+  }
+}
+
+main().catch((error)=>{
+  console.error(error);
+  process.exitCode=1;
 });
