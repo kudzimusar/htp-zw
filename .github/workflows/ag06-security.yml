@@ -82,8 +82,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      AG06_STAGING_BASE_URL: ${{ secrets.AG06_STAGING_BASE_URL }}
-      AG06_STAGING_SUPABASE_URL: ${{ secrets.AG06_STAGING_SUPABASE_URL }}
+      AG06_STAGING_BASE_URL: https://healthtimes-staging.vercel.app
+      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
       AG06_REPORTER_EMAIL: ${{ secrets.AG06_REPORTER_EMAIL }}
       AG06_REPORTER_PASSWORD: ${{ secrets.AG06_REPORTER_PASSWORD }}
@@ -93,7 +93,7 @@ jobs:
       AG06_COMMERCIAL_PASSWORD: ${{ secrets.AG06_COMMERCIAL_PASSWORD }}
       AG06_PUBLISHER_EMAIL: ${{ secrets.AG06_PUBLISHER_EMAIL }}
       AG06_PUBLISHER_PASSWORD: ${{ secrets.AG06_PUBLISHER_PASSWORD }}
-      PLAYWRIGHT_BASE_URL: ${{ secrets.AG06_STAGING_BASE_URL }}
+      PLAYWRIGHT_BASE_URL: https://healthtimes-staging.vercel.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in AG06_STAGING_BASE_URL AG06_STAGING_SUPABASE_URL AG06_STAGING_SUPABASE_PUBLISHABLE_KEY AG06_REPORTER_EMAIL AG06_REPORTER_PASSWORD AG06_EDITOR_EMAIL AG06_EDITOR_PASSWORD AG06_COMMERCIAL_EMAIL AG06_COMMERCIAL_PASSWORD AG06_PUBLISHER_EMAIL AG06_PUBLISHER_PASSWORD; do
+          for name in AG06_STAGING_SUPABASE_PUBLISHABLE_KEY AG06_REPORTER_EMAIL AG06_REPORTER_PASSWORD AG06_EDITOR_EMAIL AG06_EDITOR_PASSWORD AG06_COMMERCIAL_EMAIL AG06_COMMERCIAL_PASSWORD AG06_PUBLISHER_EMAIL AG06_PUBLISHER_PASSWORD; do
             test -n "${!name:-}" || { echo "Missing required staging secret: $name"; exit 1; }
           done
           [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
