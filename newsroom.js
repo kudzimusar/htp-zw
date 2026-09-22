@@ -73,7 +73,8 @@
     'Analyst':[CAP.ANALYTICS]
   };
 
-  // Demo credential fixtures removed: real staging staff authenticate through Supabase Auth.\n  const DESKS=['Global Health','Africa','Southern Africa','East Africa','West Africa','Central Africa','North Africa','Zimbabwe','Research','Policy','Investigations','Health Business','Audience','Commercial'];
+  // Demo credential fixtures removed: real staging staff authenticate through Supabase Auth.
+  const DESKS=['Global Health','Africa','Southern Africa','East Africa','West Africa','Central Africa','North Africa','Zimbabwe','Research','Policy','Investigations','Health Business','Audience','Commercial'];
   const REGIONS=['Global','Africa','Southern Africa','East Africa','West Africa','Central Africa','North Africa','Zimbabwe'];
   const WORKFLOW=['Pitch','Approved','Assigned','Reporting','Draft','Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready','Scheduled','Published','Updated / Corrected','Archived'];
   const titleToId={
