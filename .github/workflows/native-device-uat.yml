@@ -198,13 +198,17 @@ jobs:
       - name: Provision Android emulator
         shell: bash
         run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
           DEVICE_PROFILE="pixel_6"
           if [ "${{ matrix.family }}" = "tablet" ]; then
             DEVICE_PROFILE="pixel_c"
           fi
-          echo no | avdmanager create avd --force --name nm07 --package "system-images;android-35;google_apis;x86_64" --device "$DEVICE_PROFILE"
+          echo no | "$AVDMANAGER" create avd --force --name nm07 --package "system-images;android-35;google_apis;x86_64" --device "$DEVICE_PROFILE"
           sudo chmod 666 /dev/kvm || true
           "$ANDROID_HOME/emulator/emulator" -avd nm07 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/emulator.log" 2>&1 &
           adb wait-for-device
