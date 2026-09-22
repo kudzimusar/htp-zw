@@ -98,6 +98,7 @@ export default function ArticleScreen(){
   const cachedState=offlineRecord.data ? compareSourceFreshness(offlineRecord.data,repositoryArticle?.modifiedAt ?? null) : "not-downloaded";
   const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
   const blocks=parseArticleContent(story.bodyHtml,story.canonicalUrl);
+  const midBodyAdIndex=blocks.length>=4 ? Math.floor(blocks.length/2) : -1;
   const desktop=width >= breakpoints.desktop;
   const publishedLabel=formatArticleTime(story.publishedAt);
   const modifiedLabel=formatArticleTime(story.modifiedAt);
@@ -277,6 +278,11 @@ export default function ArticleScreen(){
                   {index===0 && (
                     <View style={styles.inlineAd}>
                       <AdSlot placement="article_after_intro" />
+                    </View>
+                  )}
+                  {index===midBodyAdIndex && (
+                    <View style={styles.inlineAd}>
+                      <AdSlot placement="article_mid_body" />
                     </View>
                   )}
                 </View>
