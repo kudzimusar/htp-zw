@@ -23,9 +23,9 @@ Accepted AG-04 URL handoff:
 
 AG-04 body links that already match these canonical public paths remain unchanged.
 
-## Current unmapped absolute HealthTimes occurrences
+## Absolute HealthTimes link occurrence accounting
 
-AG-04 measured **1,191** occurrences outside the canonical 5,786-object map:
+At handoff `a600a680...`, AG-04 measured **5,667** absolute HealthTimes occurrences: **4,476** already mapped and **1,191** outside the canonical 5,786-object map:
 
 | Class | Occurrences | AG-05 destination policy |
 | --- | ---: | --- |
@@ -37,6 +37,23 @@ AG-04 measured **1,191** occurrences outside the canonical 5,786-object map:
 | Historical / malformed | 68 | **EXPLICIT EXCEPTION / 404** unless independently mapped by deterministic source evidence |
 
 No class may be redirected to the homepage as a fallback.
+
+### Post-rerun reconciliation
+
+After the subsequent AG-04 rehearsal run completed at **2026-09-22 04:09:31 UTC**, AG-05 measured the current migrated bodies as:
+
+- absolute HealthTimes occurrences: **5,662**
+- canonically mapped: **4,473** / **2,325** distinct paths
+- unique imported-story aliases: **661** / **341** paths
+- category archives: **429** / **36** paths
+- home: **25** / **1** path
+- author archives: **7** / **2** paths
+- tag archives: **1** / **1** path
+- historical/malformed: **66** / **28** paths
+- current non-canonical total: **1,189**
+
+The five-occurrence delta from the handoff total is retained as a post-rerun body-state change. AG-05 does not invent destinations merely to reproduce the earlier count.
+
 
 ## Deterministic story aliases
 
@@ -124,7 +141,7 @@ Exact current imported-author slug routes may render as noindex author context p
 
 ## Historical / malformed paths
 
-The remaining **68** occurrences are not silently rewritten.
+At handoff AG-04 reported **68** occurrences. The completed post-rerun corpus contains **66** occurrences across **28** distinct paths. They are not silently rewritten.
 
 Disposition:
 
@@ -140,7 +157,7 @@ A path may move out of this class only with deterministic source evidence establ
 
 This link-destination contract does not certify AG-04 media parity.
 
-AG-04 remains authoritative for:
+At handoff `a600a680...`, AG-04 remained authoritative for:
 
 - 46 canonical media-object gaps;
 - 41 media-usage-linked missing objects;
@@ -149,6 +166,8 @@ AG-04 remains authoritative for:
 - 670 unresolved occurrences after safe repair rules;
 - source-package missing attachments `29309` and `29314`;
 - zero-byte and PHP exclusions.
+
+The subsequent AG-04 rerun is not reclassified here as CP4 acceptance. AG-04 remains authoritative for final media/content-parity certification.
 
 AG-05 routing must tolerate missing media explicitly and must not fabricate valid asset URLs.
 

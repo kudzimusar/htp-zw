@@ -165,14 +165,30 @@ Current deterministic story-link audit:
 - redirect-chain candidates: 0
 - homepage catch-all aliases: 0
 
-AG-04's separately reported unmapped absolute-link classes are assigned as follows:
+AG-04 handoff `a600a680...` originally reported **5,667** absolute HealthTimes link occurrences: **4,476** already mapped and **1,191** unmapped.
 
-- 661 unique-story-slug occurrences → canonical story destination / one-hop compatibility 301
-- 429 category occurrences across 36 distinct source paths → preserved context route, HTTP 200, noindex,follow
-- 25 home occurrences → /
-- 1 tag occurrence → preserved legacy context, HTTP 200, noindex,follow
-- 7 historical author occurrences → explicit exception until authoritative author-alias evidence exists
-- 68 historical/malformed occurrences → explicit exception / 404 unless deterministic source evidence supplies a destination
+After the completed AG-04 rerun, AG-05 remeasured the current bodies:
+
+- canonically mapped: **4,473** occurrences / **2,325** distinct paths
+- unique-story-slug aliases: **661** / **341** paths
+- category archives: **429** / **36** paths
+- home: **25** / **1** path
+- historical author archives: **7** / **2** paths
+- tag archive: **1** / **1** path
+- historical/malformed: **66** / **28** paths
+
+Current absolute total: **5,662**. Current non-canonical total: **1,189**.
+
+The five-occurrence delta from the earlier AG-04 handoff is preserved as a post-rerun body-state change; AG-05 does not invent destinations to force the old count.
+
+Destination policy remains:
+
+- unique story slug → canonical story destination / one-hop compatibility 301
+- category context → exact preserved source context route, HTTP 200, `noindex,follow`
+- home → `/`
+- legacy tag context → HTTP 200, `noindex,follow`
+- historical author alias → explicit exception until authoritative alias evidence exists
+- historical/malformed → explicit 404 unless deterministic source evidence supplies a destination
 
 Every one of the 36 observed category paths has a final category slug matching exactly one imported section identity, including nested historical paths. No display-name-only inference is used.
 
