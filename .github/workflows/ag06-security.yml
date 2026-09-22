@@ -87,10 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      AG06_STAGING_BASE_URL: http://localhost:4173
+      AG06_STAGING_BASE_URL: https://localhost:4173
       AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-      PLAYWRIGHT_BASE_URL: http://localhost:4173
+      PLAYWRIGHT_BASE_URL: https://localhost:4173
       SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
     steps:
@@ -143,10 +143,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/ag06/newsroom-test-server.js > /tmp/ag06-newsroom-server.log 2>&1 &
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes             -keyout /tmp/ag06-local.key             -out /tmp/ag06-local.crt             -days 1             -subj '/CN=localhost'             -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+          AG06_TEST_TLS_KEY=/tmp/ag06-local.key           AG06_TEST_TLS_CERT=/tmp/ag06-local.crt             node scripts/ag06/newsroom-test-server.js > /tmp/ag06-newsroom-server.log 2>&1 &
           echo $! > /tmp/ag06-newsroom-server.pid
           for attempt in $(seq 1 30); do
-            if curl --silent --fail http://localhost:4173/newsroom.html >/dev/null; then
+            if curl --silent --insecure --fail https://localhost:4173/newsroom.html >/dev/null; then
               echo "AG06_EXACT_BRANCH_GATEWAY_READY"
               exit 0
             fi
