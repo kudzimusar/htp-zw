@@ -10,6 +10,7 @@ import { hasServerCapability, type HealthTimesCapability } from "../security/cap
 const modules=[
   ["Today","/studio"],
   ["Inbox","/studio/inbox"],
+  ["Assignments","/studio/assignments"],
   ["Stories","/studio/stories"],
   ["Create / Edit","/studio/create-edit"],
   ["Live Desk","/studio/live-desk"],
