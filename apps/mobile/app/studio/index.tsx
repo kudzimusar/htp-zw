@@ -7,6 +7,7 @@ import { useAsync } from "../../src/hooks/useAsync";
 
 const actions=[
   ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"],
+  ["Assignments","assignments","Authoritative assignments with typed coordination discussions"],
   ["Stories","stories","Draft, review, assignment and publication workflows"],
   ["Create / Edit","create-edit","Server-authorized story creation and editing"],
   ["Live Desk","live-desk","Live blogs, streams and scheduled events"],
