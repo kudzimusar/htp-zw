@@ -11,38 +11,81 @@ export type ShareChannel =
   | "copy";
 
 const allowedHosts = new Set(["healthtimes.co.zw", "www.healthtimes.co.zw"]);
+const articleIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
+const articleSlugPattern = /^[a-z0-9][a-z0-9-]{0,199}$/i;
+const reservedWebPaths = new Set([
+  "about",
+  "contact",
+  "premium",
+  "search",
+  "author",
+  "authors",
+  "category",
+  "tag",
+  "wp-admin",
+  "wp-json",
+  "feed"
+]);
+
+export function normalizeArticleIdentifier(value: string | null | undefined) {
+  const candidate = value?.trim() ?? "";
+  return articleIdPattern.test(candidate) ? candidate : null;
+}
+
+export function normalizeArticleSlug(value: string | null | undefined) {
+  const candidate = value?.trim().replace(/^\/+|\/+$/g, "") ?? "";
+  if (!articleSlugPattern.test(candidate) || reservedWebPaths.has(candidate.toLowerCase())) {
+    return null;
+  }
+  return candidate;
+}
 
 export function articleDeepLink(articleId: string) {
-  return Linking.createURL("article/" + encodeURIComponent(articleId));
+  const safeId = normalizeArticleIdentifier(articleId);
+  if (!safeId) throw new Error("Invalid article identifier for native deep link.");
+  return Linking.createURL("article/" + encodeURIComponent(safeId));
 }
 
 export function canonicalArticleUrl(article: ArticleSummary) {
-  return "https://healthtimes.co.zw/" + encodeURIComponent(article.slug) + "/";
+  const slug = normalizeArticleSlug(article.slug);
+  if (!slug) throw new Error("Invalid canonical HealthTimes article slug.");
+  return "https://healthtimes.co.zw/" + encodeURIComponent(slug) + "/";
 }
 
 export function attributedShareUrl(article: ArticleSummary, channel: ShareChannel) {
   const url = new URL(canonicalArticleUrl(article));
-  url.searchParams.set("ht_article_id", article.id);
+  const articleId = normalizeArticleIdentifier(article.id);
+  if (articleId) url.searchParams.set("ht_article_id", articleId);
   url.searchParams.set("utm_source", "healthtimes_share");
   url.searchParams.set("utm_medium", channel);
   url.searchParams.set("utm_campaign", "organic_share");
   return url.toString();
 }
 
-export function parseHealthTimesDeepLink(url: string) {
+export type HealthTimesDeepLink =
+  | { type: "article"; articleId: string }
+  | { type: "article-slug"; articleSlug: string };
+
+export function parseHealthTimesDeepLink(url: string): HealthTimesDeepLink | null {
   const parsed = Linking.parse(url);
   const path = parsed.path ?? "";
   const routeMatch = path.match(/^article\/([^/?#]+)$/);
   if (routeMatch?.[1]) {
-    return { type: "article" as const, articleId: decodeURIComponent(routeMatch[1]) };
+    const articleId = normalizeArticleIdentifier(decodeURIComponent(routeMatch[1]));
+    return articleId ? { type: "article", articleId } : null;
   }
 
   try {
     const web = new URL(url);
-    if (!allowedHosts.has(web.hostname)) return null;
-    const articleId = web.searchParams.get("ht_article_id")?.trim();
-    if (!articleId) return null;
-    return { type: "article" as const, articleId: articleId.slice(0, 160) };
+    if (web.protocol !== "https:" || !allowedHosts.has(web.hostname)) return null;
+    const segments = web.pathname.split("/").filter(Boolean);
+    if (segments.length !== 1) return null;
+    const articleSlug = normalizeArticleSlug(decodeURIComponent(segments[0]));
+    if (!articleSlug) return null;
+
+    // ht_article_id is attribution metadata only. It is deliberately never trusted
+    // as the destination identifier for inbound web links.
+    return { type: "article-slug", articleSlug };
   } catch {
     return null;
   }
@@ -56,13 +99,26 @@ export type SocialReferralAttribution = {
   canonicalPath: string;
 };
 
-const cleanAttributionValue = (value: string | null) =>
-  value && value.trim() ? value.trim().slice(0, 120) : null;
+const cleanAttributionValue = (value: string | null) => {
+  if (!value?.trim()) return null;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return normalized || null;
+};
+
+function canonicalPath(pathname: string) {
+  const normalized = "/" + pathname.split("/").filter(Boolean).join("/");
+  return normalized === "/" ? "/" : normalized + "/";
+}
 
 export function parseSocialReferral(url: string): SocialReferralAttribution | null {
   try {
     const parsed = new URL(url);
-    if (!allowedHosts.has(parsed.hostname)) {
+    if (parsed.protocol !== "https:" || !allowedHosts.has(parsed.hostname)) {
       return null;
     }
     return {
@@ -70,7 +126,7 @@ export function parseSocialReferral(url: string): SocialReferralAttribution | nu
       medium: cleanAttributionValue(parsed.searchParams.get("utm_medium")),
       campaign: cleanAttributionValue(parsed.searchParams.get("utm_campaign")),
       content: cleanAttributionValue(parsed.searchParams.get("utm_content")),
-      canonicalPath: parsed.pathname || "/"
+      canonicalPath: canonicalPath(parsed.pathname)
     };
   } catch {
     return null;
