@@ -19,8 +19,8 @@ import type { SearchQuery } from "../domain/models";
 import { articles, audioItems, liveItems, notifications, videos } from "../fixtures/content";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import { persistentReaderRepository } from "./reader-persistence";
-import { decideFixtureAd } from "../growth/advertising";
-import { validatePublicAnalyticsEvent } from "../growth/events";
+import { createAdvertisingService } from "../growth/advertising";
+import { createRuntimeAnalyticsService } from "../growth/analytics";
 import { attributedShareUrl, canonicalArticleUrl } from "../growth/deepLinks";
 import { fixturePremiumStoreService } from "../growth/premium-store";
 import { emptyAuthorizationSnapshot, hasServerCapability } from "../security/capabilities";
@@ -34,6 +34,9 @@ const articleRepository: ArticleRepository = {
   },
   async getById(id) {
     return articles.find((item) => item.id === id) ?? null;
+  },
+  async getBySlug(slug) {
+    return articles.find((item) => item.slug === slug) ?? null;
   },
   async getRelated(id) {
     return articles.filter((item) => item.id !== id).slice(0, 2);
@@ -153,20 +156,9 @@ const premiumService: PremiumService = {
   }
 };
 
-const advertisingService: AdvertisingService = {
-  async getDecision(placementKey, context) {
-    return decideFixtureAd(placementKey, context);
-  }
-};
+const advertisingService: AdvertisingService = createAdvertisingService();
 
-const analyticsService: AnalyticsService = {
-  async track(event) {
-    validatePublicAnalyticsEvent(event);
-    // Event shape is validated, but NM-05 intentionally emits no production analytics
-    // until a verified mobile GA4 stream/provider is configured.
-    return;
-  }
-};
+const analyticsService: AnalyticsService = createRuntimeAnalyticsService();
 
 const liveService: LiveService = { async list() { return liveItems; } };
 const videoService: VideoService = { async list() { return videos; } };
