@@ -24,6 +24,7 @@ import {
 } from "../domain/taxonomy-authority";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
+import { createAdvertisingService } from "../growth/advertising";
 import {
   SOURCE_PARITY_PUBLIC_BASE_URL,
   SOURCE_PARITY_VERIFIED_AT,
@@ -447,6 +448,10 @@ const articleRepository:ArticleRepository={
     );
     return live?.[0] ? mapWpPost(live[0],current) : current;
   },
+  async getBySlug(slug){
+    const current=(await refreshedArticles()).find((article)=>article.slug===slug) ?? null;
+    return current ? articleRepository.getById(current.id) : null;
+  },
   async getRelated(id){
     const all=await refreshedArticles();
     const current=all.find((article)=>article.id===id);
@@ -551,22 +556,13 @@ const taxonomyService:TaxonomyService={
   }
 };
 
-const advertisingService:AdvertisingService={
-  async getDecision(placementKey){
-    return {
-      placementKey,
-      source:"none",
-      personalization:"none",
-      disclosureLabel:"Advertisement",
-      policyReason:sourceParityAdvertisingReference.note,
-      commercialSourceContext:{
-        source:"direct",
-        sourceReference:sourceParityAdvertisingReference.campaignName+" | "+sourceParityAdvertisingReference.articleUrl,
-        reconciliation:"requires-review"
-      }
-    };
+const advertisingService:AdvertisingService=createAdvertisingService({
+  commercialSourceContext:{
+    source:"direct",
+    sourceReference:sourceParityAdvertisingReference.campaignName+" | "+sourceParityAdvertisingReference.articleUrl,
+    reconciliation:"requires-review"
   }
-};
+});
 
 export const sourceParityServices={
   ...fixtureServices,
