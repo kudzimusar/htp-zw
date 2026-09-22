@@ -99,7 +99,7 @@ jobs:
           set -euo pipefail
           [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
           [[ "$SUPABASE_URL" == "$AG06_STAGING_SUPABASE_URL" ]] || { echo "Newsroom gateway and live RLS target differ."; exit 1; }
-      - name: Prepare ephemeral staging identity coordinates
+      - name: Provision ephemeral staging Auth signups
         shell: bash
         run: |
           set -euo pipefail
@@ -107,11 +107,34 @@ jobs:
           for role in reporter editor commercial publisher; do
             upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
             email="ag06-${role}-${tag}@healthtimes.co.zw"
-            password="Ht!AG06-${GITHUB_RUN_ID}-${role}-A7x"
+            password="Ht!$(openssl rand -hex 18)Aa7"
             echo "::add-mask::$password"
             echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
             echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
-            echo "AG06_STAGING_IDENTITY_EXPECTED role=$role email=$email"
+            payload="$(node -e 'const [email,password,role,run]=process.argv.slice(1); process.stdout.write(JSON.stringify({email,password,data:{ag06_staging_test:true,ag06_role:role,github_run_id:run}}))' "$email" "$password" "$role" "$GITHUB_RUN_ID")"
+            success=0
+            for attempt in $(seq 1 6); do
+              code="$(curl --silent --show-error -o "/tmp/ag06-${role}-signup.json" -w '%{http_code}' \
+                -X POST "$AG06_STAGING_SUPABASE_URL/auth/v1/signup" \
+                -H "apikey: $AG06_STAGING_SUPABASE_PUBLISHABLE_KEY" \
+                -H "Content-Type: application/json" \
+                --data "$payload")"
+              if [[ "$code" == "200" || "$code" == "201" ]]; then
+                success=1
+                echo "AG06_STAGING_SIGNUP_CREATED role=$role email=$email"
+                break
+              fi
+              if [[ "$code" == "429" ]]; then
+                echo "Staging Auth email throttle for $role; retrying after 65 seconds (attempt $attempt/6)."
+                sleep 65
+                continue
+              fi
+              echo "Staging Auth signup failed for $role with HTTP $code."
+              cat "/tmp/ag06-${role}-signup.json"
+              exit 1
+            done
+            [[ "$success" == "1" ]] || { echo "Staging Auth signup never cleared throttle for $role."; exit 1; }
+            sleep 65
           done
       - name: Wait for moderator role activation
         shell: bash
