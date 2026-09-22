@@ -13,6 +13,7 @@ on:
       - 'tests/newsroom-os.spec.js'
       - 'playwright.config.js'
       - 'package.json'
+      - 'scripts/ag06/**'
       - '.github/workflows/ag06-security.yml'
   workflow_dispatch:
 
