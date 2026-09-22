@@ -243,6 +243,38 @@ Exit requirements:
 - public cannot read draft/internal data;
 - no privileged secrets exposed.
 
+### COM-01 — Communications, Email & Distribution
+
+Status: **REQUIRED PRE-CP7 CHECKPOINT**.
+
+Prerequisites:
+
+- CP4 accepted;
+- CP5 accepted;
+- CP6 accepted;
+- moderator authorization.
+
+COM-01 must implement and certify the staging Communications domain using accepted CP4 content authority, CP5 audience/analytics/monetization contracts and CP6 Auth/RBAC/session/audit foundations.
+
+Provider responsibility is fixed as:
+
+- **Cloudflare** — DNS/mail edge, inbound routing/Email Workers where used, WAF/rate limiting;
+- **Resend** — transactional/system outbound email and app-managed replies;
+- **Brevo** — newsletters, segmentation, marketing campaigns and automation;
+- **HealthTimes/Supabase** — canonical communications system of record;
+- social-provider adapters — controlled distribution after human approval.
+
+Hard requirements include inbound thread creation, outbound transactional delivery/webhooks, purpose-specific consent and suppression, private attachments, authenticated/idempotent webhook ingestion, communications RBAC separation, internal Newsroom notifications, human-approved social distribution, provider-secret isolation, staging-only identities/domains and a production DNS/MX/SPF/DKIM/DMARC rollback worksheet.
+
+COM-01 may not mutate production MX/DNS/mail routing or activate production sender domains.
+
+Canonical architecture:
+
+- `docs/HEALTHTIMES_COMMUNICATIONS_PLATFORM_PLAN.md`
+- task: `docs/migration-agents/agent-tasks/COM-01_COMMUNICATIONS_EMAIL_DISTRIBUTION.md`
+
+AG-07 / CP7 may not start until COM-01 is moderator-accepted.
+
 ### CP7 — AG-07 Integrated Certification & Client UAT
 
 Exit requirements:
@@ -298,9 +330,11 @@ Keep external integration configuration, secrets/OAuth, ingestion state, histori
 - do not fabricate historical direct-ad performance;
 - avoid ad-related layout shift.
 
-## 14. Email/DNS principle
+## 14. Email/DNS and communications principle
 
-Email continuity is a hard release gate. Before web DNS cutover capture and approve all web and mail records, including apex/www, MX, SPF, DKIM, DMARC, TTLs, new targets and rollback values. AG-07 verifies the worksheet; only owner-unlocked AG-08 may execute production DNS changes.
+Email continuity is a hard release gate. COM-01 must prove the communications architecture in staging without changing production mail routing. Before web DNS cutover capture and approve all web and mail records, including apex/www, MX, SPF, DKIM, DMARC, sender/routing subdomains, TTLs, new targets and rollback values. COM-01 prepares the bounded communications/DNS worksheet, AG-07 verifies the integrated worksheet and only owner-unlocked AG-08 may execute production DNS/mail changes.
+
+HealthTimes remains the canonical communications system of record. Cloudflare, Resend and Brevo are bounded routing/delivery providers, not competing sources of organizational truth.
 
 ## 15. Evidence and receipts
 
@@ -325,6 +359,8 @@ AG-03 / CP3 Source Capture
 │ / Taxonomy       │ / Monetization   │ / Security       │
 └──────────────────┴──────────────────┴──────────────────┘
         ↓
+COM-01 Communications, Email & Distribution
+        ↓
 AG-07 / CP7 Integrated Certification + Client UAT
         ↓
 EXPLICIT OWNER PRODUCTION AUTHORIZATION
@@ -332,4 +368,4 @@ EXPLICIT OWNER PRODUCTION AUTHORIZATION
 AG-08 / CP8 Production Cutover + Rollback
 ```
 
-AG-04/05/06 may overlap only after prerequisites are green and schema/file ownership is coordinated.
+AG-04/05/06 may overlap only after prerequisites are green and schema/file ownership is coordinated. COM-01 starts only after CP4/CP5/CP6 are accepted. AG-07 remains locked until COM-01 is accepted.
