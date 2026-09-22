@@ -105,16 +105,15 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
   });
 
   test('Newsroom shell remains usable at laptop and tablet admin widths', async ({ page }) => {
+    await signIn(page, 'editor');
     for (const viewport of [{width:1440,height:950},{width:1024,height:768},{width:768,height:1024}]) {
       await page.setViewportSize(viewport);
-      await signIn(page, 'editor');
       const dims = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
         client: document.documentElement.clientWidth
       }));
       expect(dims.scroll).toBeLessThanOrEqual(dims.client + 2);
       await expect(page.locator('[data-workspace] h1')).toBeVisible();
-      await page.context().clearCookies();
     }
   });
 });
