@@ -10,6 +10,8 @@ on:
       - 'ads.txt'
       - 'app-ads.txt'
       - 'docs/migration/agent-reports/AG-03_SOURCE_DATA_CAPTURE.md'
+      - 'docs/migration/agent-reports/AG-04_REHEARSAL_CONTENT_MEDIA_TAXONOMY.md'
+      - 'docs/migration/14_AG04_AG05_URL_CONTINUITY_CONTRACT.md'
       - '.github/workflows/migration-tests.yml'
 
 permissions:
