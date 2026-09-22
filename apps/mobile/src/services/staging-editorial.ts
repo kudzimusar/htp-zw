@@ -40,6 +40,12 @@ type StoryDocument = {
 };
 
 type PathResolution = { resolution?: string; http_status?: number; target_path?: string | null };
+type ContextDocument = {
+  kind?: "category" | "tag" | "author";
+  slug?: string;
+  name?: string;
+  items?: Array<{ canonical_url?: string | null }>;
+};
 
 const CACHE_MS=120_000;
 let cache:{at:number;articles:ArticleDetail[]}|null=null;
@@ -135,8 +141,18 @@ const articles:ArticleRepository={
     if(!current) return all.slice(0,3);
     return all.filter((article)=>article.id!==current.id).sort((a,b)=>(b.primarySection?.slug===current.primarySection?.slug?1:0)-(a.primarySection?.slug===current.primarySection?.slug?1:0)).slice(0,3);
   },
-  async listBySection(sectionSlug){return (await refreshedArticles()).filter((article)=>article.primarySection?.slug===sectionSlug);},
-  async listByAuthor(authorSlug){return (await refreshedArticles()).filter((article)=>article.author?.slug===authorSlug);}
+  async listBySection(sectionSlug){
+    const context=await rpc<ContextDocument|null>("ag05_public_context_document",{p_path:"/category/"+encodeURIComponent(sectionSlug)+"/"});
+    const urls=(context?.items ?? []).map((item)=>item.canonical_url ?? null);
+    const mapped=await mapInBatches(urls,6,storyDocumentForUrl);
+    return mapped.filter((article):article is ArticleDetail=>Boolean(article));
+  },
+  async listByAuthor(authorSlug){
+    const context=await rpc<ContextDocument|null>("ag05_public_context_document",{p_path:"/author/"+encodeURIComponent(authorSlug)+"/"});
+    const urls=(context?.items ?? []).map((item)=>item.canonical_url ?? null);
+    const mapped=await mapInBatches(urls,6,storyDocumentForUrl);
+    return mapped.filter((article):article is ArticleDetail=>Boolean(article));
+  }
 };
 const normalized=(value:string)=>value.trim().toLowerCase();
 const publishedTime=(value:string|null)=>{const t=value?new Date(value).getTime():0;return Number.isFinite(t)?t:0;};
