@@ -1,0 +1,289 @@
+name: AG-05 Certification
+
+on:
+  push:
+    branches:
+      - migration/ag-05-seo-analytics-monetization
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    name: Browser smoke 375 / 430 / 1440
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run AG-05 browser smoke
+        run: npx playwright test tests/ag05-browser-smoke.spec.js
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-browser-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  live-rehearsal-runtime:
+    name: Live AG-04 rehearsal runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk # browser-safe staging publishable key; not service-role
+      AG05_LIVE_BASE_URL: http://127.0.0.1:4174
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Require bounded HealthTimes Staging public configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY:-}" || { echo "Missing staging publishable-key secret."; exit 1; }
+          [[ "$HEALTHTIMES_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging project."; exit 1; }
+
+      - name: Wait for a complete AG-04 rehearsal snapshot
+        run: |
+          node <<'NODE'
+          const base=process.env.HEALTHTIMES_SUPABASE_URL.replace(/\/$/,'');
+          const key=process.env.HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY;
+          const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+          async function readiness(){
+            const response=await fetch(`${base}/rest/v1/rpc/ag05_rehearsal_readiness_status`,{
+              method:'POST',
+              headers:{apikey:key,'Content-Type':'application/json'},
+              body:'{}'
+            });
+            if(!response.ok) throw new Error(`readiness RPC failed: ${response.status}`);
+            return response.json();
+          }
+          (async()=>{
+            for(let attempt=1;attempt<=180;attempt++){
+              const state=await readiness();
+              console.log(`AG05 readiness attempt ${attempt}: mappings=${state.mapping_rows}/${state.expected_public_objects}, distinct=${state.distinct_mapped_sources}, active_ag04_runs=${state.active_ag04_runs}, ready=${state.ready}`);
+              if(state.ready===true) return;
+              await sleep(5000);
+            }
+            throw new Error('HealthTimes Staging did not reach a complete, idle 5,786-object AG-04 rehearsal snapshot.');
+          })().catch(error=>{console.error(error.message);process.exit(1);});
+          NODE
+
+      - name: Install test runtime
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Start AG-05 live rehearsal handler
+        shell: bash
+        run: |
+          node scripts/migration/ag05-live-server.js > /tmp/ag05-live-server.log 2>&1 &
+          echo $! > /tmp/ag05-live-server.pid
+          for i in {1..30}; do
+            if curl -fsS "$AG05_LIVE_BASE_URL/robots.txt" >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ag05-live-server.log
+          exit 1
+
+      - name: Capture URL exception ledger evidence
+        run: |
+          mkdir -p migration-output/ag05-live
+          node <<'NODE'
+          const fs=require('node:fs');
+          const base=process.env.HEALTHTIMES_SUPABASE_URL.replace(/\/$/,'');
+          const key=process.env.HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY;
+          async function rpc(name,args={}){
+            const response=await fetch(`${base}/rest/v1/rpc/${name}`,{
+              method:'POST',
+              headers:{apikey:key,'Content-Type':'application/json'},
+              body:JSON.stringify(args)
+            });
+            if(!response.ok) throw new Error(`${name} failed: ${response.status}`);
+            return response.json();
+          }
+          (async()=>{
+            const summary=await rpc('ag05_internal_link_ledger_summary');
+            const exceptions=await rpc('ag05_internal_link_exceptions');
+            if(Number(summary.alias_redirect_paths)!==341) throw new Error(`Expected 341 alias redirects, got ${summary.alias_redirect_paths}`);
+            if(Number(summary.explicit_404_exception_paths)!==28) throw new Error(`Expected 28 explicit 404 paths, got ${summary.explicit_404_exception_paths}`);
+            if(Number(summary.redirect_chain_candidates)!==0) throw new Error('Redirect-chain candidate detected.');
+            if(Number(summary.homepage_catchall_aliases)!==0) throw new Error('Homepage catch-all alias detected.');
+            if(!Array.isArray(exceptions)||exceptions.length!==28) throw new Error(`Expected 28 exception rows, got ${exceptions?.length}`);
+            fs.writeFileSync('migration-output/ag05-live/link-ledger-summary.json',JSON.stringify(summary,null,2)+'\n');
+            fs.writeFileSync('migration-output/ag05-live/link-exceptions.json',JSON.stringify(exceptions,null,2)+'\n');
+            console.log(JSON.stringify(summary,null,2));
+          })().catch(error=>{console.error(error.message);process.exit(1);});
+          NODE
+
+      - name: Exercise completed AG-04 rehearsal through public handler
+        run: npx playwright test tests/ag05-live-rehearsal.spec.js
+
+      - name: Upload live runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-live-rehearsal-evidence
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/ag05-live-server.log
+            migration-output/ag05-live/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  staging-performance:
+    name: Completed rehearsal Lighthouse retest
+    needs: live-rehearsal-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk # browser-safe staging publishable key; not service-role
+      STAGING_ORIGIN: http://127.0.0.1:4174
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Reconfirm complete AG-04 rehearsal snapshot
+        env:
+          AG05_PUBLISHABLE_KEY: ${{ env.HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node <<'NODE'
+          const base=process.env.HEALTHTIMES_SUPABASE_URL.replace(/\/$/,'');
+          const key=process.env.AG05_PUBLISHABLE_KEY;
+          (async()=>{
+            const response=await fetch(`${base}/rest/v1/rpc/ag05_rehearsal_readiness_status`,{
+              method:'POST',
+              headers:{apikey:key,'Content-Type':'application/json'},
+              body:'{}'
+            });
+            if(!response.ok) throw new Error(`readiness RPC failed: ${response.status}`);
+            const state=await response.json();
+            console.log(JSON.stringify(state));
+            if(state.ready!==true) throw new Error('AG-04 rehearsal snapshot changed after live certification; refusing Lighthouse against partial staging state.');
+          })().catch(error=>{console.error(error.message);process.exit(1);});
+          NODE
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: Start AG-05 live rehearsal handler
+        shell: bash
+        run: |
+          node scripts/migration/ag05-live-server.js > /tmp/ag05-lighthouse-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS "$STAGING_ORIGIN/robots.txt" >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ag05-lighthouse-server.log
+          exit 1
+
+      - name: Capture mobile and desktop Lighthouse retest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-output/ag05-performance
+
+          declare -A URLS
+          URLS[home]="$STAGING_ORIGIN/"
+          URLS[migrated-story]="$STAGING_ORIGIN/2026/02/12/who-should-not-take-lenacapavir-key-health-conditions-to-consider-before-the-rollout/"
+          URLS[premium]="$STAGING_ORIGIN/premium.html"
+          URLS[archive]="$STAGING_ORIGIN/archive.html"
+          URLS[direct-ad-preview]="$STAGING_ORIGIN/__ag05/direct-ad-preview"
+
+          for page in home migrated-story premium archive direct-ad-preview; do
+            npx --yes lighthouse@12 "${URLS[$page]}" \
+              --quiet \
+              --chrome-path="$CHROME_PATH" \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance \
+              --output=json \
+              --output-path="migration-output/ag05-performance/${page}-mobile.json"
+
+            npx --yes lighthouse@12 "${URLS[$page]}" \
+              --quiet \
+              --chrome-path="$CHROME_PATH" \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --preset=desktop \
+              --only-categories=performance \
+              --output=json \
+              --output-path="migration-output/ag05-performance/${page}-desktop.json"
+          done
+
+      - name: Summarize performance evidence
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = 'migration-output/ag05-performance';
+          const files = fs.readdirSync(dir).filter(name => name.endsWith('.json') && name !== 'summary.json').sort();
+          const rows = files.map(name => {
+            const lhr = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+            const audit = key => lhr.audits?.[key]?.numericValue ?? null;
+            return {
+              file: name,
+              requested_url: lhr.requestedUrl,
+              final_url: lhr.finalUrl,
+              performance_score: lhr.categories?.performance?.score == null ? null : Math.round(lhr.categories.performance.score * 100),
+              lcp_ms: audit('largest-contentful-paint'),
+              cls: audit('cumulative-layout-shift'),
+              inp_ms: audit('interaction-to-next-paint'),
+              total_blocking_time_ms: audit('total-blocking-time'),
+              speed_index_ms: audit('speed-index'),
+              fetch_time: lhr.fetchTime
+            };
+          });
+          const clsFailures = rows.filter(row => row.cls != null && row.cls > 0.10);
+          const summary = {
+            source: 'Google Lighthouse lab measurement against AG-05 handler + completed HealthTimes Staging rehearsal data',
+            staging_supabase_ref: 'gcdohgbmqhqwydgaxrcr',
+            note: 'INP may be null where Lighthouse has no interaction-based audit value; do not fabricate it.',
+            cls_threshold: 0.10,
+            cls_gate: clsFailures.length ? 'FAIL' : 'PASS',
+            rows
+          };
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
+          console.log(JSON.stringify(summary, null, 2));
+          if (clsFailures.length) process.exitCode = 2;
+          NODE
+
+      - name: Upload Lighthouse retest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-lighthouse-retest
+          path: migration-output/ag05-performance/
+          retention-days: 14

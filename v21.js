@@ -14,7 +14,6 @@
   const PENDING_ACTION_KEY = 'htpPendingReaderAction';
   const LEGACY_SUB_KEY = 'htpDemoSubscribed';
   const LEGACY_PREVIEW_KEY = 'htpPremiumPreviewStartedAt';
-  const HOSPAZ_CREATIVE = 'https://healthtimes.co.zw/wp-content/uploads/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg';
 
   const storyIndex = {
     'natpharm-supply-chain':'Parliament Probes NatPharm Over Zimbabwe’s Medicine Supply Chain',
@@ -192,9 +191,20 @@
   function citationText(){const h=$('.article-head h1')?.textContent.trim()||document.title;const author=$('.byline-person strong')?.textContent.replace(/^By\s+/,'').trim()||'HealthTimes';const date=$('.story-meta span:nth-child(2)')?.textContent.trim()||'2026';return `${author} (${date}). “${h}.” HealthTimes Zimbabwe. ${location.href}`;}
   async function copyCitation(){if(!isPremiumReader()){write(PENDING_ACTION_KEY,'subscribe');openSheet('subscribe');showV21Toast('Premium membership is required for citation tools.');return;}try{await navigator.clipboard.writeText(citationText());showV21Toast('Citation copied.')}catch{prompt('Copy citation',citationText());}}
 
-  function defaultCampaigns(){return [{id:'hospaz-agm-2026',advertiser:'HOSPAZ',name:'HOSPAZ Annual General Meeting',creative:HOSPAZ_CREATIVE,mobileCreative:HOSPAZ_CREATIVE,destination:'https://healthtimes.co.zw/',placement:['masthead','home-infeed','article'],start:'2026-09-01',end:'2026-09-25',status:'Active',review:'Approved',label:'Advertisement'}];}
-  function campaigns(){let list=read(ADS_KEY,null);if(!list){list=defaultCampaigns();write(ADS_KEY,list)}return list;}
-  function activeCampaign(placement){const today='2026-09-09';return campaigns().find(c=>c.status==='Active'&&c.placement?.includes(placement)&&(!c.start||c.start<=today)&&(!c.end||c.end>=today));}
+  function campaigns(){
+    const list=read(ADS_KEY,[]);
+    return Array.isArray(list) ? list.filter(c=>c&&c.provenanceVerified===true) : [];
+  }
+  function activeCampaign(placement){
+    const now=Date.now();
+    return campaigns().find(c=>{
+      if(c.status!=='Active'||!c.placement?.includes(placement)||!c.destination)return false;
+      const startAt=c.start?Date.parse(c.start):NaN;
+      const endAt=c.end?Date.parse(c.end):NaN;
+      if(Number.isNaN(startAt)||Number.isNaN(endAt))return false;
+      return startAt<=now&&now<=endAt;
+    });
+  }
   function adHtml(c,compact=false){if(!c)return'';return `<div class="v21-ad-label">${text(c.label||'Advertisement')} · ${text(c.advertiser)}</div><a class="v21-ad-frame" href="${text(c.destination)}" target="_blank" rel="sponsored noopener" data-v21-ad-click="${text(c.id)}"><img src="${text(compact?(c.mobileCreative||c.creative):c.creative)}" alt="${text(c.name)}" /></a><div class="v21-ad-sponsored">Paid placement · Advertising does not influence HealthTimes editorial coverage.</div>`;}
   function incrementAd(id,type){const metrics=read(AD_METRICS_KEY,{});const m=metrics[id]||{impressions:0,clicks:0};m[type]=(m[type]||0)+1;metrics[id]=m;write(AD_METRICS_KEY,metrics);}
   function renderAds(){

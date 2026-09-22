@@ -15,7 +15,8 @@
     "migration:validate-source": "node scripts/migration/validate-source-package.js",
     "test:uat": "playwright test",
     "test:migration": "playwright test tests/migration",
-    "test:uat:headed": "playwright test --headed"
+    "test:uat:headed": "playwright test --headed",
+    "migration:ag05-url": "node scripts/migration/ag05-url-continuity.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"

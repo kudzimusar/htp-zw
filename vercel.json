@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/sitemap\\.xml",
+      "dest": "/api/public?kind=sitemap"
+    },
+    {
+      "src": "/feed/?",
+      "dest": "/api/public?kind=feed"
+    },
+    {
+      "src": "/__ag05/direct-ad-preview/?",
+      "dest": "/api/public?kind=ad-preview"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/public?kind=page&path=/$1"
+    }
+  ]
+}
