@@ -1,0 +1,35 @@
+name: Migration Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/migration/**'
+      - 'tests/migration/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ads.txt'
+      - 'app-ads.txt'
+      - 'docs/migration/agent-reports/AG-03_SOURCE_DATA_CAPTURE.md'
+      - '.github/workflows/migration-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  migration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run migration tests
+        run: npm run test:migration

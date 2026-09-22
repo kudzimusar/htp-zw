@@ -4,8 +4,22 @@
   "private": true,
   "description": "HealthTimes Zimbabwe client-review publication, newsroom and PWA.",
   "scripts": {
+    "migration:inventory": "node scripts/migration/wordpress-importer.js --mode rest-inventory --out-dir migration-output",
+    "migration:dry-run": "node scripts/migration/wordpress-importer.js --mode rest --limit 100 --out-dir migration-output",
+    "migration:wp-admin-capture": "node scripts/migration/wordpress-admin-capture.js",
+    "migration:source-manifest": "node scripts/migration/source-package-manifest.js",
+    "migration:validate-database": "node scripts/migration/validate-wordpress-database.js",
+    "migration:validate-uploads": "node scripts/migration/validate-wordpress-uploads.js",
+    "migration:validate-provenance": "node scripts/migration/validate-provenance-readiness.js",
+    "migration:reconcile-source": "node scripts/migration/reconcile-source-inventory.js",
+    "migration:validate-source": "node scripts/migration/validate-source-package.js",
     "test:uat": "playwright test",
-    "test:uat:headed": "playwright test --headed"
+    "test:migration": "playwright test tests/migration",
+    "test:uat:headed": "playwright test --headed",
+    "test:ag06:contract": "playwright test tests/ag06-security-contract.spec.js",
+    "test:ag06:live": "playwright test tests/ag06-live-security.spec.js tests/newsroom-os.spec.js",
+    "test:ca01:contract": "playwright test tests/ca01-contract.spec.js",
+    "test:ca01:live": "playwright test tests/ca01-live-security.spec.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"

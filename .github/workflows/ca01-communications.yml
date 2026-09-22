@@ -1,0 +1,212 @@
+name: CA-01 Communications Security
+
+on:
+  pull_request:
+    paths:
+      - 'api/newsroom.js'
+      - 'api/discussion.js'
+      - 'newsroom.js'
+      - 'newsroom.html'
+      - 'newsroom.css'
+      - 'supabase/migrations/**'
+      - 'supabase/functions/ca01-certification-provision/**'
+      - 'scripts/ca01/**'
+      - 'tests/ca01-*.spec.js'
+      - 'tests/ag06-live-security.spec.js'
+      - 'tests/newsroom-os.spec.js'
+      - 'package.json'
+      - '.github/workflows/ca01-communications.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: CA-01 architecture contract
+        run: npm run test:ca01:contract
+      - name: Secret-pattern guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! git grep -nE 'postgres(ql)?://[^[:space:]@]+:[^[:space:]@]+@' -- ':!docs/**'
+          ! git grep -nE 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9._-]{20,}' -- ':!docs/**'
+
+  disposable-supabase-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Initialize local Supabase config
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            npx --yes supabase@2.117.0 init
+          fi
+      - name: Start disposable Supabase
+        run: npx --yes supabase@2.117.0 start
+      - name: Apply all migrations from zero
+        run: npx --yes supabase@2.117.0 db reset --local
+      - name: Stop disposable Supabase
+        if: always()
+        run: npx --yes supabase@2.117.0 stop --no-backup || true
+
+  live-staging-security:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CA01_STAGING_BASE_URL: https://localhost:4173
+      CA01_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      CA01_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      AG06_STAGING_BASE_URL: https://localhost:4173
+      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      PLAYWRIGHT_BASE_URL: https://localhost:4173
+      SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      AG06_CERTIFICATION_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require HealthTimes Staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CA01_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
+          [[ "$SUPABASE_URL" == "$CA01_STAGING_SUPABASE_URL" ]] || { echo "Gateway and RLS target differ."; exit 1; }
+      - name: Provision bounded CA-01 staging identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          staff_file=/tmp/ca01-staff.json
+          reader_file=/tmp/ca01-readers.json
+          printf '[' > "$staff_file"
+          first=1
+          for role in reporter editor commercial publisher health; do
+            upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
+            email="ca01-${role}-${tag}@healthtimes.co.zw"
+            password="Ht!$(openssl rand -hex 18)Aa7"
+            echo "::add-mask::$password"
+            echo "CA01_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
+            echo "CA01_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
+            if [[ "$role" != "health" ]]; then
+              echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
+              echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
+            fi
+            item="$(node -e 'const [role,email,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({role,email,password}))' "$role" "$email" "$password")"
+            if [[ "$first" == "0" ]]; then printf ',' >> "$staff_file"; fi
+            printf '%s' "$item" >> "$staff_file"
+            first=0
+          done
+          printf ']' >> "$staff_file"
+
+          printf '[' > "$reader_file"
+          first=1
+          for kind in author reporter restricted unverified; do
+            upper="$(printf '%s' "$kind" | tr '[:lower:]' '[:upper:]')"
+            email="ca01-reader-${kind}-${tag}@healthtimes.co.zw"
+            password="Ht!$(openssl rand -hex 18)Rr9"
+            verified=true
+            [[ "$kind" == "unverified" ]] && verified=false
+            echo "::add-mask::$password"
+            echo "CA01_READER_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
+            echo "CA01_READER_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
+            item="$(node -e 'const [kind,email,password,verified]=process.argv.slice(1);process.stdout.write(JSON.stringify({kind,email,password,verified:verified==="true"}))' "$kind" "$email" "$password" "$verified")"
+            if [[ "$first" == "0" ]]; then printf ',' >> "$reader_file"; fi
+            printf '%s' "$item" >> "$reader_file"
+            first=0
+          done
+          printf ']' >> "$reader_file"
+
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ca01-certification"
+          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,staff_accounts:JSON.parse(fs.readFileSync("/tmp/ca01-staff.json","utf8")),reader_accounts:JSON.parse(fs.readFileSync("/tmp/ca01-readers.json","utf8"))}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ca01-provision.json -w '%{http_code}' -X POST "$CA01_STAGING_SUPABASE_URL/functions/v1/ca01-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
+          cat /tmp/ca01-provision.json
+          [[ "$code" == "200" ]] || { echo "CA-01 staging identity provisioning failed with HTTP $code."; exit 1; }
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));if(!v.ok||v.project_ref!=="gcdohgbmqhqwydgaxrcr"||v.staff?.length!==5||v.readers?.length!==4||!v.test_story?.id)process.exit(1);'
+          echo "CA01_TEST_STORY_ID=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.id)')" >> "$GITHUB_ENV"
+          echo "CA01_TEST_STORY_SLUG=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.slug||"")')" >> "$GITHUB_ENV"
+          echo "CA01_TEST_STORY_ORIGINAL_COMMENT_POLICY=$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-provision.json","utf8"));process.stdout.write(v.test_story.original_comment_policy||"disabled")')" >> "$GITHUB_ENV"
+      - run: npm install --no-audit --no-fund
+      - name: Install Realtime certification client
+        run: npm install --no-save --no-package-lock @supabase/supabase-js@2.57.4
+      - run: npx playwright install --with-deps chromium
+      - name: Start exact-branch CA-01 gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes             -keyout /tmp/ca01-local.key -out /tmp/ca01-local.crt -days 1             -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+          CA01_TEST_TLS_KEY=/tmp/ca01-local.key CA01_TEST_TLS_CERT=/tmp/ca01-local.crt             node scripts/ca01/communications-test-server.js > /tmp/ca01-server.log 2>&1 &
+          echo $! > /tmp/ca01-server.pid
+          for attempt in $(seq 1 30); do
+            if curl --silent --insecure --fail https://localhost:4173/newsroom.html >/dev/null; then
+              echo "CA01_EXACT_BRANCH_GATEWAY_READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ca01-server.log
+          exit 1
+      - name: Preserve exact-head AG-06 gate separation
+        shell: bash
+        run: |
+          echo "AG-06 Newsroom Security is certified by its independent exact-head workflow."
+          echo "CA-01 does not duplicate AG-06 password-sign-in journeys here because staging Auth rate limits are authoritative."
+      - name: Run CA-01 direct attacks and journeys
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ca01:live || {
+            echo '--- CA-01 gateway diagnostics ---'
+            cat /tmp/ca01-server.log || true
+            exit 1
+          }
+      - name: Cleanup bounded CA-01 staging identities and data
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          story_id="${CA01_TEST_STORY_ID:-}"
+          if [[ -f /tmp/ca01-live-evidence.json ]]; then
+            evidence_story="$(node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-live-evidence.json","utf8"));process.stdout.write(v.story_id||"")')"
+            [[ -n "$evidence_story" ]] && story_id="$evidence_story"
+          fi
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ca01-certification"
+          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const [run,attempt,story]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"cleanup",run_id:run,run_attempt:attempt,test_story_id:story||null}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$story_id")"
+          code="$(curl --silent --show-error -o /tmp/ca01-cleanup.json -w '%{http_code}' -X POST "$CA01_STAGING_SUPABASE_URL/functions/v1/ca01-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
+          cat /tmp/ca01-cleanup.json
+          [[ "$code" == "200" ]] || { echo "CA-01 cleanup failed with HTTP $code."; exit 1; }
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ca01-cleanup.json","utf8"));if(!v.ok||v.live_sessions_remaining!==0)process.exit(1);'
+      - name: Stop exact-branch gateway
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/ca01-server.pid && kill "$(cat /tmp/ca01-server.pid)" || true
+      - name: Upload CA-01 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ca01-live-evidence
+          path: /tmp/ca01-live-evidence.json
+          if-no-files-found: ignore

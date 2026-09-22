@@ -41,6 +41,12 @@
   .hero-grid{min-height:0!important}
   .hero-lead,.hero-stack,.hero-brief{position:relative!important;inset:auto!important}
   .hero-lead h1,.hero-side-story h2,.story-card h3{position:static!important;height:auto!important;max-height:none!important}
+  .site-header .header-main{gap:14px!important}
+  .desktop-nav{gap:2px!important}
+  .desktop-nav a{padding:8px 9px!important;font-size:.84rem!important}
+  .header-actions{gap:6px!important}
+  .reader-link{padding:7px 10px!important;font-size:.78rem!important}
+  .v21-account-button,.v21-theme-button{padding:0 9px!important}
 }
 
 html[data-theme="dark"] .v21-ad-frame,html[data-theme="dark"] .v21-ad-sponsored{border-color:var(--v21-line)}

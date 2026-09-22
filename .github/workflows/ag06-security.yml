@@ -1,0 +1,185 @@
+name: AG-06 Newsroom Security
+
+on:
+  pull_request:
+    paths:
+      - 'api/newsroom.js'
+      - 'newsroom.js'
+      - 'newsroom.html'
+      - 'newsroom.css'
+      - 'vercel.json'
+      - 'supabase/migrations/**'
+      - 'tests/ag06-*.spec.js'
+      - 'tests/newsroom-os.spec.js'
+      - 'playwright.config.js'
+      - 'package.json'
+      - 'scripts/ag06/**'
+      - '.github/workflows/ag06-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: AG-06 static authorization contract
+        run: npm run test:ag06:contract
+      - name: Secret-pattern guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! git grep -nE 'eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}' -- ':!package-lock.json'
+          ! git grep -nE 'postgres(ql)?://[^[:space:]@]+:[^[:space:]@]+@' -- ':!docs/**'
+          ! git grep -nE 'HealthTimes#(Publisher|Editor|Reporter|Commercial|Audience)[0-9]+' -- newsroom.js newsroom.html api || true
+          if git grep -nE 'HealthTimes#(Publisher|Editor|Reporter|Commercial|Audience)[0-9]+' -- newsroom.js newsroom.html api; then
+            echo 'Legacy demo credential literal detected in runtime code.'
+            exit 1
+          fi
+
+  disposable-supabase-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Initialize local Supabase config
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            npx --yes supabase@2.117.0 init
+          fi
+      - name: Start disposable Supabase
+        run: npx --yes supabase@2.117.0 start
+      - name: Apply all migrations from zero
+        run: npx --yes supabase@2.117.0 db reset --local
+      - name: Stop disposable Supabase
+        if: always()
+        run: npx --yes supabase@2.117.0 stop --no-backup || true
+
+  local-newsroom-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Unauthenticated gateway and local regression
+        run: npx playwright test tests/newsroom-os.spec.js
+
+  # Staging-only certification uses GitHub OIDC and ephemeral Auth users; no repository secrets.
+  live-staging-security:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AG06_STAGING_BASE_URL: https://localhost:4173
+      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      PLAYWRIGHT_BASE_URL: https://localhost:4173
+      SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      AG06_CERTIFICATION_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require bounded HealthTimes Staging configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
+          [[ "$SUPABASE_URL" == "$AG06_STAGING_SUPABASE_URL" ]] || { echo "Newsroom gateway and live RLS target differ."; exit 1; }
+      - name: Provision four ephemeral staging role identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          roles=(reporter editor commercial publisher)
+          accounts_file=/tmp/ag06-accounts.json
+          printf '[' > "$accounts_file"
+          first=1
+          for role in "${roles[@]}"; do
+            upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
+            email="ag06-${role}-${tag}@healthtimes.co.zw"
+            password="Ht!$(openssl rand -hex 18)Aa7"
+            echo "::add-mask::$password"
+            echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
+            echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
+            item="$(node -e 'const [role,email,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({role,email,password}))' "$role" "$email" "$password")"
+            if [[ "$first" == "0" ]]; then printf ',' >> "$accounts_file"; fi
+            printf '%s' "$item" >> "$accounts_file"
+            first=0
+          done
+          printf ']' >> "$accounts_file"
+
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+
+          # Synthetic CI identities are created with email_confirm=true by the OIDC provisioner. Never send invite/recovery mail to them.
+          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ag06-provision.json -w '%{http_code}'             -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision"             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload")"
+          cat /tmp/ag06-provision.json
+          [[ "$code" == "200" ]] || { echo "AG-06 staging identity provisioning failed with HTTP $code."; exit 1; }
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ag06-provision.json","utf8"));if(!v.ok||v.project_ref!=="gcdohgbmqhqwydgaxrcr"||!Array.isArray(v.users)||v.users.length!==4)process.exit(1);'
+          echo "AG06_STAGING_IDENTITIES_READY"
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Start exact-branch Newsroom gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes             -keyout /tmp/ag06-local.key             -out /tmp/ag06-local.crt             -days 1             -subj '/CN=localhost'             -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+          AG06_TEST_TLS_KEY=/tmp/ag06-local.key           AG06_TEST_TLS_CERT=/tmp/ag06-local.crt             node scripts/ag06/newsroom-test-server.js > /tmp/ag06-newsroom-server.log 2>&1 &
+          echo $! > /tmp/ag06-newsroom-server.pid
+          for attempt in $(seq 1 30); do
+            if curl --silent --insecure --fail https://localhost:4173/newsroom.html >/dev/null; then
+              echo "AG06_EXACT_BRANCH_GATEWAY_READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ag06-newsroom-server.log
+          exit 1
+      - name: Direct API/RLS attacks + Newsroom journeys
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ag06:live || {
+            echo '--- AG-06 certification gateway diagnostics ---'
+            cat /tmp/ag06-newsroom-server.log || true
+            exit 1
+          }
+      - name: Revoke ephemeral staging Auth identities
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const [run,attempt]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"cleanup",run_id:run,run_attempt:attempt}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ag06-cleanup.json -w '%{http_code}'             -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision"             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload")"
+          cat /tmp/ag06-cleanup.json
+          [[ "$code" == "200" ]] || { echo "AG-06 staging cleanup failed with HTTP $code."; exit 1; }
+      - name: Stop exact-branch Newsroom gateway
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/ag06-newsroom-server.pid && kill "$(cat /tmp/ag06-newsroom-server.pid)" || true
