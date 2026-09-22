@@ -154,7 +154,7 @@ jobs:
   android-emulator-uat:
     name: Android Emulator UAT (${{ matrix.family }})
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -195,62 +195,58 @@ jobs:
           cat "$RUNNER_TEMP/expo-packager.log"
           exit 1
 
-      - name: Provision Android emulator
-        shell: bash
-        run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
-          ADB="$ANDROID_HOME/platform-tools/adb"
-          test -x "$SDKMANAGER"
-          test -x "$AVDMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
-          test -x "$ADB"
-          DEVICE_PROFILE="pixel_6"
-          if [ "${{ matrix.family }}" = "tablet" ]; then
-            DEVICE_PROFILE="pixel_c"
-          fi
-          echo no | "$AVDMANAGER" create avd --force --name nm07 --package "system-images;android-35;google_apis;x86_64" --device "$DEVICE_PROFILE"
-          sudo chmod 666 /dev/kvm || true
-          "$ANDROID_HOME/emulator/emulator" -avd nm07 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/emulator.log" 2>&1 &
-          "$ADB" wait-for-device
-          for i in {1..120}; do
-            if [ "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; then break; fi
-            sleep 2
-          done
-          test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" = "1"
-          "$ADB" reverse tcp:8081 tcp:8081
-          if [ "${{ matrix.family }}" = "tablet" ]; then
-            "$ADB" shell wm size 2560x1600
-            "$ADB" shell wm density 320
-          else
-            "$ADB" shell wm size 1080x2400
-            "$ADB" shell wm density 420
-          fi
-          printf 'family=%s\nmodel=%s\nos=%s\nsize=%s\ndensity=%s\n'             "${{ matrix.family }}" "$("$ADB" shell getprop ro.product.model | tr -d '\r')" "$("$ADB" shell getprop ro.build.version.release | tr -d '\r')"             "$("$ADB" shell wm size | tr -d '\r')" "$("$ADB" shell wm density | tr -d '\r')" > "$RUNNER_TEMP/android-device.txt"
+      - name: Run Android emulator UAT
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.family == 'tablet' && 'Nexus 10' || 'pixel_7' }}
+          force-avd-creation: true
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot-save -no-snapshot-load -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            set -euo pipefail
+            adb reverse tcp:8081 tcp:8081
+            if [ "${{ matrix.family }}" = "tablet" ]; then
+              adb shell wm size 2560x1600
+              adb shell wm density 320
+            else
+              adb shell wm size 1080x2400
+              adb shell wm density 420
+            fi
 
-      - name: Install, launch, relaunch and deep-link
-        shell: bash
-        run: |
-          ADB="$ANDROID_HOME/platform-tools/adb"
-          test -x "$ADB"
-          APK=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-          test -f "$APK"
-          "$ADB" install -r "$APK"
-          PACKAGE=zw.co.healthtimes.app.staging
-          ACTIVITY="$PACKAGE/.MainActivity"
-          "$ADB" shell am force-stop "$PACKAGE"
-          "$ADB" shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-first-launch.txt"
-          sleep 10
-          test -n "$("$ADB" shell pidof "$PACKAGE" | tr -d '\r')"
-          "$ADB" shell am force-stop "$PACKAGE"
-          "$ADB" shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-cold-launch.txt"
-          sleep 5
-          "$ADB" shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-warm-launch.txt"
-          "$ADB" shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/parirenyatwa-hospital-commissions-new-heart-bypass-machine-boosts-open-heart-surgery-in-zimbabwe" "$PACKAGE" | tee "$RUNNER_TEMP/android-deeplink.txt"
-          sleep 5
-          "$ADB" exec-out screencap -p > "$RUNNER_TEMP/android-${{ matrix.family }}.png"
-          "$ADB" logcat -d > "$RUNNER_TEMP/android-${{ matrix.family }}.log"
+            printf 'family=%s\nmodel=%s\nos=%s\nsize=%s\ndensity=%s\n' \
+              "${{ matrix.family }}" \
+              "$(adb shell getprop ro.product.model | tr -d '\r')" \
+              "$(adb shell getprop ro.build.version.release | tr -d '\r')" \
+              "$(adb shell wm size | tr -d '\r')" \
+              "$(adb shell wm density | tr -d '\r')" > "$RUNNER_TEMP/android-device.txt"
+
+            APK=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            test -f "$APK"
+            adb install -r "$APK"
+            PACKAGE=zw.co.healthtimes.app.staging
+            ACTIVITY="$PACKAGE/.MainActivity"
+
+            adb shell am force-stop "$PACKAGE"
+            adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-first-launch.txt"
+            sleep 10
+            test -n "$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+
+            adb shell am force-stop "$PACKAGE"
+            adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-cold-launch.txt"
+            sleep 5
+            adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-warm-launch.txt"
+
+            adb shell am start -W -a android.intent.action.VIEW \
+              -d "healthtimes://article/parirenyatwa-hospital-commissions-new-heart-bypass-machine-boosts-open-heart-surgery-in-zimbabwe" \
+              "$PACKAGE" | tee "$RUNNER_TEMP/android-deeplink.txt"
+            sleep 5
+
+            adb exec-out screencap -p > "$RUNNER_TEMP/android-${{ matrix.family }}.png"
+            adb logcat -d > "$RUNNER_TEMP/android-${{ matrix.family }}.log"
 
       - name: Upload Android UAT evidence
         if: always()
@@ -266,5 +262,4 @@ jobs:
             ${{ runner.temp }}/android-${{ matrix.family }}.png
             ${{ runner.temp }}/android-${{ matrix.family }}.log
             ${{ runner.temp }}/expo-packager.log
-            ${{ runner.temp }}/emulator.log
           retention-days: 14
