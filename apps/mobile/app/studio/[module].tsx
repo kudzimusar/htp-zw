@@ -5,16 +5,19 @@ import type { HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { StudioInboxPanel } from "../../src/ui/StudioInbox";
 import {
+  StudioAssignmentDiscussionPanel,
+  StudioAssignmentsPanel,
   StudioBreakingPanel,
   StudioDeskThreadsPanel,
   StudioDesksPanel,
   StudioModerationPanel,
+  StudioStoryDiscussionPanel,
   StudioThreadPanel
 } from "../../src/ui/StudioCommunications";
 
 export function generateStaticParams() {
   return [
-    "inbox", "stories", "create-edit", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
+    "inbox", "assignments", "stories", "create-edit", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
@@ -29,6 +32,7 @@ type ModuleConfig={
 
 const owners:Record<string,ModuleConfig>={
   "inbox":{title:"Inbox",owner:"CA-01 / AG-06",capability:null,description:"Durable assignments, mentions, reviews, urgent work and announcements. Access requires a server-authorized Newsroom session.",readiness:["Inbox RPC contract defined","No local role authority","Realtime remains event transport only"]},
+  "assignments":{title:"Assignments",owner:"CA-01 / AG-06",capability:null,description:"Authoritative story assignments remain in story_assignments; discussion uses a typed assignment thread only.",readiness:["Assignment state remains specialized","Discussion does not duplicate assignment state","RLS scopes each staff session"]},
   "desks":{title:"Desks",owner:"CA-01 / AG-06",capability:null,description:"Private specialist coordination uses Newsroom desk membership and server-enforced thread access.",readiness:["Desk membership is server-owned","Thread access enforced below UI","Presence not used for authority"]},
   "breaking":{title:"Breaking",owner:"CA-01 / AG-06",capability:null,description:"Temporary breaking rooms use bounded membership, durable messages and restrained Presence.",readiness:["Breaking-room contract defined","Durable messages authoritative","Presence is non-authoritative"]},
   "moderation":{title:"Moderation",owner:"CA-01 / AG-06",capability:"comment.moderate",description:"Verified-reader comments remain a separate security domain with human moderation and restriction history.",readiness:["Reader and staff comments remain separate","Canonical story UUID required","Health misinformation requires human review"]},
@@ -50,7 +54,7 @@ const owners:Record<string,ModuleConfig>={
 };
 
 export default function StudioModule(){
-  const {module,deskId,threadId}=useLocalSearchParams<{module:string;deskId?:string;threadId?:string}>();
+  const {module,deskId,threadId,assignmentId,storyId}=useLocalSearchParams<{module:string;deskId?:string;threadId?:string;assignmentId?:string;storyId?:string}>();
   const config=owners[String(module)] ?? {
     title:"Studio",
     owner:"AG-06",
@@ -63,6 +67,8 @@ export default function StudioModule(){
     <>
       <StudioPlaceholder owner={config.owner} description={config.description} />
       {String(module)==="inbox" && <StudioInboxPanel />}
+      {String(module)==="assignments" && (assignmentId ? <StudioAssignmentDiscussionPanel assignmentId={String(assignmentId)} /> : <StudioAssignmentsPanel />)}
+      {String(module)==="stories" && storyId && <StudioStoryDiscussionPanel storyId={String(storyId)} />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}
