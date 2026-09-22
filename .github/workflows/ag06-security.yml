@@ -79,6 +79,9 @@ jobs:
 
   live-staging-security:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -99,59 +102,39 @@ jobs:
           set -euo pipefail
           [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
           [[ "$SUPABASE_URL" == "$AG06_STAGING_SUPABASE_URL" ]] || { echo "Newsroom gateway and live RLS target differ."; exit 1; }
-      - name: Prepare ephemeral staging Auth coordinates
+      - name: Provision four ephemeral staging role identities
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save --package-lock=false --ignore-scripts bcryptjs@2.4.3 >/dev/null 2>&1
           tag="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          : > /tmp/ag06-activation-manifest.txt
-          for role in reporter editor commercial publisher; do
+          roles=(reporter editor commercial publisher)
+          accounts_file=/tmp/ag06-accounts.json
+          printf '[' > "$accounts_file"
+          first=1
+          for role in "${roles[@]}"; do
             upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
             email="ag06-${role}-${tag}@healthtimes.co.zw"
             password="Ht!$(openssl rand -hex 18)Aa7"
-            hash="$(node -e 'const bcrypt=require("bcryptjs"); process.stdout.write(bcrypt.hashSync(process.argv[1],10))' "$password")"
             echo "::add-mask::$password"
             echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
             echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
-            echo "$role|$email|$hash" >> /tmp/ag06-activation-manifest.txt
-            echo "AG06_STAGING_IDENTITY_COORD role=$role email=$email"
+            item="$(node -e 'const [role,email,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({role,email,password}))' "$role" "$email" "$password")"
+            if [[ "$first" == "0" ]]; then printf ',' >> "$accounts_file"; fi
+            printf '%s' "$item" >> "$accounts_file"
+            first=0
           done
-      - name: Upload activation manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: ag06-activation-${{ github.run_id }}-${{ github.run_attempt }}
-          path: /tmp/ag06-activation-manifest.txt
-          if-no-files-found: error
-          retention-days: 1
-      - name: Wait for moderator role activation
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 36); do
-            all_ready=1
-            for role in REPORTER EDITOR COMMERCIAL PUBLISHER; do
-              email_var="AG06_${role}_EMAIL"
-              password_var="AG06_${role}_PASSWORD"
-              email="${!email_var}"
-              password="${!password_var}"
-              payload="$(node -e 'const [email,password]=process.argv.slice(1); process.stdout.write(JSON.stringify({email,password}))' "$email" "$password")"
-              code="$(curl --silent --show-error -o "/tmp/ag06-${role}-login.json" -w '%{http_code}' \
-                -X POST "$AG06_STAGING_SUPABASE_URL/auth/v1/token?grant_type=password" \
-                -H "apikey: $AG06_STAGING_SUPABASE_PUBLISHABLE_KEY" \
-                -H "Content-Type: application/json" \
-                --data "$payload")"
-              if [[ "$code" != "200" ]]; then all_ready=0; fi
-            done
-            if [[ "$all_ready" == "1" ]]; then
-              echo "AG06_STAGING_AUTH_READY"
-              exit 0
-            fi
-            echo "Waiting for bounded staging identities to be confirmed/mapped (attempt $attempt/36)..."
-            sleep 10
-          done
-          echo "Timed out waiting for staging identity activation."
-          exit 1
+          printf ']' >> "$accounts_file"
+
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+
+          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts,probe_email:true}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ag06-provision.json -w '%{http_code}'             -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision"             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload")"
+          cat /tmp/ag06-provision.json
+          [[ "$code" == "200" ]] || { echo "AG-06 staging identity provisioning failed with HTTP $code."; exit 1; }
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("/tmp/ag06-provision.json","utf8"));if(!v.ok||v.project_ref!=="gcdohgbmqhqwydgaxrcr"||!Array.isArray(v.users)||v.users.length!==4)process.exit(1);'
+          echo "AG06_STAGING_IDENTITIES_READY"
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - name: Start exact-branch Newsroom gateway
@@ -171,6 +154,18 @@ jobs:
           exit 1
       - name: Direct API/RLS attacks + Newsroom journeys
         run: npm run test:ag06:live
+      - name: Revoke ephemeral staging Auth identities
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const [run,attempt]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"cleanup",run_id:run,run_attempt:attempt}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ag06-cleanup.json -w '%{http_code}'             -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision"             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload")"
+          cat /tmp/ag06-cleanup.json
+          [[ "$code" == "200" ]] || { echo "AG-06 staging cleanup failed with HTTP $code."; exit 1; }
       - name: Stop exact-branch Newsroom gateway
         if: always()
         shell: bash
