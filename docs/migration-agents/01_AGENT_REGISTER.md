@@ -201,11 +201,52 @@ Cannot:
 - create production staff accounts;
 - expose privileged keys client-side.
 
+## COM-01 — Communications, Email & Distribution
+
+Task file: `agent-tasks/COM-01_COMMUNICATIONS_EMAIL_DISTRIBUTION.md`
+
+Prerequisites: CP4, CP5 and CP6 accepted; moderator authorization.
+
+Required tools/environment:
+- GITHUB;
+- SUPABASE staging;
+- VERCEL staging;
+- RESEND staging/sandbox;
+- CLOUDFLARE-EMAIL staging/test routing capability where available;
+- BREVO staging/test marketing capability where available;
+- BROWSER-UAT;
+- direct API/webhook/RLS/security testing.
+
+Owns:
+- canonical communications schema/workflows;
+- inbound organizational email queues and threaded replies;
+- transactional/system outbound email through Resend;
+- newsletter/marketing consent, suppression, segmentation and Brevo integration;
+- internal Newsroom notification/email-escalation integration;
+- communications RBAC/capability enforcement based on accepted CP6;
+- private communication attachments;
+- authenticated/idempotent provider webhook ingestion;
+- human-approved social distribution;
+- provider-health/configuration fail-closed states;
+- production mail/DNS worksheet for CP7;
+- COM-01 receipt.
+
+Cannot:
+- change production MX/DNS/mail routing;
+- activate production sender domains;
+- send bulk marketing to production audiences;
+- weaken CP6 authorization boundaries;
+- expose provider secrets client-side;
+- fabricate delivery/campaign/account evidence.
+
+Successful handoff:
+`COM-01 ACCEPTED — AG-07 / CP7 integration dependency is CLEAR`
+
 ## AG-07 — Integrated Certification, Client UAT & Acceptance Ledger
 
 Task file: `agent-tasks/AG-07_CERTIFICATION_CLIENT_UAT.md`
 
-Prerequisites: CP4, CP5 and CP6 accepted.
+Prerequisites: CP4, CP5, CP6 and COM-01 accepted.
 
 Required tools/environment:
 - GITHUB;
@@ -270,4 +311,5 @@ Owns after authorization:
 4. Every implementation/certification agent leaves a non-sensitive report under `docs/migration/agent-reports/` once the migration branch exists.
 5. Red tests block checkpoint acceptance unless explicitly proven unrelated and accepted under programme governance; green is the preferred handoff state.
 6. Production remains untouched through AG-07.
+7. AG-07 is locked until COM-01 is moderator-accepted.
 7. Required-tool unavailability is a blocker, not permission to simulate evidence.
