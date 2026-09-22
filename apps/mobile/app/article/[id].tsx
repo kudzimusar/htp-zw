@@ -10,6 +10,7 @@ import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 import { parseArticleContent, type ArticleInline } from "../../src/reader/article-content";
+import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
 
 export function generateStaticParams() {
   return [
@@ -249,6 +250,8 @@ export default function ArticleScreen(){
           </>
         )}
       </View>
+
+      <ReaderDiscussionPanel canonicalStoryId={story.canonicalStoryId} />
 
       {!!(story.canonicalUrl ?? story.sourceProvenance?.sourceUrl) && (<Section><SectionHeader title="Original publication" /><View style={styles.sourceBlock}><Pressable accessibilityRole="link" style={[styles.sourceButton,{borderColor:palette.border}]} onPress={()=>void Linking.openURL((story.canonicalUrl ?? story.sourceProvenance?.sourceUrl)!)}><Text style={[styles.sourceButtonText,{color:palette.blue}]}>View article on HealthTimes.co.zw →</Text></Pressable></View></Section>)}
 

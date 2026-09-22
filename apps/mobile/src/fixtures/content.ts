@@ -45,6 +45,7 @@ const zimbabwe = { id: "fixture-zone-zimbabwe", name: "Zimbabwe", slug: "zimbabw
 export const articles: ArticleDetail[] = [
   {
     id: "fixture-001",
+    canonicalStoryId: null,
     title: "Health systems prepare for a new season of regional pressure",
     slug: "fixture-health-systems-regional-pressure",
     standfirst: "A fixture story demonstrating the approved HealthTimes editorial hierarchy while AG-04 content remains unavailable.",
@@ -63,6 +64,7 @@ export const articles: ArticleDetail[] = [
   },
   {
     id: "fixture-002",
+    canonicalStoryId: null,
     title: "Research teams expand evidence on community health delivery",
     slug: "fixture-community-health-evidence",
     standfirst: "Research and field practice remain closely linked in the HealthTimes discovery model.",
@@ -81,6 +83,7 @@ export const articles: ArticleDetail[] = [
   },
   {
     id: "fixture-003",
+    canonicalStoryId: null,
     title: "Premium intelligence: what health financing signals mean for providers",
     slug: "fixture-premium-health-financing",
     standfirst: "Premium presentation is visible now; entitlement remains a server-owned AG-06 responsibility.",

@@ -54,6 +54,11 @@ export type TaxonomyRef = {
 
 export type ArticleSummary = {
   id: string;
+  /**
+   * Canonical public.stories.id. Temporary WordPress/source-parity and fixture
+   * identities must leave this null so permanent discussion cannot attach to them.
+   */
+  canonicalStoryId: string | null;
   title: string;
   slug: string;
   standfirst: string | null;
@@ -283,3 +288,137 @@ export type StudioModule =
   | "authors"
   | "staff-roles"
   | "settings";
+
+
+export type ReaderCommentEligibility = {
+  status: "blocked" | "pre_moderated" | "allowed";
+  reason: string;
+  profileId: string | null;
+  publishedCommentCount: number;
+};
+
+export type ReaderStoryComment = {
+  id: string;
+  storyId: string;
+  parentCommentId: string | null;
+  displayName: string;
+  body: string;
+  publishedAt: string | null;
+  edited: boolean;
+};
+
+export type ReaderCommentActionResult = {
+  status: "success" | "blocked" | "error";
+  message: string;
+  id?: string | null;
+};
+
+export type NewsroomInboxItem = {
+  id: string;
+  eventType: string;
+  targetTable: string | null;
+  targetId: string | null;
+  category: "general" | "mention" | "assignment" | "review" | "urgent" | "announcement" | "newsletter" | "moderation";
+  priority: "normal" | "high" | "urgent";
+  payload: Record<string, unknown>;
+  readAt: string | null;
+  requiresAck: boolean;
+  acknowledgedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+};
+
+export type NewsroomInboxSummary = {
+  unreadTotal: number;
+  mentions: number;
+  assignments: number;
+  reviews: number;
+  urgent: number;
+  announcements: number;
+  newsletter: number;
+  moderation: number;
+  unacknowledged: number;
+};
+
+
+export type NewsroomInternalComment = {
+  id: string;
+  storyId: string;
+  authorStaffId: string;
+  body: string;
+  parentCommentId: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+};
+
+export type NewsroomDesk = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  archivedAt: string | null;
+};
+
+export type NewsroomThread = {
+  id: string;
+  threadType: "assignment" | "desk" | "breaking" | "general";
+  title: string;
+  assignmentId: string | null;
+  deskId: string | null;
+  priority: "normal" | "high" | "urgent";
+  status: "open" | "closed" | "archived";
+  expiresAt: string | null;
+  updatedAt: string;
+};
+
+export type NewsroomMessage = {
+  id: string;
+  threadId: string;
+  authorStaffId: string;
+  parentMessageId: string | null;
+  body: string;
+  createdAt: string;
+};
+
+export type NewsroomAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  audienceScope: "all_staff" | "desk";
+  deskId: string | null;
+  priority: "normal" | "high" | "urgent";
+  requiresAck: boolean;
+  publishedAt: string;
+  expiresAt: string | null;
+};
+
+export type ReaderCommentModerationItem = {
+  id: string;
+  storyId: string;
+  authorProfileId: string;
+  parentCommentId: string | null;
+  body: string;
+  state: "PENDING" | "PUBLISHED" | "HELD" | "REJECTED" | "HIDDEN" | "REMOVED";
+  riskFlags: string[];
+  createdAt: string;
+  editedAt: string | null;
+  publishedAt: string | null;
+};
+
+
+export type NewsroomAssignment = {
+  id: string;
+  storyId: string | null;
+  title: string;
+  reporterStaffId: string;
+  assignedEditorStaffId: string | null;
+  desk: string | null;
+  deadlineAt: string | null;
+  priority: string;
+  notes: string | null;
+  status: string;
+  assignedBy: string;
+  updatedAt: string;
+};

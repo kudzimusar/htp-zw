@@ -9,10 +9,15 @@ import { hasServerCapability, type HealthTimesCapability } from "../security/cap
 
 const modules=[
   ["Today","/studio"],
+  ["Inbox","/studio/inbox"],
+  ["Assignments","/studio/assignments"],
   ["Stories","/studio/stories"],
   ["Create / Edit","/studio/create-edit"],
   ["Live Desk","/studio/live-desk"],
   ["Video Desk","/studio/video-desk"],
+  ["Desks","/studio/desks"],
+  ["Breaking","/studio/breaking"],
+  ["Moderation","/studio/moderation"],
   ["Media","/studio/media"],
   ["Advertising","/studio/advertising"],
   ["Premium","/studio/premium"],
@@ -94,6 +99,35 @@ export function StudioShell({children,title}:PropsWithChildren<{title:string}>){
       </View>
     </SafeAreaView>
   );
+}
+
+export function StudioAuthorityGate({children}:PropsWithChildren){
+  const authorization=useAsync(()=>services.authorization.getSnapshot(),[]);
+  if(authorization.loading){
+    return (
+      <View style={styles.accessGate}>
+        <Text style={styles.accessGateEyebrow}>SERVER AUTHORITY</Text>
+        <Text style={styles.accessGateTitle}>Checking Newsroom session…</Text>
+      </View>
+    );
+  }
+  const snapshot=authorization.data;
+  const allowed=snapshot?.status==="authorized" && snapshot.source==="server";
+  if(!allowed){
+    return (
+      <View style={styles.accessGate}>
+        <Text style={styles.accessGateEyebrow}>SERVER AUTHORITY REQUIRED</Text>
+        <Text style={styles.accessGateTitle}>This Studio communication module is locked.</Text>
+        <Text style={styles.accessGateText}>
+          {snapshot?.reason ?? authorization.error?.message ?? "No server-authorized Newsroom session is available."}
+        </Text>
+        <Text style={styles.accessGateText}>
+          Reader authentication, local role labels, client state, or direct navigation cannot create Newsroom authority.
+        </Text>
+      </View>
+    );
+  }
+  return <>{children}</>;
 }
 
 export function StudioAccessGate({

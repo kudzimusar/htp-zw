@@ -3,12 +3,15 @@ import type {
   AnalyticsService,
   ArticleRepository,
   AuthorizationService,
+  CommentModerationService,
   DeviceSecurityService,
   AudioService,
   AuthService,
   HealthTimesServices,
   LiveService,
   NotificationService,
+  NewsroomCommunicationService,
+  ReaderDiscussionService,
   PremiumService,
   PlatformService,
   SearchService,
@@ -181,6 +184,65 @@ const notificationService: NotificationService = {
   }
 };
 
+const readerDiscussionService: ReaderDiscussionService = {
+  async registerProfile() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  },
+  async getEligibility() {
+    return { status: "blocked", reason: "canonical_story_required", profileId: null, publishedCommentCount: 0 };
+  },
+  async listPublic() {
+    return [];
+  },
+  async submit() {
+    throw new Error("Canonical HealthTimes story identity is required before discussion can be used.");
+  },
+  async edit() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  },
+  async withdraw() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  },
+  async report() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  }
+};
+
+const newsroomCommunicationService: NewsroomCommunicationService = {
+  async listInbox() {
+    return {
+      items: [],
+      summary: {
+        unreadTotal: 0, mentions: 0, assignments: 0, reviews: 0,
+        urgent: 0, announcements: 0, newsletter: 0, moderation: 0, unacknowledged: 0
+      }
+    };
+  },
+  async markRead() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async acknowledge() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async archive() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listAssignments() { return []; },
+  async listStoryDiscussion() { return []; },
+  async addStoryComment() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async editStoryComment() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async setStoryCommentResolved() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listDesks() { return []; },
+  async listThreads() { return []; },
+  async createThread() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listThreadMessages() { return []; },
+  async postThreadMessage() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async markThreadRead() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listAnnouncements() { return []; }
+};
+
+const commentModerationService: CommentModerationService = {
+  async listQueue() { return []; },
+  async moderate() { throw new Error("Comment moderation is unavailable in fixture mode."); },
+  async setStoryCommentPolicy() { throw new Error("Comment moderation is unavailable in fixture mode."); },
+  async restrictReader() { throw new Error("Comment moderation is unavailable in fixture mode."); },
+  async liftRestriction() { throw new Error("Comment moderation is unavailable in fixture mode."); }
+};
+
 const platformService: PlatformService = {
   async checkConnectivity() {
     return {
@@ -223,6 +285,9 @@ export const fixtureServices: HealthTimesServices = {
   video: videoService,
   audio: audioService,
   notifications: notificationService,
+  readerDiscussion: readerDiscussionService,
+  newsroomCommunication: newsroomCommunicationService,
+  commentModeration: commentModerationService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

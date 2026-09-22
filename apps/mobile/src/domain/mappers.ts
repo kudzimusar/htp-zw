@@ -109,6 +109,7 @@ export function mapStoryRow(row: StoryRow, relations: StoryRelations = {}): Arti
 
   return {
     id: row.id,
+    canonicalStoryId: row.id,
     title: row.title,
     slug: row.slug,
     standfirst: row.standfirst,
