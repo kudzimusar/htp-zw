@@ -60,11 +60,16 @@ test("Studio communication routes are gated by server authority or server capabi
   assert.equal(module.includes("user.role"),false);
 });
 
-test("current NM staging authorization remains fail closed until server projection is integrated",()=>{
+test("Native staff authority comes only from the certified AG-06/CA-01 server projection",()=>{
   const security=read("src/services/security.ts");
+  assert.ok(security.includes('"newsroom_register_session"'));
+  assert.ok(security.includes('"newsroom_current_context"'));
+  assert.ok(security.includes('"authenticated-no-staff-authority"'));
   assert.ok(security.includes('"server-policy-unavailable"'));
-  assert.ok(security.includes("Authenticated client state cannot create Studio authority."));
+  assert.ok(security.includes('source:"server"'));
+  assert.ok(security.includes("HEALTH_TIMES_CAPABILITIES"));
   assert.equal(security.includes("user.role"),false);
+  assert.equal(/role\s*===|role\s*==/.test(security),false);
 });
 
 test("Reader article discussion is visibly unavailable on non-canonical stories",()=>{
