@@ -132,7 +132,7 @@ jobs:
           oidc_token="$(curl --silent --show-error --fail             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
           echo "::add-mask::$oidc_token"
 
-          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts,probe_email:true}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          # Synthetic CI identities are created with email_confirm=true by the OIDC provisioner. Never send invite/recovery mail to them.\n          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
           code="$(curl --silent --show-error -o /tmp/ag06-provision.json -w '%{http_code}'             -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision"             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload")"
           cat /tmp/ag06-provision.json
           [[ "$code" == "200" ]] || { echo "AG-06 staging identity provisioning failed with HTTP $code."; exit 1; }
