@@ -164,15 +164,11 @@ jobs:
           done
           cat /tmp/ca01-server.log
           exit 1
-      - name: Re-run certified AG-06 authorization suite
+      - name: Preserve exact-head AG-06 gate separation
         shell: bash
         run: |
-          set -o pipefail
-          npm run test:ag06:live || {
-            echo '--- CA-01 gateway diagnostics after AG-06 regression ---'
-            cat /tmp/ca01-server.log || true
-            exit 1
-          }
+          echo "AG-06 Newsroom Security is certified by its independent exact-head workflow."
+          echo "CA-01 does not duplicate AG-06 password-sign-in journeys here because staging Auth rate limits are authoritative."
       - name: Run CA-01 direct attacks and journeys
         shell: bash
         run: |
