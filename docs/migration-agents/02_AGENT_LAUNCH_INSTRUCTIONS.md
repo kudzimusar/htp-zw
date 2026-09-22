@@ -59,6 +59,7 @@ Give the agent the following instructions before its specific task:
 - AG-04: `AG-04_REHEARSAL_CONTENT_MEDIA_TAXONOMY.md`
 - AG-05: `AG-05_SEO_ANALYTICS_MONETIZATION.md`
 - AG-06: `AG-06_NEWSROOM_BACKEND_SECURITY.md`
+- COM-01: `COM-01_COMMUNICATIONS_EMAIL_DISTRIBUTION.md` — REQUIRED after CP4/CP5/CP6 and before AG-07.
 - AG-07: `AG-07_CERTIFICATION_CLIENT_UAT.md`
 - AG-08: `AG-08_PRODUCTION_CUTOVER_ROLLBACK.md` — LOCKED until CP7 acceptance plus explicit owner production authorization.
 
@@ -79,6 +80,8 @@ AG-03 / CP3 Client Data / Source Capture
 │ / Taxonomy       │ / Monetization   │ / Auth/Security  │
 └──────────────────┴──────────────────┴──────────────────┘
         ↓
+COM-01 Communications, Email & Distribution
+        ↓
 AG-07 / CP7 Integrated Certification + Client UAT
         ↓
 EXPLICIT OWNER PRODUCTION AUTHORIZATION
@@ -86,7 +89,7 @@ EXPLICIT OWNER PRODUCTION AUTHORIZATION
 AG-08 / CP8 Production Cutover + Rollback
 ```
 
-AG-04/05/06 may overlap only after CP2/CP3 prerequisites are satisfied, the moderator authorizes the lanes, and file/schema ownership is coordinated.
+AG-04/05/06 may overlap only after CP2/CP3 prerequisites are satisfied, the moderator authorizes the lanes, and file/schema ownership is coordinated. COM-01 begins only after CP4/CP5/CP6 acceptance and AG-07 remains locked until COM-01 acceptance.
 
 ## Current custody rule
 
