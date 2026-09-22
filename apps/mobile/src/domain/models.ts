@@ -54,6 +54,11 @@ export type TaxonomyRef = {
 
 export type ArticleSummary = {
   id: string;
+  /**
+   * Canonical public.stories.id. Temporary WordPress/source-parity and fixture
+   * identities must leave this null so permanent discussion cannot attach to them.
+   */
+  canonicalStoryId: string | null;
   canonicalStoryId: string | null;
   title: string;
   slug: string;
