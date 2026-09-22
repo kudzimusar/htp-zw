@@ -255,7 +255,6 @@ function encodeSelect(value) {
 async function bootstrap(token, req) {
   const context = await registerAndContext(token, req);
   const queries = {
-    stories: 'stories?select=' + encodeSelect('id,title,slug,standfirst,body_html,status,workflow_status,access_policy,owner_staff_id,assigned_editor_staff_id,fact_checker_staff_id,health_reviewer_staff_id,copy_editor_staff_id,desk,topic,country,region,source_notes,internal_notes,deadline_at,scheduled_at,seo_title,seo_description,distribution,ad_setting,lock_version,published_at,modified_at,updated_at,created_at') + '&order=updated_at.desc',
     revisions: 'story_revisions?select=' + encodeSelect('id,story_id,revision_number,title,body_html,editor_id,change_summary,created_at') + '&order=created_at.desc&limit=500',
     lifecycle: 'story_lifecycle_events?select=' + encodeSelect('id,story_id,from_status,to_status,actor_staff_id,reason,created_at') + '&order=created_at.desc&limit=500',
     assignments: 'story_assignments?select=' + encodeSelect('id,story_id,title,reporter_staff_id,assigned_editor_staff_id,desk,deadline_at,priority,notes,status,assigned_by,created_at,updated_at') + '&order=updated_at.desc',
@@ -269,9 +268,17 @@ async function bootstrap(token, req) {
     advertisers: 'advertisers?select=' + encodeSelect('id,name') + '&order=name.asc',
     subscribers: 'subscribers?select=' + encodeSelect('id,email,display_name,status,created_at') + '&order=created_at.desc&limit=200'
   };
-  const entries = await Promise.all(Object.entries(queries).map(async ([key, query]) => [key, await optionalRows(query, token)]));
-  const directory = await rpc('newsroom_staff_directory', {}, token);
-  return { context, directory: Array.isArray(directory) ? directory : [], ...Object.fromEntries(entries) };
+  const [stories, entries, directory] = await Promise.all([
+    rpc('newsroom_list_stories', { p_limit: 200 }, token),
+    Promise.all(Object.entries(queries).map(async ([key, query]) => [key, await optionalRows(query, token)])),
+    rpc('newsroom_staff_directory', {}, token)
+  ]);
+  return {
+    context,
+    stories: Array.isArray(stories) ? stories : [],
+    directory: Array.isArray(directory) ? directory : [],
+    ...Object.fromEntries(entries)
+  };
 }
 
 function backendError(res, error) {
