@@ -49,7 +49,7 @@ jobs:
     timeout-minutes: 25
     env:
       HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk # browser-safe staging publishable key; not service-role
       AG05_LIVE_BASE_URL: http://127.0.0.1:4174
     steps:
       - name: Check out repository
@@ -137,7 +137,7 @@ jobs:
     timeout-minutes: 30
     env:
       HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk # browser-safe staging publishable key; not service-role
       STAGING_ORIGIN: http://127.0.0.1:4174
     steps:
       - name: Check out repository
