@@ -67,6 +67,32 @@ jobs:
           test -n "${HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY:-}" || { echo "Missing staging publishable-key secret."; exit 1; }
           [[ "$HEALTHTIMES_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging project."; exit 1; }
 
+      - name: Wait for a complete AG-04 rehearsal snapshot
+        run: |
+          node <<'NODE'
+          const base=process.env.HEALTHTIMES_SUPABASE_URL.replace(/\/$/,'');
+          const key=process.env.HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY;
+          const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+          async function readiness(){
+            const response=await fetch(`${base}/rest/v1/rpc/ag05_rehearsal_readiness_status`,{
+              method:'POST',
+              headers:{apikey:key,'Content-Type':'application/json'},
+              body:'{}'
+            });
+            if(!response.ok) throw new Error(`readiness RPC failed: ${response.status}`);
+            return response.json();
+          }
+          (async()=>{
+            for(let attempt=1;attempt<=180;attempt++){
+              const state=await readiness();
+              console.log(`AG05 readiness attempt ${attempt}: mappings=${state.mapping_rows}/${state.expected_public_objects}, distinct=${state.distinct_mapped_sources}, active_ag04_runs=${state.active_ag04_runs}, ready=${state.ready}`);
+              if(state.ready===true) return;
+              await sleep(5000);
+            }
+            throw new Error('HealthTimes Staging did not reach a complete, idle 5,786-object AG-04 rehearsal snapshot.');
+          })().catch(error=>{console.error(error.message);process.exit(1);});
+          NODE
+
       - name: Install test runtime
         run: |
           npm install --no-audit --no-fund
@@ -147,6 +173,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Reconfirm complete AG-04 rehearsal snapshot
+        env:
+          AG05_PUBLISHABLE_KEY: ${{ env.HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node <<'NODE'
+          const base=process.env.HEALTHTIMES_SUPABASE_URL.replace(/\/$/,'');
+          const key=process.env.AG05_PUBLISHABLE_KEY;
+          (async()=>{
+            const response=await fetch(`${base}/rest/v1/rpc/ag05_rehearsal_readiness_status`,{
+              method:'POST',
+              headers:{apikey:key,'Content-Type':'application/json'},
+              body:'{}'
+            });
+            if(!response.ok) throw new Error(`readiness RPC failed: ${response.status}`);
+            const state=await response.json();
+            console.log(JSON.stringify(state));
+            if(state.ready!==true) throw new Error('AG-04 rehearsal snapshot changed after live certification; refusing Lighthouse against partial staging state.');
+          })().catch(error=>{console.error(error.message);process.exit(1);});
+          NODE
 
       - name: Install browser runtime
         run: |
