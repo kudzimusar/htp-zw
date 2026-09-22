@@ -229,6 +229,7 @@ export type AdPlacementKey =
   | "home_watch"
   | "home_deep_feed"
   | "article_after_intro"
+  | "article_mid_body"
   | "article_end"
   | "watch_feed"
   | "live_feed";
@@ -240,8 +241,26 @@ export type AdRequestContext = {
   storyId?: string;
 };
 
+export type AdProviderReadinessState =
+  | "unconfigured"
+  | "blocked-by-policy"
+  | "eligible-no-inventory"
+  | "available"
+  | "error";
+
+export type AdPlacementFormat = "banner" | "inline-display" | "feed-display";
+
+export type AdPlacementDefinition = {
+  key: AdPlacementKey;
+  surface: "home" | "article" | "live" | "watch";
+  format: AdPlacementFormat;
+  sensitiveHealthEligibility: "blocked" | "non-personalized-only";
+  personalizationAllowed: false;
+};
+
 export type AdDecision = {
   placementKey: AdPlacementKey;
+  providerState: AdProviderReadinessState;
   source: "direct" | "adsense" | "house" | "none";
   personalization: "personalized" | "non-personalized" | "contextual" | "none";
   disclosureLabel: string;
@@ -296,14 +315,39 @@ export type PremiumOffer = {
 };
 
 export type PremiumStoreState = {
-  status: "configuration-required" | "available" | "unavailable";
+  status: "configuration-required" | "loading" | "available" | "unavailable" | "error";
   offers: PremiumOffer[];
+  message: string;
+};
+
+export type PremiumPurchaseResult = {
+  status:
+    | "configuration-required"
+    | "cancelled"
+    | "pending-server-entitlement"
+    | "unavailable"
+    | "error";
+  storeProductId: string | null;
+  providerTransactionReference: string | null;
   message: string;
 };
 
 export type PremiumRestoreResult = {
   restored: boolean;
-  reason: "restored" | "nothing-to-restore" | "configuration-required" | "unavailable";
+  reason:
+    | "restored-pending-server-entitlement"
+    | "nothing-to-restore"
+    | "configuration-required"
+    | "unavailable"
+    | "error";
+  providerTransactionReferences?: string[];
+};
+
+export type AnalyticsProviderStatus = {
+  provider: "development-test" | "pwa-web" | "native";
+  state: "available" | "configuration-required" | "blocked-by-host" | "error";
+  measurementId: string | null;
+  detail: string;
 };
 
 export type NotificationItem = {
