@@ -406,3 +406,19 @@ export type ReaderCommentModerationItem = {
   editedAt: string | null;
   publishedAt: string | null;
 };
+
+
+export type NewsroomAssignment = {
+  id: string;
+  storyId: string | null;
+  title: string;
+  reporterStaffId: string;
+  assignedEditorStaffId: string | null;
+  desk: string | null;
+  deadlineAt: string | null;
+  priority: string;
+  notes: string | null;
+  status: string;
+  assignedBy: string;
+  updatedAt: string;
+};
