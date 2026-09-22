@@ -53,9 +53,9 @@ AG-04 may rewrite those body links directly to the canonical story path. AG-05 r
 
 ## Category archives
 
-AG-04 found **429** category occurrences across **21 distinct paths**.
+AG-04 found **429** category occurrences across **36 distinct paths**.
 
-All 21 source category slugs have exact imported `sections.slug` identities in HealthTimes Staging.
+The corpus includes both flat and historical nested category paths. For every observed path, the final category slug matches exactly one imported `sections.slug` identity in HealthTimes Staging. No category destination is inferred from display-name similarity alone.
 
 Disposition:
 
@@ -63,7 +63,7 @@ Disposition:
 
 Runtime:
 
-- source path retained: `/category/<source-slug>/`;
+- source path retained exactly, including historical nested forms such as `/category/special_projects/tobacco_harm_reduction/`;
 - HTTP 200;
 - server-rendered from existing imported section/story identities;
 - canonical remains the same historical category path;
