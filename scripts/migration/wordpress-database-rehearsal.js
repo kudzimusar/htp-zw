@@ -15,6 +15,7 @@ const PHP_EXCLUDE_HASHES = new Set([
   '76e7cd6781911a19d14c02f36b30ef35ebf891c9bcff7bdce70b366f66d06c6f'
 ]);
 const HOSPAZ_COMMERCIAL_HASH = '50d7b7363c35df79a17102c81e0d5d37db1abe6c780f4ba189df09f26cd8456f';
+const DEFAULT_STORAGE_PUBLIC_BASE = 'https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/public/migrated-media';
 
 function parseArgs(argv) {
   const args = {
@@ -180,6 +181,165 @@ function sourceUrlForPath(siteUrl, relativePath) {
   return `${siteUrl.replace(/\/$/, '')}/wp-content/uploads/${relativePath.replace(/^uploads\//, '')}`;
 }
 
+function safeStorageRelativePath(relativePath) {
+  return String(relativePath || '')
+    .replace(/^uploads\//, '')
+    .split('/')
+    .map(segment => segment
+      .replace(/[·•–—]/g, '-')
+      .replace(/[\u0000-\u001f\u007f]/g, '-')
+      .replace(/-{2,}/g, '-'))
+    .join('/');
+}
+
+function storageKeyForOriginalPath(originalPath) {
+  const relative = safeStorageRelativePath(originalPath);
+  return relative ? `wordpress/${relative}` : '';
+}
+
+function storagePublicUrl(storageKey, storagePublicBase = DEFAULT_STORAGE_PUBLIC_BASE) {
+  if (!storageKey) return '';
+  return `${String(storagePublicBase || DEFAULT_STORAGE_PUBLIC_BASE).replace(/\/$/, '')}/${storageKey}`;
+}
+
+function safeDecodeURIComponent(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function stripWordPressImageDerivative(relativePath) {
+  const ext = path.posix.extname(relativePath);
+  if (!ext) return relativePath;
+  const base = relativePath.slice(0, -ext.length);
+  return `${base.replace(/-[0-9]+x[0-9]+$/, '')}${ext}`;
+}
+
+function mediaFamilyKey(relativePath) {
+  const ext = path.posix.extname(relativePath);
+  const dir = path.posix.dirname(relativePath);
+  let stem = path.posix.basename(relativePath, ext);
+  stem = stem
+    .replace(/-scaled$/i, '')
+    .replace(/-e[0-9]{10,}$/i, '');
+  return `${dir}/${stem}`;
+}
+
+function buildMediaRewriteIndex(attachments, storagePublicBase = DEFAULT_STORAGE_PUBLIC_BASE) {
+  const exact = new Map();
+  const family = new Map();
+  const addFamily = (key, url) => {
+    if (!family.has(key)) family.set(key, url);
+    else if (family.get(key) !== url) family.set(key, null);
+  };
+  for (const media of attachments) {
+    if (media.status !== 'pending' || !media.original_path || !media.storage_key) continue;
+    const relative = String(media.original_path).replace(/^uploads\//, '');
+    const url = media.public_url || storagePublicUrl(media.storage_key, storagePublicBase);
+    const variants = new Set([relative, safeDecodeURIComponent(relative)]);
+    for (const variant of variants) {
+      exact.set(variant, url);
+      addFamily(mediaFamilyKey(variant), url);
+    }
+  }
+  return { exact, family, storagePublicBase };
+}
+
+function resolveWordPressUploadRelative(relativePath, index) {
+  const raw = String(relativePath || '').replace(/^uploads\//, '').replace(/[?#].*$/, '');
+  const variants = [...new Set([raw, safeDecodeURIComponent(raw)])];
+  for (const variant of variants) {
+    if (index.exact.has(variant)) {
+      return { url: index.exact.get(variant), resolved: true, strategy: 'ATTACHMENT_EXACT' };
+    }
+    const derivativeBase = stripWordPressImageDerivative(variant);
+    if (derivativeBase !== variant && index.exact.has(derivativeBase)) {
+      return { url: index.exact.get(derivativeBase), resolved: true, strategy: 'WORDPRESS_DERIVATIVE_TO_ORIGINAL' };
+    }
+    const family = index.family.get(mediaFamilyKey(derivativeBase));
+    if (family) {
+      return { url: family, resolved: true, strategy: 'WORDPRESS_DERIVATIVE_TO_UNIQUE_FAMILY' };
+    }
+  }
+  const fallbackKey = storageKeyForOriginalPath(raw);
+  return {
+    url: storagePublicUrl(fallbackKey, index.storagePublicBase),
+    resolved: false,
+    strategy: 'FALLBACK_CANONICAL_PATH',
+    fallback_key: fallbackKey
+  };
+}
+
+function rewriteWordPressUploadUrls(html, index) {
+  const unresolved = [];
+  let rewrittenCount = 0;
+  const rewritten = String(html || '').replace(
+    /https?:\/\/(?:www\.)?healthtimes\.co\.zw\/wp-content\/uploads\/([^"' <>)]+)/gi,
+    (sourceUrl, relativePath) => {
+      const result = resolveWordPressUploadRelative(relativePath, index);
+      rewrittenCount += 1;
+      if (!result.resolved) {
+        unresolved.push({
+          type: 'media_rewrite_fallback',
+          severity: 'review',
+          source_url: sourceUrl,
+          destination_url: result.url,
+          fallback_key: result.fallback_key
+        });
+      }
+      return result.url;
+    }
+  );
+  return { html: rewritten, unresolved, rewritten_count: rewrittenCount };
+}
+
+function buildTaxonomyDisposition(categories, tags) {
+  return {
+    categories: categories.map(term => ({
+      ...term,
+      mapping_status: 'CANONICAL_NAVIGATION_CANDIDATE',
+      canonical_term: null,
+      mapping_reason: 'Legacy WordPress category preserved as a candidate for editorial Global Taxonomy v1 curation.'
+    })),
+    tags: tags.map(term => ({
+      ...term,
+      mapping_status: 'LEGACY_ONLY',
+      canonical_term: null,
+      mapping_reason: 'Legacy WordPress tag preserved for provenance and excluded from canonical navigation unless explicitly promoted.'
+    }))
+  };
+}
+
+function buildPublicUrlManifest(stories) {
+  return stories
+    .map(story => ({
+      source_url: story.source_url,
+      source_object_id: story.id,
+      source_object_type: story.type,
+      destination_url: story.source_url,
+      handling: 'PRESERVE_DIRECTLY',
+      HTTP_status: 200,
+      canonical_url: story.canonical_url || story.source_url,
+      reason: `Preserve WordPress ${story.type} permalink directly.`,
+      verification_status: 'VERIFIED',
+      robots: 'index,follow',
+      seo: {
+        title: story.seo_title || null,
+        description: story.seo_description || null,
+        open_graph_title: null,
+        open_graph_description: null,
+        open_graph_image: null,
+        source_plugin: null
+      }
+    }))
+    .sort((a, b) => {
+      if (a.source_object_type !== b.source_object_type) return a.source_object_type.localeCompare(b.source_object_type);
+      return Number(a.source_object_id) - Number(b.source_object_id);
+    });
+}
+
 function legacyPathForPost(post, siteUrl) {
   if (post.post_type === 'post' && post.post_date && post.post_name) {
     const date = String(post.post_date).slice(0, 10).split('-');
@@ -337,6 +497,8 @@ function buildRehearsal(source, options = {}) {
       archive_present: archivePath ? tarByPath.has(archivePath) : false,
       archive_size: tar ? tar.size : null,
       status: 'pending',
+      storage_key: '',
+      public_url: '',
       commercial_direct_ad: ['32960', '32971'].includes(String(post.ID)),
       hospaz_editorial_current_placement_asset: String(post.ID) === '33005'
     };
@@ -350,8 +512,13 @@ function buildRehearsal(source, options = {}) {
       attachment.status = 'missing_from_uploads_archive';
       mediaExceptions.push({ type: 'missing_upload_file', severity: 'review', source_id: attachment.id, original_path: archivePath });
     }
+    if (attachment.status === 'pending') {
+      attachment.storage_key = storageKeyForOriginalPath(attachment.original_path);
+      attachment.public_url = storagePublicUrl(attachment.storage_key, options.storagePublicBase || DEFAULT_STORAGE_PUBLIC_BASE);
+    }
     attachments.push(attachment);
   }
+  const mediaRewriteIndex = buildMediaRewriteIndex(attachments, options.storagePublicBase || DEFAULT_STORAGE_PUBLIC_BASE);
   const stories = [];
   const storyExceptions = [];
   const internalLinks = [];
@@ -361,12 +528,15 @@ function buildRehearsal(source, options = {}) {
     const meta = source.postmeta.get(String(post.ID)) || {};
     const terms = termTaxonomyByPost.get(String(post.ID)) || [];
     const legacyPath = legacyPathForPost(post, siteUrl);
+    const sourceHtml = post.post_content || '';
     const exceptions = classifyContent(post, meta);
-    const images = extractImages(post.post_content || '');
-    const urls = String(post.post_content || '').match(/https?:\/\/healthtimes\.co\.zw\/[^"' <>)]+/gi) || [];
+    const rewrite = rewriteWordPressUploadUrls(sourceHtml, mediaRewriteIndex);
+    const images = extractImages(sourceHtml);
+    const urls = String(sourceHtml).match(/https?:\/\/healthtimes\.co\.zw\/[^"' <>)]+/gi) || [];
     internalLinks.push(...urls.map(url => ({ source_id: String(post.ID), url })));
     mediaReferences.push(...images.map(image => ({ source_id: String(post.ID), ...image })));
     storyExceptions.push(...exceptions);
+    storyExceptions.push(...rewrite.unresolved.map(item => ({ ...item, source_id: String(post.ID) })));
     const cats = terms.filter(t => t.taxonomy === 'category').map(t => String(t.term_id));
     const tagIds = terms.filter(t => t.taxonomy === 'post_tag').map(t => String(t.term_id));
     stories.push({
@@ -376,7 +546,11 @@ function buildRehearsal(source, options = {}) {
       slug: post.post_name || String(post.ID),
       status: post.post_status,
       excerpt: stripHtml(post.post_excerpt || ''),
-      body_html: post.post_content || '',
+      body_html: rewrite.html,
+      media_rewrite: {
+        rewritten_count: rewrite.rewritten_count,
+        unresolved_count: rewrite.unresolved.length
+      },
       author_source_id: String(post.post_author || ''),
       category_source_ids: cats,
       tag_source_ids: tagIds,
@@ -405,9 +579,26 @@ function buildRehearsal(source, options = {}) {
     zero_byte_upload_files: archiveExceptions.filter(e => e.type === 'zero_byte_upload_file').length,
     executable_upload_exclusions: archiveExceptions.filter(e => e.type === 'executable_upload_excluded').length,
     internal_links: internalLinks.length,
-    media_references: mediaReferences.length
+    media_references: mediaReferences.length,
+    media_rewrites: stories.reduce((sum, story) => sum + (story.media_rewrite?.rewritten_count || 0), 0),
+    media_rewrite_fallbacks: stories.reduce((sum, story) => sum + (story.media_rewrite?.unresolved_count || 0), 0)
   };
-  return { authors, categories, tags, stories, attachments, storyExceptions, mediaExceptions, archiveExceptions, internalLinks, mediaReferences, counts };
+  const taxonomyDisposition = buildTaxonomyDisposition(categories, tags);
+  const publicUrlManifest = buildPublicUrlManifest(stories);
+  const safeKeyMappings = attachments
+    .filter(media => media.storage_key)
+    .map(media => ({
+      source_id: media.id,
+      original_path: media.original_path,
+      original_storage_key: `wordpress/${String(media.original_path || '').replace(/^uploads\//, '')}`,
+      storage_key: media.storage_key
+    }))
+    .filter(item => item.original_storage_key !== item.storage_key);
+  const mediaRewriteExceptions = storyExceptions.filter(item => item.type === 'media_rewrite_fallback');
+  return {
+    authors, categories, tags, stories, attachments, storyExceptions, mediaExceptions, archiveExceptions,
+    internalLinks, mediaReferences, taxonomyDisposition, publicUrlManifest, safeKeyMappings, mediaRewriteExceptions, counts
+  };
 }
 
 function sqlLiteral(value) {
@@ -438,13 +629,14 @@ function createStagingSql(rehearsal, options = {}) {
   for (const media of rehearsal.attachments) {
     const stableKey = `wordpress:media:${media.id}`;
     lines.push(`insert into legacy_sources (system, site_url, source_type, source_id, stable_key, source_url, checksum, raw) values ('wordpress', ${sqlLiteral(DEFAULT_SITE)}, 'media', ${sqlLiteral(media.id)}, ${sqlLiteral(stableKey)}, ${sqlLiteral(media.source_url)}, ${sqlLiteral(stableHash(JSON.stringify(media)))}, ${jsonLiteral(media)}) on conflict (stable_key) do update set source_url = excluded.source_url, checksum = excluded.checksum, raw = excluded.raw, last_seen_at = now();`);
-    lines.push(`insert into media_assets (legacy_source_id, source_url, storage_bucket, storage_key, public_url, checksum, mime_type, filename, alt_text, caption, credit, width, height, status) select id, ${sqlLiteral(media.source_url)}, 'migrated-media', ${sqlLiteral(media.status === 'pending' ? `wordpress/${media.original_path.replace(/^uploads\//, '')}` : null)}, null, ${sqlLiteral(media.commercial_direct_ad ? HOSPAZ_COMMERCIAL_HASH : '')}, ${sqlLiteral(media.mime_type)}, ${sqlLiteral(media.filename)}, ${sqlLiteral(media.alt_text)}, ${sqlLiteral(media.caption)}, null, ${media.width || 'null'}, ${media.height || 'null'}, ${sqlLiteral(media.status)} from legacy_sources where stable_key = ${sqlLiteral(stableKey)} on conflict (legacy_source_id) do update set source_url = excluded.source_url, storage_key = excluded.storage_key, mime_type = excluded.mime_type, filename = excluded.filename, alt_text = excluded.alt_text, caption = excluded.caption, width = excluded.width, height = excluded.height, status = excluded.status;`);
+    lines.push(`insert into media_assets (legacy_source_id, source_url, storage_bucket, storage_key, public_url, checksum, mime_type, filename, alt_text, caption, credit, width, height, status) select id, ${sqlLiteral(media.source_url)}, 'migrated-media', ${sqlLiteral(media.storage_key || null)}, ${sqlLiteral(media.public_url || null)}, ${sqlLiteral(media.commercial_direct_ad ? HOSPAZ_COMMERCIAL_HASH : '')}, ${sqlLiteral(media.mime_type)}, ${sqlLiteral(media.filename)}, ${sqlLiteral(media.alt_text)}, ${sqlLiteral(media.caption)}, null, ${media.width || 'null'}, ${media.height || 'null'}, ${sqlLiteral(media.status)} from legacy_sources where stable_key = ${sqlLiteral(stableKey)} on conflict (legacy_source_id) do update set source_url = excluded.source_url, storage_bucket = excluded.storage_bucket, storage_key = excluded.storage_key, public_url = excluded.public_url, mime_type = excluded.mime_type, filename = excluded.filename, alt_text = excluded.alt_text, caption = excluded.caption, width = excluded.width, height = excluded.height, status = excluded.status;`);
   }
   for (const story of rehearsal.stories) {
     const stableKey = `wordpress:${story.type}:${story.id}`;
     lines.push(`insert into legacy_sources (system, site_url, source_type, source_id, stable_key, source_url, checksum, raw) values ('wordpress', ${sqlLiteral(DEFAULT_SITE)}, ${sqlLiteral(story.type)}, ${sqlLiteral(story.id)}, ${sqlLiteral(stableKey)}, ${sqlLiteral(story.source_url)}, ${sqlLiteral(story.checksum)}, ${jsonLiteral({ id: story.id, type: story.type, category_source_ids: story.category_source_ids, tag_source_ids: story.tag_source_ids, featured_media_source_id: story.featured_media_source_id })}) on conflict (stable_key) do update set source_url = excluded.source_url, checksum = excluded.checksum, raw = excluded.raw, last_seen_at = now();`);
-    lines.push(`insert into stories (legacy_source_id, title, slug, standfirst, excerpt, body_html, body_json, status, access_policy, author_id, primary_section_id, published_at, modified_at, seo_title, seo_description, canonical_url) select ls.id, ${sqlLiteral(story.title || '(untitled)')}, ${sqlLiteral(story.slug)}, null, ${sqlLiteral(story.excerpt)}, ${sqlLiteral(story.body_html)}, ${jsonLiteral({ wordpress_id: story.id, media_rewrite_status: 'pending_storage_url_rewrite' })}, ${sqlLiteral(story.status)}, ${sqlLiteral(story.access_policy)}, (select id from authors where wordpress_source_id = ${sqlLiteral(story.author_source_id)} limit 1), (select id from sections where wordpress_source_id = ${sqlLiteral(story.category_source_ids[0] || '')} limit 1), ${sqlLiteral(story.published_at)}, ${sqlLiteral(story.modified_at)}, ${sqlLiteral(story.seo_title)}, ${sqlLiteral(story.seo_description)}, ${sqlLiteral(story.canonical_url)} from legacy_sources ls where ls.stable_key = ${sqlLiteral(stableKey)} on conflict (legacy_source_id) do update set title = excluded.title, slug = excluded.slug, excerpt = excluded.excerpt, body_html = excluded.body_html, body_json = excluded.body_json, status = excluded.status, access_policy = excluded.access_policy, author_id = excluded.author_id, primary_section_id = excluded.primary_section_id, published_at = excluded.published_at, modified_at = excluded.modified_at, seo_title = excluded.seo_title, seo_description = excluded.seo_description, canonical_url = excluded.canonical_url, updated_at = now();`);
-    lines.push(`insert into legacy_url_mappings (legacy_source_id, old_path, new_path, redirect_status, preservation_strategy) select ls.id, ${sqlLiteral(story.legacy_path)}, ${sqlLiteral(story.legacy_path)}, 301, 'preserve' from legacy_sources ls where ls.stable_key = ${sqlLiteral(stableKey)} on conflict (old_path) do update set new_path = excluded.new_path, legacy_source_id = excluded.legacy_source_id;`);
+    lines.push(`insert into stories (legacy_source_id, title, slug, standfirst, excerpt, body_html, body_json, status, access_policy, author_id, primary_section_id, published_at, modified_at, seo_title, seo_description, canonical_url) select ls.id, ${sqlLiteral(story.title || '(untitled)')}, ${sqlLiteral(story.slug)}, null, ${sqlLiteral(story.excerpt)}, ${sqlLiteral(story.body_html)}, ${jsonLiteral({ wordpress_id: story.id, media_rewrite_status: 'canonical_storage_rewrite', media_rewrite_unresolved_count: story.media_rewrite?.unresolved_count || 0 })}, ${sqlLiteral(story.status)}, ${sqlLiteral(story.access_policy)}, (select id from authors where wordpress_source_id = ${sqlLiteral(story.author_source_id)} limit 1), (select id from sections where wordpress_source_id = ${sqlLiteral(story.category_source_ids[0] || '')} limit 1), ${sqlLiteral(story.published_at)}, ${sqlLiteral(story.modified_at)}, ${sqlLiteral(story.seo_title)}, ${sqlLiteral(story.seo_description)}, ${sqlLiteral(story.canonical_url)} from legacy_sources ls where ls.stable_key = ${sqlLiteral(stableKey)} on conflict (legacy_source_id) do update set title = excluded.title, slug = excluded.slug, excerpt = excluded.excerpt, body_html = excluded.body_html, body_json = excluded.body_json, status = excluded.status, access_policy = excluded.access_policy, author_id = excluded.author_id, primary_section_id = excluded.primary_section_id, published_at = excluded.published_at, modified_at = excluded.modified_at, seo_title = excluded.seo_title, seo_description = excluded.seo_description, canonical_url = excluded.canonical_url, updated_at = now();`);
+    lines.push(`delete from legacy_url_mappings where legacy_source_id = (select id from legacy_sources where stable_key = ${sqlLiteral(stableKey)}) and old_path <> ${sqlLiteral(story.legacy_path)};`);
+    lines.push(`insert into legacy_url_mappings (legacy_source_id, old_path, new_path, redirect_status, preservation_strategy, verified_at) select ls.id, ${sqlLiteral(story.legacy_path)}, ${sqlLiteral(story.legacy_path)}, 200, 'PRESERVE_DIRECTLY', now() from legacy_sources ls where ls.stable_key = ${sqlLiteral(stableKey)} on conflict (old_path) do update set new_path = excluded.new_path, legacy_source_id = excluded.legacy_source_id, redirect_status = excluded.redirect_status, preservation_strategy = excluded.preservation_strategy, verified_at = excluded.verified_at;`);
     lines.push(`insert into seo_metadata (story_id, legacy_source_id, canonical_url, title, description, source_plugin, review_status) select st.id, ls.id, ${sqlLiteral(story.canonical_url)}, ${sqlLiteral(story.seo_title)}, ${sqlLiteral(story.seo_description)}, 'wordpress_postmeta', 'pending' from legacy_sources ls join stories st on st.legacy_source_id = ls.id where ls.stable_key = ${sqlLiteral(stableKey)} on conflict (story_id) do update set canonical_url = excluded.canonical_url, title = excluded.title, description = excluded.description, updated_at = now();`);
     for (const tagId of story.tag_source_ids) {
       lines.push(`insert into story_tags (story_id, tag_id) select st.id, tg.id from legacy_sources ls join stories st on st.legacy_source_id = ls.id join tags tg on tg.wordpress_source_id = ${sqlLiteral(tagId)} where ls.stable_key = ${sqlLiteral(stableKey)} on conflict do nothing;`);
@@ -463,7 +655,8 @@ async function run(args) {
   const source = await parseDatabase(args.database, args.wordpressPrefix || DEFAULT_PREFIX);
   const rehearsal = buildRehearsal(source, {
     siteUrl: args.siteUrl,
-    tarMetadata: args.tarMetadata
+    tarMetadata: args.tarMetadata,
+    storagePublicBase: args.storagePublicBase || DEFAULT_STORAGE_PUBLIC_BASE
   });
   ensureDir(args.outDir);
   writeJson(path.join(args.outDir, 'ag04-dry-run-summary.json'), {
@@ -481,7 +674,15 @@ async function run(args) {
     }
   });
   writeJson(path.join(args.outDir, 'authors-manifest.json'), rehearsal.authors);
-  writeJson(path.join(args.outDir, 'taxonomy-mapping.json'), { categories: rehearsal.categories, tags: rehearsal.tags, canonical_mapping_policy: 'legacy terms preserved; canonical navigation mapping deferred to Global Taxonomy v1 review' });
+  writeJson(path.join(args.outDir, 'taxonomy-mapping.json'), {
+    categories: rehearsal.categories,
+    tags: rehearsal.tags,
+    canonical_mapping_policy: 'legacy terms preserved; categories are canonical-navigation candidates; tags remain legacy-only unless explicitly promoted'
+  });
+  writeJson(path.join(args.outDir, 'taxonomy-disposition.json'), rehearsal.taxonomyDisposition);
+  writeJson(path.join(args.outDir, 'ag04-public-url-manifest.json'), rehearsal.publicUrlManifest);
+  writeJson(path.join(args.outDir, 'media-safe-key-mappings.json'), rehearsal.safeKeyMappings);
+  writeJson(path.join(args.outDir, 'media-rewrite-exceptions.json'), rehearsal.mediaRewriteExceptions);
   writeJson(path.join(args.outDir, 'media-manifest.json'), rehearsal.attachments);
   writeJson(path.join(args.outDir, 'media-exceptions.json'), rehearsal.mediaExceptions);
   writeJson(path.join(args.outDir, 'uploads-archive-exceptions.json'), rehearsal.archiveExceptions);
@@ -531,10 +732,18 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildMediaRewriteIndex,
+  buildPublicUrlManifest,
   buildRehearsal,
+  buildTaxonomyDisposition,
   createStagingSql,
   parseDatabase,
   parseInsertHeader,
+  resolveWordPressUploadRelative,
+  rewriteWordPressUploadUrls,
+  safeStorageRelativePath,
   splitRows,
-  splitCells
+  splitCells,
+  storageKeyForOriginalPath,
+  stripWordPressImageDerivative
 };
