@@ -87,21 +87,26 @@ async function discussionPost(token,action,payload={}){
   });
 }
 
-async function privateRealtimeChannel(token,topic){
+async function privateRealtimeChannel(session,topic){
   const {createClient}=require('@supabase/supabase-js');
   const client=createClient(supabaseURL,anonKey,{
     auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
   });
-  await client.realtime.setAuth(token);
+  const installed=await client.auth.setSession({
+    access_token:session.access_token,
+    refresh_token:session.refresh_token
+  });
+  if(installed.error) throw installed.error;
+  await client.realtime.setAuth();
   return {client,channel:client.channel(topic,{config:{private:true}})};
 }
 function subscriptionStatus(channel,timeoutMs=12000){
   return new Promise((resolve)=>{
     let done=false;
-    const finish=(status)=>{if(done)return;done=true;clearTimeout(timer);resolve(status);};
+    const finish=(status,error=null)=>{if(done)return;done=true;clearTimeout(timer);resolve({status,error:error?String(error.message||error):null});};
     const timer=setTimeout(()=>finish('TIMED_OUT'),timeoutMs);
-    channel.subscribe(status=>{
-      if(['SUBSCRIBED','CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)) finish(status);
+    channel.subscribe((status,error)=>{
+      if(['SUBSCRIBED','CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)) finish(status,error);
     });
   });
 }
@@ -211,9 +216,13 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     expect(statusOf(await appPost(editor,'setThreadMember',{threadId:breakingThreadId,staffId:reporterId}))).toBe(200);
 
     const rawReporter=await rawStaff('reporter');
-    const staffRealtime=await privateRealtimeChannel(rawReporter.session.access_token,'newsroom:thread:'+breakingThreadId);
+    const staffTopicProbe=await rpc(rawReporter.headers,'newsroom_can_join_realtime_topic',{p_topic:'newsroom:thread:'+breakingThreadId});
+    expect(statusOf(staffTopicProbe)).toBe(200);
+    expect(await staffTopicProbe.json()).toBe(true);
+    const staffRealtime=await privateRealtimeChannel(rawReporter.session,'newsroom:thread:'+breakingThreadId);
     const staffSubscription=await subscriptionStatus(staffRealtime.channel);
-    expect(staffSubscription).toBe('SUBSCRIBED');
+    console.log('CA01_REALTIME_STAFF_JOIN',JSON.stringify(staffSubscription));
+    expect(staffSubscription.status).toBe('SUBSCRIBED');
     const staffEventPromise=nextBroadcast(staffRealtime.channel,'newsroom_message.created');
     expect(statusOf(await appPost(reporter,'postThreadMessage',{threadId:breakingThreadId,message:'Breaking room update.'}))).toBe(200);
     const staffEvent=await staffEventPromise;
@@ -293,9 +302,10 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     const readerNewsroomTopic=await rpc(authorReader.headers,'newsroom_can_join_realtime_topic',{p_topic:'newsroom:story:'+storyId});
     expect(statusOf(readerNewsroomTopic)).toBe(200);
     expect(await readerNewsroomTopic.json()).toBe(false);
-    const deniedRealtime=await privateRealtimeChannel(authorReader.session.access_token,'newsroom:story:'+storyId);
+    const deniedRealtime=await privateRealtimeChannel(authorReader.session,'newsroom:story:'+storyId);
     const deniedRealtimeStatus=await subscriptionStatus(deniedRealtime.channel);
-    expect(deniedRealtimeStatus).not.toBe('SUBSCRIBED');
+    console.log('CA01_REALTIME_READER_NEWSROOM_JOIN',JSON.stringify(deniedRealtimeStatus));
+    expect(deniedRealtimeStatus.status).not.toBe('SUBSCRIBED');
 
     // Comment policy defaults closed; Publisher explicitly opens only this canonical test story.
     const policy=await appPost(publisher,'setStoryCommentPolicy',{storyId,policy:'open'});
@@ -320,9 +330,10 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     });
     expect(statusOf(anonymousSubmit)).toBe(401);
 
-    const readerRealtime=await privateRealtimeChannel(authorReader.session.access_token,'reader:story-comments:'+storyId);
+    const readerRealtime=await privateRealtimeChannel(authorReader.session,'reader:story-comments:'+storyId);
     const readerRealtimeStatus=await subscriptionStatus(readerRealtime.channel);
-    expect(readerRealtimeStatus).toBe('SUBSCRIBED');
+    console.log('CA01_REALTIME_READER_COMMENT_JOIN',JSON.stringify(readerRealtimeStatus));
+    expect(readerRealtimeStatus.status).toBe('SUBSCRIBED');
     const readerEventPromise=nextBroadcast(readerRealtime.channel,'reader_story_comment.changed');
 
     const submitted=await discussionPost(authorReader.session.access_token,'submitComment',{
@@ -416,7 +427,7 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
         breaking_thread_id:breakingThreadId,
         announcement_ack:true,
         forged_inbox_insert_denied:statusOf(directNotificationInsert),
-        staff_private_channel_allowed:staffSubscription,
+        staff_private_channel_allowed:staffSubscription.status,
         staff_event_minimal:true
       },
       reader:{
@@ -427,9 +438,9 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
         health_restrict_denied:statusOf(healthRestriction),
         restricted_reader_denied:statusOf(restrictedSubmit),
         newsroom_realtime_predicate_denied:true,
-        newsroom_private_channel_denied:deniedRealtimeStatus,
+        newsroom_private_channel_denied:deniedRealtimeStatus.status,
         comment_realtime_predicate_allowed:true,
-        comment_private_channel_allowed:readerRealtimeStatus,
+        comment_private_channel_allowed:readerRealtimeStatus.status,
         comment_event_minimal:true
       },
       storage:{
