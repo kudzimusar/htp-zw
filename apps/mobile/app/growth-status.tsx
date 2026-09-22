@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Page, Section, SectionHeader } from "../src/ui/Layout";
 import {
   MOBILE_GROWTH_CONFIGURATION,
+  SELLER_FILE_EVIDENCE,
   VERIFIED_SELLER_DECLARATION,
   VERIFIED_WEB_GROWTH_IDENTITIES
 } from "../src/growth/config";
@@ -51,6 +52,21 @@ export default function GrowthStatusScreen(){
           <Text style={[styles.value,{color:palette.ink}]}>{VERIFIED_WEB_GROWTH_IDENTITIES.adsensePublisherId}</Text>
           <Text style={[styles.label,{color:palette.inkMuted}]}>Verified seller declaration</Text>
           <Text selectable style={[styles.mono,{color:palette.ink}]}>{VERIFIED_SELLER_DECLARATION}</Text>
+        </View>
+      </Section>
+
+      <Section>
+        <SectionHeader title="Seller-file and provider evidence" eyebrow="SEPARATE AUTHORITIES" />
+        <View style={[styles.panel,{backgroundColor:palette.paperMuted}]}>
+          <Text style={[styles.label,{color:palette.inkMuted}]}>ads.txt</Text>
+          <Text style={[styles.value,{color:palette.ink}]}>{SELLER_FILE_EVIDENCE.adsTxt.status}</Text>
+          <Text style={[styles.note,{color:palette.inkMuted}]}>Web seller declaration recorded; AG-05 continuity certification remains authoritative.</Text>
+          <Text style={[styles.label,{color:palette.inkMuted}]}>app-ads.txt</Text>
+          <Text style={[styles.value,{color:palette.ink}]}>{SELLER_FILE_EVIDENCE.appAdsTxt.status}</Text>
+          <Text style={[styles.note,{color:palette.inkMuted}]}>No native app seller declaration is published without AG-05 evidence.</Text>
+          <Text style={[styles.label,{color:palette.inkMuted}]}>Native advertising provider</Text>
+          <Text style={[styles.value,{color:palette.ink}]}>{SELLER_FILE_EVIDENCE.nativeAdvertisingProvider.status}</Text>
+          <Text style={[styles.note,{color:palette.inkMuted}]}>No AdMob application or ad-unit identity is inferred from web AdSense.</Text>
         </View>
       </Section>
 
