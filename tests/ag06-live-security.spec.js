@@ -94,35 +94,6 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     const reporter=await appLogin('reporter');
 
-    if(directSupabaseConfigured){
-      const rawReporterDiagnostic=await rawAuth('reporter');
-      const diagnosticQueries=[
-        ['stories','/rest/v1/stories?select=id&limit=1'],
-        ['revisions','/rest/v1/story_revisions?select=id&limit=1'],
-        ['lifecycle','/rest/v1/story_lifecycle_events?select=id&limit=1'],
-        ['assignments','/rest/v1/story_assignments?select=id&limit=1'],
-        ['reviews','/rest/v1/story_reviews?select=id&limit=1'],
-        ['comments','/rest/v1/story_internal_comments?select=id&limit=1'],
-        ['staff','/rest/v1/staff_profiles?select=id&limit=1'],
-        ['roles','/rest/v1/newsroom_roles?select=id&limit=1'],
-        ['audit','/rest/v1/audit_logs?select=id&limit=1'],
-        ['sessions','/rest/v1/newsroom_sessions?select=id&limit=1'],
-        ['campaigns','/rest/v1/ad_campaigns?select=id&limit=1'],
-        ['advertisers','/rest/v1/advertisers?select=id&limit=1'],
-        ['subscribers','/rest/v1/subscribers?select=id&limit=1'],
-        ['directory','/rest/v1/rpc/newsroom_staff_directory']
-      ];
-      for(const [name,path] of diagnosticQueries){
-        const response=await fetch(`${supabaseURL}${path}`,{
-          method:name==='directory'?'POST':'GET',
-          headers:rawReporterDiagnostic.headers,
-          body:name==='directory'?JSON.stringify({}):undefined
-        });
-        const diagnosticBody=await response.text();
-        console.log(`AG06_BOOTSTRAP_DIAGNOSTIC name=${name} status=${response.status} body=${diagnosticBody.slice(0,500)}`);
-      }
-    }
-
     let boot=await appBootstrap(reporter);
     expect(statusOf(boot.response),`reporter bootstrap body: ${JSON.stringify(boot.body)}`).toBe(200);
     expect(boot.body.data.context.role).toBe('Reporter / Journalist');
