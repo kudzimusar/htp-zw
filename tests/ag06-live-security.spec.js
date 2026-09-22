@@ -12,6 +12,7 @@ const accounts = {
 };
 const configured = Boolean(baseURL && Object.values(accounts).every(a=>a.email&&a.password));
 const directSupabaseConfigured = Boolean(supabaseURL && anonKey);
+const statusOf = response => typeof response.status === 'function' ? response.status() : response.status;
 
 function csrfFrom(state){
   return state.cookies.find(c=>c.name==='htp_nr_csrf')?.value || '';
@@ -19,7 +20,7 @@ function csrfFrom(state){
 async function appLogin(kind){
   const ctx=await request.newContext({baseURL,extraHTTPHeaders:{Origin:baseURL}});
   const response=await ctx.post('/api/newsroom',{data:{action:'login',...accounts[kind]}});
-  expect(response.status(),`${kind} login`).toBe(200);
+  expect(statusOf(response),`${kind} login`).toBe(200);
   const state=await ctx.storageState();
   const csrf=csrfFrom(state);
   expect(csrf,`${kind} CSRF cookie`).toBeTruthy();
@@ -42,13 +43,13 @@ async function rawAuth(kind){
     headers:{apikey:anonKey,'Content-Type':'application/json'},
     body:JSON.stringify(accounts[kind])
   });
-  expect(response.status(),`${kind} direct Supabase auth`).toBe(200);
+  expect(statusOf(response),`${kind} direct Supabase auth`).toBe(200);
   const session=await response.json();
   const headers={apikey:anonKey,Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'};
   const register=await fetch(`${supabaseURL}/rest/v1/rpc/newsroom_register_session`,{
     method:'POST',headers,body:JSON.stringify({p_user_agent:'AG-06 direct RLS certification'})
   });
-  expect(register.status(),`${kind} direct session registration`).toBe(200);
+  expect(statusOf(register),`${kind} direct session registration`).toBe(200);
   return {session,headers};
 }
 
@@ -59,13 +60,13 @@ test.describe('AG-06 live staging authorization attacks',()=>{
   test('anonymous, Reporter, Commercial, Editor and Publisher boundaries hold below the UI',async()=>{
     const anonymous=await request.newContext({baseURL,extraHTTPHeaders:{Origin:baseURL}});
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
-    expect(anonBootstrap.status()).toBe(401);
+    expect(statusOf(anonBootstrap)).toBe(401);
 
     if(directSupabaseConfigured){
       const anonHeaders={apikey:anonKey,'Content-Type':'application/json'};
       const assertNoProtectedRows=async response=>{
-        expect([200,401,403]).toContain(response.status());
-        if(response.status()===200){
+        expect([200,401,403]).toContain(statusOf(response));
+        if(statusOf(response)===200){
           const rows=await response.json();
           expect(rows).toEqual([]);
         }
@@ -79,7 +80,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       const publicStories=await fetch(`${supabaseURL}/rest/v1/rpc/newsroom_public_published_stories`,{
         method:'POST',headers:anonHeaders,body:JSON.stringify({p_slug:null})
       });
-      expect(publicStories.status()).toBe(200);
+      expect(statusOf(publicStories)).toBe(200);
       const publicRows=await publicStories.json();
       for(const row of publicRows.slice(0,3)){
         expect(row).not.toHaveProperty('internal_notes');
@@ -93,7 +94,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     const reporter=await appLogin('reporter');
     let boot=await appBootstrap(reporter);
-    expect(boot.response.status()).toBe(200);
+    expect(statusOf(boot.response)).toBe(200);
     expect(boot.body.data.context.role).toBe('Reporter / Journalist');
     expect(boot.body.data.context.capabilities).toContain('story.create');
     expect(boot.body.data.context.capabilities).not.toContain('story.publish');
@@ -106,7 +107,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       slug:`ag06-reporter-boundary-${stamp}`,
       desk:'Africa',country:'Zimbabwe',region:'Africa'
     }});
-    expect(created.status()).toBe(200);
+    expect(statusOf(created)).toBe(200);
     const storyId=(await created.json()).id;
     expect(storyId).toBeTruthy();
 
@@ -118,21 +119,21 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       patch:{title:`AG06 Reporter Boundary ${stamp}`,body:'Reporter-owned staging security test copy.',sources:'AG-06 automated staging evidence.'},
       reason:'AG-06 direct authorization test'
     });
-    expect(saved.status()).toBe(200);
+    expect(statusOf(saved)).toBe(200);
 
     const submitted=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Submitted'});
-    expect(submitted.status()).toBe(200);
+    expect(statusOf(submitted)).toBe(200);
     const reporterPublish=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Published'});
-    expect(reporterPublish.status()).toBe(403);
+    expect(statusOf(reporterPublish)).toBe(403);
     const reporterRole=await appPost(reporter,'changeRole',{staffId:boot.body.data.context.id,role:'Publisher / Owner'});
-    expect(reporterRole.status()).toBe(403);
+    expect(statusOf(reporterRole)).toBe(403);
     const reporterAdApprove=await appPost(reporter,'approveCampaign',{campaignId:'00000000-0000-0000-0000-000000000000',approved:true});
-    expect(reporterAdApprove.status()).toBe(403);
+    expect(statusOf(reporterAdApprove)).toBe(403);
 
     if(directSupabaseConfigured){
       const rawReporter=await rawAuth('reporter');
       const roleRead=await fetch(`${supabaseURL}/rest/v1/newsroom_roles?select=id,name&name=eq.${encodeURIComponent('Publisher / Owner')}`,{headers:rawReporter.headers});
-      expect(roleRead.status()).toBe(200);
+      expect(statusOf(roleRead)).toBe(200);
       const publisherRole=(await roleRead.json())[0];
       expect(publisherRole?.id).toBeTruthy();
       const directRoleEscalation=await fetch(`${supabaseURL}/rest/v1/staff_profiles?id=eq.${boot.body.data.context.id}`,{
@@ -140,18 +141,18 @@ test.describe('AG-06 live staging authorization attacks',()=>{
         headers:{...rawReporter.headers,Prefer:'return=representation'},
         body:JSON.stringify({role_id:publisherRole.id,status:'active'})
       });
-      expect([400,401,403,409]).toContain(directRoleEscalation.status());
+      expect([400,401,403,409]).toContain(statusOf(directRoleEscalation));
       const directPublish=await fetch(`${supabaseURL}/rest/v1/stories?id=eq.${storyId}`,{
         method:'PATCH',
         headers:{...rawReporter.headers,Prefer:'return=representation'},
         body:JSON.stringify({status:'publish',workflow_status:'Published',published_at:new Date().toISOString()})
       });
-      expect([400,401,403,409]).toContain(directPublish.status());
+      expect([400,401,403,409]).toContain(statusOf(directPublish));
     }
 
     const commercial=await appLogin('commercial');
     const commercialBoot=await appBootstrap(commercial);
-    expect(commercialBoot.response.status()).toBe(200);
+    expect(statusOf(commercialBoot.response)).toBe(200);
     expect(commercialBoot.body.data.context.role).toBe('Commercial Manager');
     expect(commercialBoot.body.data.context.capabilities).toContain('ads.view');
     expect(commercialBoot.body.data.context.capabilities).not.toContain('story.publish');
@@ -159,9 +160,9 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const commercialEdit=await appPost(commercial,'saveStory',{
       storyId,expectedVersion:2,patch:{body:'Commercial attempted editorial mutation.'},reason:'Unauthorized commercial edit'
     });
-    expect(commercialEdit.status()).toBe(403);
+    expect(statusOf(commercialEdit)).toBe(403);
     const commercialPublish=await appPost(commercial,'transitionStory',{storyId,nextStatus:'Published'});
-    expect(commercialPublish.status()).toBe(403);
+    expect(statusOf(commercialPublish)).toBe(403);
 
     if(directSupabaseConfigured){
       const rawCommercial=await rawAuth('commercial');
@@ -170,8 +171,8 @@ test.describe('AG-06 live staging authorization attacks',()=>{
         headers:{...rawCommercial.headers,Prefer:'return=representation'},
         body:JSON.stringify({body_html:'Commercial attempted direct PostgREST editorial mutation.'})
       });
-      expect([200,204,400,401,403]).toContain(directCommercialEdit.status());
-      if(directCommercialEdit.status()===200){
+      expect([200,204,400,401,403]).toContain(statusOf(directCommercialEdit));
+      if(statusOf(directCommercialEdit)===200){
         const rows=await directCommercialEdit.json();
         expect(rows).toEqual([]);
       }
@@ -179,11 +180,11 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     const editor=await appLogin('editor');
     const editorBoot=await appBootstrap(editor);
-    expect(editorBoot.response.status()).toBe(200);
+    expect(statusOf(editorBoot.response)).toBe(200);
     expect(editorBoot.body.data.context.capabilities).toContain('story.publish');
     for(const nextStatus of ['Fact check','Health / Science review','Copy edit','Editor review','Ready','Published']){
       const response=await appPost(editor,'transitionStory',{storyId,nextStatus});
-      expect(response.status(),`Editor transition to ${nextStatus}`).toBe(200);
+      expect(statusOf(response),`Editor transition to ${nextStatus}`).toBe(200);
     }
     const editorAfter=await appBootstrap(editor);
     story=editorAfter.body.data.stories.find(s=>s.id===storyId);
@@ -192,7 +193,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     const publisher=await appLogin('publisher');
     let publisherBoot=await appBootstrap(publisher);
-    expect(publisherBoot.response.status()).toBe(200);
+    expect(statusOf(publisherBoot.response)).toBe(200);
     const reporterProfile=publisherBoot.body.data.staff.find(s=>String(s.email||'').toLowerCase()===String(accounts.reporter.email).toLowerCase());
     expect(reporterProfile?.id).toBeTruthy();
     const reporterSession=publisherBoot.body.data.sessions.find(s=>s.staff_profile_id===reporterProfile.id&&s.provider_session_id===reporterAppSessionId&&!s.revoked_at);
@@ -200,10 +201,10 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const revoke=await appPost(publisher,'revokeSession',{
       staffId:reporterProfile.id,providerSessionId:reporterSession.provider_session_id
     });
-    expect(revoke.status()).toBe(200);
+    expect(statusOf(revoke)).toBe(200);
 
     const staleReporter=await appBootstrap(reporter);
-    expect(staleReporter.response.status()).toBe(403);
+    expect(statusOf(staleReporter.response)).toBe(403);
 
     publisherBoot=await appBootstrap(publisher);
     const auditRows=publisherBoot.body.data.audit||[];
@@ -217,18 +218,18 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       staging_project_ref:'gcdohgbmqhqwydgaxrcr',
       exact_branch_gateway:baseURL,
       direct_postgrest_probes:directSupabaseConfigured,
-      anonymous:{bootstrap_denied_status:anonBootstrap.status()},
+      anonymous:{bootstrap_denied_status:statusOf(anonBootstrap)},
       reporter:{
         role:boot.body.data.context.role,
         create_edit_own_submit:'PASS',
-        publish_denied_status:reporterPublish.status(),
-        self_role_escalation_denied_status:reporterRole.status(),
-        ad_approval_denied_status:reporterAdApprove.status()
+        publish_denied_status:statusOf(reporterPublish),
+        self_role_escalation_denied_status:statusOf(reporterRole),
+        ad_approval_denied_status:statusOf(reporterAdApprove)
       },
       commercial:{
         role:commercialBoot.body.data.context.role,
-        editorial_edit_denied_status:commercialEdit.status(),
-        publish_denied_status:commercialPublish.status()
+        editorial_edit_denied_status:statusOf(commercialEdit),
+        publish_denied_status:statusOf(commercialPublish)
       },
       editor:{
         role:editorBoot.body.data.context.role,
@@ -237,8 +238,8 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       },
       publisher:{
         role:publisherBoot.body.data.context.role,
-        reporter_session_revoked:revoke.status()===200,
-        stale_reporter_rejected_status:staleReporter.response.status()
+        reporter_session_revoked:statusOf(revoke)===200,
+        stale_reporter_rejected_status:statusOf(staleReporter.response)
       },
       story_id:storyId,
       audit:auditRows
