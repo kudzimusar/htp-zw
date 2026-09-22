@@ -9,6 +9,8 @@ import type {
   HealthTimesServices,
   LiveService,
   NotificationService,
+  NewsroomCommunicationService,
+  ReaderDiscussionService,
   PremiumService,
   PlatformService,
   SearchService,
@@ -181,6 +183,51 @@ const notificationService: NotificationService = {
   }
 };
 
+const readerDiscussionService: ReaderDiscussionService = {
+  async registerProfile() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  },
+  async getEligibility() {
+    return { status: "blocked", reason: "canonical_story_required", profileId: null, publishedCommentCount: 0 };
+  },
+  async listPublic() {
+    return [];
+  },
+  async submit() {
+    throw new Error("Canonical HealthTimes story identity is required before discussion can be used.");
+  },
+  async edit() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  },
+  async withdraw() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  },
+  async report() {
+    throw new Error("Reader discussion is unavailable in fixture mode.");
+  }
+};
+
+const newsroomCommunicationService: NewsroomCommunicationService = {
+  async listInbox() {
+    return {
+      items: [],
+      summary: {
+        unreadTotal: 0, mentions: 0, assignments: 0, reviews: 0,
+        urgent: 0, announcements: 0, moderation: 0, unacknowledged: 0
+      }
+    };
+  },
+  async markRead() {
+    throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode.");
+  },
+  async acknowledge() {
+    throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode.");
+  },
+  async archive() {
+    throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode.");
+  }
+};
+
 const platformService: PlatformService = {
   async checkConnectivity() {
     return {
@@ -223,6 +270,8 @@ export const fixtureServices: HealthTimesServices = {
   video: videoService,
   audio: audioService,
   notifications: notificationService,
+  readerDiscussion: readerDiscussionService,
+  newsroomCommunication: newsroomCommunicationService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {
