@@ -252,6 +252,17 @@ function encodeSelect(value) {
   return encodeURIComponent(value).replace(/%2C/g, ',');
 }
 
+function storageObjectPath(bucket, objectPath) {
+  const clean = String(objectPath || '').replace(/^\/+|\/+$/g, '');
+  return encodeURIComponent(String(bucket || '')) + '/' + clean.split('/').map(encodeURIComponent).join('/');
+}
+
+function signedStorageUrl(fragment) {
+  const base = config().url + '/storage/v1';
+  return new URL(String(fragment || ''), base + '/').toString();
+}
+
+
 async function bootstrap(token, req) {
   const context = await registerAndContext(token, req);
   const queries = {
@@ -608,6 +619,7 @@ async function handle(req, res) {
       return json(res, 200, { ok: true });
     }
     if (action === 'prepareAttachment') {
+      if (!config().service) return json(res, 503, { ok: false, error: 'Private attachment signing is not configured on staging.' });
       const attachment = await call('newsroom_prepare_communication_attachment', {
         p_story_internal_comment_id: body.storyCommentId || null,
         p_newsroom_message_id: body.messageId || null,
@@ -616,13 +628,52 @@ async function handle(req, res) {
         p_byte_size: Number(body.byteSize),
         p_sha256: body.sha256 || null
       });
-      return json(res, 200, { ok: true, attachment });
+      const objectPath = storageObjectPath(attachment.bucket, attachment.path);
+      const signed = await supabaseRequest('/storage/v1/object/upload/sign/' + objectPath, {
+        method: 'POST',
+        service: true,
+        body: {}
+      });
+      const uploadUrl = signedStorageUrl(signed?.url || signed?.signedURL);
+      return json(res, 200, {
+        ok: true,
+        attachment,
+        upload: {
+          signedUrl: uploadUrl,
+          method: 'PUT',
+          expiresInSeconds: 7200
+        }
+      });
     }
     if (action === 'finalizeAttachment') {
       const attachment = await call('newsroom_finalize_communication_attachment', { p_attachment_id: body.attachmentId });
       return json(res, 200, { ok: true, attachment });
     }
+    if (action === 'attachmentDownload') {
+      if (!config().service) return json(res, 503, { ok: false, error: 'Private attachment signing is not configured on staging.' });
+      const rows = await call('newsroom_get_communication_attachment', { p_attachment_id: body.attachmentId });
+      const attachment = Array.isArray(rows) ? rows[0] : rows;
+      if (!attachment || attachment.status !== 'ready') return json(res, 404, { ok: false, error: 'Ready attachment not found.' });
+      const objectPath = storageObjectPath(attachment.storage_bucket, attachment.storage_path);
+      const signed = await supabaseRequest('/storage/v1/object/sign/' + objectPath, {
+        method: 'POST',
+        service: true,
+        body: { expiresIn: 60 }
+      });
+      let downloadUrl = signedStorageUrl(signed?.signedURL || signed?.url);
+      downloadUrl += (downloadUrl.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(attachment.filename);
+      return json(res, 200, { ok: true, url: downloadUrl, expiresInSeconds: 60, filename: attachment.filename });
+    }
     if (action === 'markAttachmentDeleted') {
+      if (!config().service) return json(res, 503, { ok: false, error: 'Private attachment deletion is not configured on staging.' });
+      const rows = await call('newsroom_get_communication_attachment', { p_attachment_id: body.attachmentId });
+      const attachment = Array.isArray(rows) ? rows[0] : rows;
+      if (!attachment) return json(res, 404, { ok: false, error: 'Attachment not found.' });
+      await supabaseRequest('/storage/v1/object/' + encodeURIComponent(attachment.storage_bucket), {
+        method: 'DELETE',
+        service: true,
+        body: { prefixes: [attachment.storage_path] }
+      });
       await call('newsroom_mark_communication_attachment_deleted', { p_attachment_id: body.attachmentId });
       return json(res, 200, { ok: true });
     }
