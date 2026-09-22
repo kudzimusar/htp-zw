@@ -121,7 +121,7 @@ test('client runtime does not seed fabricated HOSPAZ campaign metadata', () => {
 
 test('Vercel routing preserves static files before legacy path fallback', () => {
   const config = JSON.parse(read('vercel.json'));
-  expect(config.routes[1]).toEqual({ handle: 'filesystem' });
+  expect(config.routes[0]).toEqual({ handle: 'filesystem' });
   expect(config.routes.some(route => route.dest === '/api/public?kind=sitemap')).toBe(true);
   expect(config.routes.some(route => route.dest === '/api/public?kind=feed')).toBe(true);
   expect(config.routes.at(-1).dest).toBe('/api/public?kind=page&path=/$1');
