@@ -13,6 +13,39 @@ test("public analytics accepts the approved article and redacted-search shapes",
   },{pagePath:"/search"}));
 });
 
+test("every approved public event has an executable valid payload contract",()=>{
+  const cases=[
+    ["page_view",{route:"/"}],
+    ["article_view",{premium_state:"public",section:"news"}],
+    ["article_25_percent",{scroll_depth:25}],
+    ["article_50_percent",{scroll_depth:50}],
+    ["article_75_percent",{scroll_depth:75}],
+    ["article_complete",{scroll_depth:100}],
+    ["listen_started",{media_id:"audio-1",duration_seconds:120}],
+    ["listen_completed",{media_id:"audio-1",duration_seconds:120,elapsed_seconds:120}],
+    ["story_saved",{reader_state:"local-reader"}],
+    ["story_shared",{channel:"system"}],
+    ["whatsapp_share",{channel:"whatsapp"}],
+    ["search_performed",{result_count:2,format:"all",country_filter:false,topic_filter:false,query_redacted:true}],
+    ["topic_followed",{source_surface:"topic"}],
+    ["citation_copied",{reference_kind:"citation"}],
+    ["reference_opened",{reference_kind:"source"}],
+    ["premium_preview_started",{preview_seconds:30}],
+    ["premium_warning_shown",{seconds_elapsed:25}],
+    ["premium_locked",{seconds_elapsed:30}],
+    ["subscription_started",{plan_key:"monthly",source_path:"/premium",storefront_status:"available"}],
+    ["subscription_completed",{plan_key:"monthly",server_entitlement_confirmed:true}],
+    ["newsletter_signup",{surface:"reader"}],
+    ["push_opt_in",{surface:"settings"}],
+    ["ad_impression",{placement_key:"watch_feed",provider_state:"available",format:"feed-display"}],
+    ["ad_click",{placement_key:"watch_feed",provider_state:"available",format:"feed-display"}]
+  ];
+  for(const [name,parameters] of cases){
+    assert.doesNotThrow(()=>events.event(name,parameters,{pagePath:"/reader"}),name);
+  }
+  assert.equal(cases.length,events.HEALTH_TIMES_PUBLIC_EVENTS.length);
+});
+
 test("public analytics rejects raw health-query and protected editorial fields",()=>{
   assert.throws(()=>events.validatePublicAnalyticsEvent({
     eventName:"search_performed",eventVersion:"2026-09-09",pagePath:"/search",
