@@ -71,8 +71,12 @@ export function parseHealthTimesDeepLink(url: string): HealthTimesDeepLink | nul
   const path = parsed.path ?? "";
   const routeMatch = path.match(/^article\/([^/?#]+)$/);
   if (routeMatch?.[1]) {
-    const articleId = normalizeArticleIdentifier(decodeURIComponent(routeMatch[1]));
-    return articleId ? { type: "article", articleId } : null;
+    try {
+      const articleId = normalizeArticleIdentifier(decodeURIComponent(routeMatch[1]));
+      return articleId ? { type: "article", articleId } : null;
+    } catch {
+      return null;
+    }
   }
 
   try {
