@@ -45,6 +45,9 @@ jobs:
       - name: Validate read-only source parity bridge
         run: npm --prefix apps/mobile run test:source-parity
 
+      - name: Validate Reader product and Home hydration guard contract
+        run: npm --prefix apps/mobile run test:reader-product
+
       - name: Validate NM-04 article fidelity and bounded search ranking
         run: npm --prefix apps/mobile run test:reader-fidelity
 
@@ -98,6 +101,14 @@ jobs:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
           HEALTHTIMES_WEB_BASE_URL: /htp-zw
         run: npm run native:export:web
+
+      - name: Install Chromium hydration test harness
+        run: |
+          npm install --no-audit --no-fund --package-lock=false
+          npx playwright install --with-deps chromium
+
+      - name: Exercise Home loading-to-loaded hydration in Chromium
+        run: npx playwright test apps/mobile/tests/pwa-home-hydration.spec.js --reporter=line
 
       - name: Verify preview output
         shell: bash
