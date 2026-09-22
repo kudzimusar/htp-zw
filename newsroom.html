@@ -35,11 +35,11 @@
         <span class="nr-kicker">Staff access</span>
         <h2>Sign in</h2>
         <p>Use your assigned HealthTimes staff account.</p>
-        <label>Username<input name="username" autocomplete="username" required /></label>
+        <label>Staff email<input name="email" type="email" autocomplete="username" required /></label>
         <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
         <button class="nr-primary nr-auth-submit" type="submit">Enter Newsroom</button>
         <div class="nr-auth-error" data-login-error role="alert" aria-live="polite"></div>
-        <div class="nr-auth-links"><a href="mailto:editorial@healthtimes.co.zw?subject=Newsroom%20account%20support">Account support</a><a href="index.html">Back to HealthTimes</a></div>
+        <div class="nr-auth-links"><button type="button" class="nr-link-button" data-recover-account>Forgot password?</button><a href="mailto:editorial@healthtimes.co.zw?subject=Newsroom%20account%20support">Account support</a><a href="index.html">Back to HealthTimes</a></div>
       </form>
     </section>
   </main>
@@ -115,6 +115,8 @@
   <section class="nr-modal" data-invite-modal hidden aria-label="Invite staff"><div class="nr-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Staff & Access</span><h2>Invite staff member</h2></div><button class="nr-icon-btn" type="button" data-invite-close>×</button></div><form data-invite-form class="nr-dialog-form"><label>Name<input name="name" required /></label><label>Email<input name="email" type="email" required /></label><label>Role<select name="role"></select></label><label>Desk<select name="desk"></select></label><label>Country<input name="country" value="Zimbabwe" /></label><label>Assigned editor<select name="editor"></select></label><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-invite-close>Cancel</button><button type="submit" class="nr-primary">Send invitation</button></div></form></div></section>
 
   <section class="nr-modal" data-confirm-modal hidden aria-label="Confirm action"><div class="nr-dialog nr-confirm"><span class="nr-kicker">Confirm</span><h2 data-confirm-title>Confirm action</h2><p data-confirm-copy></p><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-confirm-cancel>Cancel</button><button type="button" class="nr-danger" data-confirm-accept>Confirm</button></div></div></section>
+
+  <section class="nr-modal" data-password-reset-modal hidden aria-label="Set a new password"><div class="nr-dialog nr-confirm"><span class="nr-kicker">Account recovery</span><h2>Set a new password</h2><p>Your recovery link has been verified. Choose a new password for this staff account.</p><form data-password-reset-form class="nr-dialog-form"><label>New password<input name="password" type="password" autocomplete="new-password" minlength="12" required /></label><label>Confirm password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required /></label><div class="nr-auth-error" data-password-reset-error role="alert" aria-live="polite"></div><div class="nr-dialog-actions"><button type="submit" class="nr-primary">Update password</button></div></form></div></section>
 
   <section class="nr-modal" data-search-modal hidden aria-label="Search Newsroom"><div class="nr-dialog nr-search-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Newsroom search</span><h2>Find stories, staff and assignments</h2></div><button class="nr-icon-btn" type="button" data-search-close>×</button></div><div class="nr-search-box"><input data-newsroom-search-input placeholder="Search HealthTimes Newsroom…" autofocus /><div data-newsroom-search-results></div></div></div></section>
 

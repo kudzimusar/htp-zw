@@ -24,6 +24,7 @@ jobs:
         run: |
           node --check app.js
           node --check newsroom.js
+          node --check api/newsroom.js
           node --check reader.js
           node --check quality-pass.js
 
@@ -99,10 +100,20 @@ jobs:
               'advertising': r'Advertising',
               'security module': r'Security',
               'global desks': r'West Africa',
+              'server-backed newsroom API': r'/api/newsroom',
+              'browser authority removed': r'Browser state is a presentation cache only',
           }
           failed = [name for name, pattern in newsroom_assertions.items() if not re.search(pattern, njs)]
           if failed:
               raise SystemExit(f'Missing newsroom behavior: {failed}')
+          forbidden_newsroom = ['localStorage', 'HealthTimes#Publisher26', 'HealthTimes#Editor26', 'HealthTimes#Reporter26', 'HealthTimes#Commercial26']
+          leaked = [item for item in forbidden_newsroom if item in njs]
+          if leaked:
+              raise SystemExit(f'Browser-local Newsroom authority/credentials remain: {leaked}')
+          api = Path('api/newsroom.js').read_text(encoding='utf-8')
+          for required_api in ('HttpOnly','x-htp-csrf','newsroom_register_session','SUPABASE_SERVICE_ROLE_KEY'):
+              if required_api not in api:
+                  raise SystemExit(f'Missing AG-06 API security contract: {required_api}')
 
           local_refs = set()
           for filename in public_pages + ['newsroom.html']:

@@ -15,7 +15,9 @@
     "migration:validate-source": "node scripts/migration/validate-source-package.js",
     "test:uat": "playwright test",
     "test:migration": "playwright test tests/migration",
-    "test:uat:headed": "playwright test --headed"
+    "test:uat:headed": "playwright test --headed",
+    "test:ag06:contract": "playwright test tests/ag06-security-contract.spec.js",
+    "test:ag06:live": "playwright test tests/ag06-live-security.spec.js tests/newsroom-os.spec.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
