@@ -1,5 +1,4 @@
 const { test, expect, request } = require('@playwright/test');
-const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 
 const baseURL=String(process.env.CA01_STAGING_BASE_URL||'').replace(/\/$/,'');
@@ -89,6 +88,7 @@ async function discussionPost(token,action,payload={}){
 }
 
 async function privateRealtimeChannel(token,topic){
+  const {createClient}=require('@supabase/supabase-js');
   const client=createClient(supabaseURL,anonKey,{
     auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
   });
