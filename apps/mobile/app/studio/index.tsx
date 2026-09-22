@@ -6,10 +6,14 @@ import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 
 const actions=[
+  ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"],
   ["Stories","stories","Draft, review, assignment and publication workflows"],
   ["Create / Edit","create-edit","Server-authorized story creation and editing"],
   ["Live Desk","live-desk","Live blogs, streams and scheduled events"],
   ["Video Desk","video-desk","Video publishing and metadata"],
+  ["Desks","desks","Private specialist coordination and assignment discussions"],
+  ["Breaking","breaking","Temporary breaking-news coordination rooms"],
+  ["Moderation","moderation","Verified-reader comment review and restrictions"],
   ["Advertising","advertising","Campaigns, creatives and placements"],
   ["Analytics","analytics","KPI-first views from AG-05 real services"],
   ["Staff & Roles","staff-roles","Server-authorized staff and capabilities"]
@@ -18,7 +22,8 @@ const actions=[
 const dependencies=[
   ["AG-04","Migrated articles, authors and media","BLOCKED / NOT INTEGRATED"],
   ["AG-05","Verified analytics, ads and growth services","BLOCKED / NOT INTEGRATED"],
-  ["AG-06","Server roles, sessions, audit and privileged APIs","BLOCKED / NOT INTEGRATED"],
+  ["AG-06","Server roles, sessions, audit and privileged APIs","CERTIFIED PARENT / CLIENT PROJECTION PENDING"],
+  ["CA-01","Inbox, communications and verified-reader discussion","NATIVE CONTRACT INTEGRATION"],
   ["AG-07","Frozen integrated candidate and client UAT","CP7 BLOCKED"]
 ] as const;
 
