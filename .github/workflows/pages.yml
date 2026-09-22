@@ -108,7 +108,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Exercise Home loading-to-loaded hydration in Chromium
-        run: npx playwright test apps/mobile/tests/pwa-home-hydration.spec.js --reporter=line
+        run: node apps/mobile/tests/pwa-home-hydration.spec.js
 
       - name: Verify preview output
         shell: bash
