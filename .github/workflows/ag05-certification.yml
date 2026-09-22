@@ -43,12 +43,71 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  staging-performance:
-    name: Staging Lighthouse baseline
+  live-rehearsal-runtime:
+    name: Live AG-04 rehearsal runtime
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      STAGING_ORIGIN: https://healthtimes-staging.vercel.app
+      HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      AG05_LIVE_BASE_URL: http://127.0.0.1:4174
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Require bounded HealthTimes Staging public configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY:-}" || { echo "Missing staging publishable-key secret."; exit 1; }
+          [[ "$HEALTHTIMES_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging project."; exit 1; }
+
+      - name: Install test runtime
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Start AG-05 live rehearsal handler
+        shell: bash
+        run: |
+          node scripts/migration/ag05-live-server.js > /tmp/ag05-live-server.log 2>&1 &
+          echo $! > /tmp/ag05-live-server.pid
+          for i in {1..30}; do
+            if curl -fsS "$AG05_LIVE_BASE_URL/robots.txt" >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ag05-live-server.log
+          exit 1
+
+      - name: Exercise completed AG-04 rehearsal through public handler
+        run: npx playwright test tests/ag05-live-rehearsal.spec.js
+
+      - name: Upload live runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-live-rehearsal-evidence
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/ag05-live-server.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  staging-performance:
+    name: Completed rehearsal Lighthouse retest
+    needs: live-rehearsal-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      STAGING_ORIGIN: http://127.0.0.1:4174
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -64,7 +123,18 @@ jobs:
           npx playwright install --with-deps chromium
           echo "CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
 
-      - name: Capture mobile and desktop Lighthouse baselines
+      - name: Start AG-05 live rehearsal handler
+        shell: bash
+        run: |
+          node scripts/migration/ag05-live-server.js > /tmp/ag05-lighthouse-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS "$STAGING_ORIGIN/robots.txt" >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ag05-lighthouse-server.log
+          exit 1
+
+      - name: Capture mobile and desktop Lighthouse retest
         shell: bash
         run: |
           set -euo pipefail
@@ -72,14 +142,28 @@ jobs:
 
           declare -A URLS
           URLS[home]="$STAGING_ORIGIN/"
-          URLS[article]="$STAGING_ORIGIN/article.html?id=natpharm-supply-chain"
+          URLS[migrated-story]="$STAGING_ORIGIN/2026/02/12/who-should-not-take-lenacapavir-key-health-conditions-to-consider-before-the-rollout/"
           URLS[premium]="$STAGING_ORIGIN/premium.html"
           URLS[archive]="$STAGING_ORIGIN/archive.html"
+          URLS[direct-ad-preview]="$STAGING_ORIGIN/__ag05/direct-ad-preview"
 
-          for page in home article premium archive; do
-            npx --yes lighthouse@12 "${URLS[$page]}"               --quiet               --chrome-path="$CHROME_PATH"               --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"               --only-categories=performance               --output=json               --output-path="migration-output/ag05-performance/${page}-mobile.json"
+          for page in home migrated-story premium archive direct-ad-preview; do
+            npx --yes lighthouse@12 "${URLS[$page]}" \
+              --quiet \
+              --chrome-path="$CHROME_PATH" \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance \
+              --output=json \
+              --output-path="migration-output/ag05-performance/${page}-mobile.json"
 
-            npx --yes lighthouse@12 "${URLS[$page]}"               --quiet               --chrome-path="$CHROME_PATH"               --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"               --preset=desktop               --only-categories=performance               --output=json               --output-path="migration-output/ag05-performance/${page}-desktop.json"
+            npx --yes lighthouse@12 "${URLS[$page]}" \
+              --quiet \
+              --chrome-path="$CHROME_PATH" \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --preset=desktop \
+              --only-categories=performance \
+              --output=json \
+              --output-path="migration-output/ag05-performance/${page}-desktop.json"
           done
 
       - name: Summarize performance evidence
@@ -105,19 +189,24 @@ jobs:
               fetch_time: lhr.fetchTime
             };
           });
+          const clsFailures = rows.filter(row => row.cls != null && row.cls > 0.10);
           const summary = {
-            source: 'Google Lighthouse lab measurement',
-            staging_origin: process.env.STAGING_ORIGIN,
+            source: 'Google Lighthouse lab measurement against AG-05 handler + completed HealthTimes Staging rehearsal data',
+            staging_supabase_ref: 'gcdohgbmqhqwydgaxrcr',
             note: 'INP may be null where Lighthouse has no interaction-based audit value; do not fabricate it.',
+            cls_threshold: 0.10,
+            cls_gate: clsFailures.length ? 'FAIL' : 'PASS',
             rows
           };
           fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
           console.log(JSON.stringify(summary, null, 2));
+          if (clsFailures.length) process.exitCode = 2;
           NODE
 
-      - name: Upload Lighthouse baseline
+      - name: Upload Lighthouse retest
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ag05-lighthouse-baseline
+          name: ag05-lighthouse-retest
           path: migration-output/ag05-performance/
           retention-days: 14
