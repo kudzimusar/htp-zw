@@ -4,6 +4,13 @@ import { StudioAccessGate, StudioAuthorityGate, StudioPlaceholder, StudioShell }
 import type { HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { StudioInboxPanel } from "../../src/ui/StudioInbox";
+import {
+  StudioBreakingPanel,
+  StudioDeskThreadsPanel,
+  StudioDesksPanel,
+  StudioModerationPanel,
+  StudioThreadPanel
+} from "../../src/ui/StudioCommunications";
 
 export function generateStaticParams() {
   return [
@@ -43,7 +50,7 @@ const owners:Record<string,ModuleConfig>={
 };
 
 export default function StudioModule(){
-  const {module}=useLocalSearchParams<{module:string}>();
+  const {module,deskId,threadId}=useLocalSearchParams<{module:string;deskId?:string;threadId?:string}>();
   const config=owners[String(module)] ?? {
     title:"Studio",
     owner:"AG-06",
@@ -56,6 +63,9 @@ export default function StudioModule(){
     <>
       <StudioPlaceholder owner={config.owner} description={config.description} />
       {String(module)==="inbox" && <StudioInboxPanel />}
+      {String(module)==="desks" && (deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
+      {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
+      {String(module)==="moderation" && <StudioModerationPanel />}
       <View style={styles.readiness}>
         <Text style={styles.readinessTitle}>Implementation readiness</Text>
         {config.readiness.map((item)=><View style={styles.readinessRow} key={item}><View style={styles.dot} /><Text style={styles.readinessText}>{item}</Text></View>)}
