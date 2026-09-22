@@ -58,6 +58,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
   test.skip(!configured,'Requires HealthTimes Staging URL/publishable key and four staging-only role accounts.');
 
   test('anonymous, Reporter, Commercial, Editor and Publisher boundaries hold below the UI',async()=>{
+    test.setTimeout(60_000);
     test.setTimeout(120_000);
     const anonymous=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
@@ -249,6 +250,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
         .map(a=>({action:a.action,target_table:a.target_table,target_id:a.target_id,created_at:a.created_at}))
     };
     fs.writeFileSync(process.env.AG06_EVIDENCE_PATH||'/tmp/ag06-live-evidence.json',JSON.stringify(evidence,null,2));
+    console.log('AG06_LIVE_EVIDENCE',JSON.stringify(evidence));
 
     await Promise.all([anonymous.dispose(),reporter.ctx.dispose(),commercial.ctx.dispose(),editor.ctx.dispose(),publisher.ctx.dispose()]);
   });
