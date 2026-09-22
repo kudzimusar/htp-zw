@@ -41,6 +41,7 @@ test.describe('AG-06 security contract', () => {
 
   test('protected functions are not left executable by anonymous/public roles', async () => {
     const sql = read('supabase/migrations/20260922080100_ag06_newsroom_auth_rbac.sql');
+    const hardening = read('supabase/migrations/20260922112000_ag06_security_advisor_hardening.sql');
     for (const signature of [
       'newsroom_create_story(jsonb)',
       'newsroom_save_story(uuid,integer,jsonb,text)',
@@ -53,6 +54,18 @@ test.describe('AG-06 security contract', () => {
       expect(sql).toContain(`revoke execute on function public.${signature} from public, anon`);
       expect(sql).toContain(`grant execute on function public.${signature} to authenticated`);
     }
+    for (const helper of [
+      'newsroom_can_read_story(uuid)',
+      'newsroom_can_edit_story(uuid)',
+      'newsroom_current_staff_id_basic()',
+      'newsroom_has_capability(text)',
+      'newsroom_session_authorized()'
+    ]) {
+      expect(hardening).toContain(`revoke execute on function public.${helper} from public, anon`);
+      expect(hardening).toContain(`grant execute on function public.${helper} to authenticated`);
+    }
+    expect(hardening).toContain('revoke execute on function public.newsroom_sync_staff_from_auth() from public, anon, authenticated');
+    expect(hardening).toContain('alter function public.newsroom_safe_editor_text(text) set search_path = public');
   });
 
   test('server API protects credentials and request integrity', async () => {
