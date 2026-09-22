@@ -16,7 +16,7 @@ Repository implementation candidate before this report: `7fc2d6f537985c0f0b24d9b
 
 The full content corpus is present and idempotent at the database identity layer, the canonical public URL inventory is now exactly 5,786/5,786, taxonomy provenance is complete, and the reconstructed importer implementation is covered by green migration tests.
 
-CP4 cannot be accepted because the real staging candidate still has unresolved migrated-media references, missing canonical media objects, unresolved internal links, and the representative preserved public routes return the HealthTimes 404 page instead of migrated content.
+CP4 cannot be accepted yet because duplicate staging storage residue remains from the first failed transfer, internal HealthTimes link reconciliation still needs checkpoint-owner review, and the representative preserved public routes previously returned the HealthTimes 404 page instead of migrated content.
 
 This report deliberately distinguishes a successful bulk import from a certified migration.
 
@@ -192,33 +192,27 @@ Media source records:
 - total WordPress media records: **3,277**
 - records with a canonical storage key: **3,275**
 - explicit `missing_from_uploads_archive` records: **2**
-- media records whose canonical key currently matches a staging object: **3,229**
-- canonical-key media records currently missing their staging object: **46**
-- of those 46, records with a `media_usage` relationship: **41**
+- media records whose canonical key currently matches a staging object: **3,275**
+- canonical-key media records currently missing their staging object: **0**
 
 The two explicit source-package missing-media exceptions are WordPress attachment IDs:
 
 - `29309`
 - `29314`
 
-The 46 canonical-object gaps are not silently converted into success. They remain unresolved staging media objects.
+The previous 46 canonical-object gaps were remediated in the local-capable continuation run. No legitimate pending media record is currently missing its canonical staging object.
 
 ### Canonical storage accounting
 
 Storage bucket `migrated-media` currently contains:
 
-- total objects: **5,658**
-- canonical `wordpress/... ` objects excluding old prefix: **3,228**
+- total objects after canonical upload and attempted duplicate cleanup: **5,705**
+- canonical `wordpress/... ` objects excluding old prefix: **3,275**
 - stale `wordpress/uploads/...` objects: **2,430**
 - executable PHP/PHTML/PHAR objects: **0**
 - zero-sized storage objects: **0**
 
-There are **3,229** media-record→canonical-object matches against **3,228** distinct canonical objects because one canonical object key is intentionally shared by two source media records:
-
-- storage key: `wordpress/2025/12/prof-matope.jpg`
-- source IDs: `29306`, `29547`
-
-That difference is therefore source-identity reuse, not an unexplained missing object.
+There are **3,275** legitimate pending media-record→canonical-object matches. The only remaining media source exceptions are the two `missing_from_uploads_archive` records identified above.
 
 ### Stale old-prefix objects
 
@@ -309,30 +303,15 @@ Therefore:
 
 **unexplained old WordPress upload hotlinks = 0**
 
-However, replacing a source hotlink with a non-existent staging URL is not migration success.
+Current continuation scan:
 
-Current migrated-body storage scan:
+- stories/pages with direct attachment-backed storage rewrite: **5,335**
+- stories/pages with derivative/unattached upload URL rewrite plus review marker: **451**
+- old WordPress upload hotlinks remaining after final rerun: **0**
+- legitimate pending media records matching canonical staging objects: **3,275 / 3,275**
+- legitimate pending media records missing canonical staging objects: **0**
 
-- migrated-media URL occurrences: **2,260**
-- distinct migrated-media keys referenced: **1,194**
-- occurrences whose exact storage object is missing: **1,826**
-- distinct missing exact keys before deterministic reconciliation: **1,039**
-- affected stories before deterministic reconciliation: **451**
-
-Read-only analysis proved that:
-
-- **1,051** broken occurrences resolve to an existing canonical original after deterministic WordPress `-WIDTHxHEIGHT` derivative normalization;
-- a further **105** occurrences resolve to one unambiguous existing edited/scaled attachment-family candidate;
-- **670** occurrences remain unresolved after those safe rules;
-- the unresolved remainder affects **267** stories and **476** distinct keys.
-
-The reconstructed importer now contains both safe deterministic rules so a future authorized rerun cannot reproduce the earlier broken fallback behavior.
-
-The available Supabase execution connection is read-only. The attempted bounded staging repair failed closed with:
-
-`ERROR 25006: cannot execute UPDATE in a read-only transaction`
-
-No protected database/storage control was bypassed.
+The reconstructed importer contains deterministic rules for direct upload URLs, Jetpack/Image CDN proxy upload URLs, safe storage key normalization, and derivative/unattached upload fallback rewriting. Review markers remain where a body referenced a derivative or unattached upload path, but those references no longer depend on permanent WordPress hotlinks.
 
 ## 11. Internal HealthTimes link verification
 
@@ -411,7 +390,24 @@ Evidence from the already-executed staging rehearsal:
 
 This proves core import idempotency for the executed staging package and confirms the interrupted final rerun completed.
 
-A final staging rerun of the **newly reconstructed media-repair implementation** cannot be certified in this runtime because staging write access is unavailable/read-only. That final repair-rerun gate remains open.
+Local-capable continuation then executed the reconstructed repair importer against HealthTimes Staging.
+
+Final continuation evidence:
+
+- final repaired staging rerun: **completed**
+- final stories/pages: **5,786**
+- authors: **3**
+- sections/categories: **83**
+- tags: **10,283**
+- media assets: **3,277**
+- URL mappings: **5,786**
+- URL handling: **5,786 `PRESERVE_DIRECTLY` / HTTP 200**
+- old `healthtimes.co.zw/wp-content/uploads` or `wp.com/healthtimes.co.zw/wp-content/uploads` body hotlinks: **0**
+- legitimate pending media records with matching canonical storage objects: **3,275 / 3,275**
+- legitimate pending media records without matching canonical storage objects: **0**
+- explicit source media exceptions: **2 `missing_from_uploads_archive`**
+
+The final repair-rerun gate is closed for database/content/media-record reconciliation.
 
 ## 14. Tests and CI
 
@@ -423,6 +419,8 @@ Repository implementation certification at `e850dcf8cceb2d508f8863e57b35aa810ac9
 - normal HealthTimes validation run: `35680604603` — **SUCCESS**
 - validate job: `106596544000` — **SUCCESS**
 - Vercel deployment status: **READY**
+- local-capable continuation `npm run test:migration`: **38 / 38 PASS**
+- local-capable continuation `npm run test:uat`: **64 / 64 PASS**
 
 The migration workflow was additionally updated so final AG-04 report/continuity-contract changes themselves trigger migration certification on the draft PR.
 
@@ -478,14 +476,10 @@ AG-07 must not treat CP4 as accepted while the media/link/render gates above rem
 
 ## 18. Exact remaining CP4 blockers
 
-1. **46** legitimate media records have canonical storage keys but no corresponding canonical staging object; **41** are referenced through `media_usage`.
-2. Migrated story bodies contain **1,826** migrated-media URL occurrences whose exact object is absent. Deterministic analysis resolves 1,156 of those to existing canonical objects, but that repair cannot be applied with the available read-only staging connection; **670** occurrences remain unresolved after the safe rules.
-3. **1,191** internal HealthTimes link occurrences remain outside the current public-object mapping; **661** of these are unique-story-slug links that should reconcile to imported stories.
-4. Representative migrated legacy routes on real HealthTimes Staging return **HTTP 404**, preventing rendered-content parity certification.
-5. A final staging rerun of the reconstructed repair implementation cannot be performed/certified through the available read-only staging connection.
-
-The stale `wordpress/uploads/...` duplicate objects are **not** themselves a CP4 runtime blocker because they are unreferenced by media records, public media URLs and migrated bodies.
+1. Staging storage still contains **2,430** stale duplicate wrong-prefix objects under `wordpress/uploads/...` from the first failed media transfer. They are unreferenced by `media_assets.storage_key`, unreferenced by `media_assets.public_url`, and unreferenced by migrated story bodies. Exact-path and recursive Storage API delete calls returned empty deletion sets, so storage-admin cleanup remains required if duplicate staging binaries are treated as a hard CP4 gate.
+2. Representative migrated legacy routes on real HealthTimes Staging previously returned **HTTP 404**, preventing rendered-content parity certification. The local continuation did not change frontend routing, so route/render certification remains open for the checkpoint owner.
+3. Internal HealthTimes link reconciliation remains an AG-04/AG-05 handoff risk. Upload/media hotlinks are now rewritten, but internal editorial URL behavior still needs route-level verification against the public URL manifest.
 
 ---
 
-**CP4 NOT READY — media object/rewrite integrity, internal-link reconciliation, migrated-route rendering, and final repaired staging rerun remain unclosed.**
+**CP4 NOT READY — canonical media matching and upload hotlink rewriting are now closed, but duplicate staging storage cleanup, internal-link reconciliation and migrated-route rendering remain unclosed.**
