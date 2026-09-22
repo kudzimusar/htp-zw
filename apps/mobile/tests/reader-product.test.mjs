@@ -55,10 +55,11 @@ test("Article Reader restores progress and blocks unauthorized Premium offline b
 test("Saved and Offline library keeps bookmarks, downloads and history distinct", () => {
   const saved = read("app/saved.tsx");
   assert.match(saved, /type LibraryTab = "articles" \| "videos" \| "audio" \| "offline" \| "history"/);
-  assert.match(saved, /Available offline/);
-  assert.match(saved, /Remove download/);
+  assert.match(saved, /getOfflineArticleRecords/);
+  assert.match(saved, /compareSourceFreshness/);
+  assert.match(saved, /removeDownloadedArticle/);
   assert.match(saved, /Reading history/);
-  assert.match(saved, /stored separately from bookmarks/);
+  assert.match(saved, /downloaded article snapshots/);
 });
 
 test("appearance, accessibility and tablet density are wired into Reader UI", () => {
