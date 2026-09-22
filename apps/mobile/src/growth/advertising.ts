@@ -1,9 +1,9 @@
 import type {
   AdDecision,
   AdPlacementKey,
-  AdRequestContext,
-  CommercialSourceContext
+  AdRequestContext
 } from "../domain/models";
+import type { CommercialSourceContext } from "../domain/source";
 import type { AdvertisingService } from "../domain/contracts";
 import { getReaderAdPlacement } from "./ad-placements";
 
@@ -86,6 +86,27 @@ export function createAdvertisingService(
             "The placement is policy-eligible, but the verified provider returned no inventory.",
             options.commercialSourceContext
           );
+        }
+
+        if (inventory.destinationUrl) {
+          try {
+            const destination = new URL(inventory.destinationUrl);
+            if (destination.protocol !== "https:") {
+              return noneDecision(
+                placementKey,
+                "error",
+                "The verified provider returned an unsafe advertising destination.",
+                options.commercialSourceContext
+              );
+            }
+          } catch {
+            return noneDecision(
+              placementKey,
+              "error",
+              "The verified provider returned an invalid advertising destination.",
+              options.commercialSourceContext
+            );
+          }
         }
 
         if (inventory.personalization === "personalized") {
