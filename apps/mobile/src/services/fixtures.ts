@@ -3,6 +3,7 @@ import type {
   AnalyticsService,
   ArticleRepository,
   AuthorizationService,
+  CommentModerationService,
   DeviceSecurityService,
   AudioService,
   AuthService,
@@ -217,15 +218,28 @@ const newsroomCommunicationService: NewsroomCommunicationService = {
       }
     };
   },
-  async markRead() {
-    throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode.");
-  },
-  async acknowledge() {
-    throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode.");
-  },
-  async archive() {
-    throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode.");
-  }
+  async markRead() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async acknowledge() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async archive() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listStoryDiscussion() { return []; },
+  async addStoryComment() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async editStoryComment() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async setStoryCommentResolved() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listDesks() { return []; },
+  async listThreads() { return []; },
+  async createThread() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listThreadMessages() { return []; },
+  async postThreadMessage() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async markThreadRead() { throw new Error("Server-authorized Newsroom communication is unavailable in fixture mode."); },
+  async listAnnouncements() { return []; }
+};
+
+const commentModerationService: CommentModerationService = {
+  async listQueue() { return []; },
+  async moderate() { throw new Error("Comment moderation is unavailable in fixture mode."); },
+  async setStoryCommentPolicy() { throw new Error("Comment moderation is unavailable in fixture mode."); },
+  async restrictReader() { throw new Error("Comment moderation is unavailable in fixture mode."); },
+  async liftRestriction() { throw new Error("Comment moderation is unavailable in fixture mode."); }
 };
 
 const platformService: PlatformService = {
@@ -272,6 +286,7 @@ export const fixtureServices: HealthTimesServices = {
   notifications: notificationService,
   readerDiscussion: readerDiscussionService,
   newsroomCommunication: newsroomCommunicationService,
+  commentModeration: commentModerationService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {
