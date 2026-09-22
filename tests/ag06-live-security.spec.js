@@ -1,4 +1,5 @@
 const { test, expect, request } = require('@playwright/test');
+const fs = require('fs');
 
 const baseURL = String(process.env.AG06_STAGING_BASE_URL || '').replace(/\/$/,'');
 const supabaseURL = String(process.env.AG06_STAGING_SUPABASE_URL || '').replace(/\/$/,'');
@@ -205,9 +206,46 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(staleReporter.response.status()).toBe(403);
 
     publisherBoot=await appBootstrap(publisher);
-    const actions=(publisherBoot.body.data.audit||[]).map(a=>a.action);
+    const auditRows=publisherBoot.body.data.audit||[];
+    const actions=auditRows.map(a=>a.action);
     expect(actions).toContain('story.published');
     expect(actions).toContain('session.revoked');
+
+    const evidence={
+      github_run_id:process.env.GITHUB_RUN_ID||null,
+      tested_at:new Date().toISOString(),
+      staging_project_ref:'gcdohgbmqhqwydgaxrcr',
+      exact_branch_gateway:baseURL,
+      direct_postgrest_probes:directSupabaseConfigured,
+      anonymous:{bootstrap_denied_status:anonBootstrap.status()},
+      reporter:{
+        role:boot.body.data.context.role,
+        create_edit_own_submit:'PASS',
+        publish_denied_status:reporterPublish.status(),
+        self_role_escalation_denied_status:reporterRole.status(),
+        ad_approval_denied_status:reporterAdApprove.status()
+      },
+      commercial:{
+        role:commercialBoot.body.data.context.role,
+        editorial_edit_denied_status:commercialEdit.status(),
+        publish_denied_status:commercialPublish.status()
+      },
+      editor:{
+        role:editorBoot.body.data.context.role,
+        final_workflow_status:story.workflow_status,
+        final_story_status:story.status
+      },
+      publisher:{
+        role:publisherBoot.body.data.context.role,
+        reporter_session_revoked:revoke.status()===200,
+        stale_reporter_rejected_status:staleReporter.response.status()
+      },
+      story_id:storyId,
+      audit:auditRows
+        .filter(a=>['story.published','session.revoked'].includes(a.action))
+        .map(a=>({action:a.action,target_table:a.target_table,target_id:a.target_id,created_at:a.created_at}))
+    };
+    fs.writeFileSync(process.env.AG06_EVIDENCE_PATH||'/tmp/ag06-live-evidence.json',JSON.stringify(evidence,null,2));
 
     await Promise.all([anonymous.dispose(),reporter.ctx.dispose(),commercial.ctx.dispose(),editor.ctx.dispose(),publisher.ctx.dispose()]);
   });
