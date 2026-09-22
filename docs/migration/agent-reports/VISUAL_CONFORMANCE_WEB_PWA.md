@@ -336,6 +336,15 @@ That staging truthfulness is technically appropriate, but it should not be confu
 
 ## 9. Current Devex public-pattern comparison
 
+Devex was rechecked against its current public site on 2026-09-23 only as a **product-pattern reference**, not a template.
+
+Official reference pages used:
+
+- `https://www.devex.com/`
+- `https://www.devex.com/membership/individuals`
+
+The current homepage exposes `Subscribe` in the primary header, `Try Devex Pro` inside News navigation, top-level Jobs and Funding destinations, a dense Latest stream, Funding, Careers, Top News, Devex Pro Live, Opinion, Events, Podcasts and Trends. The membership page presents Community, Career, Pro and Pro Funding as explicit products with direct join/trial actions.
+
 Devex was inspected only as a **product-pattern reference**, not a template.
 
 Current Devex public site visibly exposes:
