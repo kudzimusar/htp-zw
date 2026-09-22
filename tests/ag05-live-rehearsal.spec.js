@@ -6,6 +6,8 @@ const publicPath='/2026/02/12/who-should-not-take-lenacapavir-key-health-conditi
 const pagePath='/global-health/';
 const aliasPath='/policy-capture-at-cop11-what-it-signals-for-global-health-governance/';
 const missingPath='/2017/04/04/gwinji-appeals-funding-health-sector/';
+const oldStoryPath='/2016/02/16/zim-launches-unicef-eli-lilly-initiative-to-fight-pediatric-and-adolescent-ncds/';
+const longStoryPath='/2018/10/26/gvt-applauds-un-investment-in-zims-health-sector/';
 
 function occurrences(text,needle){
   return text.split(needle).length-1;
@@ -72,6 +74,30 @@ test.describe('AG-05 completed rehearsal runtime',()=>{
     expect(html).not.toContain('Article access is being verified.');
     const body=(html.match(/<div class="article-body">([\s\S]*?)<\/div>\s*<aside class="article-context">/)||[])[1]||'';
     expect(body.length).toBeGreaterThan(200);
+  });
+
+
+  test('old migrated story preserves its historical 2016 route and canonical metadata',async({request})=>{
+    const response=await request.get(baseURL+oldStoryPath);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['x-ag05-resolution']).toBe('preserved_direct');
+    expect(response.headers()['x-ag05-source-id']).toBe('935');
+    const html=await response.text();
+    expect(html).toContain('Zim launches UNICEF-Eli-Lilly initiative to fight pediatric and adolescent NCDs');
+    expect(html).toContain('<link rel="canonical" href="https://healthtimes.co.zw/2016/02/16/zim-launches-unicef-eli-lilly-initiative-to-fight-pediatric-and-adolescent-ncds/">');
+    expect(html).toContain('"@type":"NewsArticle"');
+  });
+
+  test('long-form migrated article renders the authoritative body without generic fallback',async({request})=>{
+    const response=await request.get(baseURL+longStoryPath);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['x-ag05-resolution']).toBe('preserved_direct');
+    expect(response.headers()['x-ag05-source-id']).toBe('4726');
+    const html=await response.text();
+    expect(html).toContain('Gvt Applauds UN Investment In Zim');
+    expect(html).toContain('<link rel="canonical" href="https://healthtimes.co.zw/2018/10/26/gvt-applauds-un-investment-in-zims-health-sector/">');
+    const body=(html.match(/<div class="article-body">([\s\S]*?)<\/div>\s*<aside class="article-context">/)||[])[1]||'';
+    expect(body.length).toBeGreaterThan(20000);
   });
 
   test('representative migrated page uses Article + Person + BreadcrumbList',async({request})=>{
