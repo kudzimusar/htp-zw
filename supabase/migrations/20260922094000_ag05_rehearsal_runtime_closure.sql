@@ -69,7 +69,9 @@ as $$
   end;
 $$;
 
-drop view if exists public.ag05_url_coverage_status;\n\ncreate view public.ag05_url_coverage_status as
+drop view if exists public.ag05_url_coverage_status;
+
+create view public.ag05_url_coverage_status as
 with snapshot as (
   select *
   from public.migration_source_snapshots
