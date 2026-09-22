@@ -71,6 +71,7 @@ function sourceArticle(input:{
   const legacy=legacyRefs(input.categories);
   return {
     id:"source-"+input.slug,
+    canonicalStoryId:null,
     title:input.title,
     slug:input.slug,
     standfirst:input.excerpt,
