@@ -1,108 +1,159 @@
-# AG-05 — CP5 SEO / Analytics / Monetization Continuity Receipt
+# AG-05 — FINAL CP5 SEO / Analytics / Monetization Continuity Receipt
 
 Date: 2026-09-22  
 Repository: `kudzimusar/htp-zw`  
-Lane: AG-05 — SEO, Authority, Analytics & Monetization Continuity
+Branch: `migration/ag-05-seo-analytics-monetization`  
+Draft PR: #12 — OPEN / DRAFT / UNMERGED  
+Certified runtime SHA: `5c4bf4290debc68e8dc313b444c83fc290c74118`  
+Certified Vercel preview deployment: `dpl_6NQFyTGwuZudHg2BHvxA3xMGVxQB` — READY  
+HealthTimes Staging Supabase ref: `gcdohgbmqhqwydgaxrcr`
+
+This receipt supersedes the earlier pre-AG-04 CP5 NOT READY receipt. It records the completed AG-04 rehearsal import and the final AG-05 runtime certification. Production WordPress, production DNS, Google Analytics, Search Console, AdSense and Google Ads were not modified.
 
 ## A. Repository state
 
-- Certified starting SHA: `ea599bf9ed3db9dc8fa7085e25bea20375c28e11`
-- Starting certified branch: `migration/ag-03-source-data-capture`
-- AG-05 branch: `migration/ag-05-seo-analytics-monetization`
-- Runtime candidate SHA: `1546639cce38028b8daac9fa620ac89b8a0a3cc9`
-- Documentation ledger SHA: `8be541fb40b95eedef5b690658e5a8b633e29ac0`
-- Final report commit: see Git history for this file; moderator receipt records the final branch tip.
-- Draft PR: #12, base `migration/ag-03-source-data-capture`
-- Vercel commit status on runtime candidate: SUCCESS
-- Staging Supabase ref: `gcdohgbmqhqwydgaxrcr`
-- Applied AG-05 staging migration: `ag05_seo_analytics_monetization_continuity`
+- Certified CP3 baseline: `ea599bf9ed3db9dc8fa7085e25bea20375c28e11`
+- AG-05 continuation preserved the existing runtime lane and did not restart the work.
+- Final certified runtime SHA: `5c4bf4290debc68e8dc313b444c83fc290c74118`
+- PR #12 remains **Draft / Open / Unmerged**.
+- Vercel preview for the exact certified SHA is **READY**.
+- AG-04 importer ownership was not taken over by AG-05.
+- AG-05 added only forward migrations/runtime/continuity work needed for CP5 closure.
 
-No AG-04 importer code was modified.
+## B. AG-04 rehearsal import consumed
 
-## B. URL coverage
+The completed HealthTimes Staging rehearsal contains:
 
-Authoritative CP3 public-object baseline:
+- WordPress public posts: **5,737**
+- WordPress public pages: **49**
+- total canonical public objects: **5,786**
+- `stories`: **5,786**
+- `seo_metadata`: **5,786**
+- canonical post/page source rows: **5,786**
+- migrated media identities present for HOSPAZ source attachments `32960`, `32971`, and `33005`
 
-- posts: **5,737**
-- pages: **49**
-- total: **5,786**
+AG-05 discovered one spurious duplicate mapping for WordPress post `33190`: `/ → /`. Its canonical dated permalink mapping was already present. AG-05 removed only the proven spurious row.
 
-Current staging coverage view:
+## C. Public URL accounting
 
-- source post/page rows imported: **0**
-- canonical mapping rows: **0**
-- explicit URL exceptions: **0**
-- unresolved: **5,786**
-- state: **BLOCKED**
+Final `ag05_url_coverage_status`:
 
-AG-04 branch existed at launch but still pointed at the accepted CP3 SHA with no rehearsal-import commits. AG-05 therefore did not invent a competing URL map.
+- expected public objects: **5,786**
+- source rows: **5,786**
+- mapping rows: **5,786**
+- distinct mapped sources: **5,786**
+- canonical-object exceptions: **0**
+- preserved-direct: **5,786**
+- canonical-object redirects: **0**
+- noindex/archive objects: **0**
+- duplicate mapped sources: **0**
+- invalid homepage catch-alls: **0**
+- unresolved: **0**
+- coverage state: **COVERED**
 
-Implemented cross-lane contract:
+Every accepted AG-04 public object has one canonical preserved-direct public mapping.
 
-`docs/migration/14_AG04_AG05_URL_CONTINUITY_CONTRACT.md`
+## D. Historical internal-link / alias ledger
 
-Implemented validator/generator:
+AG-05 separately audited historical internal links embedded in migrated bodies. This ledger does not inflate the canonical 5,786-object count.
 
-`scripts/migration/ag05-url-continuity.js`
+- preserved-direct internal target paths: **2,325** / **4,473 occurrences**
+- deterministic one-hop legacy aliases: **341** / **661 occurrences**
+- explicit 404 exception paths: **28** / **66 occurrences**
+- valid homepage/fragment target: **1** / **153 occurrences**
+- redirect-chain candidates: **0**
+- homepage catch-all aliases: **0**
 
-It hard-fails on missing public objects, duplicate source URLs, invalid preserve status, redirect chains, source=destination redirects, catch-all homepage redirects, and canonical collapse to the homepage.
+The 341 aliases are created only where the final slug uniquely identifies exactly one imported story. The 28 unmatched or ambiguous historical targets remain explicit 404 exceptions. No homepage fallback was fabricated.
 
-A representative legacy post-name path currently returns **404** on the primary staging runtime. Therefore preserved-direct, 301, archive/noindex and exception totals cannot yet be truthfully certified.
+## E. Canonical / redirect policy
 
-## C. SEO metadata
+- canonical AG-04 public objects: **HTTP 200 preserved-direct**
+- uniquely resolvable historical alias: **one-hop HTTP 301**
+- no authoritative destination: **explicit HTTP 404**
+- redirect chains: **rejected**
+- source=destination redirects: **rejected**
+- canonical collapse to `/`: **rejected**
+- homepage catch-all redirects: **rejected**
 
-Source findings retained:
+Representative alias and explicit-404 behavior were exercised in the final live rehearsal suite.
 
-- WordPress permalink structure: `/%postname%/`
-- Rank Math SEO observed inactive in the CP3 source capture.
-- Historical Rank Math/other SEO metadata is **not assumed absent** and must be preserved wherever AG-04 exposes it.
+## F. Initial-HTML SEO
 
-Implemented:
+Migrated public routes emit real server-rendered initial HTML from authoritative staging data:
 
-- homepage canonical, robots, Open Graph and Twitter metadata in initial HTML;
-- homepage Organization/WebSite JSON-LD in initial HTML;
-- generic article shell changed to fail-closed `noindex,follow` until real migrated story metadata is server-rendered;
-- URL-manifest contract carries source SEO title, description, canonical, Open Graph, robots and plugin provenance.
+- title
+- description where authoritative source/story metadata exists
+- canonical URL
+- robots/index state
+- Open Graph title
+- Open Graph description
+- Open Graph image where authoritative image data is available
+- publication and modified dates
+- author and section data where present
 
-Final per-story SEO title/description/canonical/Open Graph/index-state coverage: **BLOCKED pending AG-04 imported content**.
+Metadata precedence remains conservative: source SEO metadata is used where it actually exists, then authoritative story fields provide fallback. Missing plugin values are not fabricated.
 
-## D. Structured data
+Premium-marker-review stories retain indexable authority metadata while the public renderer withholds their full article body.
 
-Implemented and tested:
+## G. Structured data
 
-- `Organization`
+The final runtime emits authoritative JSON-LD for:
+
 - `NewsArticle`
 - `Article`
-- `Person`
+- `Person` where a real author is available
+- `Organization`
 - `BreadcrumbList`
 
-The builder in `scripts/migration/ag05-structured-data.js` refuses to fabricate required article facts or missing authors.
+The test contract rejects fabricated authors or required article facts.
 
-Runtime state:
+The final live rehearsal verified a migrated story with `NewsArticle + Person + BreadcrumbList` and a migrated page with `Article + Person + BreadcrumbList`.
 
-- Organization/WebSite: emitted on branch homepage.
-- NewsArticle/Article/Person/BreadcrumbList per migrated story: **BLOCKED pending imported content and final story route/server-rendered HTML**.
+## H. Sitemap
 
-## E. Sitemap / robots / RSS
+`/sitemap.xml` is served by the AG-05 public runtime from completed rehearsal data.
 
-Current primary staging checks:
+Final live assertion:
 
-- `/robots.txt`: **404**
-- `/sitemap.xml`: **404**
-- `/feed/`: **404**
+- HTTP **200**
+- XML response
+- **5,786** URL rows
+- **5,786 / 5,786** canonical public objects represented
 
-Branch implementation:
+No production Search Console sitemap submission was performed.
 
-- `robots.txt`: staging policy blocks all indexing.
-- `robots.production.txt`: production candidate allows public crawl and blocks Newsroom/internal routes.
-- complete-manifest generator emits `sitemap.xml`, redirect manifest, production robots candidate and RSS feed policy only after all 5,786 public objects are accounted for.
-- RSS strategy preserves the existing `/feed/` route and requires title, URL, date, author and policy-permitted summary/content.
+## I. robots.txt
 
-State: **BLOCKED for CP5 runtime certification until AG-04 handoff and staging promotion**.
+Staging `/robots.txt` is present and intentionally blocks indexing.
 
-## F. Google Analytics
+The production candidate remains separate and protects Newsroom/internal routes. AG-05 did not activate production robots policy.
 
-Certified public identifiers:
+## J. RSS / feed continuity
+
+`/feed/` is served by the AG-05 public runtime.
+
+Final live assertion:
+
+- HTTP **200**
+- RSS/XML response
+- current feed sample: **50 items**
+- fields are derived from authoritative title, canonical URL, publication date, author and available summary metadata
+- historical audience or revenue metrics are not fabricated
+
+## K. Representative legacy routes
+
+The final live rehearsal exercised and passed:
+
+1. preserved-direct Premium-review story;
+2. fully public migrated story;
+3. migrated page;
+4. deterministic historical alias redirect;
+5. unmatched historical path returning explicit 404.
+
+## L. Google Analytics
+
+Certified public identities:
 
 - Google tag: `GT-PLTTGPL`
 - GA4 account: `137814020`
@@ -110,225 +161,178 @@ Certified public identifiers:
 - web stream: `4756168788`
 - measurement ID: `G-S39LN2KX4X`
 
-Continuity decision: **PRESERVE EXISTING PUBLICATION PROPERTY**, subject to account-level ownership/consent review.
+Continuity decision: **preserve the existing publication property**.
+
+Account-level evidence still unavailable:
+
+- ownership
+- data-retention configuration
+- referral exclusions
+- cross-domain configuration
+- historical API/export range
+
+Staging Google delivery remains disabled and analytics consent defaults to denied.
+
+## M. Analytics events / privacy
+
+The versioned public event contract remains `2026-09-09`, with **24** event definitions.
+
+Protected-data boundaries remain enforced:
+
+- public Analytics excludes Newsroom activity;
+- draft content, internal comments, private source documents, staff email, permissions/security detail, payment details, personal contact fields, push tokens and message bodies are prohibited;
+- historical analytics figures are not fabricated.
+
+## N. Search Console
+
+Known property: `https://healthtimes.co.zw/`
+
+Still unresolved account-level evidence:
+
+- property type
+- verified owners/users
+- historical range/export availability
+
+No production Search Console changes or sitemap submission occurred.
+
+## O. AdSense / ads.txt / app-ads.txt
+
+Preserved AdSense identities:
+
+- publisher: `pub-8744434739998394`
+- client: `ca-pub-8744434739998394`
+- known slot: `7971959240`
+
+`ads.txt` remains reconciled to:
+
+`google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0`
+
+`app-ads.txt` remains limited to verified seller truth. No mobile/AdMob seller ID was invented.
 
 Still unresolved:
 
-- account ownership;
-- data-retention settings;
-- referral exclusions;
-- cross-domain settings;
-- historical API/export range.
+- AdSense reporting access
+- historical reporting range
+- ownership/admin proof
 
-Staging isolation:
+No production AdSense settings were changed.
 
-- Google delivery is disabled unless hostname is `healthtimes.co.zw` or `www.healthtimes.co.zw`;
-- analytics consent must be explicitly granted;
-- default consent is denied;
-- staging does not send public GA events.
+## P. HOSPAZ direct-ad continuity
 
-## G. Analytics events
+HOSPAZ remains a **direct advertisement**, separate from AdSense and Ad Inserter.
 
-Event version: `2026-09-09`
+AG-04 migrated media identities bound by AG-05:
 
-**24** event definitions are stored in staging and mirrored by the browser adapter, including page/article engagement, listening, save/share, search/follow, citations/references, Premium, subscription, newsletter/push, and direct-ad events.
+- `32960` → `6a6c15b7-2874-40ad-977b-a92015663c24`
+- `32971` → `c4a3ee5c-d73a-44cc-9011-f9f94487b8c1`
+- `33005` → `5952595d-76c0-4fb3-9d9a-3a0821596137`
 
-Protected Newsroom boundary is enforced:
+Provenance remains separate:
 
-- `newsroom.html` does not load the public analytics adapter;
-- public analytics rejects Newsroom routes;
-- prohibited fields include draft content, internal comments, private source documents, staff email, permissions/security detail, payment details, customer/email/phone values, push tokens and message bodies.
+- `32960` / `32971`: historical commercial creative identities
+- `33005`: source asset provenance retained independently from direct-ad placement usage
+- placement key: `hospaz-header-direct`
+- placement status: `bound_rehearsal`
 
-## H. Search Console
+Commercial facts still unknown and therefore not activated or fabricated:
 
-- Known property: `https://healthtimes.co.zw/`
-- Site Kit source state: data reported available.
-- Property type: **UNKNOWN / not account-level verified**
-- Verified owners/users: **PENDING**
-- Historical range/export availability: **PENDING**
-- Server-side ingestion schema/checkpoint model: **READY**
-- OAuth credentials in browser/Git: **NO**
-
-## I. AdSense
-
-- Publisher: `pub-8744434739998394`
-- Client: `ca-pub-8744434739998394`
-- Known slot: `7971959240`
-- Site Kit source account status: `ready`
-- Site Kit source site status: `ready`
-- Site Kit AdSense snippet: disabled in captured source
-- Account-level reporting access/history/owner evidence: **PENDING**
-
-No production AdSense configuration was changed.
-
-## J. ads.txt
-
-Primary staging:
-
-- HTTP status: **200**
-- content type: **text/plain**
-- exact seller line: `google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0`
-- reconciliation: **MATCH**
-
-## K. app-ads.txt
-
-Primary staging:
-
-- HTTP status: **200**
-- content type: **text/plain**
-- content is limited to the existing verified Google seller declaration.
-- confirmed AdMob/mobile seller ID: **NONE**
-- mobile monetization seller verification: **PENDING**
-
-No mobile seller identifier was invented.
-
-## L. Direct advertising
-
-HOSPAZ classification: `DIRECT_AD_CONTINUITY_CAPTURED`
-
-Staging direct-ad model records:
-
-- advertiser: HOSPAZ
-- commercial source attachment IDs: `32960`, `32971`
-- commercial creative SHA-256: `50d7b7363c35df79a17102c81e0d5d37db1abe6c780f4ba189df09f26cd8456f`
-- byte identity: 32960 and 32971 retained as separate source identities for one byte-identical creative
-- current placement asset: `33005`
-- 33005 asset-source provenance: **EDITORIAL**
-- placement usage provenance: **DIRECT AD**
-- Elementor template/post: `21`, title `main`
-- historical revisions: `32974`, `32975`, `32976`, `32977`, `32979`, `32980`
 - destination URL: **UNKNOWN**
 - schedule: **UNKNOWN**
 - placement conditions: **UNKNOWN**
-- `HOSPAZ_AD_INSERTER_PLACEMENT: NO`
-- standalone campaign register found: **NO**
 
-HOSPAZ is separate from AdSense/Ad Inserter. Its runtime placement remains `awaiting_migrated_asset` until AG-04 supplies the migrated media identity.
+The old client-side fabricated HOSPAZ destination, dates, active/approval state and fixed date logic were removed. The noindex rehearsal preview contains no invented click target.
 
-## M. Performance
+## Q. Performance / CLS final retest
 
-Workflow: `35668045741` — **SUCCESS**  
-Lighthouse artifact: `10670690414`
+Final AG-05 Certification run: `35673864117` — **SUCCESS**  
+Lighthouse retest job: `106576269521` — **SUCCESS**  
+CLS threshold: **0.10**  
+CLS gate: **PASS**
 
-Actual Google Lighthouse lab results against `https://healthtimes-staging.vercel.app`:
+| Page | Strategy | Performance | LCP | CLS | TBT | INP |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Archive | Desktop | 99 | 1042 ms | 0.0026 | 0 ms | N/A in lab |
+| Archive | Mobile | 99 | 1959 ms | 0.0000 | 0 ms | N/A in lab |
+| Direct-ad preview | Desktop | 97 | 1293 ms | 0.0000 | 0 ms | N/A in lab |
+| Direct-ad preview | Mobile | 100 | 902 ms | 0.0000 | 0 ms | N/A in lab |
+| Home | Desktop | 95 | 1471 ms | 0.0546 | 0 ms | N/A in lab |
+| Home | Mobile | 90 | 3485 ms | 0.0011 | 103 ms | N/A in lab |
+| Migrated story | Desktop | 95 | 1454 ms | 0.0000 | 0 ms | N/A in lab |
+| Migrated story | Mobile | 83 | 4478 ms | 0.0000 | 0 ms | N/A in lab |
+| Premium | Desktop | 100 | 449 ms | 0.0000 | 0 ms | N/A in lab |
+| Premium | Mobile | 98 | 1979 ms | 0.0000 | 78 ms | N/A in lab |
 
-| Page | Strategy | Performance | LCP | CLS | INP |
-| --- | --- | ---: | ---: | ---: | --- |
-| Home | Mobile | 95 | 2856 ms | 0.000 | unavailable |
-| Home | Desktop | 82 | 1200 ms | 0.301 | unavailable |
-| Article sample | Mobile | 87 | 2965 ms | 0.173 | unavailable |
-| Article sample | Desktop | 88 | 1050 ms | 0.208 | unavailable |
-| Premium | Mobile | 95 | 1151 ms | 0.110 | unavailable |
-| Premium | Desktop | 89 | 1051 ms | 0.201 | unavailable |
-| Archive | Mobile | 97 | 1138 ms | 0.103 | unavailable |
-| Archive | Desktop | 83 | 1131 ms | 0.290 | unavailable |
+INP is unavailable from these Lighthouse lab runs and is not fabricated.
 
-INP was not available from these Lighthouse lab runs and is **not fabricated**.
+The earlier CLS regressions are remediated. Migrated-story mobile LCP remains a performance optimization target, but the final CP5 CLS gate passes.
 
-Performance blocker: significant CLS is visible on multiple desktop surfaces, especially Home `0.301` and Archive `0.290`, and Article mobile LCP is approximately `2.97 s`. These require remediation/retest after migrated media/direct-ad placement integration.
+## R. Browser certification
 
-## N. Citations / backlinks
+Final live rehearsal job: `106576109323` — **SUCCESS**.
 
-Existing `citation_references` model remains available. AG-05 records the external-citations integration as `provider_not_connected`.
+Live completed-rehearsal suite: **10 / 10 PASS**, including:
 
-No automated backlink, academic, government, NGO or media-reference coverage is claimed without a provider.
+- robots / sitemap / feed
+- 5,786-entry sitemap
+- Premium-review authority metadata without full-body leakage
+- public migrated story body
+- migrated page structured data
+- one-hop historical alias
+- explicit 404 exception
+- HOSPAZ preview with unknown commercial fields preserved
+- no horizontal overflow at **375 px**
+- no horizontal overflow at **430 px**
+- no horizontal overflow at **1440 px**
+- CLS remediation on home, migrated story and direct-ad preview
 
-## O. Google Ads
+Separate browser smoke job `106576109129`: **SUCCESS**.
 
-Classification: **INCOMPLETE**
+## S. Repository tests / CI
 
-Site Kit module was detected, but conversion/customer/external-customer identifiers are absent. No active spend or campaign dependency is inferred.
+Exact certified runtime SHA: `5c4bf4290debc68e8dc313b444c83fc290c74118`
 
-## P. WooCommerce / monetization history
+- Validate HealthTimes 2.0 run `35673867000`: **SUCCESS**
+- Migration Tests run `35673867068`: **59 / 59 PASS** in 4.1 s
+- AG-05 Certification run `35673864117`: **SUCCESS**
+- Browser smoke job `106576109129`: **SUCCESS**
+- Live AG-04 rehearsal runtime job `106576109323`: **SUCCESS**
+- Lighthouse retest job `106576269521`: **SUCCESS**
+- exact-head Vercel preview `dpl_6NQFyTGwuZudHg2BHvxA3xMGVxQB`: **READY**
 
-Authoritative source truth:
+## T. Remaining evidence gaps carried forward
 
-- WooCommerce orders: **0**
-- subscriptions: **0**
-- payment tokens: **0**
-- membership plans: **1**
+These remain explicitly unresolved because account/provider or commercial-source evidence is unavailable:
 
-Commerce capability exists, but no subscriber entitlement state was fabricated and WooCommerce was not unnecessarily rebuilt.
+- GA4 account ownership/settings/history
+- Search Console type/owners/history
+- AdSense ownership/reporting/history
+- Google Ads campaign/conversion truth
+- external citation/backlink provider connectivity
+- HOSPAZ destination URL
+- HOSPAZ schedule
+- HOSPAZ placement conditions
+- INP from Lighthouse lab runs
 
-## Q. Privacy / consent
+These are downstream UAT / production-cutover evidence requirements. No value was invented to close them.
 
-Implemented public tracking posture:
+## U. Production safety / downstream readiness
 
-- essential operation remains separate from analytics/advertising;
-- analytics default: denied;
-- advertising default: denied;
-- Google script loads only after analytics consent on production HealthTimes host;
-- ad consent is represented separately;
-- protected Newsroom activity is excluded;
-- staging public Analytics delivery is disabled;
-- no OAuth/service credentials were placed in frontend code or Git.
+Production WordPress modified: **NO**  
+Production DNS modified: **NO**  
+Production Analytics modified: **NO**  
+Production Search Console modified: **NO**  
+Production AdSense modified: **NO**  
+Production Google Ads modified: **NO**  
+Production systems modified: **NO**
 
-Regional consent-policy content remains a production/legal configuration task.
+Downstream status:
 
-## R. Integration health
+- SEO / authority continuity: **READY FOR DOWNSTREAM UAT**
+- audience / analytics continuity: **READY FOR DOWNSTREAM UAT WITH ACCOUNT-LEVEL EVIDENCE GAPS**
+- monetization continuity: **READY FOR DOWNSTREAM UAT WITH ACCOUNT-LEVEL / HOSPAZ COMMERCIAL EVIDENCE GAPS**
 
-| Integration | State |
-| --- | --- |
-| Analytics | PARTIAL — IDs verified; account settings/history pending |
-| Search Console | PARTIAL — property known; type/owners/history pending |
-| AdSense | PARTIAL — publisher/client/slot known; reporting/history pending |
-| PageSpeed/Lighthouse | CONNECTED FOR LAB BASELINE |
-| Google Ads | PARTIAL / INCOMPLETE |
-| Citations | READY FOR CREDENTIALS / provider not connected |
-| HOSPAZ direct ads | PARTIAL — provenance ready; migrated runtime asset pending |
-
-## S. Tests / CI
-
-Runtime candidate: `1546639cce38028b8daac9fa620ac89b8a0a3cc9`
-
-- Validate HealthTimes 2.0 run `35668048259`: **SUCCESS**
-- Migration Tests run `35668048273`: **50/50 PASS** in 4.1s
-- AG-05 Certification run `35668045741`: **SUCCESS**
-- Browser smoke: **8/8 PASS** in 7.2s
-  - 375px
-  - 430px
-  - 1440px
-  - initial-HTML SEO checks
-  - Premium/archive overflow checks
-  - Newsroom analytics exclusion
-  - ads.txt/app-ads.txt exact authorization
-- Browser artifact: `10669766060`
-- Lighthouse artifact: `10670690414`
-- Vercel commit deployment status: **SUCCESS**
-
-## T. Production safety
-
-Production WordPress modified: NO  
-Production DNS modified: NO  
-Production Analytics modified: NO  
-Production Search Console modified: NO  
-Production AdSense modified: NO  
-Production Google Ads modified: NO  
-Production systems modified: NO
-
-## U. Downstream readiness
-
-SEO/authority lane readiness for AG-07: **BLOCKED**
-
-Reason: 5,786 public URLs remain unresolved until AG-04 imports the canonical content/URL handoff; current primary staging legacy permalink, sitemap and feed return 404; per-story initial-HTML SEO is not yet certifiable.
-
-Audience/Analytics lane readiness for AG-07: **BLOCKED**
-
-Reason: runtime/privacy contract is implemented and tested, but final rehearsal integration and account-level Google evidence remain incomplete.
-
-Monetization lane readiness for AG-07: **BLOCKED**
-
-Reason: ads.txt passes and direct-ad provenance is preserved, but HOSPAZ migrated runtime asset/placement verification and post-integration CLS retest are outstanding; AdSense reporting access remains pending.
-
-### Minimum remediation to close CP5
-
-1. AG-04 completes the rehearsal import and supplies the canonical 5,786-record public URL/content manifest.
-2. AG-05 reruns `npm run migration:ag05-url` and proves 5,786/5,786 coverage with no unexplained exceptions or redirect chains.
-3. Deploy/verify legacy paths, per-story initial-HTML metadata, sitemap, production-candidate robots behavior and `/feed/` on the rehearsal runtime.
-4. Bind HOSPAZ placement to the migrated AG-04 media identity while keeping source-vs-placement provenance separate.
-5. Remediate/retest the observed CLS regressions and verify media/ad slot stability.
-6. Record Google account-level ownership/history/settings where access becomes available, or carry the exact unresolved evidence gaps forward without inventing facts.
+This is not production cutover authorization. AG-08 retains production DNS/cutover authority.
 
 ## V. CP5 decision
 
-**CP5 NOT READY — continuity lane remains blocked**
+**CP5 ACCEPTED — SEO, authority, audience and monetization continuity are certified for downstream UAT**
