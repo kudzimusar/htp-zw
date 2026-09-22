@@ -54,6 +54,7 @@ export type TaxonomyRef = {
 
 export type ArticleSummary = {
   id: string;
+  canonicalStoryId: string | null;
   title: string;
   slug: string;
   standfirst: string | null;
@@ -283,3 +284,53 @@ export type StudioModule =
   | "authors"
   | "staff-roles"
   | "settings";
+
+
+export type ReaderCommentEligibility = {
+  status: "blocked" | "pre_moderated" | "allowed";
+  reason: string;
+  profileId: string | null;
+  publishedCommentCount: number;
+};
+
+export type ReaderStoryComment = {
+  id: string;
+  storyId: string;
+  parentCommentId: string | null;
+  displayName: string;
+  body: string;
+  publishedAt: string | null;
+  edited: boolean;
+};
+
+export type ReaderCommentActionResult = {
+  status: "success" | "blocked" | "error";
+  message: string;
+  id?: string | null;
+};
+
+export type NewsroomInboxItem = {
+  id: string;
+  eventType: string;
+  targetTable: string | null;
+  targetId: string | null;
+  category: "general" | "mention" | "assignment" | "review" | "urgent" | "announcement" | "newsletter" | "moderation";
+  priority: "normal" | "high" | "urgent";
+  payload: Record<string, unknown>;
+  readAt: string | null;
+  requiresAck: boolean;
+  acknowledgedAt: string | null;
+  createdAt: string;
+};
+
+export type NewsroomInboxSummary = {
+  unreadTotal: number;
+  mentions: number;
+  assignments: number;
+  reviews: number;
+  urgent: number;
+  announcements: number;
+  newsletter: number;
+  moderation: number;
+  unacknowledged: number;
+};
