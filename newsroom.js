@@ -314,8 +314,92 @@
   function reviewCard(s){return `<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>${esc(s.title)}</h3><p>${esc(s.author)} · ${esc(s.desk)} · ${esc(s.premium?'Premium':'Public')} · Updated ${esc(s.updated)}</p></div>${status(s.status)}</div><div class="nr-queue-meta">${button('Open review',`data-open-story="${esc(s.id)}"`,'nr-secondary')}${nextReviewButton(s)}</div></article>`;}
   function nextReviewButton(s){if(!isEditor())return'';const next={'Submitted':'Fact check','Fact check':'Health / Science review','Health / Science review':'Copy edit','Copy edit':'Editor review','Editor review':'Ready','Ready':'Published'}[s.status];return next?button(next==='Published'?'Publish':`Move to ${next}`,`data-transition-story="${esc(s.id)}" data-next="${esc(next)}"`,'nr-primary'):'';}
   function emptyRow(text){return `<li class="nr-empty"><strong>${esc(text)}</strong></li>`;} function empty(text){return `<div class="nr-empty"><strong>${esc(text)}</strong><p>There is nothing waiting here right now.</p></div>`;}
+
+  function notificationTitle(n){
+    const labels={mention:'Mention',assignment:'Assignment',review:'Review',urgent:'Urgent',announcement:'Announcement',newsletter:'Newsletter',moderation:'Moderation'};
+    return labels[n.category]||String(n.eventType||'Newsroom update').replace(/[._]/g,' ');
+  }
+  function notificationItem(n,compact=false){
+    const unread=!n.readAt;
+    const detail=n.payload?.title||n.payload?.to_status||n.payload?.status||n.eventType||'Newsroom activity';
+    const actions=[];
+    if(!compact&&!n.readAt)actions.push(button('Mark read','data-notification-read="'+esc(n.id)+'"'));
+    if(!compact&&n.requiresAck&&!n.acknowledgedAt)actions.push(button('Acknowledge','data-notification-ack="'+esc(n.id)+'"','nr-primary'));
+    if(!compact)actions.push(button('Archive','data-notification-archive="'+esc(n.id)+'"'));
+    return '<li class="nr-list-item '+(unread?'nr-unread':'')+'" data-inbox-row="'+esc(n.id)+'"><div><strong>'+esc(notificationTitle(n))+'</strong><p>'+esc(detail)+' · '+esc(displayTime(n.createdAt))+'</p></div><div class="nr-list-actions">'+(n.priority==='urgent'?'<span class="nr-tag">Urgent</span>':'')+actions.join('')+'</div></li>';
+  }
+  function renderInbox(){
+    const rows=read(KEYS.notifications,[]).filter(n=>!n.archivedAt);
+    const sum=read(KEYS.inboxSummary,{});
+    return head('Inbox','Assignments, mentions, reviews, urgent work and announcements from the server-backed Newsroom.')
+      +'<div class="nr-grid nr-grid-4">'
+      +stat('Unread',sum.unread_total||0,'Items you have not read','blue')
+      +stat('Mentions',sum.mentions||0,'Direct staff mentions','teal')
+      +stat('Urgent',sum.urgent||0,'Priority coordination','red')
+      +stat('Needs acknowledgement',sum.unacknowledged||0,'Required acknowledgements','amber')
+      +'</div><section class="nr-panel nr-section-space"><div class="nr-filterbar">'
+      +'<select data-inbox-filter><option value="all">All</option><option value="mentions">Mentions</option><option value="assignments">Assignments</option><option value="reviews">Reviews</option><option value="urgent">Urgent</option><option value="announcements">Announcements</option><option value="moderation">Moderation</option></select>'
+      +'<button type="button" class="nr-secondary" data-inbox-refresh>Refresh</button></div><ul class="nr-list" data-inbox-list>'
+      +(rows.map(n=>notificationItem(n)).join('')||emptyRow('Your Inbox is clear'))+'</ul></section>';
+  }
+  async function refreshInbox(filter='all'){
+    try{
+      const result=await api('listInbox',{filter,limit:50});
+      write(KEYS.notifications,(result.rows||[]).map(n=>({id:n.id,eventType:n.event_type,targetTable:n.target_table,targetId:n.target_id,payload:n.payload||{},actorStaffId:n.actor_staff_id||null,category:n.category||'general',priority:n.priority||'normal',readAt:n.read_at||null,requiresAck:!!n.requires_ack,acknowledgedAt:n.acknowledged_at||null,archivedAt:n.archived_at||null,expiresAt:n.expires_at||null,createdAt:n.created_at})));
+      write(KEYS.inboxSummary,result.summary||{});
+      if(active==='inbox')showModule('inbox');else renderNav();
+    }catch(error){toast(error.message);}
+  }
+  function threadMessages(threadId){return read(KEYS.messages,[]).filter(m=>m.thread_id===threadId);}
+  function threadCard(t){
+    const count=threadMessages(t.id).length;
+    return '<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>'+esc(t.title)+'</h3><p>'+esc(t.thread_type)+' · '+esc(t.priority)+' · '+count+' messages</p></div>'+status(t.status)+'</div><div class="nr-queue-meta">'+button('Open','data-thread-open="'+esc(t.id)+'"','nr-secondary')+'</div></article>';
+  }
+  function renderDesks(){
+    const desks=read(KEYS.desks,[]).filter(d=>!d.archived_at);
+    const threads=read(KEYS.threads,[]);
+    const actions=has(CAP.DESK_MANAGE)?button('＋ Desk','data-create-desk','nr-primary'):'';
+    return head('Desks','Private specialist coordination built on the AG-06 staff authority model.',actions)
+      +'<div class="nr-grid nr-grid-2">'+(desks.map(d=>{
+        const mine=threads.filter(t=>t.desk_id===d.id&&t.thread_type==='desk'&&t.status==='open');
+        return '<section class="nr-panel"><div class="nr-panel-head"><div><h2>'+esc(d.name)+'</h2><p>'+esc(d.description||'Newsroom desk')+'</p></div>'+button('New thread','data-desk-thread-create="'+esc(d.id)+'"')+'</div>'+(mine.map(threadCard).join('')||empty('No active desk threads'))+'</section>';
+      }).join('')||empty('No desks are available to this session'))+'</div>';
+  }
+  function renderThreadWorkspace(threadId){
+    const t=read(KEYS.threads,[]).find(x=>x.id===threadId);
+    if(!t)return empty('Thread is not available');
+    const messages=threadMessages(threadId);
+    return head(t.title,'Private '+t.thread_type+' coordination. Persisted messages remain server-authoritative.',button('Back',t.thread_type==='breaking'?'data-module-jump="breaking"':'data-module-jump="desks"'))
+      +'<section class="nr-panel"><div class="nr-thread-messages">'+(messages.map(m=>{
+        const person=getStaff().find(s=>s.id===m.author_staff_id);
+        return '<article class="nr-comment"><strong>'+esc(person?.name||'Newsroom')+'</strong><time>'+esc(displayTime(m.created_at))+'</time><p>'+esc(m.body)+'</p></article>';
+      }).join('')||empty('No messages yet'))+'</div>'
+      +(t.status==='open'?'<form class="nr-comment-form" data-thread-message-form="'+esc(t.id)+'"><textarea name="message" rows="3" placeholder="Message this coordination room. Use @handle to mention authorised staff."></textarea><button class="nr-primary" type="submit">Send</button></form>':'')+'</section>';
+  }
+  async function refreshModeration(){
+    if(!has(CAP.COMMENT_MODERATE))return;
+    try{
+      const result=await api('listModerationQueue',{limit:50});
+      write(KEYS.moderation,result.rows||[]);
+      if(active==='moderation')$('[data-workspace]').innerHTML=renderModeration();
+    }catch(error){toast(error.message);}
+  }
+  function renderModeration(){
+    const rows=read(KEYS.moderation,[]);
+    return head('Moderation','Verified-reader discussion review. Verification is not treated as trust.',button('Refresh','data-moderation-refresh','nr-secondary'))
+      +'<section class="nr-panel">'+(rows.map(c=>{
+        const actions=[];
+        if(c.state==='PENDING'||c.state==='HELD'||c.state==='HIDDEN'||c.state==='REJECTED')actions.push(button('Publish','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="publish"','nr-primary'));
+        if(c.state==='PENDING')actions.push(button('Hold','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="hold"'));
+        if(c.state==='PENDING'||c.state==='HELD')actions.push(button('Reject','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="reject"'));
+        if(c.state==='PUBLISHED')actions.push(button('Hide','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="hide"'));
+        if(c.state!=='REMOVED')actions.push(button('Remove','data-moderate-comment="'+esc(c.id)+'" data-moderation-action="remove"','nr-danger'));
+        if(has(CAP.COMMENT_RESTRICT))actions.push(button('Restrict reader','data-restrict-reader="'+esc(c.author_profile_id)+'"'));
+        return '<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>Reader comment</h3><p>'+esc(c.body)+'</p><small>Story '+esc(c.story_id)+' · '+esc(displayTime(c.created_at))+'</small></div>'+status(c.state)+'</div><div class="nr-queue-meta">'+actions.join('')+'</div></article>';
+      }).join('')||empty('Moderation queue is clear'))+'</section>';
+  }
   function todayPanel(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Today</h2><p>Editorial agenda</p></div><button data-module-jump="calendar">Calendar →</button></div><div class="nr-calendar"><div class="nr-calendar-time">09:00</div><div class="nr-calendar-event" data-kind="Meeting"><strong>Editorial conference</strong><span>Global + Africa desks</span></div><div class="nr-calendar-time">12:00</div><div class="nr-calendar-event" data-kind="Deadline"><strong>STI analysis review</strong><span>Editor deadline</span></div><div class="nr-calendar-time">15:30</div><div class="nr-calendar-event" data-kind="Briefing"><strong>WhatsApp briefing lock</strong><span>Audience Desk</span></div></div></section>`;}
-  function notificationPanel(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Notifications</h2><p>Activity requiring your attention</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Story submitted for review</strong><p>Community Prevention Follow-up</p></div><span class="nr-tag">24m</span></li><li class="nr-list-item"><div><strong>Source verification requested</strong><p>National Health Strategy tracker</p></div><span class="nr-tag">1h</span></li><li class="nr-list-item"><div><strong>Briefing selection closes today</strong><p>Friday HealthTimes Weekly</p></div><span class="nr-tag">Today</span></li></ul></section>`;}
+  function notificationPanel(){const rows=read(KEYS.notifications,[]).filter(n=>!n.archivedAt).slice(0,5);return '<section class="nr-panel"><div class="nr-panel-head"><div><h2>Notifications</h2><p>Durable activity requiring your attention</p></div><button data-module-jump="inbox">Open Inbox →</button></div><ul class="nr-list">'+(rows.map(n=>notificationItem(n,true)).join('')||emptyRow('Your Inbox is clear'))+'</ul></section>';}
   function personalPerformancePanel(stories){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Your work</h2><p>Current publishing record</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Stories in workspace</strong><p>Owned or assigned</p></div><span class="nr-tag">${stories.length}</span></li><li class="nr-list-item"><div><strong>Published</strong><p>Current local publication dataset</p></div><span class="nr-tag">${stories.filter(s=>s.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>Premium research</strong><p>Research-led work</p></div><span class="nr-tag">${stories.filter(s=>s.premium).length}</span></li></ul></section>`;}
   function publicationPulse(){const s=getStories();return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Publication pulse</h2><p>Structural newsroom metrics</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Published</strong><p>Current story dataset</p></div><span class="nr-tag">${s.filter(x=>x.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>In production</strong><p>Not yet published or archived</p></div><span class="nr-tag">${s.filter(x=>!['Published','Archived'].includes(x.status)).length}</span></li><li class="nr-list-item"><div><strong>Desks represented</strong><p>Active editorial coverage</p></div><span class="nr-tag">${new Set(s.map(x=>x.desk)).size}</span></li></ul></section>`;}
   function commercialPulse(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Commercial operations</h2><p>Inventory and membership readiness</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>HOSPAZ campaign</strong><p>Masthead · homepage · article</p></div>${status('Active')}</li><li class="nr-list-item"><div><strong>Premium proposition</strong><p>US$5 / month · research access</p></div><span class="nr-tag">Live</span></li><li class="nr-list-item"><div><strong>Commercial/editorial wall</strong><p>Story editing withheld from commercial role</p></div><span class="nr-tag">Enforced</span></li></ul></section>`;}
@@ -334,7 +418,7 @@
   function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}</td></tr>`}).join('')}</tbody></table></div></section>`;}
   function renderReview(){const list=getStories().filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status));return `${head('Review Queue','Submitted work, evidence checks and publication decisions.')}<section class="nr-panel">${list.map(reviewCard).join('')||empty('Review queue is clear')}</section>`;}
   function renderCalendar(){const events=[['09 Sep · 09:00','Editorial conference','Meeting','Global + Africa desks'],['09 Sep · 12:00','STI analysis editor deadline','Deadline','Community Prevention Follow-up'],['09 Sep · 15:30','WhatsApp briefing lock','Briefing','Audience Desk'],['10 Sep · 12:00','National Health Strategy fact check','Deadline','Policy desk'],['10 Sep · 16:00','World Suicide Prevention Day coverage','Health date','Mental Health desk'],['11 Sep · 12:00','Friday HealthTimes Weekly','Briefing','Email + WhatsApp']];return `${head('Editorial Calendar','Deadlines, interviews, publication, briefings and global-health dates.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-calendar">${events.map(e=>`<div class="nr-calendar-time">${esc(e[0])}</div><div class="nr-calendar-event" data-kind="${esc(e[2])}"><strong>${esc(e[1])}</strong><span>${esc(e[2])} · ${esc(e[3])}</span></div>`).join('')}</div></section>`;}
-  function renderBreaking(){return `${head('Breaking News','Fast-moving coverage requiring clear ownership and update discipline.')}<section class="nr-panel">${getStories().filter(s=>s.distribution?.breaking||s.section==='Breaking News').map(storyList).join('')||empty('No active breaking desk items')}</section>`;}
+  function renderBreaking(){const rows=read(KEYS.threads,[]).filter(t=>t.thread_type==='breaking'&&t.status==='open');const actions=has(CAP.BREAKING_MANAGE)?button('＋ Breaking room','data-create-breaking','nr-primary'):'';return head('Breaking','Temporary event coordination with bounded membership and optional Presence.',actions)+'<section class="nr-panel">'+(rows.map(threadCard).join('')||empty('No active breaking rooms'))+'</section>';}
   function renderCorrections(){return `${head('Corrections','Published changes, corrections and accountability record.')}<section class="nr-panel">${getStories().filter(s=>['Updated / Corrected'].includes(s.status)).map(storyList).join('')||empty('No corrections are waiting')}</section>`;}
   function renderMedia(){return `${head('Media Library','Editorial images, documents, campaign assets and source media.',has(CAP.MEDIA)?button('＋ Add media','','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input placeholder="Search media…"><select><option>All types</option><option>Image</option><option>Video</option><option>Audio</option><option>Document</option></select></div><div class="nr-media-grid">${getMedia().map(m=>`<article class="nr-media-card"><span class="nr-tag">${esc(m.type)}</span><strong>${esc(m.filename)}</strong><span>${esc(m.caption)}</span><span>Credit: ${esc(m.credit)}</span><span>Used in: ${esc(m.usedIn)}</span><span>${esc(m.date)}</span></article>`).join('')}</div></section>`;}
   function personCard(s){return `<article class="nr-person-card"><span class="nr-avatar">${esc(initials(s.name))}</span><div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span><span>${esc(s.desk)} · ${esc(s.beat)}</span></div></article>`;}
