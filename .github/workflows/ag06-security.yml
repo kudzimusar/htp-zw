@@ -93,6 +93,7 @@ jobs:
       PLAYWRIGHT_BASE_URL: https://localhost:4173
       SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      AG06_CERTIFICATION_DEBUG: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -156,7 +157,14 @@ jobs:
           cat /tmp/ag06-newsroom-server.log
           exit 1
       - name: Direct API/RLS attacks + Newsroom journeys
-        run: npm run test:ag06:live
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ag06:live || {
+            echo '--- AG-06 certification gateway diagnostics ---'
+            cat /tmp/ag06-newsroom-server.log || true
+            exit 1
+          }
       - name: Revoke ephemeral staging Auth identities
         if: always()
         shell: bash
