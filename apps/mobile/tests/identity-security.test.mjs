@@ -24,7 +24,7 @@ test("canonical capabilities are explicit and cannot be supplied as a local role
   for(const value of [
     "story.create","story.edit_own","story.publish","premium.manage","ads.approve",
     "subscriber.view","staff.invite","staff.change_role","staff.revoke",
-    "analytics.view","settings.manage","security.sessions.revoke"
+    "analytics.view","settings.manage","security.view_sessions","security.revoke_session","security.view_audit"
   ]){
     assert.ok(capabilities.includes('"'+value+'"'),"missing capability: "+value);
   }
@@ -137,10 +137,17 @@ test("anonymous staging reads cannot enumerate protected identity/editorial tabl
     const response=await fetch(url+"/rest/v1/"+table+"?select=id&limit=1",{
       headers:{apikey:key,Authorization:"Bearer "+key}
     });
-    assert.equal(response.ok,true,table+" RLS probe returned HTTP "+response.status);
-    const body=await response.json();
-    assert.equal(Array.isArray(body),true);
-    assert.equal(body.length,0,"anonymous client must not enumerate "+table);
+    if(response.ok){
+      const body=await response.json();
+      assert.equal(Array.isArray(body),true);
+      assert.equal(body.length,0,"anonymous client must not enumerate "+table);
+    }else{
+      assert.equal(
+        [401,403].includes(response.status),
+        true,
+        table+" should either return an empty RLS projection or fail closed, received HTTP "+response.status
+      );
+    }
   }
 });
 

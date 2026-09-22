@@ -1,12 +1,23 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View, StyleSheet } from "react-native";
-import { StudioAccessGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
+import { StudioAccessGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
 import type { HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
+import { StudioInboxPanel } from "../../src/ui/StudioInbox";
+import {
+  StudioAssignmentDiscussionPanel,
+  StudioAssignmentsPanel,
+  StudioBreakingPanel,
+  StudioDeskThreadsPanel,
+  StudioDesksPanel,
+  StudioModerationPanel,
+  StudioStoryDiscussionPanel,
+  StudioThreadPanel
+} from "../../src/ui/StudioCommunications";
 
 export function generateStaticParams() {
   return [
-    "stories", "create-edit", "live-desk", "video-desk", "media", "advertising", "premium", "social",
+    "inbox", "assignments", "stories", "create-edit", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
@@ -15,11 +26,16 @@ type ModuleConfig={
   title:string;
   owner:string;
   description:string;
-  capability:HealthTimesCapability;
+  capability:HealthTimesCapability|null;
   readiness:string[];
 };
 
 const owners:Record<string,ModuleConfig>={
+  "inbox":{title:"Inbox",owner:"CA-01 / AG-06",capability:null,description:"Durable assignments, mentions, reviews, urgent work and announcements. Access requires a server-authorized Newsroom session.",readiness:["Inbox RPC contract defined","No local role authority","Realtime remains event transport only"]},
+  "assignments":{title:"Assignments",owner:"CA-01 / AG-06",capability:null,description:"Authoritative story assignments remain in story_assignments; discussion uses a typed assignment thread only.",readiness:["Assignment state remains specialized","Discussion does not duplicate assignment state","RLS scopes each staff session"]},
+  "desks":{title:"Desks",owner:"CA-01 / AG-06",capability:null,description:"Private specialist coordination uses Newsroom desk membership and server-enforced thread access.",readiness:["Desk membership is server-owned","Thread access enforced below UI","Presence not used for authority"]},
+  "breaking":{title:"Breaking",owner:"CA-01 / AG-06",capability:null,description:"Temporary breaking rooms use bounded membership, durable messages and restrained Presence.",readiness:["Breaking-room contract defined","Durable messages authoritative","Presence is non-authoritative"]},
+  "moderation":{title:"Moderation",owner:"CA-01 / AG-06",capability:"comment.moderate",description:"Verified-reader comments remain a separate security domain with human moderation and restriction history.",readiness:["Reader and staff comments remain separate","Canonical story UUID required","Health misinformation requires human review"]},
   "stories":{title:"Stories",owner:"AG-06",capability:"story.edit_own",description:"Assignments, drafts, revisions, review and publication must use server-backed capability checks.",readiness:["Draft/review layout ready","Publication authority server-only","Audit trail pending AG-06"]},
   "create-edit":{title:"Create / Edit",owner:"AG-06",capability:"story.create",description:"The story editor is a server-authorized workflow. Draft persistence, revisions, review transitions and publish authority remain backend-owned.",readiness:["Editor shell ready","Draft API pending","Publish action remains gated"]},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",capability:"story.publish",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows.",readiness:["Live Reader surface ready","Source data pending AG-04","Publish authority pending AG-06"]},
@@ -38,7 +54,7 @@ const owners:Record<string,ModuleConfig>={
 };
 
 export default function StudioModule(){
-  const {module}=useLocalSearchParams<{module:string}>();
+  const {module,deskId,threadId,assignmentId,storyId}=useLocalSearchParams<{module:string;deskId?:string;threadId?:string;assignmentId?:string;storyId?:string}>();
   const config=owners[String(module)] ?? {
     title:"Studio",
     owner:"AG-06",
@@ -47,15 +63,27 @@ export default function StudioModule(){
     readiness:["Backend contract required"]
   };
 
+  const content=(
+    <>
+      <StudioPlaceholder owner={config.owner} description={config.description} />
+      {String(module)==="inbox" && <StudioInboxPanel />}
+      {String(module)==="assignments" && (assignmentId ? <StudioAssignmentDiscussionPanel assignmentId={String(assignmentId)} /> : <StudioAssignmentsPanel />)}
+      {String(module)==="stories" && storyId && <StudioStoryDiscussionPanel storyId={String(storyId)} />}
+      {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
+      {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
+      {String(module)==="moderation" && <StudioModerationPanel />}
+      <View style={styles.readiness}>
+        <Text style={styles.readinessTitle}>Implementation readiness</Text>
+        {config.readiness.map((item)=><View style={styles.readinessRow} key={item}><View style={styles.dot} /><Text style={styles.readinessText}>{item}</Text></View>)}
+      </View>
+    </>
+  );
+
   return (
     <StudioShell title={config.title}>
-      <StudioAccessGate capability={config.capability}>
-        <StudioPlaceholder owner={config.owner} description={config.description} />
-        <View style={styles.readiness}>
-          <Text style={styles.readinessTitle}>Implementation readiness</Text>
-          {config.readiness.map((item)=><View style={styles.readinessRow} key={item}><View style={styles.dot} /><Text style={styles.readinessText}>{item}</Text></View>)}
-        </View>
-      </StudioAccessGate>
+      {config.capability
+        ? <StudioAccessGate capability={config.capability}>{content}</StudioAccessGate>
+        : <StudioAuthorityGate>{content}</StudioAuthorityGate>}
     </StudioShell>
   );
 }

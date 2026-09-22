@@ -46,6 +46,7 @@ jobs:
           npm --prefix apps/mobile run test:reader-fidelity
           npm --prefix apps/mobile run test:growth-commercial
           npm --prefix apps/mobile run test:identity-security
+          npm --prefix apps/mobile run test:ca01-communications
           npm --prefix apps/mobile run test:native-certification
 
       - name: Capture development Expo config

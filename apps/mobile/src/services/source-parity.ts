@@ -235,6 +235,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,media,primarySection,geography);
   return {
     id:fallback?.id ?? "source-"+post.slug,
+    canonicalStoryId:null,
     title:stripHtml(post.title?.rendered) || fallback?.title || post.slug,
     slug:post.slug,
     standfirst:excerpt || fallback?.standfirst || null,
