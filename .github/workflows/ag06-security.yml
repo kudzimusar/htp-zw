@@ -84,7 +84,7 @@ jobs:
     env:
       AG06_STAGING_BASE_URL: https://healthtimes-staging.vercel.app
       AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.AG06_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
       AG06_REPORTER_EMAIL: ${{ secrets.AG06_REPORTER_EMAIL }}
       AG06_REPORTER_PASSWORD: ${{ secrets.AG06_REPORTER_PASSWORD }}
       AG06_EDITOR_EMAIL: ${{ secrets.AG06_EDITOR_EMAIL }}
