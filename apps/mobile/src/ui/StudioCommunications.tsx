@@ -11,6 +11,68 @@ function LoadingOrError({loading,error}:{loading:boolean;error?:Error|null}){
   return null;
 }
 
+export function StudioAssignmentsPanel(){
+  const router=useRouter();
+  const assignments=useAsync(()=>services.newsroomCommunication.listAssignments(),[]);
+  return (
+    <View style={styles.stack}>
+      <LoadingOrError loading={assignments.loading} error={assignments.error}/>
+      {(assignments.data??[]).map(item=>(
+        <Pressable
+          key={item.id}
+          style={styles.card}
+          onPress={()=>router.push({pathname:"/studio/assignments",params:{assignmentId:item.id}} as never)}
+        >
+          <View style={styles.row}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
+          </View>
+          <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
+          {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
+        </Pressable>
+      ))}
+      {!assignments.loading&&!(assignments.data??[]).length&&<Text style={styles.muted}>No assignments are available to this authorized session.</Text>}
+    </View>
+  );
+}
+
+export function StudioAssignmentDiscussionPanel({assignmentId}:{assignmentId:string}){
+  const [refresh,setRefresh]=useState(0);
+  const [status,setStatus]=useState("");
+  const assignments=useAsync(()=>services.newsroomCommunication.listAssignments(),[assignmentId]);
+  const threads=useAsync(()=>services.newsroomCommunication.listThreads({threadType:"assignment"}),[assignmentId,refresh]);
+  const assignment=(assignments.data??[]).find(item=>item.id===assignmentId);
+  const thread=(threads.data??[]).find(item=>item.assignmentId===assignmentId&&item.status==="open");
+  const start=async()=>{
+    if(!assignment)return;
+    try{
+      await services.newsroomCommunication.createThread({
+        threadType:"assignment",
+        title:assignment.title+" discussion",
+        assignmentId,
+        priority:assignment.priority.toLowerCase()==="urgent"?"urgent":assignment.priority.toLowerCase()==="high"?"high":"normal"
+      });
+      setStatus("");setRefresh(value=>value+1);
+    }catch(error){setStatus(error instanceof Error?error.message:"Assignment discussion could not be started.");}
+  };
+  if(assignments.loading||threads.loading){
+    return <View style={styles.panel}><LoadingOrError loading={true}/></View>;
+  }
+  if(assignments.error||threads.error){
+    return <View style={styles.panel}><LoadingOrError loading={false} error={assignments.error??threads.error}/></View>;
+  }
+  if(!assignment) return <Text style={styles.muted}>Assignment is not available to this server-authorized session.</Text>;
+  if(thread) return <StudioThreadPanel threadId={thread.id}/>;
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{assignment.title}</Text>
+      <Text style={styles.muted}>No coordination thread exists yet. Starting one preserves the authoritative assignment row and creates only its discussion thread.</Text>
+      <Pressable style={styles.primary} onPress={()=>void start()}><Text style={styles.primaryText}>Start assignment discussion</Text></Pressable>
+      {!!status&&<Text style={styles.error}>{status}</Text>}
+    </View>
+  );
+}
+
 export function StudioDesksPanel(){
   const router=useRouter();
   const desks=useAsync(()=>services.newsroomCommunication.listDesks(),[]);
