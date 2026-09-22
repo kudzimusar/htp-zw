@@ -9,6 +9,8 @@ const homeSource=readFileSync(join(here,"../app/(reader)/index.tsx"),"utf8");
 const componentStart=homeSource.indexOf("export default function HomeScreen()");
 const component=homeSource.slice(componentStart);
 
+// Chromium complement: pwa-home-hydration.spec.js exercises the real loading → loaded rerender.
+
 test("Home has no conditional hook after its async loading guards",()=>{
   assert.ok(componentStart>=0,"HomeScreen component must be present");
   assert.doesNotMatch(component,/\buseMemo\s*\(/,"Home filtering must not add a hook after an async early return");
