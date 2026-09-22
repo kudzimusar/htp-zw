@@ -13,18 +13,20 @@ Capture classes:
 
 The audit environment's managed Chromium enforces `URLBlocklist: ["*"]`, blocking live URL/localhost navigation. A separate browser binary could not be downloaded because outbound DNS is unavailable. No screenshot was fabricated to bypass this limitation.
 
+The dimensions below are the **capture viewport dimensions**. Repository copies may be losslessly or visually downscaled/compressed after capture solely to keep binary evidence bounded; no UI content was added, removed or reconstructed.
+
 Inventory:
 
-- `desktop-home-above-fold.webp` — PRE-HYDRATION ONLY — 1440×1000
-- `desktop-home-full.webp` — PRE-HYDRATION ONLY — 1440×1000
-- `tablet-home.webp` — PRE-HYDRATION ONLY — 768×1024
-- `mobile-home.webp` — PRE-HYDRATION ONLY — 390×844
-- `article.webp` — PRE-HYDRATION ONLY — 1440×1000
-- `premium.webp` — STATIC EXPORT RENDERED — 1440×1000
-- `explore.webp` — STATIC EXPORT RENDERED — 1440×1000
-- `search.webp` — STATIC EXPORT RENDERED — 1440×1000
-- `watch.webp` — STATIC EXPORT RENDERED — 1440×1000
-- `my-healthtimes.webp` — STATIC EXPORT RENDERED — 1440×1000
-- `studio-landing.webp` — STATIC EXPORT RENDERED — 1440×1000
+- `desktop-home-above-fold.webp` — PRE-HYDRATION ONLY — capture viewport 1440×1000
+- `desktop-home-full.webp` — PRE-HYDRATION ONLY — capture viewport 1440×1000
+- `tablet-home.webp` — PRE-HYDRATION ONLY — capture viewport 768×1024
+- `mobile-home.webp` — PRE-HYDRATION ONLY — capture viewport 390×844
+- `article.webp` — PRE-HYDRATION ONLY — capture viewport 1440×1000
+- `premium.webp` — STATIC EXPORT RENDERED — capture viewport 1440×1000
+- `explore.webp` — STATIC EXPORT RENDERED — capture viewport 1440×1000
+- `search.webp` — STATIC EXPORT RENDERED — capture viewport 1440×1000
+- `watch.webp` — STATIC EXPORT RENDERED — capture viewport 1440×1000
+- `my-healthtimes.webp` — STATIC EXPORT RENDERED — capture viewport 1440×1000
+- `studio-landing.webp` — STATIC EXPORT RENDERED — capture viewport 1440×1000
 
 See `docs/migration/agent-reports/VISUAL_CONFORMANCE_WEB_PWA.md` for findings and severity classification.
