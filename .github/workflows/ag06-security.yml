@@ -99,7 +99,7 @@ jobs:
           set -euo pipefail
           [[ "$AG06_STAGING_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]] || { echo "Refusing non-HealthTimes-Staging Supabase project."; exit 1; }
           [[ "$SUPABASE_URL" == "$AG06_STAGING_SUPABASE_URL" ]] || { echo "Newsroom gateway and live RLS target differ."; exit 1; }
-      - name: Provision ephemeral staging Auth signups
+      - name: Prepare ephemeral staging identity coordinates
         shell: bash
         run: |
           set -euo pipefail
@@ -107,23 +107,11 @@ jobs:
           for role in reporter editor commercial publisher; do
             upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
             email="ag06-${role}-${tag}@healthtimes.co.zw"
-            password="Ht!$(openssl rand -hex 18)Aa7"
+            password="Ht!AG06-${GITHUB_RUN_ID}-${role}-A7x"
             echo "::add-mask::$password"
             echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
             echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
-            payload="$(node -e 'const [email,password,role,run]=process.argv.slice(1); process.stdout.write(JSON.stringify({email,password,data:{ag06_staging_test:true,ag06_role:role,github_run_id:run}}))' "$email" "$password" "$role" "$GITHUB_RUN_ID")"
-            code="$(curl --silent --show-error -o "/tmp/ag06-${role}-signup.json" -w '%{http_code}' \
-              -X POST "$AG06_STAGING_SUPABASE_URL/auth/v1/signup" \
-              -H "apikey: $AG06_STAGING_SUPABASE_PUBLISHABLE_KEY" \
-              -H "Content-Type: application/json" \
-              --data "$payload")"
-            if [[ "$code" != "200" && "$code" != "201" ]]; then
-              echo "Staging Auth signup failed for $role with HTTP $code."
-              cat "/tmp/ag06-${role}-signup.json"
-              exit 1
-            fi
-            echo "AG06_STAGING_SIGNUP_CREATED role=$role email=$email"
-            sleep 65
+            echo "AG06_STAGING_IDENTITY_EXPECTED role=$role email=$email"
           done
       - name: Wait for moderator role activation
         shell: bash
