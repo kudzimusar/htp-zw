@@ -137,7 +137,11 @@ test("anonymous staging reads cannot enumerate protected identity/editorial tabl
     const response=await fetch(url+"/rest/v1/"+table+"?select=id&limit=1",{
       headers:{apikey:key,Authorization:"Bearer "+key}
     });
-    assert.equal(response.ok,true,table+" RLS probe returned HTTP "+response.status);
+    if(response.status===401 || response.status===403){
+      assert.equal([401,403].includes(response.status),true,table+" must remain denied to the publishable key");
+      continue;
+    }
+    assert.equal(response.ok,true,table+" RLS probe returned unexpected HTTP "+response.status);
     const body=await response.json();
     assert.equal(Array.isArray(body),true);
     assert.equal(body.length,0,"anonymous client must not enumerate "+table);
