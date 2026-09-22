@@ -96,4 +96,17 @@ test("AG-05 public migration contracts expose migrated stories without certifica
   if (String(document?.access_policy).toLowerCase() !== "public") {
     assert.equal(document?.body_html, null, "Non-public migrated bodies must fail closed");
   }
+
+  const contextResponse = await fetch(`${url}/rest/v1/rpc/ag05_public_context_document`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_path: "/category/health-news/" })
+  });
+  assert.equal(contextResponse.ok, true, `AG-05 public category context returned HTTP ${contextResponse.status}`);
+  const context = await contextResponse.json();
+  assert.equal(context?.kind, "category");
+  assert.equal(context?.slug, "health-news");
+  assert.equal(Array.isArray(context?.items), true);
+  assert.equal(context.items.length > 0, true, "Migrated Health News category should expose story rows");
+  assert.equal(context.items.every((item) => typeof item.canonical_url === "string"), true);
 });
