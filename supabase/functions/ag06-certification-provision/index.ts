@@ -163,27 +163,17 @@ Deno.serve(async (req:Request) => {
       created.push({role:key,email,auth_user_id:user.id,staff_profile_id:profile.data.id});
     }
 
+    // CI certification identities are synthetic and administratively confirmed.
+    // Never exercise outbound invite/recovery delivery against generated @healthtimes.co.zw addresses:
+    // repeated delivery failures damage the shared SMTP reputation and can restrict the staging project.
     const emailBehavior:any = {
       invite_api_accepted:null,
       recovery_api_accepted:null,
       delivery_confirmed:false,
-      note:"API behavior only; no mailbox-delivery assertion."
+      probe_enabled:false,
+      requested_probe_suppressed:body.probe_email === true,
+      note:"Outbound Auth email probes are disabled in CI. Certification validates authorization without mailbox delivery."
     };
-    if (body.probe_email === true) {
-      const probeEmail = `ag06-invite-probe-${runId}-${runAttempt}@healthtimes.co.zw`;
-      const invite = await admin.auth.admin.inviteUserByEmail(probeEmail,{data:{ag06_staging_email_probe:true,github_run_id:runId}});
-      emailBehavior.invite_api_accepted = !invite.error;
-      emailBehavior.invite_error = invite.error?.message || null;
-      if (invite.data?.user?.id) await admin.auth.admin.deleteUser(invite.data.user.id).catch(()=>{});
-
-      const publishable = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "{}").default || Deno.env.get("SUPABASE_ANON_KEY");
-      if (publishable) {
-        const client = createClient(url,publishable,{auth:{persistSession:false,autoRefreshToken:false}});
-        const recovery = await client.auth.resetPasswordForEmail(created[0].email,{redirectTo:"https://healthtimes-staging.vercel.app/newsroom.html"});
-        emailBehavior.recovery_api_accepted = !recovery.error;
-        emailBehavior.recovery_error = recovery.error?.message || null;
-      }
-    }
 
     return response(200,{
       ok:true,
