@@ -9,7 +9,7 @@ on:
       - 'feat/native-mobile-nm03-*'
       - feat/native-mobile-nm04-reader-product
       - feat/native-mobile-nm04-reader-media-offline
-      - feat/native-mobile-nm05-growth-commercial
+      - 'feat/native-mobile-nm05-*'
       - feat/native-mobile-nm06-identity-security
       - feat/native-mobile-nm07-native-certification
       - integration/native-mobile-nm00-convergence
@@ -67,8 +67,20 @@ jobs:
           npm --prefix apps/mobile run test:reader-fidelity
           npm --prefix apps/mobile run test:search-ranking
 
-      - name: Run NM-05 growth commercial safety tests
-        run: npm --prefix apps/mobile run test:growth-commercial
+      - name: Run NM-05 analytics and media transition behavior tests
+        run: npm --prefix apps/mobile run test:growth-analytics
+
+      - name: Run NM-05 advertising policy placement registry and seller evidence tests
+        run: npm --prefix apps/mobile run test:growth-advertising
+
+      - name: Run NM-05 Premium storefront and entitlement separation tests
+        run: npm --prefix apps/mobile run test:growth-storefront
+
+      - name: Run NM-05 social attribution and deep-link tests
+        run: npm --prefix apps/mobile run test:growth-social
+
+      - name: Run NM-05 Reader integration assertions
+        run: node --test apps/mobile/tests/growth-commercial.test.mjs
 
       - name: Run NM-06 identity and Studio security tests
         run: npm --prefix apps/mobile run test:identity-security
@@ -92,7 +104,8 @@ jobs:
           test -f apps/mobile/dist/ads.txt
           test -f apps/mobile/dist/app-ads.txt
           grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/ads.txt
-          grep -Fxq 'google.com, pub-8744434739998394, DIRECT, f08c47fec0942fa0' apps/mobile/dist/app-ads.txt
+          test ! -s apps/mobile/dist/app-ads.txt
+          ! grep -Riq 'ca-app-pub-' apps/mobile/dist/ads.txt apps/mobile/dist/app-ads.txt
 
       - name: Upload PWA build evidence
         uses: actions/upload-artifact@v4
