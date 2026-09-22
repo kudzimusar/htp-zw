@@ -107,3 +107,22 @@ test('HOSPAZ continuity remains direct-ad provenance with unknown fields preserv
   expect(sql).toContain('ad_inserter_placement = false');
   expect(sql).toContain("array['direct','none']");
 });
+
+
+test('client runtime does not seed fabricated HOSPAZ campaign metadata', () => {
+  const js = read('v21.js');
+  expect(js).not.toContain("destination:'https://healthtimes.co.zw/'");
+  expect(js).not.toContain("start:'2026-09-01'");
+  expect(js).not.toContain("end:'2026-09-25'");
+  expect(js).not.toContain("review:'Approved'");
+  expect(js).not.toContain("const today='2026-09-09'");
+  expect(js).toContain('provenanceVerified===true');
+});
+
+test('Vercel routing preserves static files before legacy path fallback', () => {
+  const config = JSON.parse(read('vercel.json'));
+  expect(config.routes[1]).toEqual({ handle: 'filesystem' });
+  expect(config.routes.some(route => route.dest === '/api/public?kind=sitemap')).toBe(true);
+  expect(config.routes.some(route => route.dest === '/api/public?kind=feed')).toBe(true);
+  expect(config.routes.at(-1).dest).toBe('/api/public?kind=page&path=/$1');
+});
