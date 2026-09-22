@@ -81,10 +81,11 @@ test("Native staff communication adapter mirrors CA-01 specialized server record
   const contracts=read("src/domain/contracts.ts");
   const communications=read("src/services/communications.ts");
   for(const method of [
-    "listStoryDiscussion","addStoryComment","editStoryComment","setStoryCommentResolved",
+    "listAssignments","listStoryDiscussion","addStoryComment","editStoryComment","setStoryCommentResolved",
     "listDesks","listThreads","createThread","listThreadMessages","postThreadMessage",
     "markThreadRead","listAnnouncements"
   ]) assert.ok(contracts.includes(method), "missing Newsroom communication method: "+method);
+  assert.ok(communications.includes('"story_assignments"'));
   assert.ok(communications.includes('"story_internal_comments"'));
   assert.ok(communications.includes('"newsroom_threads"'));
   assert.ok(communications.includes('"newsroom_messages"'));
@@ -121,4 +122,16 @@ test("Desks and Breaking Native panels are rendered only inside Studio server-au
   assert.ok(module.includes("<StudioThreadPanel"));
   assert.ok(panels.includes("services.newsroomCommunication"));
   assert.equal(panels.includes("user.role"),false);
+});
+
+
+test("Native assignment discussion reuses story_assignments and typed assignment threads",()=>{
+  const module=read("app/studio/[module].tsx");
+  const panels=read("src/ui/StudioCommunications.tsx");
+  assert.ok(module.includes('"assignments"'));
+  assert.ok(module.includes("StudioAssignmentDiscussionPanel"));
+  assert.ok(panels.includes("listAssignments"));
+  assert.ok(panels.includes('threadType:"assignment"'));
+  assert.ok(panels.includes("assignmentId"));
+  assert.equal(panels.includes("createAssignment"),false);
 });
