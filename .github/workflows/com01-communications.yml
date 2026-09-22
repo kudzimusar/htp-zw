@@ -1,0 +1,58 @@
+name: COM-01 Communications
+
+on:
+  pull_request:
+    paths:
+      - 'api/communications.js'
+      - 'supabase/migrations/**'
+      - 'tests/com01-*.spec.js'
+      - 'package.json'
+      - '.github/workflows/com01-communications.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Parse COM-01 server route
+        run: node --check api/communications.js
+      - name: COM-01 contract tests
+        run: npm run test:com01:contract
+      - name: Secret-pattern guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! git grep -nE 're_[A-Za-z0-9_-]{20,}' -- ':!docs/**'
+          ! git grep -nE 'xkeysib-[A-Za-z0-9_-]{20,}' -- ':!docs/**'
+          ! git grep -nE 'whsec_[A-Za-z0-9+/=_-]{20,}' -- ':!docs/**'
+          ! git grep -nE 'postgres(ql)?://[^[:space:]@]+:[^[:space:]@]+@' -- ':!docs/**'
+
+  disposable-supabase-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Initialize local Supabase config
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            npx --yes supabase@2.117.0 init
+          fi
+      - name: Start disposable Supabase
+        run: npx --yes supabase@2.117.0 start
+      - name: Apply all migrations from zero
+        run: npx --yes supabase@2.117.0 db reset --local
+      - name: Stop disposable Supabase
+        if: always()
+        run: npx --yes supabase@2.117.0 stop --no-backup || true
