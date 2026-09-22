@@ -3,71 +3,82 @@
 **Programme:** HealthTimes migration  
 **Repository:** `kudzimusar/htp-zw`  
 **Branch:** `migration/ag-06-newsroom-backend-security`  
-**Draft PR:** #13  
-**Accepted start SHA:** `ea599bf9ed3db9dc8fa7085e25bea20375c28e11`  
-**Implementation candidate SHA:** `701c3fd53ef0ad12193f2e3ed8e54e932964a304`  
+**Draft PR:** #13 — OPEN / DRAFT / UNMERGED  
+**PR base:** `migration/ag-03-source-data-capture`  
+**Accepted CP3 start SHA:** `ea599bf9ed3db9dc8fa7085e25bea20375c28e11`  
+**Original implementation candidate:** `701c3fd53ef0ad12193f2e3ed8e54e932964a304`  
+**Final certified runtime SHA:** `409230e23e2d35b139d33b254ff8ab2250599f78`  
 **HealthTimes Staging Supabase ref:** `gcdohgbmqhqwydgaxrcr`  
 **HealthTimes Staging Vercel project:** `healthtimes-staging` / `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`  
 **Production systems modified:** **NO**
 
 ## 1. CP6 status
 
-**Implementation status:** COMPLETE.  
-**Repository/static/disposable certification:** PASS.  
-**Live HealthTimes Staging role certification:** BLOCKED by missing staging-only test identities in GitHub Actions.
+**Implementation:** COMPLETE.  
+**Cloud staging migration:** PASS.  
+**Live role/API/RLS certification:** PASS.  
+**Browser Newsroom staging journeys:** PASS.  
+**Ephemeral certification cleanup:** PASS.  
+**CP6:** **ACCEPTED.**
 
-The branch does not claim CP6 acceptance yet because the required Reporter / Editor / Commercial / Publisher staging credentials have not been provisioned to the live-security workflow. The live job now fails closed instead of silently skipping.
-
-The first missing configuration proved by workflow run `35671784796`, job `106569648464`, is:
-
-`AG06_REPORTER_EMAIL`
-
-No production account, production credential, or Sessions Music project was used as a substitute.
+AG-06 now has real server-backed staging identity, sessions, persistence and capability authorization. Browser/localStorage role switching is not an authorization primitive.
 
 ## 2. Scope and ownership
 
-AG-06 started from the accepted CP3 SHA exactly and preserves AG-04 ownership of content-ingestion semantics.
+AG-06 started from the accepted CP3 SHA and preserves AG-04 ownership of migration/content-ingestion semantics.
 
-AG-06 changed only the Newsroom/auth/security lane:
+AG-06 owns:
 - Newsroom staff identity and authorization;
-- server-backed session authority;
-- Newsroom persistence and editorial workflow state;
+- server-backed sessions;
+- Newsroom persistence/editorial workflow;
 - staff invitation/recovery/revocation foundations;
 - audit history;
-- Newsroom RLS and private storage policies;
-- Vercel server API and security headers;
-- direct API security tests and Newsroom Playwright journeys.
+- Newsroom RLS/private storage policy;
+- Vercel server API/security headers;
+- direct API/RLS attack tests;
+- server-backed Newsroom Playwright journeys.
 
-The five CP1 migrations and the AG-02 security-baseline migration were not rewritten.
+AG-06 does not change production or AG-04 content-ingestion semantics.
 
-## 3. Forward migration
+## 3. Cloud migrations
 
-New migration:
+Primary Newsroom/Auth/RBAC migration:
 
 `supabase/migrations/20260922080100_ag06_newsroom_auth_rbac.sql`
 
-The migration applies cleanly from zero after:
-1. `20260909000100_content_core.sql`
-2. `20260909000200_taxonomy_and_geo.sql`
-3. `20260909000300_redirects_and_seo.sql`
-4. `20260909000400_analytics_and_ads.sql`
-5. `20260909000500_migration_runs_and_checkpoints.sql`
-6. `20260916030642_ag02_staging_security_baseline.sql`
-7. `20260922080100_ag06_newsroom_auth_rbac.sql`
+The exact repository migration was applied to HealthTimes Staging. The cloud migration ledger records it as:
 
-Disposable Supabase proof at exact implementation schema:
+- `20260922020254 — ag06_newsroom_auth_rbac`
+
+Subsequent AG-06 hardening is also present in staging:
+
+- `20260922031250 — ag06_newsroom_story_listing_perf`
+- `20260922032244 — ag06_story_rls_performance`
+- `20260922033157 — ag06_auth_delete_revocation`
+- `20260922033542 — ag06_auth_delete_guard`
+
+Repository forward migrations are ordered after the core AG-06 schema:
+
+- `20260922080200_ag06_newsroom_story_listing_perf.sql`
+- `20260922080300_ag06_story_rls_performance.sql`
+- `20260922080400_ag06_auth_delete_revocation.sql`
+- `20260922080500_ag06_auth_delete_guard.sql`
+- `20260922112000_ag06_security_advisor_hardening.sql`
+
+The story-listing/RLS hardening preserves authorization semantics while avoiding per-row capability expansion across the migrated corpus.
+
+Exact-head disposable schema proof:
+
 - workflow: **AG-06 Newsroom Security**
-- prior exact-schema run: `35669703622`
-- job: `106563176935`
-- `supabase db reset --local`: **PASS**
-- AG-06 migration applied without SQL error
-- zero-state migration chain: **PASS**
+- run: `35684372002`
+- job: `106607952640`
+- `supabase start`: PASS
+- apply all migrations from zero: PASS
+- teardown: PASS
 
-The migration file is unchanged between the successful zero-reset SHA `0fa7eb59ba4ec8f4204919a25f97680334875281` and implementation candidate `701c3fd53ef0ad12193f2e3ed8e54e932964a304`; the later four commits modify only AG-06 workflow/test configuration.
+## 4. Persisted Newsroom entities
 
-## 4. New persisted Newsroom entities
-
-AG-06 adds:
+AG-06 persists:
 - `newsroom_staff_invitations`
 - `newsroom_staff_capability_overrides`
 - `newsroom_sessions`
@@ -78,13 +89,13 @@ AG-06 adds:
 - `story_corrections`
 - `newsroom_notifications`
 
-Existing Newsroom/content tables are extended rather than replaced. In particular, `staff_profiles` gains staff/security metadata and `stories` gains server-owned workflow, assignment, reviewer, deadline, distribution, access and optimistic-locking fields.
+Existing `staff_profiles` and `stories` are extended for staff/security metadata, editorial state, ownership, reviewers, deadlines, distribution, access policy and optimistic locking.
 
-## 5. Server authorization primitive
+## 5. Authorization model
 
-Capabilities—not frontend role labels—are the server authorization primitive.
+Capabilities—not frontend role labels—are authoritative.
 
-Preserved capability classes:
+Key capability classes include:
 - `story.create`
 - `story.edit_own`
 - `story.edit_all`
@@ -116,280 +127,303 @@ Preserved capability classes:
 - `distribution.manage`
 - `media.manage`
 
-Role collections remain for administration/presentation:
-- Publisher / Owner
-- Editor-in-Chief
-- Managing Editor
-- Section Editor
-- News Editor
+Live-certified role collections:
 - Reporter / Journalist
-- Health / Science Editor
-- Fact Checker
-- Copy Editor
-- Multimedia Editor
-- Social Editor
-- Newsletter Editor
+- Editor-in-Chief
 - Commercial Manager
-- Subscriber Manager
-- Analyst
+- Publisher / Owner
 
-Important enforced defaults:
-- Reporter has `story.create`, `story.edit_own`, `story.submit`; Reporter does **not** have `story.publish`.
-- Commercial Manager has advertising/subscriber/Premium operational capabilities; Commercial does **not** have `story.publish` or `story.edit_all`.
-- Publishing and protected workflow transitions execute only through capability-checked RPCs.
-- Staff self-role escalation is explicitly rejected.
-- Direct story INSERT is not granted to authenticated clients; creation is RPC-only so ownership derives from authenticated staff identity.
-- Campaign approval/status authority is RPC-only and audited.
+Enforced defaults:
+- Reporter can create/edit-own/submit and cannot publish.
+- Reporter cannot self-escalate role.
+- Reporter cannot approve advertising.
+- Commercial can use permitted commercial operations and cannot edit/publish editorial stories.
+- Editor can perform the permitted review/publish path.
+- Publisher can inspect/revoke sessions.
+- direct story authority changes remain RPC/capability controlled.
 
-## 6. RLS / policies
-
-AG-06 adds 27 named RLS policies across Newsroom/editorial/staff/commercial/private-storage surfaces.
-
-Key policy boundaries:
-- authenticated story visibility goes through `newsroom_can_read_story(id)`;
-- authenticated story edits go through `newsroom_can_edit_story(id)`;
-- revisions and lifecycle rows require story access;
-- assignments are visible to the assigned reporter or assignment-management capability;
-- review/comments/corrections require story access;
-- staff records are self/staff-admin bounded;
-- audit history requires `security.view_audit`;
-- session registry is self/security-admin bounded;
-- ad/subscriber access is capability-specific;
-- `newsroom-private` storage requires an authorized Newsroom session and media capability for mutation;
-- anonymous grants are explicitly revoked from staff, draft, comment, audit and Newsroom-security tables.
-
-Public article access is exposed through the minimized `newsroom_public_published_stories(text)` RPC. It returns only public/published story fields and does not expose internal notes, owner IDs, lock versions, comments or review data.
-
-## 7. Privileged RPC boundary
-
-Security-definer functions implement server authority including:
-- session registration/current context;
-- capability lookup;
-- story read/edit checks;
-- create/save/transition story;
-- assignment create/progress;
-- internal comment;
-- invitation;
-- role change;
-- staff revocation;
-- session revocation;
-- editorial review recording;
-- revision restore;
-- campaign creation/approval;
-- Public/Premium access change.
-
-Protected functions revoke default execution from `public` / `anon` and are granted only where required to `authenticated`.
-
-Trigger guards prevent direct mutation of protected story, staff and campaign authority fields outside approved RPC execution.
-
-## 8. Authentication and session behavior
+## 6. Authentication/session behavior
 
 Runtime server entry:
 
 `api/newsroom.js`
 
-The browser no longer owns Newsroom authentication state.
-
-Implemented behavior:
+Implemented:
 - Supabase Auth email/password login;
-- HttpOnly Secure SameSite=Lax access/refresh cookies;
-- CSRF cookie + `X-HTP-CSRF` integrity check on protected POST operations;
+- HttpOnly + Secure + SameSite=Lax access/refresh cookies;
+- CSRF nonce + `X-HTP-CSRF`;
 - same-origin enforcement;
-- access-token validation and refresh-token rotation path;
-- Newsroom session registration keyed to provider JWT `session_id`;
-- DB-backed session registry;
-- session revocation;
-- account suspension/revocation;
-- sign-out revokes current session;
-- rate limits for login/recovery/invite/transition/role/revoke/high-risk operations;
-- no service-role/database credential in browser JavaScript;
-- service role is referenced server-side only for staff invitation delivery.
+- access-token validation/refresh;
+- Newsroom session registry keyed to provider session ID;
+- session and account revocation;
+- audited privileged actions;
+- rate limiting on high-risk operations;
+- no service-role/database credential in browser code.
 
-The client Newsroom shell preserves current UX but its in-memory state is only a presentation cache. The browser cannot create authority by changing role labels/state.
+The Newsroom browser state is presentation/cache only. Backend authorization is authoritative.
 
-## 9. Invite / activation / recovery
+## 7. Staging-only role identities
 
-Implemented foundations:
-- capability-gated staff invitation record;
-- Supabase Auth invite request from the server;
-- invitation ID carried as provider user metadata;
-- Auth trigger maps a valid unexpired invite to `staff_profiles`;
-- email-confirmation state controls activation;
-- password recovery request;
-- provider callback adoption into HttpOnly server session;
-- password reset form and minimum-length enforcement.
+Final certification used four run-scoped, staging-only Auth identities for run `35684372002`:
 
-Invitation delivery requires the configured server-side Supabase service-role key and a working staging Auth email configuration. No credential is committed to Git.
+- Reporter → `Reporter / Journalist`
+- Editor → `Editor-in-Chief`
+- Commercial → `Commercial Manager`
+- Publisher → `Publisher / Owner`
 
-## 10. MFA policy and limitation
+The workflow no longer requires persistent role passwords in repository/GitHub secrets. Instead, the staging-only `ag06-certification-provision` helper uses GitHub Actions OIDC claims for repository/workflow/run-bound provisioning. Passwords exist only for the current job and are masked.
+
+The staging publishable key is used for supplemental direct PostgREST tests; no service-role key is exposed to browser/Git.
+
+After certification:
+- 4 current-run Auth users deleted;
+- 4 staff profiles retained as revoked historical/audit records;
+- 0 current-run live sessions remain.
+
+A final residue cleanup removed five older bounded test identities from failed certification attempts.
+
+Final staging residue proof:
+- AG-06 Auth test users: **0**
+- active AG-06 staff profiles: **0**
+- live AG-06 sessions: **0**
+- temporary AG-06 database helper functions: **0**
+- temporary AG-06 database helper triggers: **0**
+
+The staging-only certification Edge Function remains versioned in the repository and requires GitHub OIDC claim validation.
+
+## 8. Final live authorization proof
+
+Workflow:
+
+**AG-06 Newsroom Security**
+
+Run:
+
+`35684372002`
+
+Live job:
+
+`106607952205`
+
+Result:
+
+**SUCCESS**
+
+Live suite:
+
+**7 passed**
+
+Direct API/RLS evidence emitted by the run:
+
+- anonymous bootstrap: **401 DENIED**
+- Reporter create/edit-own/submit: **PASS**
+- Reporter publish: **403 DENIED**
+- Reporter self-role escalation: **403 DENIED**
+- Reporter ad approval: **403 DENIED**
+- Commercial editorial edit: **403 DENIED**
+- Commercial publish: **403 DENIED**
+- Editor final workflow state: **Published**
+- Editor final story status: **publish**
+- Publisher Reporter-session revocation: **PASS**
+- stale/revoked Reporter session: **403 DENIED**
+- direct PostgREST probes: **ENABLED / PASS**
+
+Certified story:
+
+`e355f201-df16-4b63-9c99-b8497bd27421`
+
+Durable audit proof from the same run includes:
+
+- `story.published` at `2026-09-22T03:47:41.536605+00:00`
+- `session.revoked` at `2026-09-22T03:47:50.344504+00:00`
+
+The supplemental direct PostgREST assertions also passed for:
+- anonymous draft access;
+- anonymous internal-comment access;
+- anonymous audit access;
+- Reporter direct role escalation;
+- Reporter direct story publication;
+- Commercial direct editorial mutation.
+
+## 9. Newsroom Playwright live journeys
+
+Live Newsroom journeys in the same job passed:
+
+1. gateway closed without provider session;
+2. Reporter save/reload/resume/submit;
+3. Editor receives review authority and Reporter submission;
+4. Commercial sees commercial operations without editorial story workspace;
+5. Publisher/Admin inspects staff, sessions and durable audit;
+6. Newsroom usable at laptop/tablet admin widths.
+
+Together with the direct API test, live job total is **7 passed**.
+
+## 10. CI evidence at certified runtime
+
+Certified runtime SHA:
+
+`409230e23e2d35b139d33b254ff8ab2250599f78`
+
+### Validate HealthTimes 2.0
+
+- run `35684371939`
+- job `106607951937`
+- **SUCCESS**
+- Newsroom OS validation passed.
+
+### Migration Tests
+
+- run `35684372028`
+- job `106607952749`
+- **32 passed**
+
+### Chromium UAT
+
+- run `35684371964`
+- job `106607952776`
+- **58 passed / 6 skipped**
+- skips are the live environment-gated AG-06 tests; those were executed separately and passed in `live-staging-security`.
+- Playwright report artifact ID: `10676336521`
+
+### AG-06 Newsroom Security
+
+- run `35684372002`
+- contract job `106607952611`: **SUCCESS**
+- local gateway job `106607952607`: **SUCCESS**
+- disposable Supabase schema job `106607952640`: **SUCCESS**
+- live staging security job `106607952205`: **SUCCESS**
+
+## 11. Vercel staging proof
+
+Project:
+
+`healthtimes-staging`
+
+Exact certified SHA deployment:
+
+`409230e23e2d35b139d33b254ff8ab2250599f78`
+
+Deployment state:
+
+**READY**
+
+No production Vercel project/cutover was used.
+
+## 12. Auth invite / recovery / email behavior
+
+The staging certification helper exercised Supabase Auth invite/recovery APIs.
+
+Observed during final run:
+
+- invite API accepted: **NO**
+- recovery API accepted: **NO**
+- provider response: **email rate limit exceeded**
+- mailbox delivery confirmed: **NO**
+
+This is recorded as a staging email-provider/rate-limit limitation, not an authorization failure. The Newsroom invite/recovery implementation exists, but external delivery is **not certified by CP6**.
+
+Pre-production requirement:
+- configure/verify production-grade Auth SMTP/email delivery;
+- verify invite activation and password recovery against controlled mailboxes;
+- retain rate limits/abuse controls.
+
+## 13. MFA classification
+
+**MFA CAPABILITY/POLICY READY — AAL2 NOT YET ENFORCED**
 
 Schema/runtime carries:
 - `mfa_required`
 - `mfa_enrolled_at`
-- privileged-role security UI/state.
 
-**Limitation:** this implementation does not yet enforce JWT AAL2 at the database boundary; no `aal2` claim gate is present in the migration. Therefore MFA is **capability/policy ready but not certified as mandatory** for privileged staging accounts.
+Privileged-role policy readiness is present, but JWT AAL2 is not enforced at the database boundary.
 
-Required closure policy before production readiness:
-- enroll Publisher/Owner, Editor-in-Chief and security-capable staff in provider MFA;
-- enforce AAL2 for privileged session registration/privileged RPC execution;
-- add staging tests for AAL1 rejection and AAL2 acceptance.
+Pre-production requirement:
+- enroll privileged staff;
+- enforce AAL2 for privileged session/RPC operations;
+- add explicit AAL1-denied / AAL2-accepted staging tests.
 
-This is a documented limitation, not a production-readiness claim.
+No AAL2 enforcement was added merely to close CP6.
 
-## 11. Demo/localStorage deprecation
+## 14. Security headers / browser-secret boundary
 
-Legacy hardcoded Newsroom demo credentials were removed from runtime code.
+Validated:
+- Newsroom CSP;
+- `frame-ancestors 'none'`;
+- `X-Content-Type-Options: nosniff`;
+- no-store/private caching;
+- restricted permissions policy;
+- no public analytics script on private Newsroom route;
+- HttpOnly session tokens;
+- CSRF checks;
+- service-role key absent from browser runtime;
+- repository secret-pattern guard passes.
 
-AG-06 validation rejects:
-- `localStorage` as Newsroom authority;
-- legacy `HealthTimes#Publisher...`, `HealthTimes#Editor...`, `HealthTimes#Reporter...`, `HealthTimes#Commercial...` credential literals in runtime surfaces.
+## 15. Supabase advisor notes
 
-Demo/local browser records are not migrated into Auth and never become production credentials.
+A post-certification Supabase advisor scan was executed.
 
-Strategy:
-1. create real staging-only Auth users;
-2. create/link matching `staff_profiles`;
-3. use server-backed persisted Newsroom state;
-4. keep historical demo state non-authoritative and disposable;
-5. do not copy demo passwords into staging/production.
+Relevant AG-06 observations:
+- `newsroom_staff_capability_overrides` has RLS enabled with no direct policy; this is an intentional deny-by-default table used through capability functions rather than direct client access.
+- `newsroom_public_published_stories(text)` is intentionally callable by anonymous users as the minimized public story projection; live tests verified internal fields are not exposed.
+- authenticated SECURITY DEFINER warnings correspond to capability-checked Newsroom RPCs and are expected by this architecture.
+- two `staff_profiles` RLS initialization-plan performance warnings remain; they do not alter the certified authorization result and can be optimized in a later performance-hardening lane.
 
-## 12. Direct API attack coverage
+The advisor also reports AG-05/public-content findings outside AG-06 ownership, including the `ag05_url_coverage_status` security-definer view and AG-05 public RPC advisories. AG-06 did not modify AG-05 ownership surfaces.
 
-`tests/ag06-live-security.spec.js` drives the API directly, bypassing UI controls.
+Reference:
+`https://supabase.com/docs/guides/database/database-linter`
 
-Mandatory live API attacks include:
-- anonymous bootstrap denied;
-- Reporter creates/edits/submits own story;
-- Reporter publish request denied;
-- Reporter self-role escalation denied;
-- Reporter ad-approval request denied;
-- Commercial editorial save denied;
-- Commercial publish denied;
-- Editor performs allowed review/publish progression;
-- Publisher revokes the Reporter session;
-- revoked Reporter session is subsequently rejected;
-- durable audit contains publication/revocation events.
+## 16. PR state
 
-Supplemental direct PostgREST probes are also implemented for:
-- anonymous draft/comment/audit reads;
-- Reporter direct `staff_profiles` role escalation;
-- Reporter direct story publication PATCH;
-- Commercial direct editorial PATCH.
+PR #13:
 
-Those supplemental PostgREST probes run when the staging publishable key is supplied to CI. They are not treated as a substitute for the mandatory app-API attacks.
+- state: **OPEN**
+- draft: **YES**
+- base: `migration/ag-03-source-data-capture`
+- head: `migration/ag-06-newsroom-backend-security`
+- mergeable state at certification: **clean**
+- unmerged: **YES**
 
-## 13. Playwright Newsroom journeys
+## 17. Remaining limitations / pre-production hardening
 
-`tests/newsroom-os.spec.js` now tests server-backed Newsroom behavior.
+These do **not** block CP6 staging acceptance:
 
-Implemented journeys:
-- unauthenticated gateway remains closed;
-- Reporter autosave persists across browser refresh;
-- Reporter can resume and submit but does not receive Publish;
-- Editor receives review authority and submitted story;
-- Commercial sees commercial workspace without editorial story workspace;
-- Publisher can inspect staff, sessions and durable audit;
-- Newsroom remains usable at 1440 / 1024 / 768 admin widths.
+1. **MFA:** AAL2 is not yet enforced.
+2. **Email delivery:** invite/recovery API calls were rate-limited in staging; external delivery remains unverified.
+3. **Performance:** two staff-profile RLS init-plan warnings remain.
+4. **Certification helper:** `ag06-certification-provision` is staging-only and OIDC-gated; it must not be deployed to production.
+5. **Production:** no production cutover, DNS, production database or production staff identity was modified.
 
-## 14. CI evidence
+## 18. AG-07 readiness
 
-### Exact implementation candidate `701c3fd53ef0ad12193f2e3ed8e54e932964a304`
+**AG-07 dependency:** CLEAR.
 
-Vercel:
-- HealthTimes Staging project deployment: **READY**
-- deployment SHA matches `701c3fd53ef0ad12193f2e3ed8e54e932964a304`
-- production project/cutover: not used.
+AG-07 may consume the certified AG-06 branch/schema/API contract subject to normal integration/rebase coordination.
 
-Validate HealthTimes 2.0:
-- run `35671784750`
-- result: **SUCCESS**
+## 19. Final receipt
 
-Migration Tests:
-- run `35671784809`
-- result: **SUCCESS**
-- tests: **32 passed**
-
-Chromium UAT:
-- run `35671784720`
-- test step: **SUCCESS**
-- tests: **58 passed / 6 skipped**
-- the six skips are credential-gated live AG-06 journeys/attack coverage, not static/local failures.
-
-AG-06 Newsroom Security:
-- run `35671784796`
-- `contract`: **SUCCESS**
-- `local-newsroom-gateway`: **SUCCESS**
-- `live-staging-security`: **FAIL-CLOSED / BLOCKED**
-- blocker from job `106569648464`: `Missing required staging secret: AG06_REPORTER_EMAIL`
-- disposable schema job was still executing when the live configuration blocker was recorded; the same migration blob already has a prior successful zero-reset proof in run `35669703622`.
-
-Static AG-06 contract proof on the unchanged implementation includes:
-- **5/5 passed**
-- server authority/RLS contract
-- protected function execution grants
-- HttpOnly/CSRF/server-secret boundary
-- Newsroom route analytics/header isolation
-- demo/localStorage authority removal.
-
-## 15. Required live-certification inputs
-
-The live gate deliberately requires staging-only identities:
-- `AG06_REPORTER_EMAIL`
-- `AG06_REPORTER_PASSWORD`
-- `AG06_EDITOR_EMAIL`
-- `AG06_EDITOR_PASSWORD`
-- `AG06_COMMERCIAL_EMAIL`
-- `AG06_COMMERCIAL_PASSWORD`
-- `AG06_PUBLISHER_EMAIL`
-- `AG06_PUBLISHER_PASSWORD`
-
-Optional supplemental direct-PostgREST coverage:
-- `AG06_STAGING_SUPABASE_PUBLISHABLE_KEY`
-
-Non-secret endpoints are fixed to the accepted CP2 environment:
-- `https://healthtimes-staging.vercel.app`
-- `https://gcdohgbmqhqwydgaxrcr.supabase.co`
-
-The connected Supabase tool in this session exposes only the separate Sessions Music organization/project. It was not used or modified.
-
-## 16. Remaining live certification steps
-
-CP6 acceptance requires all of the following on the accepted HealthTimes Staging environment:
-1. apply/confirm migration `20260922080100_ag06_newsroom_auth_rbac.sql` in cloud staging;
-2. provision staging-only Reporter, Editor, Commercial and Publisher Auth users mapped to the corresponding real role collections;
-3. configure the eight role-test GitHub secrets above;
-4. run `AG-06 Newsroom Security / live-staging-security`;
-5. require all direct API attack assertions and Newsroom live journeys to pass;
-6. capture audit + session revocation proof from that run;
-7. document Auth email delivery behavior;
-8. enroll/test MFA for privileged roles if CP6 acceptance is to include MFA enforcement rather than readiness only.
-
-Do not use production staff accounts for this certification.
-
-## 17. AG-07 readiness
-
-**Code/schema readiness for AG-07:** YES.  
-**CP6 acceptance dependency for AG-07:** NOT YET CLOSED.
-
-AG-07 may review/integrate against the AG-06 branch and migration contract, but must not represent CP6 as accepted until live HealthTimes Staging identity/authorization certification is green.
-
-## 18. Receipt
-
-- Auth/backend implementation candidate: `701c3fd53ef0ad12193f2e3ed8e54e932964a304`
-- Migration: `20260922080100_ag06_newsroom_auth_rbac.sql`
-- Capability authorization: IMPLEMENTED
-- Server-backed sessions: IMPLEMENTED
-- persisted drafts/autosave/revisions/assignments/reviews/comments: IMPLEMENTED
-- staff invitation/recovery/revocation foundations: IMPLEMENTED
-- audit events: IMPLEMENTED
-- RLS/private Newsroom boundaries: IMPLEMENTED
-- direct API authorization suite: IMPLEMENTED
-- staging-backed Newsroom Playwright suite: IMPLEMENTED
-- Vercel exact-head deployment: READY
-- static/disposable/local CI: PASS
-- live role-token certification: **BLOCKED — staging role test credentials not configured**
-- MFA enforcement: **NOT YET AAL2-ENFORCED**
+- cloud Newsroom/Auth/RBAC migration: **APPLIED**
+- Reporter role identity: **CERTIFIED**
+- Editor role identity: **CERTIFIED**
+- Commercial role identity: **CERTIFIED**
+- Publisher role identity: **CERTIFIED**
+- Reporter create/edit-own/submit: **PASS**
+- Reporter publish denial: **PASS**
+- Reporter self-role escalation denial: **PASS**
+- Reporter ad-approval denial: **PASS**
+- Commercial editorial edit/publish denial: **PASS**
+- Editor review/publish path: **PASS**
+- Publisher session revocation: **PASS**
+- stale session rejection: **PASS**
+- durable publication/revocation audit: **PASS**
+- anonymous draft/comment/audit isolation: **PASS**
+- supplemental direct PostgREST attacks: **PASS**
+- browser/service secret exposure guard: **PASS**
+- exact-head Vercel staging deployment: **READY**
+- exact-head zero-state migration reset: **PASS**
+- live certification cleanup/residue: **PASS**
+- MFA: **MFA CAPABILITY/POLICY READY — AAL2 NOT YET ENFORCED**
+- Auth email delivery: **RATE-LIMITED / NOT DELIVERY-CERTIFIED**
 - production systems modified: **NO**
 
-**CP6 final state: IMPLEMENTATION COMPLETE / LIVE CERTIFICATION BLOCKED.**
+**CP6 ACCEPTED**
