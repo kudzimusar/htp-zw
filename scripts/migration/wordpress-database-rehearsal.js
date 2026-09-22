@@ -230,6 +230,7 @@ function mediaFamilyKey(relativePath) {
 function buildMediaRewriteIndex(attachments, storagePublicBase = DEFAULT_STORAGE_PUBLIC_BASE) {
   const exact = new Map();
   const family = new Map();
+  const byDirectory = new Map();
   const addFamily = (key, url) => {
     if (!family.has(key)) family.set(key, url);
     else if (family.get(key) !== url) family.set(key, null);
@@ -242,9 +243,14 @@ function buildMediaRewriteIndex(attachments, storagePublicBase = DEFAULT_STORAGE
     for (const variant of variants) {
       exact.set(variant, url);
       addFamily(mediaFamilyKey(variant), url);
+      const ext = path.posix.extname(variant);
+      const dir = path.posix.dirname(variant);
+      const stem = path.posix.basename(variant, ext);
+      if (!byDirectory.has(dir)) byDirectory.set(dir, []);
+      byDirectory.get(dir).push({ stem, url });
     }
   }
-  return { exact, family, storagePublicBase };
+  return { exact, family, byDirectory, storagePublicBase };
 }
 
 function resolveWordPressUploadRelative(relativePath, index) {
@@ -261,6 +267,15 @@ function resolveWordPressUploadRelative(relativePath, index) {
     const family = index.family.get(mediaFamilyKey(derivativeBase));
     if (family) {
       return { url: family, resolved: true, strategy: 'WORDPRESS_DERIVATIVE_TO_UNIQUE_FAMILY' };
+    }
+    const ext = path.posix.extname(derivativeBase);
+    const dir = path.posix.dirname(derivativeBase);
+    const stem = path.posix.basename(derivativeBase, ext);
+    const prefixMatches = (index.byDirectory.get(dir) || [])
+      .filter(candidate => candidate.stem === stem || candidate.stem.startsWith(`${stem}-`));
+    const uniqueUrls = [...new Set(prefixMatches.map(candidate => candidate.url))];
+    if (uniqueUrls.length === 1) {
+      return { url: uniqueUrls[0], resolved: true, strategy: 'WORDPRESS_DERIVATIVE_TO_UNIQUE_PREFIX_CANDIDATE' };
     }
   }
   const fallbackKey = storageKeyForOriginalPath(raw);
