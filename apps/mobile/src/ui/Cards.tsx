@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from "react";
+import { useEffect, type PropsWithChildren } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
@@ -7,6 +7,8 @@ import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { verifiedAudioSource } from "../reader/media-player";
+import { event } from "../growth/events";
+import { getReaderAdPlacement } from "../growth/ad-placements";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -219,18 +221,42 @@ export function AdSlot({
   );
 
   const adDecision=decision.data;
-  if(!adDecision || adDecision.source === "none") return null;
+  const definition=getReaderAdPlacement(placement);
+  const available=Boolean(adDecision?.providerState==="available" && adDecision.source!=="none");
+
+  useEffect(()=>{
+    if(!available || !adDecision) return;
+    void services.analytics.track(event("ad_impression",{
+      placement_key:placement,
+      provider_state:adDecision.providerState,
+      format:definition.format
+    }));
+  },[available,adDecision?.providerState,adDecision?.source,placement,definition.format]);
+
+  if(!available || !adDecision) return null;
   const message=adDecision.policyReason ?? "Advertising delivery is controlled by the HealthTimes advertising service.";
+  const openDestination=async()=>{
+    if(!adDecision.destinationUrl) return;
+    await services.analytics.track(event("ad_click",{
+      placement_key:placement,
+      provider_state:adDecision.providerState,
+      format:definition.format
+    }));
+    await Linking.openURL(adDecision.destinationUrl);
+  };
 
   return (
-    <View
+    <Pressable
+      disabled={!adDecision.destinationUrl}
+      accessibilityRole={adDecision.destinationUrl ? "link" : undefined}
       style={[styles.adSlot,{backgroundColor:palette.paperMuted,borderColor:palette.border}]}
       accessibilityLabel={"Advertising placement " + placement}
+      onPress={adDecision.destinationUrl ? ()=>{void openDestination();} : undefined}
     >
       <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
       <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel ?? "Sponsored"}</Text>
       <Text style={[styles.adMessage,{color:palette.inkMuted}]}>{message}</Text>
-    </View>
+    </Pressable>
   );
 }
 
