@@ -28,6 +28,20 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:
@@ -60,7 +74,7 @@ jobs:
         working-directory: apps/mobile
         env:
           APP_ENV: staging
-          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: fixture
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
           EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
         run: npx expo config --json > staging-config.json
@@ -108,6 +122,20 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:
@@ -147,6 +175,20 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:
