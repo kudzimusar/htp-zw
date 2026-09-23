@@ -27,6 +27,19 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -45,6 +58,19 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -84,6 +110,19 @@ jobs:
       AG06_CERTIFICATION_DEBUG: '1'
     steps:
       - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
