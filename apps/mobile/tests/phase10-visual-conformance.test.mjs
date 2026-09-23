@@ -43,6 +43,14 @@ test("Phase 10 responsive shell hydrates deterministically before viewport struc
   assert.match(studio,/return responsiveReady \? width : 0/);
 });
 
+test("Phase 10 Studio shell defers responsive structural changes until after web hydration",()=>{
+  assert.match(studio,/function useHydratedStudioWidth\(\)/);
+  assert.match(studio,/return responsiveReady \? width : 0/);
+  assert.match(studio,/const desktop=width>=breakpoints\.tablet/);
+  assert.match(studio,/desktop && <View style=\{styles\.sidebar\}/);
+  assert.match(studio,/!desktop && <ScrollView horizontal/);
+});
+
 test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
   assert.match(layout,/accessibilityLabel="HealthTimes Premium"/);
   assert.match(layout,/>Premium<\/Text>/);
