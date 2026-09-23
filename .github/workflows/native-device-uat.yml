@@ -216,6 +216,19 @@ jobs:
           set -eu
 
           adb reverse tcp:8081 tcp:8081
+
+          # Some large tablet AVDs report sys.boot_completed before the
+          # Android window/package services are actually ready for commands.
+          for i in {1..60}; do
+            if adb shell service check window 2>/dev/null | grep -q 'found' \
+              && adb shell cmd package list packages >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          adb shell service check window | grep -q 'found'
+          adb shell cmd package list packages >/dev/null
+
           if [ "${{ matrix.family }}" = "tablet" ]; then
             adb shell wm size 2560x1600
             adb shell wm density 320
