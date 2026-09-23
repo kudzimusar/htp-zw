@@ -1,20 +1,16 @@
-name: Phase 10 Visual Baseline Evidence
+name: Phase 10 Candidate Visual Conformance
 
 on:
   push:
     branches:
       - integration/ag07-nm07-phase10-visual-conformance
-    paths:
-      - '.github/workflows/phase10-visual-conformance.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  BASELINE_SHA: 8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b
   APP_ENV: staging
-  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
   EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
   HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
@@ -22,141 +18,198 @@ env:
   HEALTHTIMES_WEB_BASE_URL: ""
 
 jobs:
-  baseline-web:
-    name: Baseline Web PWA visual capture
+  candidate-web:
+    name: Candidate Web/PWA conformance + screenshots
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.BASELINE_SHA }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
-      - name: Prove frozen baseline checkout
+      - name: Prove exact candidate checkout
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          echo "EXPECTED_SHA=$BASELINE_SHA"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
           echo "CHECKED_OUT_SHA=$actual"
-          test "$actual" = "$BASELINE_SHA"
+          test "$actual" = "$EXPECTED_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install dependencies
+      - name: Install workspaces
         run: |
           npm install --no-audit --no-fund
           npm install --prefix apps/mobile --no-audit --no-fund
-      - name: Build exact baseline Web PWA
+      - name: Run Phase 10 visual contract
+        run: node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
+      - name: Typecheck shared Reader
+        run: npm run typecheck --prefix apps/mobile
+      - name: Build source-parity Web/PWA candidate
+        env:
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
         run: npm run build:phase4:web
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Capture hydrated Reader matrix
+      - name: Capture source-parity responsive matrix
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p phase10-evidence/baseline/web
-          node scripts/web/phase4-smoke-server.js >/tmp/phase10-baseline-web.log 2>&1 &
+          mkdir -p phase10-evidence/after/web
+          node scripts/web/phase4-smoke-server.js >/tmp/phase10-after-source-parity.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+          for attempt in $(seq 1 10); do
             if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
-            if [[ "$attempt" == "10" ]]; then cat /tmp/phase10-baseline-web.log; exit 1; fi
+            if [[ "$attempt" == "10" ]]; then cat /tmp/phase10-after-source-parity.log; exit 1; fi
             sleep 1
           done
           node - <<'NODE'
           const { chromium } = require('@playwright/test');
-          const fs = require('fs');
-          const path = require('path');
-
+          const fs=require('fs');
+          const path=require('path');
           const base='http://127.0.0.1:4174';
-          const out='phase10-evidence/baseline/web';
-          const cases=[
-            {name:'home-mobile-390x844', route:'/', width:390, height:844, wait:'Top Stories'},
-            {name:'home-tablet-834x1112', route:'/', width:834, height:1112, wait:'Top Stories'},
-            {name:'home-desktop-1440x1000', route:'/', width:1440, height:1000, wait:'Top Stories'},
-            {name:'explore-desktop', route:'/explore', width:1440, height:1000, wait:'Explore'},
-            {name:'search-desktop', route:'/search', width:1440, height:1000, wait:'Search'},
-            {name:'article-desktop', route:'/2026/02/12/who-should-not-take-lenacapavir-key-health-conditions-to-consider-before-the-rollout/', width:1440, height:1000, wait:'Who Should Not Take Lenacapavir'},
-            {name:'live-desktop', route:'/live', width:1440, height:1000, wait:'Live'},
-            {name:'watch-desktop', route:'/watch', width:1440, height:1000, wait:'Watch'},
-            {name:'listen-desktop', route:'/listen', width:1440, height:1000, wait:'Listen'},
-            {name:'saved-desktop', route:'/saved', width:1440, height:1000, wait:'Saved'},
-            {name:'my-healthtimes-desktop', route:'/my', width:1440, height:1000, wait:'My HealthTimes'},
-            {name:'edition-desktop', route:'/edition', width:1440, height:1000, wait:'Edition'},
-            {name:'premium-desktop', route:'/premium', width:1440, height:1000, wait:'Premium'},
-            {name:'notifications-desktop', route:'/notifications', width:1440, height:1000, wait:'Notifications'},
-            {name:'onboarding-desktop', route:'/onboarding', width:1440, height:1000, wait:'HealthTimes'},
-            {name:'studio-desktop', route:'/studio', width:1440, height:1000, wait:'Studio'}
+          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const routes=[
+            ['home','/'],['explore','/explore'],['search','/search'],['article','/article/'+articleId],
+            ['live','/live'],['watch','/watch'],['listen','/listen'],['saved','/saved'],
+            ['my-ht','/my'],['edition','/edition'],['premium','/premium'],
+            ['notifications','/notifications'],['onboarding','/onboarding'],['studio','/studio']
           ];
-
+          const viewports=[['mobile',390,844],['tablet',834,1112],['desktop',1440,1000]];
+          const tabRoutes=new Set(['/','/explore','/live','/watch','/my']);
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const manifest={baselineSha:process.env.BASELINE_SHA,capturedAt:new Date().toISOString(),cases:[]};
-            for(const item of cases){
-              const page=await browser.newPage({viewport:{width:item.width,height:item.height}});
-              const url=base+item.route;
-              let waitResult='not-checked';
-              try{
-                await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
-                try{
-                  await page.getByText(item.wait,{exact:false}).first().waitFor({timeout:15000});
-                  waitResult='matched';
-                }catch{
-                  await page.waitForTimeout(6000);
-                  waitResult='timeout';
+            const manifest={sha:process.env.EXPECTED_SHA,capturedAt:new Date().toISOString(),screens:[]};
+            for(const [vp,width,height] of viewports){
+              for(const [name,route] of routes){
+                const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+                const pageErrors=[];
+                page.on('pageerror',error=>pageErrors.push(String(error)));
+                const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
+                if(route==='/') await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
+                else await page.waitForTimeout(1200);
+                if(vp==='desktop' && tabRoutes.has(route)){
+                  const tabs=await page.getByRole('tab').count();
+                  if(tabs!==0) throw new Error('Desktop mobile tab bar still rendered on '+route+' count='+tabs);
                 }
-                await page.screenshot({path:path.join(out,item.name+'.png'),fullPage:true});
-                manifest.cases.push({...item,url,waitResult,title:await page.title()});
-              }catch(error){
-                manifest.cases.push({...item,url,waitResult:'navigation-error',error:String(error)});
-                await page.screenshot({path:path.join(out,item.name+'-error.png'),fullPage:true}).catch(()=>{});
-              }finally{
+                if(vp==='mobile' && tabRoutes.has(route)){
+                  const tabs=await page.getByRole('tab').count();
+                  if(tabs<5) throw new Error('Mobile five-destination tab bar missing on '+route+' count='+tabs);
+                }
+                if(route==='/onboarding'){
+                  const searchChrome=await page.getByLabel('Search HealthTimes').count();
+                  if(searchChrome!==0) throw new Error('Onboarding still renders Reader utility chrome');
+                }
+                if(name==='article'){
+                  const body=await page.locator('body').innerText();
+                  if(body.includes('Canonical desk')||body.includes('Legacy source taxonomy')) throw new Error('Article exposes migration-internal taxonomy labels');
+                }
+                if(pageErrors.length) throw new Error(name+' page errors: '+pageErrors.join(' | '));
+                const file=path.join('phase10-evidence/after/web',vp+'-'+name+'.png');
+                await page.screenshot({path:file,fullPage:true});
+                manifest.screens.push({viewport:vp,width,height,name,route,status:response?.status()??null,title:await page.title(),file});
                 await page.close();
               }
             }
-            fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify(manifest,null,2));
+            fs.writeFileSync('phase10-evidence/after/web/manifest.json',JSON.stringify(manifest,null,2));
             await browser.close();
-          })().catch(err=>{console.error(err);process.exit(1);});
+          })().catch(error=>{console.error(error);process.exit(1);});
           NODE
-      - name: Upload baseline Web evidence
-        uses: actions/upload-artifact@v4
+          kill "$server_pid" 2>/dev/null || true
+          trap - EXIT
+      - name: Build staging-service candidate for HOSPAZ proof
+        env:
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+        run: npm run build:phase4:web
+      - name: Capture staging HOSPAZ Home proof
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p phase10-evidence/after/staging
+          node scripts/web/phase4-smoke-server.js >/tmp/phase10-after-staging.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "10" ]]; then cat /tmp/phase10-after-staging.log; exit 1; fi
+            sleep 1
+          done
+          node - <<'NODE'
+          const { chromium }=require('@playwright/test');
+          const fs=require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const manifest={sha:process.env.EXPECTED_SHA,capturedAt:new Date().toISOString(),screens:[]};
+            for(const item of [{name:'mobile-home-hospaz',width:390,height:844},{name:'desktop-home-hospaz',width:1440,height:1000}]){
+              const page=await browser.newPage({viewport:{width:item.width,height:item.height}});
+              const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
+              await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:30000});
+              await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
+              const ad=page.locator('[aria-label="Advertising placement hospaz-header-direct"]');
+              await ad.waitFor({timeout:30000});
+              const adText=await ad.innerText();
+              if(!adText.includes('HOSPAZ')) throw new Error('HOSPAZ disclosure missing');
+              if(await ad.locator('a').count()) throw new Error('HOSPAZ direct placement became clickable without verified destination');
+              if(errors.length) throw new Error(errors.join(' | '));
+              const file='phase10-evidence/after/staging/'+item.name+'.png';
+              await page.screenshot({path:file,fullPage:true});
+              manifest.screens.push({...item,file,disclosure:adText});
+              await page.close();
+            }
+            fs.writeFileSync('phase10-evidence/after/staging/manifest.json',JSON.stringify(manifest,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1);});
+          NODE
+      - uses: actions/upload-artifact@v4
         with:
-          name: phase10-baseline-web-screenshots
+          name: phase10-candidate-web-pwa-screenshots
           path: |
-            phase10-evidence/baseline/web/
-            /tmp/phase10-baseline-web.log
+            phase10-evidence/after/
+            /tmp/phase10-after-source-parity.log
+            /tmp/phase10-after-staging.log
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
 
-  baseline-ios:
-    name: Baseline iOS Simulator visual capture
+  candidate-ios:
+    name: Candidate iOS Simulator screenshots
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.BASELINE_SHA }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
-      - name: Prove frozen baseline checkout
+      - name: Prove exact candidate checkout
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          echo "EXPECTED_SHA=$BASELINE_SHA"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
           echo "CHECKED_OUT_SHA=$actual"
-          test "$actual" = "$BASELINE_SHA"
+          test "$actual" = "$EXPECTED_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install mobile workspace
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+      - run: npm install --prefix apps/mobile --no-audit --no-fund
       - name: Generate staging iOS project
         working-directory: apps/mobile
         run: npx expo prebuild --platform ios --clean --no-install
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
         run: pod install
-      - name: Resolve and build simulator app
+      - name: Build simulator app
         working-directory: apps/mobile/ios
         shell: bash
         run: |
@@ -177,51 +230,55 @@ jobs:
           APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
           test -n "$APP"
           echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
-      - name: Boot simulator and capture Reader
+      - name: Capture iOS Reader
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p phase10-evidence/baseline/ios
+          mkdir -p phase10-evidence/after/ios
           UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for runtime,items in d.items() for x in items if x.get("isAvailable") and x["name"].startswith("iPhone")))')
-          echo "SIMULATOR_UDID=$UDID"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" "$IOS_APP"
           xcrun simctl launch "$UDID" zw.co.healthtimes.app.staging
-          sleep 15
-          xcrun simctl io "$UDID" screenshot phase10-evidence/baseline/ios/home.png
+          sleep 20
+          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/home.png
           xcrun simctl openurl "$UDID" "healthtimes://premium" || true
           sleep 4
-          xcrun simctl io "$UDID" screenshot phase10-evidence/baseline/ios/premium.png
+          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/premium.png
           xcrun simctl openurl "$UDID" "healthtimes://watch" || true
           sleep 4
-          xcrun simctl io "$UDID" screenshot phase10-evidence/baseline/ios/watch.png
-          printf '{"baselineSha":"%s","udid":"%s","capturedAt":"%s"}\n' "$BASELINE_SHA" "$UDID" "$(date -u +%FT%TZ)" > phase10-evidence/baseline/ios/manifest.json
-      - name: Upload baseline iOS evidence
-        uses: actions/upload-artifact@v4
+          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/watch.png
+          printf '{"sha":"%s","udid":"%s","capturedAt":"%s"}\n' "$EXPECTED_SHA" "$UDID" "$(date -u +%FT%TZ)" > phase10-evidence/after/ios/manifest.json
+      - uses: actions/upload-artifact@v4
         with:
-          name: phase10-baseline-ios-screenshots
-          path: phase10-evidence/baseline/ios/
+          name: phase10-candidate-ios-screenshots
+          path: phase10-evidence/after/ios/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
 
-  baseline-android:
-    name: Baseline Android emulator visual capture
+  candidate-android:
+    name: Candidate Android emulator screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.BASELINE_SHA }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
-      - name: Prove frozen baseline checkout
+      - name: Prove exact candidate checkout
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          echo "EXPECTED_SHA=$BASELINE_SHA"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
           echo "CHECKED_OUT_SHA=$actual"
-          test "$actual" = "$BASELINE_SHA"
+          test "$actual" = "$EXPECTED_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -229,55 +286,50 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install mobile workspace
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+      - run: npm install --prefix apps/mobile --no-audit --no-fund
       - name: Generate staging Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install
       - name: Build staging debug APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleDebug --no-daemon
-      - name: Prepare Android emulator
+      - name: Boot emulator and capture Reader
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
-          echo no | "$AVDMANAGER" create avd -n phase10 -k "system-images;android-35;google_apis;x86_64" --force
-          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot >/tmp/phase10-emulator.log 2>&1 &
+          echo no | "$AVDMANAGER" create avd -n phase10candidate -k "system-images;android-35;google_apis;x86_64" --force
+          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10candidate -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot >/tmp/phase10-candidate-emulator.log 2>&1 &
           adb wait-for-device
           for attempt in $(seq 1 60); do
             if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then break; fi
-            if [[ "$attempt" == "60" ]]; then cat /tmp/phase10-emulator.log; exit 1; fi
+            if [[ "$attempt" == "60" ]]; then cat /tmp/phase10-candidate-emulator.log; exit 1; fi
             sleep 5
           done
           adb shell input keyevent 82 || true
-      - name: Install and capture Reader
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p phase10-evidence/baseline/android
+          mkdir -p phase10-evidence/after/android
           adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-          adb shell am force-stop zw.co.healthtimes.app.staging || true
           adb shell monkey -p zw.co.healthtimes.app.staging -c android.intent.category.LAUNCHER 1
-          sleep 15
-          adb exec-out screencap -p > phase10-evidence/baseline/android/home.png
+          sleep 20
+          adb exec-out screencap -p > phase10-evidence/after/android/home.png
           adb shell am start -a android.intent.action.VIEW -d "healthtimes://premium" zw.co.healthtimes.app.staging || true
           sleep 4
-          adb exec-out screencap -p > phase10-evidence/baseline/android/premium.png
+          adb exec-out screencap -p > phase10-evidence/after/android/premium.png
           adb shell am start -a android.intent.action.VIEW -d "healthtimes://watch" zw.co.healthtimes.app.staging || true
           sleep 4
-          adb exec-out screencap -p > phase10-evidence/baseline/android/watch.png
-          printf '{"baselineSha":"%s","capturedAt":"%s"}\n' "$BASELINE_SHA" "$(date -u +%FT%TZ)" > phase10-evidence/baseline/android/manifest.json
-      - name: Upload baseline Android evidence
+          adb exec-out screencap -p > phase10-evidence/after/android/watch.png
+          printf '{"sha":"%s","capturedAt":"%s"}\n' "$EXPECTED_SHA" "$(date -u +%FT%TZ)" > phase10-evidence/after/android/manifest.json
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: phase10-baseline-android-screenshots
+          name: phase10-candidate-android-screenshots
           path: |
-            phase10-evidence/baseline/android/
-            /tmp/phase10-emulator.log
+            phase10-evidence/after/android/
+            /tmp/phase10-candidate-emulator.log
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
