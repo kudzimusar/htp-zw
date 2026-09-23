@@ -26,8 +26,12 @@ test("Phase 10 Home hydration keeps React Hook order stable",()=>{
   assert.match(home,/SectionHeader title="Top Stories"/);
 });
 
-test("Phase 10 desktop shell does not render the mobile tab bar",()=>{
+test("Phase 10 responsive shell hydrates deterministically before viewport structural changes",()=>{
+  assert.match(tabs,/useState\(Platform\.OS!==["']web["']\)/);
+  assert.match(tabs,/responsiveReady && width >= breakpoints\.desktop/);
   assert.match(tabs,/tabBar=\{desktop \? \(\) => null : undefined\}/);
+  assert.match(layout,/function useHydratedWindowWidth\(\)/);
+  assert.match(layout,/return responsiveReady \? width : 0/);
   assert.match(tabs,/Home/);
   assert.match(tabs,/Explore/);
   assert.match(tabs,/Live/);
