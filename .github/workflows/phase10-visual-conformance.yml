@@ -352,18 +352,53 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/phase10-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
           echo no | "$AVDMANAGER" create avd -n phase10candidate -k "system-images;android-35;google_apis;x86_64" --force
-          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10candidate -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot >/tmp/phase10-candidate-emulator.log 2>&1 &
-          adb wait-for-device
-          for attempt in $(seq 1 60); do
-            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then break; fi
-            if [[ "$attempt" == "60" ]]; then cat /tmp/phase10-candidate-emulator.log; exit 1; fi
-            sleep 5
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
+          "$ANDROID_HOME/emulator/emulator" -list-avds
+          test -f "$ANDROID_AVD_HOME/phase10candidate.ini"
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
+          "$ANDROID_HOME/emulator/emulator" -accel-check || true
+          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10candidate -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-metrics >/tmp/phase10-candidate-emulator.log 2>&1 &
+          emulator_pid=$!
+          device_ready=0
+          for attempt in $(seq 1 120); do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              echo "Android emulator exited before adb registered a device"
+              cat /tmp/phase10-candidate-emulator.log
+              exit 1
+            fi
+            if adb devices | awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
+              device_ready=1
+              break
+            fi
+            sleep 2
           done
+          if [[ "$device_ready" != "1" ]]; then
+            echo "Android emulator did not register with adb"
+            adb devices -l || true
+            cat /tmp/phase10-candidate-emulator.log
+            exit 1
+          fi
+          boot_ready=0
+          for attempt in $(seq 1 120); do
+            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              boot_ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$boot_ready" != "1" ]]; then
+            echo "Android emulator registered but did not complete boot"
+            adb devices -l || true
+            cat /tmp/phase10-candidate-emulator.log
+            exit 1
+          fi
           adb shell input keyevent 82 || true
           mkdir -p phase10-evidence/after/android
           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
