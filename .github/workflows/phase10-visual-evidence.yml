@@ -1,0 +1,95 @@
+name: Phase 10 Visual Evidence
+
+on:
+  push:
+    branches:
+      - integration/ag07-nm07-phase10-visual-conformance
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase10-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHASE10_BASELINE_SHA: 8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  before-web:
+    name: Before — certified Web/PWA visual baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PHASE10_BASELINE_SHA }}
+          fetch-depth: 1
+      - name: Prove certified baseline checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$PHASE10_BASELINE_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$PHASE10_BASELINE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - run: npm run build:phase4:web
+      - run: npx playwright install --with-deps chromium
+      - name: Capture mobile/tablet/desktop Reader baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/phase10-before.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "5" ]]; then cat /tmp/phase10-before.log; exit 1; fi
+            sleep 1
+          done
+          mkdir -p phase10-evidence/before/web
+          node - <<'NODE'
+          const { chromium } = require('playwright');
+          const fs=require('fs');
+          const routes=[
+            ['home','/'],['explore','/explore'],['search','/search'],['live','/live'],['watch','/watch'],
+            ['my-ht','/my'],['premium','/premium'],['saved','/saved'],['edition','/edition'],
+            ['notifications','/notifications'],['listen','/listen'],['onboarding','/onboarding'],['studio','/studio']
+          ];
+          const viewports=[['mobile',390,844],['tablet',834,1112],['desktop',1440,1000]];
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const manifest={sha:process.env.PHASE10_BASELINE_SHA,capturedAt:new Date().toISOString(),screens:[]};
+            for(const [vp,w,h] of viewports){
+              const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
+              for(const [name,route] of routes){
+                const response=await page.goto('http://127.0.0.1:4174'+route,{waitUntil:'networkidle',timeout:30000});
+                await page.waitForTimeout(700);
+                const file=`phase10-evidence/before/web/${vp}-${name}.png`;
+                await page.screenshot({path:file,fullPage:true});
+                manifest.screens.push({viewport:vp,width:w,height:h,name,route,status:response?.status()??null,title:await page.title(),file});
+              }
+              await page.close();
+            }
+            await browser.close();
+            fs.writeFileSync('phase10-evidence/before/web/manifest.json',JSON.stringify(manifest,null,2));
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase10-before-web-pwa-screenshots
+          path: phase10-evidence/before/web/
+          retention-days: 30
