@@ -1,0 +1,76 @@
+name: Phase 10 Home Baseline Diagnostic
+on:
+  push:
+    branches:
+      - integration/ag07-nm07-phase10-visual-conformance
+    paths:
+      - '.github/workflows/phase10-home-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  BASELINE_SHA: 8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_WEB_BASE_URL: ""
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          fetch-depth: 1
+      - name: Prove exact baseline
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$BASELINE_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$BASELINE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - run: npm run build:phase4:web
+      - run: npx playwright install --with-deps chromium
+      - name: Diagnose Home hydration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/phase10-home-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in 1 2 3 4 5; do curl -fsS http://127.0.0.1:4174/ >/dev/null && break; sleep 1; done
+          node - <<'NODE'
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:1440,height:1000}});
+            const evidence={sha:process.env.BASELINE_SHA,console:[],pageErrors:[],requestsFailed:[]};
+            page.on('console',m=>evidence.console.push({type:m.type(),text:m.text()}));
+            page.on('pageerror',e=>evidence.pageErrors.push(String(e && (e.stack||e.message||e))));
+            page.on('requestfailed',r=>evidence.requestsFailed.push({url:r.url(),failure:r.failure()}));
+            const response=await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:30000});
+            evidence.status=response?.status()??null;
+            await page.waitForTimeout(12000);
+            evidence.bodyText=(await page.locator('body').innerText()).slice(0,12000);
+            evidence.htmlLength=(await page.content()).length;
+            fs.mkdirSync('phase10-evidence/baseline/home-diagnostic',{recursive:true});
+            fs.writeFileSync('phase10-evidence/baseline/home-diagnostic/evidence.json',JSON.stringify(evidence,null,2));
+            await page.screenshot({path:'phase10-evidence/baseline/home-diagnostic/home.png',fullPage:true});
+            console.log(JSON.stringify(evidence,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase10-baseline-home-diagnostic
+          path: phase10-evidence/baseline/home-diagnostic/
+          retention-days: 14
