@@ -75,7 +75,7 @@ const server = http.createServer((req, res) => {
     return res.end(fs.readFileSync(file));
   }
 
-  const shell = fs.readFileSync(path.join(dist, '404.html'), 'utf8');
+  const shell = fs.readFileSync(path.join(dist, '+not-found.html'), 'utf8');
   if (pathname === '/2026/02/12/phase4-representative-story/') {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
