@@ -17,6 +17,8 @@ export type Cp5HospazRaw = {
 };
 
 export type Cp5HospazCapability = {
+  capabilityVersion: "cp5-phase3-v1";
+  kind: "direct-ad";
   advertiser: string;
   placementKey: string | null;
   creativeUrl: string | null;
@@ -69,6 +71,8 @@ export function projectCp5HospazCapability(
   const scheduleState=state(ad.schedule_state);
   const placementConditionsState=state(ad.placement_conditions_state);
   return {
+    capabilityVersion:"cp5-phase3-v1",
+    kind:"direct-ad",
     advertiser:String(ad.advertiser || "HOSPAZ"),
     placementKey:ad.placement_key ? String(ad.placement_key) : null,
     creativeUrl:ad.current_storage_object
