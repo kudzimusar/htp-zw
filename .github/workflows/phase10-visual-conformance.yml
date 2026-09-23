@@ -6,6 +6,10 @@ on:
       - integration/ag07-nm07-phase10-visual-conformance
   workflow_dispatch:
 
+concurrency:
+  group: phase10-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
