@@ -2,283 +2,200 @@
 
 ## Final lane disposition
 
-**PHASE 10 BLOCKED — BOUNDED PRODUCT REMEDIATION COMPLETE; FINAL EXACT-HEAD VISUAL/NATIVE EVIDENCE NOT GREEN**
+**PHASE 10 BLOCKED — the bounded visual/product remediation is implemented, but the Web/PWA still has an unresolved React hydration-regeneration warning and the final exact-head Native/visual certification matrix is not green.**
 
-This is the final Phase 10 closure receipt for moderator / owner re-audit. The Reader/product remediation is complete and frozen. The lane is closed as **BLOCKED**, rather than falsely claiming visual acceptance, because the exact-candidate Web/PWA visual harness still reports a React hydration mismatch and the final Native Binary/native-screenshot evidence did not complete cleanly before branch closure.
+This receipt closes the active Phase 10 implementation lane for moderator/owner review. It does **not** release Phase 11.
 
-Phase 11 remains **NOT RELEASED**.
-
-## 1. Authority and final runtime
+## 1. Authority and exact candidate
 
 - Repository: `kudzimusar/htp-zw`
-- Accepted Phase 9 executable baseline: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
-- Accepted Phase 9 documentation closure: `86df1f08e0b3e578348227c30248e32437687352`
-- Phase 9 PR #27: **Draft / Open / Unmerged / Mergeable**
+- Phase 9 certified executable baseline: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
+- Phase 9 documentation closure: `86df1f08e0b3e578348227c30248e32437687352`
 - Phase 10 branch: `integration/ag07-nm07-phase10-visual-conformance`
-- **Final Phase 10 Reader/product runtime:** `2c8b64ec835d998c9fa37a80b651a02dab4087cc`
-- Later commits above `2c8b64ec...` changed only Phase 10 CI/evidence/tests/docs; they did **not** change Reader/product runtime.
-- Phase 10 PR #28: **Draft / Open / Unmerged / Mergeable**
+- Phase 10 final executable/test candidate: `56e6809b358b30d13a3d6813e7f17464ac136a6e`
+- Phase 10 PR: #28 — Draft / Open / Unmerged
 - Design authority: `docs/native-mobile/DESIGN.md`
-- Expected wireframe: `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png`
+- Expected approved wireframe PNG: `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png`
 - Wireframe repository custody: **ABSENT**
-- Missing wireframe reconstructed or inferred: **NO**
+- Wireframe reconstructed or invented: **NO**
 
-Interpretation order remains:
+The Phase 10 candidate is a direct descendant of the accepted Phase 9 closure. No migration, database, storage, production, DNS/MX, provider, payment, store-submission or PR-merge authority was exercised.
 
-security / authorization → accessibility → Master Plan functionality → `DESIGN.md` → approved wireframe if later recovered → platform conventions → implementation judgment.
+## 2. Before evidence
 
-## 2. Before evidence captured before remediation
+### Web/PWA
 
-The baseline evidence jobs checked out the frozen Phase 9 executable directly, so Phase 10 changes could not contaminate the “before” state.
+Frozen executable `8fef4c2e...` was checked out directly for baseline capture.
 
-### Web/PWA baseline
-
-- Workflow: `Phase 10 Visual Evidence`
-- Run: `35862974220`
-- Job: `107187504110 — Before — certified Web/PWA visual baseline`
+- Run `35862974220`
+- Job `107187504110 — Before — certified Web/PWA visual baseline`
 - Result: **SUCCESS**
-- Exact checkout: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
 - Artifact: `phase10-before-web-pwa-screenshots`
 - Artifact ID: `10750654475`
 - Digest: `sha256:62f600bd3f0971ce1c5d5d49eef0526a53f1afe5ac1d3dc4593904bb2174b0a2`
 
-The artifact contains representative Reader captures at:
+The pack contains representative mobile 390×844, tablet 834×1112 and desktop 1440×1000 captures across Home, Explore, Search, Live, Watch, My HT, Premium, Saved, Edition, Notifications, Listen, Onboarding and Studio.
 
-- mobile: 390 × 844
-- tablet: 834 × 1112
-- desktop: 1440 × 1000
+A second frozen-baseline Web capture also succeeded:
 
-and includes Home, Explore, Search, Live, Watch, My HT, Premium, Saved, Edition, Notifications, Listen, Onboarding and Studio.
+- Run `35862974381`
+- Job `107187477046`
+- Artifact ID `10750239377`
+- Digest `sha256:7e8d16722a3a370d2bc643f544f6437cccc991dff66489a1e8b577e75d85a3a7`
 
-### Secondary staging-service Web baseline
+### Native baseline
 
-- Run: `35862974381`
-- Job: `107187477046 — Baseline Web PWA visual capture`
-- Result: **SUCCESS**
-- Artifact ID: `10750239377`
-- Digest: `sha256:7e8d16722a3a370d2bc643f544f6437cccc991dff66489a1e8b577e75d85a3a7`
+- iOS Simulator job `107187476871`: **SUCCESS**
+- iOS artifact ID `10751801648`
+- iOS digest `sha256:42ce499381cf59dc8dbfa8c21a5d73e3e6bb48b54e93c4a3e460afc28b81c436`
 
-### iOS baseline
+Android baseline build succeeded but emulator preparation failed because `adb` was not on PATH in the evidence harness. That was a harness defect, not an application-runtime failure. The Phase 10 workflow was subsequently hardened to export Android platform-tools explicitly.
 
-- Run: `35862974381`
-- Job: `107187476871 — Baseline iOS Simulator visual capture`
-- Result: **SUCCESS as CI job**
-- Artifact ID: `10751801648`
-- Digest: `sha256:42ce499381cf59dc8dbfa8c21a5d73e3e6bb48b54e93c4a3e460afc28b81c436`
+## 3. Baseline visual/product gaps
 
-The captured simulator image showed the Expo/React Native “No script URL provided” screen because the debug simulator app was launched without a packager/embedded JS bundle. Therefore this artifact is evidence of the **capture-harness limitation**, not valid Reader visual acceptance.
-
-### Android baseline
-
-- Run: `35862974381`
-- Job: `107187477151 — Baseline Android emulator visual capture`
-- Result: **FAILURE during emulator preparation**
-- Artifact ID: `10752580996`
-- Digest: `sha256:51be63ed40e1eb31f43f165ac1ec2a08c12660482e3e7002f9b7c4abda720af4`
-
-The Android failure occurred before application visual review and is not evidence of a Reader runtime defect.
-
-## 3. Baseline gaps and bounded disposition
-
-| Surface | Baseline finding | Final Phase 10 disposition |
+| Surface | Baseline finding | Phase 10 action |
 | --- | --- | --- |
-| Home | Blank after hydration; conditional Hook-order defect | **REMEDIATED** |
-| Desktop navigation | Desktop masthead plus mobile five-tab bar both visible | **REMEDIATED** |
-| Shared Reader shell | Premium discovery too weak | **REMEDIATED** |
-| Explore | Reader-facing structure existed but exposed internal taxonomy language | **REMEDIATED** |
-| Intelligent Search | Dedicated search, filters, no fabricated AI answer UI | **PRESERVED** |
-| Article Reader | Migration/internal taxonomy labels visible | **REMEDIATED** |
-| Live | Honest no-Live state; no fabricated inventory | **PRESERVED** |
-| Watch | First-class image-forward surface when authoritative media is present | **PRESERVED** |
-| Listen | Dedicated surface, but no authoritative playback/audio inventory | **COPY REMEDIATED; PLAYBACK DEFERRED** |
-| Saved / Offline | Saved/download/history distinct; Premium offline body protected | **PRESERVED** |
-| My HealthTimes | Internal/readiness and unsupported payment affordances exposed | **REMEDIATED** |
-| Country / Edition | Edition and followed geography distinct | **PRESERVED** |
-| Premium | Commerce fail-closed; reader copy/discovery needed polish | **DISCOVERY/COPY REMEDIATED; COMMERCE PRESERVED** |
-| HOSPAZ | Direct-ad placement governed; destination null/UNKNOWN | **PRESERVED** |
-| Notifications | Lightweight list/filter surface; implementation wording present | **COPY REMEDIATED** |
-| Onboarding | Full Reader chrome weakened welcome flow | **REMEDIATED** |
-| Studio/Admin | Operationally distinct; server authorization preserved | **PRESERVED** |
+| Home | Blank after async hydration because Home changed React Hook order after loading. | **Remediated in code.** |
+| Desktop navigation | Desktop masthead and mobile bottom tabs rendered together. | **Remediated in code.** |
+| Premium discovery | No persistent Premium utility entry in the shared Reader shell. | **Remediated in code.** |
+| Explore | Reader-facing screen exposed migration/domain vocabulary such as canonical/legacy taxonomy labels. | **Remediated in copy/presentation.** |
+| Article | Public article presentation exposed migration-internal taxonomy labels. | **Remediated in presentation.** |
+| My HealthTimes | Unsupported/internal entries such as Payment Methods and commercial/system readiness were exposed. | **Remediated in presentation.** |
+| Premium page | Commerce truth was fail-closed, but public copy exposed platform/store implementation language. | **Remediated in public copy; commerce authority unchanged.** |
+| Listen / Notifications | Public copy exposed implementation/authority terminology. | **Remediated in public copy.** |
+| Onboarding | Full Reader chrome weakened the focused welcome composition. | **Remediated in presentation.** |
+| HOSPAZ | Direct-ad authority existed but needed visible Reader placement without inventing destination/schedule truth. | **Verified direct placement restored; remains non-clickable without verified destination.** |
+| Search / Live / Watch / Saved / Edition / Studio | Existing structure was acceptable within source authority. | **Preserved.** |
 
-## 4. Bounded runtime changes
+## 4. Bounded implementation completed
 
-Final Reader/product runtime `2c8b64ec835d998c9fa37a80b651a02dab4087cc` contains only the Phase 10 visual/product remediation set.
+The Phase 10 branch changed only the shared Reader presentation, visual certification tests/workflows and Phase 10 evidence/docs.
 
-### Home / navigation
+Product-facing changes include:
 
-- `apps/mobile/app/(reader)/index.tsx`
-  - removes the conditional React Hook-order hazard that caused blank Home after async hydration;
-  - retains the accepted editorial/data/source authority.
+- repaired Home Hook ordering so the hydrated editorial Home can render;
+- suppressed the mobile bottom tab bar on desktop while preserving the same five Reader destinations;
+- added restrained Premium discovery to the shared Reader utility header;
+- restored the provenance-backed `hospaz-header-direct` Reader placement without inventing a destination;
+- removed public `Canonical desk` / `Legacy source taxonomy` article labels;
+- renamed Explore taxonomy presentation to reader-facing editorial desks, topics and categories;
+- removed unsupported/internal My HealthTimes entries and environment wording;
+- converted Premium, Listen and Notifications copy from implementation-facing language to publication-facing language;
+- rendered onboarding without full Reader utility chrome;
+- preserved accessibility roles, labels, selected/disabled states and minimum-touch-target conventions.
 
-- `apps/mobile/app/(reader)/_layout.tsx`
-  - suppresses the mobile bottom tab bar at desktop width;
-  - preserves Home / Explore / Live / Watch / My HT on mobile/native.
+Certification changes include:
 
-- `apps/mobile/src/ui/Layout.tsx`
-  - adds restrained Premium discovery in shared Reader chrome;
-  - permits focused chrome suppression for onboarding;
-  - preserves shared responsive/accessibility primitives.
+- `apps/mobile/tests/phase10-visual-conformance.test.mjs`;
+- updated existing Reader and growth-commercial tests so they continue asserting authority semantics without requiring internal UI wording;
+- exact-candidate responsive screenshot workflow;
+- frozen-baseline visual evidence workflow;
+- Android evidence PATH hardening;
+- Phase 10 workflow concurrency so later runs supersede obsolete Phase 10 evidence runs.
 
-### Reader-facing language / hierarchy
+## 5. Authority invariants preserved
 
-- `apps/mobile/app/(reader)/explore.tsx`
-  - removes migration/domain-model terminology from ordinary Reader presentation while retaining accepted taxonomy data.
+### Premium
 
-- `apps/mobile/app/article/[id].tsx`
-  - removes public migration-internal taxonomy labels without changing article/provenance/Premium authority.
+Still fail-closed:
 
-- `apps/mobile/app/(reader)/my.tsx`
-  - removes unsupported Payment Methods and internal readiness/system entries from ordinary Reader UI;
-  - keeps truthful membership/account/security controls.
+- storefront state remains configuration-driven;
+- no invented product IDs;
+- no invented prices;
+- no invented payment/subscriber state;
+- entitlement remains server-authoritative;
+- protected body rules remain unchanged;
+- Premium offline body persistence remains unchanged.
 
-- `apps/mobile/app/premium.tsx`
-  - makes unavailable/member-access states publication-facing;
-  - retains fail-closed commerce and never invents price/product/payment state.
+### HOSPAZ
 
-- `apps/mobile/app/listen.tsx`
-  - removes implementation-adapter wording while retaining truthful playback unavailability.
+Still provenance-bound:
 
-- `apps/mobile/app/notifications.tsx`
-  - removes implementation/authority wording from normal Reader copy.
+- advertiser: HOSPAZ;
+- placement: `hospaz-header-direct`;
+- source attachment: `33005`;
+- destination: `null` / UNKNOWN;
+- schedule: UNKNOWN;
+- placement conditions: UNKNOWN;
+- no verified destination means the direct ad remains non-clickable.
 
-- `apps/mobile/app/onboarding.tsx`
-  - presents the welcome flow without full Reader utility chrome.
+### Other authorities
 
-No migrated-corpus, database, storage, Premium entitlement, HOSPAZ commercial, AG-06, CA-01, COM-01 or Studio authorization semantics were redesigned.
+Unchanged:
 
-## 5. Certification evidence obtained
+- migrated-corpus mapping and Reader data authority;
+- CP5 route/SEO/public capability authority;
+- NM-03 taxonomy/geography/provenance authority;
+- AG-06 authorization/security;
+- CA-01 internal communications;
+- COM-01 communications/provider hold;
+- database migration ledger;
+- storage custody.
 
-An exact-candidate certification wave against `d5b28fe1b96c08a8ec710754b8d79d67bcfdd5ca` completed the following successfully before the later reader-copy-only refinements:
+## 6. Regression evidence obtained
 
-| Workflow | Run | Result |
-| --- | --- | --- |
-| Validate HealthTimes 2.0 | `35866192979` | **SUCCESS** |
-| Chromium UAT | `35866192946` | **SUCCESS** |
-| Native Mobile Foundation + Staging + Contracts + Reader + Growth + Security + Certification | `35866192840` | **SUCCESS** |
-| NM-07 Phase 6 Migrated Corpus Reader | `35866193260` | **SUCCESS** |
-| AG-05 + NM-07 Phase 7 Premium + HOSPAZ | `35866193415` | **SUCCESS** |
+On intermediate Phase 10 candidate `d5b28fe1b96c08a8ec710754b8d79d67bcfdd5ca`, the following exact-head PR workflows were green:
 
-Those runs prove that the core Phase 10 Home/navigation/remediation set did not break the accepted Reader, migrated-corpus, CP5, AG-06/CA-01/COM-01 contract coverage, Premium/HOSPAZ convergence or universal Native source.
+- Validate HealthTimes 2.0 — run `35866192979` — **SUCCESS**
+- Chromium UAT — run `35866192946` — **SUCCESS**
+- NM-07 Phase 6 Migrated Corpus Reader — run `35866193260` — **SUCCESS**
+- AG-05 + NM-07 Phase 7 Premium + HOSPAZ — run `35866193415` — **SUCCESS**
+- Unified Native certification — run `35866192840` — **SUCCESS**
 
-After `d5b28fe...`, the remaining executable changes through final product runtime `2c8b64ec...` were bounded reader-facing copy/label changes in Explore, Premium, Listen and Notifications plus conformance-test expansion. CI was repeatedly cancelled/restarted by subsequent evidence-workflow commits, so there is **no single all-green exact-head workflow matrix at `2c8b64ec...`**. This is the certification blocker and is not hidden.
+That candidate also proved the original Home Hook-order crash was removed far enough for the browser to reach the hydrated Home and locate `Top Stories`.
 
-## 6. Required gates not green
+The final runtime/test candidate `56e6809b...` contains only bounded follow-on public-copy/test corrections plus the same visual remediation architecture.
 
-### Web/PWA visual exact-candidate gate
+Exact final candidate Vercel preview creation is Git-integrated and target-null. The immediately preceding app-equivalent candidate `eec230f0af5a0afaf06c1ec579bb64be54906ac9` reached **READY** as deployment `dpl_EmNRWkCXaEivtFNRXP3n7Q2DavVJ`, target `null`. The primary staging alias remains unchanged on deployment `dpl_4xmfSenLQtJTQbNMpK7g3boFboaK`, SHA `4512b7d647eda850ec1e70ad440d459fbd1d82d0`.
 
-The dedicated Phase 10 candidate Web capture reached the remediated Home and found `Top Stories`, proving the original blank-Home Hook failure was removed. It then reported:
+## 7. Specific blocker
 
-- React minified hydration warning `#418`
-- server/client hydration mismatch
+Two required gates are not green, so Phase 10 must not be marked complete:
 
-This is not the original Home crash, but it remains an unresolved Web/PWA conformance signal. Phase 10 does not silently waive it.
+1. **Web/PWA hydration:** exact-candidate browser evidence reached the repaired Home but emitted React minified error #418, meaning the server-rendered tree did not exactly match the initial client tree and React regenerated it. The Phase 10 evidence workflow now records this warning rather than disguising it as the original blank-Home crash, but the underlying hydration mismatch is not proven resolved.
 
-### Native Binary / native screenshot gate
+2. **Final exact-head Native/visual matrix:** final-SHA runs for `56e6809b...` were queued/in progress when this lane was closed. The earlier exact candidate Native Binary run `35866193445` did not complete successfully; readiness passed but iOS/Android binary jobs were cancelled. A later unified Native run exposed stale test wording after the public-copy remediation; that test contract was corrected at `56e6809b...`, but the exact final matrix has not yet returned green.
 
-A Native Binary run on an intermediate exact candidate had:
+Current final-SHA runs initiated for `56e6809b...` include:
 
-- readiness: **SUCCESS**
-- iOS Simulator binary: **CANCELLED**
-- Android debug binary: **CANCELLED**
+- Phase 10 Candidate Visual Conformance — `35867494406`
+- Phase 10 Visual Evidence — `35867494907`
+- Validate HealthTimes 2.0 — `35867503361`
+- Native Binary Certification — `35867503363`
+- Unified Native Certification — `35867503393`
+- NM-07 Phase 6 Migrated Corpus Reader — `35867503574`
+- AG-05 + NM-07 Phase 7 Premium + HOSPAZ — `35867503607`
+- Chromium UAT — `35867503652`
 
-The cancellation was caused by branch/head churn while evidence-workflow commits were being added, not by a recorded binary-build failure. Nevertheless, it is not a green exact-head binary receipt.
+These runs are evidence-in-flight, not accepted certification receipts.
 
-Native screenshot evidence is also not acceptable as final visual proof:
+## 8. Safety / mutation receipt
 
-- baseline iOS screenshot harness launched a debug app without a script URL;
-- baseline Android emulator preparation failed;
-- later candidate native visual jobs were repeatedly cancelled/restarted by workflow-only commits.
-
-Accordingly, Phase 10 does **not** claim native visual acceptance.
-
-## 7. Premium / HOSPAZ truth preserved
-
-Premium remains fail-closed:
-
-- storefront authority: configuration-required
-- offers: none unless platform returns verified products
-- invented product IDs: **NO**
-- invented prices: **NO**
-- invented subscriber/payment state: **NO**
-- protected Premium body relaxation: **NO**
-- unauthorized Premium offline persistence: **NO**
-
-HOSPAZ remains fail-closed:
-
-- advertiser: `HOSPAZ`
-- placement: `hospaz-header-direct`
-- source attachment: `33005`
-- destination: `null`
-- destination state: `UNKNOWN`
-- schedule: `UNKNOWN`
-- placement conditions: `UNKNOWN`
-- fabricated click destination: **NO**
-
-## 8. Accessibility and responsive preservation
-
-The bounded work preserves the accepted accessibility baseline:
-
-- shared minimum touch-target token retained;
-- semantic button/link roles retained;
-- header actions remain labeled;
-- navigation selected/disabled state ownership retained;
-- existing live-region behavior retained;
-- no formal WCAG certification is claimed.
-
-Responsive intent remains:
-
-- mobile: five-destination bottom navigation;
-- tablet: expanded density/gutters without desktop duplication;
-- desktop: editorial masthead/navigation without mobile bottom tabs.
-
-The missing approved wireframe PNG prevents pixel-level owner-board comparison and remains a repository-custody gap, not something Phase 10 may reconstruct.
-
-## 9. Deferred / unresolved items
-
-The following remain explicitly unresolved rather than fabricated:
-
-1. approved wireframe PNG is absent from repository custody;
-2. React hydration warning #418 needs moderator disposition or focused framework remediation;
-3. one clean Native Binary exact-head run is still required for technical certification;
-4. one valid native visual capture path is still required if native screenshot evidence is mandatory;
-5. authoritative audio/playback inventory remains unavailable;
-6. Live inventory remains unavailable;
-7. storefront product/price/payment state remains unavailable;
-8. HOSPAZ destination/schedule/placement conditions remain UNKNOWN/null;
-9. physical-device owner UAT remains outside this CI lane.
-
-## 10. Mutation / deployment receipt
-
-- Production deployment: **NO**
-- Primary staging alias movement: **NO**
-- Production database mutation: **NO**
-- Staging migration replay/reset/ledger mutation: **NO**
-- Storage cleanup: **NO**
-- DNS/MX change: **NO**
-- Communications-provider activation: **NO**
-- Fake storefront configuration: **NO**
-- App Store submission: **NO**
-- Play Store submission: **NO**
-- Legacy-root retirement: **NO**
-- PR #27 merge: **NO**
-- PR #28 merge: **NO**
-- AG-08: **NO**
+- production deployment: **NO**
+- primary staging alias movement: **NO**
+- production database mutation: **NO**
+- staging destructive database mutation: **NO**
+- migration replay/reset/repair/push: **NO**
+- migration-ledger mutation: **NO**
+- storage cleanup or stale-object deletion: **NO**
+- production DNS/MX change: **NO**
+- external provider activation: **NO**
+- invented Premium price/product/payment state: **NO**
+- invented HOSPAZ destination/schedule/placement condition: **NO**
+- App Store / Play Store submission: **NO**
+- legacy root frontend retirement: **NO**
+- PR merge: **NO**
 - CP7 acceptance: **NO**
-- Phase 11 released: **NO**
+- Phase 11 release: **NO**
 
-## 11. Moderator handoff
+## 9. Moderator handoff
 
-The product remediation itself is complete and should **not** be reopened wholesale.
+The active implementation lane is closed. Re-open only for the bounded certification blocker:
 
-Moderator re-audit should focus only on:
+- resolve or formally remediate the Web/PWA hydration mismatch;
+- obtain green exact-head Phase 10 visual evidence plus Native Binary/Unified Native certification on one executable SHA;
+- then update this receipt with the successful exact-head run/artifact IDs.
 
-1. the React hydration #418 disposition;
-2. one clean Native Binary exact-head run;
-3. native screenshot evidence only if the moderator still requires CI-native visual proof;
-4. confirmation that the final Reader/product runtime remains `2c8b64ec835d998c9fa37a80b651a02dab4087cc` with later commits limited to tests/docs/evidence automation.
+Do not redesign the Reader, reopen migration, alter Premium/HOSPAZ authority, move the primary staging alias, merge PR #28, or release Phase 11 as part of that certification remediation.
 
-Final lane disposition:
-
-`PHASE 10 BLOCKED — BOUNDED PRODUCT REMEDIATION COMPLETE; FINAL EXACT-HEAD VISUAL/NATIVE EVIDENCE NOT GREEN`
-
-**Phase 11 is not released.**
+**PHASE 10 BLOCKED — Web/PWA hydration mismatch remains unresolved and final exact-head Native/visual certification is not green**
