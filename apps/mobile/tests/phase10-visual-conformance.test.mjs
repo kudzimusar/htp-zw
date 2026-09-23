@@ -14,6 +14,7 @@ const my=read("../app/(reader)/my.tsx");
 const onboarding=read("../app/onboarding.tsx");
 const cards=read("../src/ui/Cards.tsx");
 const premium=read("../app/premium.tsx");
+const premiumStore=read("../src/growth/premium-store.ts");
 
 test("Phase 10 Home hydration keeps React Hook order stable",()=>{
   assert.doesNotMatch(home,/useMemo\s*\(/);
@@ -61,6 +62,6 @@ test("Phase 10 onboarding uses focused welcome chrome",()=>{
 test("Phase 10 preserves fail-closed direct advertising and Premium commerce truth",()=>{
   assert.match(cards,/const clickable=\/\^https:\\\/\\\/\/i\.test\(destination\)/);
   assert.match(cards,/No verified destination is available for this direct advertisement/);
-  assert.match(premium,/configuration-required/);
+  assert.match(premiumStore,/status: "configuration-required"/);
   assert.doesNotMatch(premium,/\$[0-9]+(?:\.[0-9]{2})?/);
 });
