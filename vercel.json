@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install --no-audit --no-fund && npm install --prefix apps/mobile --no-audit --no-fund",
-  "buildCommand": "APP_ENV=staging EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity HEALTHTIMES_WEB_BASE_URL= npm run build:phase4:web",
+  "buildCommand": "APP_ENV=staging EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging HEALTHTIMES_WEB_BASE_URL= npm run build:phase4:web",
   "outputDirectory": "apps/mobile/dist",
   "functions": {
     "api/web.js": {
@@ -23,7 +23,10 @@
     {
       "source": "/newsroom.html",
       "headers": [
-        {"key": "Cache-Control", "value": "no-store, private"},
+        {
+          "key": "Cache-Control",
+          "value": "no-store, private"
+        },
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self' data:"
