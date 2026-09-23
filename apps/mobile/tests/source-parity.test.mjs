@@ -307,7 +307,8 @@ test("public Reader surfaces keep programme language in diagnostics, not editori
   assert.doesNotMatch(publicSurfaces,/SOURCE PARITY PREVIEW|SOURCE-BACKED DISCOVERY|AG-0[1-7]|migration completeness|temporary read-only parity bridge/i);
   const status=read("app/system-status.tsx");
   assert.match(status,/NM-04 DIAGNOSTICS/);
-  assert.match(status,/AG-04 reconciliation/);
+  assert.match(status,/NM-07 \/ AG-04/);
+  assert.match(status,/canonical staging source/i);
 });
 test("live-discovered stories retain dynamic internal article navigation",()=>{
   const service=read("src/services/source-parity.ts"),cards=read("src/ui/Cards.tsx");
