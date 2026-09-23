@@ -21,7 +21,8 @@
     "test:native-certification": "node --test tests/native-certification.test.mjs",
     "test:source-parity": "node --test tests/source-parity.test.mjs",
     "test:ca01-communications": "node --test tests/ca01-communications.test.mjs",
-    "test:migrated-corpus": "node --test tests/migrated-corpus-integration.test.mjs"
+    "test:migrated-corpus": "node --test tests/migrated-corpus-integration.test.mjs",
+    "test:premium-hospaz": "node --test tests/premium-hospaz-convergence.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",

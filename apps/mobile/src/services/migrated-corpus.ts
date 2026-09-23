@@ -1,4 +1,5 @@
 import type {
+  AdvertisingService,
   ArticleRepository,
   PublicationRepository,
   SearchService,
@@ -16,6 +17,11 @@ import { stagingConfig } from "../platform/config";
 import { getStagingSupabaseClient } from "../platform/supabase";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import { sourceParityServices } from "./source-parity";
+import {
+  directDecisionFromHospazCapability,
+  projectCp5HospazCapability,
+  type Cp5HospazRaw
+} from "../growth/direct-ad";
 import {
   mapMigratedStoryDocument,
   type MigratedStoryDocument
@@ -312,6 +318,27 @@ const taxonomyService: TaxonomyService = {
   }
 };
 
+const stagingAdvertisingService: AdvertisingService = {
+  async getDecision(placementKey, context) {
+    if(placementKey!=="hospaz-header-direct"){
+      return sourceParityServices.advertising.getDecision(placementKey,context);
+    }
+    try{
+      const raw=await rpc<Cp5HospazRaw | null>("ag05_hospaz_direct_ad_preview",{});
+      const capability=projectCp5HospazCapability(raw,stagingConfig.url);
+      return directDecisionFromHospazCapability(capability,placementKey);
+    }catch{
+      return {
+        placementKey,
+        source:"none",
+        personalization:"none",
+        disclosureLabel:"Advertisement",
+        policyReason:"Direct advertising capability is unavailable. No fallback destination or campaign state is invented."
+      };
+    }
+  }
+};
+
 const publicationRepository: PublicationRepository = {
   async getProfile() {
     return sourceParityServices.publication.getProfile();
@@ -344,7 +371,8 @@ export const migratedCorpusServices = {
   articles: articleRepository,
   search: searchService,
   taxonomy: taxonomyService,
-  publication: publicationRepository
+  publication: publicationRepository,
+  advertising: stagingAdvertisingService
 };
 
 export const migratedCorpusStatus = {
@@ -357,6 +385,7 @@ export const migratedCorpusStatus = {
     "ag05_resolve_public_path",
     "ag05_public_story_document",
     "ag05_public_context_document",
-    "ag05_public_feed_rows"
+    "ag05_public_feed_rows",
+    "ag05_hospaz_direct_ad_preview"
   ] as const
 };

@@ -50,6 +50,11 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
+  const entitledArticle=useAsync(async()=>{
+    const current=article.data;
+    if(!current || current.accessPolicy!=="premium" || entitlement.data!==true) return null;
+    return services.premium.getProtectedArticle(current.id);
+  },[article.data?.id,article.data?.accessPolicy,entitlement.data]);
 
   useEffect(()=>{
     const current=article.data;
@@ -78,9 +83,16 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
 
-  const story=article.data;
-  const protectedBody=story.accessPolicy==="premium" && !entitlement.data;
-  const blocks=parseArticleContent(story.bodyHtml,story.canonicalUrl);
+  const publicStory=article.data;
+  const verifiedPremiumStory=
+    entitlement.data===true && entitledArticle.data?.bodyHtml
+      ? entitledArticle.data
+      : null;
+  const story=verifiedPremiumStory ?? publicStory;
+  const protectedBody=
+    publicStory.accessPolicy==="premium" &&
+    !verifiedPremiumStory?.bodyHtml;
+  const blocks=parseArticleContent(protectedBody ? null : story.bodyHtml,story.canonicalUrl);
   const desktop=width >= breakpoints.desktop;
   const publishedLabel=formatArticleTime(story.publishedAt);
   const modifiedLabel=formatArticleTime(story.modifiedAt);
@@ -128,8 +140,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   };
 
   const download=async()=>{
-    if(protectedBody){
-      setActionStatus("Premium body is not available for offline storage without entitlement.");
+    if(story.accessPolicy==="premium"){
+      setActionStatus("Premium body is not available for offline storage until a verified offline entitlement policy exists.");
       return;
     }
     await services.reader.downloadArticle(story);
@@ -217,9 +229,16 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
           <>
             <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst}</Text>
             <View style={[styles.lock,{borderTopColor:colors.premium}]}>
-              <Text style={[styles.lockTitle,{color:palette.ink}]}>Premium reporting</Text>
-              <Text style={[styles.lockText,{color:palette.inkMuted}]}>This Premium article is available to members. Sign in or view Premium options to continue reading.</Text>
-              <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium</Text></Pressable>
+              <Text style={[styles.lockTitle,{color:palette.ink}]}>Premium member access</Text>
+              <Text style={[styles.lockText,{color:palette.inkMuted}]}>
+                {entitlement.data===true
+                  ? "Your membership entitlement is verified, but protected article delivery is not currently available. The source body remains protected."
+                  : "This Premium article is locked. HealthTimes must verify member entitlement before protected body content can be requested."}
+              </Text>
+              <View style={styles.lockActions}>
+                <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium access</Text></Pressable>
+                <Pressable style={[styles.secondary,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}><Text style={[styles.secondaryText,{color:palette.ink}]}>Member sign in</Text></Pressable>
+              </View>
             </View>
           </>
         ):(

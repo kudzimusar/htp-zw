@@ -72,6 +72,9 @@ export const persistentReaderRepository: ReaderRepository = {
   },
 
   async downloadArticle(article) {
+    if(article.accessPolicy==="premium"){
+      throw new Error("Premium body is not available for offline storage until a verified offline entitlement policy exists.");
+    }
     const downloads = await readJson<Record<string, ArticleDetail>>(keys.downloads, {});
     downloads[article.id] = article;
     await writeJson(keys.downloads, downloads);

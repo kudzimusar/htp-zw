@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { EmptyState, Page, Section, SectionHeader } from "../src/ui/Layout";
@@ -14,8 +14,18 @@ export default function PremiumScreen(){
   const { palette }=useAppearance();
   const store=useAsync(()=>services.premiumStore.getState(),[]);
   const sourceStories=useAsync(()=>services.articles.getHome(),[]);
+  const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const premiumStories=(sourceStories.data ?? []).filter((story)=>story.accessPolicy==="premium");
   const [status,setStatus]=useState("");
+  const previewTracked=useRef(false);
+
+  useEffect(()=>{
+    if(previewTracked.current) return;
+    previewTracked.current=true;
+    void services.analytics.track(event("premium_preview_started",{
+      surface:"premium_landing"
+    },{pagePath:"/premium"}));
+  },[]);
 
   const purchase=async(storeProductId:string,productKey:"monthly"|"yearly")=>{
     try{
@@ -43,7 +53,26 @@ export default function PremiumScreen(){
       </View>
 
       <Section>
-        <SectionHeader title="From HealthTimes Premium" eyebrow="CURRENT PUBLIC SOURCE" />
+        <SectionHeader title="Premium access" eyebrow="MEMBER STATUS" />
+        <View style={[styles.accessState,{borderColor:palette.border,backgroundColor:palette.paper}]}>
+          <Text style={[styles.accessTitle,{color:palette.ink}]}>
+            {entitlement.data===true ? "Premium entitlement verified" : "Premium entitlement is checked securely"}
+          </Text>
+          <Text style={[styles.accessText,{color:palette.inkMuted}]}>
+            {entitlement.data===true
+              ? "Your account has a verified Premium entitlement. Protected stories are requested only through the Premium service."
+              : "HealthTimes does not assume subscription status. Sign in to check existing member access, or use a verified platform storefront when products are configured."}
+          </Text>
+          {entitlement.data!==true && (
+            <Pressable accessibilityRole="button" style={[styles.restore,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}>
+              <Text style={[styles.restoreText,{color:palette.ink}]}>Check member access</Text>
+            </Pressable>
+          )}
+        </View>
+      </Section>
+
+      <Section>
+        <SectionHeader title="From HealthTimes Premium" eyebrow="AUTHORITATIVE ACCESS POLICY" />
         {premiumStories.length
           ? <StoryGrid stories={premiumStories} />
           : <EmptyState title="No Premium stories available" message="Premium reporting will appear here when published." />}
@@ -67,8 +96,8 @@ export default function PremiumScreen(){
           </View>
         ) : (
           <EmptyState
-            title="Native storefront configuration required"
-            message={store.data?.message ?? "Storefront state is loading. No plan or price is shown until the platform returns verified products."}
+            title="Verified storefront products are unavailable"
+            message={store.data?.message ?? "Storefront state is loading. No plan, price or product identifier is shown until the platform returns verified products."}
           />
         )}
       </Section>
@@ -105,6 +134,9 @@ const styles=StyleSheet.create({
   benefit:{fontSize:15,lineHeight:28},
   cta:{marginTop:spacing.sm,alignSelf:"flex-start",minHeight:48,justifyContent:"center",paddingHorizontal:18,borderRadius:radius.sm},
   ctaText:{fontWeight:"900"},
+  accessState:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg,gap:spacing.sm},
+  accessTitle:{fontSize:18,fontWeight:"900"},
+  accessText:{fontSize:14,lineHeight:22},
   memberActions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.lg},
   restore:{minHeight:44,justifyContent:"center",alignSelf:"flex-start",paddingHorizontal:12,borderWidth:1,borderRadius:radius.sm},
   restoreText:{fontWeight:"900"},

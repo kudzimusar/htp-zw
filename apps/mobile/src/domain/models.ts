@@ -142,6 +142,7 @@ export type SearchResult = {
 
 export type AdPlacementKey =
   | "home_top"
+  | "hospaz-header-direct"
   | "home_after_live"
   | "home_feed_1"
   | "home_feed_2"
