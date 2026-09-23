@@ -18,7 +18,7 @@ test.describe('AG-06 security contract', () => {
   });
 
   test('RLS and RPC contract enforce editorial and staff authority server-side', async () => {
-    const sql = read('supabase/migrations/20260922080100_ag06_newsroom_auth_rbac.sql');
+    const sql = read('supabase/migrations/20260922020254_ag06_newsroom_auth_rbac.sql');
     expect(sql).toContain('create or replace function public.newsroom_has_capability');
     expect(sql).toContain('create or replace function public.newsroom_session_authorized');
     expect(sql).toContain('create or replace function public.newsroom_protect_story_authority_fields');
@@ -40,8 +40,8 @@ test.describe('AG-06 security contract', () => {
   });
 
   test('protected functions are not left executable by anonymous/public roles', async () => {
-    const sql = read('supabase/migrations/20260922080100_ag06_newsroom_auth_rbac.sql');
-    const hardening = read('supabase/migrations/20260922112000_ag06_security_advisor_hardening.sql');
+    const sql = read('supabase/migrations/20260922020254_ag06_newsroom_auth_rbac.sql');
+    const hardening = read('supabase/migrations/20260922021521_ag06_security_advisor_hardening.sql');
     for (const signature of [
       'newsroom_create_story(jsonb)',
       'newsroom_save_story(uuid,integer,jsonb,text)',
