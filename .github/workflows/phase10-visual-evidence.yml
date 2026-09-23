@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/ag07-nm07-phase10-visual-conformance
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -30,12 +31,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
       - name: Prove exact candidate checkout
         shell: bash
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
@@ -52,7 +53,7 @@ jobs:
       - name: Capture final mobile/tablet/desktop Reader evidence
         shell: bash
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           node scripts/web/phase4-smoke-server.js >/tmp/phase10-final-web.log 2>&1 &
