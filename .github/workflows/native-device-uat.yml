@@ -208,6 +208,55 @@ jobs:
           cat "$RUNNER_TEMP/expo-packager.log"
           exit 1
 
+      - name: Prepare Android UAT script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/nm07-android-uat.sh" <<'BASH'
+          #!/usr/bin/env bash
+          set -eu
+
+          adb reverse tcp:8081 tcp:8081
+          if [ "${{ matrix.family }}" = "tablet" ]; then
+            adb shell wm size 2560x1600
+            adb shell wm density 320
+          else
+            adb shell wm size 1080x2400
+            adb shell wm density 420
+          fi
+
+          printf 'family=%s\nmodel=%s\nos=%s\nsize=%s\ndensity=%s\n' \
+            "${{ matrix.family }}" \
+            "$(adb shell getprop ro.product.model | tr -d '\r')" \
+            "$(adb shell getprop ro.build.version.release | tr -d '\r')" \
+            "$(adb shell wm size | tr -d '\r')" \
+            "$(adb shell wm density | tr -d '\r')" > "$RUNNER_TEMP/android-device.txt"
+
+          APK=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          adb install -r "$APK"
+          PACKAGE=zw.co.healthtimes.app.staging
+          ACTIVITY="$PACKAGE/.MainActivity"
+
+          adb shell am force-stop "$PACKAGE"
+          adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-first-launch.txt"
+          sleep 10
+          test -n "$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+
+          adb shell am force-stop "$PACKAGE"
+          adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-cold-launch.txt"
+          sleep 5
+          adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-warm-launch.txt"
+
+          adb shell am start -W -a android.intent.action.VIEW \
+            -d "healthtimes://article/parirenyatwa-hospital-commissions-new-heart-bypass-machine-boosts-open-heart-surgery-in-zimbabwe" \
+            "$PACKAGE" | tee "$RUNNER_TEMP/android-deeplink.txt"
+          sleep 5
+
+          adb exec-out screencap -p > "$RUNNER_TEMP/android-${{ matrix.family }}.png"
+          adb logcat -d > "$RUNNER_TEMP/android-${{ matrix.family }}.log"
+          BASH
+          chmod +x "$RUNNER_TEMP/nm07-android-uat.sh"
+
       - name: Run Android emulator UAT
         uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
@@ -219,47 +268,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           emulator-options: -no-snapshot-save -no-snapshot-load -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: |
-            set -eu
-            adb reverse tcp:8081 tcp:8081
-            if [ "${{ matrix.family }}" = "tablet" ]; then
-              adb shell wm size 2560x1600
-              adb shell wm density 320
-            else
-              adb shell wm size 1080x2400
-              adb shell wm density 420
-            fi
-
-            printf 'family=%s\nmodel=%s\nos=%s\nsize=%s\ndensity=%s\n' \
-              "${{ matrix.family }}" \
-              "$(adb shell getprop ro.product.model | tr -d '\r')" \
-              "$(adb shell getprop ro.build.version.release | tr -d '\r')" \
-              "$(adb shell wm size | tr -d '\r')" \
-              "$(adb shell wm density | tr -d '\r')" > "$RUNNER_TEMP/android-device.txt"
-
-            APK=apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-            test -f "$APK"
-            adb install -r "$APK"
-            PACKAGE=zw.co.healthtimes.app.staging
-            ACTIVITY="$PACKAGE/.MainActivity"
-
-            adb shell am force-stop "$PACKAGE"
-            adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-first-launch.txt"
-            sleep 10
-            test -n "$(adb shell pidof "$PACKAGE" | tr -d '\r')"
-
-            adb shell am force-stop "$PACKAGE"
-            adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-cold-launch.txt"
-            sleep 5
-            adb shell am start -W -n "$ACTIVITY" | tee "$RUNNER_TEMP/android-warm-launch.txt"
-
-            adb shell am start -W -a android.intent.action.VIEW \
-              -d "healthtimes://article/parirenyatwa-hospital-commissions-new-heart-bypass-machine-boosts-open-heart-surgery-in-zimbabwe" \
-              "$PACKAGE" | tee "$RUNNER_TEMP/android-deeplink.txt"
-            sleep 5
-
-            adb exec-out screencap -p > "$RUNNER_TEMP/android-${{ matrix.family }}.png"
-            adb logcat -d > "$RUNNER_TEMP/android-${{ matrix.family }}.log"
+          script: bash "$RUNNER_TEMP/nm07-android-uat.sh"
 
       - name: Upload Android UAT evidence
         if: always()
