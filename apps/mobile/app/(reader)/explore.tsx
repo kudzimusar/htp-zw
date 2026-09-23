@@ -52,8 +52,8 @@ export default function ExploreScreen(){
   const groups=[
     ["Countries",countries],
     ["Regions",regions],
-    ["Canonical desks",desks],
-    ["Legacy publication categories",legacyTopics],
+    ["Editorial desks",desks],
+    ["Topics & categories",legacyTopics],
     ["Formats",["Articles","Live","Video","Audio","Premium"]],
     ["Publication",["Authors","About HealthTimes",...sourceProducts]]
   ] as const;
@@ -96,26 +96,15 @@ export default function ExploreScreen(){
       </Pressable>
 
       <Section>
-        <SectionHeader title="Browse" eyebrow="TAXONOMY GATEWAY" />
-        <View style={styles.legend}>
-          <View style={[styles.legendItem,{borderColor:palette.border}]}>
-            <Text style={[styles.legendLabel,{color:palette.blue}]}>CANONICAL</Text>
-            <Text style={[styles.legendText,{color:palette.inkMuted}]}>HealthTimes editorial navigation.</Text>
-          </View>
-          <View style={[styles.legendItem,{borderColor:palette.border}]}>
-            <Text style={[styles.legendLabel,{color:palette.ink}]}>LEGACY</Text>
-            <Text style={[styles.legendText,{color:palette.inkMuted}]}>Categories used by the current HealthTimes publication.</Text>
-          </View>
-        </View>
-
+        <SectionHeader title="Browse" eyebrow="DISCOVER HEALTHTIMES" />
         <View style={styles.gateway}>
           {groups.map(([title,items])=>(
             <View key={title} style={[styles.gatewayGroup,{borderColor:palette.border}]}>
               <View style={styles.groupHeading}>
                 <Text style={[styles.gatewayTitle,{color:palette.ink}]}>{title}</Text>
-                {(title==="Canonical desks" || title==="Legacy publication categories") && (
+                {(title==="Editorial desks" || title==="Topics & categories") && (
                   <Text style={[styles.groupSource,{color:palette.inkMuted}]}>
-                    {title==="Canonical desks" ? "HEALTHTIMES DESKS" : "PUBLICATION CATEGORIES"}
+                    {title==="Editorial desks" ? "HEALTHTIMES DESKS" : "HEALTH TOPICS"}
                   </Text>
                 )}
               </View>
@@ -144,7 +133,7 @@ export default function ExploreScreen(){
               ) : (
                 <EmptyState
                   title={"No "+title.toLowerCase()+" available"}
-                  message={title==="Legacy publication categories"
+                  message={title==="Topics & categories"
                     ? "No categories are available for this section yet."
                     : "No values are available for this section yet."}
                 />
@@ -158,7 +147,7 @@ export default function ExploreScreen(){
         <SectionHeader title={active + " reporting"} eyebrow="DISCOVER" action="Intelligent Search" onAction={()=>router.push("/search" as never)} />
         {filteredStories.length
           ? <StoryGrid stories={filteredStories} />
-          : <EmptyState title={"No "+active+" stories found"} message="Try another HealthTimes desk or publication category." />}
+          : <EmptyState title={"No "+active+" stories found"} message="Try another HealthTimes desk, topic or category." />}
       </Section>
     </Page>
   );
