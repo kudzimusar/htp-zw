@@ -12,6 +12,8 @@ test('Vercel intentionally builds apps/mobile as the root public Reader without 
   expect(config.outputDirectory).toBe('apps/mobile/dist');
   expect(config.buildCommand).toContain('build:phase4:web');
   expect(config.buildCommand).toContain('HEALTHTIMES_WEB_BASE_URL=');
+  expect(config.buildCommand).toContain('EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging');
+  expect(config.buildCommand).not.toContain('EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity');
   expect(config.buildCommand).not.toContain('/htp-zw');
   const catchAll = config.rewrites.at(-1);
   expect(catchAll.source).toBe('/:path*');
