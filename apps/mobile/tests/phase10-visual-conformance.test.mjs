@@ -18,6 +18,7 @@ const premiumStore=read("../src/growth/premium-store.ts");
 const explore=read("../app/(reader)/explore.tsx");
 const listen=read("../app/listen.tsx");
 const notifications=read("../app/notifications.tsx");
+const studio=read("../src/ui/Studio.tsx");
 
 test("Phase 10 Home hydration keeps React Hook order stable",()=>{
   assert.doesNotMatch(home,/useMemo\s*\(/);
@@ -37,6 +38,9 @@ test("Phase 10 responsive shell hydrates deterministically before viewport struc
   assert.match(tabs,/Live/);
   assert.match(tabs,/Watch/);
   assert.match(tabs,/My HT/);
+  assert.match(studio,/useHydratedStudioWidth/);
+  assert.match(studio,/useState\(Platform\.OS!==["']web["']\)/);
+  assert.match(studio,/return responsiveReady \? width : 0/);
 });
 
 test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
