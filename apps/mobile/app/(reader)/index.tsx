@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
@@ -116,26 +116,19 @@ export default function HomeScreen() {
     ? source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
     : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
 
-  const filteredStories=useMemo(()=>{
-    if(activeFilter==="latest") return source;
-    if(activeFilter==="edition") return editionStories.length ? editionStories : source;
-    if(activeFilter==="world"){
-      const matches=source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"));
-      return matches.length ? matches : source;
-    }
-    if(activeFilter==="health"){
-      const matches=source.filter(isHealthStory);
-      return matches.length ? matches : source;
-    }
+  let filteredStories=source;
+  if(activeFilter==="edition"){
+    filteredStories=editionStories.length ? editionStories : source;
+  } else if(activeFilter==="world"){
+    const matches=source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"));
+    filteredStories=matches.length ? matches : source;
+  } else if(activeFilter==="health"){
+    const matches=source.filter(isHealthStory);
+    filteredStories=matches.length ? matches : source;
+  } else if(activeFilter==="for-you"){
     const matches=source.filter((item)=>matchesPreferences(item,preferenceState));
-    return matches.length ? matches : source;
-  },[
-    activeFilter,
-    home.data,
-    edition,
-    preferenceState.followedCountries.join("|"),
-    preferenceState.followedTopics.join("|")
-  ]);
+    filteredStories=matches.length ? matches : source;
+  }
 
   const [hero,...filteredRemainder]=filteredStories;
   const topStories=filteredRemainder.slice(0,6);
