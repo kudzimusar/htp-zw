@@ -23,7 +23,7 @@ Phase 6:
 
 - Branch: `integration/nm07-phase6-migrated-corpus-reader`
 - Draft PR: #24 — Draft / Open / Unmerged
-- Certified Phase 6 runtime candidate: `475b9927ed436187c2dc3140763befd6ccda8d23`
+- Certified Phase 6 runtime candidate: `b05a734744b6691bd267d2d01e972d2adf00cbd5`
 - Phase 6 documentation closure: this commit
 - Production systems modified: **NO**
 - Phase 5 custody branch rewritten: **NO**
@@ -106,6 +106,26 @@ Read-only recheck at Phase 6 closure:
 The 3,277 media records are intentionally composed of 3,275 canonical media records plus 2 accepted missing-from-archive exceptions.
 
 No destructive storage cleanup occurred.
+
+
+CP5 public capability verification remains **6 / 6 PASS**.
+
+HOSPAZ remains explicitly non-inferred:
+
+- destination URL: `null`
+- destination state: `UNKNOWN`
+- schedule: `UNKNOWN`
+- placement conditions: `UNKNOWN`
+
+The read-only evidence mutation receipt remains:
+
+- database mutation: **false**
+- storage mutation: **false**
+- deployment mutation: **false**
+- production mutation: **false**
+
+No staging migration replay, ledger mutation, database reset, storage cleanup, stale-object deletion, primary staging alias movement, DNS/MX change, provider activation, store submission, or PR merge occurred.
+
 
 ---
 
@@ -203,7 +223,7 @@ Phase 6 did not redesign Reader screens or recreate NM-01 through NM-06.
 
 Phase 6 changes Reader data wiring only. It does not modify AG-06, CA-01, COM-01, database RLS, Auth schemas, Newsroom APIs, communications APIs, or certification provisioners.
 
-Exact-head `475b9927ed436187c2dc3140763befd6ccda8d23` regressions inside the Phase 6 convergence workflow:
+Exact-head `b05a734744b6691bd267d2d01e972d2adf00cbd5` regressions inside the Phase 6 convergence workflow:
 
 - CP5 capability suite: **10 / 10 PASS**
 - AG-06 security contract: **6 / 6 PASS**
@@ -218,21 +238,44 @@ No service-role key, privileged database credential, production credential, or p
 
 ## 10. Exact-head certification
 
-Certified candidate:
+The earlier Phase 6 implementation candidate `475b9927...` was product-correct, but the unified Native Mobile workflow used GitHub's synthetic pull-request merge checkout. The moderator independently confirmed that the synthetic merge introduced zero changed files relative to the implementation candidate; this was a provenance defect, not a product regression.
 
-`475b9927ed436187c2dc3140763befd6ccda8d23`
+The remediation changed only `.github/workflows/native-mobile.yml` to:
 
-All applicable exact-head workflows completed successfully:
+- check out `${{ github.event.pull_request.head.sha || github.sha }}` with `fetch-depth: 1`;
+- log `EXPECTED_SHA` and `CHECKED_OUT_SHA` immediately after checkout;
+- fail closed when the two SHAs differ.
+
+The certification-only remediation commit is exactly one commit above the prior documentation closure `c1bd6db5d0f5d77b373f60a512692efc70571c1b` and changes only `.github/workflows/native-mobile.yml` (+13 / -0).
+
+Final certified candidate:
+
+`b05a734744b6691bd267d2d01e972d2adf00cbd5`
+
+Complete final acceptance matrix:
 
 | Workflow | Run | Result |
 | --- | ---: | --- |
-| Validate HealthTimes 2.0 | `35837266376` | SUCCESS |
-| Chromium UAT | `35837266496` | SUCCESS |
-| Native Mobile Foundation + Staging + Contracts + Reader + Growth + Security + Certification | `35837266388` | SUCCESS |
-| NM-07 Phase 6 Migrated Corpus Reader | `35837266347` | SUCCESS |
-| Native Binary Certification | `35837266421` | SUCCESS |
+| Validate HealthTimes 2.0 | `35842889061` | SUCCESS |
+| Chromium UAT | `35842889006` | SUCCESS |
+| Native Mobile Foundation + Staging + Contracts + Reader + Growth + Security + Certification | `35842889065` | SUCCESS |
+| NM-07 Phase 6 Migrated Corpus Reader | `35842889008` | SUCCESS |
+| Native Binary Certification | `35842889003` | SUCCESS |
 
-The Phase 6 and Native Binary workflows explicitly prove exact checkout SHA against the pull-request head / GitHub SHA.
+Every final job proved exact checkout equality:
+
+| Workflow | Job | Job ID | EXPECTED_SHA | CHECKED_OUT_SHA | Result |
+| --- | --- | ---: | --- | --- | --- |
+| Validate HealthTimes 2.0 | validate | `107121945825` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| Chromium UAT | playwright | `107121946090` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| Native Mobile unified certification | universal-build | `107121946003` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| NM-07 Phase 6 | Read-only staging corpus and CP5 invariants | `107121960834` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| NM-07 Phase 6 | Migrated corpus Reader convergence | `107121961117` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| Native Binary Certification | readiness | `107121946231` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| Native Binary Certification | ios-simulator-binary | `107121945958` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+| Native Binary Certification | android-debug-binary | `107121946211` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | `b05a734744b6691bd267d2d01e972d2adf00cbd5` | PASS |
+
+No final certification job used the synthetic merge commit as its checked-out runtime.
 
 ---
 
@@ -241,36 +284,38 @@ The Phase 6 and Native Binary workflows explicitly prove exact checkout SHA agai
 Exact-head Phase 6 artifacts:
 
 - `nm07-phase6-reader-evidence`
-  - artifact ID: `10739368035`
-  - digest: `sha256:544d40577f1e7d5337267bbdcbe754d2fd62bff32b0b95a85183efa49e9a9282`
+  - artifact ID: `10741772942`
+  - digest: `sha256:1b679cf5958587a8fc50b9a2abbadbe76f967f7f2a98f6486dfe5faf3b52b971`
 
 - `nm07-phase6-readonly-staging-evidence`
-  - artifact ID: `10739198775`
-  - digest: `sha256:2c190885214a191cea925dcc57022f99101cca4665ea327c85f0605ecc7e591f`
+  - artifact ID: `10742103118`
+  - digest: `sha256:1b61c78ad2484c51c1543fa326be5f4c65877a6aa6f8a53c5752df10e7866b89`
 
 - `healthtimes-native-web-dist`
-  - artifact ID: `10739732919`
-  - digest: `sha256:7e14380005e19b08e2d55fdda99e1817f0c02eed04a96a45c996ee9fb6c7e4ff`
+  - artifact ID: `10741894053`
+  - digest: `sha256:fea8b2b9602549a4ada842dded4af921507a1f48c96d41f07b279755e99508ff`
 
 - `healthtimes-playwright-report`
-  - artifact ID: `10738924802`
-  - digest: `sha256:e0fbe82b0cb4e5484521453b70a9f10c84e7628b61c12036a3f3c8d29aead42a`
+  - artifact ID: `10741922430`
+  - digest: `sha256:e154c6a6a645bf71733b2cfc7c19ee1ebd09b098d5cb95bbc5817b646aceaacc`
 
 Native binary/config artifacts:
 
 - `healthtimes-ios-simulator-app`
-  - artifact ID: `10741150376`
-  - digest: `sha256:5ddb77269375a453148c6d66c2d8ff4301b13333508e06f84c00375cc5fbb09c`
+  - artifact ID: `10741869718`
+  - digest: `sha256:4148f60a006ceedd165948865aee93b1fdd728c06fcd5f2174ed083cdcb87091`
 
 - `healthtimes-android-debug-apk`
-  - artifact ID: `10740946592`
-  - digest: `sha256:6970e6867c399840f293138414cf14e9948191ca7d4cdb3ee03096b7f4b580e1`
+  - artifact ID: `10742887276`
+  - digest: `sha256:1d321984a248e1a58617d16f4cd0a353151f49dfbf122c51b425978601c0ace7`
 
 - `healthtimes-native-config-matrix`
-  - artifact ID: `10738879910`
-  - digest: `sha256:fe95293083f500d588c1dc6a0613c204834ed0152199e5fc55b3989460b5bb7e`
+  - artifact ID: `10741752736`
+  - digest: `sha256:c5f6c22c8716d0dabbf43cde0832514addf86d9173acf5971f95272a82f20bc2`
 
-The staging config matrix now resolves `EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging`; it no longer certifies fixture editorial mode as the staging profile.
+The Android debug APK and iOS Simulator app are development-profile native build evidence only. They are **not** staging-configured release binaries and are not store-submission artifacts.
+
+The staging service configuration is separately proven by the native config matrix and Phase 6 staging integration suite: `EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging`. No App Store or Play Store submission occurred.
 
 ---
 
@@ -295,6 +340,7 @@ Tests / certification:
 - `apps/mobile/package.json`
 - `.github/workflows/nm07-phase6-migrated-corpus.yml`
 - `.github/workflows/native-certification.yml`
+- `.github/workflows/native-mobile.yml` — exact-head provenance remediation only
 
 No Supabase migration, CP5 server implementation, AG-06 runtime, CA-01 runtime, COM-01 runtime, production environment, DNS, storage cleanup, or provider configuration file changed.
 
@@ -338,4 +384,4 @@ These items do not invalidate Phase 6 migrated-corpus → Reader convergence.
 - PR #24 merged: **NO**
 - Phase 7 started: **NO**
 
-**PHASE 6 ACCEPTED AS STABLE MIGRATED-CORPUS READER INTEGRATION CANDIDATE.**
+**PHASE 6 FINAL EXACT-HEAD CERTIFIED — READY FOR MODERATOR RE-AUDIT.**
