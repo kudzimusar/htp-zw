@@ -233,7 +233,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
               <Text style={[styles.lockText,{color:palette.inkMuted}]}>
                 {entitlement.data===true
                   ? "Your membership entitlement is verified, but protected article delivery is not currently available. The source body remains protected."
-                  : "This Premium article is locked. HealthTimes must verify member entitlement before protected body content can be requested."}
+                  : "This Premium article is available to members. HealthTimes must verify member entitlement before protected body content can be requested."}
               </Text>
               <View style={styles.lockActions}>
                 <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium access</Text></Pressable>
