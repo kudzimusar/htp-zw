@@ -167,7 +167,7 @@ test("Home editorial filters are functional and default country preferences stay
   assert.ok(home.includes('type HomeFilter="for-you"|"latest"|"edition"|"world"|"health"'));
   assert.ok(home.includes("setActiveFilter(item.key)"));
   assert.ok(home.includes("matchesPreferences"));
-  assert.ok(home.includes('activeFilter==="latest"'));
+  assert.ok(home.includes('let filteredStories=source'));
   assert.ok(home.includes('activeFilter==="edition"'));
   assert.ok(home.includes('activeFilter==="world"'));
   assert.ok(home.includes('activeFilter==="health"'));
