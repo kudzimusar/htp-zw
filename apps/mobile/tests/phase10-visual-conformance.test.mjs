@@ -15,6 +15,9 @@ const onboarding=read("../app/onboarding.tsx");
 const cards=read("../src/ui/Cards.tsx");
 const premium=read("../app/premium.tsx");
 const premiumStore=read("../src/growth/premium-store.ts");
+const explore=read("../app/(reader)/explore.tsx");
+const listen=read("../app/listen.tsx");
+const notifications=read("../app/notifications.tsx");
 
 test("Phase 10 Home hydration keeps React Hook order stable",()=>{
   assert.doesNotMatch(home,/useMemo\s*\(/);
@@ -53,6 +56,16 @@ test("Phase 10 My HealthTimes leads with personal controls and omits internal re
   assert.ok(my.indexOf('{groups.map') < my.indexOf('title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL"'));
 });
 
+test("Phase 10 Explore and secondary surfaces use reader-facing language",()=>{
+  for(const term of ["TAXONOMY GATEWAY","CANONICAL","LEGACY","Canonical desks","Legacy publication categories"]){
+    assert.doesNotMatch(explore,new RegExp(term));
+  }
+  assert.match(explore,/Editorial desks/);
+  assert.match(explore,/Topics & categories/);
+  assert.doesNotMatch(listen,/certified media playback adapter|later media playback lane|Classification metadata required/);
+  assert.doesNotMatch(notifications,/Notification authority/);
+});
+
 test("Phase 10 onboarding uses focused welcome chrome",()=>{
   assert.match(onboarding,/<Page chrome=\{false\}>/);
   assert.match(onboarding,/Welcome to HealthTimes/);
@@ -63,5 +76,7 @@ test("Phase 10 preserves fail-closed direct advertising and Premium commerce tru
   assert.match(cards,/const clickable=\/\^https:\\\/\\\/\/i\.test\(destination\)/);
   assert.match(cards,/No verified destination is available for this direct advertisement/);
   assert.match(premiumStore,/status: "configuration-required"/);
+  assert.doesNotMatch(premium,/AUTHORITATIVE ACCESS POLICY|platform configuration|product identifier/);
   assert.doesNotMatch(premium,/\$[0-9]+(?:\.[0-9]{2})?/);
+  assert.match(home,/AdSlot placement="hospaz-header-direct"/);
 });
