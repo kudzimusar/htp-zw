@@ -1,144 +1,247 @@
 # AG-07 + NM-07 Phase 10 — Visual / Product Conformance
 
-## Working status
+## Final lane disposition
 
-**PHASE 10 IN PROGRESS — BASELINE VISUAL EVIDENCE CAPTURED BEFORE PRODUCT REMEDIATION**
+**PHASE 10 BLOCKED — final exact-head visual/native certification is incomplete**
 
-This document is the Phase 10 gap register and will become the final conformance receipt after bounded remediation and exact-head certification.
+The bounded visual/product remediation is complete, but Phase 10 is not marked accepted because the final executable candidate did not obtain the full exact-head evidence matrix required by the moderator assignment.
 
-### Released authority
+## 1. Authority and final candidate
 
 - Repository: `kudzimusar/htp-zw`
-- Certified executable baseline under visual review: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
-- Accepted Phase 9 documentation closure: `86df1f08e0b3e578348227c30248e32437687352`
-- Phase 9 PR: #27 — Draft / Open / Unmerged / Mergeable
+- Certified Phase 9 executable baseline: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
+- Accepted Phase 9 closure: `86df1f08e0b3e578348227c30248e32437687352`
+- Phase 9 PR #27: Draft / Open / Unmerged / Mergeable
 - Phase 10 branch: `integration/ag07-nm07-phase10-visual-conformance`
+- Final executable Phase 10 candidate: `8de6e4d62278b100cf9b93655841ec28ebdc059b`
+- Phase 10 PR #28: Draft / Open / Unmerged / Mergeable
 - Design authority: `docs/native-mobile/DESIGN.md`
 - Expected wireframe: `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png`
 - Wireframe repository custody: **ABSENT**
-- Unseen wireframe reconstructed or inferred: **NO**
+- Reconstructed/invented wireframe: **NO**
 
-The visual interpretation order remains security/authorization → accessibility → Master Plan functionality → DESIGN.md → wireframe if later supplied → platform conventions → implementation judgment.
+Interpretation priority remained security/authorization → accessibility → Master Plan → `DESIGN.md` → wireframe if later supplied → platform conventions → implementation judgment.
 
-## Baseline evidence — before product changes
+## 2. Before evidence captured before product remediation
 
-No Reader/product source had been modified when the baseline visual jobs checked out the released executable directly.
+### Web/PWA baseline
 
-### Web/PWA exact-baseline capture
+Primary source-parity baseline:
 
-Workflow: `Phase 10 Visual Baseline Evidence`
+- run `35862974220`
+- job `107187504110`
+- result: **SUCCESS**
+- checkout: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
+- artifact: `phase10-before-web-pwa-screenshots`
+- artifact ID: `10750654475`
+- digest: `sha256:62f600bd3f0971ce1c5d5d49eef0526a53f1afe5ac1d3dc4593904bb2174b0a2`
 
-Run: `35862974381`
+Required responsive views included approximately 390×844 mobile, 834×1112 tablet and 1440×1000 desktop.
 
-Job: `107187477046 — Baseline Web PWA visual capture`
+Secondary staging-service Web baseline:
 
-Result: **SUCCESS**
-
-Exact checkout:
-
-- EXPECTED_SHA: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
-- CHECKED_OUT_SHA: `8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b`
-
-Artifact:
-
-- `phase10-baseline-web-screenshots`
+- run `35862974381`
+- job `107187477046`
+- result: **SUCCESS**
 - artifact ID: `10750239377`
 - digest: `sha256:7e8d16722a3a370d2bc643f544f6437cccc991dff66489a1e8b577e75d85a3a7`
 
-Required Home viewports were captured at:
+### iOS baseline
 
-- 390 × 844
-- 834 × 1112
-- 1440 × 1000
+- run `35862974381`
+- job `107187476871`
+- result: **SUCCESS**
+- artifact ID: `10751801648`
+- digest: `sha256:42ce499381cf59dc8dbfa8c21a5d73e3e6bb48b54e93c4a3e460afc28b81c436`
 
-Additional Reader surfaces captured include Explore, Search, Live, Watch, Listen, Saved, My HealthTimes, Edition, Premium, Notifications, Onboarding and Studio.
+### Android baseline
 
-### Native capture
+- run `35862974381`
+- job `107187477151`
+- result: **FAILURE during emulator preparation**
+- artifact ID: `10752580996`
+- digest: `sha256:51be63ed40e1eb31f43f165ac1ec2a08c12660482e3e7002f9b7c4abda720af4`
 
-iOS Simulator and Android emulator jobs are still running against the same frozen baseline. Product remediation remains paused until those baseline screenshots are recorded.
+The Android failure occurred before the HealthTimes application could be visually evaluated.
 
-## Baseline screen-by-screen conformance register
+## 3. Material gaps found and bounded remediation
 
-| Surface | Baseline classification | Exact finding before remediation |
+| Gap | Baseline finding | Final Phase 10 remediation |
 | --- | --- | --- |
-| Home — Web/PWA mobile | **MATERIAL GAP** | Baseline screenshot is blank after attempted hydration. |
-| Home — Web/PWA tablet | **MATERIAL GAP** | Baseline screenshot is blank after attempted hydration. |
-| Home — Web/PWA desktop | **MATERIAL GAP** | Baseline screenshot is blank after attempted hydration. |
-| Responsive navigation — desktop | **MATERIAL GAP** | Desktop header navigation and mobile five-tab bar render simultaneously. |
-| Explore | **MATERIAL GAP** | Functional structure exists, but ordinary Reader UI exposes internal taxonomy/migration language: “TAXONOMY GATEWAY”, “CANONICAL”, “LEGACY”, “Canonical desks”, “Legacy publication categories”. |
-| Intelligent Search | **CONFORMS** | Dedicated search surface, editorial filters and no chat-first/unsupported AI answer UI. |
-| Article Reader | **PENDING EVIDENCE** | Initial local route capture used a server-only canonical path and returned the not-found surface; a Reader-route capture is still required. |
-| Live | **CONFORMS** | No authoritative live event is fabricated; empty state is clean and Live retains red semantic accent. |
-| Watch | **MINOR GAP** | First-class destination exists, but current featured visual is weak/empty-looking when media artwork/source presentation is unavailable. No replacement media may be invented. |
-| Listen | **MINOR GAP** | Supported surface exists, but public copy exposes implementation language about a “certified media playback adapter”. |
-| Saved / Offline | **CONFORMS** | Saved, downloaded/offline and history are visibly distinct; no Premium body persistence relaxation observed. |
-| My HealthTimes | **MATERIAL GAP** | List architecture is appropriate, but unsupported/internal entries are exposed to ordinary readers, including “Payment Methods” and “Growth & Commercial Readiness”. |
-| Country / Edition | **CONFORMS** | Primary Edition, followed countries/regions, interests, and separate residence/billing semantics are preserved. |
-| Premium | **MATERIAL GAP** | Strong editorial identity, but primary header lacks persistent Premium discovery and page copy is implementation-facing (“platform configuration”, “AUTHORITATIVE ACCESS POLICY”, product-ID/storefront configuration language). Commerce remains correctly fail-closed. |
-| Advertising / HOSPAZ | **CONFORMS WITH CURRENT AUTHORITY** | Shared direct-ad treatment is provenance-backed; current HOSPAZ destination remains null/UNKNOWN and therefore non-clickable. |
-| Notifications | **MINOR GAP** | Clear filters and empty state; “Notification authority” wording is more implementation-facing than editorial. |
-| Onboarding / account | **CONFORMS** | Simple editorial onboarding with edition/interests/notifications and existing-account path. |
-| Studio/Admin distinction | **CONFORMS / PARTIAL** | Studio is visually and conceptually distinct from Reader; server-assigned authority remains separate. Detailed Studio module review remains part of the final matrix. |
+| Home hydration | Home could render blank after async hydration because Hook order changed across loading/data states. | Removed the conditional Hook-order hazard in `apps/mobile/app/(reader)/index.tsx`. |
+| Desktop navigation | Desktop masthead and mobile bottom tabs appeared together. | Desktop suppresses the mobile tab bar while preserving the five-destination mobile/native IA. |
+| Premium discovery | Premium was not sufficiently discoverable in shared Reader chrome. | Added restrained Premium access in shared Reader header utilities. |
+| Article taxonomy copy | Public article UI exposed migration-internal labels. | Removed migration-internal taxonomy labels while preserving source/domain data. |
+| My HealthTimes | Reader exposed unsupported/internal readiness entries and Payment Methods. | Removed unsupported/internal controls and environment wording. |
+| Onboarding | Full Reader chrome weakened the focused welcome composition. | Onboarding now renders with focused chrome disabled while preserving safe area/accessibility. |
+| Explore language | Reader exposed `TAXONOMY GATEWAY`, `CANONICAL`, `LEGACY` and migration-facing headings. | Reworded to reader-facing editorial desks/topics/categories without changing taxonomy authority. |
+| Listen language | Public UI described internal playback adapter/lane state. | Reworded unavailable/offline states for readers without inventing playback capability. |
+| Notifications language | Public UI used “Notification authority” wording. | Reworded the public explanatory copy; notification authority itself is unchanged. |
+| Premium public copy | Public screen exposed implementation/store configuration language. | Reworded to reader-facing membership/access copy while preserving configuration-required storefront truth. |
 
-## Gap register
+No unrelated feature work was added.
 
-### P1 / material — VIS10-001: Home hydration produces a blank Reader
+## 4. Exact files changed for product conformance
 
-**Evidence:** exact-baseline Home screenshots are blank at mobile, tablet and desktop.
+Executable/shared Reader changes:
 
-**Source diagnosis:** `apps/mobile/app/(reader)/index.tsx` conditionally returns for loading/error before a later `useMemo`, changing Hooks order when Home data resolves.
+- `apps/mobile/app/(reader)/index.tsx`
+- `apps/mobile/app/(reader)/_layout.tsx`
+- `apps/mobile/src/ui/Layout.tsx`
+- `apps/mobile/app/article/[id].tsx`
+- `apps/mobile/app/(reader)/my.tsx`
+- `apps/mobile/app/onboarding.tsx`
+- `apps/mobile/app/(reader)/explore.tsx`
+- `apps/mobile/app/listen.tsx`
+- `apps/mobile/app/notifications.tsx`
+- `apps/mobile/app/premium.tsx`
 
-**Required bounded remediation:** make Hooks order unconditional without changing article/data authority or Home information architecture.
+Evidence/certification support:
 
-### P1 / material — VIS10-002: desktop duplicates mobile and desktop navigation
+- `apps/mobile/tests/phase10-visual-conformance.test.mjs`
+- `.github/workflows/phase10-home-diagnostic.yml`
+- `.github/workflows/phase10-visual-conformance.yml`
+- `.github/workflows/phase10-visual-evidence.yml`
+- `docs/migration/evidence/phase10/00_BASELINE_VISUAL_GAP_REGISTER.md`
 
-**Evidence:** exact desktop screenshots show the full desktop masthead navigation and the five-item mobile tab bar at the same time.
+## 5. What passed before the final executable changes
 
-**Required bounded remediation:** keep the approved five-destination information architecture, but suppress the mobile tab bar at desktop width without altering mobile/native tabs.
+Candidate `d5b28fe1b96c08a8ec710754b8d79d67bcfdd5ca` had these exact-head successes:
 
-### P1 / material — VIS10-003: Premium discovery and public copy do not read as finished publication product
+- Validate HealthTimes 2.0 — run `35866192979` — **SUCCESS**
+- Chromium UAT — run `35866192946` — **SUCCESS**
+- NM-07 Phase 6 Migrated Corpus Reader — run `35866193260` — **SUCCESS**
+- AG-05 + NM-07 Phase 7 Premium + HOSPAZ — run `35866193415` — **SUCCESS**
+- Unified Native Mobile — run `35866192840` — **SUCCESS**
 
-**Evidence:** desktop header has Home / Explore / Live / Watch / My HealthTimes plus Search/Alerts but no persistent Premium entry. The Premium screen leads with truthful but implementation-facing store/configuration copy.
+However, later executable/public-copy changes advanced the candidate from `d5b28fe1...` to `8de6e4d6...`. Those earlier successes therefore cannot be represented as exact-head certification of the final candidate.
 
-**Authority freeze:** storefront remains `configuration-required`, offers remain `[]`, subscriber/entitlement counts remain zero, and no price/product identifier/payment state may be invented.
+## 6. Final-candidate exact-head status
 
-**Required bounded remediation:** improve Premium discovery and publication-facing unavailable/member-access copy while keeping all commerce truth fail-closed.
+Final executable candidate:
 
-### P1 / material — VIS10-004: Explore exposes implementation taxonomy vocabulary
+`8de6e4d62278b100cf9b93655841ec28ebdc059b`
 
-**Evidence:** exact screenshot visibly labels “TAXONOMY GATEWAY”, “CANONICAL”, “LEGACY”, “Canonical desks”, and “Legacy publication categories”.
+Runs triggered for this SHA:
 
-**Required bounded remediation:** retain accepted taxonomy data but present it as reader-facing desks/topics/categories, not migration/domain terminology.
+| Workflow | Run | Final observed state |
+| --- | --- | --- |
+| Validate HealthTimes 2.0 | `35867132588` | **SUCCESS** |
+| Chromium UAT | `35867132563` | **CANCELLED** |
+| Native Mobile unified | `35867132539` | **CANCELLED** |
+| NM-07 Phase 6 Migrated Corpus Reader | `35867132560` | queued / not certified before closure |
+| AG-05 + NM-07 Phase 7 Premium + HOSPAZ | `35867132585` | queued / not certified before closure |
+| Native Binary Certification | `35867132660` | **CANCELLED** |
+| Phase 10 Candidate Visual Conformance | `35867125460` | **CANCELLED** |
+| Phase 10 Visual Evidence | `35867125494` | **CANCELLED** |
 
-### P1 / material — VIS10-005: My HealthTimes exposes unsupported/internal controls
+Because executable code changed after the previously green candidate, Phase 10 cannot reuse the earlier exact-head successes as final certification.
 
-**Evidence/source:** ordinary Reader list includes “Payment Methods” despite no configured payment surface and “Growth & Commercial Readiness”, an internal readiness concept.
+## 7. Web hydration issue found during candidate evidence
 
-**Required bounded remediation:** keep the approved personal control-center list but remove unsupported/internal Reader entries. Do not add payment methods, subscription state, devices or sessions that are not authoritative.
+On the immediately preceding candidate `d5b28fe1...`, the exact-candidate Phase 10 Web visual job reached the remediated Home and found `Top Stories`, proving the original blank-Home Hook crash was no longer the same failure mode.
 
-### P2 / minor — VIS10-006: secondary public copy exposes implementation details
+The job nevertheless reported:
 
-Listen and Notifications contain implementation/authority terminology that weakens the premium-publication character. Remediation should be copy-only and must not imply unavailable playback or notification capabilities.
+- React minified error `#418`
+- server/client hydration mismatch
 
-### Accepted / deferred product gaps
+That browser job did not finish a green exact-candidate screenshot matrix. The final `8de6e4d6...` candidate changed additional public Reader surfaces afterward and did not obtain a completed replacement visual run before closure.
 
-- Missing approved wireframe PNG: repository-custody gap; no reconstruction authorized.
-- No authoritative Live inventory: acceptable; rail/state must collapse cleanly.
-- Media artwork/playback that is not source-authoritative: do not fabricate.
-- Storefront product IDs/prices/payment state: remain unavailable until authoritative configuration exists.
-- HOSPAZ destination/schedule/placement conditions: remain UNKNOWN/null.
-- Physical-device owner UAT and production/store release remain outside Phase 10.
+Therefore the owner-facing exact-candidate evidence package is incomplete.
 
-## Safety / mutation receipt so far
+## 8. Authority invariants preserved
 
-- Product runtime changed before baseline capture: **NO**
+Phase 10 did not alter:
+
+- migrated-corpus ownership;
+- CP5 routing/SEO/public capability authority;
+- Premium entitlement/protected-body authority;
+- Premium storefront configuration truth;
+- HOSPAZ provenance or commercial unknown-state semantics;
+- AG-06 authorization;
+- CA-01 communications;
+- COM-01 communications;
+- migration lineage;
+- database schema;
+- storage custody.
+
+Premium remains fail-closed:
+
+- no invented prices;
+- no invented product IDs;
+- no invented payment/subscriber state;
+- protected body/offline rules unchanged.
+
+HOSPAZ remains fail-closed:
+
+- advertiser: `HOSPAZ`
+- placement: `hospaz-header-direct`
+- source attachment: `33005`
+- destination: `null`
+- destination state: `UNKNOWN`
+- schedule: `UNKNOWN`
+- placement conditions: `UNKNOWN`
+- fabricated clickable destination: **NO**
+
+## 9. Accessibility
+
+The bounded changes preserve the accepted accessibility baseline:
+
+- 44px-equivalent shared touch targets where applicable;
+- semantic button/link roles;
+- accessible labels;
+- selected/disabled navigation state;
+- existing live regions;
+- legible shared palette/typography;
+- no formal WCAG certification claim.
+
+## 10. Deferred / unresolved product and evidence gaps
+
+1. Approved wireframe PNG remains absent from repository custody.
+2. Android baseline emulator screenshot capture failed during emulator preparation.
+3. Final-candidate Web/PWA visual evidence is not green.
+4. Final-candidate Native Binary certification is not green.
+5. Final-candidate iOS/Android screenshot evidence is not complete.
+6. A Web hydration mismatch (#418) remains to be independently reproduced/accepted or remediated.
+7. No unavailable Live/audio/storefront/commercial data was invented.
+8. Physical-device owner UAT remains outside this CI evidence.
+
+## 11. Deployment / mutation receipt
+
 - Production deployment: **NO**
 - Primary staging alias movement: **NO**
-- Database mutation: **NO**
+- `healthtimes-staging.vercel.app` movement: **NO**
+- Production database mutation: **NO**
 - Migration replay/reset/ledger mutation: **NO**
 - Storage cleanup: **NO**
 - DNS/MX change: **NO**
-- Provider activation: **NO**
-- App Store / Play Store submission: **NO**
+- External communications-provider activation: **NO**
+- Fake storefront configuration: **NO**
+- App Store submission: **NO**
+- Play Store submission: **NO**
+- Legacy-root retirement: **NO**
 - PR merge: **NO**
+- AG-08: **NO**
+- CP7 acceptance: **NO**
 - Phase 11 release: **NO**
+
+## 12. Closure decision
+
+The product changes are bounded and evidence-backed, but the assignment explicitly requires the final executable candidate to have the integrated regression and visual/native evidence needed for owner acceptance.
+
+That condition is not met.
+
+Authoritative Phase 10 disposition:
+
+`PHASE 10 BLOCKED — final exact-head visual/native certification is incomplete`
+
+Moderator next action is limited:
+
+1. re-run the required exact-head regression matrix against `8de6e4d62278b100cf9b93655841ec28ebdc059b`;
+2. resolve or explicitly accept the React hydration mismatch after independent reproduction;
+3. capture/accept the final Web/PWA + iOS + Android evidence;
+4. only then return:
+   `PHASE 10 VISUAL CONFORMANCE COMPLETE — READY FOR MODERATOR / OWNER REVIEW`.
+
+**Phase 11 is not released.**
