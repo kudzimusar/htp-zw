@@ -6,7 +6,7 @@
   "outputDirectory": "apps/mobile/dist",
   "functions": {
     "api/web.js": {
-      "includeFiles": "apps/mobile/dist/404.html",
+      "includeFiles": "apps/mobile/dist/+not-found.html",
       "maxDuration": 15
     },
     "api/public.js": {
