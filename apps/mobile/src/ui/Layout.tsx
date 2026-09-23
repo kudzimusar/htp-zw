@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, layout, radius, spacing, type } from "../theme/tokens";
@@ -8,6 +8,17 @@ import { environmentSummary } from "../platform/config";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
+
+function useHydratedWindowWidth() {
+  const { width } = useWindowDimensions();
+  const [responsiveReady, setResponsiveReady] = useState(Platform.OS !== "web");
+
+  useEffect(() => {
+    if (Platform.OS === "web") setResponsiveReady(true);
+  }, []);
+
+  return responsiveReady ? width : 0;
+}
 
 export function Page({
   children,
@@ -24,7 +35,7 @@ export function Page({
   chrome?: boolean;
 }>) {
   const { palette } = useAppearance();
-  const { width } = useWindowDimensions();
+  const width = useHydratedWindowWidth();
   const scrollRef = useRef<ScrollView>(null);
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
@@ -90,7 +101,7 @@ export function ContentWidth({
   children,
   bottomInset = 64
 }: PropsWithChildren<{bottomInset?:number}>) {
-  const { width } = useWindowDimensions();
+  const width = useHydratedWindowWidth();
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
   return (
@@ -111,7 +122,7 @@ export function EnvironmentBanner() {
 
 export function AppHeader() {
   const { palette } = useAppearance();
-  const { width } = useWindowDimensions();
+  const width = useHydratedWindowWidth();
   const router = useRouter();
   const pathname = usePathname();
   const phone = width < breakpoints.tablet;
