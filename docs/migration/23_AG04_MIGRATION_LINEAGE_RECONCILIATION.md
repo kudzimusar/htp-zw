@@ -2,7 +2,7 @@
 
 ## 1. Disposition
 
-**Candidate runtime:** `c7b4639122992810ac08827b5f7d9ed4fa0bc87f`
+**Candidate runtime:** `cbc59463d7e7f2e1cbd72586daf8ac380025781b`
 
 **Branch:** `recovery/ag04-phase5-migration-lineage-reconciliation`
 
@@ -137,7 +137,7 @@ Important repository-version drift mappings include:
 
 Runtime/schema-authority candidate:
 
-`c7b4639122992810ac08827b5f7d9ed4fa0bc87f`
+`cbc59463d7e7f2e1cbd72586daf8ac380025781b`
 
 Changes are repository-only:
 
@@ -158,7 +158,7 @@ No Reader implementation, CP5 runtime implementation, AG-06 runtime, CA-01 runti
 
 **NONE.**
 
-No call equivalent to migration repair, migration push, reset, replay, insert/delete/update of `supabase_migrations.schema_migrations`, restore or import was executed.
+No HealthTimes Staging call equivalent to migration repair, migration push, `db reset`, historical replay, insert/delete/update of `supabase_migrations.schema_migrations`, restore or import was executed. Disposable local certification environments did execute `supabase db reset --local` solely to prove migration-from-zero behavior.
 
 Repository-only adoption was sufficient.
 
@@ -166,7 +166,7 @@ Repository-only adoption was sufficient.
 
 Final read-only staging capture:
 
-- captured: `2026-09-23T06:22:46.8761+00:00`
+- captured: `2026-09-23T07:35:18.272343+00:00`
 - migration ledger rows: **43**
 - migration ledger fingerprint: `1c312d83d8f3fc34c70f2dd8f2237ca8`
 - migrated WordPress public objects: **5,786**
@@ -176,6 +176,7 @@ Final read-only staging capture:
 - canonical migrated media present: **3,275**
 - total `migrated-media` storage objects: **5,705**
 - preserved stale `wordpress/uploads/...` objects: **2,430**
+- required CP5 functions present: **6/6**
 
 These match the accepted custody state.
 
@@ -195,8 +196,10 @@ No CP5 migration was replayed.
 Read-only exact-head Phase 4 CP5 staging certification succeeded:
 
 - workflow: **AG-07 Phase 4 Unified Web/PWA**
-- run: **35825881130**
-- job: **107067964662 — CP5 read-only staging invariants — SUCCESS**
+- run: **35827697075**
+- job: **107072972559 — CP5 read-only staging invariants — SUCCESS**
+- log proof: `EXPECTED_SHA=cbc59463d7e7f2e1cbd72586daf8ac380025781b`
+- log proof: `CHECKED_OUT_SHA=cbc59463d7e7f2e1cbd72586daf8ac380025781b`
 
 ## 9. Premium and HOSPAZ truth preservation
 
@@ -215,65 +218,89 @@ HOSPAZ:
 
 No unsupported commercial fact was invented.
 
-## 10. Exact-head validation
+## 10. Exact-head certification remediation and validation
 
-Certified candidate:
+The earlier Phase 5 certification runs were associated with PR head `c7b4639...` but GitHub Actions had checked out the synthetic `refs/remotes/pull/23/merge` SHA. The moderator independently established that the merge ref had zero changed files relative to the candidate, but programme policy requires the logs themselves to prove exact-head checkout.
 
-`c7b4639122992810ac08827b5f7d9ed4fa0bc87f`
+The seven certification workflows were therefore remediated narrowly:
 
-### GitHub Actions matrix
+- every `actions/checkout@v4` step now uses `github.event.pull_request.head.sha || github.sha`;
+- every checkout is followed immediately by a fail-closed `git rev-parse HEAD` proof;
+- the proof logs both `EXPECTED_SHA` and `CHECKED_OUT_SHA`;
+- a mismatch exits non-zero;
+- no application/runtime behavior or adopted migration mapping was changed for this remediation.
 
-| Workflow | Run | Jobs / result |
-| --- | ---: | --- |
-| Validate HealthTimes 2.0 | **35825881163** | `107067368778` validate — SUCCESS |
-| Migration Tests | **35825881144** | `107067367958` migration-tests — SUCCESS |
-| Chromium UAT | **35825881229** | `107067368890` playwright — SUCCESS |
-| AG-06 Newsroom Security | **35825881115** | `107067368194` contract — SUCCESS; `107067368397` local gateway — SUCCESS; `107067368418` live staging security — SUCCESS; `107067368473` disposable schema — SUCCESS |
-| CA-01 Communications Security | **35825881181** | `107068456796` contract — SUCCESS; `107068455776` live staging security — SUCCESS; `107068480009` disposable schema — SUCCESS |
-| COM-01 Communications | **35825881199** | `107067368597` contract — SUCCESS; `107067435293` live staging contract — SUCCESS; `107067368358` disposable schema — SUCCESS |
-| AG-07 Phase 4 Unified Web/PWA | **35825881130** | `107067965951` Reader build/contract/browser — SUCCESS; `107067964662` CP5 read-only staging invariants — SUCCESS |
+Final exact candidate:
 
-### Exact test counts observed
+`cbc59463d7e7f2e1cbd72586daf8ac380025781b`
+
+### GitHub Actions exact-head matrix
+
+| Workflow | Run | Final jobs / result | Exact checkout proof |
+| --- | ---: | --- | --- |
+| Validate HealthTimes 2.0 | **35827696941** | `107072971675` validate — SUCCESS | `EXPECTED_SHA=cbc59463...` = `CHECKED_OUT_SHA=cbc59463...` |
+| Migration Tests | **35827697016** | `107072972117` migration-tests — SUCCESS | `EXPECTED_SHA=cbc59463...` = `CHECKED_OUT_SHA=cbc59463...` |
+| Chromium UAT | **35827696889** | `107072971704` playwright — SUCCESS | `EXPECTED_SHA=cbc59463...` = `CHECKED_OUT_SHA=cbc59463...` |
+| AG-06 Newsroom Security | **35827697026** | `107073818355` contract — SUCCESS; `107073816619` local gateway — SUCCESS; `107073779693` live staging security — SUCCESS; `107073780627` disposable schema — SUCCESS | every final-attempt job logs expected = checked-out = `cbc59463...` |
+| CA-01 Communications Security | **35827696997** | `107075034001` contract — SUCCESS; `107075033177` live staging security — SUCCESS; `107075063106` disposable schema — SUCCESS | every final-attempt job logs expected = checked-out = `cbc59463...` |
+| COM-01 Communications | **35827697014** | `107072972038` contract — SUCCESS; `107073026872` live staging contract — SUCCESS; `107072972291` disposable schema — SUCCESS | every job logs expected = checked-out = `cbc59463...` |
+| AG-07 Phase 4 Unified Web/PWA | **35827697075** | `107072972370` Reader build/contract/browser — SUCCESS; `107072972559` CP5 read-only staging invariants — SUCCESS | both jobs log expected = checked-out = `cbc59463...` |
+
+For the table above, the complete SHA logged by every proof step is:
+
+`cbc59463d7e7f2e1cbd72586daf8ac380025781b`
+
+### Final test counts
 
 Migration Tests:
 
 - **54 discovered**
 - **52 passed**
 - **2 skipped**
-- the two skipped tests are the Phase 4 deployment-specific browser smoke tests when the dedicated serving harness is absent; the same tests execute in the dedicated Phase 4 workflow.
+- the two skips are the dedicated Phase 4 browser tests when the Phase 4 serving harness is not present; the exact same browser tests execute in the dedicated Phase 4 workflow.
 
 Chromium UAT:
 
 - **99 discovered**
 - **90 passed**
-- **9 skipped**
+- **9 expected skips**
 
-AG-06 contract:
+AG-06:
 
-- **6/6 passed**
+- contract: **6/6 passed**
+- live staging: **7/7 passed**
+- local gateway regression: **1 passed / 5 intentionally skipped by environment**
+- disposable migration-from-zero schema: **SUCCESS**
 
-AG-06 live staging:
+CA-01:
 
-- **7/7 passed**
+- contract: **7/7 passed**
+- live staging bounded journey suite: **SUCCESS**
+- disposable migration-from-zero schema: **SUCCESS**
 
-CA-01 contract:
+COM-01:
 
-- **7/7 passed**
+- contract: **4/4 passed**
+- live staging bounded contract: **SUCCESS**
+- disposable migration-from-zero schema: **SUCCESS**
 
-COM-01 contract:
-
-- **4/4 passed**
-
-Dedicated Phase 4 job:
+Dedicated Phase 4:
 
 - CP5 capability contract: **10/10 passed**
 - AG-06 contract: **6/6 passed**
 - CA-01 contract: **7/7 passed**
 - COM-01 contract: **4/4 passed**
 - Phase 4 serving contract: **7/7 passed**
-- Phase 4 mobile/desktop browser smoke: **2/2 passed**
+- mobile/desktop browser smoke: **2/2 passed**
+- CP5 read-only staging invariants: **SUCCESS**
 
-Disposable Supabase schema jobs for AG-06, CA-01 and COM-01 all completed successfully against the reconciled migration directory.
+### Certification retry history
+
+The first AG-06 live-staging attempt on the same exact candidate completed the direct RLS/security evidence but later failed one UI visibility assertion. The bounded test identities were cleaned successfully. The job was rerun without repository or staging-schema changes and the final exact-head job `107073779693` passed **7/7**.
+
+The first CA-01 live-staging job was cancelled by the shared staging-security concurrency gate while AG-06 was running. It was rerun after AG-06 completed; final job `107075033177` succeeded.
+
+These retries did not change the exact candidate SHA.
 
 ## 11. Validation commands
 
@@ -303,7 +330,7 @@ Commands exercised by certification workflows include:
 
 `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 npm run test:phase4:browser`
 
-The dedicated disposable-schema jobs additionally exercised the reconciled Supabase migration sequence on disposable test projects.
+The dedicated disposable-schema jobs additionally exercised the reconciled Supabase migration sequence on isolated local test projects using `npx --yes supabase@2.117.0 db reset --local`. This reset/rebuild did **not** target HealthTimes Staging.
 
 ## 12. Before / after lineage state
 
@@ -340,38 +367,39 @@ None of these residual items requires a staging mutation for Phase 5.
 
 ## 14. Mutation receipt
 
-- `supabase db reset`: **NO**
-- database restore: **NO**
-- source re-import: **NO**
-- historical migration replay on staging: **NO**
+- HealthTimes Staging `supabase db reset`: **NO**
+- disposable certification Supabase reset/rebuild: **YES — isolated non-staging test environment only**
+- database restore on HealthTimes Staging: **NO**
+- source re-import to HealthTimes Staging: **NO**
+- historical migration replay on HealthTimes Staging: **NO**
 - staging migration-ledger mutation: **NO**
-- table/column drop: **NO**
-- live function removal: **NO**
-- RLS policy removal: **NO**
-- migrated article-data mutation by Phase 5: **NO**
+- staging table/column drop by Phase 5: **NO**
+- live staging function removal by Phase 5: **NO**
+- staging RLS policy removal by Phase 5: **NO**
+- migrated corpus mutation by Phase 5: **NO**
 - migrated-media storage mutation: **NO**
 - stale storage cleanup: **NO**
-- production change: **NO**
+- production mutation: **NO**
 - DNS/MX change: **NO**
 - provider activation: **NO**
 - primary Vercel staging alias movement: **NO**
 - PR merge: **NO**
 - AG-08 invoked: **NO**
 
-Note: existing AG-06/CA-01 live security certification workflows create and clean bounded synthetic certification state under their previously accepted test contracts. Phase 5 itself performed no migration/data replay and the authoritative migrated corpus/storage invariants remained unchanged.
+The AG-06 and CA-01 live security workflows create and clean bounded synthetic certification state under their accepted contracts. Final read-only verification confirms the authoritative migrated WordPress corpus, URL mappings, CP5 public semantics and migrated-media custody remained unchanged.
+
+The disposable AG-06, CA-01 and COM-01 migration-from-zero jobs explicitly ran `supabase db reset --local` in isolated local Supabase environments. This is expected certification infrastructure and is not a HealthTimes Staging reset.
 
 ## 15. Candidate and closure
 
-Candidate runtime:
+Final exact certified candidate:
 
-`c7b4639122992810ac08827b5f7d9ed4fa0bc87f`
+`cbc59463d7e7f2e1cbd72586daf8ac380025781b`
 
-Documentation closure SHA:
+The final documentation closure is required to be exactly one documentation-only commit above this candidate.
 
-**TO BE FILLED BY DOCUMENTATION-ONLY CLOSURE COMMIT**
-
-The documentation closure must be exactly one documentation-only commit above the certified candidate.
+Its SHA is intentionally **not self-embedded in this document**, because a Git commit cannot truthfully contain its own future SHA. The resulting documentation commit SHA is authoritative Git metadata and is recorded in the AG-04 closure receipt / moderator audit.
 
 ## 16. Phase 5 disposition
 
-**PHASE 5 CERTIFIED — MIGRATION LINEAGE RECONCILED / READY FOR MODERATOR AUDIT**
+**PHASE 5 EXACT-HEAD CERTIFIED — READY FOR MODERATOR RE-AUDIT**
