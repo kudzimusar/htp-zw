@@ -2,20 +2,23 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
+import { migratedCorpusStatus } from "../src/services/migrated-corpus";
 import { useAsync } from "../src/hooks/useAsync";
 import { appEnvironment, editorialDataMode } from "../src/platform/config";
 import { colors, radius, spacing } from "../src/theme/tokens";
-import { AG03_SOURCE_READINESS } from "../src/domain/source";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 
 export default function SystemStatusScreen() {
   const { palette }=useAppearance();
   const [attempt, setAttempt] = useState(0);
   const report = useAsync(() => services.platform.checkConnectivity(), [attempt]);
+  const migrated = editorialDataMode === "staging";
 
   return (
     <Page title="System Status">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Operational diagnostics distinguish live staging infrastructure, read-only public source-parity editorial data and the still-blocked authoritative migration prerequisites.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>
+        Operational diagnostics distinguish live staging infrastructure, the accepted migrated editorial corpus and production-release boundaries.
+      </Text>
 
       <View style={styles.summaryGrid}>
         <View style={[styles.summaryCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
@@ -27,8 +30,8 @@ export default function SystemStatusScreen() {
           <Text style={[styles.summaryValue,{color:palette.ink}]}>{editorialDataMode}</Text>
         </View>
         <View style={[styles.summaryCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.summaryLabel,{color:palette.inkMuted}]}>AG-03 SOURCE</Text>
-          <Text style={[styles.summaryValue,{color:AG03_SOURCE_READINESS.status==="ready"?colors.success:palette.live}]}>{AG03_SOURCE_READINESS.status}</Text>
+          <Text style={[styles.summaryLabel,{color:palette.inkMuted}]}>MIGRATED CORPUS</Text>
+          <Text style={[styles.summaryValue,{color:migrated?colors.success:palette.inkMuted}]}>{migrated?"canonical staging source":"not active"}</Text>
         </View>
       </View>
 
@@ -52,17 +55,21 @@ export default function SystemStatusScreen() {
       </Section>
 
       <Section>
-        <SectionHeader title="Source readiness" eyebrow="AG-03" />
+        <SectionHeader title="Migrated content authority" eyebrow="NM-07 / AG-04" />
         <View style={[styles.sourceCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
           <View style={styles.sourceHeading}>
-            <View style={[styles.status,{backgroundColor:AG03_SOURCE_READINESS.status==="ready"?colors.success:palette.live}]} />
-            <Text style={[styles.label,{color:palette.ink}]}>Authoritative source package</Text>
+            <View style={[styles.status,{backgroundColor:migrated?colors.success:palette.inkMuted}]} />
+            <Text style={[styles.label,{color:palette.ink}]}>HealthTimes Staging accepted corpus</Text>
           </View>
-          <Text style={[styles.detail,{color:palette.inkMuted}]}>{AG03_SOURCE_READINESS.reason}</Text>
+          <Text style={[styles.detail,{color:palette.inkMuted}]}>
+            {migrated
+              ? "Reader article surfaces use the accepted staging migrated corpus through CP5 public read capabilities. WordPress/source-parity remains a development bridge, not staging editorial authority."
+              : "This build is not using the accepted staging migrated-corpus editorial mode."}
+          </Text>
           <View style={styles.sourceFacts}>
-            <Text style={[styles.fact,{color:palette.inkMuted}]}>Database validated: {String(AG03_SOURCE_READINESS.authoritativeDatabaseValidated)}</Text>
-            <Text style={[styles.fact,{color:palette.inkMuted}]}>Uploads validated: {String(AG03_SOURCE_READINESS.completeUploadsValidated)}</Text>
-            <Text style={[styles.fact,{color:palette.inkMuted}]}>Content frozen: {String(AG03_SOURCE_READINESS.contentFrozen)}</Text>
+            <Text style={[styles.fact,{color:palette.inkMuted}]}>Public migrated objects: {migratedCorpusStatus.publicObjects}</Text>
+            <Text style={[styles.fact,{color:palette.inkMuted}]}>Canonical media: {migratedCorpusStatus.canonicalMedia}</Text>
+            <Text style={[styles.fact,{color:palette.inkMuted}]}>Storage objects preserved: {migratedCorpusStatus.totalMigratedMediaObjects}</Text>
           </View>
         </View>
       </Section>
@@ -70,16 +77,22 @@ export default function SystemStatusScreen() {
       <Section>
         <SectionHeader title="Reader fidelity" eyebrow="NM-04 DIAGNOSTICS" />
         <View style={[styles.sourceCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.label,{color:palette.ink}]}>Structured WordPress article rendering</Text>
-          <Text style={[styles.detail,{color:palette.inkMuted}]}>The Reader allows paragraphs, H2/H3 headings, ordered and unordered lists, blockquotes, safe links, figures/images, captions and basic emphasis. Script, iframe, object, embed and form execution is blocked. Unsupported WordPress body constructs remain source exceptions for AG-04 reconciliation.</Text>
-          <Text style={[styles.detail,{color:palette.inkMuted}]}>The GitHub Pages review build carries a base-aware deep-link fallback so a public story discovered after static export can re-enter the PWA route rather than ending on the generic Pages 404 screen.</Text>
+          <Text style={[styles.label,{color:palette.ink}]}>Structured migrated article rendering</Text>
+          <Text style={[styles.detail,{color:palette.inkMuted}]}>
+            The Reader allows paragraphs, H2/H3 headings, ordered and unordered lists, blockquotes, safe links, figures/images, captions and basic emphasis. Script, iframe, object, embed and form execution remains blocked.
+          </Text>
+          <Text style={[styles.detail,{color:palette.inkMuted}]}>
+            Premium-review bodies remain protected by the CP5 public story document and are not persisted offline without entitlement.
+          </Text>
         </View>
       </Section>
 
       <Section>
         <View style={[styles.boundary,{borderLeftColor:palette.blue}]}>
           <Text style={[styles.boundaryTitle,{color:palette.ink}]}>Current data boundary</Text>
-          <Text style={[styles.boundaryText,{color:palette.inkMuted}]}>AG-02 staging infrastructure is live. The Reader may display current public HealthTimes stories and public media through the read-only Source Parity Bridge, but that is not migration completeness. The authoritative WordPress database/uploads package, complete migrated media custody, subscribers and staff authority remain blocked behind AG-03/AG-04/AG-06. This screen never displays the publishable key and no service-role/database secret belongs in the app.</Text>
+          <Text style={[styles.boundaryText,{color:palette.inkMuted}]}>
+            HealthTimes Staging is the canonical staged article/page source. The client uses only the publishable key and CP5 public RPCs for migrated content; direct anonymous story-table access remains closed. Production adapters, store release, provider wiring and commercial activation remain outside this build.
+          </Text>
         </View>
       </Section>
     </Page>

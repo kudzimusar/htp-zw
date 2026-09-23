@@ -2,6 +2,7 @@ import type { HealthTimesServices } from "../domain/contracts";
 import { appEnvironment, editorialDataMode } from "../platform/config";
 import { fixtureServices } from "./fixtures";
 import { sourceParityServices } from "./source-parity";
+import { migratedCorpusServices } from "./migrated-corpus";
 import { stagingAuthService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
@@ -11,17 +12,16 @@ export const serviceMode = editorialDataMode;
 function buildServices(): HealthTimesServices {
   if (appEnvironment === "production" || editorialDataMode === "production") {
     throw new Error(
-      "Production service adapters are locked until AG-04/05/06 and NM-04/05/06 are certified."
+      "Production service adapters remain locked until production release authorization."
     );
   }
 
-  if (editorialDataMode === "staging") {
-    throw new Error(
-      "Staging editorial-data mode is locked until AG-04 migrated content and required public read policies are certified."
-    );
-  }
-
-  const editorialServices = editorialDataMode === "source-parity" ? sourceParityServices : fixtureServices;
+  const editorialServices =
+    editorialDataMode === "staging"
+      ? migratedCorpusServices
+      : editorialDataMode === "source-parity"
+        ? sourceParityServices
+        : fixtureServices;
 
   if (appEnvironment === "staging") {
     return {
