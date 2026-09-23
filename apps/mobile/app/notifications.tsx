@@ -57,7 +57,7 @@ export default function NotificationsScreen(){
       </Section>
       <Section>
         <View style={[styles.authority,{backgroundColor:palette.paperMuted,borderRadius:radius.md}]}>
-          <Text style={[styles.authorityTitle,{color:palette.ink}]}>Notification authority</Text>
+          <Text style={[styles.authorityTitle,{color:palette.ink}]}>Your alerts</Text>
           <Text style={[styles.authorityText,{color:palette.inkMuted}]}>Choose which HealthTimes alerts you want to receive. Availability may vary by device and account.</Text>
         </View>
       </Section>
