@@ -69,7 +69,7 @@ export default function OnboardingScreen(){
   };
 
   return (
-    <Page>
+    <Page chrome={false}>
       <View style={styles.wrap}>
         <View style={[styles.brandPanel,{backgroundColor:palette.navy}]}>
           <Text style={styles.brand}>HealthTimes</Text>

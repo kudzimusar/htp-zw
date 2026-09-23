@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/ag07-phase8-convergence-candidate
+      - integration/ag07-nm07-phase10-visual-conformance
   pull_request:
     paths:
       - 'api/communications.js'

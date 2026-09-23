@@ -1,5 +1,5 @@
-import type { PropsWithChildren } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useState, type PropsWithChildren } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, radius, spacing } from "../theme/tokens";
@@ -31,6 +31,13 @@ const modules=[
   ["Platform Settings","/studio/settings"]
 ] as const;
 
+function useHydratedStudioWidth(){
+  const {width}=useWindowDimensions();
+  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
+  useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
+  return responsiveReady ? width : 0;
+}
+
 function authorizationLabel(status:string|undefined){
   if(status==="authorized") return "SERVER AUTHORIZED";
   if(status==="authenticated-no-staff-authority") return "READER ONLY";
@@ -39,7 +46,7 @@ function authorizationLabel(status:string|undefined){
 }
 
 export function StudioShell({children,title}:PropsWithChildren<{title:string}>){
-  const {width}=useWindowDimensions();
+  const width=useHydratedStudioWidth();
   const router=useRouter();
   const pathname=usePathname();
   const desktop=width>=breakpoints.tablet;

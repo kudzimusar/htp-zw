@@ -193,25 +193,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
           {!!publishedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Published {publishedLabel}</Text>}
           {showUpdated && !!modifiedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Updated {modifiedLabel}</Text>}
         </View>
-        {!!story.primarySection && (
-          <View style={styles.sourceTaxonomy}>
-            <Text style={[styles.sourceTaxonomyLabel,{color:palette.blue}]}>Canonical desk</Text>
-            <View style={styles.geography}>
-              <Text style={[styles.geoLabel,{color:palette.ink,borderColor:palette.border}]}>{story.primarySection.name}</Text>
-            </View>
-          </View>
-        )}
         {!!story.geography.length && (
           <View style={styles.geography}>
             {story.geography.map((zone)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
-          </View>
-        )}
-        {!!story.legacyTaxonomy?.length && (
-          <View style={styles.sourceTaxonomy}>
-            <Text style={[styles.sourceTaxonomyLabel,{color:palette.inkMuted}]}>Legacy source taxonomy</Text>
-            <View style={styles.geography}>
-              {story.legacyTaxonomy.map((term)=><Text key={term.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{term.name}</Text>)}
-            </View>
           </View>
         )}
       </View>

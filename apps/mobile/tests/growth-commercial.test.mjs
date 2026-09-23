@@ -99,7 +99,8 @@ test("Premium storefront remains configuration-driven and server entitlement rem
   assert.ok(store.includes('status: "configuration-required"'));
   assert.ok(store.includes("offers: []"));
   assert.ok(premium.includes("premiumStore.getState"));
-  assert.ok(premium.includes("Storefront state is loading"));
+  assert.ok(premium.includes('store.data?.status==="available"'));
+  assert.ok(premium.includes("Membership options are not available yet"));
   assert.equal(/\$\d|US\$|ZW\$/.test(premium),false);
   assert.ok(article.includes("services.premium.hasEntitlement"));
   assert.ok(article.includes("protectedBody"));

@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, layout, radius, spacing, type } from "../theme/tokens";
@@ -9,25 +9,38 @@ import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 
+function useHydratedWindowWidth() {
+  const { width } = useWindowDimensions();
+  const [responsiveReady, setResponsiveReady] = useState(Platform.OS !== "web");
+
+  useEffect(() => {
+    if (Platform.OS === "web") setResponsiveReady(true);
+  }, []);
+
+  return responsiveReady ? width : 0;
+}
+
 export function Page({
   children,
   scroll = true,
   title,
   initialScrollProgress = 0,
-  onScrollProgress
+  onScrollProgress,
+  chrome = true
 }: PropsWithChildren<{
   scroll?: boolean;
   title?: string;
   initialScrollProgress?: number;
   onScrollProgress?: (progress: number) => void;
+  chrome?: boolean;
 }>) {
   const { palette } = useAppearance();
-  const { width } = useWindowDimensions();
+  const width = useHydratedWindowWidth();
   const scrollRef = useRef<ScrollView>(null);
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const restoredRef = useRef(false);
-  const mobileTabsVisible = width < breakpoints.desktop;
+  const mobileTabsVisible = chrome && width < breakpoints.desktop;
 
   const restorePosition = useCallback(() => {
     if (restoredRef.current || !scroll || initialScrollProgress <= 0) return;
@@ -40,8 +53,8 @@ export function Page({
 
   const body = (
     <View style={[styles.page, { backgroundColor: palette.paper }]}>
-      <EnvironmentBanner />
-      <AppHeader />
+      {chrome && <EnvironmentBanner />}
+      {chrome && <AppHeader />}
       <ContentWidth bottomInset={mobileTabsVisible ? 96 : 64}>
         {!!title && (
           <View style={styles.screenHeading}>
@@ -88,7 +101,7 @@ export function ContentWidth({
   children,
   bottomInset = 64
 }: PropsWithChildren<{bottomInset?:number}>) {
-  const { width } = useWindowDimensions();
+  const width = useHydratedWindowWidth();
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
   return (
@@ -109,7 +122,7 @@ export function EnvironmentBanner() {
 
 export function AppHeader() {
   const { palette } = useAppearance();
-  const { width } = useWindowDimensions();
+  const width = useHydratedWindowWidth();
   const router = useRouter();
   const pathname = usePathname();
   const phone = width < breakpoints.tablet;
@@ -149,6 +162,15 @@ export function AppHeader() {
       >
         <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>UPDATES</Text>
         <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => go("/premium")}
+        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        accessibilityLabel="HealthTimes Premium"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>MEMBERS</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Premium</Text>
       </Pressable>
     </View>
   );

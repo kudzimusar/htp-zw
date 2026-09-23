@@ -49,7 +49,7 @@ export default function PremiumScreen(){
       <View style={[styles.hero,{borderBottomColor:palette.border}]}>
         <Text style={styles.eyebrow}>HEALTHTIMES PREMIUM</Text>
         <Text style={[styles.title,{color:palette.ink}]}>Deeper health intelligence. Full reporting. One clear membership.</Text>
-        <Text style={[styles.text,{color:palette.inkMuted}]}>Store products, localized prices and transaction receipts come only from approved platform configuration. HealthTimes does not hardcode or invent production pricing.</Text>
+        <Text style={[styles.text,{color:palette.inkMuted}]}>Join HealthTimes Premium for deeper reporting and member access. Membership options appear here only when they are available for your device and region.</Text>
       </View>
 
       <Section>
@@ -61,7 +61,7 @@ export default function PremiumScreen(){
           <Text style={[styles.accessText,{color:palette.inkMuted}]}>
             {entitlement.data===true
               ? "Your account has a verified Premium entitlement. Protected stories are requested only through the Premium service."
-              : "HealthTimes does not assume subscription status. Sign in to check existing member access, or use a verified platform storefront when products are configured."}
+              : "Sign in to check existing member access. New membership options will appear here when they are available."}
           </Text>
           {entitlement.data!==true && (
             <Pressable accessibilityRole="button" style={[styles.restore,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}>
@@ -72,7 +72,7 @@ export default function PremiumScreen(){
       </Section>
 
       <Section>
-        <SectionHeader title="From HealthTimes Premium" eyebrow="AUTHORITATIVE ACCESS POLICY" />
+        <SectionHeader title="From HealthTimes Premium" eyebrow="MEMBER REPORTING" />
         {premiumStories.length
           ? <StoryGrid stories={premiumStories} />
           : <EmptyState title="No Premium stories available" message="Premium reporting will appear here when published." />}
@@ -96,8 +96,8 @@ export default function PremiumScreen(){
           </View>
         ) : (
           <EmptyState
-            title="Verified storefront products are unavailable"
-            message={store.data?.message ?? "Storefront state is loading. No plan, price or product identifier is shown until the platform returns verified products."}
+            title="Membership options are not available yet"
+            message="HealthTimes will show membership options here when they are available. Existing members can sign in or restore a previous purchase."
           />
         )}
       </Section>

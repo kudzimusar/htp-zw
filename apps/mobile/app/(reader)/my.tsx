@@ -4,7 +4,6 @@ import { Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { layout, radius, spacing } from "../../src/theme/tokens";
-import { appEnvironment } from "../../src/platform/config";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 
 type MenuItem={label:string;path?:string;url?:string;detail?:string};
@@ -14,7 +13,6 @@ const groups:{title:string;items:MenuItem[]}[]=[
     {label:"My Profile",path:"/account-access"},
     {label:"Countries & Interests",path:"/edition"},
     {label:"My Subscriptions",path:"/premium"},
-    {label:"Payment Methods",path:"/premium"},
     {label:"Privacy",detail:"Policy linkage pending"}
   ]},
   {title:"Reading",items:[
@@ -28,8 +26,6 @@ const groups:{title:string;items:MenuItem[]}[]=[
     {label:"Appearance / Theme",path:"/appearance"},
     {label:"Security",path:"/devices-sessions"},
     {label:"Devices / Sessions",path:"/devices-sessions"},
-    {label:"System Status",path:"/system-status"},
-    {label:"Growth & Commercial Readiness",path:"/growth-status"},
     {label:"Help & Support",detail:"Contact and reader help"},
     {label:"Sign Out / Account deletion",path:"/devices-sessions"}
   ]}
@@ -55,7 +51,7 @@ export default function MyHealthTimesScreen(){
         <View style={[styles.avatar,{backgroundColor:palette.ink}]}><Text style={[styles.avatarText,{color:palette.paper}]}>HT</Text></View>
         <View style={styles.profileCopy}>
           <Text style={[styles.name,{color:palette.ink}]}>{profile.data?.displayName ?? "Reader"}</Text>
-          <Text style={[styles.membership,{color:palette.inkMuted}]}>{membership} membership · {appEnvironment}</Text>
+          <Text style={[styles.membership,{color:palette.inkMuted}]}>{membership} membership</Text>
         </View>
         <Pressable
           style={[styles.premium,{borderColor:palette.blue}]}
@@ -65,30 +61,6 @@ export default function MyHealthTimesScreen(){
           <Text style={[styles.premiumText,{color:palette.blue}]}>{membership==="premium" ? "Premium" : "Go Premium"}</Text>
         </Pressable>
       </View>
-
-      <Section>
-        <SectionHeader title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL" />
-        <View>
-          {publicationItems.map((item)=>(
-            <Pressable
-              key={item.label}
-              onPress={item.path
-                ? ()=>router.push(item.path as never)
-                : item.url
-                  ? ()=>void Linking.openURL(item.url!)
-                  : undefined}
-              style={[styles.row,{borderBottomColor:palette.border}]}
-              accessibilityRole={item.url?"link":"button"}
-            >
-              <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
-              <View style={styles.rowEnd}>
-                {!!item.detail && <Text style={[styles.detail,{color:palette.inkMuted}]}>{item.detail}</Text>}
-                <Text style={[styles.chevron,{color:palette.inkMuted}]}>{item.url?"↗":"›"}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      </Section>
 
       {groups.map((group)=>(
         <Section key={group.title}>
@@ -115,6 +87,30 @@ export default function MyHealthTimesScreen(){
           </View>
         </Section>
       ))}
+
+      <Section>
+        <SectionHeader title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL" />
+        <View>
+          {publicationItems.map((item)=>(
+            <Pressable
+              key={item.label}
+              onPress={item.path
+                ? ()=>router.push(item.path as never)
+                : item.url
+                  ? ()=>void Linking.openURL(item.url!)
+                  : undefined}
+              style={[styles.row,{borderBottomColor:palette.border}]}
+              accessibilityRole={item.url?"link":"button"}
+            >
+              <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
+              <View style={styles.rowEnd}>
+                {!!item.detail && <Text style={[styles.detail,{color:palette.inkMuted}]}>{item.detail}</Text>}
+                <Text style={[styles.chevron,{color:palette.inkMuted}]}>{item.url?"↗":"›"}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </Section>
 
       <Section>
         <Pressable style={[styles.studio,{backgroundColor:palette.navy,borderRadius:radius.md}]} onPress={()=>router.push("/studio" as never)}>
