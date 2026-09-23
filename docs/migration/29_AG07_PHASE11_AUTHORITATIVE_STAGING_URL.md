@@ -365,3 +365,306 @@ without creating a replacement deployment.
 After that exact mutation is available, the full post-move UAT/HTTP/SEO/runtime-log matrix must be executed before Phase 11 can be declared complete.
 
 **PHASE 11 BLOCKED — CONNECTED VERCEL TOOLING CANNOT REASSIGN THE AUTHORITATIVE ALIAS TO THE EXISTING CERTIFIED DEPLOYMENT WITHOUT FALLING BACK TO A NEW DEPLOYMENT.**
+
+
+---
+
+## 15. Phase 11 continuation — independent code review and bounded runtime remediation
+
+This section records the continuation after the original blocked checkpoint above. The original blocker evidence is retained as historical evidence and has not been erased.
+
+### 15.1 Independently verified deployment-mode defect
+
+Independent moderator review of the actual Phase 10 runtime code found a concrete deployment-specific defect:
+
+- `vercel.json` built the Web/PWA artifact with `EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity`;
+- in `apps/mobile/src/services/source-parity.ts`, advertising resolves to `source: "none"`;
+- accepted HOSPAZ runtime authority exists in `apps/mobile/src/services/migrated-corpus.ts`, which is selected only in `staging` service mode;
+- the Phase 10 HOSPAZ visual proof rebuilt locally with `EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging`, so that proof did not prove that the actual Vercel deployment built in `source-parity` mode would render HOSPAZ.
+
+Therefore the previously authorized Phase 10 deployment:
+
+`dpl_9Bd8n5GMpaBWMZTNHd4SPXQjeH2T`
+
+at:
+
+`e6895043aa00fa0272a79cdc1347e2460f08dfac`
+
+was not cut over. Its Phase 10 certification remains historical Phase 10 evidence, but it is superseded for Phase 11 staging-cutover purposes because it cannot satisfy the Phase 11 HOSPAZ canonical-Home gate as deployed.
+
+No canonical staging alias mutation occurred before this defect was found.
+
+### 15.2 Bounded remediation
+
+The remediation remained inside the Phase 11 deployment-specific authority:
+
+1. `vercel.json` was changed so the authoritative staging Web/PWA build uses:
+   `APP_ENV=staging EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging`.
+2. `tests/migration/ag07-phase4-unified-web.spec.js` now fails if the Vercel build regresses to `source-parity`.
+3. A web-only exact-head Phase 11 certification workflow was added:
+   `.github/workflows/phase11-staging-runtime.yml`.
+4. No Reader product screen was redesigned.
+5. No iOS/Android rebuild or native implementation change was introduced.
+
+Remediation commits after the prior blocked documentation head `d1c2fdc397dd0bd1878a182970cf71a83993ee4f`:
+
+- `c6477dd38b439b2de82764f4b83ed7472494f9bb` — Vercel staging-mode correction;
+- `fe3aa79f239b5c18928555120b82925a4e1fa023` — serving-contract regression assertion;
+- `cad71a298ffd1b55455879dda11f235478c1a4be` — Phase 11 web-only exact-head certification lane;
+- `dc923416aeccd292e7db88440cd0f013ced05394` — certification-harness selector correction.
+
+The first candidate run at `cad71a298ffd1b55455879dda11f235478c1a4be` failed only because the browser harness used the ambiguous selector `getByLabel("Search HealthTimes")`, which matched both the global Search button and the Search textbox. All preceding gates had passed. The harness was corrected to select the Search textbox by role; this did not alter application runtime behavior.
+
+### 15.3 Exact-head certified replacement candidate
+
+Authoritative Phase 11 replacement runtime candidate:
+
+`dc923416aeccd292e7db88440cd0f013ced05394`
+
+GitHub Actions:
+
+- workflow: `AG-07 Phase 11 Staging Runtime Candidate`
+- run: `35935813192`
+- job: `107432475409`
+- conclusion: **SUCCESS**
+- exact checkout:
+  - `EXPECTED_SHA=dc923416aeccd292e7db88440cd0f013ced05394`
+  - `CHECKED_OUT_SHA=dc923416aeccd292e7db88440cd0f013ced05394`
+- completed: `2026-09-23T23:55:56Z`
+
+Evidence artifact:
+
+- name: `ag07-phase11-staging-runtime-candidate`
+- artifact ID: `10782064608`
+- SHA-256: `374fda3517922316f2c48bef7f21d35beb84aa49656278aa0cb0bdf5e9c2e9a9`
+
+Packaged `build-info.json` proves:
+
+- SHA: `dc923416aeccd292e7db88440cd0f013ced05394`
+- presentation: `apps/mobile`
+- capability: `cp5-phase3-v1`
+- base path: `/`
+- service mode: `staging`
+
+The workflow passed:
+
+- Phase 4 serving contract;
+- Phase 10 visual/product contract;
+- Premium/HOSPAZ convergence contract;
+- universal Reader typecheck;
+- fresh CP5 read-only staging invariants;
+- exact staging-mode Web/PWA build;
+- packaged SHA/service-mode identity;
+- raw HTTP route/SEO/Premium fail-closed proof;
+- Chromium install;
+- staging-mode mobile/desktop browser proof.
+
+### 15.4 Browser evidence at replacement candidate
+
+Captured at:
+
+`2026-09-23T23:55:39.681Z`
+
+Mobile `390×844`:
+
+- Home HTTP: `200`
+- Explore HTTP: `200`
+- Search HTTP: `200`
+- React `#418`: `0`
+- Reader tabs: `5`
+- HOSPAZ: rendered
+- HOSPAZ destination: not available
+- HOSPAZ clickable: **NO**
+- console errors: none recorded by the proof
+
+Desktop `1440×1000`:
+
+- Home HTTP: `200`
+- Explore HTTP: `200`
+- Search HTTP: `200`
+- React `#418`: `0`
+- mobile Reader tabs: `0`
+- HOSPAZ: rendered
+- HOSPAZ destination: not available
+- HOSPAZ clickable: **NO**
+- console errors: none recorded by the proof
+
+HOSPAZ disclosure observed in both viewport proofs:
+
+`Direct advertising · HOSPAZ`
+
+The runtime explicitly stated that destination, schedule and placement conditions remain unverified and are not inferred.
+
+### 15.5 Raw route / SEO / Premium evidence at replacement candidate
+
+Observed at:
+
+`2026-09-23T23:55:16.657Z`
+
+Representative source `30154`:
+
+- HTTP: `200`
+- presentation: `apps/mobile`
+- canonical URL: preserved
+- server-visible title: preserved
+- server-visible description: preserved
+- robots: `index,follow,max-image-preview:large`
+- Open Graph title: preserved
+- JSON-LD: present
+- universal Reader bundle: present
+- legacy presentation canonical: **NO**
+
+Accepted alias:
+
+- HTTP: `301`
+- one-hop target: `/2025/12/06/policy-capture-at-cop11-what-it-signals-for-global-health-governance/`
+
+Explicit exception:
+
+- HTTP: `404`
+
+Unknown route:
+
+- HTTP: `404`
+
+Premium source `33190`:
+
+- HTTP: `200`
+- body protected: **YES**
+- public body exposed: **NO**
+
+Fresh CP5 read-only evidence also retained:
+
+- sitemap: `5,786`
+- feed: `50`
+- HOSPAZ advertiser: `HOSPAZ`
+- placement: `hospaz-header-direct`
+- source attachment: `33005`
+- destination: `UNKNOWN / null`
+- schedule: `UNKNOWN / null`
+- placement conditions: `UNKNOWN / null`
+
+### 15.6 Replacement Vercel deployment
+
+Exact Git-integration preview for the certified replacement candidate:
+
+- deployment: `dpl_9v22L3jtNnPR6UWqiacKqvwYrRy1`
+- URL: `healthtimes-staging-jzumc1sx9-11-11.vercel.app`
+- project: `healthtimes-staging`
+- project ID: `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`
+- Git branch: `deployment/ag07-phase11-authoritative-staging`
+- Git SHA: `dc923416aeccd292e7db88440cd0f013ced05394`
+- state: `READY`
+- ready state: `READY`
+- target: `null`
+- source: `git`
+- alias error: `null`
+
+This is now the only Phase 11 runtime candidate eligible for cutover. The superseded `dpl_9Bd8n5GMpaBWMZTNHd4SPXQjeH2T` must not be used for Phase 11.
+
+### 15.7 Fresh full staging custody after remediation
+
+Fresh read-only capture:
+
+`2026-09-23T23:57:43.017941Z`
+
+Equivalent Japan time:
+
+`2026-09-24T08:57:43.017941+09:00`
+
+Observed:
+
+| Invariant | Observed |
+| --- | ---: |
+| migration ledger | 43 |
+| posts | 5,737 |
+| pages | 49 |
+| public migrated objects | 5,786 |
+| URL mappings | 5,786 |
+| media records | 3,277 |
+| canonical media | 3,275 |
+| migrated-media objects | 5,705 |
+| stale objects | 2,430 |
+| categories | 83 |
+| tags | 10,283 |
+| authors | 3 |
+| CP5 functions | 6 / 6 |
+| subscribers | 0 |
+| Premium entitlements | 0 |
+
+Source snapshot remains:
+
+- key: `cp3-2026-09-21`
+- status: `AUTHORITATIVE_REHEARSAL`
+- posts: 5,737
+- pages: 49
+- media: 3,277
+- categories: 83
+- tags: 10,283
+- authors: 3
+
+No database or storage mutation was performed.
+
+### 15.8 Final pre-cutover state after remediation
+
+Canonical alias rechecked after exact-head certification:
+
+`healthtimes-staging.vercel.app`
+
+still resolves to:
+
+- deployment: `dpl_4xmfSenLQtJTQbNMpK7g3boFboaK`
+- SHA: `4512b7d647eda850ec1e70ad440d459fbd1d82d0`
+- state: `READY`
+- alias error: `null`
+
+Certified replacement target remains:
+
+- deployment: `dpl_9v22L3jtNnPR6UWqiacKqvwYrRy1`
+- SHA: `dc923416aeccd292e7db88440cd0f013ced05394`
+- state: `READY`
+- target: `null`
+- alias error: `null`
+
+PR #28 remains:
+
+`DRAFT / OPEN / UNMERGED / MERGEABLE`
+
+No operator drift exists on the canonical alias.
+
+### 15.9 Remaining alias-assignment blocker
+
+The corrected runtime and its replacement Vercel deployment are certified. The remaining blocker is now exclusively the alias mutation surface.
+
+Authenticated/available surfaces checked in this continuation:
+
+1. **Connected Vercel integration:** authenticated reads are available for projects, deployments and logs, and the only deployment write exposed is `deploy_to_vercel`. It exposes no operation to assign an alias to an existing deployment and no existing-deployment promotion operation.
+2. **Connected GitHub integration:** can patch and certify repository code/workflows, but repository source contains no Vercel API credential or authenticated alias mechanism. Secret APIs are intentionally not exposed through this connector, so no credential is guessed or invented.
+3. **Local/container execution:** no authenticated Vercel CLI/API session is available to this execution context. A fresh login/token cannot be fabricated.
+4. **Computer/Work handoff:** no authenticated desktop/browser execution surface was made available in this session.
+
+The available Vercel `deploy_to_vercel` write was **not** invoked because it would create another deployment, violating the Phase 11 existing-deployment cutover requirement.
+
+Therefore no alias mutation has been performed.
+
+### 15.10 Current continuation disposition
+
+**PHASE 11 BLOCKED — AUTHENTICATED VERCEL ALIAS-ASSIGNMENT CAPABILITY STILL UNAVAILABLE**
+
+This blocker is now independent of application correctness: the deployment-mode defect was found, patched and recertified.
+
+When an authenticated alias-write surface is available, the only eligible cutover is:
+
+`healthtimes-staging.vercel.app`
+
+→
+
+`dpl_9v22L3jtNnPR6UWqiacKqvwYrRy1`
+
+→
+
+`dc923416aeccd292e7db88440cd0f013ced05394`
+
+After that mutation, the full Phase 11 canonical-alias post-cutover smoke, routing/SEO, Premium, HOSPAZ, custody and runtime-log matrix must still be executed before Phase 11 can be accepted.
+
+No Phase 12 / AG-08 / CP7 release is authorized.
