@@ -1,0 +1,165 @@
+name: AG-05 + NM-07 Phase 7 Premium + HOSPAZ
+
+on:
+  push:
+    branches:
+      - integration/ag05-nm07-phase7-premium-hospaz
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'lib/ag05-capability.js'
+      - 'api/public.js'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/ag05-nm07-phase7-premium-hospaz.yml'
+      - 'docs/migration/25_AG05_NM07_PREMIUM_HOSPAZ_CONVERGENCE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-premium-hospaz-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_WEB_BASE_URL: ""
+
+jobs:
+  convergence:
+    name: Premium + HOSPAZ convergence and regression matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$CHECKED_OUT_SHA"
+          test "$CHECKED_OUT_SHA" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install root and Reader dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Typecheck shared Reader
+        run: npm run native:check
+      - name: Run Phase 7 Premium + HOSPAZ suite
+        run: npm --prefix apps/mobile run test:premium-hospaz
+      - name: Preserve Phase 6 migrated-corpus matrix
+        run: npm --prefix apps/mobile run test:migrated-corpus
+      - name: Preserve Reader, growth and native contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix apps/mobile run test:foundation
+          npm --prefix apps/mobile run test:content-contracts
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:native-certification
+          npm --prefix apps/mobile run test:source-parity
+      - name: Preserve CP5 and adjacent security contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:ag05:capability
+          npm run test:ag06:contract
+          npm run test:ca01:contract
+          npm run test:com01:contract
+          npm run test:phase4:web
+      - name: Build canonical Web/PWA Reader
+        run: npm run build:phase4:web
+      - name: Prove raw HTTP route and SEO decisions
+        run: npm run verify:phase4:http
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke mobile and desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/phase7-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "5" ]]; then cat /tmp/phase7-smoke.log; exit 1; fi
+            sleep 1
+          done
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 npm run test:phase4:browser
+      - name: Upload Phase 7 Reader evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase7-premium-hospaz-reader-evidence
+          path: |
+            playwright-report
+            test-results
+            apps/mobile/dist/build-info.json
+            migration-output/ag07-phase4/http-evidence.json
+            /tmp/phase7-smoke.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  readonly-staging:
+    name: Read-only Premium + HOSPAZ staging authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$CHECKED_OUT_SHA"
+          test "$CHECKED_OUT_SHA" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse privileged or non-staging target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$HEALTHTIMES_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]]
+          test -n "$HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY"
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -z "${HEALTHTIMES_SUPABASE_SERVICE_ROLE_KEY:-}"
+      - name: Install root and Reader dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Re-prove CP5 read-only staging semantics
+        run: npm run verify:ag05:readonly
+      - name: Re-prove Premium and HOSPAZ live authority
+        run: npm --prefix apps/mobile run test:premium-hospaz
+      - name: Upload read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase7-premium-hospaz-readonly-evidence
+          path: migration-output/ag05-phase3/staging-evidence.json
+          if-no-files-found: error
+          retention-days: 14

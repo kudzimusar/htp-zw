@@ -197,6 +197,8 @@ export default function HomeScreen() {
 
       {hero ? <HeroStory story={hero} /> : null}
 
+      <Section><AdSlot placement="hospaz-header-direct" sensitiveHealthContext /></Section>
+
       {!!liveItems.length && (
         <Section>
           <SectionHeader title="Live Now" eyebrow="LIVE" action="Open Live" onAction={() => router.push("/live" as never)} />

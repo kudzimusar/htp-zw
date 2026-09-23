@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from "react";
+import { useEffect, useRef, type PropsWithChildren } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
@@ -6,6 +6,7 @@ import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
+import { event } from "../growth/events";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -169,6 +170,7 @@ export function AdSlot({
   sensitiveHealthContext?: boolean;
 }) {
   const { palette }=useAppearance();
+  const impressionKey=useRef("");
   const decision=useAsync(
     ()=>services.advertising.getDecision(placement,{
       consentForPersonalizedAds:false,
@@ -178,8 +180,42 @@ export function AdSlot({
   );
 
   const adDecision=decision.data;
+
+  useEffect(()=>{
+    if(adDecision?.source!=="direct" || !adDecision.creativeUrl) return;
+    const key=placement+"|"+adDecision.creativeUrl;
+    if(impressionKey.current===key) return;
+    impressionKey.current=key;
+    void services.analytics.track(event("ad_impression",{
+      surface:"reader",
+      placement_key:placement,
+      direct_ad_source:"direct"
+    }));
+  },[placement,adDecision?.source,adDecision?.creativeUrl]);
+
   if(!adDecision || adDecision.source === "none") return null;
   const message=adDecision.policyReason ?? "Advertising delivery is controlled by the HealthTimes advertising service.";
+  const destination=adDecision.destinationUrl?.trim() ?? "";
+  const clickable=/^https:\/\//i.test(destination);
+
+  const openDestination=()=>{
+    if(!clickable) return;
+    void services.analytics.track(event("ad_click",{
+      surface:"reader",
+      placement_key:placement,
+      direct_ad_source:"direct"
+    }));
+    void Linking.openURL(destination);
+  };
+
+  const creative=adDecision.creativeUrl ? (
+    <Image
+      source={{uri:adDecision.creativeUrl}}
+      style={[styles.adCreative,{backgroundColor:palette.paper}]}
+      resizeMode="contain"
+      accessibilityLabel={adDecision.disclosureLabel}
+    />
+  ) : null;
 
   return (
     <View
@@ -188,11 +224,18 @@ export function AdSlot({
     >
       <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
       <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel ?? "Sponsored"}</Text>
+      {clickable && creative ? (
+        <Pressable accessibilityRole="link" accessibilityLabel={"Open "+adDecision.disclosureLabel} onPress={openDestination}>
+          {creative}
+        </Pressable>
+      ) : creative}
       <Text style={[styles.adMessage,{color:palette.inkMuted}]}>{message}</Text>
+      {!clickable && adDecision.source==="direct" && (
+        <Text style={[styles.adNoDestination,{color:palette.inkMuted}]}>No verified destination is available for this direct advertisement.</Text>
+      )}
     </View>
   );
 }
-
 export function PremiumBadge() {
   return <Text style={styles.premiumBadge}>PREMIUM</Text>;
 }
@@ -257,7 +300,9 @@ const styles=StyleSheet.create({
   adSlot:{minHeight:136,borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",padding:spacing.lg,gap:spacing.xs},
   adLabel:{fontSize:9,fontWeight:"900",letterSpacing:1.4},
   adPlacement:{fontSize:13,fontWeight:"800"},
-  adMessage:{fontSize:12,lineHeight:18,textAlign:"center",maxWidth:520},
+  adMessage:{fontSize:12,lineHeight:18,textAlign:"center",maxWidth:620},
+  adCreative:{width:"100%",maxWidth:980,aspectRatio:16/3},
+  adNoDestination:{fontSize:11,lineHeight:16,textAlign:"center",maxWidth:620,fontStyle:"italic"},
   premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,color:colors.premium,borderWidth:1,borderColor:colors.premium,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
   surface:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg}
 });
