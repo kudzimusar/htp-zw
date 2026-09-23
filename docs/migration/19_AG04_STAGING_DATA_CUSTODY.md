@@ -415,30 +415,75 @@ No storage bytes were downloaded or changed.
 
 ## 15. Pre-convergence backup/export status
 
-**BLOCKED IN THIS EXECUTION ENVIRONMENT.**
+**COMPLETE — PRIVATE OFF-GIT LOGICAL BACKUP CREATED.**
 
-A fresh restorable staging database dump/export was **not created**.
+A fresh logical backup of HealthTimes Staging was created outside Git at the private local backup directory:
 
-Reason:
+`/Users/shadreckmusarurwa/Work/backups/healthtimes/pre-convergence-2026-09-23/`
 
-1. HealthTimes Staging belongs to a Supabase **Free** organization.
-2. Current Supabase documentation states Free projects should create off-site logical backups using `supabase db dump`.
-3. The connected Supabase tooling available to this execution exposes project/schema/query/migration/function operations but **does not expose a backup/export creation action**.
-4. No local terminal with the project DB credentials is available in this execution context.
-5. Creating a pseudo-backup by pulling private operational rows through chat, committing a dump to public Git, or bypassing Supabase controls would not be a safe substitute.
+Project ref:
 
-Required preservation action before Phase 2:
+`gcdohgbmqhqwydgaxrcr`
 
-- run a read-only logical export with the authenticated Supabase CLI / `pg_dump` from a secure local environment;
-- store it outside Git in the approved private backup location;
-- calculate SHA-256;
-- record timestamp, project ref, secure location, dump checksum, and this migration-ledger fingerprint;
-- do **not** restore it.
+Backup method:
 
-Backup location: **NOT CREATED**  
-Backup SHA-256: **N/A — NOT CREATED**
+- authenticated linked-project Supabase CLI logical dump
+- roles-only dump
+- schema dump
+- data-only dump using COPY
+- no restore performed
+- no migration replay/repair/push/reset performed
 
-This is the only hard Phase 1 completion blocker found by this custody audit.
+Backup date: **2026-09-23**
+
+Exact wall-clock completion time was not included in the moderator-supplied closure evidence and is therefore not invented in this report.
+
+Supabase CLI version: **NOT SUPPLIED IN CLOSURE EVIDENCE**
+
+The backup artifacts are:
+
+| File | Purpose | Size | SHA-256 | Status |
+| --- | --- | ---: | --- | --- |
+| `roles.sql` | roles-only logical dump | **370 B** | `168a95a9c745af5ed4679751f90419ac9dc434240a213b03e32a06d5664c2308` | CREATED / VERIFIED |
+| `schema.sql` | schema logical dump | **428K** | `5199c0bd1034d057eed602bf79b19b09dd09d1fce990aef3711880b4695aaf47` | CREATED / VERIFIED |
+| `data.sql` | data-only logical dump using COPY | **49M** | `d78f85cd6baa6c3683d1d5622ce5479d10be0865b38a645d8df6f85a034d4bcd` | CREATED / VERIFIED |
+
+The SQL files are private and remain outside Git.
+
+### Dump verification
+
+The moderator-confirmed dump run completed successfully.
+
+- all three required files exist;
+- all three have non-zero expected sizes;
+- schema dump completed successfully;
+- data-only dump completed successfully;
+- no dump failure/truncation was reported;
+- SHA-256 values were calculated for all three artifacts;
+- no restore was performed.
+
+### PostgreSQL circular-foreign-key warning
+
+The successful data-only dump emitted PostgreSQL warnings about circular foreign-key constraints, including `story_comments`.
+
+This warning is recorded as **restore-procedure guidance**, not as a dump failure.
+
+A future authorized restore must use the approved restore procedure with the required trigger/constraint handling for circular foreign-key relationships.
+
+Phase 0 does **not** authorize a restore test, so none was performed.
+
+### Storage preservation
+
+The database logical dump does not contain Supabase Storage object bytes.
+
+Storage custody therefore remains separately evidenced by the existing read-only manifest:
+
+- `migrated-media` objects: **5,705**
+- storage manifest fingerprint: `174b4f3faea00e4df15880448204b41a`
+- canonical objects: **3,275**
+- stale preserved `wordpress/uploads/...` objects: **2,430**
+
+No storage object was downloaded, moved or deleted for this backup gate.
 
 ## 16. Authoritative source archive checksum status
 
@@ -447,18 +492,14 @@ Requested local source paths:
 - `/Users/shadreckmusarurwa/Work/source/wordpress/database/healthtimes-live-authoritative-2026-09-21.sql.gz`
 - `/Users/shadreckmusarurwa/Work/source/wordpress/uploads/healthtimes-uploads-rehearsal-2026-09-21.tar.gz`
 
-Those Mac-local files are not mounted or available in this execution environment, and no matching conversation/Library files were found.
+The previous Phase 1 execution environment could not freshly re-hash these local source archives.
 
-Therefore the physical local archive files could not be freshly re-hashed here.
-
-However the live authoritative `migration_source_snapshots` custody record contains exact accepted values:
+The authoritative live `migration_source_snapshots` custody record still contains the accepted values:
 
 - database: `16d525727bb451318a6658e710b20098213c846579b7601338a9c9dc91ad4060` — **MATCHES ACCEPTED VALUE**
 - uploads: `4e15b3eddcdb4106380224b521501a1197f0596a37bacdac6e0f0ac1c84f820c` — **MATCHES ACCEPTED VALUE**
 
-Local-file re-hash status: **CANNOT VERIFY IN CURRENT ENVIRONMENT**
-
-No archive was extracted or re-imported.
+No source archive was extracted or re-imported during backup-gate closure.
 
 ## 17. Variances
 
@@ -470,8 +511,8 @@ No archive was extracted or re-imported.
 4. `com01_campaign_and_escalation_authority` is live with persistent schema effects but no migration file was found in the inspected Phase 0 / AG-05 / COM-01 migration directories.
 5. AG-05/CP5 migrations are live but absent from the Phase 0 migration directory.
 6. Three active certification Edge Functions have `verify_jwt=false`; they were observed only and not changed.
-7. The required fresh pre-convergence restorable database export could not be created with available tooling.
-8. Mac-local authoritative source archives could not be freshly re-hashed in this environment; their accepted hashes are preserved in the live source-snapshot ledger.
+7. The logical data dump completed with PostgreSQL circular-foreign-key restore warnings, including `story_comments`. This is a future restore-procedure requirement, not a backup failure.
+8. The exact Supabase CLI version and exact dump completion clock-time were not included in the supplied closure evidence, so this report does not fabricate them.
 
 None of the observed variances is evidence that migrated WordPress content/media has been lost.
 
@@ -482,6 +523,8 @@ Data-loss evidence: **NO**
 Runtime changed: **NO**
 
 Database mutated: **NO**
+
+Restore performed: **NO**
 
 Storage mutated: **NO**
 
@@ -495,8 +538,16 @@ Phase 2 started: **NO**
 
 ## 19. Phase 1 disposition
 
-The migrated corpus, canonical media, URL mapping, source checksum ledger, CP5 functions, later AG-06/CA-01/COM-01 coexistence, storage residue and migration-ledger divergence are now documented and fingerprinted.
+The migrated corpus, canonical media, URL mappings, source checksum ledger, CP5 functions, later AG-06/CA-01/COM-01 coexistence, storage residue and migration-ledger divergence are documented and fingerprinted.
 
-The one unresolved mandatory preservation gate is the creation of a fresh restorable staging database backup/export outside Git.
+The previously blocking preservation requirement is now closed by the successfully completed private off-Git logical backup:
 
-**PHASE 1 BLOCKED — fresh pre-convergence HealthTimes Staging database backup/export could not be created because the connected Free-plan Supabase tooling exposes no dump/backup creation action and no secure local CLI database-export environment is available in this execution context.**
+- `roles.sql` — 370 B — SHA-256 `168a95a9c745af5ed4679751f90419ac9dc434240a213b03e32a06d5664c2308`
+- `schema.sql` — 428K — SHA-256 `5199c0bd1034d057eed602bf79b19b09dd09d1fce990aef3711880b4695aaf47`
+- `data.sql` — 49M — SHA-256 `d78f85cd6baa6c3683d1d5622ce5479d10be0865b38a645d8df6f85a034d4bcd`
+
+No restore was performed.
+
+No database or storage mutation occurred during backup-gate closure.
+
+**PHASE 1 COMPLETE — MIGRATED DATA CUSTODY AND PRE-CONVERGENCE BACKUP VERIFIED / READY FOR PHASE 2**
