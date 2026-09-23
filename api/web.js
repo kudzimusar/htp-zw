@@ -15,7 +15,7 @@ const { config, rpc } = publicApi._internals;
 
 function shellPath() {
   const candidates = [
-    path.join(process.cwd(), 'apps/mobile/dist/404.html'),
+    path.join(process.cwd(), 'apps/mobile/dist/+not-found.html'),
     path.join(process.cwd(), 'apps/mobile/dist/index.html')
   ];
   for (const candidate of candidates) {
