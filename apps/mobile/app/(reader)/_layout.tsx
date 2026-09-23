@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import type { ColorValue } from "react-native";
 import { breakpoints } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
@@ -46,7 +47,9 @@ function TabIcon({kind,color,focused}:{kind:TabIconKind;color:ColorValue;focused
 export default function ReaderTabs() {
   const { width }=useWindowDimensions();
   const { palette }=useAppearance();
-  const desktop=width >= breakpoints.desktop;
+  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
+  useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
+  const desktop=responsiveReady && width >= breakpoints.desktop;
 
   const icon=(kind:TabIconKind)=>
     ({color,focused}:{color:ColorValue;focused:boolean;size:number})=><TabIcon kind={kind} color={color} focused={focused} />;
