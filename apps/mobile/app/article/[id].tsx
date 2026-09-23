@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ArticleDetail } from "../../src/domain/models";
 import { Image, Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
@@ -34,7 +35,7 @@ function formatArticleTime(value:string|null){
   });
 }
 
-export default function ArticleScreen(){
+export function ArticleReader({ initialStory = null }: { initialStory?: ArticleDetail | null }){
   const { id }=useLocalSearchParams<{id:string}>();
   const router=useRouter();
   const { palette }=useAppearance();
@@ -45,8 +46,8 @@ export default function ArticleScreen(){
   const trackedArticleId=useRef<string|null>(null);
   const trackedProgressEvents=useRef(new Set<string>());
   const premiumLockTracked=useRef(false);
-  const article=useAsync(()=>services.articles.getById(String(id)),[id]);
-  const related=useAsync(()=>services.articles.getRelated(String(id)),[id]);
+  const article=useAsync(()=>initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
+  const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
 
@@ -314,3 +315,7 @@ const styles=StyleSheet.create({
   related:{gap:spacing.xl},
   relatedItem:{maxWidth:520}
 });
+
+export default function ArticleScreen(){
+  return <ArticleReader />;
+}

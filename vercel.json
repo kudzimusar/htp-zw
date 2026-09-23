@@ -1,25 +1,122 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm install --no-audit --no-fund && npm install --prefix apps/mobile --no-audit --no-fund",
+  "buildCommand": "APP_ENV=staging EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity HEALTHTIMES_WEB_BASE_URL= npm run build:phase4:web",
+  "outputDirectory": "apps/mobile/dist",
+  "functions": {
+    "api/web.js": {
+      "includeFiles": "apps/mobile/dist/404.html",
+      "maxDuration": 15
+    },
+    "api/public.js": {
+      "maxDuration": 15
+    },
+    "api/newsroom.js": {
+      "maxDuration": 30
+    },
+    "api/communications.js": {
+      "maxDuration": 30
+    }
+  },
   "headers": [
     {
       "source": "/newsroom.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, private" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self' data:" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "X-Frame-Options", "value": "DENY" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, private"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self' data:"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
       ]
     },
     {
       "source": "/api/newsroom",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, private" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, private"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
       ]
+    },
+    {
+      "source": "/api/communications",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, private"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/public?kind=sitemap"
+    },
+    {
+      "source": "/feed",
+      "destination": "/api/public?kind=feed"
+    },
+    {
+      "source": "/__ag05/direct-ad-preview",
+      "destination": "/api/public?kind=ad"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/api/web?path=/:path*"
     }
   ]
 }
