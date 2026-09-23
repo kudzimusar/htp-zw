@@ -357,20 +357,36 @@ Phase 3 does not resolve this because migration replay/import/repair was express
 
 No accepted runtime behavior tested in the authorized Phase 3 capability scope failed to preserve.
 
-### 10.2 Automatic Vercel preview deployment side effect
+### 10.2 Automatic Vercel preview creation — non-blocking platform side effect
 
-No Vercel deploy action was invoked by Phase 3 and no alias or production target was moved.
+The moderator independently verified that the Vercel deployments created from Phase 3 branch pushes are automatic Git-integration previews.
 
-However, final platform verification found that the repository's existing Vercel Git integration automatically created preview deployments when the Phase 3 branch commits were pushed.
-
-Observed previews:
+Observed previews include:
 
 - runtime `b24ff176...` → `dpl_HfVWCS1ymuaWsqoQSaRnmWPbfMoD` — `target: null`
 - documentation `b037d8cd...` → `dpl_85CttE5PTkGUfZMCExfJF9wx1y3o` — `target: null`
+- documentation correction `761a8e43...` → `dpl_FrfTbczB6gan2sEQsagBAsVbCHMp` — `target: null`
 
-This is not a production deployment and did not move `healthtimes-staging.vercel.app`, but it means the strict statement **"no deployment occurred" cannot be made**. The previews were an automatic repository-integration side effect, not an authorized/manual deployment action.
+These previews remain transparently recorded. They are classified as a **NON-BLOCKING PLATFORM SIDE EFFECT** because they are:
 
-Because Phase 3 explicitly prohibited deployment, this remains a governance blocker for final Phase 3 acceptance unless the moderator accepts automatic unaliased previews as an allowed branch-push side effect.
+- branch-generated Git-integration previews;
+- `target: null`;
+- not production deployments;
+- not primary staging-alias movements;
+- not activation of the CP5 legacy public catch-all;
+- not manually invoked Phase 3 deployment actions.
+
+The primary staging alias remains:
+
+`healthtimes-staging.vercel.app`
+
+→ `dpl_4xmfSenLQtJTQbNMpK7g3boFboaK`
+
+→ SHA `4512b7d647eda850ec1e70ad440d459fbd1d82d0`
+
+The Phase 3 authorization prohibited production deployment and primary staging-alias movement. It did not classify automatic `target:null` branch-preview creation as a Phase 3 failure.
+
+Any further automatic unaliased branch preview caused by a documentation-only push is likewise an accepted Git-integration side effect and does not reopen Phase 3.
 
 ## 11. Mutation receipt
 
@@ -395,4 +411,14 @@ Phase 3 performed no:
 
 Staging verification used browser-safe publishable credentials and only the accepted read-only CP5 RPC interfaces.
 
-The runtime candidate is technically certified. The only remaining Phase 3 governance issue is the automatic, unaliased Vercel preview deployment side effect recorded above.
+Phase 3 runtime remains certified at `b24ff176a5cc3323c21ad299018241dadf316bcc`. No runtime recertification is required because this disposition correction changes documentation only.
+
+Final deployment/routing disposition:
+
+- manual deployment: **NO**;
+- production deployment: **NO**;
+- primary staging alias movement: **NO**;
+- CP5 legacy public catch-all activation: **NO**;
+- automatic unaliased branch previews: **YES — accepted non-blocking Git-integration side effect**.
+
+**PHASE 3 COMPLETE — CP5 CAPABILITY RECOVERED / READY FOR PHASE 4**
