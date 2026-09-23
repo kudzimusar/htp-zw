@@ -347,13 +347,30 @@ Not changed:
 
 ## 10. Unresolved variance
 
-There is one intentional convergence variance requiring later governance:
+### 10.1 Migration-ledger convergence
+
+There is one intentional convergence-history variance requiring later governance:
 
 **Repository AG-05 migration history is absent while accepted AG-05 RPC effects are live in staging.**
 
 Phase 3 does not resolve this because migration replay/import/repair was expressly prohibited.
 
 No accepted runtime behavior tested in the authorized Phase 3 capability scope failed to preserve.
+
+### 10.2 Automatic Vercel preview deployment side effect
+
+No Vercel deploy action was invoked by Phase 3 and no alias or production target was moved.
+
+However, final platform verification found that the repository's existing Vercel Git integration automatically created preview deployments when the Phase 3 branch commits were pushed.
+
+Observed previews:
+
+- runtime `b24ff176...` → `dpl_HfVWCS1ymuaWsqoQSaRnmWPbfMoD` — `target: null`
+- documentation `b037d8cd...` → `dpl_85CttE5PTkGUfZMCExfJF9wx1y3o` — `target: null`
+
+This is not a production deployment and did not move `healthtimes-staging.vercel.app`, but it means the strict statement **"no deployment occurred" cannot be made**. The previews were an automatic repository-integration side effect, not an authorized/manual deployment action.
+
+Because Phase 3 explicitly prohibited deployment, this remains a governance blocker for final Phase 3 acceptance unless the moderator accepts automatic unaliased previews as an allowed branch-push side effect.
 
 ## 11. Mutation receipt
 
@@ -365,7 +382,7 @@ Phase 3 performed no:
 - database write/repair;
 - storage mutation;
 - stale-object cleanup/deletion;
-- deployment;
+- **manual or explicitly requested Vercel deployment**;
 - primary staging alias movement;
 - production deployment;
 - production database change;
@@ -378,4 +395,4 @@ Phase 3 performed no:
 
 Staging verification used browser-safe publishable credentials and only the accepted read-only CP5 RPC interfaces.
 
-**Phase 3 runtime candidate is certified and the recovered capability boundary is ready for Phase 4 serving convergence.**
+The runtime candidate is technically certified. The only remaining Phase 3 governance issue is the automatic, unaliased Vercel preview deployment side effect recorded above.
