@@ -7,8 +7,8 @@ const read = p => fs.readFileSync(path.join(root,p),'utf8');
 
 test.describe('CA-01 implementation contract',()=>{
   test('forward-only schema keeps private and reader communication domains separate',()=>{
-    const internal=read('supabase/migrations/20260922140000_ca01_internal_schema_capabilities.sql');
-    const reader=read('supabase/migrations/20260922140400_ca01_reader_discussion_moderation.sql');
+    const internal=read('supabase/migrations/20260922054411_ca01_internal_schema_capabilities.sql');
+    const reader=read('supabase/migrations/20260922054428_ca01_reader_discussion_moderation.sql');
     expect(internal).toContain('story_internal_comment_revisions');
     expect(internal).toContain('newsroom_threads');
     expect(internal).toContain('newsroom_notifications');
@@ -19,7 +19,7 @@ test.describe('CA-01 implementation contract',()=>{
   });
 
   test('canonical CA-01 capability vocabulary is singular',()=>{
-    const internal=read('supabase/migrations/20260922140000_ca01_internal_schema_capabilities.sql');
+    const internal=read('supabase/migrations/20260922054411_ca01_internal_schema_capabilities.sql');
     for(const capability of [
       'communication.desk.manage','communication.breaking.manage','communication.announce',
       'comment.configure','comment.moderate','comment.restrict','comment.audit'
@@ -31,7 +31,7 @@ test.describe('CA-01 implementation contract',()=>{
   });
 
   test('reader comment writes are authenticated RPC-only and public projection is minimized',()=>{
-    const reader=read('supabase/migrations/20260922140400_ca01_reader_discussion_moderation.sql');
+    const reader=read('supabase/migrations/20260922054428_ca01_reader_discussion_moderation.sql');
     expect(reader).toContain('revoke all on public.story_comments from public,anon,authenticated');
     expect(reader).toContain('grant execute on function public.reader_submit_story_comment(uuid,text,uuid) to authenticated');
     expect(reader).not.toContain('grant execute on function public.reader_submit_story_comment(uuid,text,uuid) to anon');
@@ -40,7 +40,7 @@ test.describe('CA-01 implementation contract',()=>{
   });
 
   test('private attachment boundary is isolated and server-signed',()=>{
-    const storage=read('supabase/migrations/20260922140300_ca01_communication_storage.sql');
+    const storage=read('supabase/migrations/20260922054424_ca01_communication_storage.sql');
     const api=read('api/newsroom.js');
     expect(storage).toContain("newsroom-communications-private");
     expect(storage).toContain("public=false");
@@ -52,8 +52,8 @@ test.describe('CA-01 implementation contract',()=>{
   });
 
   test('Realtime is private policy transport with minimal server-side event hints',()=>{
-    const realtime=read('supabase/migrations/20260922140500_ca01_realtime_authorization.sql');
-    const emission=read('supabase/migrations/20260922140900_ca01_realtime_event_emission.sql');
+    const realtime=read('supabase/migrations/20260922054449_ca01_realtime_authorization.sql');
+    const emission=read('supabase/migrations/20260922070256_ca01_realtime_event_emission.sql');
     expect(realtime).toContain('newsroom_can_join_realtime_topic');
     expect(realtime).toContain('reader_can_join_comment_topic');
     expect(realtime).toContain("realtime.messages.extension='broadcast'");
