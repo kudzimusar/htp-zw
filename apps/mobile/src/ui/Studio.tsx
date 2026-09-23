@@ -31,6 +31,23 @@ const modules=[
   ["Platform Settings","/studio/settings"]
 ] as const;
 
+function useHydratedStudioWidth(){
+  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
+  const [width,setWidth]=useState(0);
+
+  useEffect(()=>{
+    if(Platform.OS!=="web") return;
+    const sync=()=>setWidth(window.innerWidth);
+    sync();
+    window.addEventListener("resize",sync);
+    setResponsiveReady(true);
+    return ()=>window.removeEventListener("resize",sync);
+  },[]);
+
+  if(Platform.OS!=="web") return Number.MAX_SAFE_INTEGER;
+  return responsiveReady ? width : 0;
+}
+
 function authorizationLabel(status:string|undefined){
   if(status==="authorized") return "SERVER AUTHORIZED";
   if(status==="authenticated-no-staff-authority") return "READER ONLY";
@@ -39,7 +56,7 @@ function authorizationLabel(status:string|undefined){
 }
 
 export function StudioShell({children,title}:PropsWithChildren<{title:string}>){
-  const {width}=useWindowDimensions();
+  const width=useHydratedStudioWidth();
   const router=useRouter();
   const pathname=usePathname();
   const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
