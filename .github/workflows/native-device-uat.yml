@@ -115,7 +115,7 @@ jobs:
       - name: Build self-contained staging simulator app
         working-directory: apps/mobile/ios
         run: |
-          xcodebuild             -workspace "$WORKSPACE"             -scheme "$SCHEME"             -configuration Release             -sdk iphonesimulator             -destination "id=$SIM_UDID"             -derivedDataPath "$PWD/DerivedData"             CODE_SIGNING_ALLOWED=NO             build
+          xcodebuild             -workspace "$WORKSPACE"             -scheme "$SCHEME"             -configuration Release             -sdk iphonesimulator             -destination "id=$SIM_UDID"             -derivedDataPath "$PWD/DerivedData"             build
           APP=$(find DerivedData/Build/Products/Release-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
           test -n "$APP"
           echo "IOS_APP=$APP" >> "$GITHUB_ENV"
