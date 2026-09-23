@@ -106,7 +106,19 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   assert.match(cards, /heroDesktop/);
   assert.match(home, /Editorial filters/);
   assert.doesNotMatch(home, /zone\.slug === "zimbabwe"/i, "Home must not permanently hard-code Zimbabwe as the active edition");
-  assert.match(explore, /TAXONOMY GATEWAY/);
+  assert.match(explore, /services\.taxonomy\.getSnapshot/);
+  assert.match(explore, /Editorial desks/);
+  assert.match(explore, /Topics & categories/);
+  assert.match(explore, /Formats/);
+  for (const internalCopy of [
+    "TAXONOMY GATEWAY",
+    "CANONICAL",
+    "LEGACY",
+    "Canonical desks",
+    "Legacy publication categories"
+  ]) {
+    assert.equal(explore.includes(internalCopy), false, "Explore must not expose internal copy: " + internalCopy);
+  }
   assert.match(search, /Suggested searches/);
   assert.match(search, /VideoCard/);
   assert.match(search, /AudioCard/);
