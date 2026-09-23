@@ -12,7 +12,7 @@ function required(relative) {
   return full;
 }
 
-for (const file of ['index.html','explore.html','live.html','watch.html','search.html','premium.html','my.html','404.html','manifest.json','sw.js','healthtimes-icon.svg']) {
+for (const file of ['index.html','explore.html','live.html','watch.html','search.html','premium.html','my.html','+not-found.html','manifest.json','sw.js','healthtimes-icon.svg']) {
   required(file);
 }
 
