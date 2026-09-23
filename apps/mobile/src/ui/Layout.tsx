@@ -14,12 +14,14 @@ export function Page({
   scroll = true,
   title,
   initialScrollProgress = 0,
-  onScrollProgress
+  onScrollProgress,
+  chrome = true
 }: PropsWithChildren<{
   scroll?: boolean;
   title?: string;
   initialScrollProgress?: number;
   onScrollProgress?: (progress: number) => void;
+  chrome?: boolean;
 }>) {
   const { palette } = useAppearance();
   const { width } = useWindowDimensions();
@@ -27,7 +29,7 @@ export function Page({
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const restoredRef = useRef(false);
-  const mobileTabsVisible = width < breakpoints.desktop;
+  const mobileTabsVisible = chrome && width < breakpoints.desktop;
 
   const restorePosition = useCallback(() => {
     if (restoredRef.current || !scroll || initialScrollProgress <= 0) return;
@@ -40,8 +42,8 @@ export function Page({
 
   const body = (
     <View style={[styles.page, { backgroundColor: palette.paper }]}>
-      <EnvironmentBanner />
-      <AppHeader />
+      {chrome && <EnvironmentBanner />}
+      {chrome && <AppHeader />}
       <ContentWidth bottomInset={mobileTabsVisible ? 96 : 64}>
         {!!title && (
           <View style={styles.screenHeading}>
@@ -149,6 +151,15 @@ export function AppHeader() {
       >
         <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>UPDATES</Text>
         <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => go("/premium")}
+        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        accessibilityLabel="HealthTimes Premium"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>MEMBERS</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Premium</Text>
       </Pressable>
     </View>
   );
