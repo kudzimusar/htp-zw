@@ -141,7 +141,10 @@ test("9 storefront remains configuration-required with no invented price or prod
     "androidMonthlyProductId: null","androidYearlyProductId: null"
   ]) assert.ok(config.includes(field),field);
   assert.equal(/\$\d|US\$|ZW\$|USD\s*\d|ZWL\s*\d/.test(premium),false);
-  assert.match(premium,/No plan, price or product identifier is shown/);
+  assert.doesNotMatch(premium,/event\("subscription_completed"/);
+  assert.match(premium,/await services\.premiumStore\.startPurchase/);
+  assert.doesNotMatch(premium,/purchaseStatus\s*===?\s*["']success["']/i);
+  assert.doesNotMatch(premium,/subscriptionStatus\s*===?\s*["']active["']/i);
 });
 
 test("10 Premium discovery remains access-policy driven across Home cards and landing",()=>{
