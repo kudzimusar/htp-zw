@@ -116,9 +116,10 @@ test('legacy root UI remains preserved but is not the Vercel output directory', 
 
 test('root-origin PWA source configuration remains base-path neutral', () => {
   const html = fs.readFileSync('apps/mobile/app/+html.tsx','utf8');
-  expect(html).toContain('HEALTHTIMES_WEB_BASE_URL');
+  expect(html).toContain('configuredBaseUrl');
   expect(html).not.toContain('/htp-zw/');
   const config = fs.readFileSync('apps/mobile/app.config.ts','utf8');
+  expect(config).toContain('HEALTHTIMES_WEB_BASE_URL');
   expect(config).toContain('webBaseUrl');
   expect(config).toContain('output: "static"');
 });
