@@ -2,7 +2,7 @@ name: Validate HealthTimes 2.0
 
 on:
   push:
-    branches: [main]
+    branches: [main, integration/ag07-phase8-convergence-candidate]
   pull_request:
 
 permissions:

@@ -10,6 +10,7 @@ on:
       - feat/native-mobile-nm05-growth-commercial
       - feat/native-mobile-nm06-identity-security
       - feat/native-mobile-nm07-native-certification
+      - integration/ag07-phase8-convergence-candidate
     paths:
       - 'apps/mobile/**'
       - 'package.json'

@@ -1,6 +1,9 @@
 name: AG-06 Newsroom Security
 
 on:
+  push:
+    branches:
+      - integration/ag07-phase8-convergence-candidate
   pull_request:
     paths:
       - 'api/newsroom.js'
