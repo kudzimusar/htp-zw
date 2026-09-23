@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/nm07-phase6-migrated-corpus-reader
+      - integration/ag07-phase8-convergence-candidate
   pull_request:
     paths:
       - 'apps/mobile/**'

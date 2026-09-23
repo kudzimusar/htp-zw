@@ -1,6 +1,9 @@
 name: COM-01 Communications
 
 on:
+  push:
+    branches:
+      - integration/ag07-phase8-convergence-candidate
   pull_request:
     paths:
       - 'api/communications.js'

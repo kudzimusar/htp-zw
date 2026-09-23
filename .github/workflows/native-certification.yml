@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/native-mobile-nm07-native-certification
+      - integration/ag07-phase8-convergence-candidate
     paths:
       - 'apps/mobile/**'
       - '.github/workflows/native-certification.yml'

@@ -1,6 +1,9 @@
 name: Migration Tests
 
 on:
+  push:
+    branches:
+      - integration/ag07-phase8-convergence-candidate
   pull_request:
     paths:
       - 'scripts/migration/**'

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/ag07-phase4-unified-web-pwa
+      - integration/ag07-phase8-convergence-candidate
   pull_request:
     paths:
       - 'supabase/migrations/**'
