@@ -140,7 +140,7 @@ jobs:
               }
 
               const search=await page.goto(base+"/search",{waitUntil:"domcontentloaded",timeout:30000});
-              const input=page.getByLabel("Search HealthTimes");
+              const input=page.getByRole("textbox",{name:"Search HealthTimes"});
               await input.waitFor({timeout:30000});
               await input.fill("HIV");
               await input.press("Enter");
