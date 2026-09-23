@@ -53,6 +53,7 @@ export default function ReaderTabs() {
 
   return (
     <Tabs
+      tabBar={desktop ? () => null : undefined}
       screenOptions={{
         headerShown:false,
         tabBarActiveTintColor:palette.blue,
