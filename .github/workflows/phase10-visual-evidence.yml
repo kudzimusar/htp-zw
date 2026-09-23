@@ -1,4 +1,4 @@
-name: Phase 10 Visual Evidence
+name: Phase 10 Web/PWA Evidence
 
 on:
   push:
@@ -10,11 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: phase10-visual-${{ github.ref }}
+  group: phase10-web-evidence-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  PHASE10_BASELINE_SHA: 8fef4c2e7863afd6d0118dda7e0cf42ebf96d85b
   APP_ENV: staging
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
   HEALTHTIMES_WEB_BASE_URL: ""
@@ -24,23 +23,25 @@ env:
   HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
 
 jobs:
-  before-web:
-    name: Before — certified Web/PWA visual baseline
+  final-web:
+    name: Final exact-head Web/PWA visual evidence
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.PHASE10_BASELINE_SHA }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
-      - name: Prove certified baseline checkout
+      - name: Prove exact candidate checkout
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          echo "EXPECTED_SHA=$PHASE10_BASELINE_SHA"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
           echo "CHECKED_OUT_SHA=$actual"
-          test "$actual" = "$PHASE10_BASELINE_SHA"
+          test "$actual" = "$EXPECTED_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -48,48 +49,68 @@ jobs:
       - run: npm install --prefix apps/mobile --no-audit --no-fund
       - run: npm run build:phase4:web
       - run: npx playwright install --with-deps chromium
-      - name: Capture mobile/tablet/desktop Reader baseline
+      - name: Capture final mobile/tablet/desktop Reader evidence
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          node scripts/web/phase4-smoke-server.js >/tmp/phase10-before.log 2>&1 &
+          node scripts/web/phase4-smoke-server.js >/tmp/phase10-final-web.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for attempt in 1 2 3 4 5; do
+          for attempt in $(seq 1 10); do
             if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
-            if [[ "$attempt" == "5" ]]; then cat /tmp/phase10-before.log; exit 1; fi
+            if [[ "$attempt" == "10" ]]; then cat /tmp/phase10-final-web.log; exit 1; fi
             sleep 1
           done
-          mkdir -p phase10-evidence/before/web
+          mkdir -p phase10-evidence/final/web
           node - <<'NODE'
-          const { chromium } = require('playwright');
+          const { chromium } = require('@playwright/test');
           const fs=require('fs');
+          const path=require('path');
+          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
           const routes=[
-            ['home','/'],['explore','/explore'],['search','/search'],['live','/live'],['watch','/watch'],
-            ['my-ht','/my'],['premium','/premium'],['saved','/saved'],['edition','/edition'],
-            ['notifications','/notifications'],['listen','/listen'],['onboarding','/onboarding'],['studio','/studio']
+            ['home','/'],['explore','/explore'],['search','/search'],['article','/article/'+articleId],
+            ['live','/live'],['watch','/watch'],['my-ht','/my'],['premium','/premium'],
+            ['saved','/saved'],['edition','/edition'],['notifications','/notifications'],
+            ['listen','/listen'],['onboarding','/onboarding'],['studio','/studio']
           ];
           const viewports=[['mobile',390,844],['tablet',834,1112],['desktop',1440,1000]];
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const manifest={sha:process.env.PHASE10_BASELINE_SHA,capturedAt:new Date().toISOString(),screens:[]};
-            for(const [vp,w,h] of viewports){
-              const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
+            const manifest={sha:process.env.EXPECTED_SHA,capturedAt:new Date().toISOString(),screens:[]};
+            for(const [viewport,width,height] of viewports){
               for(const [name,route] of routes){
-                const response=await page.goto('http://127.0.0.1:4174'+route,{waitUntil:'networkidle',timeout:30000});
-                await page.waitForTimeout(700);
-                const file=`phase10-evidence/before/web/${vp}-${name}.png`;
+                const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+                const pageErrors=[];
+                page.on('pageerror',error=>pageErrors.push(String(error)));
+                const response=await page.goto('http://127.0.0.1:4174'+route,{waitUntil:'domcontentloaded',timeout:30000});
+                if(route==='/') await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
+                else await page.waitForTimeout(1200);
+                const hydrationRegenerationWarnings=pageErrors.filter(error=>error.includes('Minified React error #418'));
+                if(hydrationRegenerationWarnings.length){
+                  throw new Error(viewport+' '+name+' emitted React #418: '+hydrationRegenerationWarnings.join(' | '));
+                }
+                const otherErrors=pageErrors.filter(error=>!error.includes('Minified React error #418'));
+                if(otherErrors.length) throw new Error(viewport+' '+name+' page errors: '+otherErrors.join(' | '));
+                const file=path.join('phase10-evidence/final/web',viewport+'-'+name+'.png');
                 await page.screenshot({path:file,fullPage:true});
-                manifest.screens.push({viewport:vp,width:w,height:h,name,route,status:response?.status()??null,title:await page.title(),file});
+                manifest.screens.push({
+                  viewport,width,height,name,route,status:response?.status()??null,
+                  title:await page.title(),file,hydrationRegenerationWarnings:0
+                });
+                await page.close();
               }
-              await page.close();
             }
             await browser.close();
-            fs.writeFileSync('phase10-evidence/before/web/manifest.json',JSON.stringify(manifest,null,2));
-          })().catch(e=>{console.error(e);process.exit(1)});
+            fs.writeFileSync('phase10-evidence/final/web/manifest.json',JSON.stringify(manifest,null,2));
+          })().catch(error=>{console.error(error);process.exit(1)});
           NODE
       - uses: actions/upload-artifact@v4
         with:
-          name: phase10-before-web-pwa-screenshots
-          path: phase10-evidence/before/web/
+          name: phase10-final-web-pwa-screenshots
+          path: |
+            phase10-evidence/final/web/
+            /tmp/phase10-final-web.log
+          if-no-files-found: error
           retention-days: 30
