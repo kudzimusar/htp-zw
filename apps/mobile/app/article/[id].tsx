@@ -141,7 +141,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
   const download=async()=>{
     if(story.accessPolicy==="premium"){
-      setActionStatus("Premium body is not available for offline storage until a verified offline entitlement policy exists.");
+      setActionStatus("Premium body is not available for offline storage without entitlement. Offline Premium persistence also remains disabled until a verified offline entitlement policy exists.");
       return;
     }
     await services.reader.downloadArticle(story);
