@@ -31,7 +31,8 @@
     "verify:ag05:readonly": "node scripts/migration/ag05-capability-readonly-check.js",
     "build:phase4:web": "npm run native:export:web && node scripts/web/prepare-phase4-vercel.js",
     "test:phase4:web": "playwright test tests/migration/ag07-phase4-unified-web.spec.js",
-    "test:phase4:browser": "playwright test tests/migration/ag07-phase4-browser.spec.js"
+    "test:phase4:browser": "playwright test tests/migration/ag07-phase4-browser.spec.js",
+    "verify:phase4:http": "node scripts/web/phase4-live-http-check.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
