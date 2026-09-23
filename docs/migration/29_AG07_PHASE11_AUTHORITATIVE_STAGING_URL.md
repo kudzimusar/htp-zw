@@ -142,7 +142,18 @@ Desired exact SHA:
 
 `e6895043aa00fa0272a79cdc1347e2460f08dfac`
 
-No rebuild or replacement deployment was created.
+No rebuild or replacement deployment was created **for the alias cutover**.
+
+After the documentation-only commit `c08e558856caac77d1b92da8d8c6d120e79c4738`, Vercel Git integration automatically started a normal branch-preview deployment:
+
+- deployment: `dpl_5phToufSVJhJcoS3vYDMp4zSxa7k`
+- commit: `c08e558856caac77d1b92da8d8c6d120e79c4738`
+- branch: `deployment/ag07-phase11-authoritative-staging`
+- observed state: `BUILDING`
+- target: `null`
+- purpose: automatic Git-integration preview of the documentation branch only
+
+This automatic preview was not manually invoked, was not used to establish `healthtimes-staging.vercel.app`, does not replace the certified target deployment, and is not Phase 11 runtime evidence. Additional documentation-only commits on this Git-integrated branch may produce equivalent `target: null` previews; they remain non-authoritative and must not be promoted or substituted for `dpl_9Bd8n5GMpaBWMZTNHd4SPXQjeH2T`.
 
 ## 7. Read-only staging custody verification
 
@@ -318,7 +329,8 @@ No rollback test was performed by deliberately moving the alias away and back; s
 - Phase 11 branch created: **YES**
 - Phase 11 documentation file created: **YES**
 - application/runtime code changed: **NO**
-- Vercel deployment created: **NO**
+- manual/new Vercel deployment created for cutover: **NO**
+- automatic Git-integration preview from documentation branch: **YES** — first observed `dpl_5phToufSVJhJcoS3vYDMp4zSxa7k`, `target: null`, non-authoritative
 - authoritative staging alias moved: **NO**
 - rollback alias mutation: **NO**
 - migration ledger changed: **NO**
