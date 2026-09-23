@@ -116,6 +116,7 @@ jobs:
                 }
                 const hydrationWarnings=pageErrors.filter((error)=>error.includes('Minified React error #418'));
                 const unexpectedErrors=pageErrors.filter((error)=>!error.includes('Minified React error #418'));
+                if(hydrationWarnings.length) throw new Error(name+' hydration regeneration errors: '+hydrationWarnings.join(' | '));
                 if(unexpectedErrors.length) throw new Error(name+' page errors: '+unexpectedErrors.join(' | '));
                 const file=path.join('phase10-evidence/after/web',vp+'-'+name+'.png');
                 await page.screenshot({path:file,fullPage:true});
@@ -132,7 +133,10 @@ jobs:
       - name: Build staging-service candidate for HOSPAZ proof
         env:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
-        run: npm run build:phase4:web
+        run: |
+          rm -rf apps/mobile/.expo apps/mobile/node_modules/.cache
+          npm --prefix apps/mobile run export:web -- --clear
+          node scripts/web/prepare-phase4-vercel.js
       - name: Capture staging HOSPAZ Home proof
         shell: bash
         env:
@@ -151,16 +155,57 @@ jobs:
           node - <<'NODE'
           const { chromium }=require('@playwright/test');
           const fs=require('fs');
+          const { buildHospazCapability }=require('./lib/ag05-capability');
           (async()=>{
+            const rpcResponse=await fetch(process.env.EXPO_PUBLIC_SUPABASE_URL+'/rest/v1/rpc/ag05_hospaz_direct_ad_preview',{
+              method:'POST',
+              headers:{
+                apikey:process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+                Authorization:'Bearer '+process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+                'Content-Type':'application/json'
+              },
+              body:'{}'
+            });
+            if(!rpcResponse.ok) throw new Error('HOSPAZ authority RPC HTTP '+rpcResponse.status);
+            const raw=await rpcResponse.json();
+            const capability=buildHospazCapability(raw,{supabaseUrl:process.env.EXPO_PUBLIC_SUPABASE_URL});
+            if(capability.advertiser!=='HOSPAZ') throw new Error('HOSPAZ advertiser authority mismatch');
+            if(capability.placementKey!=='hospaz-header-direct') throw new Error('HOSPAZ placement authority mismatch');
+            if(capability.provenance.currentSourceAttachmentId!=='33005') throw new Error('HOSPAZ source attachment mismatch');
+            if(capability.destination.state!=='UNKNOWN'||capability.destination.url!==null) throw new Error('HOSPAZ destination must remain UNKNOWN/null');
+            if(capability.schedule.state!=='UNKNOWN'||capability.schedule.value!==null) throw new Error('HOSPAZ schedule must remain UNKNOWN/null');
+            if(capability.placementConditions.state!=='UNKNOWN'||capability.placementConditions.value!==null) throw new Error('HOSPAZ placement conditions must remain UNKNOWN/null');
             const browser=await chromium.launch({headless:true});
-            const manifest={sha:process.env.EXPECTED_SHA,capturedAt:new Date().toISOString(),screens:[]};
+            const manifest={
+              sha:process.env.EXPECTED_SHA,
+              capturedAt:new Date().toISOString(),
+              authority:{
+                advertiser:capability.advertiser,
+                placement:capability.placementKey,
+                sourceAttachment:capability.provenance.currentSourceAttachmentId,
+                destination:capability.destination,
+                schedule:capability.schedule,
+                placementConditions:capability.placementConditions,
+                nonClickable:capability.destination.url===null
+              },
+              screens:[]
+            };
             for(const item of [{name:'mobile-home-hospaz',width:390,height:844},{name:'desktop-home-hospaz',width:1440,height:1000}]){
               const page=await browser.newPage({viewport:{width:item.width,height:item.height}});
-              const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
+              const errors=[]; const diagnostics=[];
+              page.on('pageerror',e=>errors.push(String(e)));
+              page.on('console',msg=>{ if(msg.type()==='error') diagnostics.push('console:'+msg.text()); });
+              page.on('requestfailed',req=>diagnostics.push('requestfailed:'+req.url()+':'+(req.failure()?.errorText??'unknown')));
               await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:30000});
+              await page.getByText('ACCEPTED MIGRATED CORPUS',{exact:false}).first().waitFor({timeout:30000});
               await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
               const ad=page.locator('[aria-label="Advertising placement hospaz-header-direct"]');
-              await ad.waitFor({timeout:30000});
+              try{
+                await ad.waitFor({timeout:30000});
+              }catch(error){
+                const body=(await page.locator('body').innerText()).slice(0,4000);
+                throw new Error('HOSPAZ placement did not render. diagnostics='+diagnostics.join(' | ')+' body='+body+' cause='+String(error));
+              }
               const adText=await ad.innerText();
               if(!adText.includes('HOSPAZ')) throw new Error('HOSPAZ disclosure missing');
               if(await ad.locator('a').count()) throw new Error('HOSPAZ direct placement became clickable without verified destination');
@@ -232,8 +277,8 @@ jobs:
           print(preferred if preferred in schemes else [s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))][0])
           PY
           )
-          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -derivedDataPath "$PWD/DerivedData" CODE_SIGNING_ALLOWED=NO build
-          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath "$PWD/DerivedData" CODE_SIGNING_ALLOWED=NO build
+          APP=$(find DerivedData/Build/Products/Release-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
           test -n "$APP"
           echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
       - name: Capture iOS Reader
@@ -298,7 +343,7 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
       - name: Build staging debug APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
       - name: Boot emulator and capture Reader
         shell: bash
         env:
@@ -320,7 +365,7 @@ jobs:
           done
           adb shell input keyevent 82 || true
           mkdir -p phase10-evidence/after/android
-          adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
           adb shell monkey -p zw.co.healthtimes.app.staging -c android.intent.category.LAUNCHER 1
           sleep 20
           adb exec-out screencap -p > phase10-evidence/after/android/home.png
