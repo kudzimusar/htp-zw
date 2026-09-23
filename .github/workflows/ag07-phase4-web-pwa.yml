@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - integration/ag07-phase4-unified-web-pwa
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/migration-lineage/**'
+      - 'tests/migration/ag04-phase5-lineage.spec.js'
+      - 'tests/migration/ag07-phase4-browser.spec.js'
+      - 'tests/ag06-security-contract.spec.js'
+      - 'tests/ca01-contract.spec.js'
+      - 'tests/com01-contract.spec.js'
+      - '.github/workflows/ag07-phase4-web-pwa.yml'
   workflow_dispatch:
 
 permissions:
