@@ -1,5 +1,5 @@
-import type { PropsWithChildren } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useState, type PropsWithChildren } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, radius, spacing } from "../theme/tokens";
@@ -42,7 +42,9 @@ export function StudioShell({children,title}:PropsWithChildren<{title:string}>){
   const {width}=useWindowDimensions();
   const router=useRouter();
   const pathname=usePathname();
-  const desktop=width>=breakpoints.tablet;
+  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
+  useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
+  const desktop=responsiveReady && width>=breakpoints.tablet;
   const authorization=useAsync(()=>services.authorization.getSnapshot(),[]);
   const active=(path:string)=>path==="/studio" ? pathname==="/studio" : pathname===path;
   const status=authorizationLabel(authorization.data?.status);
