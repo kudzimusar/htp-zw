@@ -26,7 +26,9 @@
     "native:web": "npm --prefix apps/mobile run web",
     "native:check": "npm --prefix apps/mobile run check",
     "native:export:web": "npm --prefix apps/mobile run export:web",
-    "test:com01:contract": "playwright test tests/com01-contract.spec.js"
+    "test:com01:contract": "playwright test tests/com01-contract.spec.js",
+    "test:ag05:capability": "playwright test tests/migration/ag05-capability-recovery.spec.js",
+    "verify:ag05:readonly": "node scripts/migration/ag05-capability-readonly-check.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"

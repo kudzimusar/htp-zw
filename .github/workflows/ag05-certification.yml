@@ -1,0 +1,76 @@
+name: AG-05 Phase 3 Capability Recovery
+
+on:
+  push:
+    branches:
+      - recovery/ag05-cp5-capability-convergence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capability-contract:
+    name: Presentation-neutral CP5 capability contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run bounded Phase 3 contract
+        run: npm run test:ag05:capability
+
+      - name: Prove no legacy page catch-all was activated
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Fq '"/(.*)"' vercel.json
+          ! grep -Fq 'kind=page' vercel.json
+          ! grep -Fq 'renderStoryPage' api/public.js
+          ! grep -Fq 'renderContextPage' api/public.js
+
+  read-only-staging:
+    name: HealthTimes Staging read-only CP5 semantics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Refuse non-staging target and privileged key names
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$HEALTHTIMES_SUPABASE_URL" == *"gcdohgbmqhqwydgaxrcr"* ]]
+          test -n "$HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY"
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -z "${HEALTHTIMES_SUPABASE_SERVICE_ROLE_KEY:-}"
+
+      - name: Run read-only capability verification
+        run: npm run verify:ag05:readonly
+
+      - name: Upload read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag05-phase3-readonly-staging-evidence
+          path: migration-output/ag05-phase3/staging-evidence.json
+          if-no-files-found: error
+          retention-days: 14
