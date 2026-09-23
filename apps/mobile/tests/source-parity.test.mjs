@@ -64,8 +64,9 @@ test("default development editorial mode is source parity while production stays
   const services=read("src/services/index.ts");
   assert.match(config,/source-parity/);
   assert.match(services,/sourceParityServices/);
-  assert.match(services,/Production service adapters are locked/);
-  assert.match(services,/Staging editorial-data mode is locked until AG-04/);
+  assert.match(services,/Production service adapters remain locked/);
+  assert.match(services,/migratedCorpusServices/);
+  assert.doesNotMatch(services,/Staging editorial-data mode is locked until AG-04/);
 });
 
 test("requested Reader surfaces consume the repository bridge instead of a second source architecture",()=>{
@@ -93,10 +94,11 @@ test("Pages owner preview explicitly runs source-parity mode",()=>{
 });
 
 
-test("System Status reports source parity without claiming authoritative migration",()=>{
+test("System Status distinguishes source-parity development bridge from canonical staging corpus",()=>{
   const status=read("app/system-status.tsx");
-  assert.match(status,/read-only public source-parity editorial data/i);
-  assert.match(status,/not migration completeness/i);
+  assert.match(status,/accepted migrated editorial corpus/i);
+  assert.match(status,/source-parity remains a development bridge/i);
+  assert.match(status,/canonical staging source/i);
   assert.doesNotMatch(status,/fixture-backed editorial data/i);
 });
 

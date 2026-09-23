@@ -79,14 +79,16 @@ test("appearance, accessibility and tablet density are wired into Reader UI", ()
   assert.match(cards, /gridItemDesktop/);
 });
 
-test("NM-04 cannot claim real migrated content before AG-04", () => {
+test("Phase 6 staging Reader uses the accepted migrated corpus without reopening NM-04", () => {
   const services = read("src/services/index.ts");
-  const source = read("src/domain/source.ts");
+  const migrated = read("src/services/migrated-corpus.ts");
+  const eas = JSON.parse(read("eas.json"));
 
-  assert.match(services, /Staging editorial-data mode is locked until AG-04/);
-  assert.match(source, /status: "blocked"/);
-  assert.match(source, /authoritativeDatabaseValidated: false/);
-  assert.match(source, /completeUploadsValidated: false/);
+  assert.match(services, /migratedCorpusServices/);
+  assert.match(migrated, /ag05_public_story_document/);
+  assert.match(migrated, /ag05_public_feed_rows/);
+  assert.equal(eas.build.staging.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE, "staging");
+  assert.doesNotMatch(services, /Staging editorial-data mode is locked until AG-04/);
 });
 
 test("unified UI milestone follows approved Reader and PWA design authority", () => {
