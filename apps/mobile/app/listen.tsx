@@ -18,7 +18,7 @@ export default function ListenScreen(){
 
   return (
     <Page title="Listen">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Listen to HealthTimes programmes and article audio. Playback UI is shared across platforms; native background controls require a certified media playback adapter.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Listen to HealthTimes programmes and article audio when they are published.</Text>
       <View style={styles.tabs}>
         {([
           ["latest","Latest"],
@@ -61,9 +61,9 @@ export default function ListenScreen(){
       ) : (
         <Section>
           <EmptyState
-            title={active==="offline" ? "Offline audio is not connected yet" : "Classification metadata required"}
+            title={active==="offline" ? "No offline audio yet" : "No audio in this section yet"}
             message={active==="offline"
-              ? "Persistent native audio downloads require the later media playback lane; no duplicate storage model is created here."
+              ? "Audio saved for offline listening will appear here when that feature is available."
               : "No audio is available in this category yet."}
           />
         </Section>
