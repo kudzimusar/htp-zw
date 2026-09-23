@@ -77,7 +77,7 @@ test("2 Reader screens contain no direct Supabase/database shortcut",()=>{
   const files=walk(join(root,"app")).filter((path)=>/\.(ts|tsx)$/.test(path));
   for(const path of files){
     const source=readFileSync(path,"utf8");
-    assert.doesNotMatch(source,/@supabase\/supabase-js|platform\/supabase|\.from\s*\(|\.rpc\s*\(/,path);
+    assert.doesNotMatch(source,/@supabase\/supabase-js|platform\/supabase|getStagingSupabaseClient|supabase\.from\s*\(|supabase\.rpc\s*\(|client\.from\s*\(|client\.rpc\s*\(/,path);
   }
 });
 
