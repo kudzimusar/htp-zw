@@ -229,12 +229,15 @@ test("premium Reader Home consumes broad real-publication sections without fixtu
   assert.doesNotMatch(home,/No verified live event right now/);
 });
 
-test("Explore separates canonical taxonomy from preserved legacy publication navigation",()=>{
+test("Explore preserves source taxonomy families behind reader-facing navigation",()=>{
   const explore=read("app/(reader)/explore.tsx");
   const snapshot=read("src/source-parity/snapshot.ts");
   const service=read("src/services/source-parity.ts");
-  assert.match(explore,/Canonical desks/);
-  assert.match(explore,/Legacy publication categories/);
+  assert.match(explore,/services\.taxonomy\.getSnapshot/);
+  assert.match(explore,/Editorial desks/);
+  assert.match(explore,/Topics & categories/);
+  assert.match(explore,/Formats/);
+  assert.doesNotMatch(explore,/TAXONOMY GATEWAY|CANONICAL|LEGACY|Canonical desks|Legacy publication categories/);
   for(const family of [
     "Communicable Diseases",
     "Noncommunicable Diseases",
