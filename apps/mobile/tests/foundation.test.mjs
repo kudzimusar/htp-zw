@@ -62,10 +62,11 @@ test("staging composition is transparent and production remains fail-closed", ()
   assert.match(services, /editorialDataMode === "staging"/);
   assert.match(services, /stagingAuthService/);
   assert.match(services, /stagingPlatformService/);
-  assert.match(services, /Staging editorial-data mode is locked/);
+  assert.match(services, /stagingEditorialServices/);
+  assert.doesNotMatch(services, /Staging editorial-data mode is locked/);
 
   const config = read("src/platform/config.ts");
-  assert.match(config, /FIXTURE EDITORIAL DATA/);
+  assert.match(config, /MIGRATED EDITORIAL DATA/);
   assert.match(config, /LIVE STAGING PLATFORM/);
 
   const fixtures = read("src/services/fixtures.ts");

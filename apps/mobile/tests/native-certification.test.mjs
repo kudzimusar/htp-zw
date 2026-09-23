@@ -23,17 +23,17 @@ test("development staging and production build profiles remain distinct",()=>{
   assert.equal(eas.build.staging.env.APP_ENV,"staging");
   assert.equal(eas.build.production.env.APP_ENV,"production");
   assert.equal(eas.build.development.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE,"fixture");
-  assert.equal(eas.build.staging.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE,"fixture");
+  assert.equal(eas.build.staging.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE,"staging");
   assert.equal(eas.build.production.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE,"production");
 });
 
-test("production services remain fail-closed before integrated backend certification",()=>{
+test("production stays fail-closed while staging uses migrated editorial contracts",()=>{
   const services=read("src/services/index.ts");
   assert.ok(services.includes('appEnvironment === "production"'));
   assert.ok(services.includes("Production service adapters are locked"));
-  assert.ok(services.includes("Staging editorial-data mode is locked until AG-04"));
+  assert.ok(services.includes("stagingEditorialServices"));
+  assert.equal(services.includes("Staging editorial-data mode is locked until AG-04"),false);
 });
-
 test("NM-07 workflow compiles Android and iOS from the same branch",()=>{
   const workflow=readRepo(".github/workflows/native-certification.yml");
   assert.ok(workflow.includes("android-debug-binary:"));

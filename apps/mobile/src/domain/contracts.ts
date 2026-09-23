@@ -15,6 +15,7 @@ import type {
   EditionPreference,
   LiveItem,
   NotificationItem,
+  OfflineArticleRecord,
   PlatformConnectivityReport,
   PremiumRestoreResult,
   ReaderCommentEligibility,
@@ -90,7 +91,11 @@ export interface ReaderRepository {
   setAppearance(preference: AppearancePreference): Promise<void>;
   getSavedArticleIds(): Promise<string[]>;
   toggleSavedArticle(id: string): Promise<boolean>;
+  getSavedMediaIds(kind: "video" | "audio"): Promise<string[]>;
+  toggleSavedMedia(kind: "video" | "audio", id: string): Promise<boolean>;
   getDownloadedArticles(): Promise<ArticleDetail[]>;
+  getOfflineArticleRecords(): Promise<OfflineArticleRecord[]>;
+  getOfflineArticleRecord(articleId: string): Promise<OfflineArticleRecord | null>;
   downloadArticle(article: ArticleDetail): Promise<void>;
   removeDownloadedArticle(id: string): Promise<void>;
   getReadPosition(articleId: string): Promise<number>;

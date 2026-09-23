@@ -17,6 +17,13 @@ export function articleDeepLink(articleId: string) {
 }
 
 export function canonicalArticleUrl(article: ArticleSummary) {
+  const candidate=(article as ArticleSummary & { canonicalUrl?: string | null }).canonicalUrl;
+  if(candidate){
+    try{
+      const parsed=new URL(candidate);
+      if(allowedHosts.has(parsed.hostname.toLowerCase()) && parsed.protocol==="https:") return parsed.toString();
+    }catch{}
+  }
   return "https://healthtimes.co.zw/" + encodeURIComponent(article.slug) + "/";
 }
 
@@ -41,8 +48,14 @@ export function parseHealthTimesDeepLink(url: string) {
     const web = new URL(url);
     if (!allowedHosts.has(web.hostname)) return null;
     const articleId = web.searchParams.get("ht_article_id")?.trim();
-    if (!articleId) return null;
-    return { type: "article" as const, articleId: articleId.slice(0, 160) };
+    if (articleId) return { type: "article" as const, articleId: articleId.slice(0, 160) };
+    const segments=web.pathname.split("/").filter(Boolean);
+    const reserved=new Set(["category","tag","author","about","contact","privacy-policy","wp-admin","wp-json"]);
+    const slug=segments.at(-1);
+    if(!slug || reserved.has(segments[0]?.toLowerCase() ?? "")) return null;
+    const dated=segments.length===4 && /^\d{4}$/.test(segments[0]??"") && /^\d{2}$/.test(segments[1]??"") && /^\d{2}$/.test(segments[2]??"");
+    if(segments.length===1 || dated) return { type:"article" as const, articleId:decodeURIComponent(slug).slice(0,160) };
+    return null;
   } catch {
     return null;
   }

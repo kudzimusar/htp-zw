@@ -36,6 +36,9 @@ export const hasStagingConfig =
   stagingConfig.publishableKey.startsWith("sb_publishable_");
 
 export function environmentSummary() {
+  if (appEnvironment === "staging" && editorialDataMode === "staging") {
+    return "STAGING APP • MIGRATED EDITORIAL DATA • LIVE STAGING PLATFORM";
+  }
   if (appEnvironment === "staging" && editorialDataMode === "fixture") {
     return "STAGING APP • FIXTURE EDITORIAL DATA • LIVE STAGING PLATFORM";
   }

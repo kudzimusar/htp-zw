@@ -55,10 +55,11 @@ test("Article Reader restores progress and blocks unauthorized Premium offline b
 test("Saved and Offline library keeps bookmarks, downloads and history distinct", () => {
   const saved = read("app/saved.tsx");
   assert.match(saved, /type LibraryTab = "articles" \| "videos" \| "audio" \| "offline" \| "history"/);
-  assert.match(saved, /Available offline/);
-  assert.match(saved, /Remove download/);
+  assert.match(saved, /getOfflineArticleRecords/);
+  assert.match(saved, /compareSourceFreshness/);
+  assert.match(saved, /removeDownloadedArticle/);
   assert.match(saved, /Reading history/);
-  assert.match(saved, /stored separately from bookmarks/);
+  assert.match(saved, /downloaded article snapshots/);
 });
 
 test("appearance, accessibility and tablet density are wired into Reader UI", () => {
@@ -79,16 +80,18 @@ test("appearance, accessibility and tablet density are wired into Reader UI", ()
   assert.match(cards, /gridItemDesktop/);
 });
 
-test("NM-04 cannot claim real migrated content before AG-04", () => {
+test("integrated staging consumes AG-04 migrated content through bounded public contracts", () => {
   const services = read("src/services/index.ts");
-  const source = read("src/domain/source.ts");
-
-  assert.match(services, /Staging editorial-data mode is locked until AG-04/);
-  assert.match(source, /status: "blocked"/);
-  assert.match(source, /authoritativeDatabaseValidated: false/);
-  assert.match(source, /completeUploadsValidated: false/);
+  const staging = read("src/services/staging-editorial.ts");
+  const eas = JSON.parse(read("eas.json"));
+  assert.match(services, /stagingEditorialServices/);
+  assert.doesNotMatch(services, /Staging editorial-data mode is locked until AG-04/);
+  assert.match(staging, /ag05_public_feed_rows/);
+  assert.match(staging, /ag05_public_story_document/);
+  assert.match(staging, /ag05_resolve_public_path/);
+  assert.match(staging, /premium-history-unresolved/);
+  assert.equal(eas.build.staging.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE, "staging");
 });
-
 test("unified UI milestone follows approved Reader and PWA design authority", () => {
   const layout = read("src/ui/Layout.tsx");
   const cards = read("src/ui/Cards.tsx");
@@ -164,7 +167,7 @@ test("Home editorial filters are functional and default country preferences stay
   assert.ok(home.includes('type HomeFilter="for-you"|"latest"|"edition"|"world"|"health"'));
   assert.ok(home.includes("setActiveFilter(item.key)"));
   assert.ok(home.includes("matchesPreferences"));
-  assert.ok(home.includes('activeFilter==="latest"'));
+  assert.ok(home.includes('let filteredStories=source'));
   assert.ok(home.includes('activeFilter==="edition"'));
   assert.ok(home.includes('activeFilter==="world"'));
   assert.ok(home.includes('activeFilter==="health"'));
