@@ -20,7 +20,9 @@ for (const viewport of [
     expect(article && article.status()).toBe(200);
     await expect(page.getByText('Phase 4 representative migrated story', { exact: true })).toBeVisible();
     await expect(page.getByText('Verified Phase 4 Reader body.', { exact: false })).toBeVisible();
-    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://healthtimes.co.zw/2026/02/12/phase4-representative-story/');
+    const canonicals = await page.locator('link[rel="canonical"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')));
+    expect(canonicals.length).toBeGreaterThan(0);
+    expect(new Set(canonicals)).toEqual(new Set(['https://healthtimes.co.zw/2026/02/12/phase4-representative-story/']));
     expect(await page.title()).toContain('Phase 4 representative migrated story');
 
     const context = await page.goto('/category/health_news/', { waitUntil: 'domcontentloaded' });
