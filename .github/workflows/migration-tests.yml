@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/migration/**'
       - 'tests/migration/**'
+      - 'supabase/migrations/**'
+      - 'supabase/migration-lineage/**'
       - 'package.json'
       - 'package-lock.json'
       - 'ads.txt'
@@ -22,6 +24,19 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,6 +45,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run migration tests
         run: npm run test:migration

@@ -2,6 +2,8 @@ const { test, expect } = require('@playwright/test');
 
 const readerRoutes = ['/', '/explore', '/live', '/watch', '/search', '/premium', '/my'];
 
+test.skip(!process.env.PLAYWRIGHT_BASE_URL, 'Phase 4 browser smoke requires the dedicated Phase 4 serving harness.');
+
 for (const viewport of [
   { name: 'mobile', width: 390, height: 844 },
   { name: 'desktop', width: 1440, height: 1000 }

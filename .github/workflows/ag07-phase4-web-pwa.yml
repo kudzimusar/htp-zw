@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - integration/ag07-phase4-unified-web-pwa
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/migration-lineage/**'
+      - 'tests/migration/ag04-phase5-lineage.spec.js'
+      - 'tests/migration/ag07-phase4-browser.spec.js'
+      - 'tests/ag06-security-contract.spec.js'
+      - 'tests/ca01-contract.spec.js'
+      - 'tests/com01-contract.spec.js'
+      - '.github/workflows/ag07-phase4-web-pwa.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +38,19 @@ jobs:
       HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -89,6 +112,19 @@ jobs:
       HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

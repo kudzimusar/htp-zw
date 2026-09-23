@@ -5,8 +5,8 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-const domain = read('supabase/migrations/20260922183500_com01_communications_domain.sql');
-const attachments = read('supabase/migrations/20260922183600_com01_private_attachments.sql');
+const domain = read('supabase/migrations/20260922094527_com01_communications_domain.sql');
+const attachments = read('supabase/migrations/20260922095013_com01_private_attachments.sql');
 const api = read('api/communications.js');
 
 test('COM-01 canonical domain preserves provider and authority boundaries', async () => {
