@@ -277,10 +277,13 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: ${{ matrix.family == 'tablet' && 'Nexus 10' || 'pixel_7' }}
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
           force-avd-creation: true
           disable-animations: true
           emulator-boot-timeout: 900
-          emulator-options: -no-snapshot-save -no-snapshot-load -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-snapshot-save -no-snapshot-load -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
           script: bash "$RUNNER_TEMP/nm07-android-uat.sh"
 
       - name: Upload Android UAT evidence
