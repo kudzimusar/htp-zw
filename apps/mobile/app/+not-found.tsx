@@ -16,7 +16,7 @@ import {
 
 function CapabilityHead({ capability }: { capability: PublicWebStoryCapability | PublicWebContextCapability }) {
   const seo = capability.seo;
-  const description = capability.kind === "story" ? seo.description : undefined;
+  const description = capability.kind === "story" ? capability.seo.description : undefined;
   const openGraph = seo.openGraph;
   return (
     <Head>
