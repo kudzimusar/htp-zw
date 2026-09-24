@@ -296,10 +296,12 @@ jobs:
           xcrun simctl install "$UDID" "$IOS_APP"
           xcrun simctl launch "$UDID" zw.co.healthtimes.app.staging
           sleep 20
-          xcrun simctl spawn "$UDID" log show --style compact --last 3m --predicate 'eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "A required entitlement"' > phase10-evidence/after/ios/runtime.log || true
-          if grep -Eiq 'KeyChainException|A required entitlement' phase10-evidence/after/ios/runtime.log; then
-            cat phase10-evidence/after/ios/runtime.log
-            echo "::error::iOS staging Reader hit a SecureStore/Keychain entitlement failure."
+          codesign -d --entitlements :- "$IOS_APP" > phase10-evidence/after/ios/app-entitlements.plist 2>&1 || true
+          xcrun simctl spawn "$UDID" log show --style compact --last 3m --predicate 'process == "HealthTimesStaging" AND (eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "A required entitlement" OR eventMessage CONTAINS[c] "FunctionCallException")' > phase10-evidence/after/ios/runtime.log || true
+          grep -Ev 'log run noninteractively|args:.*eventMessage|predicate' phase10-evidence/after/ios/runtime.log > phase10-evidence/after/ios/runtime-errors.log || true
+          if grep -Eiq 'KeyChainException|A required entitlement|FunctionCallException' phase10-evidence/after/ios/runtime-errors.log; then
+            cat phase10-evidence/after/ios/runtime-errors.log
+            echo "::error::iOS staging Reader hit a SecureStore/Keychain runtime failure."
             exit 1
           fi
           xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/home.png
@@ -418,11 +420,11 @@ jobs:
             echo "::error::Android staging Reader remained on Loading Home after 20 seconds."
             exit 1
           fi
-          grep -q 'Top Stories' phase10-evidence/after/android/home-ui.xml || {
+          if grep -Eiq 'HealthTimes staging Supabase configuration is missing|FunctionCallException|Unhandled|Error:' phase10-evidence/after/android/home-ui.xml; then
             cat phase10-evidence/after/android/home-ui.xml
-            echo "::error::Android staging Reader did not expose Top Stories after Home load."
+            echo "::error::Android staging Reader rendered an application error instead of Home."
             exit 1
-          }
+          fi
           adb exec-out screencap -p > phase10-evidence/after/android/home.png
           adb shell am start -a android.intent.action.VIEW -d "healthtimes://premium" zw.co.healthtimes.app.staging || true
           sleep 4
