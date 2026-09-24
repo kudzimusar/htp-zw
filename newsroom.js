@@ -718,9 +718,22 @@
       const uploadForm=new FormData();uploadForm.append('cacheControl','3600');uploadForm.append('',file,file.name);
       const upload=await fetch(prepared.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:uploadForm});
       if(!upload.ok)throw new Error('Private media upload failed ('+upload.status+').');
-      await api('finalizeStoryMedia',{mediaId:prepared.prepared.media_id,storyId,usageType,checksum:checksum||null});
-      await refreshData();await refreshMediaData();form.reset();renderMediaModalGrid();
-      if(editingStoryId===storyId)populateEditor();
+      const finalized=await api('finalizeStoryMedia',{mediaId:prepared.prepared.media_id,storyId,usageType,checksum:checksum||null});
+      const mediaId=prepared.prepared.media_id;
+      const localAsset={
+        id:mediaId,filename:prepared.prepared.filename||file.name,mimeType:mimeType,byteSize:file.size,sourceUrl:'',
+        checksum:checksum||'',altText,caption:String(form.elements.caption.value||'').trim(),
+        credit:String(form.elements.credit.value||'').trim(),sourceProvenance:String(form.elements.sourceProvenance.value||'').trim(),
+        storageBucket:prepared.prepared.storage_bucket,storageKey:prepared.prepared.storage_key,publicUrl:'',status:'private_ready',
+        uploadedByStaffId:currentUser()?.id||null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+        usages:[{storyId,usageType,sourceContext:{attachment_state:'private_draft'}}]
+      };
+      const media=[localAsset,...getMedia().filter(m=>m.id!==mediaId)];
+      write(KEYS.media,media);
+      const story=getStories().find(s=>s.id===storyId);
+      if(story&&finalized.storyVersion){story.lockVersion=finalized.storyVersion;setStories(getStories().map(s=>s.id===storyId?story:s));}
+      form.reset();renderMediaModalGrid();
+      if(editingStoryId===storyId&&story)renderStoryMedia(story);
       if(active==='media')showModule('media');
       toast('Media uploaded and attached privately');
     }catch(error){toast(error.message||'Media upload failed safely.');}
@@ -729,10 +742,10 @@
   async function attachStoryMedia(mediaId){
     const storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
     if(!storyId)return;
-    try{await api('attachStoryMedia',{mediaId,storyId,usageType});await refreshData();await refreshMediaData();renderMediaModalGrid();if(editingStoryId===storyId)populateEditor();toast('Media attached to story');}catch(error){toast(error.message);}
+    try{const result=await api('attachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset&&!asset.usages.some(u=>u.storyId===storyId&&u.usageType===usageType))asset.usages.push({storyId,usageType,sourceContext:{attachment_state:'private_draft'}});const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);renderMediaModalGrid();toast('Media attached to story');}catch(error){toast(error.message);}
   }
   async function detachStoryMedia(mediaId,storyId,usageType){
-    try{await api('detachStoryMedia',{mediaId,storyId,usageType});await refreshData();await refreshMediaData();if(editingStoryId===storyId)populateEditor();if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
+    try{const result=await api('detachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset)asset.usages=asset.usages.filter(u=>!(u.storyId===storyId&&u.usageType===usageType));const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
   }
   async function previewMedia(mediaId){
     const asset=getMedia().find(m=>m.id===mediaId);
