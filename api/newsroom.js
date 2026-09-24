@@ -366,9 +366,11 @@ async function promoteFeaturedStoryMedia(storyId, token) {
 
     const publicKey=publicStoryMediaKey(storyId,media,checksum);
     let objectVerified=false;
+    let uploadedNow=false;
     try{
       await uploadStorageObject('newsroom-public',publicKey,privateBytes,media.mime_type,token);
       objectVerified=true;
+      uploadedNow=true;
     }catch(error){
       if(error?.code!=='STORAGE_OBJECT_EXISTS') throw error;
       const existing=await downloadStorageObject('newsroom-public',publicKey,token);
@@ -386,12 +388,19 @@ async function promoteFeaturedStoryMedia(storyId, token) {
       throw error;
     }
 
-    await rpc('newsroom_stage_story_media_promotion',{
-      p_story_id:storyId,
-      p_media_id:media.media_id,
-      p_public_storage_key:publicKey,
-      p_verified_checksum:checksum
-    },token);
+    try{
+      await rpc('newsroom_stage_story_media_promotion',{
+        p_story_id:storyId,
+        p_media_id:media.media_id,
+        p_public_storage_key:publicKey,
+        p_verified_checksum:checksum
+      },token);
+    }catch(error){
+      if(uploadedNow){
+        try{await deleteStorageObject('newsroom-public',publicKey,token);}catch{}
+      }
+      throw error;
+    }
     staged.push({mediaId:media.media_id,publicKey});
   }
 
