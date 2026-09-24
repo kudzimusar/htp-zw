@@ -534,14 +534,22 @@ begin
     raise exception using errcode='22023',message='Story is not currently eligible for requested changes';
   end if;
 
-  v_reporter := v_story.owner_staff_id;
+  select reporter_staff_id into v_reporter
+  from public.story_assignments
+  where story_id=p_story_id
+    and reporter_staff_id is not null
+  order by updated_at desc,created_at desc
+  limit 1;
+
   if v_reporter is null then
-    select reporter_staff_id into v_reporter
-    from public.story_assignments
-    where story_id=p_story_id
-    order by updated_at desc,created_at desc
+    select sp.id into v_reporter
+    from public.staff_profiles sp
+    join public.newsroom_roles r on r.id=sp.role_id
+    where sp.id=v_story.owner_staff_id
+      and r.name='Reporter / Journalist'
     limit 1;
   end if;
+
   if v_reporter is null then
     raise exception using errcode='22023',message='Story has no Reporter to return changes to';
   end if;
