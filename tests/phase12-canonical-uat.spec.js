@@ -1,8 +1,9 @@
 const { test, expect } = require('@playwright/test');
 
 const directPath = '/2026/02/12/who-should-not-take-lenacapavir-key-health-conditions-to-consider-before-the-rollout/';
-const oldPath = '/2025/12/06/policy-capture-at-cop11-what-it-signals-for-global-health-governance/';
+const oldPath = '/2016/02/16/zim-launches-unicef-eli-lilly-initiative-to-fight-pediatric-and-adolescent-ncds/';
 const legacyAliasPath = '/policy-capture-at-cop11-what-it-signals-for-global-health-governance/';
+const legacyAliasTarget = '/2025/12/06/policy-capture-at-cop11-what-it-signals-for-global-health-governance/';
 const premiumPath = '/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/';
 const explicit404Path = '/2017/04/04/gwinji-appeals-funding-health-sector/';
 const unknownPath = '/phase12-no-authoritative-healthtimes-route/';
@@ -129,7 +130,7 @@ test('Premium migrated article remains visibly protected and never becomes a pub
 test('routing authority preserves one-hop alias context path and explicit 404 behavior', async ({ request }) => {
   const alias = await request.get(legacyAliasPath, { maxRedirects: 0 });
   expect(alias.status()).toBe(301);
-  expect(alias.headers().location).toBe(oldPath);
+  expect(alias.headers().location).toBe(legacyAliasTarget);
 
   const context = await request.get(categoryPath);
   expect(context.status()).toBe(200);
