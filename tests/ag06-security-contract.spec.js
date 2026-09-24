@@ -83,6 +83,11 @@ test.describe('AG-06 security contract', () => {
     expect(api).not.toMatch(/console\.(log|error)\([^\n]*(access|refresh|password)/i);
   });
 
+  test('live AG-06 certification runs UI journeys before destructive session revocation probes', async () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts['test:ag06:live']).toBe('playwright test tests/newsroom-os.spec.js && playwright test tests/ag06-live-security.spec.js');
+  });
+
   test('synthetic certification identities never send outbound Auth email', async () => {
     const workflow = read('.github/workflows/ag06-security.yml');
     const provisioner = read('supabase/functions/ag06-certification-provision/index.ts');
