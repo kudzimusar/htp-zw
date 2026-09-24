@@ -753,7 +753,7 @@ async function handle(req, res) {
         p_caption:body.caption||null,
         p_credit:body.credit||null,
         p_source_provenance:body.sourceProvenance||null,
-        p_usage_type:body.usageType||'inline_image'
+        p_usage_type:body.usageType||'inline'
       });
       const uploadUrl=await createSignedStoryUpload(prepared.storage_bucket,prepared.storage_key);
       return json(res,200,{ok:true,prepared,uploadUrl});
