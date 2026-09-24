@@ -611,6 +611,22 @@ revoke all on public.media_usage from anon, authenticated;
 drop policy if exists ag06_newsroom_private_insert on storage.objects;
 drop policy if exists ag06_newsroom_private_update on storage.objects;
 drop policy if exists ag06_newsroom_private_read on storage.objects;
+drop policy if exists ag06_newsroom_private_prepared_insert on storage.objects;
+
+create policy ag06_newsroom_private_prepared_insert on storage.objects
+for insert to authenticated
+with check (
+  bucket_id='newsroom-private'
+  and public.newsroom_session_authorized()
+  and public.newsroom_has_capability('media.manage')
+  and exists (
+    select 1 from public.media_assets ma
+    where ma.storage_bucket=objects.bucket_id
+      and ma.storage_key=objects.name
+      and ma.status='upload_pending'
+      and ma.uploaded_by_staff_id=public.newsroom_current_staff_id_basic()
+  )
+);
 
 create policy ag06_newsroom_private_read on storage.objects
 for select to authenticated
