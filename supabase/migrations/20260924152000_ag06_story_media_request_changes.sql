@@ -25,7 +25,7 @@ language sql
 immutable
 set search_path = public
 as $$
-  select lower(trim(coalesce(p_usage_type,''))) in ('featured_image','inline_image','supporting_document');
+  select lower(trim(coalesce(p_usage_type,''))) in ('featured','inline','supporting_document');
 $$;
 
 create or replace function public.newsroom_can_read_media(p_media_id uuid)
@@ -75,7 +75,7 @@ create or replace function public.newsroom_prepare_story_media(
   p_caption text default null,
   p_credit text default null,
   p_source_provenance text default null,
-  p_usage_type text default 'inline_image'
+  p_usage_type text default 'inline'
 )
 returns jsonb
 language plpgsql
@@ -114,7 +114,7 @@ begin
     raise exception using errcode='22023',message='Unsupported story media usage role';
   end if;
 
-  if v_usage in ('featured_image','inline_image') and v_mime not like 'image/%' then
+  if v_usage in ('featured','inline') and v_mime not like 'image/%' then
     raise exception using errcode='22023',message='Image usage roles require an image MIME type';
   end if;
 
@@ -267,6 +267,11 @@ begin
       updated_at=now()
   where id=p_media_id;
 
+  if v_usage='featured' then
+    delete from public.media_usage
+    where story_id=p_story_id and usage_type='featured' and media_id<>p_media_id;
+  end if;
+
   insert into public.media_usage(media_id,story_id,usage_type,source_context)
   values(
     p_media_id,p_story_id,v_usage,
@@ -328,11 +333,16 @@ begin
     raise exception using errcode='22023',message='Only ready Newsroom media can be attached';
   end if;
 
-  if v_usage in ('featured_image','inline_image') and v_asset.mime_type not like 'image/%' then
+  if v_usage in ('featured','inline') and v_asset.mime_type not like 'image/%' then
     raise exception using errcode='22023',message='Image usage roles require image media';
   end if;
   if v_usage='supporting_document' and v_asset.mime_type like 'image/%' then
     raise exception using errcode='22023',message='Supporting document requires document media';
+  end if;
+
+  if v_usage='featured' then
+    delete from public.media_usage
+    where story_id=p_story_id and usage_type='featured' and media_id<>p_media_id;
   end if;
 
   insert into public.media_usage(media_id,story_id,usage_type,source_context)
