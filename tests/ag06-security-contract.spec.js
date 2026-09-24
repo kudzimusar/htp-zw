@@ -95,13 +95,16 @@ test.describe('AG-06 security contract', () => {
 
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
-    const vercel = read('vercel.json');
+    const vercelText = read('vercel.json');
+    const vercel = JSON.parse(vercelText);
     expect(html).not.toContain('app.js');
     expect(html).not.toMatch(/googletagmanager|gtag\s*\(/i);
-    expect(vercel).toContain('"source": "/newsroom.html"');
-    expect(vercel).toContain("frame-ancestors 'none'");
-    expect(vercel).toContain('"X-Content-Type-Options"');
-    expect(vercel).toContain('"Permissions-Policy"');
-    expect(vercel).toContain('"Cache-Control", "value": "no-store, private"');
+    const newsroomHeaders = vercel.headers.find((row) => row.source === '/newsroom.html');
+    expect(newsroomHeaders).toBeTruthy();
+    const headerMap = Object.fromEntries(newsroomHeaders.headers.map(({ key, value }) => [key, value]));
+    expect(headerMap['Content-Security-Policy']).toContain("frame-ancestors 'none'");
+    expect(headerMap['X-Content-Type-Options']).toBe('nosniff');
+    expect(headerMap['Permissions-Policy']).toContain('camera=()');
+    expect(headerMap['Cache-Control']).toBe('no-store, private');
   });
 });
