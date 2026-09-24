@@ -1,10 +1,9 @@
-name: Chromium UAT
+name: Chromium UAT — Canonical Reader
 
 on:
   push:
     branches:
       - main
-      - integration/ag07-phase8-convergence-candidate
       - integration/ag07-phase12-legacy-retirement-precp7
   pull_request:
   workflow_dispatch:
@@ -13,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: healthtimes-chromium-uat-${{ github.event.pull_request.head.sha || github.sha }}
+  group: healthtimes-canonical-chromium-uat-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 env:
@@ -28,9 +27,9 @@ env:
 jobs:
   playwright:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 35
     steps:
-      - name: Check out exact candidate
+      - name: Check out exact repository head
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -57,7 +56,7 @@ jobs:
           npm install --no-audit --no-fund
           npm install --prefix apps/mobile --no-audit --no-fund
 
-      - name: Prove legacy public UI is not canonical UAT authority
+      - name: Verify dual-serving retirement gate
         run: npm run test:phase12:dual-serving
 
       - name: Build exact canonical staging Reader
@@ -70,46 +69,40 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          set -euo pipefail
           node - <<'NODE'
-          const fs=require('fs');
-          const info=JSON.parse(fs.readFileSync('apps/mobile/dist/build-info.json','utf8'));
-          if(info.sha!==process.env.EXPECTED_SHA) throw new Error('build-info SHA mismatch: '+JSON.stringify(info));
-          if(info.presentation!=='apps/mobile') throw new Error('presentation mismatch: '+JSON.stringify(info));
-          if(info.serviceMode!=='staging') throw new Error('service mode mismatch: '+JSON.stringify(info));
+          const fs=require("fs");
+          const info=JSON.parse(fs.readFileSync("apps/mobile/dist/build-info.json","utf8"));
+          if(info.sha!==process.env.EXPECTED_SHA) throw new Error("build-info SHA mismatch: "+JSON.stringify(info));
+          if(info.presentation!=="apps/mobile") throw new Error("presentation mismatch: "+JSON.stringify(info));
+          if(info.serviceMode!=="staging") throw new Error("service mode mismatch: "+JSON.stringify(info));
           console.log(JSON.stringify(info,null,2));
           NODE
 
-      - name: Prove CP5 raw HTTP SEO routing and Premium fail-closed behavior
+      - name: Prove CP5 raw HTTP and Premium fail-closed
         run: npm run verify:phase4:http
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run canonical Phase 12 integrated Reader UAT
+      - name: Run canonical Phase 12 UAT against exact bundle + live read-only CP5
         shell: bash
         run: |
           set -euo pipefail
-          PHASE12_LIVE_CP5=1 node scripts/web/phase4-smoke-server.js >/tmp/phase12-canonical-uat.log 2>&1 &
+          node scripts/web/phase12-live-smoke-server.js >/tmp/phase12-canonical-uat.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-
-          for attempt in $(seq 1 15); do
-            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
-            if [[ "$attempt" == "15" ]]; then
-              cat /tmp/phase12-canonical-uat.log
-              exit 1
-            fi
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4176/ >/dev/null; then break; fi
+            if [[ "$attempt" == "20" ]]; then cat /tmp/phase12-canonical-uat.log; exit 1; fi
             sleep 1
           done
-
-          PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 npm run test:uat
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:4176 npm run test:uat
 
       - name: Upload canonical UAT evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: healthtimes-phase12-canonical-uat
+          name: phase12-canonical-reader-uat
           path: |
             playwright-report/
             test-results/
