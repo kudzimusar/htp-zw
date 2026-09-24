@@ -99,7 +99,7 @@ test.describe('AG-06 security contract', () => {
   });
 
   test('story media and request-changes remain server-authoritative and communication-private domains stay separate', async () => {
-    const sql = read('supabase/migrations/20260924152000_ag06_story_media_request_changes.sql');
+    const sql = read('supabase/migrations/20260924072830_ag06_story_media_request_changes.sql');
     const api = read('api/newsroom.js');
     const browser = read('newsroom.js');
     const html = read('newsroom.html');
