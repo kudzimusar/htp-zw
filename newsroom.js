@@ -195,7 +195,7 @@
     }));
     setStories(stories);
     const media=(data.media||[]).map(m=>({
-      id:m.id,filename:m.filename||'',mimeType:m.mime_type||'',byteSize:Number(m.byte_size||0),
+      id:m.id,filename:m.filename||'',mimeType:m.mime_type||'',byteSize:Number(m.byte_size||0),sourceUrl:m.source_url||'',
       checksum:m.checksum||'',altText:m.alt_text||'',caption:m.caption||'',credit:m.credit||'',
       sourceProvenance:m.source_provenance||m.source_url||'',storageBucket:m.storage_bucket||'',
       storageKey:m.storage_key||'',publicUrl:m.public_url||'',status:m.status||'pending',
@@ -500,7 +500,22 @@
   function renderCalendar(){const events=newsroomAgenda({limit:30});const body=events.length?`<div class="nr-calendar">${agendaMarkup(events,{showDate:true})}</div>`:empty('No assignment or publication deadlines are scheduled in the next 30 days');return `${head('Editorial Calendar','Server-backed assignment deadlines and scheduled publication work.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel">${body}</section>`;}
   function renderBreaking(){const rows=read(KEYS.threads,[]).filter(t=>t.thread_type==='breaking'&&t.status==='open');const actions=has(CAP.BREAKING_MANAGE)?button('＋ Breaking room','data-create-breaking','nr-primary'):'';return head('Breaking','Temporary event coordination with bounded membership and optional Presence.',actions)+'<section class="nr-panel">'+(rows.map(threadCard).join('')||empty('No active breaking rooms'))+'</section>';}
   function renderCorrections(){return `${head('Corrections','Published changes, corrections and accountability record.')}<section class="nr-panel">${getStories().filter(s=>['Updated / Corrected'].includes(s.status)).map(storyList).join('')||empty('No corrections are waiting')}</section>`;}
-  function renderMedia(){return `${head('Media Library','Editorial images, documents, campaign assets and source media.',has(CAP.MEDIA)?button('＋ Add media','','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input placeholder="Search media…"><select><option>All types</option><option>Image</option><option>Video</option><option>Audio</option><option>Document</option></select></div><div class="nr-media-grid">${getMedia().map(m=>`<article class="nr-media-card"><span class="nr-tag">${esc(m.type)}</span><strong>${esc(m.filename)}</strong><span>${esc(m.caption)}</span><span>Credit: ${esc(m.credit)}</span><span>Used in: ${esc(m.usedIn)}</span><span>${esc(m.date)}</span></article>`).join('')}</div></section>`;}
+  function mediaCard(m,{modal=false,storyId='',usageType='inline'}={}){
+    const usages=m.usages||[],usageText=usages.length?(usages.length+' story '+(usages.length===1?'use':'uses')):'Unused';
+    const custody=m.storageBucket==='newsroom-private'?'Private Newsroom':m.storageBucket==='migrated-media'?'Migrated/source custody':'Source media';
+    const buttons=[button('Preview','data-media-preview="'+esc(m.id)+'"','nr-secondary')];
+    const story=getStories().find(s=>s.id===storyId);
+    const compatible=(usageType==='supporting_document')?mediaKind(m)==='Document':mediaKind(m)==='Image';
+    const canAttach=modal&&story&&canEditStory(story)&&m.storageBucket==='newsroom-private'&&m.status==='private_ready'&&compatible;
+    if(canAttach)buttons.push(button('Attach','data-media-attach="'+esc(m.id)+'"','nr-primary'));
+    return '<article class="nr-media-card" data-media-id="'+esc(m.id)+'" data-media-kind="'+esc(mediaKind(m))+'" data-media-status="'+esc(m.status)+'"><div class="nr-media-card-top"><span class="nr-tag">'+esc(mediaKind(m))+'</span><span class="nr-tag">'+esc(custody)+'</span></div><strong>'+esc(m.filename)+'</strong><span>'+esc(m.caption||m.altText||'No caption')+'</span><span>'+(m.credit?('Credit: '+esc(m.credit)):'No credit supplied')+'</span><span>'+esc(usageText)+' · '+esc(m.status)+'</span><span class="nr-media-provenance">'+esc(m.sourceProvenance||'Provenance not recorded')+'</span><div class="nr-list-actions">'+buttons.join('')+'</div></article>';
+  }
+  function mediaLibraryFiltered(){
+    const q=String($('[data-media-library-search]')?.value||'').trim().toLowerCase(),kind=$('[data-media-library-type]')?.value||'',state=$('[data-media-library-state]')?.value||'';
+    return getMedia().filter(m=>(!q||[m.filename,m.caption,m.credit,m.sourceProvenance].some(v=>String(v||'').toLowerCase().includes(q)))&&(!kind||mediaKind(m)===kind)&&(!state||m.status===state));
+  }
+  function refreshMediaLibrary(){const mount=$('[data-media-library-grid]');if(mount){const rows=mediaLibraryFiltered();mount.innerHTML=rows.map(m=>mediaCard(m)).join('')||'<div class="nr-empty"><strong>No authorised media matches these filters</strong><p>Upload media from a story or change the current filters.</p></div>';}}
+  function renderMedia(){const rows=getMedia();return `${head('Media Library','Server-backed editorial media. New draft uploads remain private until an authorised publication-media handoff exists.',has(CAP.MEDIA)?button('＋ Add media','data-open-media-library','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input data-media-library-search placeholder="Search filename, caption, credit or source…"><select data-media-library-type><option value="">All types</option><option>Image</option><option>Document</option></select><select data-media-library-state><option value="">All states</option><option value="upload_pending">Upload pending</option><option value="private_ready">Private draft</option><option value="published">Published</option></select></div><div class="nr-media-grid" data-media-library-grid>${rows.map(m=>mediaCard(m)).join('')||'<div class="nr-empty"><strong>No authorised media yet</strong><p>Choose Add media and select an editable story to upload the first private asset.</p></div>'}</div></section>`;}
   function personCard(s){return `<article class="nr-person-card"><span class="nr-avatar">${esc(initials(s.name))}</span><div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span><span>${esc(s.desk)} · ${esc(s.beat)}</span></div></article>`;}
   function renderAuthors(){return `${head('Authors','Staff identity, beats and public author authority.')}<section class="nr-panel"><div class="nr-staff-card-grid">${getStaff().filter(s=>!['Commercial Manager','Subscriber Manager'].includes(s.role)).map(personCard).join('')}</div></section>`;}
   function renderTopics(){const topics=['HIV/AIDS','Malaria','Outbreaks','Medicines','Health financing','Mental health','Maternal health','Research','Health systems','Innovation'];return `${head('Topics','Editorial subject taxonomy used for reporting, SEO and reader follows.')}<section class="nr-panel"><div class="nr-source-grid">${topics.map(t=>`<article class="nr-source-card"><strong>${esc(t)}</strong><span>${getStories().filter(s=>s.topic===t).length} mapped stories</span><span>Topic hub ready</span></article>`).join('')}</div></section>`;}
@@ -579,7 +594,7 @@
     const mount=$('[data-story-media]');if(!mount)return;
     const rows=storyMediaFor(s.id);
     mount.innerHTML=rows.length?'<div class="nr-story-media-list">'+rows.map(m=>{
-      const publicState=m.publicUrl?'Published/public':'Private draft';
+      const publicState=m.publicUrl||m.storageBucket==='migrated-media'?'Published/source media':'Private draft';
       const meta=[mediaUsageLabel(m.storyUsage.usageType),m.caption||'',m.credit?('Credit: '+m.credit):'',publicState].filter(Boolean).join(' · ');
       const actions=button('Preview','data-media-preview="'+esc(m.id)+'"','nr-secondary')+(canEditStory(s)?button('Detach','data-media-detach="'+esc(m.id)+'" data-story-id="'+esc(s.id)+'" data-usage-type="'+esc(m.storyUsage.usageType)+'"','nr-secondary'):'');
       return '<article class="nr-media-attachment"><div><span class="nr-tag">'+esc(mediaKind(m))+'</span><strong>'+esc(m.filename)+'</strong><span>'+esc(meta)+'</span></div><div class="nr-list-actions">'+actions+'</div></article>';
@@ -648,6 +663,94 @@
   function revokeAccess(username){if(!has(CAP.STAFF_REVOKE))return;const s=staffRecord(username);if(!s)return;confirm('Revoke Newsroom access?',`${s.name} will no longer be able to use HealthTimes Newsroom.`,async()=>{try{await api('revokeStaff',{staffId:s.id,status:'revoked'});await refreshData();showModule('staff');toast('Access revoked');}catch(error){toast(error.message);}});}
   async function revokeStaffSessions(username){if(!(has(CAP.STAFF_REVOKE)||has('security.revoke_session')))return;const s=staffRecord(username);if(!s)return;try{await api('revokeSession',{staffId:s.id});await refreshData();showModule('staff');toast('Sessions revoked');}catch(error){toast(error.message);}}
   async function togglePremium(id){if(!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE)))return;const s=getStories().find(x=>x.id===id);if(!s)return;try{await api('setPremium',{storyId:id,accessPolicy:s.premium?'public':'premium'});await refreshData();showModule('premium');toast('Story access policy updated');}catch(error){toast(error.message);}}
+
+  function mediaTargetStoryId(){return String($('[data-media-target-story]')?.value||'');}
+  function renderMediaModalGrid(){
+    const mount=$('[data-media-modal-grid]');if(!mount)return;
+    const q=String($('[data-media-modal-search]')?.value||'').trim().toLowerCase(),storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
+    const rows=getMedia().filter(m=>!q||[m.filename,m.caption,m.credit,m.sourceProvenance].some(v=>String(v||'').toLowerCase().includes(q)));
+    mount.innerHTML=rows.length?rows.map(m=>mediaCard(m,{modal:true,storyId,usageType})).join(''):'<div class="nr-empty"><strong>No authorised media found</strong><p>Upload a new private asset below.</p></div>';
+  }
+  function openMediaLibrary(storyId=null){
+    if(!has(CAP.MEDIA)){toast('Your account cannot manage editorial media.');return;}
+    const modal=$('[data-media-modal]'),target=$('[data-media-target-story]'),form=$('[data-media-upload-form]');
+    const editable=getStories().filter(canEditStory);
+    if(!editable.length){toast('No editable story is available for media upload or attachment.');return;}
+    target.innerHTML=editable.map(s=>'<option value="'+esc(s.id)+'" '+(s.id===storyId?'selected':'')+'>'+esc(s.title||'Untitled story')+'</option>').join('');
+    target.disabled=Boolean(storyId);
+    target.dataset.lockedStory=storyId||'';
+    $('[data-media-usage-role]').value='inline';
+    $('[data-media-modal-search]').value='';
+    form?.reset();
+    modal.hidden=false;
+    renderMediaModalGrid();
+  }
+  function closeMediaLibrary(){const modal=$('[data-media-modal]');if(modal)modal.hidden=true;}
+  async function sha256File(file){if(!crypto?.subtle)return'';const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+  function resolvedMime(file){
+    if(file.type)return file.type.toLowerCase();
+    const ext=String(file.name||'').toLowerCase().split('.').pop();
+    return ({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',pdf:'application/pdf',txt:'text/plain',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})[ext]||'';
+  }
+  async function uploadStoryMedia(form){
+    const file=form.elements.file.files?.[0],storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
+    if(!file||!storyId){toast('Choose a story and file first.');return;}
+    const mimeType=resolvedMime(file),altText=String(form.elements.altText.value||'').trim();
+    if(mimeType.startsWith('image/')&&!altText){toast('Alt text is required for images.');return;}
+    if(file.size>15728640){toast('Newsroom media is limited to 15 MB.');return;}
+    const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+    try{
+      const checksum=await sha256File(file);
+      const prepared=await api('prepareStoryMedia',{
+        storyId,filename:file.name,mimeType,byteSize:file.size,checksum:checksum||null,
+        altText,caption:String(form.elements.caption.value||'').trim(),
+        credit:String(form.elements.credit.value||'').trim(),
+        sourceProvenance:String(form.elements.sourceProvenance.value||'').trim(),
+        usageType
+      });
+      const uploadForm=new FormData();uploadForm.append('cacheControl','3600');uploadForm.append('',file,file.name);
+      const upload=await fetch(prepared.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:uploadForm});
+      if(!upload.ok)throw new Error('Private media upload failed ('+upload.status+').');
+      await api('finalizeStoryMedia',{mediaId:prepared.prepared.media_id,storyId,usageType,checksum:checksum||null});
+      await refreshData();form.reset();renderMediaModalGrid();
+      if(editingStoryId===storyId)populateEditor();
+      if(active==='media')showModule('media');
+      toast('Media uploaded and attached privately');
+    }catch(error){toast(error.message||'Media upload failed safely.');}
+    finally{if(submit)submit.disabled=false;}
+  }
+  async function attachStoryMedia(mediaId){
+    const storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
+    if(!storyId)return;
+    try{await api('attachStoryMedia',{mediaId,storyId,usageType});await refreshData();renderMediaModalGrid();if(editingStoryId===storyId)populateEditor();toast('Media attached to story');}catch(error){toast(error.message);}
+  }
+  async function detachStoryMedia(mediaId,storyId,usageType){
+    try{await api('detachStoryMedia',{mediaId,storyId,usageType});await refreshData();if(editingStoryId===storyId)populateEditor();if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
+  }
+  async function previewMedia(mediaId){
+    const asset=getMedia().find(m=>m.id===mediaId);
+    if(asset?.storageBucket==='migrated-media'&&asset.sourceUrl){window.open(asset.sourceUrl,'_blank','noopener,noreferrer');return;}
+    try{const result=await api('getMediaPreview',{mediaId});window.open(result.url,'_blank','noopener,noreferrer');}catch(error){toast(error.message);}
+  }
+  function openRequestChanges(storyId){
+    const s=getStories().find(x=>x.id===storyId);if(!s||!canRequestChanges(s)){toast('This story is not eligible for Request changes.');return;}
+    const form=$('[data-request-changes-form]');form.reset();form.dataset.storyId=storyId;
+    $('[data-request-changes-story-title]').textContent='Return “'+(s.title||'this story')+'” to the Reporter with a required editorial note.';
+    $('[data-request-changes-modal]').hidden=false;
+  }
+  async function saveRequestChanges(form){
+    const storyId=form.dataset.storyId,reason=String(form.elements.reason.value||'').trim();
+    if(reason.length<3){toast('Add a clear editorial reason before returning the story.');return;}
+    try{
+      await flushAutosave();
+      await api('requestStoryChanges',{storyId,reason});
+      $('[data-request-changes-modal]').hidden=true;form.reset();
+      await refreshData();
+      if(editingStoryId===storyId)populateEditor();
+      if(active==='review')showModule('review');
+      toast('Changes requested — Reporter notified');
+    }catch(error){toast(error.message);}
+  }
 
   function userPopover(){const el=$('[data-user-popover]'),u=currentUser();el.hidden=!el.hidden;if(!el.hidden)el.innerHTML=`<div class="nr-popover-id"><strong>${esc(u.name)}</strong><span>${esc(u.role)} · ${esc(u.desk)}</span></div><button data-popover-action="profile">My profile</button><button data-module-jump="my-assignments">My assignments</button><button data-module-jump="my-stories">My drafts & stories</button><button data-module-jump="security">Security</button><button data-sign-out>Sign out</button>`;}
   function openSearch(){const modal=$('[data-search-modal]');modal.hidden=false;const input=$('[data-newsroom-search-input]');input.value='';$('[data-newsroom-search-results]').innerHTML='';setTimeout(()=>input.focus(),20);}
