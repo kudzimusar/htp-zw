@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install --no-audit --no-fund && npm install --prefix apps/mobile --no-audit --no-fund",
-  "buildCommand": "APP_ENV=staging EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging EXPO_PUBLIC_SUPABASE_URL=https://gcdohgbmqhqwydgaxrcr.supabase.co EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk HEALTHTIMES_WEB_BASE_URL= npm run build:phase4:web",
+  "buildCommand": "node scripts/web/build-phase11-vercel.js",
   "outputDirectory": "apps/mobile/dist",
   "functions": {
     "api/web.js": {
