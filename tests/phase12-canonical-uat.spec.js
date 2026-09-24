@@ -145,6 +145,18 @@ test('routing authority preserves one-hop alias context path and explicit 404 be
   expect(unknown.status()).toBe(404);
 });
 
+test('historical root public URLs cannot expose the retired legacy Reader implementation', async ({ request }) => {
+  for (const path of ['/index.html', '/article.html?id=natpharm-supply-chain', '/premium.html', '/archive.html']) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect([200, 301, 302, 307, 308, 404]).toContain(response.status());
+    const body = await response.text();
+    expect(body, path + ' leaked legacy v21 shell').not.toContain('v21-ready');
+    expect(body, path + ' leaked legacy root runtime').not.toMatch(/<script[^>]+src=["'][^"']*app\\.js["']/i);
+    expect(body, path + ' leaked legacy v21 runtime').not.toMatch(/<script[^>]+src=["'][^"']*v21\\.js["']/i);
+    expect(body, path + ' leaked legacy public slogan').not.toContain('More context. More accountability. Better health intelligence.');
+  }
+});
+
 test('PWA manifest and service worker expose the canonical offline/failure shell contract', async ({ request }) => {
   const manifestResponse = await request.get('/manifest.json');
   expect(manifestResponse.status()).toBe(200);
