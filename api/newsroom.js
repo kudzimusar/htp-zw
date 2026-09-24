@@ -742,6 +742,13 @@ async function handle(req, res) {
       await call('newsroom_mark_communication_attachment_deleted', { p_attachment_id: body.attachmentId });
       return json(res, 200, { ok: true });
     }
+    if (action === 'listMedia') {
+      const rows=await call('newsroom_list_media',{
+        p_search:body.search||null,
+        p_limit:Math.min(Math.max(Number(body.limit||150),1),250)
+      });
+      return json(res,200,{ok:true,rows:Array.isArray(rows)?rows:[]});
+    }
     if (action === 'prepareStoryMedia') {
       const prepared=await call('newsroom_prepare_story_media',{
         p_story_id:body.storyId,
