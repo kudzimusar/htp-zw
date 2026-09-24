@@ -70,3 +70,20 @@ test("feature-branch PWA preview uses its own deployment environment",()=>{
   assert.ok(pages.includes("name: github-pages-preview"));
   assert.ok(pages.includes("actions/deploy-pages@v4"));
 });
+
+test("staging iOS visual evidence preserves Keychain-capable simulator signing",()=>{
+  const workflow=readRepo(".github/workflows/phase10-visual-conformance.yml");
+  const ios=workflow.split("candidate-ios:")[1]?.split("candidate-android:")[0] ?? "";
+  assert.ok(ios.includes("-sdk iphonesimulator"));
+  assert.equal(ios.includes("CODE_SIGNING_ALLOWED=NO"),false);
+  assert.ok(ios.includes("KeyChainException"));
+  assert.ok(ios.includes("required entitlement"));
+});
+
+test("Android visual evidence fails if Home remains on the loading shell",()=>{
+  const workflow=readRepo(".github/workflows/phase10-visual-conformance.yml");
+  const android=workflow.split("candidate-android:")[1] ?? "";
+  assert.ok(android.includes("uiautomator dump"));
+  assert.ok(android.includes("Loading Home"));
+  assert.ok(android.includes("Top Stories"));
+});
