@@ -111,7 +111,16 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     await page.locator('[data-module="my-stories"]').click();
     const row = page.locator('tr').filter({ hasText: reporterStoryTitle });
     await expect(row).toBeVisible();
-    await row.getByRole('button', { name: 'Open' }).click();
+    const openButton=row.getByRole('button', { name: 'Open' });
+    await expect(openButton).toBeVisible();
+    await expect(openButton).toBeEnabled();
+    await openButton.evaluate((el)=>el.scrollIntoView({block:'center',inline:'nearest'}));
+    await expect.poll(async()=>openButton.evaluate((el)=>{
+      const r=el.getBoundingClientRect();
+      const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+      return top===el||el.contains(top);
+    })).toBe(true);
+    await openButton.evaluate((el)=>el.click());
     await expect(page.locator('[data-story-form] textarea[name="body"]')).toHaveValue(/survive a browser refresh/);
     await expect(page.locator('[data-story-media]')).toContainText(reporterMediaFilename);
     await expect(page.locator('[data-editor-primary]')).toHaveText('Submit for review');
