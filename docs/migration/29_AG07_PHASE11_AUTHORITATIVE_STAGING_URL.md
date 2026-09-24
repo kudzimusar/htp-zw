@@ -668,3 +668,237 @@ When an authenticated alias-write surface is available, the only eligible cutove
 After that mutation, the full Phase 11 canonical-alias post-cutover smoke, routing/SEO, Premium, HOSPAZ, custody and runtime-log matrix must still be executed before Phase 11 can be accepted.
 
 No Phase 12 / AG-08 / CP7 release is authorized.
+
+---
+
+## 16. Final canonical-staging acceptance — 2026-09-24
+
+This section is the authoritative Phase 11 closure receipt. Sections above are retained as historical evidence of the original blocker, the first deployment-mode correction, the routing regression, the missing build-time Supabase configuration, and the migrated-article hydration defect. Those earlier candidates are superseded for Phase 11 acceptance.
+
+### 16.1 Final certified runtime
+
+Final Phase 11 runtime:
+
+`1da9aa95ed60e25a145c8446b23d0670d608fb52`
+
+Commit:
+
+`fix(phase11): hydrate injected public capability after first render`
+
+Phase 11 branch:
+
+`deployment/ag07-phase11-authoritative-staging`
+
+Final Vercel deployment:
+
+- deployment ID: `dpl_27C7FyCLkwqm5CvEA8QaJuyuYHMv`
+- deployment URL: `healthtimes-staging-41ji5metk-11-11.vercel.app`
+- project: `healthtimes-staging`
+- project ID: `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`
+- state: `READY`
+- source: Git integration
+- target: preview / `null`
+- Git SHA: `1da9aa95ed60e25a145c8446b23d0670d608fb52`
+- alias error: `null`
+
+Canonical staging alias after final cutover:
+
+`https://healthtimes-staging.vercel.app`
+
+independently resolved to:
+
+`dpl_27C7FyCLkwqm5CvEA8QaJuyuYHMv`
+
+at:
+
+`1da9aa95ed60e25a145c8446b23d0670d608fb52`
+
+Rollback deployment retained:
+
+`dpl_4xmfSenLQtJTQbNMpK7g3boFboaK`
+
+### 16.2 Exact-head certification
+
+Workflow:
+
+`AG-07 Phase 11 Staging Runtime Candidate`
+
+Run:
+
+`35943668072`
+
+Job:
+
+`107456818793`
+
+Conclusion:
+
+**SUCCESS**
+
+Exact-head identity:
+
+- `EXPECTED_SHA=1da9aa95ed60e25a145c8446b23d0670d608fb52`
+- `CHECKED_OUT_SHA=1da9aa95ed60e25a145c8446b23d0670d608fb52`
+
+Evidence artifact:
+
+- name: `ag07-phase11-staging-runtime-candidate`
+- artifact ID: `10786405135`
+- SHA-256: `4cf72c95e0349b7961cf67480c69746da58fec087e93be8219f67c5175a4ba2e`
+
+The strengthened browser gate exercised:
+
+- Home;
+- Explore;
+- Search;
+- a CP5-injected migrated article;
+- mobile `390×844`;
+- desktop `1440×1000`;
+- HOSPAZ fail-closed rendering;
+- mobile/desktop navigation distinction;
+- React hydration error `#418`.
+
+Recorded evidence:
+
+- mobile React `#418`: `0`
+- desktop React `#418`: `0`
+- mobile Reader tabs: `5`
+- desktop mobile tabs: `0`
+- HOSPAZ clickable: `NO`
+- console errors: none recorded
+
+### 16.3 Defects found and closed during real cutover
+
+The moderator did not accept agent/candidate receipts at face value. Real canonical/preview execution found and remediated four Phase 11 defects:
+
+1. Vercel built the Reader in `source-parity` mode while HOSPAZ staging authority required `staging` mode.
+2. Generic Vercel catch-all routing intercepted Reader-owned routes such as `/explore` and `/search`, and trailing-slash migrated paths could fall through to the Vercel platform 404.
+3. The actual Vercel bundle was built with an empty staging Supabase URL/publishable key even though CI injected them locally.
+4. CP5-injected migrated story capability caused React `#418` because the server body rendered the static loading fallback while the first client render immediately rendered the full injected article.
+
+The final fixes preserve the accepted architecture:
+
+- `apps/mobile` remains the canonical Web/PWA/iOS/Android Reader presentation;
+- CP5 remains the public routing/SEO authority;
+- staging service mode uses the accepted migrated-corpus adapter;
+- Reader-owned static routes bypass the CP5 catch-all;
+- trailing-slash and non-trailing-slash migrated routes both reach CP5;
+- public staging Supabase build configuration is embedded through the bounded Phase 11 Vercel build script;
+- injected public capability is adopted after the first hydration render so the initial client tree matches the server shell.
+
+No production environment, database migration, storage object, subscriber, entitlement, DNS/MX record, provider configuration, or native release was modified by these fixes.
+
+### 16.4 Final canonical HTTP / SEO / routing verification
+
+Against:
+
+`https://healthtimes-staging.vercel.app`
+
+final independent checks returned:
+
+| Surface | Final result |
+| --- | --- |
+| `/` | HTTP 200 |
+| `/explore` | HTTP 200 |
+| `/search` | HTTP 200 |
+| `/premium` | HTTP 200 |
+| source 30154 with trailing slash | HTTP 200 / `preserved_direct` |
+| source 30154 without trailing slash | HTTP 200 / `preserved_direct` |
+| Premium source 33190 | HTTP 200 / body protected |
+| `/__ag05/direct-ad-preview` | HTTP 200 |
+| `/sitemap.xml` | HTTP 200 |
+| `/feed` | HTTP 200 |
+| `/foo/bar/baz/` | HTTP 404 / `explicit_404_exception` |
+| `/foo/bar/baz` | HTTP 404 / `explicit_404_exception` |
+
+Source `30154` continued to expose:
+
+- `x-ag05-source-id: 30154`
+- `x-ag05-resolution: preserved_direct`
+- `x-healthtimes-presentation: apps/mobile`
+
+Premium source `33190` continued to expose canonical/SEO authority without exposing the protected body.
+
+### 16.5 Final real migrated-article hydration proof
+
+After the final alias cutover, the real migrated source `30154` was loaded directly through the canonical staging hostname in headless Chromium.
+
+Mobile:
+
+- HTTP: `200`
+- React `#418`: `0`
+- page errors: `0`
+
+Desktop:
+
+- HTTP: `200`
+- React `#418`: `0`
+- page errors: `0`
+
+Result:
+
+**PHASE 11 REAL MIGRATED ARTICLE HYDRATION: PASS**
+
+### 16.6 HOSPAZ / Premium / custody state
+
+HOSPAZ remains fail-closed:
+
+- advertiser: `HOSPAZ`
+- placement: `hospaz-header-direct`
+- source attachment: `33005`
+- verified destination: none
+- clickable: **NO**
+- schedule: unverified
+- placement conditions: unverified
+
+Premium remains fail-closed:
+
+- source: `33190`
+- public HTTP: `200`
+- public body exposure: **NO**
+- subscribers: `0`
+- Premium entitlements: `0`
+- no fabricated store products or prices were introduced
+
+The accepted staging corpus/migration lineage remains unchanged. No migration replay, ledger rewrite, stale-media deletion, destructive reset, database mutation, or storage mutation was performed during Phase 11 cutover/remediation.
+
+### 16.7 Runtime-log proof
+
+Fresh Vercel runtime logs from:
+
+`dpl_27C7FyCLkwqm5CvEA8QaJuyuYHMv`
+
+recorded the final canonical verification requests on branch:
+
+`deployment/ag07-phase11-authoritative-staging`
+
+including:
+
+- source `30154` with slash: `200`
+- source `30154` without slash: `200`
+- Premium source `33190`: `200`
+- HOSPAZ preview: `200`
+- sitemap: `200`
+- feed: `200`
+- deliberate unknown routes with and without trailing slash: `404`
+
+### 16.8 Safety / programme boundaries after acceptance
+
+The following remain unchanged:
+
+- production deployment: **NOT AUTHORIZED**
+- production DB migration/mutation: **NOT AUTHORIZED**
+- production DNS/MX change: **NOT AUTHORIZED**
+- COM-01 live-provider activation: **NOT COMPLETED**
+- app-store submission: **NOT AUTHORIZED**
+- legacy WordPress retirement: **NOT AUTHORIZED**
+- PR #28 merge: **NOT AUTHORIZED**
+- AG-08: **NOT RELEASED**
+- CP7: **NOT ACCEPTED**
+
+The documented next programme work is the existing pre-CP7/client-UAT readiness path. No undocumented Phase 12 is created by this closure.
+
+## 17. Final disposition
+
+**PHASE 11 ACCEPTED — AUTHORITATIVE STAGING ALIAS SERVES `1da9aa95ed60e25a145c8446b23d0670d608fb52` / CANONICAL WEB-PWA-PREMIUM-HOSPAZ-SEO-HYDRATION VERIFICATION GREEN**
+
