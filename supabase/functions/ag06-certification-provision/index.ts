@@ -73,7 +73,25 @@ Deno.serve(async (req:Request) => {
         .map((p:any)=>String(p.id));
       let deletedMediaAssets = 0;
       let deletedStorageObjects = 0;
+      let readerReleasedStoriesCleared = 0;
       if (cleanupProfileIds.length) {
+        const stories = await admin.from("stories")
+          .select("id,distribution")
+          .in("owner_staff_id",cleanupProfileIds);
+        if (stories.error) throw stories.error;
+        for (const story of stories.data || []) {
+          const distribution = {
+            ...((story as any).distribution && typeof (story as any).distribution === "object"
+              ? (story as any).distribution
+              : {}),
+            public_reader:false
+          };
+          const cleared = await admin.from("stories")
+            .update({distribution})
+            .eq("id",(story as any).id);
+          if (cleared.error) throw cleared.error;
+          readerReleasedStoriesCleared += 1;
+        }
         const rows:any[] = [];
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
           const profileBatch=cleanupProfileIds.slice(offset,offset+25);
@@ -152,7 +170,8 @@ Deno.serve(async (req:Request) => {
         retained_profiles_status:"revoked",
         live_sessions_remaining:liveSessions.length,
         deleted_private_media_assets:deletedMediaAssets,
-        deleted_private_storage_objects:deletedStorageObjects
+        deleted_private_storage_objects:deletedStorageObjects,
+        reader_release_markers_cleared:readerReleasedStoriesCleared
       });
     }
 
