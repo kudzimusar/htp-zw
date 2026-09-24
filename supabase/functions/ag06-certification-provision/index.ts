@@ -74,13 +74,18 @@ Deno.serve(async (req:Request) => {
       let deletedMediaAssets = 0;
       let deletedStorageObjects = 0;
       if (cleanupProfileIds.length) {
-        const media = await admin.from("media_assets")
-          .select("id,storage_bucket,storage_key,uploaded_by_staff_id")
-          .in("uploaded_by_staff_id",cleanupProfileIds)
-          .eq("storage_bucket","newsroom-private");
-        if (media.error) throw media.error;
-        const rows = media.data || [];
-        const keys = rows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
+        const rows:any[] = [];
+        for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
+          const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const media = await admin.from("media_assets")
+            .select("id,storage_bucket,storage_key,uploaded_by_staff_id")
+            .in("uploaded_by_staff_id",profileBatch)
+            .eq("storage_bucket","newsroom-private");
+          if (media.error) throw media.error;
+          rows.push(...(media.data || []));
+        }
+        const uniqueRows=[...new Map(rows.map((m:any)=>[String(m.id),m])).values()];
+        const keys = uniqueRows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
         for (let offset=0;offset<keys.length;offset+=100) {
           const batch=keys.slice(offset,offset+100);
           if (!batch.length) continue;
@@ -88,7 +93,7 @@ Deno.serve(async (req:Request) => {
           if (removed.error) throw removed.error;
           deletedStorageObjects += batch.length;
         }
-        const ids=rows.map((m:any)=>String(m.id));
+        const ids=uniqueRows.map((m:any)=>String(m.id));
         for (let offset=0;offset<ids.length;offset+=100) {
           const batch=ids.slice(offset,offset+100);
           if (!batch.length) continue;
