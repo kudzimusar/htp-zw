@@ -1,5 +1,6 @@
 const { test, expect, request } = require('@playwright/test');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const baseURL = String(process.env.AG06_STAGING_BASE_URL || '').replace(/\/$/,'');
 const supabaseURL = String(process.env.AG06_STAGING_SUPABASE_URL || '').replace(/\/$/,'');
@@ -31,6 +32,25 @@ async function appPost(client,action,payload={}){
     headers:{Origin:baseURL,'X-HTP-CSRF':client.csrf},
     data:{action,...payload}
   });
+}
+async function appAdoptLogin(kind){
+  expect(directSupabaseConfigured,`${kind} provider adoption requires staging Supabase configuration`).toBeTruthy();
+  const auth=await fetch(`${supabaseURL}/auth/v1/token?grant_type=password`,{
+    method:'POST',
+    headers:{apikey:anonKey,'Content-Type':'application/json'},
+    body:JSON.stringify(accounts[kind])
+  });
+  expect(statusOf(auth),`${kind} direct provider auth for adoption`).toBe(200);
+  const session=await auth.json();
+  const ctx=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
+  const response=await ctx.post('/api/newsroom',{data:{
+    action:'adoptSession',accessToken:session.access_token,refreshToken:session.refresh_token,expiresIn:session.expires_in
+  }});
+  expect(statusOf(response),`${kind} provider-session adoption`).toBe(200);
+  const state=await ctx.storageState();
+  const csrf=csrfFrom(state);
+  expect(csrf,`${kind} adopted-session CSRF cookie`).toBeTruthy();
+  return {ctx,csrf};
 }
 async function appBootstrap(client){
   const response=await client.ctx.get('/api/newsroom?action=bootstrap',{headers:{Origin:baseURL}});
@@ -254,4 +274,135 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     await Promise.all([anonymous.dispose(),reporter.ctx.dispose(),commercial.ctx.dispose(),editor.ctx.dispose(),publisher.ctx.dispose()]);
   });
+  test('story media and Request changes enforce the editorial loop below the UI',async()=>{
+    test.setTimeout(120_000);
+    const stamp=Date.now();
+    const reporter=await appAdoptLogin('reporter');
+    const editor=await appAdoptLogin('editor');
+    const commercial=await appAdoptLogin('commercial');
+
+    let reporterBoot=await appBootstrap(reporter);
+    expect(statusOf(reporterBoot.response)).toBe(200);
+    const created=await appPost(reporter,'createStory',{story:{
+      title:`AG06 Media Review ${stamp}`,
+      slug:`ag06-media-review-${stamp}`,
+      desk:'Africa',country:'Zimbabwe',region:'Africa'
+    }});
+    expect(statusOf(created)).toBe(200);
+    const storyId=(await created.json()).id;
+
+    reporterBoot=await appBootstrap(reporter);
+    let story=reporterBoot.body.data.stories.find(s=>s.id===storyId);
+    const saved=await appPost(reporter,'saveStory',{
+      storyId,expectedVersion:story.lock_version,
+      patch:{body:'Reporter draft with a private supporting document.',sources:'AG-06 media and review certification.'},
+      reason:'Prepare media review certification story'
+    });
+    expect(statusOf(saved)).toBe(200);
+
+    const content=Buffer.from('HealthTimes AG-06 private supporting document '+stamp);
+    const checksum=crypto.createHash('sha256').update(content).digest('hex');
+    const provenance=`AG06_CERT:${process.env.GITHUB_RUN_ID||stamp}`;
+    const prepare=await appPost(reporter,'prepareStoryMedia',{
+      storyId,filename:`ag06-support-${stamp}.txt`,mimeType:'text/plain',byteSize:content.length,
+      checksum,altText:'',caption:'AG-06 private supporting document',credit:'HealthTimes certification',
+      sourceProvenance:provenance,usageType:'supporting_document'
+    });
+    expect(statusOf(prepare)).toBe(200);
+    const preparedBody=await prepare.json();
+    expect(preparedBody.prepared.storage_bucket).toBe('newsroom-private');
+    expect(preparedBody.prepared.storage_key).toContain(`story-media/${storyId}/`);
+    const mediaId=preparedBody.prepared.media_id;
+
+    const uploadForm=new FormData();
+    uploadForm.append('cacheControl','3600');
+    uploadForm.append('',new Blob([content],{type:'text/plain'}),`ag06-support-${stamp}.txt`);
+    const upload=await fetch(preparedBody.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:uploadForm});
+    expect(statusOf(upload)).toBe(200);
+
+    const finalized=await appPost(reporter,'finalizeStoryMedia',{mediaId,storyId,usageType:'supporting_document',checksum});
+    expect(statusOf(finalized)).toBe(200);
+    const preview=await appPost(reporter,'getMediaPreview',{mediaId});
+    expect(statusOf(preview)).toBe(200);
+    expect((await preview.json()).public).toBe(false);
+
+    reporterBoot=await appBootstrap(reporter);
+    const persistedMedia=(reporterBoot.body.data.media||[]).find(m=>m.id===mediaId);
+    expect(persistedMedia).toBeTruthy();
+    expect(persistedMedia.status).toBe('private_ready');
+    expect(persistedMedia.storage_bucket).toBe('newsroom-private');
+    expect((persistedMedia.usage||[]).some(u=>u.story_id===storyId&&u.usage_type==='supporting_document')).toBe(true);
+
+    if(directSupabaseConfigured){
+      const anonHeaders={apikey:anonKey,'Content-Type':'text/plain'};
+      const anonymousWrite=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/ag06-anonymous-${stamp}.txt`,{
+        method:'POST',headers:anonHeaders,body:'unauthorised'
+      });
+      expect([400,401,403]).toContain(statusOf(anonymousWrite));
+      const encodedPath=preparedBody.prepared.storage_key.split('/').map(encodeURIComponent).join('/');
+      const anonymousRead=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPath}`,{headers:{apikey:anonKey}});
+      expect([400,401,403,404]).toContain(statusOf(anonymousRead));
+    }
+
+    const commercialAttach=await appPost(commercial,'prepareStoryMedia',{
+      storyId,filename:'commercial.txt',mimeType:'text/plain',byteSize:10,
+      sourceProvenance:'Commercial must not attach editorial media',usageType:'supporting_document'
+    });
+    expect(statusOf(commercialAttach)).toBe(403);
+
+    const editorStory=await appPost(editor,'createStory',{story:{
+      title:`AG06 Editor-owned Media Boundary ${stamp}`,
+      slug:`ag06-editor-media-boundary-${stamp}`,
+      desk:'Africa',country:'Zimbabwe',region:'Africa'
+    }});
+    expect(statusOf(editorStory)).toBe(200);
+    const editorStoryId=(await editorStory.json()).id;
+    const crossAttach=await appPost(reporter,'attachStoryMedia',{mediaId,storyId:editorStoryId,usageType:'supporting_document'});
+    expect(statusOf(crossAttach)).toBe(403);
+
+    const submitted=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Submitted'});
+    expect(statusOf(submitted)).toBe(200);
+    const reporterReturn=await appPost(reporter,'requestStoryChanges',{storyId,reason:'Reporter must not exercise editor review authority.'});
+    expect(statusOf(reporterReturn)).toBe(403);
+
+    const emptyReason=await appPost(editor,'requestStoryChanges',{storyId,reason:'  '});
+    expect(statusOf(emptyReason)).toBe(400);
+    const requested=await appPost(editor,'requestStoryChanges',{storyId,reason:'Please verify the source document and clarify the second paragraph.'});
+    expect(statusOf(requested)).toBe(200);
+
+    const editorAfter=await appBootstrap(editor);
+    const returned=editorAfter.body.data.stories.find(s=>s.id===storyId);
+    expect(returned.workflow_status).toBe('Draft');
+    expect((editorAfter.body.data.reviews||[]).some(r=>r.story_id===storyId&&r.status==='changes_requested')).toBe(true);
+    expect((editorAfter.body.data.lifecycle||[]).some(r=>r.story_id===storyId&&r.to_status==='Draft'&&String(r.reason||'').includes('Changes requested'))).toBe(true);
+    expect((editorAfter.body.data.audit||[]).some(r=>r.target_id===storyId&&r.action==='story.changes_requested')).toBe(true);
+
+    reporterBoot=await appBootstrap(reporter);
+    story=reporterBoot.body.data.stories.find(s=>s.id===storyId);
+    expect(story.workflow_status).toBe('Draft');
+    const changeNote=(reporterBoot.body.data.notifications||[]).find(n=>n.target_id===storyId&&n.event_type==='story.changes_requested');
+    expect(changeNote).toBeTruthy();
+    expect(changeNote.payload.reason).toContain('verify the source document');
+
+    const revised=await appPost(reporter,'saveStory',{
+      storyId,expectedVersion:story.lock_version,
+      patch:{body:'Reporter revised copy after the editor requested source verification and clarification.'},
+      reason:'Respond to requested changes'
+    });
+    expect(statusOf(revised)).toBe(200);
+    const resubmitted=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Submitted'});
+    expect(statusOf(resubmitted)).toBe(200);
+
+    reporterBoot=await appBootstrap(reporter);
+    expect(reporterBoot.body.data.stories.find(s=>s.id===storyId)?.workflow_status).toBe('Submitted');
+
+    console.log('AG06_MEDIA_REVIEW_EVIDENCE',JSON.stringify({
+      story_id:storyId,media_id:mediaId,storage_bucket:'newsroom-private',
+      media_persisted:true,commercial_media_denied:true,cross_story_media_denied:true,
+      request_changes:true,reporter_notified:true,resubmission:true
+    }));
+
+    await Promise.all([reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose()]);
+  });
+
 });

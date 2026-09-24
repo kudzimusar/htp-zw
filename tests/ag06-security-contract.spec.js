@@ -83,6 +83,11 @@ test.describe('AG-06 security contract', () => {
     expect(api).not.toMatch(/console\.(log|error)\([^\n]*(access|refresh|password)/i);
   });
 
+  test('live AG-06 certification runs UI journeys before destructive session revocation probes', async () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts['test:ag06:live']).toBe('playwright test tests/newsroom-os.spec.js && playwright test tests/ag06-live-security.spec.js');
+  });
+
   test('synthetic certification identities never send outbound Auth email', async () => {
     const workflow = read('.github/workflows/ag06-security.yml');
     const provisioner = read('supabase/functions/ag06-certification-provision/index.ts');
@@ -91,6 +96,41 @@ test.describe('AG-06 security contract', () => {
     expect(provisioner).not.toContain('resetPasswordForEmail');
     expect(provisioner).toContain('probe_enabled:false');
     expect(provisioner).toContain('requested_probe_suppressed:body.probe_email === true');
+  });
+
+  test('story media and request-changes remain server-authoritative and communication-private domains stay separate', async () => {
+    const sql = read('supabase/migrations/20260924072830_ag06_story_media_request_changes.sql');
+    const api = read('api/newsroom.js');
+    const browser = read('newsroom.js');
+    const html = read('newsroom.html');
+
+    expect(sql).toContain('create or replace function public.newsroom_prepare_story_media');
+    expect(sql).toContain('create or replace function public.newsroom_finalize_story_media');
+    expect(sql).toContain('create or replace function public.newsroom_attach_story_media');
+    expect(sql).toContain('create or replace function public.newsroom_request_story_changes');
+    expect(sql).toContain("'newsroom-private'");
+    expect(sql).not.toContain("insert into public.newsroom_communication_attachments");
+    expect(sql).not.toContain("insert into public.communication_attachments");
+    expect(sql).not.toMatch(/storage_bucket\s*[=:]\s*['"]migrated-media['"]/i);
+    expect(sql).toContain("'story.changes_requested'");
+    expect(sql).toContain("'changes_requested'");
+    expect(sql).toContain("'Draft'");
+    expect(sql).toContain('newsroom_notifications');
+    expect(sql).toContain('revoke all on public.media_assets from anon, authenticated');
+    expect(sql).toContain("bucket_id='newsroom-private'");
+    expect(sql).toContain('newsroom_can_read_media(ma.id)');
+
+    expect(api).toContain("if (action === 'prepareStoryMedia')");
+    expect(api).toContain("if (action === 'finalizeStoryMedia')");
+    expect(api).toContain("if (action === 'requestStoryChanges')");
+    expect(api).toContain('/storage/v1');
+    expect(browser).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+    expect(browser).not.toContain('initialMedia=[');
+    expect(browser).toContain("api('prepareStoryMedia'");
+    expect(browser).toContain("api('requestStoryChanges'");
+    expect(html).toContain('data-media-modal');
+    expect(html).toContain('data-request-changes-modal');
+    expect(html).toContain('Draft uploads stay private');
   });
 
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {

@@ -4,7 +4,7 @@
   const KEYS = {
     session: 'htpNewsroomSession', stories: 'htpNewsroomStories', assignments: 'htpNewsroomAssignmentsV3',
     staff: 'htpNewsroomStaffV3', audit: 'htpNewsroomAudit', media: 'htpNewsroomMediaV3',
-    comments: 'htpNewsroomCommentsV3', campaigns: 'htpAdCampaigns', overrides: 'htpStoryOverrides',
+    comments: 'htpNewsroomCommentsV3', campaigns: 'htpAdCampaigns', advertisers: 'htpAdvertisersV1', overrides: 'htpStoryOverrides',
     sessions: 'htpNewsroomSessionsV3', notifications: 'htpNewsroomNotificationsV3',
     inboxSummary: 'htpNewsroomInboxSummaryV1', desks: 'htpNewsroomDesksV1',
     deskMembers: 'htpNewsroomDeskMembersV1', threads: 'htpNewsroomThreadsV1',
@@ -118,13 +118,6 @@
     {username:'commercial',name:'Commercial Desk',email:'commercial@healthtimes.co.zw',role:'Commercial Manager',desk:'Commercial',beat:'Advertising & Membership',country:'Zimbabwe',region:'Global',status:'Active',editor:'publisher',lastLogin:'Today 08:30',passwordChange:false,mfa:'Ready'}
   ];
 
-  const initialMedia=[
-    {id:'m1',filename:'hospaz-agm-2026.jpeg',type:'Image',caption:'HOSPAZ Annual General Meeting campaign',credit:'HOSPAZ',copyright:'Advertiser supplied',source:'HealthTimes source site',uploadedBy:'Commercial Desk',usedIn:'Advertising campaign',date:'2026-09-01'},
-    {id:'m2',filename:'natpharm-parliament.jpg',type:'Image',caption:'Parliamentary health committee coverage',credit:'HealthTimes',copyright:'HealthTimes',source:'Editorial library',uploadedBy:'Michael Gwarisa',usedIn:'NatPharm story',date:'2026-09-07'},
-    {id:'m3',filename:'healthathon-3.jpg',type:'Image',caption:'Healthathon participants',credit:'HealthTimes',copyright:'HealthTimes',source:'Editorial library',uploadedBy:'Kuda Pembere',usedIn:'Healthathon 3.0',date:'2026-09-07'},
-    {id:'m4',filename:'africa-cdc-briefing.pdf',type:'Document',caption:'Africa CDC weekly surveillance briefing',credit:'Africa CDC',copyright:'Source document',source:'Africa CDC',uploadedBy:'Kuda Pembere',usedIn:'Outbreak Watch',date:'2026-09-09'}
-  ];
-
   const initialCampaigns=[{id:'hospaz-agm-2026',advertiser:'HOSPAZ',name:'HOSPAZ Annual General Meeting',creative:HOSPAZ,destination:'https://healthtimes.co.zw/',placement:['masthead','home-infeed','article'],start:'2026-09-01',end:'2026-09-25',status:'Active',review:'Approved',label:'Advertisement',impressions:0,clicks:0}];
 
   const NAV=[
@@ -144,6 +137,23 @@
   function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
   function getStaff(){return read(KEYS.staff,[])} function setStaff(v){write(KEYS.staff,v)}
   function getMedia(){return read(KEYS.media,[])}
+  function mapServerMedia(rows){return (rows||[]).map(m=>({
+    id:m.id,filename:m.filename||'',mimeType:m.mime_type||'',byteSize:Number(m.byte_size||0),sourceUrl:m.source_url||'',
+    checksum:m.checksum||'',altText:m.alt_text||'',caption:m.caption||'',credit:m.credit||'',
+    sourceProvenance:m.source_provenance||m.source_url||'',storageBucket:m.storage_bucket||'',
+    storageKey:m.storage_key||'',publicUrl:m.public_url||'',status:m.status||'pending',
+    uploadedByStaffId:m.uploaded_by_staff_id||null,createdAt:m.created_at,updatedAt:m.updated_at,
+    usages:Array.isArray(m.usage)?m.usage.map(u=>({storyId:u.story_id,usageType:u.usage_type,sourceContext:u.source_context||{}})):[]
+  }));}
+  async function refreshMediaData(search=null){
+    const result=await api('listMedia',{search,limit:150});
+    const media=mapServerMedia(result.rows||[]);
+    write(KEYS.media,media);
+    return media;
+  }
+  function mediaUsageLabel(v){return ({featured:'Featured image',inline:'Inline image',supporting_document:'Supporting document'})[v]||String(v||'Media').replace(/_/g,' ');}
+  function mediaKind(m){const mime=String(m?.mimeType||'');return mime.startsWith('image/')?'Image':mime==='application/pdf'||mime.includes('wordprocessingml')||mime==='text/plain'?'Document':'Media';}
+  function storyMediaFor(storyId){return getMedia().flatMap(m=>(m.usages||[]).filter(u=>u.storyId===storyId).map(u=>({...m,storyUsage:u})));}
   function caps(role){return new Set(ROLE_CAPS[role]||[])} // presentation reference only
   function has(cap){return new Set(currentUser()?.capabilities||[]).has(cap)}
   function staffRecord(username){return getStaff().find(x=>x.username===username||x.id===username)}
@@ -198,6 +208,8 @@
       distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1),commentPolicy:s.comment_policy||'disabled'
     }));
     setStories(stories);
+    const media=mapServerMedia(data.media||[]);
+    write(KEYS.media,media);
     const assignments=(data.assignments||[]).map(a=>({
       id:a.id,storyId:a.story_id,title:a.title,reporter:handleFor(a.reporter_staff_id),
       desk:a.desk||'',deadline:a.deadline_at||'',priority:a.priority||'Normal',
@@ -228,7 +240,9 @@
       });
     }
     write(KEYS.sessions,sessionMap);
-    const advertisers=new Map((data.advertisers||[]).map(a=>[a.id,a.name]));
+    const advertiserRows=(data.advertisers||[]).map(a=>({id:a.id,name:a.name}));
+    const advertisers=new Map(advertiserRows.map(a=>[a.id,a.name]));
+    write(KEYS.advertisers,advertiserRows);
     write(KEYS.campaigns,(data.campaigns||[]).map(x=>({
       id:x.id,advertiser:advertisers.get(x.advertiser_id)||'Advertiser',name:x.name,status:x.status,
       start:x.start_at||'',end:x.end_at||'',review:x.review_status||'pending',placement:[],impressions:0,clicks:0
@@ -311,7 +325,7 @@
 
   function storyList(s){return `<li class="nr-list-item"><div><strong>${esc(s.title)}</strong><p>${esc(s.desk)} · ${esc(s.premium?'Premium':'Public')} · Updated ${esc(s.updated)}</p></div><div class="nr-list-actions">${status(s.status)}${canEditStory(s)?button('Open',`data-open-story="${esc(s.id)}"`):''}</div></li>`;}
   function assignmentList(a){const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<li class="nr-list-item"><div><strong>${esc(a.title)}</strong><p>${esc(a.desk)} · Due ${new Date(a.deadline).toLocaleString()} · ${esc(a.priority)}</p></div><div class="nr-list-actions">${status(overdue?'Overdue':a.status)}${a.reporter===currentUser().username?button('Update',`data-assignment-progress="${esc(a.id)}"`):''}</div></li>`;}
-  function reviewCard(s){return `<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>${esc(s.title)}</h3><p>${esc(s.author)} · ${esc(s.desk)} · ${esc(s.premium?'Premium':'Public')} · Updated ${esc(s.updated)}</p></div>${status(s.status)}</div><div class="nr-queue-meta">${button('Open review',`data-open-story="${esc(s.id)}"`,'nr-secondary')}${nextReviewButton(s)}</div></article>`;}
+  function reviewCard(s){const owner=staffRecord(s.owner)?.name||s.author||s.owner||'Unassigned';const deadline=s.deadline?new Date(s.deadline):null;const overdue=deadline&&deadline<new Date()&&!['Published','Archived'].includes(s.status);const due=deadline?(' · '+(overdue?'OVERDUE · ':'Due ')+deadline.toLocaleString()):'';const returnAction=canRequestChanges(s)?button('Request changes',`data-request-changes-story="${esc(s.id)}"`,'nr-secondary nr-return-action'):'';return `<article class="nr-queue-card" data-review-card data-state="${esc(s.status)}" data-desk="${esc(s.desk)}" data-owner="${esc(s.owner)}"><div class="nr-queue-top"><div><h3>${esc(s.title)}</h3><p>${esc(owner)} · ${esc(s.desk)} · ${esc(s.premium?'Premium':'Public')}${esc(due)} · Updated ${esc(s.updated)}</p></div>${status(overdue?'Overdue':s.status)}</div><div class="nr-queue-meta">${button('Open review',`data-open-story="${esc(s.id)}"`,'nr-secondary')}${returnAction}${nextReviewButton(s)}</div></article>`;}
   function nextReviewButton(s){if(!isEditor())return'';const next={'Submitted':'Fact check','Fact check':'Health / Science review','Health / Science review':'Copy edit','Copy edit':'Editor review','Editor review':'Ready','Ready':'Published'}[s.status];return next?button(next==='Published'?'Publish':`Move to ${next}`,`data-transition-story="${esc(s.id)}" data-next="${esc(next)}"`,'nr-primary'):'';}
   function emptyRow(text){return `<li class="nr-empty"><strong>${esc(text)}</strong></li>`;} function empty(text){return `<div class="nr-empty"><strong>${esc(text)}</strong><p>There is nothing waiting here right now.</p></div>`;}
 
@@ -321,7 +335,7 @@
   }
   function notificationItem(n,compact=false){
     const unread=!n.readAt;
-    const detail=n.payload?.title||n.payload?.to_status||n.payload?.status||n.eventType||'Newsroom activity';
+    const detail=n.eventType==='story.changes_requested'?(String(n.payload?.title||'Story')+' — '+String(n.payload?.reason||'Changes requested')):(n.payload?.title||n.payload?.to_status||n.payload?.status||n.eventType||'Newsroom activity');
     const actions=[];
     if(!compact&&!n.readAt)actions.push(button('Mark read','data-notification-read="'+esc(n.id)+'"'));
     if(!compact&&n.requiresAck&&!n.acknowledgedAt)actions.push(button('Acknowledge','data-notification-ack="'+esc(n.id)+'"','nr-primary'));
@@ -427,7 +441,35 @@
         return '<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>Reader comment</h3><p>'+esc(c.body)+'</p><small>Story '+esc(c.story_id)+' · '+esc(displayTime(c.created_at))+'</small></div>'+status(c.state)+'</div><div class="nr-queue-meta">'+actions.join('')+'</div></article>';
       }).join('')||empty('Moderation queue is clear'))+'</section>';
   }
-  function todayPanel(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Today</h2><p>Editorial agenda</p></div><button data-module-jump="calendar">Calendar →</button></div><div class="nr-calendar"><div class="nr-calendar-time">09:00</div><div class="nr-calendar-event" data-kind="Meeting"><strong>Editorial conference</strong><span>Global + Africa desks</span></div><div class="nr-calendar-time">12:00</div><div class="nr-calendar-event" data-kind="Deadline"><strong>STI analysis review</strong><span>Editor deadline</span></div><div class="nr-calendar-time">15:30</div><div class="nr-calendar-event" data-kind="Briefing"><strong>WhatsApp briefing lock</strong><span>Audience Desk</span></div></div></section>`;}
+  function newsroomAgenda({todayOnly=false,limit=30}={}){
+    const start=new Date();start.setHours(0,0,0,0);
+    const end=new Date(start);end.setDate(end.getDate()+(todayOnly?1:30));
+    const items=[];
+    for(const a of getAssignments()){
+      if(!a.deadline||a.status==='Complete')continue;
+      const at=new Date(a.deadline);if(!Number.isFinite(at.getTime())||at<start||at>=end)continue;
+      items.push({at,title:a.title,kind:'Deadline',detail:`${a.desk||'Newsroom'} · ${staffRecord(a.reporter)?.name||a.reporter||'Unassigned'}`});
+    }
+    for(const s of getStories()){
+      if(!s.schedule)continue;
+      const at=new Date(s.schedule);if(!Number.isFinite(at.getTime())||at<start||at>=end)continue;
+      items.push({at,title:s.title||'Untitled story',kind:'Publication',detail:`${s.desk||'Newsroom'} · ${s.status||'Scheduled'}`});
+    }
+    return items.sort((a,b)=>a.at-b.at).slice(0,limit);
+  }
+  function agendaMarkup(items,{showDate=false}={}){
+    return items.map(item=>{
+      const stamp=showDate
+        ? item.at.toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+        : item.at.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<div class="nr-calendar-time">${esc(stamp)}</div><div class="nr-calendar-event" data-kind="${esc(item.kind)}"><strong>${esc(item.title)}</strong><span>${esc(item.kind)} · ${esc(item.detail)}</span></div>`;
+    }).join('');
+  }
+  function todayPanel(){
+    const items=newsroomAgenda({todayOnly:true,limit:6});
+    const body=items.length?`<div class="nr-calendar">${agendaMarkup(items)}</div>`:empty('No scheduled newsroom items today');
+    return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Today</h2><p>Live assignment and publication deadlines</p></div><button data-module-jump="calendar">Calendar →</button></div>${body}</section>`;
+  }
   function notificationPanel(){const rows=read(KEYS.notifications,[]).filter(n=>!n.archivedAt).slice(0,5);return '<section class="nr-panel"><div class="nr-panel-head"><div><h2>Notifications</h2><p>Durable activity requiring your attention</p></div><button data-module-jump="inbox">Open Inbox →</button></div><ul class="nr-list">'+(rows.map(n=>notificationItem(n,true)).join('')||emptyRow('Your Inbox is clear'))+'</ul></section>';}
   function personalPerformancePanel(stories){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Your work</h2><p>Current publishing record</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Stories in workspace</strong><p>Owned or assigned</p></div><span class="nr-tag">${stories.length}</span></li><li class="nr-list-item"><div><strong>Published</strong><p>Current local publication dataset</p></div><span class="nr-tag">${stories.filter(s=>s.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>Premium research</strong><p>Research-led work</p></div><span class="nr-tag">${stories.filter(s=>s.premium).length}</span></li></ul></section>`;}
   function publicationPulse(){const s=getStories();return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Publication pulse</h2><p>Structural newsroom metrics</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Published</strong><p>Current story dataset</p></div><span class="nr-tag">${s.filter(x=>x.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>In production</strong><p>Not yet published or archived</p></div><span class="nr-tag">${s.filter(x=>!['Published','Archived'].includes(x.status)).length}</span></li><li class="nr-list-item"><div><strong>Desks represented</strong><p>Active editorial coverage</p></div><span class="nr-tag">${new Set(s.map(x=>x.desk)).size}</span></li></ul></section>`;}
@@ -445,11 +487,42 @@
   function renderSaved(){return `${head('Saved','Pinned working views and important newsroom references.')}${empty('No saved newsroom views yet')}`;}
   function renderMyAssignments(){const u=currentUser(),list=getAssignments().filter(a=>a.reporter===u.username);return `${head('My assignments','Accept, report and submit work assigned to you.')}<section class="nr-panel"><ul class="nr-list">${list.map(a=>assignmentList(a)).join('')||emptyRow('No assignments')}</ul></section>`;}
   function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}${button('Discuss',`data-assignment-discuss="${esc(a.id)}"`)}</td></tr>`}).join('')}</tbody></table></div></section>`;}
-  function renderReview(){const list=getStories().filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status));return `${head('Review Queue','Submitted work, evidence checks and publication decisions.')}<section class="nr-panel">${list.map(reviewCard).join('')||empty('Review queue is clear')}</section>`;}
-  function renderCalendar(){const events=[['09 Sep · 09:00','Editorial conference','Meeting','Global + Africa desks'],['09 Sep · 12:00','STI analysis editor deadline','Deadline','Community Prevention Follow-up'],['09 Sep · 15:30','WhatsApp briefing lock','Briefing','Audience Desk'],['10 Sep · 12:00','National Health Strategy fact check','Deadline','Policy desk'],['10 Sep · 16:00','World Suicide Prevention Day coverage','Health date','Mental Health desk'],['11 Sep · 12:00','Friday HealthTimes Weekly','Briefing','Email + WhatsApp']];return `${head('Editorial Calendar','Deadlines, interviews, publication, briefings and global-health dates.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-calendar">${events.map(e=>`<div class="nr-calendar-time">${esc(e[0])}</div><div class="nr-calendar-event" data-kind="${esc(e[2])}"><strong>${esc(e[1])}</strong><span>${esc(e[2])} · ${esc(e[3])}</span></div>`).join('')}</div></section>`;}
+  function reviewQueueStories(){return getStories().filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status));}
+  function reviewQueueFiltered(){
+    let list=reviewQueueStories();
+    const state=$('[data-review-state]')?.value||'',desk=$('[data-review-desk]')?.value||'',owner=$('[data-review-owner]')?.value||'',deadline=$('[data-review-deadline]')?.value||'';
+    if(state)list=list.filter(s=>s.status===state);
+    if(desk)list=list.filter(s=>s.desk===desk);
+    if(owner)list=list.filter(s=>s.owner===owner);
+    if(deadline==='overdue')list=list.filter(s=>s.deadline&&new Date(s.deadline)<new Date());
+    if(deadline==='due')list=list.filter(s=>s.deadline&&new Date(s.deadline)>=new Date());
+    return list.sort((a,b)=>{
+      const ad=a.deadline?new Date(a.deadline).getTime():Number.MAX_SAFE_INTEGER;
+      const bd=b.deadline?new Date(b.deadline).getTime():Number.MAX_SAFE_INTEGER;
+      return ad-bd;
+    });
+  }
+  function refreshReviewQueue(){const mount=$('[data-review-list]');if(mount){const list=reviewQueueFiltered();mount.innerHTML=list.map(reviewCard).join('')||empty('No stories match these review filters');}}
+  function renderReview(){const list=reviewQueueStories(),desks=[...new Set(list.map(s=>s.desk).filter(Boolean))].sort(),owners=[...new Set(list.map(s=>s.owner).filter(Boolean))];return `${head('Review Queue','Submitted work, evidence checks and publication decisions.')}<section class="nr-panel"><div class="nr-filterbar nr-review-filters"><select data-review-state><option value="">All workflow states</option>${['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].map(x=>`<option>${esc(x)}</option>`).join('')}</select><select data-review-desk><option value="">All desks</option>${desks.map(x=>`<option>${esc(x)}</option>`).join('')}</select><select data-review-owner><option value="">All reporters</option>${owners.map(x=>`<option value="${esc(x)}">${esc(staffRecord(x)?.name||x)}</option>`).join('')}</select><select data-review-deadline><option value="">All deadlines</option><option value="overdue">Overdue first</option><option value="due">Upcoming deadlines</option></select></div><div data-review-list>${list.map(reviewCard).join('')||empty('Review queue is clear')}</div></section>`;}
+  function renderCalendar(){const events=newsroomAgenda({limit:30});const body=events.length?`<div class="nr-calendar">${agendaMarkup(events,{showDate:true})}</div>`:empty('No assignment or publication deadlines are scheduled in the next 30 days');return `${head('Editorial Calendar','Server-backed assignment deadlines and scheduled publication work.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel">${body}</section>`;}
   function renderBreaking(){const rows=read(KEYS.threads,[]).filter(t=>t.thread_type==='breaking'&&t.status==='open');const actions=has(CAP.BREAKING_MANAGE)?button('＋ Breaking room','data-create-breaking','nr-primary'):'';return head('Breaking','Temporary event coordination with bounded membership and optional Presence.',actions)+'<section class="nr-panel">'+(rows.map(threadCard).join('')||empty('No active breaking rooms'))+'</section>';}
   function renderCorrections(){return `${head('Corrections','Published changes, corrections and accountability record.')}<section class="nr-panel">${getStories().filter(s=>['Updated / Corrected'].includes(s.status)).map(storyList).join('')||empty('No corrections are waiting')}</section>`;}
-  function renderMedia(){return `${head('Media Library','Editorial images, documents, campaign assets and source media.',has(CAP.MEDIA)?button('＋ Add media','','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input placeholder="Search media…"><select><option>All types</option><option>Image</option><option>Video</option><option>Audio</option><option>Document</option></select></div><div class="nr-media-grid">${getMedia().map(m=>`<article class="nr-media-card"><span class="nr-tag">${esc(m.type)}</span><strong>${esc(m.filename)}</strong><span>${esc(m.caption)}</span><span>Credit: ${esc(m.credit)}</span><span>Used in: ${esc(m.usedIn)}</span><span>${esc(m.date)}</span></article>`).join('')}</div></section>`;}
+  function mediaCard(m,{modal=false,storyId='',usageType='inline'}={}){
+    const usages=m.usages||[],usageText=usages.length?(usages.length+' story '+(usages.length===1?'use':'uses')):'Unused';
+    const custody=m.storageBucket==='newsroom-private'?'Private Newsroom':m.storageBucket==='migrated-media'?'Migrated/source custody':'Source media';
+    const buttons=[button('Preview','data-media-preview="'+esc(m.id)+'"','nr-secondary')];
+    const story=getStories().find(s=>s.id===storyId);
+    const compatible=(usageType==='supporting_document')?mediaKind(m)==='Document':mediaKind(m)==='Image';
+    const canAttach=modal&&story&&canEditStory(story)&&m.storageBucket==='newsroom-private'&&m.status==='private_ready'&&compatible;
+    if(canAttach)buttons.push(button('Attach','data-media-attach="'+esc(m.id)+'"','nr-primary'));
+    return '<article class="nr-media-card" data-media-id="'+esc(m.id)+'" data-media-kind="'+esc(mediaKind(m))+'" data-media-status="'+esc(m.status)+'"><div class="nr-media-card-top"><span class="nr-tag">'+esc(mediaKind(m))+'</span><span class="nr-tag">'+esc(custody)+'</span></div><strong>'+esc(m.filename)+'</strong><span>'+esc(m.caption||m.altText||'No caption')+'</span><span>'+(m.credit?('Credit: '+esc(m.credit)):'No credit supplied')+'</span><span>'+esc(usageText)+' · '+esc(m.status)+'</span><span class="nr-media-provenance">'+esc(m.sourceProvenance||'Provenance not recorded')+'</span><div class="nr-list-actions">'+buttons.join('')+'</div></article>';
+  }
+  function mediaLibraryFiltered(){
+    const q=String($('[data-media-library-search]')?.value||'').trim().toLowerCase(),kind=$('[data-media-library-type]')?.value||'',state=$('[data-media-library-state]')?.value||'';
+    return getMedia().filter(m=>(!q||[m.filename,m.caption,m.credit,m.sourceProvenance].some(v=>String(v||'').toLowerCase().includes(q)))&&(!kind||mediaKind(m)===kind)&&(!state||m.status===state));
+  }
+  function refreshMediaLibrary(){const mount=$('[data-media-library-grid]');if(mount){const rows=mediaLibraryFiltered();mount.innerHTML=rows.map(m=>mediaCard(m)).join('')||'<div class="nr-empty"><strong>No authorised media matches these filters</strong><p>Upload media from a story or change the current filters.</p></div>';}}
+  function renderMedia(){const rows=getMedia();return `${head('Media Library','Server-backed editorial media. New draft uploads remain private until an authorised publication-media handoff exists.',has(CAP.MEDIA)?button('＋ Add media','data-open-media-library','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input data-media-library-search placeholder="Search filename, caption, credit or source…"><select data-media-library-type><option value="">All types</option><option>Image</option><option>Document</option></select><select data-media-library-state><option value="">All states</option><option value="upload_pending">Upload pending</option><option value="private_ready">Private draft</option><option value="published">Published</option></select></div><div class="nr-media-grid" data-media-library-grid>${rows.map(m=>mediaCard(m)).join('')||'<div class="nr-empty"><strong>No authorised media yet</strong><p>Choose Add media and select an editable story to upload the first private asset.</p></div>'}</div></section>`;}
   function personCard(s){return `<article class="nr-person-card"><span class="nr-avatar">${esc(initials(s.name))}</span><div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span><span>${esc(s.desk)} · ${esc(s.beat)}</span></div></article>`;}
   function renderAuthors(){return `${head('Authors','Staff identity, beats and public author authority.')}<section class="nr-panel"><div class="nr-staff-card-grid">${getStaff().filter(s=>!['Commercial Manager','Subscriber Manager'].includes(s.role)).map(personCard).join('')}</div></section>`;}
   function renderTopics(){const topics=['HIV/AIDS','Malaria','Outbreaks','Medicines','Health financing','Mental health','Maternal health','Research','Health systems','Innovation'];return `${head('Topics','Editorial subject taxonomy used for reporting, SEO and reader follows.')}<section class="nr-panel"><div class="nr-source-grid">${topics.map(t=>`<article class="nr-source-card"><strong>${esc(t)}</strong><span>${getStories().filter(s=>s.topic===t).length} mapped stories</span><span>Topic hub ready</span></article>`).join('')}</div></section>`;}
@@ -472,7 +545,7 @@
   function renderPremium(){const list=getStories().filter(s=>s.premium||has(CAP.PREMIUM_ASSIGN));return `${head('Premium','Research access, publishing stage and membership value.',has(CAP.PREMIUM_MANAGE)?button('View membership operations','data-module-jump="subscribers"','nr-secondary'):'')}<section class="nr-panel" data-v21-premium-admin><div class="nr-panel-head"><div><h2>Premium publishing controls</h2><p>Authorised changes update the public story access override.</p></div></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Story</th><th>Status</th><th>Sources</th><th>Access</th><th>Action</th></tr></thead><tbody>${list.map(s=>`<tr><td class="nr-title-cell"><strong>${esc(s.title)}</strong><span>${esc(s.desk)}</span></td><td>${status(s.status)}</td><td>${s.sources?'Recorded':'Needs sources'}</td><td><span class="nr-tag">${s.premium?'Premium':'Public'}</span></td><td>${has(CAP.PREMIUM_ASSIGN)?`<button class="nr-secondary" data-v21-premium-toggle="${esc(s.id)}">${s.premium?'Make public':'Make Premium'}</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></section>`;}
   function renderSubscribers(){return `${head('Subscribers','Membership service, reader accounts and Premium support operations.')}<div class="nr-grid nr-grid-3">${stat('Membership price','US$5','Monthly Premium proposition','teal')}${stat('Preview contract','30 sec','Per-reader, per-story access','amber')}${stat('Billing','Connect','Production payment provider required','blue')}</div><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>Subscriber operations</h2><p>Production identity and billing service integration points</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Reader identity</strong><p>Account, saved stories and preferences</p></div><span class="nr-tag">Frontend ready</span></li><li class="nr-list-item"><div><strong>Entitlements</strong><p>Server-side membership required for production</p></div><span class="nr-tag">Integrate</span></li><li class="nr-list-item"><div><strong>Support status</strong><p>Subscriber manager workflow</p></div><span class="nr-tag">Prepared</span></li></ul></section>`;}
   function campaignTable(list){return `<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Campaign</th><th>Advertiser</th><th>Placement</th><th>Dates</th><th>Status</th><th>Review</th></tr></thead><tbody>${list.map(c=>`<tr><td class="nr-title-cell"><strong>${esc(c.name)}</strong><span>${esc(c.label||'Advertisement')}</span></td><td>${esc(c.advertiser)}</td><td>${esc((c.placement||[]).join(' · '))}</td><td>${esc(c.start)} → ${esc(c.end)}</td><td>${status(c.status)}</td><td><span class="nr-tag">${esc(c.review)}</span></td></tr>`).join('')}</tbody></table></div>`;}
-  function renderAdvertising(){return `${head('Advertising','Paid inventory, campaign governance and commercial review.',has(CAP.ADS_CREATE)?button('＋ New campaign','','nr-primary'):'')}<div class="nr-note">Commercial staff can manage advertising and membership operations but cannot edit newsroom stories.</div><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Masthead, in-feed, article and briefing placements</p></div></div>${campaignTable(read(KEYS.campaigns,[]))}</section><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>HOSPAZ creative</h2><p>Current paid campaign retained from the source publication</p></div></div><div style="padding:14px"><img src="${HOSPAZ}" alt="HOSPAZ Annual General Meeting advertisement" style="display:block;width:100%;height:auto;object-fit:contain;border-radius:8px"></div></section>`;}
+  function renderAdvertising(){return `${head('Advertising','Paid inventory, campaign governance and commercial review.',has(CAP.ADS_CREATE)?button('＋ New campaign','data-open-campaign','nr-primary'):'')}<div class="nr-note">Commercial staff can manage advertising and membership operations but cannot edit newsroom stories.</div><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Masthead, in-feed, article and briefing placements</p></div></div>${campaignTable(read(KEYS.campaigns,[]))}</section><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>HOSPAZ creative</h2><p>Current paid campaign retained from the source publication</p></div></div><div style="padding:14px"><img src="${HOSPAZ}" alt="HOSPAZ Annual General Meeting advertisement" style="display:block;width:100%;height:auto;object-fit:contain;border-radius:8px"></div></section>`;}
 
   function renderStaff(){const list=getStaff();return `${head('Staff & Access','Invite, assign, suspend and revoke Newsroom access.',has(CAP.STAFF_INVITE)?button('＋ Invite staff','data-open-invite','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Staff</th><th>Role</th><th>Desk</th><th>Status</th><th>Last login</th><th>Security</th><th>Actions</th></tr></thead><tbody>${list.map(s=>`<tr><td class="nr-title-cell"><strong>${esc(s.name)}</strong><span>${esc(s.email)} · ${esc(s.beat)}</span></td><td>${esc(s.role)}</td><td>${esc(s.desk)}</td><td>${status(s.status)}</td><td>${esc(s.lastLogin||'Never')}</td><td><span class="nr-tag">MFA ${esc(s.mfa||'Pending')}</span></td><td><div class="nr-table-actions">${has(CAP.STAFF_ROLE)&&s.username!==currentUser().username?`<button data-staff-role="${esc(s.username)}">Change role</button>`:''}${has(CAP.STAFF_REVOKE)&&s.username!==currentUser().username?`<button data-staff-sessions="${esc(s.username)}">Revoke sessions</button><button data-staff-revoke="${esc(s.username)}">Revoke access</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></section>`;}
   function renderRoles(){return `${head('Roles & Permissions','Capabilities define authority; roles group capabilities for newsroom work.')}<section class="nr-panel"><div class="nr-capability-grid">${Object.entries(ROLE_CAPS).map(([role,cs])=>`<article class="nr-role-card"><h3>${esc(role)}</h3><p>${cs.length} configured capabilities</p><ul>${cs.slice(0,8).map(c=>`<li>${esc(c)}</li>`).join('')}${cs.length>8?`<li>+ ${cs.length-8} more</li>`:''}</ul></article>`).join('')}</div></section>`;}
@@ -498,7 +571,7 @@
   }
   async function closeStory(){await flushAutosave();$('[data-story-modal]').hidden=true;document.body.style.overflow='';editingStoryId=null;}
   function staffOptions(selected='',roles=null){return getStaff().filter(s=>s.status==='Active'&&(!roles||roles.includes(s.role))).map(s=>`<option value="${esc(s.username)}" ${s.username===selected?'selected':''}>${esc(s.name)} · ${esc(s.role)}</option>`).join('');}
-  function populateEditor(){const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const form=$('[data-story-form]'), shadow=$('[data-story-shadow]');form.elements.id.value=s.id;form.elements.title.value=s.title||'';form.elements.standfirst.value=s.standfirst||'';form.elements.body.value=s.body||'';form.elements.sources.value=s.sources||'';form.elements.notes.value=s.notes||'';const fields={status:s.status,deadline:s.deadline||'',owner:s.owner,editor:s.editor||'',factChecker:s.factChecker||'',desk:s.desk||'',section:s.section||'',country:s.country||'',region:s.region||'Global',premium:String(!!s.premium),seoTitle:s.seoTitle||'',metaDescription:s.metaDescription||'',slug:s.slug||'',adSetting:s.adSetting||'Standard',schedule:s.schedule||''};const owner=$('[name="owner"][form="story-shadow"]'), editor=$('[name="editor"][form="story-shadow"]'), checker=$('[name="factChecker"][form="story-shadow"]'), desk=$('[name="desk"][form="story-shadow"]'), region=$('[name="region"][form="story-shadow"]');owner.innerHTML=staffOptions(s.owner,['Reporter / Journalist','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);editor.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.editor,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;checker.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.factChecker,['Fact Checker','Health / Science Editor','Editor-in-Chief'])}`;desk.innerHTML=DESKS.map(x=>`<option ${x===s.desk?'selected':''}>${x}</option>`).join('');region.innerHTML=REGIONS.map(x=>`<option ${x===s.region?'selected':''}>${x}</option>`).join('');Object.entries(fields).forEach(([k,v])=>{const el=$(`[name="${k}"][form="story-shadow"]`);if(el)el.value=v;});['Homepage','Breaking','Newsletter','WhatsApp','Push'].forEach(k=>{const el=$(`[name="dist${k}"][form="story-shadow"]`);if(el)el.checked=!!s.distribution?.[k.toLowerCase()];});$('[data-story-modal-title]').textContent=s.title||'Untitled story';$('[data-editor-state]').textContent=s.status;$('[data-save-state]').textContent='Saved';renderVersions(s);renderComments(s);configureEditorAction(s);protectInspector(s);}
+  function populateEditor(){const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const form=$('[data-story-form]'), shadow=$('[data-story-shadow]');form.elements.id.value=s.id;form.elements.title.value=s.title||'';form.elements.standfirst.value=s.standfirst||'';form.elements.body.value=s.body||'';form.elements.sources.value=s.sources||'';form.elements.notes.value=s.notes||'';const fields={status:s.status,deadline:s.deadline||'',owner:s.owner,editor:s.editor||'',factChecker:s.factChecker||'',desk:s.desk||'',section:s.section||'',country:s.country||'',region:s.region||'Global',premium:String(!!s.premium),seoTitle:s.seoTitle||'',metaDescription:s.metaDescription||'',slug:s.slug||'',adSetting:s.adSetting||'Standard',schedule:s.schedule||''};const owner=$('[name="owner"][form="story-shadow"]'), editor=$('[name="editor"][form="story-shadow"]'), checker=$('[name="factChecker"][form="story-shadow"]'), desk=$('[name="desk"][form="story-shadow"]'), region=$('[name="region"][form="story-shadow"]');owner.innerHTML=staffOptions(s.owner,['Reporter / Journalist','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);editor.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.editor,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;checker.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.factChecker,['Fact Checker','Health / Science Editor','Editor-in-Chief'])}`;desk.innerHTML=DESKS.map(x=>`<option ${x===s.desk?'selected':''}>${x}</option>`).join('');region.innerHTML=REGIONS.map(x=>`<option ${x===s.region?'selected':''}>${x}</option>`).join('');Object.entries(fields).forEach(([k,v])=>{const el=$(`[name="${k}"][form="story-shadow"]`);if(el)el.value=v;});['Homepage','Breaking','Newsletter','WhatsApp','Push'].forEach(k=>{const el=$(`[name="dist${k}"][form="story-shadow"]`);if(el)el.checked=!!s.distribution?.[k.toLowerCase()];});$('[data-story-modal-title]').textContent=s.title||'Untitled story';$('[data-editor-state]').textContent=s.status;$('[data-save-state]').textContent='Saved';renderVersions(s);renderComments(s);renderStoryMedia(s);configureEditorAction(s);protectInspector(s);}
   function protectInspector(s){const reporterOnly=!has(CAP.STORY_EDIT_ALL);['status','owner','editor','factChecker'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=reporterOnly;});const premium=$('[name="premium"][form="story-shadow"]');if(premium)premium.disabled=!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE));const schedule=$('[name="schedule"][form="story-shadow"]');if(schedule)schedule.disabled=!has(CAP.STORY_PUBLISH);const adSetting=$('[name="adSetting"][form="story-shadow"]');if(adSetting)adSetting.disabled=!has(CAP.STORY_EDIT_ALL);const canDistribute=has(CAP.DISTRIBUTION)||has(CAP.STORY_EDIT_ALL);['distHomepage','distBreaking','distNewsletter','distWhatsApp','distPush'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=!canDistribute;});}
   function formStory(){const old=getStories().find(x=>x.id===editingStoryId);if(!old)return null;const f=$('[data-story-form]'), d=new FormData($('[data-story-shadow]'));const canPremium=has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE),canSchedule=has(CAP.STORY_PUBLISH),canAds=has(CAP.STORY_EDIT_ALL),canDistribute=has(CAP.DISTRIBUTION)||has(CAP.STORY_EDIT_ALL);return {...old,title:f.elements.title.value.trim(),standfirst:f.elements.standfirst.value.trim(),body:f.elements.body.value,sources:f.elements.sources.value,notes:f.elements.notes.value,status:String(d.get('status')||old.status),deadline:String(d.get('deadline')||''),owner:String(d.get('owner')||old.owner),editor:String(d.get('editor')||old.editor||''),factChecker:String(d.get('factChecker')||old.factChecker||''),desk:String(d.get('desk')||old.desk),section:String(d.get('section')||old.section),country:String(d.get('country')||old.country),region:String(d.get('region')||old.region),premium:canPremium?String(d.get('premium'))==='true':!!old.premium,seoTitle:String(d.get('seoTitle')||''),metaDescription:String(d.get('metaDescription')||''),slug:String(d.get('slug')||slugify(f.elements.title.value)),adSetting:canAds?String(d.get('adSetting')||old.adSetting||'Standard'):(old.adSetting||'Standard'),schedule:canSchedule?String(d.get('schedule')||''):(old.schedule||''),distribution:canDistribute?{homepage:!!d.get('distHomepage'),breaking:!!d.get('distBreaking'),newsletter:!!d.get('distNewsletter'),whatsapp:!!d.get('distWhatsApp'),push:!!d.get('distPush')}:(old.distribution||{})};}
   async function saveStory(manual=false){
@@ -524,6 +597,16 @@
   function scheduleAutosave(){if(!editingStoryId)return;$('[data-save-state]').textContent='Saving…';clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>{autosaveTimer=null;saveStory(false).catch(()=>{});},700);}
   async function flushAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;try{await saveStory(false);}catch{}}}
   function renderVersions(s){$('[data-version-list]').innerHTML=(s.versions||[]).slice(0,8).map(v=>`<div class="nr-version"><strong>${esc(v.label)}</strong><span>${esc(v.by)} · ${esc(new Date(v.at).toLocaleString())}</span></div>`).join('')||'<div class="nr-version"><span>No saved versions yet</span></div>';}
+  function renderStoryMedia(s){
+    const mount=$('[data-story-media]');if(!mount)return;
+    const rows=storyMediaFor(s.id);
+    mount.innerHTML=rows.length?'<div class="nr-story-media-list">'+rows.map(m=>{
+      const publicState=m.publicUrl||m.storageBucket==='migrated-media'?'Published/source media':'Private draft';
+      const meta=[mediaUsageLabel(m.storyUsage.usageType),m.caption||'',m.credit?('Credit: '+m.credit):'',publicState].filter(Boolean).join(' · ');
+      const actions=button('Preview','data-media-preview="'+esc(m.id)+'"','nr-secondary')+(canEditStory(s)?button('Detach','data-media-detach="'+esc(m.id)+'" data-story-id="'+esc(s.id)+'" data-usage-type="'+esc(m.storyUsage.usageType)+'"','nr-secondary'):'');
+      return '<article class="nr-media-attachment"><div><span class="nr-tag">'+esc(mediaKind(m))+'</span><strong>'+esc(m.filename)+'</strong><span>'+esc(meta)+'</span></div><div class="nr-list-actions">'+actions+'</div></article>';
+    }).join('')+'</div>':'<div class="nr-empty"><strong>No media attached</strong><p>Add a featured image, inline image or supporting document. Draft media remains private.</p></div>';
+  }
   function extractMentionStaffIds(text){
     const ids=[],seen=new Set();
     const re=/@([a-zA-Z0-9._-]+)/g;let match;
@@ -548,7 +631,8 @@
     const policy=has(CAP.COMMENT_CONFIGURE)?'<div class="nr-discussion-policy"><span class="nr-tag">Reader discussion: '+esc(s.commentPolicy||'disabled')+'</span>'+['disabled','read_only','open'].map(p=>button(p,'data-story-comment-policy="'+p+'" data-story-id="'+esc(s.id)+'"',p===(s.commentPolicy||'disabled')?'nr-primary':'nr-secondary')).join('')+'</div>':'';
     $('[data-editor-comments]').innerHTML=policy+(roots.map(c=>renderCommentNode(c,items)).join('')||'<div class="nr-empty"><p>No internal comments yet.</p></div>');
   }
-  function configureEditorAction(s){const btn=$('[data-editor-primary]');btn.disabled=false;if(has(CAP.STORY_PUBLISH)&&['Ready','Scheduled'].includes(s.status)){btn.textContent='Publish';btn.dataset.action='publish';return;}if(has(CAP.STORY_FACT)&&s.status==='Submitted'){btn.textContent='Send to fact check';btn.dataset.action='fact';return;}if(has(CAP.STORY_HEALTH)&&s.status==='Fact check'){btn.textContent='Health / science review';btn.dataset.action='health';return;}if(has(CAP.STORY_COPY)&&s.status==='Health / Science review'){btn.textContent='Copy edit';btn.dataset.action='copy';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Copy edit'){btn.textContent='Editor review';btn.dataset.action='editor';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Editor review'){btn.textContent='Mark ready';btn.dataset.action='ready';return;}btn.textContent='Submit for review';btn.dataset.action='submit';btn.disabled=!has(CAP.STORY_SUBMIT);}
+  function canRequestChanges(s){return ['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status)&&[CAP.STORY_EDIT_ALL,CAP.STORY_FACT,CAP.STORY_HEALTH,CAP.STORY_COPY,CAP.STORY_PUBLISH].some(has);}
+  function configureEditorAction(s){const btn=$('[data-editor-primary]'),returnBtn=$('[data-editor-request-changes]');btn.disabled=false;if(returnBtn){returnBtn.hidden=!canRequestChanges(s);returnBtn.dataset.storyId=s.id;}if(has(CAP.STORY_PUBLISH)&&['Ready','Scheduled'].includes(s.status)){btn.textContent='Publish';btn.dataset.action='publish';return;}if(has(CAP.STORY_FACT)&&s.status==='Submitted'){btn.textContent='Send to fact check';btn.dataset.action='fact';return;}if(has(CAP.STORY_HEALTH)&&s.status==='Fact check'){btn.textContent='Health / science review';btn.dataset.action='health';return;}if(has(CAP.STORY_COPY)&&s.status==='Health / Science review'){btn.textContent='Copy edit';btn.dataset.action='copy';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Copy edit'){btn.textContent='Editor review';btn.dataset.action='editor';return;}if(has(CAP.STORY_EDIT_ALL)&&s.status==='Editor review'){btn.textContent='Mark ready';btn.dataset.action='ready';return;}btn.textContent='Submit for review';btn.dataset.action='submit';btn.disabled=!has(CAP.STORY_SUBMIT);}
   async function primaryEditorAction(){await flushAutosave();const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const action=$('[data-editor-primary]').dataset.action;const next={publish:'Published',fact:'Fact check',health:'Health / Science review',copy:'Copy edit',editor:'Editor review',ready:'Ready',submit:'Submitted'}[action]||'Submitted';await transitionStory(s.id,next);}
   async function transitionStory(id,next){
     try{await api('transitionStory',{storyId:id,nextStatus:next});await refreshData();if(editingStoryId===id)populateEditor();else showModule(active);toast(`Story moved to ${next}`);}
@@ -557,6 +641,28 @@
   async function assignmentProgress(id){try{await api('progressAssignment',{assignmentId:id});await refreshData();showModule(active);}catch(error){toast(error.message);}}
   function openAssignment(){if(!(has(CAP.ASSIGN_CREATE)||has(CAP.ASSIGN_MANAGE)))return;const f=$('[data-assignment-form]');f.reset();f.elements.reporter.innerHTML=staffOptions('', ['Reporter / Journalist']);f.elements.editor.innerHTML=staffOptions(currentUser().username,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);f.elements.desk.innerHTML=DESKS.filter(x=>!['Commercial'].includes(x)).map(x=>`<option>${x}</option>`).join('');$('[data-assignment-modal]').hidden=false;}
   async function saveAssignment(form){const d=new FormData(form),reporter=staffRecord(String(d.get('reporter'))),editor=staffRecord(String(d.get('editor')));try{await api('createAssignment',{assignment:{title:String(d.get('title')),reporter_staff_id:reporter?.id,assigned_editor_staff_id:editor?.id||null,desk:String(d.get('desk')),deadline_at:String(d.get('deadline')),priority:String(d.get('priority')),notes:String(d.get('notes')||'')}});$('[data-assignment-modal]').hidden=true;await refreshData();showModule('assignments');toast('Assignment created');}catch(error){toast(error.message);}}
+  function openCampaign(){
+    if(!has(CAP.ADS_CREATE))return;
+    const advertisers=read(KEYS.advertisers,[]);
+    if(!advertisers.length){toast('No authorised advertiser exists yet. Create or verify the advertiser record before starting a campaign.');return;}
+    const form=$('[data-campaign-form]');form.reset();
+    form.elements.advertiser.innerHTML=advertisers.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+    $('[data-campaign-modal]').hidden=false;
+  }
+  async function saveCampaign(form){
+    const d=new FormData(form),start=String(d.get('start')||''),end=String(d.get('end')||'');
+    if(start&&end&&new Date(end)<=new Date(start)){toast('Campaign end must be after the start.');return;}
+    try{
+      await api('createCampaign',{
+        advertiserId:String(d.get('advertiser')),
+        name:String(d.get('name')||'').trim(),
+        startAt:start?new Date(start).toISOString():null,
+        endAt:end?new Date(end).toISOString():null
+      });
+      $('[data-campaign-modal]').hidden=true;
+      await refreshData();showModule('advertising');toast('Campaign draft created');
+    }catch(error){toast(error.message);}
+  }
   function openInvite(){if(!has(CAP.STAFF_INVITE))return;const f=$('[data-invite-form]');f.reset();f.elements.role.innerHTML=Object.keys(ROLE_CAPS).map(x=>`<option>${esc(x)}</option>`).join('');f.elements.desk.innerHTML=DESKS.map(x=>`<option>${esc(x)}</option>`).join('');f.elements.editor.innerHTML=`<option value="">None</option>${staffOptions('', ['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;$('[data-invite-modal]').hidden=false;}
   async function saveInvite(form){const d=new FormData(form),editor=staffRecord(String(d.get('editor')));try{await api('invite',{displayName:String(d.get('name')),email:String(d.get('email')),role:String(d.get('role')),desk:String(d.get('desk')),country:String(d.get('country')||''),assignedEditorId:editor?.id||null});$('[data-invite-modal]').hidden=true;await refreshData();showModule('staff');toast('Staff invitation requested');}catch(error){toast(error.message);}}
   async function changeStaffRole(username){if(!has(CAP.STAFF_ROLE))return;const s=staffRecord(username);if(!s)return;const roles=Object.keys(ROLE_CAPS),i=roles.indexOf(s.role),next=roles[(i+1)%roles.length];try{await api('changeRole',{staffId:s.id,role:next});await refreshData();showModule('staff');toast('Role updated');}catch(error){toast(error.message);}}
@@ -564,6 +670,107 @@
   function revokeAccess(username){if(!has(CAP.STAFF_REVOKE))return;const s=staffRecord(username);if(!s)return;confirm('Revoke Newsroom access?',`${s.name} will no longer be able to use HealthTimes Newsroom.`,async()=>{try{await api('revokeStaff',{staffId:s.id,status:'revoked'});await refreshData();showModule('staff');toast('Access revoked');}catch(error){toast(error.message);}});}
   async function revokeStaffSessions(username){if(!(has(CAP.STAFF_REVOKE)||has('security.revoke_session')))return;const s=staffRecord(username);if(!s)return;try{await api('revokeSession',{staffId:s.id});await refreshData();showModule('staff');toast('Sessions revoked');}catch(error){toast(error.message);}}
   async function togglePremium(id){if(!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE)))return;const s=getStories().find(x=>x.id===id);if(!s)return;try{await api('setPremium',{storyId:id,accessPolicy:s.premium?'public':'premium'});await refreshData();showModule('premium');toast('Story access policy updated');}catch(error){toast(error.message);}}
+
+  function mediaTargetStoryId(){return String($('[data-media-target-story]')?.value||'');}
+  function renderMediaModalGrid(){
+    const mount=$('[data-media-modal-grid]');if(!mount)return;
+    const q=String($('[data-media-modal-search]')?.value||'').trim().toLowerCase(),storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
+    const rows=getMedia().filter(m=>!q||[m.filename,m.caption,m.credit,m.sourceProvenance].some(v=>String(v||'').toLowerCase().includes(q)));
+    mount.innerHTML=rows.length?rows.map(m=>mediaCard(m,{modal:true,storyId,usageType})).join(''):'<div class="nr-empty"><strong>No authorised media found</strong><p>Upload a new private asset below.</p></div>';
+  }
+  function openMediaLibrary(storyId=null){
+    if(!has(CAP.MEDIA)){toast('Your account cannot manage editorial media.');return;}
+    const modal=$('[data-media-modal]'),target=$('[data-media-target-story]'),form=$('[data-media-upload-form]');
+    const editable=getStories().filter(canEditStory);
+    if(!editable.length){toast('No editable story is available for media upload or attachment.');return;}
+    target.innerHTML=editable.map(s=>'<option value="'+esc(s.id)+'" '+(s.id===storyId?'selected':'')+'>'+esc(s.title||'Untitled story')+'</option>').join('');
+    target.disabled=Boolean(storyId);
+    target.dataset.lockedStory=storyId||'';
+    $('[data-media-usage-role]').value='inline';
+    $('[data-media-modal-search]').value='';
+    form?.reset();
+    modal.hidden=false;
+    renderMediaModalGrid();
+  }
+  function closeMediaLibrary(){const modal=$('[data-media-modal]');if(modal)modal.hidden=true;}
+  async function sha256File(file){if(!crypto?.subtle)return'';const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+  function resolvedMime(file){
+    if(file.type)return file.type.toLowerCase();
+    const ext=String(file.name||'').toLowerCase().split('.').pop();
+    return ({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',pdf:'application/pdf',txt:'text/plain',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})[ext]||'';
+  }
+  async function uploadStoryMedia(form){
+    const file=form.elements.file.files?.[0],storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
+    if(!file||!storyId){toast('Choose a story and file first.');return;}
+    const mimeType=resolvedMime(file),altText=String(form.elements.altText.value||'').trim();
+    if(mimeType.startsWith('image/')&&!altText){toast('Alt text is required for images.');return;}
+    if(file.size>15728640){toast('Newsroom media is limited to 15 MB.');return;}
+    const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+    try{
+      const checksum=await sha256File(file);
+      const prepared=await api('prepareStoryMedia',{
+        storyId,filename:file.name,mimeType,byteSize:file.size,checksum:checksum||null,
+        altText,caption:String(form.elements.caption.value||'').trim(),
+        credit:String(form.elements.credit.value||'').trim(),
+        sourceProvenance:String(form.elements.sourceProvenance.value||'').trim(),
+        usageType
+      });
+      const uploadForm=new FormData();uploadForm.append('cacheControl','3600');uploadForm.append('',file,file.name);
+      const upload=await fetch(prepared.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:uploadForm});
+      if(!upload.ok)throw new Error('Private media upload failed ('+upload.status+').');
+      const finalized=await api('finalizeStoryMedia',{mediaId:prepared.prepared.media_id,storyId,usageType,checksum:checksum||null});
+      const mediaId=prepared.prepared.media_id;
+      const localAsset={
+        id:mediaId,filename:prepared.prepared.filename||file.name,mimeType:mimeType,byteSize:file.size,sourceUrl:'',
+        checksum:checksum||'',altText,caption:String(form.elements.caption.value||'').trim(),
+        credit:String(form.elements.credit.value||'').trim(),sourceProvenance:String(form.elements.sourceProvenance.value||'').trim(),
+        storageBucket:prepared.prepared.storage_bucket,storageKey:prepared.prepared.storage_key,publicUrl:'',status:'private_ready',
+        uploadedByStaffId:currentUser()?.id||null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+        usages:[{storyId,usageType,sourceContext:{attachment_state:'private_draft'}}]
+      };
+      const media=[localAsset,...getMedia().filter(m=>m.id!==mediaId)];
+      write(KEYS.media,media);
+      const story=getStories().find(s=>s.id===storyId);
+      if(story&&finalized.storyVersion){story.lockVersion=finalized.storyVersion;setStories(getStories().map(s=>s.id===storyId?story:s));}
+      form.reset();renderMediaModalGrid();
+      if(editingStoryId===storyId&&story)renderStoryMedia(story);
+      if(active==='media')showModule('media');
+      toast('Media uploaded and attached privately');
+    }catch(error){console.error('Newsroom media upload failed safely:',error?.message||String(error));toast(error.message||'Media upload failed safely.');}
+    finally{if(submit)submit.disabled=false;}
+  }
+  async function attachStoryMedia(mediaId){
+    const storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
+    if(!storyId)return;
+    try{const result=await api('attachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset&&!asset.usages.some(u=>u.storyId===storyId&&u.usageType===usageType))asset.usages.push({storyId,usageType,sourceContext:{attachment_state:'private_draft'}});const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);renderMediaModalGrid();toast('Media attached to story');}catch(error){toast(error.message);}
+  }
+  async function detachStoryMedia(mediaId,storyId,usageType){
+    try{const result=await api('detachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset)asset.usages=asset.usages.filter(u=>!(u.storyId===storyId&&u.usageType===usageType));const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
+  }
+  async function previewMedia(mediaId){
+    const asset=getMedia().find(m=>m.id===mediaId);
+    if(asset?.storageBucket==='migrated-media'&&asset.sourceUrl){window.open(asset.sourceUrl,'_blank','noopener,noreferrer');return;}
+    try{const result=await api('getMediaPreview',{mediaId});window.open(result.url,'_blank','noopener,noreferrer');}catch(error){toast(error.message);}
+  }
+  function openRequestChanges(storyId){
+    const s=getStories().find(x=>x.id===storyId);if(!s||!canRequestChanges(s)){toast('This story is not eligible for Request changes.');return;}
+    const form=$('[data-request-changes-form]');form.reset();form.dataset.storyId=storyId;
+    $('[data-request-changes-story-title]').textContent='Return “'+(s.title||'this story')+'” to the Reporter with a required editorial note.';
+    $('[data-request-changes-modal]').hidden=false;
+  }
+  async function saveRequestChanges(form){
+    const storyId=form.dataset.storyId,reason=String(form.elements.reason.value||'').trim();
+    if(reason.length<3){toast('Add a clear editorial reason before returning the story.');return;}
+    try{
+      await flushAutosave();
+      await api('requestStoryChanges',{storyId,reason});
+      $('[data-request-changes-modal]').hidden=true;form.reset();
+      await refreshData();
+      if(editingStoryId===storyId)populateEditor();
+      if(active==='review')showModule('review');
+      toast('Changes requested — Reporter notified');
+    }catch(error){toast(error.message);}
+  }
 
   function userPopover(){const el=$('[data-user-popover]'),u=currentUser();el.hidden=!el.hidden;if(!el.hidden)el.innerHTML=`<div class="nr-popover-id"><strong>${esc(u.name)}</strong><span>${esc(u.role)} · ${esc(u.desk)}</span></div><button data-popover-action="profile">My profile</button><button data-module-jump="my-assignments">My assignments</button><button data-module-jump="my-stories">My drafts & stories</button><button data-module-jump="security">Security</button><button data-sign-out>Sign out</button>`;}
   function openSearch(){const modal=$('[data-search-modal]');modal.hidden=false;const input=$('[data-newsroom-search-input]');input.value='';$('[data-newsroom-search-results]').innerHTML='';setTimeout(()=>input.focus(),20);}
@@ -584,11 +791,21 @@
       if(e.target.closest('[data-story-modal-close]')){await closeStory();return;}
       if(e.target.closest('[data-manual-save]')){try{await saveStory(true);}catch{}return;}
       if(e.target.closest('[data-editor-primary]')){await primaryEditorAction();return;}
+      const requestChanges=e.target.closest('[data-editor-request-changes],[data-request-changes-story]');if(requestChanges){openRequestChanges(requestChanges.dataset.storyId||requestChanges.dataset.requestChangesStory);return;}
+      if(e.target.closest('[data-request-changes-close]')){$('[data-request-changes-modal]').hidden=true;return;}
       if(e.target.closest('[data-story-preview]')){await flushAutosave();toast('Draft saved. Public preview remains separate from unpublished Newsroom data.');return;}
       const trans=e.target.closest('[data-transition-story]');if(trans){await transitionStory(trans.dataset.transitionStory,trans.dataset.next);return;}
       const ap=e.target.closest('[data-assignment-progress]');if(ap){await assignmentProgress(ap.dataset.assignmentProgress);return;}
       if(e.target.closest('[data-open-assignment]')){openAssignment();return;}
       if(e.target.closest('[data-assignment-close]')){$('[data-assignment-modal]').hidden=true;return;}
+      if(e.target.closest('[data-open-campaign]')){openCampaign();return;}
+      if(e.target.closest('[data-open-story-media]')){openMediaLibrary(editingStoryId);return;}
+      if(e.target.closest('[data-open-media-library]')){openMediaLibrary();return;}
+      if(e.target.closest('[data-media-close]')){closeMediaLibrary();return;}
+      const mp=e.target.closest('[data-media-preview]');if(mp){await previewMedia(mp.dataset.mediaPreview);return;}
+      const ma=e.target.closest('[data-media-attach]');if(ma){await attachStoryMedia(ma.dataset.mediaAttach);return;}
+      const md=e.target.closest('[data-media-detach]');if(md){await detachStoryMedia(md.dataset.mediaDetach,md.dataset.storyId,md.dataset.usageType);return;}
+      if(e.target.closest('[data-campaign-close]')){$('[data-campaign-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-invite]')){openInvite();return;}
       if(e.target.closest('[data-invite-close]')){$('[data-invite-modal]').hidden=true;return;}
       const sr=e.target.closest('[data-staff-role]');if(sr){await changeStaffRole(sr.dataset.staffRole);return;}
@@ -618,10 +835,13 @@
       if(e.target.closest('[data-notifications]')){showModule('inbox');return;}
       if(e.target.closest('[data-sidebar-open]')){$('[data-newsroom-sidebar]').classList.add('open');return;}
       if(e.target.closest('[data-sidebar-close]')){$('[data-newsroom-sidebar]').classList.remove('open');return;}
-      const ins=e.target.closest('[data-insert]');if(ins){toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
+      const ins=e.target.closest('[data-insert]');if(ins){if(ins.dataset.insert==='media'){openMediaLibrary(editingStoryId);return;}toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
     });
-    document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);});
+    document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);if(e.target.matches('[data-review-state],[data-review-desk],[data-review-owner],[data-review-deadline]'))refreshReviewQueue();if(e.target.matches('[data-media-library-search],[data-media-library-type],[data-media-library-state]'))refreshMediaLibrary();if(e.target.matches('[data-media-modal-search],[data-media-target-story],[data-media-usage-role]'))renderMediaModalGrid();});
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
+    $('[data-campaign-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveCampaign(e.currentTarget);});
+    $('[data-media-upload-form]')?.addEventListener('submit',async e=>{e.preventDefault();await uploadStoryMedia(e.currentTarget);});
+    $('[data-request-changes-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveRequestChanges(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
     $('[data-password-reset-form]')?.addEventListener('submit',async e=>{e.preventDefault();const password=e.currentTarget.elements.password.value,confirmPassword=e.currentTarget.elements.confirmPassword.value,error=$('[data-password-reset-error]');error.textContent='';if(password!==confirmPassword){error.textContent='Passwords do not match.';return;}try{await api('setPassword',{password});$('[data-password-reset-modal]').hidden=true;recoveryMode=false;e.currentTarget.reset();toast('Password updated securely.');}catch(ex){error.textContent=ex.message;}});
     $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text,parentCommentId:e.currentTarget.dataset.parentCommentId||null,mentionStaffIds:extractMentionStaffIds(text)});e.currentTarget.reset();delete e.currentTarget.dataset.parentCommentId;e.currentTarget.elements.comment.placeholder='Add an internal note…';await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
