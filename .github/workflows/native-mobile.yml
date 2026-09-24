@@ -11,6 +11,7 @@ on:
       - feat/native-mobile-nm06-identity-security
       - feat/native-mobile-nm07-native-certification
       - integration/ag07-phase8-convergence-candidate
+      - integration/ag07-phase12-legacy-retirement-precp7
     paths:
       - 'apps/mobile/**'
       - 'package.json'

@@ -5,8 +5,10 @@ on:
     branches:
       - feat/native-mobile-nm07-native-certification
       - integration/ag07-phase8-convergence-candidate
+      - integration/ag07-phase12-legacy-retirement-precp7
     paths:
       - 'apps/mobile/**'
+      - 'package.json'
       - '.github/workflows/native-certification.yml'
       - 'docs/native-mobile/**'
   pull_request:

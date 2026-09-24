@@ -220,8 +220,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
                   : "This Premium article is available to members. HealthTimes must verify member entitlement before protected body content can be requested."}
               </Text>
               <View style={styles.lockActions}>
-                <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium access</Text></Pressable>
-                <Pressable style={[styles.secondary,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}><Text style={[styles.secondaryText,{color:palette.ink}]}>Member sign in</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="View Premium access" style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium access</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Member sign in" style={[styles.secondary,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}><Text style={[styles.secondaryText,{color:palette.ink}]}>Member sign in</Text></Pressable>
               </View>
             </View>
           </>

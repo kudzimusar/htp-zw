@@ -18,11 +18,12 @@
     "test:reader-fidelity": "node --test tests/article-content.test.mjs tests/search-ranking.test.mjs",
     "test:growth-commercial": "node --test tests/growth-commercial.test.mjs",
     "test:identity-security": "node --test tests/identity-security.test.mjs",
-    "test:native-certification": "node --test tests/native-certification.test.mjs",
+    "test:native-certification": "node --test tests/native-certification.test.mjs tests/phase12-authority.test.mjs",
     "test:source-parity": "node --test tests/source-parity.test.mjs",
     "test:ca01-communications": "node --test tests/ca01-communications.test.mjs",
     "test:migrated-corpus": "node --test tests/migrated-corpus-integration.test.mjs",
-    "test:premium-hospaz": "node --test tests/premium-hospaz-convergence.test.mjs"
+    "test:premium-hospaz": "node --test tests/premium-hospaz-convergence.test.mjs",
+    "test:phase12-authority": "node --test tests/phase12-authority.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",

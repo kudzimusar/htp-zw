@@ -199,3 +199,36 @@ Provider-access deferrals are tracked separately and are **not** counted as appl
 The communications provider hold is still real, but it is **not the only remaining issue**. Before canonical CP7 can execute, the non-provider P1 integration omission must be remediated and a new exact-head integrated candidate must be certified.
 
 **CP7 has not been executed or accepted. AG-08 remains locked.**
+
+## 12. Phase 12 superseding reconciliation — 2026-09-24
+
+**CURRENT AUTHORITY NOTICE:** Sections 1–11 above preserve the 2026-09-22 pre-CP7 snapshot for audit history. Where those sections refer to runtime `5b6fca0...` or `PRECP7-P1-001` as current, they are superseded by this section.
+
+Current Phase 12 runtime:
+
+`f36d6336c65c598191ea2841952a8c9f18bcf57e`
+
+Starting accepted Phase 11 runtime / closure:
+
+- `1da9aa95ed60e25a145c8446b23d0670d608fb52`
+- `a2878abbacb8e5d108e023d828269efabc2219e4`
+
+Current reconciliation:
+
+| Gate | Current status | Evidence |
+| --- | --- | --- |
+| Accepted CP5 executable public/SEO authority present in integrated candidate | PASS | exact-head AG-07 Phase 4 run `35949140675`; sitemap 5,786; feed 50; migrated source 30154 public; Premium source 33190 body-protected |
+| `PRECP7-P1-001` | **RESOLVED** | Phase 4–12 convergence integrated CP5 public routing/SEO with AG-06/CA-01/NM/COM authority; no longer a current P1 |
+| Single public Reader authority | PASS | `apps/mobile`; Vercel output `apps/mobile/dist`; repository workflow audit found zero active root-dot uploads, root `app.js` product checks or active legacy UAT invocation |
+| Canonical Chromium UAT | PASS | run `35949140664`; 7/7 Phase 12 UAT tests |
+| AG-06 / CA-01 / COM-01 provider-independent | PASS | runs `35949140670`, `35949140684`, `35949140642` |
+| Unified Native / Native Binary | PASS | runs `35949140709`, `35949140673`; iOS simulator and Android debug binaries produced |
+| Current technical convergence P0/P1 | **0 / 0** | no unresolved Phase 12 convergence blocker |
+| Formal client UAT | PENDING CLIENT UAT | not fabricated; moderator must release the client test entry point |
+| Live Resend/Brevo/Cloudflare provider evidence | DEFERRED — EXTERNAL PROVIDER | six COM-01 live-provider gates remain outside Phase 12 |
+| Physical-device/store signing/push/billing/native-ad provider evidence | DEFERRED — PHYSICAL DEVICE / EXTERNAL PROVIDER | does not restore or justify legacy Web UI |
+| Production cutover, DNS/MX, backups, RPO/RTO, owner authorization | PENDING PRODUCTION | Phase 12 does not execute CP7 or AG-08 |
+
+The primary staging alias remains on accepted Phase 11 because Phase 12 did not receive a separate alias-movement authorization. The Phase 12 controlled preview is `target:null` and exists only for exact-candidate proof.
+
+**CP7 has not been executed or accepted. AG-08 remains locked.**

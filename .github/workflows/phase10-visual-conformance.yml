@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/ag07-nm07-phase10-visual-conformance
+      - integration/ag07-phase12-legacy-retirement-precp7
   pull_request:
   workflow_dispatch:
 

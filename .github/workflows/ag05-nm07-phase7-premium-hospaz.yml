@@ -5,6 +5,7 @@ on:
     branches:
       - integration/ag05-nm07-phase7-premium-hospaz
       - integration/ag07-phase8-convergence-candidate
+      - integration/ag07-phase12-legacy-retirement-precp7
   pull_request:
     paths:
       - 'apps/mobile/**'

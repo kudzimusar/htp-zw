@@ -1,3 +1,7 @@
+// LEGACY / SUPERSEDED / NON-SERVING EVIDENCE — retained for historical provenance only; not canonical HealthTimes Reader UAT.
+// LEGACY / SUPERSEDED / NON-SERVING EVIDENCE — retained for historical product provenance only.
+// This suite is not canonical HealthTimes Reader UAT. Current public Reader authority is apps/mobile.
+
 const { test, expect } = require('@playwright/test');
 
 async function resetAt(page, path) {

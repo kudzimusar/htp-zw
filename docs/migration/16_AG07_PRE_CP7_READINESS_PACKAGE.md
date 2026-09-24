@@ -225,3 +225,32 @@ The provider hold remains independently deferred.
 Production systems modified: **NO**
 
 Owner production authorization: **NOT GRANTED**
+
+## 9. Phase 12 current reconciliation — 2026-09-24
+
+This package's earlier `PRECP7-P1-001` finding is retained above as historical evidence of the 2026-09-22 candidate and is **no longer current**.
+
+Phase 12 exact runtime:
+
+`f36d6336c65c598191ea2841952a8c9f18bcf57e`
+
+Current technical state:
+
+- CP5 migrated public routing/SEO authority: **PASS**
+- canonical `apps/mobile` Web/PWA Reader: **PASS**
+- root legacy public Reader active serving authority: **RETIRED**
+- root legacy public Reader active certification authority: **RETIRED**
+- historical root files: **RETAINED — LEGACY / SUPERSEDED / NON-SERVING EVIDENCE**
+- Newsroom/API protected operational surfaces: **PRESERVED**
+- canonical Chromium UAT: **PASS**
+- Premium/HOSPAZ fail-closed: **PASS**
+- AG-06: **PASS**
+- CA-01: **PASS**
+- COM-01 provider-independent: **PASS**
+- Unified Native: **PASS**
+- Native Binary: **PASS**
+- unresolved technical convergence P0/P1: **0 / 0**
+
+The six live COM provider gates remain **DEFERRED — EXTERNAL PROVIDER**. Formal Michael Gwarisa UAT remains **PENDING CLIENT UAT**. Production DNS, backups, RPO/RTO, SSL/cutover and owner authorization remain **PENDING PRODUCTION**.
+
+No production deployment, production database/storage mutation, DNS/MX change, provider activation, app-store submission, programme PR merge, AG-08 release or CP7 acceptance occurred in Phase 12.
