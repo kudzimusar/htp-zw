@@ -43,9 +43,15 @@ test('Phase 12 fail-closed dual-serving regression gate', () => {
   expect(pkg.scripts['test:legacy:public-ui']).toContain('tests/mobile-quality.spec.js');
 
   const canonicalUat = fs.readFileSync('tests/phase12-canonical-uat.spec.js', 'utf8');
-  for (const legacyRoute of ['/index.html', '/article.html', '/premium.html', '/archive.html']) {
-    expect(canonicalUat).not.toContain(legacyRoute);
+  for (const navigation of [
+    "page.goto('/index.html'",
+    "page.goto('/article.html'",
+    "page.goto('/premium.html'",
+    "page.goto('/archive.html'"
+  ]) {
+    expect(canonicalUat).not.toContain(navigation);
   }
+  expect(canonicalUat).toContain('historical root public URLs cannot expose the retired legacy Reader implementation');
 
   for (const file of legacyPublicReaderFiles) {
     expect(fs.existsSync(file), file + ' historical evidence must be retained').toBe(true);
