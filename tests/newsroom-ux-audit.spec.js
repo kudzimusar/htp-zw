@@ -34,6 +34,12 @@ async function signIn(page, role) {
 }
 async function openModule(page, id) {
   const button = page.locator('[data-newsroom-nav] [data-module="'+id+'"]');
+  if (!(await button.isVisible().catch(()=>false))) {
+    const opener = page.locator('[data-sidebar-open]');
+    if (await opener.isVisible().catch(()=>false)) {
+      await opener.click();
+    }
+  }
   await expect(button, 'module '+id).toBeVisible();
   await button.click();
   await expect(page.locator('[data-workspace] .nr-workspace-head')).toBeVisible();
@@ -44,7 +50,7 @@ async function captureNav(page, role) {
 }
 
 test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
-  test.describe.configure({ mode: 'serial' });
+  test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
   test('login + Reporter journey evidence', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
@@ -66,6 +72,9 @@ test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
       await open.click();
       await expect(page.locator('[data-story-modal]')).toBeVisible();
       await shot(page, '04-reporter-story-editor-desktop.png', { role:'reporter', surface:'story-editor' });
+      await page.locator('[data-editor-comments]').scrollIntoViewIfNeeded();
+      await shot(page, '04b-reporter-internal-comments-desktop.png', { role:'reporter', surface:'internal-comments' });
+      await page.locator('[data-story-modal-title]').scrollIntoViewIfNeeded();
       await page.setViewportSize({ width: 834, height: 1112 });
       await shot(page, '05-reporter-story-editor-tablet.png', { role:'reporter', surface:'story-editor-tablet' });
       await page.locator('[data-story-modal-close]').click();
@@ -104,6 +113,9 @@ test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
       await open.click();
       await expect(page.locator('[data-story-modal]')).toBeVisible();
       await shot(page, '14-editor-story-editor-desktop.png', { role:'editor', surface:'story-editor' });
+      await page.setViewportSize({ width: 834, height: 1112 });
+      await shot(page, '14b-editor-story-editor-tablet.png', { role:'editor', surface:'story-editor-tablet' });
+      await page.setViewportSize({ width: 1440, height: 1000 });
       await page.locator('[data-story-modal-close]').click();
     }
 
