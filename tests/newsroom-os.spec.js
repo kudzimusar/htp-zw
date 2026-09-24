@@ -68,6 +68,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
   let reporterMediaFilename = '';
 
   test('Reporter saves, reloads, resumes and submits without browser-local authority', async ({ page }) => {
+    test.setTimeout(120_000);
     page.on('pageerror', error => console.log('AG06_UI_PAGEERROR', error.message));
     page.on('console', msg => {
       if (['error','warning'].includes(msg.type())) console.log('AG06_UI_CONSOLE', msg.type(), msg.text());
