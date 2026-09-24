@@ -8,6 +8,7 @@ const { renderCapabilityShell } = require('../../api/web')._internals;
 
 const dist = path.join(process.cwd(), 'apps/mobile/dist');
 const port = Number(process.env.PORT || 4174);
+const liveCp5 = process.env.PHASE12_LIVE_CP5 === '1';
 
 const publicDoc = {
   source_id: '30154',
@@ -73,6 +74,11 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', typeFor(file));
     return res.end(fs.readFileSync(file));
+  }
+
+  if (liveCp5) {
+    req.url = '/api/web?path=' + encodeURIComponent(pathname);
+    return void webHandler(req, res);
   }
 
   const shell = fs.readFileSync(path.join(dist, '+not-found.html'), 'utf8');
