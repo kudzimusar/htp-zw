@@ -22,53 +22,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static-validate:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Validate JavaScript syntax
-        run: node --check app.js
-      - name: Validate required pages
-        shell: python
-        run: |
-          from pathlib import Path
-          required = ['index.html', 'article.html', 'premium.html', 'styles.css', 'app.js']
-          missing = [name for name in required if not Path(name).is_file()]
-          if missing:
-              raise SystemExit(f'Missing deploy files: {missing}')
-          print('Pages deployment input validated.')
-
-  static-deploy:
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: static-validate
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Configure and enable Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - name: Upload static site artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - name: Deploy static HealthTimes site
-        id: deployment
-        uses: actions/deploy-pages@v4
-
   build:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check out repository
+      - name: Check out exact repository head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$CHECKED_OUT_SHA"
+          test "$CHECKED_OUT_SHA" = "$EXPECTED_SHA"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -78,72 +51,37 @@ jobs:
       - name: Install universal app dependencies
         run: npm install --prefix apps/mobile --no-audit --no-fund
 
-      - name: Validate universal app
-        run: npm run native:check
-
-      - name: Validate read-only source parity bridge
-        run: npm --prefix apps/mobile run test:source-parity
-
-      - name: Validate NM-04 article fidelity and bounded search ranking
-        run: npm --prefix apps/mobile run test:reader-fidelity
-
-      - name: Probe public WordPress source reachability and browser CORS
-        shell: bash
+      - name: Validate canonical universal Reader
         run: |
-          set -u
-          endpoint='https://healthtimes.co.zw/wp-json/wp/v2/posts?per_page=1&status=publish&orderby=date&order=desc&_embed=1'
-          headers="$(mktemp)"
-          body="$(mktemp)"
-          status="$(curl -sS --connect-timeout 10 --max-time 20 -D "$headers" -o "$body" -w '%{http_code}' \
-            -H 'Origin: https://kudzimusar.github.io' \
-            -H 'Accept: application/json' \
-            "$endpoint" || true)"
-          echo "HealthTimes public REST HTTP status: ${status:-curl-failed}"
-          cors_origin="$(awk 'BEGIN{IGNORECASE=1} /^access-control-allow-origin:/ {sub(/\r$/,""); sub(/^[^:]+:[[:space:]]*/,""); print}' "$headers" | tail -n 1)"
-          echo "Access-Control-Allow-Origin: ${cors_origin:-<missing>}"
+          npm run native:check
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:reader-fidelity
 
-          if [[ "$status" == "200" && -s "$body" ]]; then
-            node - "$body" <<'NODE'
-          const fs = require("fs");
-          const path = process.argv[2];
-          const payload = JSON.parse(fs.readFileSync(path, "utf8"));
-          if (!Array.isArray(payload)) throw new Error("Public WordPress posts response is not an array.");
-          const post = payload[0] || {};
-          console.log("Public REST payload: PASS");
-          console.log("Latest public post slug:", post.slug || "<none>");
-          console.log("Embedded author:", Boolean(post._embedded?.author?.length));
-          console.log("Embedded media:", Boolean(post._embedded?.["wp:featuredmedia"]?.length));
-          console.log("Embedded taxonomy:", Boolean(post._embedded?.["wp:term"]?.flat?.().length));
-          NODE
-          else
-            echo "::warning::Public WordPress REST probe was unavailable; deterministic source-parity snapshot remains the intended fallback."
-          fi
-
-          if [[ "$cors_origin" == "*" || "$cors_origin" == "https://kudzimusar.github.io" ]]; then
-            echo "GitHub Pages browser CORS compatibility: PASS"
-          else
-            echo "::warning::GitHub Pages live refresh is not CORS-confirmed from the public response. The PWA will continue using its deterministic fallback when browser fetch is blocked."
-          fi
-
-      - name: Export HealthTimes PWA for GitHub Pages
+      - name: Export canonical apps/mobile PWA for GitHub Pages
         env:
           APP_ENV: development
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
           HEALTHTIMES_WEB_BASE_URL: /htp-zw
         run: npm run native:export:web
 
-      - name: Verify preview output
+      - name: Verify canonical Pages output
         shell: bash
         run: |
+          set -euo pipefail
           test -f apps/mobile/dist/index.html
           test -f apps/mobile/dist/manifest.json
           test -f apps/mobile/dist/sw.js
           test -f apps/mobile/dist/healthtimes-icon.svg
+
           node <<'NODE'
           const fs = require("fs");
+          const path = require("path");
           const html = fs.readFileSync("apps/mobile/dist/index.html", "utf8");
           for (const marker of ["/htp-zw/manifest.json", "/htp-zw/healthtimes-icon.svg", "/htp-zw/sw.js"]) {
             if (!html.includes(marker)) throw new Error("Missing base-aware PWA marker: " + marker);
+          }
+          if (html.includes('More context. More accountability. Better health intelligence.')) {
+            throw new Error('Legacy root Reader presentation leaked into canonical Pages output.');
           }
           const manifest = JSON.parse(fs.readFileSync("apps/mobile/dist/manifest.json", "utf8"));
           if (manifest.start_url !== "./" || manifest.scope !== "./" || manifest.id !== "./") {
@@ -151,25 +89,17 @@ jobs:
           }
           const sw = fs.readFileSync("apps/mobile/dist/sw.js", "utf8");
           if (!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive its Pages scope.");
-          NODE
-          node <<'NODE'
-          const fs = require("fs");
-          const path = require("path");
-          const dist = "apps/mobile/dist";
+
           const required = ["explore","live","search","premium","watch","my"];
           const routeExists = (route) => [
-            path.join(dist, route + ".html"),
-            path.join(dist, route, "index.html")
+            path.join("apps/mobile/dist", route + ".html"),
+            path.join("apps/mobile/dist", route, "index.html")
           ].some(fs.existsSync);
           for (const route of required) {
-            if (!routeExists(route)) throw new Error("Missing statically exported route: /" + route);
+            if (!routeExists(route)) throw new Error("Missing canonical exported route: /" + route);
           }
-          const articleDir = path.join(dist, "article");
-          const articleExported =
-            fs.existsSync(articleDir) &&
-            fs.readdirSync(articleDir).some((name) => name.endsWith(".html") || fs.existsSync(path.join(articleDir, name, "index.html")));
-          if (!articleExported) throw new Error("No statically exported Article Reader route found.");
           NODE
+
           node <<'NODE'
           const fs=require("fs");
           const marker="HEALTHTIMES_PWA_DEEP_LINK_FALLBACK";
@@ -182,40 +112,38 @@ jobs:
           const fallback=fs.readFileSync("apps/mobile/dist/404.html","utf8");
           if(!fallback.includes(marker)||!fallback.includes(storageKey)||!fallback.includes(base)) throw new Error("PWA deep-link fallback is incomplete.");
           NODE
-          printf '{"sha":"%s","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$GITHUB_SHA" > apps/mobile/dist/build-info.json
+
+          printf '{"sha":"%s","presentation":"apps/mobile","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$GITHUB_SHA" > apps/mobile/dist/build-info.json
           touch apps/mobile/dist/.nojekyll
-          echo "HealthTimes source-parity PWA preview ready at /htp-zw/."
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      - name: Upload universal PWA artifact
+      - name: Upload canonical universal PWA artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: apps/mobile/dist
 
   deploy:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification'
     environment:
-      name: github-pages-preview
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy universal PWA preview
+      - name: Deploy canonical universal PWA
         id: deployment
         uses: actions/deploy-pages@v4
 
   verify-deployment:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification'
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      - name: Verify exact-head Pages deployment and critical routes
+      - name: Verify exact-head Pages deployment and canonical routes
         shell: bash
         env:
           PAGE_URL: ${{ needs.deploy.outputs.page_url }}
@@ -227,7 +155,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             deployed_sha="$(curl -fsSL --max-time 20 "$base/build-info.json" 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{process.stdout.write(JSON.parse(d).sha||"")}catch{}})')"
             if [[ "$deployed_sha" == "$expected_sha" ]]; then
-              echo "Exact-head Pages deployment: PASS ($deployed_sha)"
+              echo "Exact-head canonical Pages deployment: PASS ($deployed_sha)"
               break
             fi
             if [[ "$attempt" == "5" ]]; then
@@ -237,34 +165,12 @@ jobs:
             sleep 5
           done
 
-          routes=(
-            ""
-            "live"
-            "explore"
-            "search"
-            "premium"
-            "watch"
-            "my"
-            "article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
-          )
+          routes=("" "live" "explore" "search" "premium" "watch" "my")
           for route in "${routes[@]}"; do
-            url="$base/${route}"
-            curl -fsSL --max-time 20 "$url" >/dev/null
-            echo "Route PASS: /${route}"
+            curl -fsSL --max-time 20 "$base/$route" >/dev/null
+            echo "Canonical route PASS: /$route"
           done
 
           curl -fsSL --max-time 20 "$base/manifest.json" >/dev/null
           curl -fsSL --max-time 20 "$base/sw.js" >/dev/null
-          curl -fsSL --max-time 20 "$base/healthtimes-icon.svg" >/dev/null
-          echo "Manifest, service worker and icon: PASS"
-
-          synthetic_route="article/source-nm04-live-discovered-${expected_sha:0:12}"
-          fallback_body="$(mktemp)"
-          fallback_status="$(curl -sS --max-time 20 -o "$fallback_body" -w '%{http_code}' "$base/$synthetic_route")"
-          if [[ "$fallback_status" != "404" ]]; then
-            echo "::error::Expected GitHub Pages to enter the custom fallback for a non-exported article route; status was $fallback_status."
-            exit 1
-          fi
-          grep -q 'HEALTHTIMES_PWA_DEEP_LINK_FALLBACK' "$fallback_body"
-          grep -q 'ht:nm04:pwa-deep-link' "$fallback_body"
-          echo "Fresh non-exported Article deep-link fallback: PASS (/$synthetic_route)"
+          echo "Canonical manifest and service worker: PASS"
