@@ -4,7 +4,7 @@
   const KEYS = {
     session: 'htpNewsroomSession', stories: 'htpNewsroomStories', assignments: 'htpNewsroomAssignmentsV3',
     staff: 'htpNewsroomStaffV3', audit: 'htpNewsroomAudit', media: 'htpNewsroomMediaV3',
-    comments: 'htpNewsroomCommentsV3', campaigns: 'htpAdCampaigns', overrides: 'htpStoryOverrides',
+    comments: 'htpNewsroomCommentsV3', campaigns: 'htpAdCampaigns', advertisers: 'htpAdvertisersV1', overrides: 'htpStoryOverrides',
     sessions: 'htpNewsroomSessionsV3', notifications: 'htpNewsroomNotificationsV3',
     inboxSummary: 'htpNewsroomInboxSummaryV1', desks: 'htpNewsroomDesksV1',
     deskMembers: 'htpNewsroomDeskMembersV1', threads: 'htpNewsroomThreadsV1',
@@ -228,7 +228,9 @@
       });
     }
     write(KEYS.sessions,sessionMap);
-    const advertisers=new Map((data.advertisers||[]).map(a=>[a.id,a.name]));
+    const advertiserRows=(data.advertisers||[]).map(a=>({id:a.id,name:a.name}));
+    const advertisers=new Map(advertiserRows.map(a=>[a.id,a.name]));
+    write(KEYS.advertisers,advertiserRows);
     write(KEYS.campaigns,(data.campaigns||[]).map(x=>({
       id:x.id,advertiser:advertisers.get(x.advertiser_id)||'Advertiser',name:x.name,status:x.status,
       start:x.start_at||'',end:x.end_at||'',review:x.review_status||'pending',placement:[],impressions:0,clicks:0
@@ -427,7 +429,35 @@
         return '<article class="nr-queue-card"><div class="nr-queue-top"><div><h3>Reader comment</h3><p>'+esc(c.body)+'</p><small>Story '+esc(c.story_id)+' · '+esc(displayTime(c.created_at))+'</small></div>'+status(c.state)+'</div><div class="nr-queue-meta">'+actions.join('')+'</div></article>';
       }).join('')||empty('Moderation queue is clear'))+'</section>';
   }
-  function todayPanel(){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Today</h2><p>Editorial agenda</p></div><button data-module-jump="calendar">Calendar →</button></div><div class="nr-calendar"><div class="nr-calendar-time">09:00</div><div class="nr-calendar-event" data-kind="Meeting"><strong>Editorial conference</strong><span>Global + Africa desks</span></div><div class="nr-calendar-time">12:00</div><div class="nr-calendar-event" data-kind="Deadline"><strong>STI analysis review</strong><span>Editor deadline</span></div><div class="nr-calendar-time">15:30</div><div class="nr-calendar-event" data-kind="Briefing"><strong>WhatsApp briefing lock</strong><span>Audience Desk</span></div></div></section>`;}
+  function newsroomAgenda({todayOnly=false,limit=30}={}){
+    const start=new Date();start.setHours(0,0,0,0);
+    const end=new Date(start);end.setDate(end.getDate()+(todayOnly?1:30));
+    const items=[];
+    for(const a of getAssignments()){
+      if(!a.deadline||a.status==='Complete')continue;
+      const at=new Date(a.deadline);if(!Number.isFinite(at.getTime())||at<start||at>=end)continue;
+      items.push({at,title:a.title,kind:'Deadline',detail:`${a.desk||'Newsroom'} · ${staffRecord(a.reporter)?.name||a.reporter||'Unassigned'}`});
+    }
+    for(const s of getStories()){
+      if(!s.schedule)continue;
+      const at=new Date(s.schedule);if(!Number.isFinite(at.getTime())||at<start||at>=end)continue;
+      items.push({at,title:s.title||'Untitled story',kind:'Publication',detail:`${s.desk||'Newsroom'} · ${s.status||'Scheduled'}`});
+    }
+    return items.sort((a,b)=>a.at-b.at).slice(0,limit);
+  }
+  function agendaMarkup(items,{showDate=false}={}){
+    return items.map(item=>{
+      const stamp=showDate
+        ? item.at.toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+        : item.at.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<div class="nr-calendar-time">${esc(stamp)}</div><div class="nr-calendar-event" data-kind="${esc(item.kind)}"><strong>${esc(item.title)}</strong><span>${esc(item.kind)} · ${esc(item.detail)}</span></div>`;
+    }).join('');
+  }
+  function todayPanel(){
+    const items=newsroomAgenda({todayOnly:true,limit:6});
+    const body=items.length?`<div class="nr-calendar">${agendaMarkup(items)}</div>`:empty('No scheduled newsroom items today');
+    return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Today</h2><p>Live assignment and publication deadlines</p></div><button data-module-jump="calendar">Calendar →</button></div>${body}</section>`;
+  }
   function notificationPanel(){const rows=read(KEYS.notifications,[]).filter(n=>!n.archivedAt).slice(0,5);return '<section class="nr-panel"><div class="nr-panel-head"><div><h2>Notifications</h2><p>Durable activity requiring your attention</p></div><button data-module-jump="inbox">Open Inbox →</button></div><ul class="nr-list">'+(rows.map(n=>notificationItem(n,true)).join('')||emptyRow('Your Inbox is clear'))+'</ul></section>';}
   function personalPerformancePanel(stories){return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Your work</h2><p>Current publishing record</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Stories in workspace</strong><p>Owned or assigned</p></div><span class="nr-tag">${stories.length}</span></li><li class="nr-list-item"><div><strong>Published</strong><p>Current local publication dataset</p></div><span class="nr-tag">${stories.filter(s=>s.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>Premium research</strong><p>Research-led work</p></div><span class="nr-tag">${stories.filter(s=>s.premium).length}</span></li></ul></section>`;}
   function publicationPulse(){const s=getStories();return `<section class="nr-panel"><div class="nr-panel-head"><div><h2>Publication pulse</h2><p>Structural newsroom metrics</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Published</strong><p>Current story dataset</p></div><span class="nr-tag">${s.filter(x=>x.status==='Published').length}</span></li><li class="nr-list-item"><div><strong>In production</strong><p>Not yet published or archived</p></div><span class="nr-tag">${s.filter(x=>!['Published','Archived'].includes(x.status)).length}</span></li><li class="nr-list-item"><div><strong>Desks represented</strong><p>Active editorial coverage</p></div><span class="nr-tag">${new Set(s.map(x=>x.desk)).size}</span></li></ul></section>`;}
@@ -446,7 +476,7 @@
   function renderMyAssignments(){const u=currentUser(),list=getAssignments().filter(a=>a.reporter===u.username);return `${head('My assignments','Accept, report and submit work assigned to you.')}<section class="nr-panel"><ul class="nr-list">${list.map(a=>assignmentList(a)).join('')||emptyRow('No assignments')}</ul></section>`;}
   function renderAssignments(){const list=getAssignments();return `${head('Assignments Desk','Create, monitor and rebalance reporting assignments.',has(CAP.ASSIGN_CREATE)?button('＋ Create assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Assignment</th><th>Reporter</th><th>Desk</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(a=>{const overdue=new Date(a.deadline)<new Date()&&a.status!=='Complete';return `<tr><td class="nr-title-cell"><strong>${esc(a.title)}</strong><span>${esc(a.notes)}</span></td><td>${esc(staffRecord(a.reporter)?.name||a.reporter)}</td><td>${esc(a.desk)}</td><td>${esc(new Date(a.deadline).toLocaleString())}</td><td><span class="nr-tag">${esc(a.priority)}</span></td><td>${status(overdue?'Overdue':a.status)}</td><td>${a.reporter===currentUser().username?button('Advance',`data-assignment-progress="${esc(a.id)}"`):''}${button('Discuss',`data-assignment-discuss="${esc(a.id)}"`)}</td></tr>`}).join('')}</tbody></table></div></section>`;}
   function renderReview(){const list=getStories().filter(s=>['Submitted','Fact check','Health / Science review','Copy edit','Editor review','Ready'].includes(s.status));return `${head('Review Queue','Submitted work, evidence checks and publication decisions.')}<section class="nr-panel">${list.map(reviewCard).join('')||empty('Review queue is clear')}</section>`;}
-  function renderCalendar(){const events=[['09 Sep · 09:00','Editorial conference','Meeting','Global + Africa desks'],['09 Sep · 12:00','STI analysis editor deadline','Deadline','Community Prevention Follow-up'],['09 Sep · 15:30','WhatsApp briefing lock','Briefing','Audience Desk'],['10 Sep · 12:00','National Health Strategy fact check','Deadline','Policy desk'],['10 Sep · 16:00','World Suicide Prevention Day coverage','Health date','Mental Health desk'],['11 Sep · 12:00','Friday HealthTimes Weekly','Briefing','Email + WhatsApp']];return `${head('Editorial Calendar','Deadlines, interviews, publication, briefings and global-health dates.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel"><div class="nr-calendar">${events.map(e=>`<div class="nr-calendar-time">${esc(e[0])}</div><div class="nr-calendar-event" data-kind="${esc(e[2])}"><strong>${esc(e[1])}</strong><span>${esc(e[2])} · ${esc(e[3])}</span></div>`).join('')}</div></section>`;}
+  function renderCalendar(){const events=newsroomAgenda({limit:30});const body=events.length?`<div class="nr-calendar">${agendaMarkup(events,{showDate:true})}</div>`:empty('No assignment or publication deadlines are scheduled in the next 30 days');return `${head('Editorial Calendar','Server-backed assignment deadlines and scheduled publication work.',has(CAP.ASSIGN_CREATE)?button('＋ Assignment','data-open-assignment','nr-primary'):'')}<section class="nr-panel">${body}</section>`;}
   function renderBreaking(){const rows=read(KEYS.threads,[]).filter(t=>t.thread_type==='breaking'&&t.status==='open');const actions=has(CAP.BREAKING_MANAGE)?button('＋ Breaking room','data-create-breaking','nr-primary'):'';return head('Breaking','Temporary event coordination with bounded membership and optional Presence.',actions)+'<section class="nr-panel">'+(rows.map(threadCard).join('')||empty('No active breaking rooms'))+'</section>';}
   function renderCorrections(){return `${head('Corrections','Published changes, corrections and accountability record.')}<section class="nr-panel">${getStories().filter(s=>['Updated / Corrected'].includes(s.status)).map(storyList).join('')||empty('No corrections are waiting')}</section>`;}
   function renderMedia(){return `${head('Media Library','Editorial images, documents, campaign assets and source media.',has(CAP.MEDIA)?button('＋ Add media','','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input placeholder="Search media…"><select><option>All types</option><option>Image</option><option>Video</option><option>Audio</option><option>Document</option></select></div><div class="nr-media-grid">${getMedia().map(m=>`<article class="nr-media-card"><span class="nr-tag">${esc(m.type)}</span><strong>${esc(m.filename)}</strong><span>${esc(m.caption)}</span><span>Credit: ${esc(m.credit)}</span><span>Used in: ${esc(m.usedIn)}</span><span>${esc(m.date)}</span></article>`).join('')}</div></section>`;}
@@ -472,7 +502,7 @@
   function renderPremium(){const list=getStories().filter(s=>s.premium||has(CAP.PREMIUM_ASSIGN));return `${head('Premium','Research access, publishing stage and membership value.',has(CAP.PREMIUM_MANAGE)?button('View membership operations','data-module-jump="subscribers"','nr-secondary'):'')}<section class="nr-panel" data-v21-premium-admin><div class="nr-panel-head"><div><h2>Premium publishing controls</h2><p>Authorised changes update the public story access override.</p></div></div><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Story</th><th>Status</th><th>Sources</th><th>Access</th><th>Action</th></tr></thead><tbody>${list.map(s=>`<tr><td class="nr-title-cell"><strong>${esc(s.title)}</strong><span>${esc(s.desk)}</span></td><td>${status(s.status)}</td><td>${s.sources?'Recorded':'Needs sources'}</td><td><span class="nr-tag">${s.premium?'Premium':'Public'}</span></td><td>${has(CAP.PREMIUM_ASSIGN)?`<button class="nr-secondary" data-v21-premium-toggle="${esc(s.id)}">${s.premium?'Make public':'Make Premium'}</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></section>`;}
   function renderSubscribers(){return `${head('Subscribers','Membership service, reader accounts and Premium support operations.')}<div class="nr-grid nr-grid-3">${stat('Membership price','US$5','Monthly Premium proposition','teal')}${stat('Preview contract','30 sec','Per-reader, per-story access','amber')}${stat('Billing','Connect','Production payment provider required','blue')}</div><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>Subscriber operations</h2><p>Production identity and billing service integration points</p></div></div><ul class="nr-list"><li class="nr-list-item"><div><strong>Reader identity</strong><p>Account, saved stories and preferences</p></div><span class="nr-tag">Frontend ready</span></li><li class="nr-list-item"><div><strong>Entitlements</strong><p>Server-side membership required for production</p></div><span class="nr-tag">Integrate</span></li><li class="nr-list-item"><div><strong>Support status</strong><p>Subscriber manager workflow</p></div><span class="nr-tag">Prepared</span></li></ul></section>`;}
   function campaignTable(list){return `<div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Campaign</th><th>Advertiser</th><th>Placement</th><th>Dates</th><th>Status</th><th>Review</th></tr></thead><tbody>${list.map(c=>`<tr><td class="nr-title-cell"><strong>${esc(c.name)}</strong><span>${esc(c.label||'Advertisement')}</span></td><td>${esc(c.advertiser)}</td><td>${esc((c.placement||[]).join(' · '))}</td><td>${esc(c.start)} → ${esc(c.end)}</td><td>${status(c.status)}</td><td><span class="nr-tag">${esc(c.review)}</span></td></tr>`).join('')}</tbody></table></div>`;}
-  function renderAdvertising(){return `${head('Advertising','Paid inventory, campaign governance and commercial review.',has(CAP.ADS_CREATE)?button('＋ New campaign','','nr-primary'):'')}<div class="nr-note">Commercial staff can manage advertising and membership operations but cannot edit newsroom stories.</div><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Masthead, in-feed, article and briefing placements</p></div></div>${campaignTable(read(KEYS.campaigns,[]))}</section><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>HOSPAZ creative</h2><p>Current paid campaign retained from the source publication</p></div></div><div style="padding:14px"><img src="${HOSPAZ}" alt="HOSPAZ Annual General Meeting advertisement" style="display:block;width:100%;height:auto;object-fit:contain;border-radius:8px"></div></section>`;}
+  function renderAdvertising(){return `${head('Advertising','Paid inventory, campaign governance and commercial review.',has(CAP.ADS_CREATE)?button('＋ New campaign','data-open-campaign','nr-primary'):'')}<div class="nr-note">Commercial staff can manage advertising and membership operations but cannot edit newsroom stories.</div><section class="nr-panel"><div class="nr-panel-head"><div><h2>Campaign inventory</h2><p>Masthead, in-feed, article and briefing placements</p></div></div>${campaignTable(read(KEYS.campaigns,[]))}</section><section class="nr-panel nr-section-space"><div class="nr-panel-head"><div><h2>HOSPAZ creative</h2><p>Current paid campaign retained from the source publication</p></div></div><div style="padding:14px"><img src="${HOSPAZ}" alt="HOSPAZ Annual General Meeting advertisement" style="display:block;width:100%;height:auto;object-fit:contain;border-radius:8px"></div></section>`;}
 
   function renderStaff(){const list=getStaff();return `${head('Staff & Access','Invite, assign, suspend and revoke Newsroom access.',has(CAP.STAFF_INVITE)?button('＋ Invite staff','data-open-invite','nr-primary'):'')}<section class="nr-panel"><div class="nr-table-wrap"><table class="nr-table"><thead><tr><th>Staff</th><th>Role</th><th>Desk</th><th>Status</th><th>Last login</th><th>Security</th><th>Actions</th></tr></thead><tbody>${list.map(s=>`<tr><td class="nr-title-cell"><strong>${esc(s.name)}</strong><span>${esc(s.email)} · ${esc(s.beat)}</span></td><td>${esc(s.role)}</td><td>${esc(s.desk)}</td><td>${status(s.status)}</td><td>${esc(s.lastLogin||'Never')}</td><td><span class="nr-tag">MFA ${esc(s.mfa||'Pending')}</span></td><td><div class="nr-table-actions">${has(CAP.STAFF_ROLE)&&s.username!==currentUser().username?`<button data-staff-role="${esc(s.username)}">Change role</button>`:''}${has(CAP.STAFF_REVOKE)&&s.username!==currentUser().username?`<button data-staff-sessions="${esc(s.username)}">Revoke sessions</button><button data-staff-revoke="${esc(s.username)}">Revoke access</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></section>`;}
   function renderRoles(){return `${head('Roles & Permissions','Capabilities define authority; roles group capabilities for newsroom work.')}<section class="nr-panel"><div class="nr-capability-grid">${Object.entries(ROLE_CAPS).map(([role,cs])=>`<article class="nr-role-card"><h3>${esc(role)}</h3><p>${cs.length} configured capabilities</p><ul>${cs.slice(0,8).map(c=>`<li>${esc(c)}</li>`).join('')}${cs.length>8?`<li>+ ${cs.length-8} more</li>`:''}</ul></article>`).join('')}</div></section>`;}
@@ -557,6 +587,28 @@
   async function assignmentProgress(id){try{await api('progressAssignment',{assignmentId:id});await refreshData();showModule(active);}catch(error){toast(error.message);}}
   function openAssignment(){if(!(has(CAP.ASSIGN_CREATE)||has(CAP.ASSIGN_MANAGE)))return;const f=$('[data-assignment-form]');f.reset();f.elements.reporter.innerHTML=staffOptions('', ['Reporter / Journalist']);f.elements.editor.innerHTML=staffOptions(currentUser().username,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);f.elements.desk.innerHTML=DESKS.filter(x=>!['Commercial'].includes(x)).map(x=>`<option>${x}</option>`).join('');$('[data-assignment-modal]').hidden=false;}
   async function saveAssignment(form){const d=new FormData(form),reporter=staffRecord(String(d.get('reporter'))),editor=staffRecord(String(d.get('editor')));try{await api('createAssignment',{assignment:{title:String(d.get('title')),reporter_staff_id:reporter?.id,assigned_editor_staff_id:editor?.id||null,desk:String(d.get('desk')),deadline_at:String(d.get('deadline')),priority:String(d.get('priority')),notes:String(d.get('notes')||'')}});$('[data-assignment-modal]').hidden=true;await refreshData();showModule('assignments');toast('Assignment created');}catch(error){toast(error.message);}}
+  function openCampaign(){
+    if(!has(CAP.ADS_CREATE))return;
+    const advertisers=read(KEYS.advertisers,[]);
+    if(!advertisers.length){toast('No authorised advertiser exists yet. Create or verify the advertiser record before starting a campaign.');return;}
+    const form=$('[data-campaign-form]');form.reset();
+    form.elements.advertiser.innerHTML=advertisers.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+    $('[data-campaign-modal]').hidden=false;
+  }
+  async function saveCampaign(form){
+    const d=new FormData(form),start=String(d.get('start')||''),end=String(d.get('end')||'');
+    if(start&&end&&new Date(end)<=new Date(start)){toast('Campaign end must be after the start.');return;}
+    try{
+      await api('createCampaign',{
+        advertiserId:String(d.get('advertiser')),
+        name:String(d.get('name')||'').trim(),
+        startAt:start?new Date(start).toISOString():null,
+        endAt:end?new Date(end).toISOString():null
+      });
+      $('[data-campaign-modal]').hidden=true;
+      await refreshData();showModule('advertising');toast('Campaign draft created');
+    }catch(error){toast(error.message);}
+  }
   function openInvite(){if(!has(CAP.STAFF_INVITE))return;const f=$('[data-invite-form]');f.reset();f.elements.role.innerHTML=Object.keys(ROLE_CAPS).map(x=>`<option>${esc(x)}</option>`).join('');f.elements.desk.innerHTML=DESKS.map(x=>`<option>${esc(x)}</option>`).join('');f.elements.editor.innerHTML=`<option value="">None</option>${staffOptions('', ['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;$('[data-invite-modal]').hidden=false;}
   async function saveInvite(form){const d=new FormData(form),editor=staffRecord(String(d.get('editor')));try{await api('invite',{displayName:String(d.get('name')),email:String(d.get('email')),role:String(d.get('role')),desk:String(d.get('desk')),country:String(d.get('country')||''),assignedEditorId:editor?.id||null});$('[data-invite-modal]').hidden=true;await refreshData();showModule('staff');toast('Staff invitation requested');}catch(error){toast(error.message);}}
   async function changeStaffRole(username){if(!has(CAP.STAFF_ROLE))return;const s=staffRecord(username);if(!s)return;const roles=Object.keys(ROLE_CAPS),i=roles.indexOf(s.role),next=roles[(i+1)%roles.length];try{await api('changeRole',{staffId:s.id,role:next});await refreshData();showModule('staff');toast('Role updated');}catch(error){toast(error.message);}}
@@ -589,6 +641,8 @@
       const ap=e.target.closest('[data-assignment-progress]');if(ap){await assignmentProgress(ap.dataset.assignmentProgress);return;}
       if(e.target.closest('[data-open-assignment]')){openAssignment();return;}
       if(e.target.closest('[data-assignment-close]')){$('[data-assignment-modal]').hidden=true;return;}
+      if(e.target.closest('[data-open-campaign]')){openCampaign();return;}
+      if(e.target.closest('[data-campaign-close]')){$('[data-campaign-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-invite]')){openInvite();return;}
       if(e.target.closest('[data-invite-close]')){$('[data-invite-modal]').hidden=true;return;}
       const sr=e.target.closest('[data-staff-role]');if(sr){await changeStaffRole(sr.dataset.staffRole);return;}
@@ -622,6 +676,7 @@
     });
     document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);});
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
+    $('[data-campaign-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveCampaign(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
     $('[data-password-reset-form]')?.addEventListener('submit',async e=>{e.preventDefault();const password=e.currentTarget.elements.password.value,confirmPassword=e.currentTarget.elements.confirmPassword.value,error=$('[data-password-reset-error]');error.textContent='';if(password!==confirmPassword){error.textContent='Passwords do not match.';return;}try{await api('setPassword',{password});$('[data-password-reset-modal]').hidden=true;recoveryMode=false;e.currentTarget.reset();toast('Password updated securely.');}catch(ex){error.textContent=ex.message;}});
     $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text,parentCommentId:e.currentTarget.dataset.parentCommentId||null,mentionStaffIds:extractMentionStaffIds(text)});e.currentTarget.reset();delete e.currentTarget.dataset.parentCommentId;e.currentTarget.elements.comment.placeholder='Add an internal note…';await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});

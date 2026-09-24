@@ -1,4 +1,6 @@
 const { test, expect } = require('@playwright/test');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
 
 const live = Boolean(
   process.env.AG06_STAGING_BASE_URL &&
@@ -24,6 +26,26 @@ async function signIn(page, kind) {
   await expect(page.locator('[data-newsroom-app]')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('[data-login-view]')).toBeHidden();
 }
+
+
+test('Newsroom P1 product guardrails use live agenda data, preserve tablet inspector context and wire campaign creation', async () => {
+  const js = readFileSync(join(__dirname, '..', 'newsroom.js'), 'utf8');
+  const css = readFileSync(join(__dirname, '..', 'newsroom.css'), 'utf8');
+  const html = readFileSync(join(__dirname, '..', 'newsroom.html'), 'utf8');
+
+  for (const fabricated of ['Editorial conference','STI analysis review','WhatsApp briefing lock','World Suicide Prevention Day coverage']) {
+    expect(js.includes(fabricated)).toBe(false);
+  }
+  expect(js).toContain('function newsroomAgenda');
+  expect(js).toContain("kind:'Deadline'");
+  expect(js).toContain("kind:'Publication'");
+  expect(js).toContain("data-open-campaign");
+  expect(js).toContain("api('createCampaign'");
+  expect(html).toContain('data-campaign-modal');
+  expect(html).toContain('Create draft campaign');
+  expect(css).toContain('.nr-editor-inspector{display:block;border-left:0;border-top:1px solid var(--nr-line);max-height:42vh}');
+  expect(css).toContain('@media(max-width:640px){.nr-editor-inspector{display:none}');
+});
 
 test('Newsroom gateway stays closed without a provider session', async ({ page }) => {
   await page.context().clearCookies();
@@ -92,6 +114,12 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     await expect(page.locator('[data-newsroom-nav] [data-module="advertising"]')).toBeVisible();
     await page.locator('[data-module="advertising"]').click();
     await expect(page.locator('[data-workspace] h1')).toHaveText('Advertising');
+    const createCampaign=page.locator('[data-open-campaign]');
+    await expect(createCampaign).toBeVisible();
+    await createCampaign.click();
+    await expect(page.locator('[data-campaign-modal]')).toBeVisible();
+    await expect(page.locator('[data-campaign-form] select[name="advertiser"] option')).not.toHaveCount(0);
+    await page.locator('[data-campaign-close]').first().click();
   });
 
   test('Publisher/Admin can inspect staff, sessions and durable audit', async ({ page }) => {
