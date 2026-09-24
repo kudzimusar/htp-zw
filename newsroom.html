@@ -81,7 +81,7 @@
       <header class="nr-editor-topbar">
         <button class="nr-icon-btn" type="button" data-story-modal-close aria-label="Close story editor">←</button>
         <div class="nr-editor-title"><span data-editor-state>Draft</span><strong data-story-modal-title>New story</strong></div>
-        <div class="nr-editor-save"><span data-save-state>Saved</span><button type="button" class="nr-secondary" data-manual-save>Save</button><button type="button" class="nr-secondary" data-story-preview>Preview</button><button type="button" class="nr-primary" data-editor-primary>Submit for review</button></div>
+        <div class="nr-editor-save"><span data-save-state>Saved</span><button type="button" class="nr-secondary" data-manual-save>Save</button><button type="button" class="nr-secondary" data-story-preview>Preview</button><button type="button" class="nr-secondary nr-request-changes" data-editor-request-changes hidden>Request changes</button><button type="button" class="nr-primary" data-editor-primary>Submit for review</button></div>
       </header>
       <div class="nr-editor-layout">
         <section class="nr-editor-canvas">
@@ -91,6 +91,7 @@
             <label class="nr-field-label">Standfirst<textarea name="standfirst" rows="3" placeholder="Summarise the story and why it matters"></textarea></label>
             <label class="nr-field-label">Story body<textarea name="body" rows="18" placeholder="Write the working article here…"></textarea></label>
             <div class="nr-editor-insert-row"><button type="button" data-insert="source">＋ Source</button><button type="button" data-insert="quote">＋ Pull quote</button><button type="button" data-insert="table">＋ Table</button><button type="button" data-insert="media">＋ Media</button></div>
+            <section class="nr-story-media-block"><div class="nr-panel-head"><div><h3>Story media</h3><p>Private draft assets attached to this story</p></div><button type="button" class="nr-secondary" data-open-story-media>＋ Add media</button></div><div data-story-media></div></section>
             <label class="nr-field-label">Sources & references<textarea name="sources" rows="6" placeholder="Primary documents, interviews, studies, DOI/PubMed links and verification notes"></textarea></label>
             <label class="nr-field-label">Internal reporting notes<textarea name="notes" rows="5" placeholder="Internal notes are never published"></textarea></label>
           </form>
@@ -113,6 +114,40 @@
   <section class="nr-modal" data-assignment-modal hidden aria-label="Create assignment"><div class="nr-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Assignments Desk</span><h2>Create assignment</h2></div><button class="nr-icon-btn" type="button" data-assignment-close>×</button></div><form data-assignment-form class="nr-dialog-form"><label>Story / topic<input name="title" required /></label><label>Reporter<select name="reporter"></select></label><label>Desk<select name="desk"></select></label><label>Deadline<input name="deadline" type="datetime-local" required /></label><label>Priority<select name="priority"><option>Normal</option><option>High</option><option>Urgent</option></select></label><label>Assigned editor<select name="editor"></select></label><label class="nr-wide">Assignment notes<textarea name="notes" rows="5"></textarea></label><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-assignment-close>Cancel</button><button type="submit" class="nr-primary">Assign story</button></div></form></div></section>
 
   <section class="nr-modal" data-campaign-modal hidden aria-label="Create advertising campaign"><div class="nr-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Commercial</span><h2>Create campaign</h2></div><button class="nr-icon-btn" type="button" data-campaign-close>×</button></div><form data-campaign-form class="nr-dialog-form"><label>Advertiser<select name="advertiser" required></select></label><label>Campaign name<input name="name" required maxlength="160" /></label><label>Start<input name="start" type="datetime-local" /></label><label>End<input name="end" type="datetime-local" /></label><div class="nr-wide nr-note">Campaigns are created as server-authoritative drafts with review pending. Creation does not approve or publish advertising.</div><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-campaign-close>Cancel</button><button type="submit" class="nr-primary">Create draft campaign</button></div></form></div></section>
+
+  <section class="nr-modal" data-media-modal hidden aria-label="Story media library">
+    <div class="nr-dialog nr-media-dialog">
+      <div class="nr-dialog-head"><div><span class="nr-kicker">Story media</span><h2>Media Library / Upload</h2><p>Draft uploads stay private until a separate authorised publication handoff exists.</p></div><button class="nr-icon-btn" type="button" data-media-close>×</button></div>
+      <div class="nr-media-modal-controls">
+        <label>Target story<select data-media-target-story></select></label>
+        <label>Attach as<select data-media-usage-role><option value="featured_image">Featured image</option><option value="inline_image">Inline image</option><option value="supporting_document">Supporting document</option></select></label>
+        <label>Search<input data-media-modal-search placeholder="Filename, caption, credit or source…" /></label>
+      </div>
+      <div class="nr-media-modal-grid" data-media-modal-grid></div>
+      <form data-media-upload-form class="nr-dialog-form nr-media-upload-form">
+        <div class="nr-wide"><span class="nr-kicker">Upload new private media</span><p>JPEG, PNG, WebP, PDF, text or DOCX · maximum 15 MB.</p></div>
+        <label class="nr-wide">File<input name="file" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.docx,image/jpeg,image/png,image/webp,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required /></label>
+        <label>Alt text<input name="altText" placeholder="Required for images" /></label>
+        <label>Caption<input name="caption" /></label>
+        <label>Credit<input name="credit" /></label>
+        <label>Source / provenance<input name="sourceProvenance" required placeholder="Photographer, institution, source document…" /></label>
+        <div class="nr-wide nr-note">Upload path and permissions are generated by the server. The browser never receives database or service-role credentials.</div>
+        <div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-media-close>Close</button><button type="submit" class="nr-primary">Upload & attach</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="nr-modal" data-request-changes-modal hidden aria-label="Request story changes">
+    <div class="nr-dialog nr-confirm">
+      <span class="nr-kicker">Editorial review</span>
+      <h2>Request changes</h2>
+      <p data-request-changes-story-title>Return this story to the Reporter with a required editorial note.</p>
+      <form data-request-changes-form class="nr-dialog-form">
+        <label class="nr-wide">Editorial note<textarea name="reason" rows="5" required minlength="3" placeholder="Explain exactly what needs to change before resubmission."></textarea></label>
+        <div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-request-changes-close>Cancel</button><button type="submit" class="nr-danger">Return to reporter</button></div>
+      </form>
+    </div>
+  </section>
 
   <section class="nr-modal" data-invite-modal hidden aria-label="Invite staff"><div class="nr-dialog"><div class="nr-dialog-head"><div><span class="nr-kicker">Staff & Access</span><h2>Invite staff member</h2></div><button class="nr-icon-btn" type="button" data-invite-close>×</button></div><form data-invite-form class="nr-dialog-form"><label>Name<input name="name" required /></label><label>Email<input name="email" type="email" required /></label><label>Role<select name="role"></select></label><label>Desk<select name="desk"></select></label><label>Country<input name="country" value="Zimbabwe" /></label><label>Assigned editor<select name="editor"></select></label><div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-invite-close>Cancel</button><button type="submit" class="nr-primary">Send invitation</button></div></form></div></section>
 
