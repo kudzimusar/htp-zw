@@ -6,6 +6,7 @@ on:
       - integration/ag07-phase4-unified-web-pwa
       - integration/ag07-phase8-convergence-candidate
       - integration/ag07-nm07-phase10-visual-conformance
+      - integration/ag07-phase12-legacy-retirement-precp7
   pull_request:
     paths:
       - 'supabase/migrations/**'
