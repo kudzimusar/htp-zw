@@ -780,15 +780,18 @@ async function handle(req, res) {
         p_media_id:body.mediaId,p_story_id:body.storyId,
         p_usage_type:body.usageType,p_checksum:body.checksum||null
       });
-      return json(res,200,{ok:true,result});
+      const storyRows=await rest(`stories?id=eq.${encodeURIComponent(body.storyId)}&select=id,lock_version`,token);
+      return json(res,200,{ok:true,result,storyVersion:Number(storyRows?.[0]?.lock_version||0)});
     }
     if (action === 'attachStoryMedia') {
       await call('newsroom_attach_story_media',{p_media_id:body.mediaId,p_story_id:body.storyId,p_usage_type:body.usageType});
-      return json(res,200,{ok:true});
+      const storyRows=await rest(`stories?id=eq.${encodeURIComponent(body.storyId)}&select=id,lock_version`,token);
+      return json(res,200,{ok:true,storyVersion:Number(storyRows?.[0]?.lock_version||0)});
     }
     if (action === 'detachStoryMedia') {
       await call('newsroom_detach_story_media',{p_media_id:body.mediaId,p_story_id:body.storyId,p_usage_type:body.usageType});
-      return json(res,200,{ok:true});
+      const storyRows=await rest(`stories?id=eq.${encodeURIComponent(body.storyId)}&select=id,lock_version`,token);
+      return json(res,200,{ok:true,storyVersion:Number(storyRows?.[0]?.lock_version||0)});
     }
     if (action === 'updateStoryMediaMetadata') {
       await call('newsroom_update_story_media_metadata',{
