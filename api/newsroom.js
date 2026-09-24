@@ -215,14 +215,14 @@ function storageObjectPath(bucket, objectKey) {
   return parts.map(encodeURIComponent).join('/');
 }
 
-async function storageServiceRequest(path, { method='GET', body } = {}) {
-  const { url, service } = config();
-  if (!url || !service) {
-    const error=new Error('Server-only staging storage credential is not configured.');
+async function storageUserRequest(path, token, { method='GET', body } = {}) {
+  const { url, publishable } = config();
+  if (!url || !publishable || !token) {
+    const error=new Error('Authenticated staging storage session is not configured.');
     error.status=503;
     throw error;
   }
-  const headers={apikey:service,Authorization:`Bearer ${service}`};
+  const headers={apikey:publishable,Authorization:`Bearer ${token}`};
   if (body !== undefined) headers['Content-Type']='application/json';
   const response=await fetch(`${url}/storage/v1${path}`,{
     method,headers,body:body===undefined?undefined:JSON.stringify(body),redirect:'manual'
@@ -237,22 +237,22 @@ async function storageServiceRequest(path, { method='GET', body } = {}) {
   return data;
 }
 
-async function createSignedStoryUpload(bucket, objectKey) {
+async function createSignedStoryUpload(bucket, objectKey, token) {
   const { url }=config();
-  const data=await storageServiceRequest(`/object/upload/sign/${storageObjectPath(bucket,objectKey)}`,{method:'POST',body:{}});
+  const data=await storageUserRequest(`/object/upload/sign/${storageObjectPath(bucket,objectKey)}`,token,{method:'POST',body:{}});
   if(!data||typeof data.url!=='string') {
     const error=new Error('Storage did not issue a signed upload URL.');error.status=502;throw error;
   }
   return `${url}/storage/v1${data.url}`;
 }
 
-async function storyMediaObjectInfo(bucket, objectKey) {
-  return storageServiceRequest(`/object/info/${storageObjectPath(bucket,objectKey)}`);
+async function storyMediaObjectInfo(bucket, objectKey, token) {
+  return storageUserRequest(`/object/info/${storageObjectPath(bucket,objectKey)}`,token);
 }
 
-async function createSignedStoryPreview(bucket, objectKey, expiresIn=300) {
+async function createSignedStoryPreview(bucket, objectKey, token, expiresIn=300) {
   const { url }=config();
-  const data=await storageServiceRequest(`/object/sign/${storageObjectPath(bucket,objectKey)}`,{
+  const data=await storageUserRequest(`/object/sign/${storageObjectPath(bucket,objectKey)}`,token,{
     method:'POST',body:{expiresIn}
   });
   if(!data||typeof data.signedURL!=='string') {
@@ -755,12 +755,12 @@ async function handle(req, res) {
         p_source_provenance:body.sourceProvenance||null,
         p_usage_type:body.usageType||'inline'
       });
-      const uploadUrl=await createSignedStoryUpload(prepared.storage_bucket,prepared.storage_key);
+      const uploadUrl=await createSignedStoryUpload(prepared.storage_bucket,prepared.storage_key,token);
       return json(res,200,{ok:true,prepared,uploadUrl});
     }
     if (action === 'finalizeStoryMedia') {
       const context=await call('newsroom_media_upload_context',{p_media_id:body.mediaId,p_story_id:body.storyId});
-      const info=await storyMediaObjectInfo(context.storage_bucket,context.storage_key);
+      const info=await storyMediaObjectInfo(context.storage_bucket,context.storage_key,token);
       const storedSize=Number(info?.metadata?.size ?? info?.size ?? 0);
       const storedMime=String(info?.metadata?.mimetype ?? info?.metadata?.['content-type'] ?? info?.mimetype ?? '').toLowerCase();
       if(storedSize&&storedSize!==Number(context.byte_size)){
@@ -794,7 +794,7 @@ async function handle(req, res) {
       const context=await call('newsroom_get_media_preview',{p_media_id:body.mediaId});
       if(context.public_url) return json(res,200,{ok:true,url:context.public_url,public:true});
       if(context.storage_bucket!=='newsroom-private') return json(res,409,{ok:false,error:'Private preview is unavailable for this media asset.'});
-      const previewUrl=await createSignedStoryPreview(context.storage_bucket,context.storage_key,300);
+      const previewUrl=await createSignedStoryPreview(context.storage_bucket,context.storage_key,token,300);
       return json(res,200,{ok:true,url:previewUrl,public:false,expiresIn:300});
     }
     if (action === 'requestStoryChanges') {
