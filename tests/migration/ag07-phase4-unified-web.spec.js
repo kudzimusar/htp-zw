@@ -22,6 +22,24 @@ test('Vercel intentionally builds apps/mobile as the root public Reader without 
   expect(config.rewrites.some(row => row.source === '/feed' && row.destination.includes('kind=feed'))).toBe(true);
 });
 
+test('Reader-owned web routes bypass CP5 while preserved trailing-slash legacy routes still reach the public resolver', () => {
+  const config = JSON.parse(fs.readFileSync('vercel.json','utf8'));
+  const expectedReaderRoutes = [
+    '/explore','/search','/live','/watch','/my','/premium',
+    '/notifications','/notification-settings','/saved','/listen','/about',
+    '/account-access','/appearance','/authors','/devices-sessions','/edition',
+    '/growth-status','/onboarding','/system-status'
+  ];
+  for (const route of expectedReaderRoutes) {
+    expect(config.rewrites.some(row => row.source === route && row.destination === route + '.html')).toBe(true);
+  }
+  const trailingSlash = config.rewrites.find(row => row.source === '/:path*/');
+  expect(trailingSlash?.destination).toBe('/api/web?path=/:path*/');
+  const generic = config.rewrites.find(row => row.source === '/:path*');
+  expect(generic?.destination).toBe('/api/web?path=/:path*');
+  expect(config.rewrites.indexOf(trailingSlash)).toBeLessThan(config.rewrites.indexOf(generic));
+});
+
 test('catch-all resolves through CP5 instead of becoming a homepage SPA catch-all and API/staff files remain explicit', () => {
   const config = JSON.parse(fs.readFileSync('vercel.json','utf8'));
   expect(config.rewrites.some(row => row.destination === '/index.html')).toBe(false);

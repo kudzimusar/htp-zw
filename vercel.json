@@ -115,6 +115,86 @@
       "destination": "/api/public?kind=ad"
     },
     {
+      "source": "/explore",
+      "destination": "/explore.html"
+    },
+    {
+      "source": "/search",
+      "destination": "/search.html"
+    },
+    {
+      "source": "/live",
+      "destination": "/live.html"
+    },
+    {
+      "source": "/watch",
+      "destination": "/watch.html"
+    },
+    {
+      "source": "/my",
+      "destination": "/my.html"
+    },
+    {
+      "source": "/premium",
+      "destination": "/premium.html"
+    },
+    {
+      "source": "/notifications",
+      "destination": "/notifications.html"
+    },
+    {
+      "source": "/notification-settings",
+      "destination": "/notification-settings.html"
+    },
+    {
+      "source": "/saved",
+      "destination": "/saved.html"
+    },
+    {
+      "source": "/listen",
+      "destination": "/listen.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about.html"
+    },
+    {
+      "source": "/account-access",
+      "destination": "/account-access.html"
+    },
+    {
+      "source": "/appearance",
+      "destination": "/appearance.html"
+    },
+    {
+      "source": "/authors",
+      "destination": "/authors.html"
+    },
+    {
+      "source": "/devices-sessions",
+      "destination": "/devices-sessions.html"
+    },
+    {
+      "source": "/edition",
+      "destination": "/edition.html"
+    },
+    {
+      "source": "/growth-status",
+      "destination": "/growth-status.html"
+    },
+    {
+      "source": "/onboarding",
+      "destination": "/onboarding.html"
+    },
+    {
+      "source": "/system-status",
+      "destination": "/system-status.html"
+    },
+    {
+      "source": "/:path*/",
+      "destination": "/api/web?path=/:path*/"
+    },
+    {
       "source": "/:path*",
       "destination": "/api/web?path=/:path*"
     }
