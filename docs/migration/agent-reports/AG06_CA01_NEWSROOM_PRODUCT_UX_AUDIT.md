@@ -33,7 +33,7 @@ The principal product risks are not visual polish. They are workflow trust and w
 | P0 — security/data-loss | 0 | None found in this review lane. |
 | P1 — core newsroom workflow broken | 4 | Must be addressed before owner/client newsroom UAT can reasonably judge the product as an operational newsroom. |
 | P2 — major workflow/product problem | 7 | Bounded product restructuring required. |
-| P3 — meaningful UX refinement | 6 | Improve after P1/P2 structure is settled. |
+| P3 — meaningful UX refinement | 5 | Improve after P1/P2 structure is settled. |
 | P4 — polish | 2 | Non-blocking. |
 
 ## 2. Evidence method
