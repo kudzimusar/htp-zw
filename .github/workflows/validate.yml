@@ -1,12 +1,12 @@
-name: Validate HealthTimes 2.0
+name: Validate HealthTimes Canonical Reader + Protected Operations
 
 on:
   push:
     branches:
       - main
-      - integration/ag07-phase8-convergence-candidate
       - integration/ag07-phase12-legacy-retirement-precp7
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,9 +14,9 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Check out exact candidate
+      - name: Check out exact repository head
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -49,19 +49,19 @@ jobs:
           node --check api/newsroom.js
           node --check api/discussion.js
           node --check api/communications.js
-          node --check scripts/web/phase4-smoke-server.js
+          node --check api/public.js
+          node --check api/web.js
 
-      - name: Validate canonical apps/mobile Reader contracts
+      - name: Validate canonical Reader and public contracts
         run: |
           npm run native:check
           npm --prefix apps/mobile run test:content-contracts
           npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
           npm --prefix apps/mobile run test:migrated-corpus
           npm --prefix apps/mobile run test:premium-hospaz
           npm run test:phase4:web
-
-      - name: Prove dual-serving retirement fails closed
-        run: npm run test:phase12:dual-serving
+          npm run test:phase12:dual-serving
 
       - name: Preserve Newsroom and communications security contracts
         run: |
@@ -69,15 +69,15 @@ jobs:
           npm run test:ca01:contract
           npm run test:com01:contract
 
-      - name: Validate authority boundary and retained provenance
+      - name: Validate authority boundaries and retained provenance
         shell: python
         run: |
+          from html.parser import HTMLParser
           from pathlib import Path
           import json
+          import re
 
-          canonical = [
-              'apps/mobile/package.json',
-              'apps/mobile/app/_layout.tsx',
+          canonical_required = [
               'apps/mobile/app/(reader)/index.tsx',
               'apps/mobile/app/(reader)/explore.tsx',
               'apps/mobile/app/(reader)/live.tsx',
@@ -90,55 +90,66 @@ jobs:
               'apps/mobile/public/sw.js',
               'vercel.json',
           ]
-          newsroom = [
-              'newsroom.html',
-              'newsroom.js',
-              'newsroom.css',
-              'api/newsroom.js',
-              'api/discussion.js',
-              'api/communications.js',
-          ]
           legacy_evidence = [
-              'index.html',
-              'article.html',
-              'premium.html',
-              'preferences.html',
-              'about.html',
-              'archive.html',
-              'app.js',
-              'reader.js',
-              'v21.js',
-              'styles.css',
-              'v21.css',
+              'index.html','article.html','premium.html','preferences.html','about.html',
+              'archive.html','app.js','reader.js','v21.js','styles.css','v21.css'
           ]
-          missing = [p for p in canonical + newsroom + legacy_evidence if not Path(p).is_file()]
+          protected_operational = [
+              'newsroom.html','newsroom.js','newsroom.css','api/newsroom.js',
+              'api/discussion.js','api/communications.js'
+          ]
+          missing = [p for p in canonical_required + legacy_evidence + protected_operational if not Path(p).is_file()]
           if missing:
-              raise SystemExit(f'Missing required canonical/protected/evidence files: {missing}')
+              raise SystemExit(f'Missing required authority/provenance files: {missing}')
 
           vercel = json.loads(Path('vercel.json').read_text(encoding='utf-8'))
           if vercel.get('outputDirectory') != 'apps/mobile/dist':
-              raise SystemExit('Vercel public presentation is not apps/mobile/dist')
+              raise SystemExit('Vercel public output is not canonical apps/mobile/dist.')
 
           pages = Path('.github/workflows/pages.yml').read_text(encoding='utf-8')
-          if 'path: .' in pages:
-              raise SystemExit('GitHub Pages can still upload repository root')
+          if re.search(r'^\s*path:\s*\.\s*$', pages, re.M):
+              raise SystemExit('GitHub Pages can still publish repository root.')
           if 'path: apps/mobile/dist' not in pages:
-              raise SystemExit('GitHub Pages does not upload canonical apps/mobile output')
+              raise SystemExit('GitHub Pages no longer publishes canonical apps/mobile/dist.')
 
-          legacy_marker = 'LEGACY / SUPERSEDED / NON-SERVING EVIDENCE'
-          for suite in ['tests/uat.spec.js','tests/reader.spec.js','tests/mobile-quality.spec.js']:
-              if legacy_marker not in Path(suite).read_text(encoding='utf-8'):
-                  raise SystemExit(f'{suite} is not explicitly classified as legacy evidence')
+          pkg = json.loads(Path('package.json').read_text(encoding='utf-8'))
+          if pkg['scripts'].get('test:uat') != 'playwright test tests/phase12-canonical-uat.spec.js':
+              raise SystemExit('Default product UAT is not the canonical Reader suite.')
 
-          newsroom_js = Path('newsroom.js').read_text(encoding='utf-8')
-          forbidden = ['localStorage', 'HealthTimes#Publisher26', 'HealthTimes#Editor26', 'HealthTimes#Reporter26', 'HealthTimes#Commercial26']
-          leaked = [item for item in forbidden if item in newsroom_js]
+          for filename in ('tests/uat.spec.js','tests/reader.spec.js','tests/mobile-quality.spec.js'):
+              text = Path(filename).read_text(encoding='utf-8')
+              if 'LEGACY / SUPERSEDED / NON-SERVING EVIDENCE' not in text:
+                  raise SystemExit(f'{filename} is not explicitly classified as legacy evidence.')
+
+          newsroom = Path('newsroom.html').read_text(encoding='utf-8')
+          HTMLParser().feed(newsroom)
+          for ref in ('styles.css','newsroom.css','newsroom.js'):
+              if ref not in newsroom:
+                  raise SystemExit(f'newsroom.html is missing protected operational dependency {ref}')
+
+          njs = Path('newsroom.js').read_text(encoding='utf-8')
+          newsroom_assertions = {
+              'publisher role': r'Publisher / Owner',
+              'editor role': r'Editor-in-Chief',
+              'reporter role': r'Reporter / Journalist',
+              'commercial separation': r'Commercial Manager',
+              'granular capability model': r'story\.publish',
+              'staff revoke capability': r'staff\.revoke',
+              'server-backed newsroom API': r'/api/newsroom',
+              'browser authority removed': r'Browser state is a presentation cache only',
+          }
+          failed = [name for name, pattern in newsroom_assertions.items() if not re.search(pattern, njs)]
+          if failed:
+              raise SystemExit(f'Missing protected Newsroom behavior: {failed}')
+
+          forbidden_newsroom = ['localStorage','HealthTimes#Publisher26','HealthTimes#Editor26','HealthTimes#Reporter26','HealthTimes#Commercial26']
+          leaked = [item for item in forbidden_newsroom if item in njs]
           if leaked:
               raise SystemExit(f'Browser-local Newsroom authority/credentials remain: {leaked}')
 
           api = Path('api/newsroom.js').read_text(encoding='utf-8')
-          for required in ('HttpOnly','x-htp-csrf','newsroom_register_session','SUPABASE_SERVICE_ROLE_KEY'):
-              if required not in api:
-                  raise SystemExit(f'Missing AG-06 API security contract: {required}')
+          for required_api in ('HttpOnly','x-htp-csrf','newsroom_register_session','SUPABASE_SERVICE_ROLE_KEY'):
+              if required_api not in api:
+                  raise SystemExit(f'Missing AG-06 API security contract: {required_api}')
 
-          print('Canonical Reader authority, retained legacy provenance and protected Newsroom boundary: PASS')
+          print('Canonical Reader + protected operational validation passed.')
