@@ -20,3 +20,31 @@
 .nr-thread-messages .nr-comment:last-child{border-bottom:0}
 .nr-queue-card small{font-size:.56rem;color:var(--nr-muted)}
 [data-inbox-row].nr-unread strong{color:var(--nr-navy)}
+
+
+/* AG-06 / CA-01 bounded story-media + request-changes workflow */
+.nr-story-media-block{margin:18px 0;padding:18px;border:1px solid var(--nr-line);border-radius:16px;background:var(--nr-panel)}
+.nr-story-media-list{display:grid;gap:10px}
+.nr-media-attachment{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:12px 14px;border:1px solid var(--nr-line);border-radius:12px;background:var(--nr-paper)}
+.nr-media-attachment>div:first-child{display:grid;gap:4px;min-width:0}
+.nr-media-attachment strong{overflow-wrap:anywhere}
+.nr-media-attachment span:not(.nr-tag){font-size:.74rem;color:var(--nr-muted)}
+.nr-media-dialog{width:min(1080px,94vw);max-height:92vh;overflow:auto}
+.nr-media-modal-controls{display:grid;grid-template-columns:1fr 220px 1fr;gap:12px;margin:18px 0}
+.nr-media-modal-controls label{display:grid;gap:6px;font-size:.72rem;font-weight:800;color:var(--nr-muted)}
+.nr-media-modal-controls input,.nr-media-modal-controls select{width:100%;min-height:42px;border:1px solid var(--nr-line);border-radius:10px;padding:9px 11px;background:var(--nr-paper);color:var(--nr-ink)}
+.nr-media-modal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:0 0 20px}
+.nr-media-card{display:grid;gap:8px;padding:14px;border:1px solid var(--nr-line);border-radius:14px;background:var(--nr-paper);min-width:0}
+.nr-media-card-top{display:flex;flex-wrap:wrap;gap:6px}
+.nr-media-card strong,.nr-media-provenance{overflow-wrap:anywhere}
+.nr-media-card>span:not(.nr-tag){font-size:.74rem;color:var(--nr-muted)}
+.nr-media-upload-form{border-top:1px solid var(--nr-line);padding-top:18px}
+.nr-return-action,.nr-request-changes{border-color:#a7604c!important;color:#8b3d2b!important}
+.nr-review-filters{grid-template-columns:repeat(4,minmax(150px,1fr))}
+@media(max-width:980px){
+  .nr-media-modal-controls,.nr-review-filters{grid-template-columns:1fr 1fr}
+  .nr-media-attachment{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:640px){
+  .nr-media-modal-controls,.nr-review-filters{grid-template-columns:1fr}
+}
