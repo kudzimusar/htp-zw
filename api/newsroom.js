@@ -81,6 +81,10 @@ function rateLimit(req, action) {
     recover: [6, 15 * 60_000],
     invite: [20, 60 * 60_000],
     transitionStory: [60, 60_000],
+    prepareStoryMedia: [30, 60_000],
+    finalizeStoryMedia: [30, 60_000],
+    attachStoryMedia: [60, 60_000],
+    requestStoryChanges: [30, 60_000],
     approveCampaign: [30, 60_000],
     changeRole: [30, 60_000],
     revokeStaff: [30, 60_000],
@@ -206,6 +210,57 @@ async function rest(tableAndQuery, token) {
   return supabaseRequest(`/rest/v1/${tableAndQuery}`, { token });
 }
 
+function storageObjectPath(bucket, objectKey) {
+  const parts=[String(bucket||''),...String(objectKey||'').split('/').filter(Boolean)];
+  return parts.map(encodeURIComponent).join('/');
+}
+
+async function storageServiceRequest(path, { method='GET', body } = {}) {
+  const { url, service } = config();
+  if (!url || !service) {
+    const error=new Error('Server-only staging storage credential is not configured.');
+    error.status=503;
+    throw error;
+  }
+  const headers={apikey:service,Authorization:`Bearer ${service}`};
+  if (body !== undefined) headers['Content-Type']='application/json';
+  const response=await fetch(`${url}/storage/v1${path}`,{
+    method,headers,body:body===undefined?undefined:JSON.stringify(body),redirect:'manual'
+  });
+  const text=await response.text();
+  let data=null;
+  if(text){try{data=JSON.parse(text);}catch{data=text;}}
+  if(!response.ok){
+    const error=new Error((data&&typeof data==='object'&&(data.message||data.error))||`Storage request failed (${response.status})`);
+    error.status=response.status;error.backend=data;throw error;
+  }
+  return data;
+}
+
+async function createSignedStoryUpload(bucket, objectKey) {
+  const { url }=config();
+  const data=await storageServiceRequest(`/object/upload/sign/${storageObjectPath(bucket,objectKey)}`,{method:'POST',body:{}});
+  if(!data||typeof data.url!=='string') {
+    const error=new Error('Storage did not issue a signed upload URL.');error.status=502;throw error;
+  }
+  return `${url}/storage/v1${data.url}`;
+}
+
+async function storyMediaObjectInfo(bucket, objectKey) {
+  return storageServiceRequest(`/object/info/${storageObjectPath(bucket,objectKey)}`);
+}
+
+async function createSignedStoryPreview(bucket, objectKey, expiresIn=300) {
+  const { url }=config();
+  const data=await storageServiceRequest(`/object/sign/${storageObjectPath(bucket,objectKey)}`,{
+    method:'POST',body:{expiresIn}
+  });
+  if(!data||typeof data.signedURL!=='string') {
+    const error=new Error('Storage did not issue a signed preview URL.');error.status=502;throw error;
+  }
+  return encodeURI(`${url}/storage/v1${data.signedURL}`);
+}
+
 async function accessToken(req, res) {
   const cookies = parseCookies(req);
   if (cookies[COOKIE_ACCESS]) {
@@ -265,6 +320,7 @@ function signedStorageUrl(fragment) {
 
 async function bootstrap(token, req) {
   const context = await registerAndContext(token, req);
+  const canMedia=Array.isArray(context?.capabilities)&&context.capabilities.includes('media.manage');
   const queries = {
     revisions: 'story_revisions?select=' + encodeSelect('id,story_id,revision_number,title,body_html,editor_id,change_summary,created_at') + '&order=created_at.desc&limit=500',
     lifecycle: 'story_lifecycle_events?select=' + encodeSelect('id,story_id,from_status,to_status,actor_staff_id,reason,created_at') + '&order=created_at.desc&limit=500',
@@ -285,16 +341,18 @@ async function bootstrap(token, req) {
     advertisers: 'advertisers?select=' + encodeSelect('id,name') + '&order=name.asc',
     subscribers: 'subscribers?select=' + encodeSelect('id,email,display_name,status,created_at') + '&order=created_at.desc&limit=200'
   };
-  const [stories, entries, directory, notifications, inboxSummary] = await Promise.all([
+  const [stories, entries, directory, notifications, inboxSummary, media] = await Promise.all([
     rpc('newsroom_list_stories', { p_limit: 200 }, token),
     Promise.all(Object.entries(queries).map(async ([key, query]) => [key, await optionalRows(query, token)])),
     rpc('newsroom_staff_directory', {}, token),
     rpc('newsroom_list_inbox', { p_filter: 'all', p_limit: 50, p_before: null }, token),
-    rpc('newsroom_inbox_summary', {}, token)
+    rpc('newsroom_inbox_summary', {}, token),
+    canMedia ? rpc('newsroom_list_media',{p_search:null,p_limit:150},token) : Promise.resolve([])
   ]);
   return {
     context,
     stories: Array.isArray(stories) ? stories : [],
+    media: Array.isArray(media) ? media : [],
     directory: Array.isArray(directory) ? directory : [],
     notifications: Array.isArray(notifications) ? notifications : [],
     inboxSummary: inboxSummary && typeof inboxSummary === 'object' ? inboxSummary : {},
@@ -683,6 +741,65 @@ async function handle(req, res) {
       });
       await call('newsroom_mark_communication_attachment_deleted', { p_attachment_id: body.attachmentId });
       return json(res, 200, { ok: true });
+    }
+    if (action === 'prepareStoryMedia') {
+      const prepared=await call('newsroom_prepare_story_media',{
+        p_story_id:body.storyId,
+        p_filename:body.filename,
+        p_mime_type:body.mimeType,
+        p_byte_size:Number(body.byteSize),
+        p_checksum:body.checksum||null,
+        p_alt_text:body.altText||null,
+        p_caption:body.caption||null,
+        p_credit:body.credit||null,
+        p_source_provenance:body.sourceProvenance||null,
+        p_usage_type:body.usageType||'inline_image'
+      });
+      const uploadUrl=await createSignedStoryUpload(prepared.storage_bucket,prepared.storage_key);
+      return json(res,200,{ok:true,prepared,uploadUrl});
+    }
+    if (action === 'finalizeStoryMedia') {
+      const context=await call('newsroom_media_upload_context',{p_media_id:body.mediaId,p_story_id:body.storyId});
+      const info=await storyMediaObjectInfo(context.storage_bucket,context.storage_key);
+      const storedSize=Number(info?.metadata?.size ?? info?.size ?? 0);
+      const storedMime=String(info?.metadata?.mimetype ?? info?.metadata?.['content-type'] ?? info?.mimetype ?? '').toLowerCase();
+      if(storedSize&&storedSize!==Number(context.byte_size)){
+        return json(res,409,{ok:false,error:'Uploaded file size does not match the prepared media record.'});
+      }
+      if(storedMime&&storedMime!==String(context.mime_type||'').toLowerCase()){
+        return json(res,409,{ok:false,error:'Uploaded MIME type does not match the prepared media record.'});
+      }
+      const result=await call('newsroom_finalize_story_media',{
+        p_media_id:body.mediaId,p_story_id:body.storyId,
+        p_usage_type:body.usageType,p_checksum:body.checksum||null
+      });
+      return json(res,200,{ok:true,result});
+    }
+    if (action === 'attachStoryMedia') {
+      await call('newsroom_attach_story_media',{p_media_id:body.mediaId,p_story_id:body.storyId,p_usage_type:body.usageType});
+      return json(res,200,{ok:true});
+    }
+    if (action === 'detachStoryMedia') {
+      await call('newsroom_detach_story_media',{p_media_id:body.mediaId,p_story_id:body.storyId,p_usage_type:body.usageType});
+      return json(res,200,{ok:true});
+    }
+    if (action === 'updateStoryMediaMetadata') {
+      await call('newsroom_update_story_media_metadata',{
+        p_media_id:body.mediaId,p_alt_text:body.altText??null,p_caption:body.caption??null,
+        p_credit:body.credit??null,p_source_provenance:body.sourceProvenance??null
+      });
+      return json(res,200,{ok:true});
+    }
+    if (action === 'getMediaPreview') {
+      const context=await call('newsroom_get_media_preview',{p_media_id:body.mediaId});
+      if(context.public_url) return json(res,200,{ok:true,url:context.public_url,public:true});
+      if(context.storage_bucket!=='newsroom-private') return json(res,409,{ok:false,error:'Private preview is unavailable for this media asset.'});
+      const previewUrl=await createSignedStoryPreview(context.storage_bucket,context.storage_key,300);
+      return json(res,200,{ok:true,url:previewUrl,public:false,expiresIn:300});
+    }
+    if (action === 'requestStoryChanges') {
+      const result=await call('newsroom_request_story_changes',{p_story_id:body.storyId,p_reason:body.reason});
+      return json(res,200,{ok:true,result});
     }
     if (action === 'recordReview') {
       const id = await call('newsroom_record_review', {
