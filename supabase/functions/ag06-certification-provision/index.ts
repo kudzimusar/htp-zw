@@ -78,18 +78,29 @@ Deno.serve(async (req:Request) => {
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
           const profileBatch=cleanupProfileIds.slice(offset,offset+25);
           const media = await admin.from("media_assets")
-            .select("id,storage_bucket,storage_key,uploaded_by_staff_id")
+            .select("id,storage_bucket,storage_key,public_storage_bucket,public_storage_key,uploaded_by_staff_id")
             .in("uploaded_by_staff_id",profileBatch)
             .eq("storage_bucket","newsroom-private");
           if (media.error) throw media.error;
           rows.push(...(media.data || []));
         }
         const uniqueRows=[...new Map(rows.map((m:any)=>[String(m.id),m])).values()];
-        const keys = uniqueRows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
-        for (let offset=0;offset<keys.length;offset+=100) {
-          const batch=keys.slice(offset,offset+100);
+        const privateKeys = uniqueRows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
+        for (let offset=0;offset<privateKeys.length;offset+=100) {
+          const batch=privateKeys.slice(offset,offset+100);
           if (!batch.length) continue;
           const removed=await admin.storage.from("newsroom-private").remove(batch);
+          if (removed.error) throw removed.error;
+          deletedStorageObjects += batch.length;
+        }
+        const publicKeys = uniqueRows
+          .filter((m:any)=>String(m.public_storage_bucket||"")==="newsroom-public")
+          .map((m:any)=>String(m.public_storage_key||""))
+          .filter(Boolean);
+        for (let offset=0;offset<publicKeys.length;offset+=100) {
+          const batch=publicKeys.slice(offset,offset+100);
+          if (!batch.length) continue;
+          const removed=await admin.storage.from("newsroom-public").remove(batch);
           if (removed.error) throw removed.error;
           deletedStorageObjects += batch.length;
         }
