@@ -5,6 +5,7 @@ on:
     branches:
       - integration/ag07-phase8-convergence-candidate
       - integration/ag07-nm07-phase10-visual-conformance
+      - integration/ag07-phase12-legacy-retirement-precp7
   pull_request:
     paths:
       - 'api/newsroom.js'
