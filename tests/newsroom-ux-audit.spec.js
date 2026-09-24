@@ -34,10 +34,14 @@ async function signIn(page, role) {
 }
 async function openModule(page, id) {
   const button = page.locator('[data-newsroom-nav] [data-module="'+id+'"]');
-  if (!(await button.isVisible().catch(()=>false))) {
-    const opener = page.locator('[data-sidebar-open]');
-    if (await opener.isVisible().catch(()=>false)) {
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width <= 980) {
+    const sidebar = page.locator('[data-newsroom-sidebar]');
+    if (!(await sidebar.evaluate(el => el.classList.contains('open')))) {
+      const opener = page.locator('[data-sidebar-open]');
+      await expect(opener).toBeVisible();
       await opener.click();
+      await expect(sidebar).toHaveClass(/open/);
     }
   }
   await expect(button, 'module '+id).toBeVisible();
