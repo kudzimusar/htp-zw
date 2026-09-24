@@ -62,6 +62,42 @@ Deno.serve(async (req:Request) => {
         if (profiles.error) throw profiles.error;
         profileIds = (profiles.data || []).map((p:any)=>p.id);
       }
+      // Remove only bounded AG-06 certification media from the private Newsroom bucket.
+      // Include historical revoked AG-06 profiles so failed prior runs cannot leave private object residue.
+      const certificationProfiles = await admin.from("staff_profiles")
+        .select("id,email,status,beat")
+        .like("email","ag06-%@healthtimes.co.zw");
+      if (certificationProfiles.error) throw certificationProfiles.error;
+      const cleanupProfileIds = (certificationProfiles.data || [])
+        .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification")
+        .map((p:any)=>String(p.id));
+      let deletedMediaAssets = 0;
+      let deletedStorageObjects = 0;
+      if (cleanupProfileIds.length) {
+        const media = await admin.from("media_assets")
+          .select("id,storage_bucket,storage_key,uploaded_by_staff_id")
+          .in("uploaded_by_staff_id",cleanupProfileIds)
+          .eq("storage_bucket","newsroom-private");
+        if (media.error) throw media.error;
+        const rows = media.data || [];
+        const keys = rows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
+        for (let offset=0;offset<keys.length;offset+=100) {
+          const batch=keys.slice(offset,offset+100);
+          if (!batch.length) continue;
+          const removed=await admin.storage.from("newsroom-private").remove(batch);
+          if (removed.error) throw removed.error;
+          deletedStorageObjects += batch.length;
+        }
+        const ids=rows.map((m:any)=>String(m.id));
+        for (let offset=0;offset<ids.length;offset+=100) {
+          const batch=ids.slice(offset,offset+100);
+          if (!batch.length) continue;
+          const removed=await admin.from("media_assets").delete().in("id",batch);
+          if (removed.error) throw removed.error;
+          deletedMediaAssets += batch.length;
+        }
+      }
+
       const revokedAt = new Date().toISOString();
       if (profileIds.length) {
         const sessions = await admin.from("newsroom_sessions")
@@ -98,7 +134,9 @@ Deno.serve(async (req:Request) => {
         deleted_auth_users:users.length,
         retained_inert_staff_profiles:retainedProfiles.length,
         retained_profiles_status:"revoked",
-        live_sessions_remaining:liveSessions.length
+        live_sessions_remaining:liveSessions.length,
+        deleted_private_media_assets:deletedMediaAssets,
+        deleted_private_storage_objects:deletedStorageObjects
       });
     }
 
