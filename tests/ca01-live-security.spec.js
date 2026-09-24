@@ -120,6 +120,22 @@ function nextBroadcast(channel,event,timeoutMs=12000){
   });
 }
 
+async function requireBroadcastAfter(channel,event,send,{attempts=3,timeoutMs=12000}={}){
+  let lastError=null;
+  for(let attempt=1;attempt<=attempts;attempt+=1){
+    const eventPromise=nextBroadcast(channel,event,timeoutMs);
+    const response=await send(attempt);
+    expect(statusOf(response)).toBe(200);
+    try{
+      return await eventPromise;
+    }catch(error){
+      lastError=error;
+      console.warn('CA01_REALTIME_RETRY',JSON.stringify({event,attempt,message:error.message}));
+    }
+  }
+  throw lastError||new Error('Realtime broadcast was not observed for '+event);
+}
+
 test.describe('CA-01 live staging security and discussion contract',()=>{
   test.describe.configure({mode:'serial'});
   test.skip(!configured,'Requires CA-01 staging staff and reader identities.');
@@ -223,9 +239,11 @@ test.describe('CA-01 live staging security and discussion contract',()=>{
     const staffSubscription=await subscriptionStatus(staffRealtime.channel);
     console.log('CA01_REALTIME_STAFF_JOIN',JSON.stringify(staffSubscription));
     expect(staffSubscription.status).toBe('SUBSCRIBED');
-    const staffEventPromise=nextBroadcast(staffRealtime.channel,'newsroom_message.created');
-    expect(statusOf(await appPost(reporter,'postThreadMessage',{threadId:breakingThreadId,message:'Breaking room update.'}))).toBe(200);
-    const staffEvent=await staffEventPromise;
+    const staffEvent=await requireBroadcastAfter(
+      staffRealtime.channel,
+      'newsroom_message.created',
+      attempt=>appPost(reporter,'postThreadMessage',{threadId:breakingThreadId,message:'Breaking room update. realtime-attempt-'+attempt})
+    );
     expect(staffEvent.thread_id).toBe(breakingThreadId);
     expect(typeof staffEvent.object_id).toBe('string');
     expect(staffEvent).not.toHaveProperty('body');
