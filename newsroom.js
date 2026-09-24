@@ -137,6 +137,20 @@
   function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
   function getStaff(){return read(KEYS.staff,[])} function setStaff(v){write(KEYS.staff,v)}
   function getMedia(){return read(KEYS.media,[])}
+  function mapServerMedia(rows){return (rows||[]).map(m=>({
+    id:m.id,filename:m.filename||'',mimeType:m.mime_type||'',byteSize:Number(m.byte_size||0),sourceUrl:m.source_url||'',
+    checksum:m.checksum||'',altText:m.alt_text||'',caption:m.caption||'',credit:m.credit||'',
+    sourceProvenance:m.source_provenance||m.source_url||'',storageBucket:m.storage_bucket||'',
+    storageKey:m.storage_key||'',publicUrl:m.public_url||'',status:m.status||'pending',
+    uploadedByStaffId:m.uploaded_by_staff_id||null,createdAt:m.created_at,updatedAt:m.updated_at,
+    usages:Array.isArray(m.usage)?m.usage.map(u=>({storyId:u.story_id,usageType:u.usage_type,sourceContext:u.source_context||{}})):[]
+  }));}
+  async function refreshMediaData(search=null){
+    const result=await api('listMedia',{search,limit:150});
+    const media=mapServerMedia(result.rows||[]);
+    write(KEYS.media,media);
+    return media;
+  }
   function mediaUsageLabel(v){return ({featured:'Featured image',inline:'Inline image',supporting_document:'Supporting document'})[v]||String(v||'Media').replace(/_/g,' ');}
   function mediaKind(m){const mime=String(m?.mimeType||'');return mime.startsWith('image/')?'Image':mime==='application/pdf'||mime.includes('wordprocessingml')||mime==='text/plain'?'Document':'Media';}
   function storyMediaFor(storyId){return getMedia().flatMap(m=>(m.usages||[]).filter(u=>u.storyId===storyId).map(u=>({...m,storyUsage:u})));}
@@ -194,14 +208,7 @@
       distribution:s.distribution||{},versions:revisionGroups[s.id]||[],lockVersion:Number(s.lock_version||1),commentPolicy:s.comment_policy||'disabled'
     }));
     setStories(stories);
-    const media=(data.media||[]).map(m=>({
-      id:m.id,filename:m.filename||'',mimeType:m.mime_type||'',byteSize:Number(m.byte_size||0),sourceUrl:m.source_url||'',
-      checksum:m.checksum||'',altText:m.alt_text||'',caption:m.caption||'',credit:m.credit||'',
-      sourceProvenance:m.source_provenance||m.source_url||'',storageBucket:m.storage_bucket||'',
-      storageKey:m.storage_key||'',publicUrl:m.public_url||'',status:m.status||'pending',
-      uploadedByStaffId:m.uploaded_by_staff_id||null,createdAt:m.created_at,updatedAt:m.updated_at,
-      usages:Array.isArray(m.usage)?m.usage.map(u=>({storyId:u.story_id,usageType:u.usage_type,sourceContext:u.source_context||{}})):[]
-    }));
+    const media=mapServerMedia(data.media||[]);
     write(KEYS.media,media);
     const assignments=(data.assignments||[]).map(a=>({
       id:a.id,storyId:a.story_id,title:a.title,reporter:handleFor(a.reporter_staff_id),
@@ -712,7 +719,7 @@
       const upload=await fetch(prepared.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:uploadForm});
       if(!upload.ok)throw new Error('Private media upload failed ('+upload.status+').');
       await api('finalizeStoryMedia',{mediaId:prepared.prepared.media_id,storyId,usageType,checksum:checksum||null});
-      await refreshData();form.reset();renderMediaModalGrid();
+      await refreshData();await refreshMediaData();form.reset();renderMediaModalGrid();
       if(editingStoryId===storyId)populateEditor();
       if(active==='media')showModule('media');
       toast('Media uploaded and attached privately');
@@ -722,10 +729,10 @@
   async function attachStoryMedia(mediaId){
     const storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
     if(!storyId)return;
-    try{await api('attachStoryMedia',{mediaId,storyId,usageType});await refreshData();renderMediaModalGrid();if(editingStoryId===storyId)populateEditor();toast('Media attached to story');}catch(error){toast(error.message);}
+    try{await api('attachStoryMedia',{mediaId,storyId,usageType});await refreshData();await refreshMediaData();renderMediaModalGrid();if(editingStoryId===storyId)populateEditor();toast('Media attached to story');}catch(error){toast(error.message);}
   }
   async function detachStoryMedia(mediaId,storyId,usageType){
-    try{await api('detachStoryMedia',{mediaId,storyId,usageType});await refreshData();if(editingStoryId===storyId)populateEditor();if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
+    try{await api('detachStoryMedia',{mediaId,storyId,usageType});await refreshData();await refreshMediaData();if(editingStoryId===storyId)populateEditor();if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
   }
   async function previewMedia(mediaId){
     const asset=getMedia().find(m=>m.id===mediaId);
