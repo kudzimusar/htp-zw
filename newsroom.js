@@ -137,7 +137,7 @@
   function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
   function getStaff(){return read(KEYS.staff,[])} function setStaff(v){write(KEYS.staff,v)}
   function getMedia(){return read(KEYS.media,[])}
-  function mediaUsageLabel(v){return ({featured_image:'Featured image',inline_image:'Inline image',supporting_document:'Supporting document'})[v]||String(v||'Media').replace(/_/g,' ');}
+  function mediaUsageLabel(v){return ({featured:'Featured image',inline:'Inline image',supporting_document:'Supporting document'})[v]||String(v||'Media').replace(/_/g,' ');}
   function mediaKind(m){const mime=String(m?.mimeType||'');return mime.startsWith('image/')?'Image':mime==='application/pdf'||mime.includes('wordprocessingml')||mime==='text/plain'?'Document':'Media';}
   function storyMediaFor(storyId){return getMedia().flatMap(m=>(m.usages||[]).filter(u=>u.storyId===storyId).map(u=>({...m,storyUsage:u})));}
   function caps(role){return new Set(ROLE_CAPS[role]||[])} // presentation reference only
