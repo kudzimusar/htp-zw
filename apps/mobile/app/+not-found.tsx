@@ -72,20 +72,26 @@ function MissingScreen() {
 
 export default function PublicWebFallback() {
   const pathname = usePathname();
-  const initial = useMemo(() => injectedPublicWebCapability(), []);
-  const [capability, setCapability] = useState<PublicWebCapability | null>(initial);
-  const [resolved, setResolved] = useState(Boolean(initial));
+  const injected = useMemo(() => injectedPublicWebCapability(), []);
+  const [capability, setCapability] = useState<PublicWebCapability | null>(null);
+  const [resolved, setResolved] = useState(false);
 
   useEffect(() => {
-    if (initial) return;
     let active = true;
+
+    if (injected) {
+      setCapability(injected);
+      setResolved(true);
+      return () => { active = false; };
+    }
+
     void fetchPublicWebCapability(pathname).then(value => {
       if (!active) return;
       setCapability(value);
       setResolved(true);
     });
     return () => { active = false; };
-  }, [initial, pathname]);
+  }, [injected, pathname]);
 
   if (!resolved) {
     return <Page><Text style={styles.copy}>Loading HealthTimes…</Text></Page>;
