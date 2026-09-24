@@ -100,6 +100,28 @@ jobs:
           printf '{"sha":"%s","presentation":"apps/mobile","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$GITHUB_SHA" > apps/mobile/dist/build-info.json
           touch apps/mobile/dist/.nojekyll
 
+      - name: Preserve canonical Pages deep-link fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require("fs");
+          const marker="HEALTHTIMES_PWA_DEEP_LINK_FALLBACK";
+          const base="/htp-zw";
+          const storageKey="ht:nm04:pwa-deep-link";
+          const script=`(function(){try{var base=${JSON.stringify(base)};var key=${JSON.stringify(storageKey)};var route=location.pathname+location.search+location.hash;if(!(route===base||route.indexOf(base+"/")===0))route=base+"/";sessionStorage.setItem(key,route);location.replace(base+"/?__ht_pwa_deep_link=1");}catch(_){location.replace(base+"/");}})();`;
+          fs.writeFileSync("apps/mobile/dist/404.html","<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>HealthTimes</title></head><body><!-- "+marker+" --><script>"+script+"</script></body></html>");
+          const rootHtml=fs.readFileSync("apps/mobile/dist/index.html","utf8");
+          if(!rootHtml.includes(storageKey)) throw new Error("PWA root is missing the deep-link restore handshake.");
+          const fallback=fs.readFileSync("apps/mobile/dist/404.html","utf8");
+          if(!fallback.includes(marker)||!fallback.includes(storageKey)||!fallback.includes(base)) throw new Error("Canonical Pages deep-link fallback is incomplete.");
+          NODE
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Prove legacy root Reader is not Pages authority
         shell: bash
         run: |
