@@ -16,6 +16,7 @@ on:
       - 'supabase/migrations/**'
       - 'tests/ag06-*.spec.js'
       - 'tests/newsroom-os.spec.js'
+      - 'tests/newsroom-ux-audit.spec.js'
       - 'playwright.config.js'
       - 'package.json'
       - 'scripts/ag06/**'
@@ -127,7 +128,7 @@ jobs:
     concurrency:
       group: healthtimes-staging-security-live
       cancel-in-progress: false
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && github.head_ref != 'audit/ag06-ca01-newsroom-product-ux'
     permissions:
       contents: read
       id-token: write
@@ -243,3 +244,108 @@ jobs:
         shell: bash
         run: |
           test -f /tmp/ag06-newsroom-server.pid && kill "$(cat /tmp/ag06-newsroom-server.pid)" || true
+
+  product-ux-audit:
+    if: github.event_name == 'pull_request' && github.head_ref == 'audit/ag06-ca01-newsroom-product-ux'
+    concurrency:
+      group: healthtimes-staging-newsroom-product-ux-audit
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AG06_STAGING_BASE_URL: https://localhost:4173
+      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      PLAYWRIGHT_BASE_URL: https://localhost:4173
+      SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          [[ "$actual" == "$EXPECTED_SHA" ]] || { echo "Exact-head checkout mismatch"; exit 1; }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Provision bounded audit identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          roles=(reporter editor commercial publisher)
+          accounts_file=/tmp/ag06-audit-accounts.json
+          printf '[' > "$accounts_file"
+          first=1
+          for role in "${roles[@]}"; do
+            upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
+            email="ag06-${role}-${tag}@healthtimes.co.zw"
+            password="Ht!$(openssl rand -hex 18)Aa7"
+            echo "::add-mask::$password"
+            echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
+            echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
+            item="$(node -e 'const [role,email,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({role,email,password}))' "$role" "$email" "$password")"
+            if [[ "$first" == "0" ]]; then printf ',' >> "$accounts_file"; fi
+            printf '%s' "$item" >> "$accounts_file"
+            first=0
+          done
+          printf ']' >> "$accounts_file"
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-audit-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ag06-audit-provision.json -w '%{http_code}' -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
+          cat /tmp/ag06-audit-provision.json
+          [[ "$code" == "200" ]] || exit 1
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Start exact-branch Newsroom gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -keyout /tmp/ag06-audit.key -out /tmp/ag06-audit.crt -days 1 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+          AG06_TEST_TLS_KEY=/tmp/ag06-audit.key AG06_TEST_TLS_CERT=/tmp/ag06-audit.crt node scripts/ag06/newsroom-test-server.js > /tmp/ag06-audit-server.log 2>&1 &
+          echo $! > /tmp/ag06-audit-server.pid
+          for attempt in $(seq 1 30); do
+            curl --silent --insecure --fail https://localhost:4173/newsroom.html >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/ag06-audit-server.log
+          exit 1
+      - name: Capture Newsroom product UX audit evidence
+        run: npx playwright test tests/newsroom-ux-audit.spec.js
+      - name: Upload Newsroom product UX audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag06-ca01-newsroom-product-ux-audit
+          path: artifacts/newsroom-ux-audit
+          if-no-files-found: error
+          retention-days: 14
+      - name: Revoke bounded audit identities
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const [run,attempt]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"cleanup",run_id:run,run_attempt:attempt}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/ag06-audit-cleanup.json -w '%{http_code}' -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
+          cat /tmp/ag06-audit-cleanup.json
+          [[ "$code" == "200" ]] || exit 1
+      - name: Stop exact-branch Newsroom gateway
+        if: always()
+        run: test -f /tmp/ag06-audit-server.pid && kill "$(cat /tmp/ag06-audit-server.pid)" || true
