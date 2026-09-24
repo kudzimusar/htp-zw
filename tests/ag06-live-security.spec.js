@@ -33,6 +33,25 @@ async function appPost(client,action,payload={}){
     data:{action,...payload}
   });
 }
+async function appAdoptLogin(kind){
+  expect(directSupabaseConfigured,`${kind} provider adoption requires staging Supabase configuration`).toBeTruthy();
+  const auth=await fetch(`${supabaseURL}/auth/v1/token?grant_type=password`,{
+    method:'POST',
+    headers:{apikey:anonKey,'Content-Type':'application/json'},
+    body:JSON.stringify(accounts[kind])
+  });
+  expect(statusOf(auth),`${kind} direct provider auth for adoption`).toBe(200);
+  const session=await auth.json();
+  const ctx=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
+  const response=await ctx.post('/api/newsroom',{data:{
+    action:'adoptSession',accessToken:session.access_token,refreshToken:session.refresh_token,expiresIn:session.expires_in
+  }});
+  expect(statusOf(response),`${kind} provider-session adoption`).toBe(200);
+  const state=await ctx.storageState();
+  const csrf=csrfFrom(state);
+  expect(csrf,`${kind} adopted-session CSRF cookie`).toBeTruthy();
+  return {ctx,csrf};
+}
 async function appBootstrap(client){
   const response=await client.ctx.get('/api/newsroom?action=bootstrap',{headers:{Origin:baseURL}});
   const body=await response.json().catch(()=>({}));
@@ -258,9 +277,9 @@ test.describe('AG-06 live staging authorization attacks',()=>{
   test('story media and Request changes enforce the editorial loop below the UI',async()=>{
     test.setTimeout(120_000);
     const stamp=Date.now();
-    const reporter=await appLogin('reporter');
-    const editor=await appLogin('editor');
-    const commercial=await appLogin('commercial');
+    const reporter=await appAdoptLogin('reporter');
+    const editor=await appAdoptLogin('editor');
+    const commercial=await appAdoptLogin('commercial');
 
     let reporterBoot=await appBootstrap(reporter);
     expect(statusOf(reporterBoot.response)).toBe(200);
