@@ -771,12 +771,20 @@
       if(e.target.closest('[data-story-modal-close]')){await closeStory();return;}
       if(e.target.closest('[data-manual-save]')){try{await saveStory(true);}catch{}return;}
       if(e.target.closest('[data-editor-primary]')){await primaryEditorAction();return;}
+      const requestChanges=e.target.closest('[data-editor-request-changes],[data-request-changes-story]');if(requestChanges){openRequestChanges(requestChanges.dataset.storyId||requestChanges.dataset.requestChangesStory);return;}
+      if(e.target.closest('[data-request-changes-close]')){$('[data-request-changes-modal]').hidden=true;return;}
       if(e.target.closest('[data-story-preview]')){await flushAutosave();toast('Draft saved. Public preview remains separate from unpublished Newsroom data.');return;}
       const trans=e.target.closest('[data-transition-story]');if(trans){await transitionStory(trans.dataset.transitionStory,trans.dataset.next);return;}
       const ap=e.target.closest('[data-assignment-progress]');if(ap){await assignmentProgress(ap.dataset.assignmentProgress);return;}
       if(e.target.closest('[data-open-assignment]')){openAssignment();return;}
       if(e.target.closest('[data-assignment-close]')){$('[data-assignment-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-campaign]')){openCampaign();return;}
+      if(e.target.closest('[data-open-story-media]')){openMediaLibrary(editingStoryId);return;}
+      if(e.target.closest('[data-open-media-library]')){openMediaLibrary();return;}
+      if(e.target.closest('[data-media-close]')){closeMediaLibrary();return;}
+      const mp=e.target.closest('[data-media-preview]');if(mp){await previewMedia(mp.dataset.mediaPreview);return;}
+      const ma=e.target.closest('[data-media-attach]');if(ma){await attachStoryMedia(ma.dataset.mediaAttach);return;}
+      const md=e.target.closest('[data-media-detach]');if(md){await detachStoryMedia(md.dataset.mediaDetach,md.dataset.storyId,md.dataset.usageType);return;}
       if(e.target.closest('[data-campaign-close]')){$('[data-campaign-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-invite]')){openInvite();return;}
       if(e.target.closest('[data-invite-close]')){$('[data-invite-modal]').hidden=true;return;}
@@ -807,11 +815,13 @@
       if(e.target.closest('[data-notifications]')){showModule('inbox');return;}
       if(e.target.closest('[data-sidebar-open]')){$('[data-newsroom-sidebar]').classList.add('open');return;}
       if(e.target.closest('[data-sidebar-close]')){$('[data-newsroom-sidebar]').classList.remove('open');return;}
-      const ins=e.target.closest('[data-insert]');if(ins){toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
+      const ins=e.target.closest('[data-insert]');if(ins){if(ins.dataset.insert==='media'){openMediaLibrary(editingStoryId);return;}toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
     });
-    document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);});
+    document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);if(e.target.matches('[data-review-state],[data-review-desk],[data-review-owner],[data-review-deadline]'))refreshReviewQueue();if(e.target.matches('[data-media-library-search],[data-media-library-type],[data-media-library-state]'))refreshMediaLibrary();if(e.target.matches('[data-media-modal-search],[data-media-target-story],[data-media-usage-role]'))renderMediaModalGrid();});
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
     $('[data-campaign-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveCampaign(e.currentTarget);});
+    $('[data-media-upload-form]')?.addEventListener('submit',async e=>{e.preventDefault();await uploadStoryMedia(e.currentTarget);});
+    $('[data-request-changes-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveRequestChanges(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});
     $('[data-password-reset-form]')?.addEventListener('submit',async e=>{e.preventDefault();const password=e.currentTarget.elements.password.value,confirmPassword=e.currentTarget.elements.confirmPassword.value,error=$('[data-password-reset-error]');error.textContent='';if(password!==confirmPassword){error.textContent='Passwords do not match.';return;}try{await api('setPassword',{password});$('[data-password-reset-modal]').hidden=true;recoveryMode=false;e.currentTarget.reset();toast('Password updated securely.');}catch(ex){error.textContent=ex.message;}});
     $('[data-comment-form]')?.addEventListener('submit',async e=>{e.preventDefault();if(!editingStoryId)return;const text=e.currentTarget.elements.comment.value.trim();if(!text)return;try{await api('addComment',{storyId:editingStoryId,comment:text,parentCommentId:e.currentTarget.dataset.parentCommentId||null,mentionStaffIds:extractMentionStaffIds(text)});e.currentTarget.reset();delete e.currentTarget.dataset.parentCommentId;e.currentTarget.elements.comment.placeholder='Add an internal note…';await refreshData();renderComments(getStories().find(x=>x.id===editingStoryId));}catch(error){toast(error.message);}});
