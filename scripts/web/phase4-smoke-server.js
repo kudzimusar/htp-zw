@@ -4,7 +4,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildStoryCapability, buildContextCapability } = require('../../lib/ag05-capability');
-const { renderCapabilityShell } = require('../../api/web')._internals;
+const webHandler = require('../../api/web');
+const { renderCapabilityShell } = webHandler._internals;
 
 const dist = path.join(process.cwd(), 'apps/mobile/dist');
 const port = Number(process.env.PORT || 4174);
