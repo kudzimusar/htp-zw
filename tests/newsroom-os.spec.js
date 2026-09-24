@@ -45,6 +45,10 @@ test('Newsroom P1 product guardrails use live agenda data, preserve tablet inspe
   expect(html).toContain('Create draft campaign');
   expect(css).toContain('.nr-editor-inspector{display:block;border-left:0;border-top:1px solid var(--nr-line);max-height:42vh}');
   expect(css).toContain('@media(max-width:640px){.nr-editor-inspector{display:none}');
+  expect(js).toContain("api('prepareStoryMedia'");
+  expect(js).toContain("api('requestStoryChanges'");
+  expect(html).toContain('data-media-modal');
+  expect(html).toContain('data-request-changes-modal');
 });
 
 test('Newsroom gateway stays closed without a provider session', async ({ page }) => {
@@ -61,6 +65,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
   test.skip(!live, 'Live Newsroom journeys require staging-only role credentials.');
 
   let reporterStoryTitle = '';
+  let reporterMediaFilename = '';
 
   test('Reporter saves, reloads, resumes and submits without browser-local authority', async ({ page }) => {
     page.on('pageerror', error => console.log('AG06_UI_PAGEERROR', error.message));
@@ -83,6 +88,22 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     await page.locator('[data-story-form] textarea[name="standfirst"]').fill('Server-backed Newsroom UAT draft.');
     await page.locator('[data-story-form] textarea[name="body"]').fill('This copy must survive a browser refresh because Supabase is authoritative.');
     await expect(page.locator('[data-save-state]')).toHaveText('Saved', { timeout: 15_000 });
+
+    reporterMediaFilename=`ag06-ui-support-${Date.now()}.txt`;
+    await page.locator('[data-open-story-media]').click();
+    await expect(page.locator('[data-media-modal]')).toBeVisible();
+    await page.locator('[data-media-usage-role]').selectOption('supporting_document');
+    await page.locator('[data-media-upload-form] input[name="file"]').setInputFiles({
+      name:reporterMediaFilename,mimeType:'text/plain',buffer:Buffer.from('AG-06 UI private supporting document')
+    });
+    await page.locator('[data-media-upload-form] input[name="caption"]').fill('Reporter certification supporting document');
+    await page.locator('[data-media-upload-form] input[name="credit"]').fill('HealthTimes certification');
+    await page.locator('[data-media-upload-form] input[name="sourceProvenance"]').fill('AG-06 browser certification');
+    await page.locator('[data-media-upload-form] button[type="submit"]').click();
+    await expect(page.locator('[data-media-modal-grid]')).toContainText(reporterMediaFilename,{timeout:20_000});
+    await page.locator('[data-media-close]').first().click();
+    await expect(page.locator('[data-story-media]')).toContainText(reporterMediaFilename);
+
     await page.locator('[data-story-modal-close]').click();
 
     await page.reload();
@@ -92,20 +113,48 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     await expect(row).toBeVisible();
     await row.getByRole('button', { name: 'Open' }).click();
     await expect(page.locator('[data-story-form] textarea[name="body"]')).toHaveValue(/survive a browser refresh/);
+    await expect(page.locator('[data-story-media]')).toContainText(reporterMediaFilename);
     await expect(page.locator('[data-editor-primary]')).toHaveText('Submit for review');
     await page.locator('[data-editor-primary]').click();
     await expect(page.locator('[data-editor-state]')).toHaveText('Submitted', { timeout: 15_000 });
     await expect(page.locator('[data-editor-primary]')).not.toHaveText('Publish');
   });
 
-  test('Editor receives review authority and the Reporter submission', async ({ page }) => {
+  test('Editor triages the Reporter submission and requests changes with a durable note', async ({ page }) => {
     await signIn(page, 'editor');
     await page.locator('[data-module="review"]').click();
     await expect(page.locator('[data-workspace]')).toContainText('Review Queue');
+    await expect(page.locator('[data-review-state]')).toBeVisible();
+    await expect(page.locator('[data-review-desk]')).toBeVisible();
+    await expect(page.locator('[data-review-owner]')).toBeVisible();
+    await expect(page.locator('[data-review-deadline]')).toBeVisible();
     if (reporterStoryTitle) {
-      await expect(page.locator('[data-workspace]')).toContainText(reporterStoryTitle);
+      const card=page.locator('[data-review-card]').filter({hasText:reporterStoryTitle});
+      await expect(card).toBeVisible();
+      await card.getByRole('button',{name:'Request changes'}).click();
+      await expect(page.locator('[data-request-changes-modal]')).toBeVisible();
+      await page.locator('[data-request-changes-form] textarea[name="reason"]').fill('Please clarify the evidence source before resubmitting this story.');
+      await page.locator('[data-request-changes-form] button[type="submit"]').click();
+      await expect(page.locator('[data-request-changes-modal]')).toBeHidden({timeout:15_000});
     }
     await expect(page.locator('[data-newsroom-nav] [data-module="staff"]')).toBeVisible();
+  });
+
+  test('Reporter receives the requested-changes reason, revises and resubmits', async ({ page }) => {
+    await signIn(page, 'reporter');
+    await page.locator('[data-module="inbox"]').click();
+    await expect(page.locator('[data-workspace]')).toContainText('Please clarify the evidence source',{timeout:15_000});
+    await page.locator('[data-module="my-stories"]').click();
+    const row=page.locator('tr').filter({hasText:reporterStoryTitle});
+    await expect(row).toBeVisible();
+    await row.getByRole('button',{name:'Open'}).click();
+    await expect(page.locator('[data-editor-state]')).toHaveText('Draft');
+    await expect(page.locator('[data-story-media]')).toContainText(reporterMediaFilename);
+    await page.locator('[data-story-form] textarea[name="body"]').fill('This revised copy clarifies the evidence source and preserves the attached private supporting document.');
+    await expect(page.locator('[data-save-state]')).toHaveText('Saved',{timeout:15_000});
+    await expect(page.locator('[data-editor-primary]')).toHaveText('Submit for review');
+    await page.locator('[data-editor-primary]').click();
+    await expect(page.locator('[data-editor-state]')).toHaveText('Submitted',{timeout:15_000});
   });
 
   test('Commercial sees commercial operations but no editorial story workspace', async ({ page }) => {
