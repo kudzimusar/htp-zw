@@ -228,6 +228,7 @@ jobs:
             exit 1
           }
       - name: Capture Newsroom product UX audit evidence
+        if: always()
         shell: bash
         run: npx playwright test tests/newsroom-ux-audit.spec.js
       - name: Upload Newsroom product UX audit evidence
