@@ -736,7 +736,7 @@
       if(editingStoryId===storyId&&story)renderStoryMedia(story);
       if(active==='media')showModule('media');
       toast('Media uploaded and attached privately');
-    }catch(error){toast(error.message||'Media upload failed safely.');}
+    }catch(error){console.error('Newsroom media upload failed safely:',error?.message||String(error));toast(error.message||'Media upload failed safely.');}
     finally{if(submit)submit.disabled=false;}
   }
   async function attachStoryMedia(mediaId){
