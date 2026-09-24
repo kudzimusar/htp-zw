@@ -213,6 +213,7 @@ Observed:
 - Commercial/editorial wall is visually explicit and technically enforced.
 - Editorial Stories and Review Queue are absent from the Commercial role.
 - Campaign inventory, Premium and Subscriber surfaces are grouped coherently.
+- **The global top bar still exposes “＋ New story” to Commercial even though AG-06 correctly denies editorial story creation.**
 - **“New campaign” is a primary visible CTA with no bound workflow.**
 - Subscriber operations are readiness cards, not an operational customer-support/member-management surface.
 - Advertising status/review values expose source/system terminology such as `continuity_captured` and `source_evidence_verified`.
@@ -396,8 +397,8 @@ Final manifest counts:
 
 - Reporter: **20 visible modules**
 - Commercial Manager: **15 visible modules**
-- Editor-in-Chief: **38 visible modules**
-- Publisher / Owner: **39 visible modules**
+- Editor-in-Chief: **37 visible modules**
+- Publisher / Owner: **38 visible modules**
 
 Daily work is mixed with:
 - taxonomy;
@@ -410,7 +411,7 @@ Daily work is mixed with:
 
 Impact:
 
-The capability model correctly prevents unauthorized work, but presentation is not sufficiently job-focused. Editors and Publishers must scan a very large sidebar before reaching the specific operational task.
+The capability model correctly prevents unauthorized work, but presentation is not sufficiently job-focused. Editors and Publishers must scan a very large sidebar before reaching the specific operational task. Commercial also receives the global “＋ New story” affordance despite lacking editorial-create authority; the server denial is correct, but the UI invitation is misleading.
 
 Bounded follow-on direction:
 
