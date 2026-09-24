@@ -91,8 +91,8 @@ test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
     await shot(page, '06-reporter-inbox-desktop.png', { role:'reporter', surface:'inbox' });
     await openModule(page, 'desks');
     await shot(page, '07-reporter-desks-desktop.png', { role:'reporter', surface:'desks' });
-    await page.setViewportSize({ width: 834, height: 1112 });
     await openModule(page, 'overview');
+    await page.setViewportSize({ width: 834, height: 1112 });
     await shot(page, '08-reporter-overview-tablet.png', { role:'reporter', surface:'overview-tablet' });
   });
 
@@ -123,8 +123,8 @@ test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
       await page.locator('[data-story-modal-close]').click();
     }
 
-    await page.setViewportSize({ width: 834, height: 1112 });
     await openModule(page, 'review');
+    await page.setViewportSize({ width: 834, height: 1112 });
     await shot(page, '15-editor-review-queue-tablet.png', { role:'editor', surface:'review-tablet' });
   });
 
@@ -146,8 +146,8 @@ test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
       await shot(page, name, { role:'publisher', surface:id });
     }
 
-    await page.setViewportSize({ width: 834, height: 1112 });
     await openModule(page, 'staff');
+    await page.setViewportSize({ width: 834, height: 1112 });
     await shot(page, '27-publisher-staff-access-tablet.png', { role:'publisher', surface:'staff-tablet' });
   });
 
@@ -163,8 +163,8 @@ test.describe('AG-06 / CA-01 Newsroom product UX visual audit', () => {
     await openModule(page, 'subscribers');
     await shot(page, '32-commercial-subscribers-desktop.png', { role:'commercial', surface:'subscribers' });
 
-    await page.setViewportSize({ width: 834, height: 1112 });
     await openModule(page, 'advertising');
+    await page.setViewportSize({ width: 834, height: 1112 });
     await shot(page, '33-commercial-advertising-tablet.png', { role:'commercial', surface:'advertising-tablet' });
 
     expect(await page.locator('[data-newsroom-nav] [data-module="stories"]').count()).toBe(0);
