@@ -8,11 +8,13 @@ const manifestPath=path.join(root,'supabase','migration-lineage','healthtimes-st
 const manifest=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
 const expected=manifest.entries.map((e)=>e.authoritative_filename).sort();
 
-test('AG-04 Phase 5 migration directory exactly matches adopted live ledger identities', async () => {
+test('AG-04 Phase 5 adopted live ledger identities remain present and unchanged as later migrations are added', async () => {
   const actual=fs.readdirSync(migrationDir).filter((x)=>x.endsWith('.sql')).sort();
-  expect(actual).toEqual(expected);
-  expect(actual).toHaveLength(43);
+  const adoptedActual=actual.filter((filename)=>expected.includes(filename)).sort();
+  expect(adoptedActual).toEqual(expected);
+  expect(expected).toHaveLength(43);
   expect(new Set(manifest.entries.map((e)=>e.live_version)).size).toBe(43);
+  for(const filename of expected) expect(fs.existsSync(path.join(migrationDir,filename))).toBeTruthy();
 });
 
 test('AG-04 Phase 5 has no unexplained duplicate logical migrations', async () => {
