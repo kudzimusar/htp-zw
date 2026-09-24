@@ -228,3 +228,23 @@ Unresolved client P0/P1: **NOT YET MEASURED**
 Reason: formal UAT waits for the non-provider cross-lane integration defect to be remediated and the complete candidate to be frozen.
 
 Production authorization: **NOT GRANTED**
+
+## Phase 12 test-entry reconciliation — 2026-09-24
+
+The earlier warning against testing runtime `5b6fca0...` remains historically correct, but its CP5-lineage blocker has been remediated by the Phase 4–12 convergence programme.
+
+Current technically certified Phase 12 runtime:
+
+`f36d6336c65c598191ea2841952a8c9f18bcf57e`
+
+Controlled Phase 12 preview deployment:
+
+`dpl_FTzbVeYbBdGS3d3mYfErJkFXxUHF`
+
+The preview is `target:null` and Vercel-auth protected. Phase 12 did **not** move the primary staging alias because no separate alias-movement authorization was issued after preview certification.
+
+Formal client UAT is still **PENDING CLIENT UAT**. The moderator must release the final client test-entry URL before Michael begins formal acceptance. This package must not infer client acceptance from technical certification.
+
+Technical convergence P0/P1 at Phase 12 closure: **0 / 0**.
+
+Provider-live email evidence, physical-device/store evidence and production-cutover items remain separately deferred and are not client acceptance claims.

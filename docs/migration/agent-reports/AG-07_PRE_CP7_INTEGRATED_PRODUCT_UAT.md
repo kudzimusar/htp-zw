@@ -609,3 +609,37 @@ Minimum non-provider remediation:
 7. only after those pass proceed toward the remaining COM live-provider evidence and canonical CP7 execution.
 
 **AG-07 PRE-CP7 READINESS BLOCKED — accepted CP5 public-route/SEO runtime is absent from the COM/integrated candidate lineage**
+
+## 22. Phase 12 superseding technical reconciliation — 2026-09-24
+
+This report remains the authoritative record of the 2026-09-22 discovery of `PRECP7-P1-001`. It must not be read as the current runtime state after Phase 12.
+
+Phase 12 exact runtime:
+
+`f36d6336c65c598191ea2841952a8c9f18bcf57e`
+
+The previously missing CP5 public/SEO lineage is now present and exact-head certified together with AG-06, CA-01, NM and COM provider-independent authority.
+
+Current exact-head results include:
+
+- Validate: `35949140626` — SUCCESS
+- Migration Tests: `35949140649` — SUCCESS
+- Canonical Chromium UAT: `35949140664` — SUCCESS
+- AG-07 Phase 4 Web/PWA/CP5: `35949140675` — SUCCESS
+- NM-07 migrated corpus: `35949140630` — SUCCESS
+- Premium/HOSPAZ: `35949140644` — SUCCESS
+- AG-06: `35949140670` — SUCCESS
+- CA-01: `35949140684` — SUCCESS
+- COM-01 provider-independent: `35949140642` — SUCCESS
+- Unified Native: `35949140709` — SUCCESS
+- Native Binary: `35949140673` — SUCCESS
+- Phase 10 exact-head Web/PWA visual evidence: `35949140654` — SUCCESS
+
+`PRECP7-P1-001`: **RESOLVED**.
+
+Current unresolved technical convergence defect count:
+
+- P0: **0**
+- P1: **0**
+
+External provider, formal client UAT, physical-device/store and production-cutover items remain deferred under their existing authority boundaries. CP7 and AG-08 remain locked.
