@@ -153,11 +153,15 @@ Deno.serve(async (req:Request) => {
           deletedCertificationStoryRows += (removed.data || []).length;
         }
 
-        const remainingStories = await admin.from("stories")
-          .select("id",{count:"exact",head:true})
-          .in("owner_staff_id",cleanupProfileIds);
-        if (remainingStories.error) throw remainingStories.error;
-        certificationStoryRowsRemaining = remainingStories.count || 0;
+        certificationStoryRowsRemaining = 0;
+        for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
+          const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const remainingStories = await admin.from("stories")
+            .select("id",{count:"exact",head:true})
+            .in("owner_staff_id",profileBatch);
+          if (remainingStories.error) throw remainingStories.error;
+          certificationStoryRowsRemaining += remainingStories.count || 0;
+        }
         if (certificationStoryRowsRemaining !== 0) {
           throw new Error(`AG-06 certification story residue remains after cleanup: ${certificationStoryRowsRemaining}`);
         }
