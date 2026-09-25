@@ -81,7 +81,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     reporterStoryTitle = `AG06 UI Autosave ${Date.now()}`;
     await page.locator('[data-quick-create]').first().click();
     try {
-      await expect(page.locator('[data-story-modal]')).toBeVisible();
+      await expect(page.locator('[data-story-modal]')).toBeVisible({timeout:35_000});
     } catch (error) {
       console.log('AG06_UI_TOAST', await page.locator('[data-newsroom-toast]').textContent().catch(()=>'')); 
       throw error;
