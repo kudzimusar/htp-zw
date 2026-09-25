@@ -635,7 +635,7 @@ jobs:
             fi
             if grep -Eiq 'HealthTimes staging Supabase configuration is missing|FunctionCallException|Unhandled|Article not found\.|Error:' "$OUT/current-ui.xml"; then
               cat "$OUT/current-ui.xml"
-              echo "::error::Android tablet Reader rendered an application error."
+              echo "::error::Android tablet Reader rendered an application error instead of Home."
               exit 1
             fi
           }
