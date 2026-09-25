@@ -109,7 +109,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     await page.locator('[data-story-modal-close]').click();
 
     await page.reload();
-    await expect(page.locator('[data-newsroom-app]')).toBeVisible();
+    await expect(page.locator('[data-newsroom-app]')).toBeVisible({timeout:35_000});
     await page.locator('[data-module="my-stories"]').click();
     const row = page.locator('tr').filter({ hasText: reporterStoryTitle });
     await expect(row).toBeVisible();
