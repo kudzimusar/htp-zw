@@ -302,7 +302,49 @@ jobs:
           export PATH="$HOME/.maestro/bin:$PATH"
           export MAESTRO_CLI_NO_ANALYTICS=1
           APP_ID="zw.co.healthtimes.app.staging"
-          ARTICLE_ID="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+          resolve_article_id() {
+            node <<'NODE'
+          const base=process.env.EXPO_PUBLIC_SUPABASE_URL;
+          const key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+          if(!base || !key) throw new Error("Staging Supabase configuration is required for native Article evidence.");
+          const headers={apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};
+          async function rpc(name,body){
+            let last="";
+            for(let attempt=1;attempt<=5;attempt++){
+              const response=await fetch(`${base}/rest/v1/rpc/${name}`,{
+                method:"POST",
+                headers,
+                body:JSON.stringify(body)
+              });
+              if(response.ok) return response.json();
+              last=`HTTP ${response.status}: ${await response.text()}`;
+              await new Promise((resolve)=>setTimeout(resolve,attempt*1000));
+            }
+            throw new Error(name+" failed after bounded retries: "+last);
+          }
+          (async()=>{
+            const feed=await rpc("ag05_public_feed_rows",{p_limit:12});
+            for(const row of feed ?? []){
+              if(!row?.canonical_url) continue;
+              let pathname;
+              try{ pathname=new URL(row.canonical_url).pathname; }catch{ continue; }
+              if(!pathname.endsWith("/")) pathname+="/";
+              const document=await rpc("ag05_public_story_document",{p_path:pathname});
+              if(document?.story_id){
+                process.stdout.write(String(document.story_id));
+                return;
+              }
+            }
+            throw new Error("No current staging feed story resolved to an Article document.");
+          })().catch((error)=>{
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
+          }
+          ARTICLE_ID="$(resolve_article_id)"
+          test -n "$ARTICLE_ID"
+          echo "EVIDENCE_ARTICLE_ID=$ARTICLE_ID"
           ROOT="$PWD/phase10-evidence/after/ios"
           FLOW_ROOT="$RUNNER_TEMP/phase10-maestro"
           mkdir -p "$ROOT/iphone" "$ROOT/ipad" "$FLOW_ROOT"
@@ -534,7 +576,49 @@ jobs:
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
           export ANDROID_AVD_HOME="$RUNNER_TEMP/phase10-tablet-avd"
           APP_ID="zw.co.healthtimes.app.staging"
-          ARTICLE_ID="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+          resolve_article_id() {
+            node <<'NODE'
+          const base=process.env.EXPO_PUBLIC_SUPABASE_URL;
+          const key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+          if(!base || !key) throw new Error("Staging Supabase configuration is required for native Article evidence.");
+          const headers={apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};
+          async function rpc(name,body){
+            let last="";
+            for(let attempt=1;attempt<=5;attempt++){
+              const response=await fetch(`${base}/rest/v1/rpc/${name}`,{
+                method:"POST",
+                headers,
+                body:JSON.stringify(body)
+              });
+              if(response.ok) return response.json();
+              last=`HTTP ${response.status}: ${await response.text()}`;
+              await new Promise((resolve)=>setTimeout(resolve,attempt*1000));
+            }
+            throw new Error(name+" failed after bounded retries: "+last);
+          }
+          (async()=>{
+            const feed=await rpc("ag05_public_feed_rows",{p_limit:12});
+            for(const row of feed ?? []){
+              if(!row?.canonical_url) continue;
+              let pathname;
+              try{ pathname=new URL(row.canonical_url).pathname; }catch{ continue; }
+              if(!pathname.endsWith("/")) pathname+="/";
+              const document=await rpc("ag05_public_story_document",{p_path:pathname});
+              if(document?.story_id){
+                process.stdout.write(String(document.story_id));
+                return;
+              }
+            }
+            throw new Error("No current staging feed story resolved to an Article document.");
+          })().catch((error)=>{
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
+          }
+          ARTICLE_ID="$(resolve_article_id)"
+          test -n "$ARTICLE_ID"
+          echo "EVIDENCE_ARTICLE_ID=$ARTICLE_ID"
           OUT="$PWD/phase10-evidence/after/android-tablet"
           mkdir -p "$ANDROID_AVD_HOME" "$OUT"
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
