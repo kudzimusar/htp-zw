@@ -476,12 +476,14 @@ jobs:
           capture_device "$IPAD_UDID" "$IPAD_NAME" ipad
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: phase10-candidate-ios-iphone-evidence
           path: phase10-evidence/after/ios/iphone/
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: phase10-candidate-ipad-evidence
           path: phase10-evidence/after/ios/ipad/
@@ -538,7 +540,8 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          SYSTEM_IMAGE="system-images;android-35;default;x86_64"
+          "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
 
           DEVICE_LIST="$("$AVDMANAGER" list device)"
           printf '%s\n' "$DEVICE_LIST" > "$OUT/avd-device-catalog.txt"
@@ -552,9 +555,9 @@ jobs:
             exit 1
           fi
           echo "TABLET_PROFILE=$TABLET_PROFILE"
-          echo no | "$AVDMANAGER" create avd -n phase10tablet -k "system-images;android-35;google_apis;x86_64" --device "$TABLET_PROFILE" --force
+          echo no | "$AVDMANAGER" create avd -n phase10tablet -k "$SYSTEM_IMAGE" --device "$TABLET_PROFILE" --force
           cp "$ANDROID_AVD_HOME/phase10tablet.avd/config.ini" "$OUT/avd-config.ini"
-          grep -E '^(hw.device.name|hw.lcd.width|hw.lcd.height|hw.lcd.density)' "$OUT/avd-config.ini" > "$OUT/tablet-profile-proof.txt" || true
+          grep -E '^(hw.device.name|hw.lcd.width|hw.lcd.height|hw.lcd.density|image.sysdir.1)' "$OUT/avd-config.ini" > "$OUT/tablet-profile-proof.txt" || true
           if ! grep -Eq '^hw.device.name *= *(pixel_c|Nexus 10)' "$OUT/avd-config.ini"; then
             echo "::error::Created AVD is not using the selected tablet device profile."
             cat "$OUT/avd-config.ini"
@@ -587,6 +590,11 @@ jobs:
             sleep 2
           done
           test "$boot_ready" = "1"
+          adb shell settings put global hide_error_dialogs 1 || true
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          adb shell wm dismiss-keyguard || true
           adb shell input keyevent 82 || true
           adb shell wm size > "$OUT/wm-size.txt"
           adb shell wm density > "$OUT/wm-density.txt"
