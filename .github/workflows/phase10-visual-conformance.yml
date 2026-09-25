@@ -388,7 +388,7 @@ jobs:
               text: "Open"
               optional: true
           - extendedWaitUntil:
-              visible: "Watch HealthTimes interviews, explainers, investigations and health coverage."
+              visible: "Featured video"
               timeout: 45000
           YAML
 
