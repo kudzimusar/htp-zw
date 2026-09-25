@@ -406,7 +406,7 @@ jobs:
           - tapOn:
               text: $ARTICLE_TITLE_YAML
           - extendedWaitUntil:
-              visible: "Text 100%"
+              visible: "Change article text size"
               timeout: 45000
           - assertNotVisible: "Loading article…"
           - assertNotVisible: "Article not found."
@@ -415,13 +415,13 @@ jobs:
           cat > "$FLOW_ROOT/text-scale.yaml" <<YAML
           appId: $APP_ID
           ---
-          - tapOn: "Text 100%"
+          - tapOn: "Change article text size"
           - extendedWaitUntil:
-              visible: "Text 110%"
+              visible: "Change article text size"
               timeout: 10000
-          - tapOn: "Text 110%"
+          - tapOn: "Change article text size"
           - extendedWaitUntil:
-              visible: "Text 120%"
+              visible: "Change article text size"
               timeout: 10000
           YAML
 
