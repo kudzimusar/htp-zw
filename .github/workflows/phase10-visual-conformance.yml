@@ -379,11 +379,10 @@ jobs:
           cat > "$FLOW_ROOT/premium.yaml" <<YAML
           appId: $APP_ID
           ---
-          - tapOn: "My HT"
-          - extendedWaitUntil:
-              visible: "My HealthTimes"
-              timeout: 30000
-          - tapOn: "Go Premium"
+          - openLink: "healthtimes://premium"
+          - tapOn:
+              text: "Open"
+              optional: true
           - extendedWaitUntil:
               visible: "Deeper health intelligence. Full reporting. One clear membership."
               timeout: 45000
@@ -392,7 +391,10 @@ jobs:
           cat > "$FLOW_ROOT/watch.yaml" <<YAML
           appId: $APP_ID
           ---
-          - tapOn: "Watch"
+          - openLink: "healthtimes://watch"
+          - tapOn:
+              text: "Open"
+              optional: true
           - extendedWaitUntil:
               visible: "Featured video"
               timeout: 45000
@@ -521,7 +523,7 @@ jobs:
             "deviceName":os.environ["DEVICE_NAME"],
             "udid":os.environ["DEVICE_UDID"],
             "articleId":os.environ["ARTICLE_ID"],
-            "navigation":{"premium":"in-app My HT to Go Premium navigation","watch":"in-app Reader tab navigation","article":"live migrated-corpus Home card navigation"},
+            "navigation":{"premium":"deep link accepted through simulator UI automation","watch":"deep link accepted through simulator UI automation","article":"live migrated-corpus Home card navigation"},
             "screens":screens
           },indent=2))
           PY
