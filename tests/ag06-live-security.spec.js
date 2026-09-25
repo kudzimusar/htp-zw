@@ -501,6 +501,10 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(beforeDoc.response)).toBe(200);
     expect(beforeDoc.body).toBeNull();
 
+    const beforeList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(beforeList.response)).toBe(200);
+    expect(beforeList.body).toEqual([]);
+
     const submitted=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Submitted'});
     expect(statusOf(submitted)).toBe(200);
     for(const nextStatus of ['Fact check','Health / Science review','Copy edit','Editor review','Ready']){
@@ -578,6 +582,12 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(afterDoc.body?.featured_checksum).toBe(checksum);
     expect(afterDoc.body?.body_html).toContain('Public Reader certification body');
 
+    const afterList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(afterList.response)).toBe(200);
+    expect(Array.isArray(afterList.body)).toBe(true);
+    expect(afterList.body).toHaveLength(1);
+    expect(afterList.body[0]?.id).toBe(storyId);
+
     publisherBoot=await appBootstrap(publisher);
     story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
     expect(story.workflow_status).toBe('Published');
@@ -606,6 +616,10 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(premiumDoc.body?.access_policy).toBe('premium');
     expect(premiumDoc.body?.body_html).toBeNull();
     expect(premiumDoc.body?.featured_public_url).toBe(promoted.public_url);
+
+    const premiumList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(premiumList.response)).toBe(200);
+    expect(premiumList.body).toEqual([]);
 
     console.log('AG06_PUBLIC_MEDIA_EVIDENCE',JSON.stringify({
       story_id:storyId,
