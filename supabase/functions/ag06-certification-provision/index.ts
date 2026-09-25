@@ -75,7 +75,8 @@ Deno.serve(async (req:Request) => {
       let deletedPrivateStorageObjects = 0;
       let deletedPublicStorageObjects = 0;
       let readerReleasedStoriesCleared = 0;
-      let certificationStoryRowsRetained = 0;
+      let deletedCertificationStoryRows = 0;
+      let certificationStoryRowsRemaining = 0;
       if (cleanupProfileIds.length) {
         const storyRows:any[] = [];
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
@@ -87,7 +88,6 @@ Deno.serve(async (req:Request) => {
           storyRows.push(...(stories.data || []));
         }
         const uniqueStories=[...new Map(storyRows.map((s:any)=>[String(s.id),s])).values()];
-        certificationStoryRowsRetained = uniqueStories.length;
         for (const story of uniqueStories) {
           const currentDistribution =
             (story as any).distribution && typeof (story as any).distribution === "object"
@@ -139,6 +139,28 @@ Deno.serve(async (req:Request) => {
           if (removed.error) throw removed.error;
           deletedMediaAssets += batch.length;
         }
+
+        // Certification stories are synthetic staging fixtures. Once their media is removed
+        // and Reader release markers are cleared, delete them instead of accumulating
+        // published/draft fixture rows in the working Newsroom. Restrictive foreign keys
+        // fail closed if a fixture unexpectedly acquired non-certification dependencies.
+        const storyIds=uniqueStories.map((s:any)=>String(s.id));
+        for (let offset=0;offset<storyIds.length;offset+=100) {
+          const batch=storyIds.slice(offset,offset+100);
+          if (!batch.length) continue;
+          const removed=await admin.from("stories").delete().in("id",batch).select("id");
+          if (removed.error) throw removed.error;
+          deletedCertificationStoryRows += (removed.data || []).length;
+        }
+
+        const remainingStories = await admin.from("stories")
+          .select("id",{count:"exact",head:true})
+          .in("owner_staff_id",cleanupProfileIds);
+        if (remainingStories.error) throw remainingStories.error;
+        certificationStoryRowsRemaining = remainingStories.count || 0;
+        if (certificationStoryRowsRemaining !== 0) {
+          throw new Error(`AG-06 certification story residue remains after cleanup: ${certificationStoryRowsRemaining}`);
+        }
       }
 
       const revokedAt = new Date().toISOString();
@@ -182,7 +204,8 @@ Deno.serve(async (req:Request) => {
         deleted_private_storage_objects:deletedPrivateStorageObjects,
         deleted_public_storage_objects:deletedPublicStorageObjects,
         reader_release_markers_cleared:readerReleasedStoriesCleared,
-        certification_story_rows_retained:certificationStoryRowsRetained
+        deleted_certification_story_rows:deletedCertificationStoryRows,
+        certification_story_rows_remaining:certificationStoryRowsRemaining
       });
     }
 
