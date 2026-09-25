@@ -410,9 +410,9 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(directSupabaseConfigured,'Public-media certification requires HealthTimes Staging publishable configuration').toBeTruthy();
 
     const stamp=Date.now();
-    const slug=\`ag06-public-media-\${stamp}\`;
-    const path=\`/\${slug}/\`;
-    const filename=\`ag06-public-\${stamp}.png\`;
+    const slug=`ag06-public-media-${stamp}`;
+    const path=`/${slug}/`;
+    const filename=`ag06-public-${stamp}.png`;
     const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
     const checksum=crypto.createHash('sha256').update(image).digest('hex');
 
@@ -425,7 +425,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const rawPublisher=await rawAuth('publisher');
 
     const anonRpc=async(name,args)=>{
-      const response=await fetch(\`\${supabaseURL}/rest/v1/rpc/\${name}\`,{
+      const response=await fetch(`${supabaseURL}/rest/v1/rpc/${name}`,{
         method:'POST',
         headers:{apikey:anonKey,'Content-Type':'application/json'},
         body:JSON.stringify(args)
@@ -433,7 +433,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       return {response,body:await response.json().catch(()=>null)};
     };
     const rawRpc=async(raw,name,args)=>{
-      const response=await fetch(\`\${supabaseURL}/rest/v1/rpc/\${name}\`,{
+      const response=await fetch(`${supabaseURL}/rest/v1/rpc/${name}`,{
         method:'POST',headers:raw.headers,body:JSON.stringify(args)
       });
       return {response,body:await response.json().catch(()=>null)};
@@ -442,7 +442,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     let reporterBoot=await appBootstrap(reporter);
     expect(statusOf(reporterBoot.response)).toBe(200);
     const created=await appPost(reporter,'createStory',{story:{
-      title:\`AG06 Public Media \${stamp}\`,
+      title:`AG06 Public Media ${stamp}`,
       slug,desk:'Africa',country:'Zimbabwe',region:'Africa'
     }});
     expect(statusOf(created)).toBe(200);
@@ -454,7 +454,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const saved=await appPost(reporter,'saveStory',{
       storyId,expectedVersion:story.lock_version,
       patch:{
-        title:\`AG06 Public Media \${stamp}\`,
+        title:`AG06 Public Media ${stamp}`,
         standfirst:'CMS-native public media certification.',
         body:'Public Reader certification body for CMS-native promotion.',
         sources:'AG-06 staging certification source.'
@@ -468,7 +468,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       altText:'HealthTimes AG-06 staging certification image',
       caption:'AG-06 CMS public media certification',
       credit:'HealthTimes certification',
-      sourceProvenance:\`AG06_PUBLIC_MEDIA_CERT:\${process.env.GITHUB_RUN_ID||stamp}\`,
+      sourceProvenance:`AG06_PUBLIC_MEDIA_CERT:${process.env.GITHUB_RUN_ID||stamp}`,
       usageType:'featured'
     });
     expect(statusOf(prepared)).toBe(200);
@@ -494,7 +494,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(String(privateMedia.checksum||'').toLowerCase()).toBe(checksum);
 
     const encodedPrivate=privateKey.split('/').map(encodeURIComponent).join('/');
-    const anonymousPrivate=await fetch(\`\${supabaseURL}/storage/v1/object/newsroom-private/\${encodedPrivate}\`,{headers:{apikey:anonKey}});
+    const anonymousPrivate=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{headers:{apikey:anonKey}});
     expect([400,401,403,404]).toContain(statusOf(anonymousPrivate));
 
     const beforeDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
@@ -505,10 +505,10 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(submitted)).toBe(200);
     for(const nextStatus of ['Fact check','Health / Science review','Copy edit','Editor review','Ready']){
       const moved=await appPost(editor,'transitionStory',{storyId,nextStatus});
-      expect(statusOf(moved),\`Editor transition to \${nextStatus}\`).toBe(200);
+      expect(statusOf(moved),`Editor transition to ${nextStatus}`).toBe(200);
     }
 
-    const publicKey=\`story-media/\${storyId}/\${mediaId}/\${checksum}/\${filename}\`;
+    const publicKey=`story-media/${storyId}/${mediaId}/${checksum}/${filename}`;
     const encodedPublic=publicKey.split('/').map(encodeURIComponent).join('/');
 
     const reporterPublish=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Published'});
@@ -517,7 +517,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(commercialPublish)).toBe(403);
 
     for(const raw of [rawReporter,rawCommercial]){
-      const denied=await fetch(\`\${supabaseURL}/storage/v1/object/newsroom-public/\${encodedPublic}\`,{
+      const denied=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedPublic}`,{
         method:'POST',
         headers:{...raw.headers,'Content-Type':'image/png','x-upsert':'false'},
         body:image
@@ -537,7 +537,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(stillHidden.response)).toBe(200);
     expect(stillHidden.body).toBeNull();
 
-    const absentPublic=await fetch(\`\${supabaseURL}/storage/v1/object/public/newsroom-public/\${encodedPublic}\`);
+    const absentPublic=await fetch(`${supabaseURL}/storage/v1/object/public/newsroom-public/${encodedPublic}`);
     expect([400,404]).toContain(statusOf(absentPublic));
 
     const published=await appPost(publisher,'transitionStory',{storyId,nextStatus:'Published'});
@@ -560,8 +560,8 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const publicChecksum=crypto.createHash('sha256').update(publicBytes).digest('hex');
     expect(publicChecksum).toBe(checksum);
 
-    const privateObject=await fetch(\`\${supabaseURL}/storage/v1/object/newsroom-private/\${encodedPrivate}\`,{
-      headers:{apikey:anonKey,Authorization:\`Bearer \${rawPublisher.session.access_token}\`}
+    const privateObject=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{
+      headers:{apikey:anonKey,Authorization:`Bearer ${rawPublisher.session.access_token}`}
     });
     expect(statusOf(privateObject)).toBe(200);
     const privateBytes=Buffer.from(await privateObject.arrayBuffer());
@@ -583,7 +583,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(story.workflow_status).toBe('Published');
     expect(story.distribution?.public_reader).toBe(true);
 
-    const overwrite=await fetch(\`\${supabaseURL}/storage/v1/object/newsroom-public/\${encodedPublic}\`,{
+    const overwrite=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedPublic}`,{
       method:'POST',
       headers:{...rawPublisher.headers,'Content-Type':'image/png','x-upsert':'false'},
       body:Buffer.from('conflicting public media bytes')
