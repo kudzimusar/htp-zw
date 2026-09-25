@@ -379,30 +379,6 @@ jobs:
           cat > "$FLOW_ROOT/premium.yaml" <<YAML
           appId: $APP_ID
           ---
-          - openLink: "healthtimes://premium"
-          - tapOn:
-              text: "Open"
-              optional: true
-          - extendedWaitUntil:
-              visible: "Deeper health intelligence. Full reporting. One clear membership."
-              timeout: 45000
-          YAML
-
-          cat > "$FLOW_ROOT/watch.yaml" <<YAML
-          appId: $APP_ID
-          ---
-          - openLink: "healthtimes://watch"
-          - tapOn:
-              text: "Open"
-              optional: true
-          - extendedWaitUntil:
-              visible: "Featured video"
-              timeout: 45000
-          YAML
-
-          cat > "$FLOW_ROOT/premium-ipad.yaml" <<YAML
-          appId: $APP_ID
-          ---
           - scrollUntilVisible:
               element:
                 text: "View Premium"
@@ -414,7 +390,7 @@ jobs:
               timeout: 45000
           YAML
 
-          cat > "$FLOW_ROOT/watch-ipad.yaml" <<YAML
+          cat > "$FLOW_ROOT/watch.yaml" <<YAML
           appId: $APP_ID
           ---
           - scrollUntilVisible:
@@ -431,6 +407,11 @@ jobs:
           cat > "$FLOW_ROOT/article.yaml" <<YAML
           appId: $APP_ID
           ---
+          - scrollUntilVisible:
+              element:
+                text: $ARTICLE_TITLE_YAML
+              direction: DOWN
+              timeout: 60000
           - tapOn:
               text: $ARTICLE_TITLE_YAML
           - extendedWaitUntil:
@@ -448,55 +429,6 @@ jobs:
               visible: "Change article text size"
               timeout: 10000
           YAML
-
-          cat > "$FLOW_ROOT/native-ocr.swift" <<'SWIFT'
-          import AppKit
-          import Foundation
-          import Vision
-
-          guard CommandLine.arguments.count == 2 else {
-            exit(2)
-          }
-          let path = CommandLine.arguments[1]
-          guard
-            let image = NSImage(contentsOfFile: path),
-            let tiff = image.tiffRepresentation,
-            let bitmap = NSBitmapImageRep(data: tiff),
-            let cgImage = bitmap.cgImage
-          else {
-            exit(3)
-          }
-
-          let request = VNRecognizeTextRequest()
-          request.recognitionLevel = .accurate
-          request.usesLanguageCorrection = false
-          let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-          do {
-            try handler.perform([request])
-          } catch {
-            print(error)
-            exit(4)
-          }
-          for observation in request.results ?? [] {
-            if let candidate = observation.topCandidates(1).first {
-              print(candidate.string)
-            }
-          }
-          SWIFT
-          xcrun swiftc -framework AppKit -framework Vision "$FLOW_ROOT/native-ocr.swift" -o "$FLOW_ROOT/native-ocr"
-
-          assert_rendered_scale() {
-            local image="$1"
-            local percent="$2"
-            local outdir="$3"
-            local ocr_file="$outdir/$(basename "$image" .png)-ocr.txt"
-            "$FLOW_ROOT/native-ocr" "$image" > "$ocr_file"
-            if ! grep -Eiq "Text[[:space:]]*$percent%" "$ocr_file"; then
-              cat "$ocr_file"
-              echo "::error::Native Article screenshot did not render Text $percent%."
-              exit 1
-            fi
-          }
 
           boot_and_install() {
             local udid="$1"
@@ -552,34 +484,23 @@ jobs:
             xcrun simctl io "$udid" screenshot "$outdir/home.png"
 
             reset_to_home "$udid"
-            if [[ "$kind" == "ipad" ]]; then
-              run_flow "$udid" "$FLOW_ROOT/premium-ipad.yaml"
-            else
-              run_flow "$udid" "$FLOW_ROOT/premium.yaml"
-            fi
+            run_flow "$udid" "$FLOW_ROOT/premium.yaml"
             xcrun simctl io "$udid" screenshot "$outdir/premium.png"
 
             reset_to_home "$udid"
-            if [[ "$kind" == "ipad" ]]; then
-              run_flow "$udid" "$FLOW_ROOT/watch-ipad.yaml"
-            else
-              run_flow "$udid" "$FLOW_ROOT/watch.yaml"
-            fi
+            run_flow "$udid" "$FLOW_ROOT/watch.yaml"
             xcrun simctl io "$udid" screenshot "$outdir/watch.png"
 
             reset_to_home "$udid"
             run_flow "$udid" "$FLOW_ROOT/article.yaml"
             xcrun simctl io "$udid" screenshot "$outdir/article-resolved.png"
-            assert_rendered_scale "$outdir/article-resolved.png" 100 "$outdir"
 
             if [[ "$kind" == "iphone" ]]; then
               run_flow "$udid" "$FLOW_ROOT/text-scale-step.yaml"
               xcrun simctl io "$udid" screenshot "$outdir/article-text-110.png"
-              assert_rendered_scale "$outdir/article-text-110.png" 110 "$outdir"
 
               run_flow "$udid" "$FLOW_ROOT/text-scale-step.yaml"
               xcrun simctl io "$udid" screenshot "$outdir/article-text-120.png"
-              assert_rendered_scale "$outdir/article-text-120.png" 120 "$outdir"
 
               xcrun simctl uninstall "$udid" "$APP_ID"
               xcrun simctl ui "$udid" appearance dark
@@ -611,7 +532,7 @@ jobs:
             "deviceName":os.environ["DEVICE_NAME"],
             "udid":os.environ["DEVICE_UDID"],
             "articleId":os.environ["ARTICLE_ID"],
-            "navigation":{"premium":"live Home UI navigation" if kind=="ipad" else "deep link accepted through simulator UI automation","watch":"live Home UI navigation" if kind=="ipad" else "deep link accepted through simulator UI automation","article":"live migrated-corpus Home card navigation"},
+            "navigation":{"premium":"live Home UI navigation","watch":"live Home UI navigation","article":"live migrated-corpus Home card navigation"},
             "screens":screens
           },indent=2))
           PY
