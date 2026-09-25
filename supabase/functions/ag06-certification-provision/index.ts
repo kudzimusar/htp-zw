@@ -72,26 +72,64 @@ Deno.serve(async (req:Request) => {
         .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification")
         .map((p:any)=>String(p.id));
       let deletedMediaAssets = 0;
-      let deletedStorageObjects = 0;
+      let deletedPrivateStorageObjects = 0;
+      let deletedPublicStorageObjects = 0;
+      let readerReleasedStoriesCleared = 0;
+      let deletedCertificationStoryRows = 0;
+      let certificationStoryRowsRemaining = 0;
       if (cleanupProfileIds.length) {
+        const storyRows:any[] = [];
+        for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
+          const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const stories = await admin.from("stories")
+            .select("id,distribution")
+            .in("owner_staff_id",profileBatch);
+          if (stories.error) throw stories.error;
+          storyRows.push(...(stories.data || []));
+        }
+        const uniqueStories=[...new Map(storyRows.map((s:any)=>[String(s.id),s])).values()];
+        for (const story of uniqueStories) {
+          const currentDistribution =
+            (story as any).distribution && typeof (story as any).distribution === "object"
+              ? (story as any).distribution
+              : {};
+          if (currentDistribution.public_reader !== true) continue;
+          const distribution = {...currentDistribution,public_reader:false};
+          const cleared = await admin.from("stories")
+            .update({distribution})
+            .eq("id",(story as any).id);
+          if (cleared.error) throw cleared.error;
+          readerReleasedStoriesCleared += 1;
+        }
         const rows:any[] = [];
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
           const profileBatch=cleanupProfileIds.slice(offset,offset+25);
           const media = await admin.from("media_assets")
-            .select("id,storage_bucket,storage_key,uploaded_by_staff_id")
+            .select("id,storage_bucket,storage_key,public_storage_bucket,public_storage_key,uploaded_by_staff_id")
             .in("uploaded_by_staff_id",profileBatch)
             .eq("storage_bucket","newsroom-private");
           if (media.error) throw media.error;
           rows.push(...(media.data || []));
         }
         const uniqueRows=[...new Map(rows.map((m:any)=>[String(m.id),m])).values()];
-        const keys = uniqueRows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
-        for (let offset=0;offset<keys.length;offset+=100) {
-          const batch=keys.slice(offset,offset+100);
+        const privateKeys = uniqueRows.map((m:any)=>String(m.storage_key||"")).filter(Boolean);
+        for (let offset=0;offset<privateKeys.length;offset+=100) {
+          const batch=privateKeys.slice(offset,offset+100);
           if (!batch.length) continue;
           const removed=await admin.storage.from("newsroom-private").remove(batch);
           if (removed.error) throw removed.error;
-          deletedStorageObjects += batch.length;
+          deletedPrivateStorageObjects += batch.length;
+        }
+        const publicKeys = uniqueRows
+          .filter((m:any)=>String(m.public_storage_bucket||"")==="newsroom-public")
+          .map((m:any)=>String(m.public_storage_key||""))
+          .filter(Boolean);
+        for (let offset=0;offset<publicKeys.length;offset+=100) {
+          const batch=publicKeys.slice(offset,offset+100);
+          if (!batch.length) continue;
+          const removed=await admin.storage.from("newsroom-public").remove(batch);
+          if (removed.error) throw removed.error;
+          deletedPublicStorageObjects += batch.length;
         }
         const ids=uniqueRows.map((m:any)=>String(m.id));
         for (let offset=0;offset<ids.length;offset+=100) {
@@ -100,6 +138,32 @@ Deno.serve(async (req:Request) => {
           const removed=await admin.from("media_assets").delete().in("id",batch);
           if (removed.error) throw removed.error;
           deletedMediaAssets += batch.length;
+        }
+
+        // Certification stories are synthetic staging fixtures. Once their media is removed
+        // and Reader release markers are cleared, delete them instead of accumulating
+        // published/draft fixture rows in the working Newsroom. Restrictive foreign keys
+        // fail closed if a fixture unexpectedly acquired non-certification dependencies.
+        const storyIds=uniqueStories.map((s:any)=>String(s.id));
+        for (let offset=0;offset<storyIds.length;offset+=100) {
+          const batch=storyIds.slice(offset,offset+100);
+          if (!batch.length) continue;
+          const removed=await admin.from("stories").delete().in("id",batch).select("id");
+          if (removed.error) throw removed.error;
+          deletedCertificationStoryRows += (removed.data || []).length;
+        }
+
+        certificationStoryRowsRemaining = 0;
+        for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
+          const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const remainingStories = await admin.from("stories")
+            .select("id",{count:"exact",head:true})
+            .in("owner_staff_id",profileBatch);
+          if (remainingStories.error) throw remainingStories.error;
+          certificationStoryRowsRemaining += remainingStories.count || 0;
+        }
+        if (certificationStoryRowsRemaining !== 0) {
+          throw new Error(`AG-06 certification story residue remains after cleanup: ${certificationStoryRowsRemaining}`);
         }
       }
 
@@ -141,7 +205,11 @@ Deno.serve(async (req:Request) => {
         retained_profiles_status:"revoked",
         live_sessions_remaining:liveSessions.length,
         deleted_private_media_assets:deletedMediaAssets,
-        deleted_private_storage_objects:deletedStorageObjects
+        deleted_private_storage_objects:deletedPrivateStorageObjects,
+        deleted_public_storage_objects:deletedPublicStorageObjects,
+        reader_release_markers_cleared:readerReleasedStoriesCleared,
+        deleted_certification_story_rows:deletedCertificationStoryRows,
+        certification_story_rows_remaining:certificationStoryRowsRemaining
       });
     }
 

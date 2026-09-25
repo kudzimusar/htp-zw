@@ -250,6 +250,183 @@ async function storyMediaObjectInfo(bucket, objectKey, token) {
   return storageUserRequest(`/object/info/${storageObjectPath(bucket,objectKey)}`,token);
 }
 
+async function downloadStorageObject(bucket, objectKey, token) {
+  const { url, publishable }=config();
+  if(!url||!publishable||!token){
+    const error=new Error('Authenticated staging storage session is not configured.');
+    error.status=503;
+    throw error;
+  }
+  const response=await fetch(`${url}/storage/v1/object/${storageObjectPath(bucket,objectKey)}`,{
+    method:'GET',
+    headers:{apikey:publishable,Authorization:`Bearer ${token}`},
+    redirect:'manual'
+  });
+  if(!response.ok){
+    const text=await response.text();
+    const error=new Error(`Storage object read failed (${response.status})`);
+    error.status=response.status;
+    error.backend=text;
+    throw error;
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function uploadStorageObject(bucket, objectKey, bytes, mimeType, token) {
+  const { url, publishable }=config();
+  if(!url||!publishable||!token){
+    const error=new Error('Authenticated staging storage session is not configured.');
+    error.status=503;
+    throw error;
+  }
+  const response=await fetch(`${url}/storage/v1/object/${storageObjectPath(bucket,objectKey)}`,{
+    method:'POST',
+    headers:{
+      apikey:publishable,
+      Authorization:`Bearer ${token}`,
+      'Content-Type':String(mimeType||'application/octet-stream'),
+      'cache-control':'31536000',
+      'x-upsert':'false'
+    },
+    body:bytes,
+    redirect:'manual'
+  });
+  const text=await response.text();
+  if(response.status===409||response.status===400){
+    const error=new Error('Public media object already exists.');
+    error.status=response.status;
+    error.code='STORAGE_OBJECT_EXISTS';
+    error.backend=text;
+    throw error;
+  }
+  if(!response.ok){
+    const error=new Error(`Storage object upload failed (${response.status})`);
+    error.status=response.status;
+    error.backend=text;
+    throw error;
+  }
+}
+
+async function deleteStorageObject(bucket, objectKey, token) {
+  const { url, publishable }=config();
+  if(!url||!publishable||!token){
+    const error=new Error('Authenticated staging storage session is not configured.');
+    error.status=503;
+    throw error;
+  }
+  const response=await fetch(`${url}/storage/v1/object/${storageObjectPath(bucket,objectKey)}`,{
+    method:'DELETE',
+    headers:{apikey:publishable,Authorization:`Bearer ${token}`},
+    redirect:'manual'
+  });
+  if(response.status===404) return;
+  if(!response.ok){
+    const text=await response.text();
+    const error=new Error(`Storage object cleanup failed (${response.status})`);
+    error.status=response.status;
+    error.backend=text;
+    throw error;
+  }
+}
+
+function sha256(bytes){
+  return crypto.createHash('sha256').update(bytes).digest('hex');
+}
+
+function publicStoryMediaKey(storyId, media, checksum){
+  const filename=String(media.filename||'').trim();
+  if(!filename||!/^[A-Za-z0-9._-]+$/.test(filename)){
+    const error=new Error('Promoted media filename is not storage-safe.');
+    error.status=409;
+    throw error;
+  }
+  return `story-media/${storyId}/${media.media_id}/${checksum}/${filename}`;
+}
+
+async function promoteFeaturedStoryMedia(storyId, token) {
+  const rows=await rpc('newsroom_story_media_promotion_plan',{p_story_id:storyId},token);
+  const mediaRows=Array.isArray(rows)?rows:[];
+  const staged=[];
+
+  for(const media of mediaRows){
+    if(
+      media.media_status==='published' &&
+      media.public_storage_bucket==='newsroom-public' &&
+      media.public_storage_key &&
+      media.public_url
+    ) continue;
+
+    const privateBytes=await downloadStorageObject(media.private_bucket,media.private_key,token);
+    const checksum=sha256(privateBytes);
+    if(media.checksum&&String(media.checksum).toLowerCase()!==checksum){
+      const error=new Error('Private media checksum verification failed.');
+      error.status=409;
+      throw error;
+    }
+
+    const publicKey=publicStoryMediaKey(storyId,media,checksum);
+    let objectVerified=false;
+    let uploadedNow=false;
+    try{
+      await uploadStorageObject('newsroom-public',publicKey,privateBytes,media.mime_type,token);
+      objectVerified=true;
+      uploadedNow=true;
+    }catch(error){
+      if(error?.code!=='STORAGE_OBJECT_EXISTS') throw error;
+      const existing=await downloadStorageObject('newsroom-public',publicKey,token);
+      if(sha256(existing)!==checksum){
+        const conflict=new Error('Existing promoted media object failed checksum verification.');
+        conflict.status=409;
+        throw conflict;
+      }
+      objectVerified=true;
+    }
+
+    if(!objectVerified){
+      const error=new Error('Public media promotion could not be verified.');
+      error.status=502;
+      throw error;
+    }
+
+    try{
+      await rpc('newsroom_stage_story_media_promotion',{
+        p_story_id:storyId,
+        p_media_id:media.media_id,
+        p_public_storage_key:publicKey,
+        p_verified_checksum:checksum
+      },token);
+    }catch(error){
+      if(uploadedNow){
+        try{await deleteStorageObject('newsroom-public',publicKey,token);}catch{}
+      }
+      throw error;
+    }
+    staged.push({mediaId:media.media_id,publicKey});
+  }
+
+  return staged;
+}
+
+async function rollbackStagedStoryMedia(storyId, staged, token) {
+  for(const item of [...staged].reverse()){
+    try{
+      await deleteStorageObject('newsroom-public',item.publicKey,token);
+      await rpc('newsroom_clear_staged_story_media',{
+        p_story_id:storyId,
+        p_media_id:item.mediaId
+      },token);
+    }catch(error){
+      if(process.env.AG06_CERTIFICATION_DEBUG==='1'){
+        console.error('AG06_PUBLIC_MEDIA_ROLLBACK_FAILED',JSON.stringify({
+          storyId,
+          mediaId:item.mediaId,
+          status:Number(error?.status)||500
+        }));
+      }
+    }
+  }
+}
+
 async function createSignedStoryPreview(bucket, objectKey, token, expiresIn=300) {
   const { url }=config();
   const data=await storageUserRequest(`/object/sign/${storageObjectPath(bucket,objectKey)}`,token,{
@@ -505,12 +682,25 @@ async function handle(req, res) {
       return json(res, 200, { ok: true, version });
     }
     if (action === 'transitionStory') {
-      const status = await call('newsroom_transition_story', {
-        p_story_id: body.storyId,
-        p_next_status: body.nextStatus,
-        p_reason: body.reason || null
-      });
-      return json(res, 200, { ok: true, status });
+      const storyId=body.storyId;
+      const nextStatus=String(body.nextStatus||'');
+      let staged=[];
+      try{
+        if(nextStatus==='Published'){
+          staged=await promoteFeaturedStoryMedia(storyId,token);
+        }
+        const status = await call('newsroom_transition_story', {
+          p_story_id: storyId,
+          p_next_status: nextStatus,
+          p_reason: body.reason || null
+        });
+        return json(res, 200, { ok: true, status });
+      }catch(error){
+        if(nextStatus==='Published'&&staged.length){
+          await rollbackStagedStoryMedia(storyId,staged,token);
+        }
+        throw error;
+      }
     }
     if (action === 'createAssignment') {
       const id = await call('newsroom_create_assignment', { p_payload: body.assignment || {} });
@@ -802,7 +992,10 @@ async function handle(req, res) {
     }
     if (action === 'getMediaPreview') {
       const context=await call('newsroom_get_media_preview',{p_media_id:body.mediaId});
-      if(context.public_url) return json(res,200,{ok:true,url:context.public_url,public:true});
+      if(context.public_url) {
+        const absolute=new URL(String(context.public_url),config().url.replace(/\/$/,'')+'/').toString();
+        return json(res,200,{ok:true,url:absolute,public:true});
+      }
       if(context.storage_bucket!=='newsroom-private') return json(res,409,{ok:false,error:'Private preview is unavailable for this media asset.'});
       const previewUrl=await createSignedStoryPreview(context.storage_bucket,context.storage_key,token,300);
       return json(res,200,{ok:true,url:previewUrl,public:false,expiresIn:300});

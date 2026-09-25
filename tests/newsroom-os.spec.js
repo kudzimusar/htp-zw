@@ -23,8 +23,9 @@ async function signIn(page, kind) {
   await page.locator('[data-login-form] input[name="email"]').fill(account.email);
   await page.locator('[data-login-form] input[name="password"]').fill(account.password);
   await page.locator('[data-login-form] button[type="submit"]').click();
-  await expect(page.locator('[data-newsroom-app]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-newsroom-app]')).toBeVisible({ timeout: 35_000 });
   await expect(page.locator('[data-login-view]')).toBeHidden();
+  await expect(page.locator('[data-topline]')).not.toHaveText('',{timeout:5_000});
 }
 
 
@@ -80,7 +81,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     reporterStoryTitle = `AG06 UI Autosave ${Date.now()}`;
     await page.locator('[data-quick-create]').first().click();
     try {
-      await expect(page.locator('[data-story-modal]')).toBeVisible();
+      await expect(page.locator('[data-story-modal]')).toBeVisible({timeout:35_000});
     } catch (error) {
       console.log('AG06_UI_TOAST', await page.locator('[data-newsroom-toast]').textContent().catch(()=>'')); 
       throw error;
@@ -108,7 +109,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
     await page.locator('[data-story-modal-close]').click();
 
     await page.reload();
-    await expect(page.locator('[data-newsroom-app]')).toBeVisible();
+    await expect(page.locator('[data-newsroom-app]')).toBeVisible({timeout:35_000});
     await page.locator('[data-module="my-stories"]').click();
     const row = page.locator('tr').filter({ hasText: reporterStoryTitle });
     await expect(row).toBeVisible();

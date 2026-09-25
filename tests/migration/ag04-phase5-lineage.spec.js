@@ -11,7 +11,10 @@ const declaredForwardMigrations=[
   '20260924072830_ag06_story_media_request_changes.sql',
   '20260924073135_ag06_media_listing_performance.sql',
   '20260924073537_ag06_media_storage_policy_helper.sql',
-  '20260924074219_ag06_media_storage_read_helper.sql'
+  '20260924074219_ag06_media_storage_read_helper.sql',
+  '20260924103201_ag06_cms_public_media_promotion.sql',
+  '20260924105815_ag06_native_reader_release_marker.sql',
+  '20260925230247_ag06_public_story_release_boundary_hardening.sql'
 ].sort();
 const currentExpected=[...expected,...declaredForwardMigrations].sort();
 
@@ -19,7 +22,7 @@ test('AG-04 Phase 5 adopted live ledger identities remain present and unchanged 
   const actual=fs.readdirSync(migrationDir).filter((x)=>x.endsWith('.sql')).sort();
   expect(actual).toEqual(currentExpected);
   expect(expected).toHaveLength(43);
-  expect(declaredForwardMigrations).toHaveLength(4);
+  expect(declaredForwardMigrations).toHaveLength(7);
   expect(new Set(manifest.entries.map((e)=>e.live_version)).size).toBe(43);
   for(const filename of expected) expect(fs.existsSync(path.join(migrationDir,filename))).toBeTruthy();
 });

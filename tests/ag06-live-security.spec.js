@@ -405,4 +405,247 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     await Promise.all([reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose()]);
   });
 
+  test('CMS-native featured media promotion remains private until Publisher publication and releases a public Reader document',async()=>{
+    test.setTimeout(240_000);
+    expect(directSupabaseConfigured,'Public-media certification requires HealthTimes Staging publishable configuration').toBeTruthy();
+
+    const stamp=Date.now();
+    const slug=`ag06-public-media-${stamp}`;
+    const path=`/${slug}/`;
+    const filename=`ag06-public-${stamp}.png`;
+    const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
+    const checksum=crypto.createHash('sha256').update(image).digest('hex');
+
+    const reporter=await appAdoptLogin('reporter');
+    const editor=await appAdoptLogin('editor');
+    const commercial=await appAdoptLogin('commercial');
+    const publisher=await appAdoptLogin('publisher');
+    const rawReporter=await rawAuth('reporter');
+    const rawCommercial=await rawAuth('commercial');
+    const rawPublisher=await rawAuth('publisher');
+
+    const anonRpc=async(name,args)=>{
+      const response=await fetch(`${supabaseURL}/rest/v1/rpc/${name}`,{
+        method:'POST',
+        headers:{apikey:anonKey,'Content-Type':'application/json'},
+        body:JSON.stringify(args)
+      });
+      return {response,body:await response.json().catch(()=>null)};
+    };
+    const rawRpc=async(raw,name,args)=>{
+      const response=await fetch(`${supabaseURL}/rest/v1/rpc/${name}`,{
+        method:'POST',headers:raw.headers,body:JSON.stringify(args)
+      });
+      return {response,body:await response.json().catch(()=>null)};
+    };
+
+    let reporterBoot=await appBootstrap(reporter);
+    expect(statusOf(reporterBoot.response)).toBe(200);
+    const created=await appPost(reporter,'createStory',{story:{
+      title:`AG06 Public Media ${stamp}`,
+      slug,desk:'Africa',country:'Zimbabwe',region:'Africa'
+    }});
+    expect(statusOf(created)).toBe(200);
+    const storyId=(await created.json()).id;
+
+    reporterBoot=await appBootstrap(reporter);
+    let story=reporterBoot.body.data.stories.find(s=>s.id===storyId);
+    expect(story).toBeTruthy();
+    const saved=await appPost(reporter,'saveStory',{
+      storyId,expectedVersion:story.lock_version,
+      patch:{
+        title:`AG06 Public Media ${stamp}`,
+        standfirst:'CMS-native public media certification.',
+        body:'Public Reader certification body for CMS-native promotion.',
+        sources:'AG-06 staging certification source.'
+      },
+      reason:'Prepare CMS public-media certification story'
+    });
+    expect(statusOf(saved)).toBe(200);
+
+    const prepared=await appPost(reporter,'prepareStoryMedia',{
+      storyId,filename,mimeType:'image/png',byteSize:image.length,checksum,
+      altText:'HealthTimes AG-06 staging certification image',
+      caption:'AG-06 CMS public media certification',
+      credit:'HealthTimes certification',
+      sourceProvenance:`AG06_PUBLIC_MEDIA_CERT:${process.env.GITHUB_RUN_ID||stamp}`,
+      usageType:'featured'
+    });
+    expect(statusOf(prepared)).toBe(200);
+    const preparedBody=await prepared.json();
+    const mediaId=preparedBody.prepared.media_id;
+    const privateKey=preparedBody.prepared.storage_key;
+    expect(preparedBody.prepared.storage_bucket).toBe('newsroom-private');
+
+    const uploadForm=new FormData();
+    uploadForm.append('cacheControl','3600');
+    uploadForm.append('',new Blob([image],{type:'image/png'}),filename);
+    const uploaded=await fetch(preparedBody.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:uploadForm});
+    expect(statusOf(uploaded)).toBe(200);
+
+    const finalized=await appPost(reporter,'finalizeStoryMedia',{mediaId,storyId,usageType:'featured',checksum});
+    expect(statusOf(finalized)).toBe(200);
+
+    reporterBoot=await appBootstrap(reporter);
+    const privateMedia=(reporterBoot.body.data.media||[]).find(m=>m.id===mediaId);
+    expect(privateMedia).toBeTruthy();
+    expect(privateMedia.storage_bucket).toBe('newsroom-private');
+    expect(privateMedia.status).toBe('private_ready');
+    expect(String(privateMedia.checksum||'').toLowerCase()).toBe(checksum);
+
+    const encodedPrivate=privateKey.split('/').map(encodeURIComponent).join('/');
+    const anonymousPrivate=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{headers:{apikey:anonKey}});
+    expect([400,401,403,404]).toContain(statusOf(anonymousPrivate));
+
+    const beforeDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
+    expect(statusOf(beforeDoc.response)).toBe(200);
+    expect(beforeDoc.body).toBeNull();
+
+    const beforeList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(beforeList.response)).toBe(200);
+    expect(beforeList.body).toEqual([]);
+
+    const submitted=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Submitted'});
+    expect(statusOf(submitted)).toBe(200);
+    for(const nextStatus of ['Fact check','Health / Science review','Copy edit','Editor review','Ready']){
+      const moved=await appPost(editor,'transitionStory',{storyId,nextStatus});
+      expect(statusOf(moved),`Editor transition to ${nextStatus}`).toBe(200);
+    }
+
+    const publicKey=`story-media/${storyId}/${mediaId}/${checksum}/${filename}`;
+    const encodedPublic=publicKey.split('/').map(encodeURIComponent).join('/');
+
+    const reporterPublish=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Published'});
+    expect(statusOf(reporterPublish)).toBe(403);
+    const commercialPublish=await appPost(commercial,'transitionStory',{storyId,nextStatus:'Published'});
+    expect(statusOf(commercialPublish)).toBe(403);
+
+    for(const raw of [rawReporter,rawCommercial]){
+      const denied=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedPublic}`,{
+        method:'POST',
+        headers:{...raw.headers,'Content-Type':'image/png','x-upsert':'false'},
+        body:image
+      });
+      expect([400,401,403]).toContain(statusOf(denied));
+    }
+
+    const directFail=await rawRpc(rawPublisher,'newsroom_transition_story',{
+      p_story_id:storyId,p_next_status:'Published',p_reason:'Direct fail-closed certification'
+    });
+    expect([400,409]).toContain(statusOf(directFail.response));
+
+    let publisherBoot=await appBootstrap(publisher);
+    story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
+    expect(story.workflow_status).toBe('Ready');
+    const stillHidden=await anonRpc('newsroom_public_story_document',{p_path:path});
+    expect(statusOf(stillHidden.response)).toBe(200);
+    expect(stillHidden.body).toBeNull();
+
+    const absentPublic=await fetch(`${supabaseURL}/storage/v1/object/public/newsroom-public/${encodedPublic}`);
+    expect([400,404]).toContain(statusOf(absentPublic));
+
+    const published=await appPost(publisher,'transitionStory',{storyId,nextStatus:'Published'});
+    expect(statusOf(published)).toBe(200);
+
+    const plan=await rawRpc(rawPublisher,'newsroom_story_media_promotion_plan',{p_story_id:storyId});
+    expect(statusOf(plan.response)).toBe(200);
+    const promoted=(Array.isArray(plan.body)?plan.body:[]).find(m=>m.media_id===mediaId);
+    expect(promoted).toBeTruthy();
+    expect(promoted.private_bucket).toBe('newsroom-private');
+    expect(promoted.public_storage_bucket).toBe('newsroom-public');
+    expect(promoted.public_storage_key).toBe(publicKey);
+    expect(String(promoted.checksum||'').toLowerCase()).toBe(checksum);
+    expect(promoted.media_status).toBe('published');
+
+    const publicUrl=new URL(String(promoted.public_url),supabaseURL+'/').toString();
+    const publicObject=await fetch(publicUrl);
+    expect(statusOf(publicObject)).toBe(200);
+    const publicBytes=Buffer.from(await publicObject.arrayBuffer());
+    const publicChecksum=crypto.createHash('sha256').update(publicBytes).digest('hex');
+    expect(publicChecksum).toBe(checksum);
+
+    const privateObject=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{
+      headers:{apikey:anonKey,Authorization:`Bearer ${rawPublisher.session.access_token}`}
+    });
+    expect(statusOf(privateObject)).toBe(200);
+    const privateBytes=Buffer.from(await privateObject.arrayBuffer());
+    const privateChecksum=crypto.createHash('sha256').update(privateBytes).digest('hex');
+    expect(privateChecksum).toBe(checksum);
+
+    const afterDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
+    expect(statusOf(afterDoc.response)).toBe(200);
+    expect(afterDoc.body?.source_type).toBe('native-story');
+    expect(afterDoc.body?.handling).toBe('native_cms');
+    expect(afterDoc.body?.featured_storage_bucket).toBe('newsroom-public');
+    expect(afterDoc.body?.featured_storage_object).toBe(publicKey);
+    expect(afterDoc.body?.featured_public_url).toBe(promoted.public_url);
+    expect(afterDoc.body?.featured_checksum).toBe(checksum);
+    expect(afterDoc.body?.body_html).toContain('Public Reader certification body');
+
+    const afterList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(afterList.response)).toBe(200);
+    expect(Array.isArray(afterList.body)).toBe(true);
+    expect(afterList.body).toHaveLength(1);
+    expect(afterList.body[0]?.id).toBe(storyId);
+
+    publisherBoot=await appBootstrap(publisher);
+    story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
+    expect(story.workflow_status).toBe('Published');
+    expect(story.distribution?.public_reader).toBe(true);
+
+    const overwrite=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedPublic}`,{
+      method:'POST',
+      headers:{...rawPublisher.headers,'Content-Type':'image/png','x-upsert':'false'},
+      body:Buffer.from('conflicting public media bytes')
+    });
+    expect([400,409]).toContain(statusOf(overwrite));
+    const afterConflict=await fetch(publicUrl);
+    expect(statusOf(afterConflict)).toBe(200);
+    expect(crypto.createHash('sha256').update(Buffer.from(await afterConflict.arrayBuffer())).digest('hex')).toBe(checksum);
+
+    const idempotent=await rawRpc(rawPublisher,'newsroom_stage_story_media_promotion',{
+      p_story_id:storyId,p_media_id:mediaId,p_public_storage_key:publicKey,p_verified_checksum:checksum
+    });
+    expect(statusOf(idempotent.response)).toBe(200);
+    expect(idempotent.body?.status).toBe('published');
+
+    const premium=await appPost(publisher,'setPremium',{storyId,accessPolicy:'premium'});
+    expect(statusOf(premium)).toBe(200);
+    const premiumDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
+    expect(statusOf(premiumDoc.response)).toBe(200);
+    expect(premiumDoc.body?.access_policy).toBe('premium');
+    expect(premiumDoc.body?.body_html).toBeNull();
+    expect(premiumDoc.body?.featured_public_url).toBe(promoted.public_url);
+
+    const premiumList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(premiumList.response)).toBe(200);
+    expect(premiumList.body).toEqual([]);
+
+    console.log('AG06_PUBLIC_MEDIA_EVIDENCE',JSON.stringify({
+      story_id:storyId,
+      media_id:mediaId,
+      private_bucket:'newsroom-private',
+      private_key:privateKey,
+      private_checksum:privateChecksum,
+      public_bucket:promoted.public_storage_bucket,
+      public_key:promoted.public_storage_key,
+      public_checksum:publicChecksum,
+      reporter_publish_denied:statusOf(reporterPublish),
+      commercial_publish_denied:statusOf(commercialPublish),
+      direct_unpromoted_publish_denied:statusOf(directFail.response),
+      publication_status:statusOf(published),
+      source_type:afterDoc.body?.source_type,
+      handling:afterDoc.body?.handling,
+      public_reader_release:story.distribution?.public_reader===true,
+      anonymous_public_media_status:statusOf(publicObject),
+      premium_body_protected:premiumDoc.body?.body_html===null,
+      idempotent_promotion:idempotent.body?.status
+    }));
+
+    await Promise.all([
+      reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose(),publisher.ctx.dispose(),
+      rawReporter.session?.access_token?Promise.resolve():Promise.resolve()
+    ]);
+  });
+
 });
