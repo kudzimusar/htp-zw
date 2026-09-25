@@ -237,6 +237,9 @@ jobs:
     timeout-minutes: 75
     env:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+      # Hosted macOS runners can need longer than Maestro's 120s default
+      # while the freshly booted simulator finishes migrations and starts XCUITest.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -447,15 +450,40 @@ jobs:
           run_flow() {
             local udid="$1"
             local flow="$2"
-            if ! maestro --device "$udid" test "$flow"; then
+            local flow_name
+            local attempt_log
+            local status
+            flow_name="$(basename "$flow" .yaml)"
+            attempt_log="$RUNNER_TEMP/maestro-${flow_name}-${RANDOM}.log"
+
+            set +e
+            maestro --device "$udid" test "$flow" 2>&1 | tee "$attempt_log"
+            status=${PIPESTATUS[0]}
+            set -e
+
+            if [[ "$status" -ne 0 ]] && grep -Eq 'iOS driver not ready in time|IOSDriverTimeoutException' "$attempt_log"; then
+              echo "::warning::Maestro iOS driver startup timed out; retrying this flow once after simulator readiness check."
+              xcrun simctl bootstatus "$udid" -b
+              sleep 5
+              set +e
+              maestro --device "$udid" test "$flow" 2>&1 | tee -a "$attempt_log"
+              status=${PIPESTATUS[0]}
+              set -e
+              if [[ -n "${CURRENT_OUTDIR:-}" ]]; then
+                cp "$attempt_log" "$CURRENT_OUTDIR/maestro-${flow_name}-driver-retry.log" || true
+              fi
+            fi
+
+            if [[ "$status" -ne 0 ]]; then
               if [[ -n "${CURRENT_OUTDIR:-}" ]]; then
                 mkdir -p "$CURRENT_OUTDIR/maestro-debug"
+                cp "$attempt_log" "$CURRENT_OUTDIR/maestro-${flow_name}-failure.log" || true
                 latest_debug="$(find "$HOME/.maestro/tests" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort | tail -n 1)"
                 if [[ -n "$latest_debug" && -d "$latest_debug" ]]; then
                   cp -R "$latest_debug"/. "$CURRENT_OUTDIR/maestro-debug/" || true
                 fi
               fi
-              return 1
+              return "$status"
             fi
           }
 
