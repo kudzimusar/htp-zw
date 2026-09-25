@@ -77,12 +77,18 @@ Deno.serve(async (req:Request) => {
       let readerReleasedStoriesCleared = 0;
       let certificationStoryRowsRetained = 0;
       if (cleanupProfileIds.length) {
-        const stories = await admin.from("stories")
-          .select("id,distribution")
-          .in("owner_staff_id",cleanupProfileIds);
-        if (stories.error) throw stories.error;
-        certificationStoryRowsRetained = (stories.data || []).length;
-        for (const story of stories.data || []) {
+        const storyRows:any[] = [];
+        for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
+          const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const stories = await admin.from("stories")
+            .select("id,distribution")
+            .in("owner_staff_id",profileBatch);
+          if (stories.error) throw stories.error;
+          storyRows.push(...(stories.data || []));
+        }
+        const uniqueStories=[...new Map(storyRows.map((s:any)=>[String(s.id),s])).values()];
+        certificationStoryRowsRetained = uniqueStories.length;
+        for (const story of uniqueStories) {
           const currentDistribution =
             (story as any).distribution && typeof (story as any).distribution === "object"
               ? (story as any).distribution
