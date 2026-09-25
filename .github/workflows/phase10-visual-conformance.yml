@@ -761,15 +761,15 @@ jobs:
           fi
           adb exec-out screencap -p > "$OUT/home.png"
 
-          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://premium" "$APP_ID"
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://premium" -n "$APP_ID/.MainActivity"
           wait_for_text 'text="Go Premium"' premium
           adb exec-out screencap -p > "$OUT/premium.png"
 
-          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://watch" "$APP_ID"
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://watch" -n "$APP_ID/.MainActivity"
           wait_for_text 'Watch HealthTimes interviews' watch
           adb exec-out screencap -p > "$OUT/watch.png"
 
-          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$ARTICLE_ID" "$APP_ID"
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$ARTICLE_ID" -n "$APP_ID/.MainActivity"
           wait_for_text 'text="Text 100%"' article
           if grep -q 'Loading article' "$OUT/article-ui.xml"; then
             echo "::error::Android tablet Article evidence was captured before resolution."
