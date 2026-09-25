@@ -39,6 +39,16 @@ test.describe('AG-06 security contract', () => {
     expect(sql).toContain('newsroom_public_published_stories');
   });
 
+  test('public story listing cannot bypass the native Reader release marker', async () => {
+    const hardening = read('supabase/migrations/20260925230247_ag06_public_story_release_boundary_hardening.sql');
+    expect(hardening).toContain('create or replace function public.newsroom_public_published_stories');
+    expect(hardening).toContain('s.legacy_source_id is null');
+    expect(hardening).toContain("coalesce((s.distribution->>'public_reader')::boolean,false)=true");
+    expect(hardening).toContain("lower(s.access_policy)='public'");
+    expect(hardening).toContain('revoke execute on function public.newsroom_public_published_stories(text) from public');
+    expect(hardening).toContain('grant execute on function public.newsroom_public_published_stories(text) to anon, authenticated, service_role');
+  });
+
   test('protected functions are not left executable by anonymous/public roles', async () => {
     const sql = read('supabase/migrations/20260922020254_ag06_newsroom_auth_rbac.sql');
     const hardening = read('supabase/migrations/20260922021521_ag06_security_advisor_hardening.sql');
