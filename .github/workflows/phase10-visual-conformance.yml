@@ -232,11 +232,14 @@ jobs:
           retention-days: 30
 
   candidate-ios:
-    name: Candidate iOS Simulator screenshots
+    name: Candidate iOS + iPad Simulator screenshots
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+      # Hosted macOS runners can need longer than Maestro's 120s default
+      # while the freshly booted simulator finishes migrations and starts XCUITest.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -255,7 +258,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Install Maestro simulator UI driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version
       - name: Generate staging iOS project
         working-directory: apps/mobile
         run: npx expo prebuild --platform ios --clean --no-install
@@ -279,42 +292,309 @@ jobs:
           print(preferred if preferred in schemes else [s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))][0])
           PY
           )
-          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath "$PWD/DerivedData" CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath "$PWD/DerivedData" build
           APP=$(find DerivedData/Build/Products/Release-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
           test -n "$APP"
           echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
-      - name: Capture iOS Reader
+      - name: Capture exact-head iPhone and iPad Reader evidence
         shell: bash
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p phase10-evidence/after/ios
-          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for runtime,items in d.items() for x in items if x.get("isAvailable") and x["name"].startswith("iPhone")))')
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" "$IOS_APP"
-          xcrun simctl launch "$UDID" zw.co.healthtimes.app.staging
-          sleep 20
-          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/home.png
-          xcrun simctl openurl "$UDID" "healthtimes://premium" || true
-          sleep 4
-          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/premium.png
-          xcrun simctl openurl "$UDID" "healthtimes://watch" || true
-          sleep 4
-          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/watch.png
-          printf '{"sha":"%s","udid":"%s","capturedAt":"%s"}\n' "$EXPECTED_SHA" "$UDID" "$(date -u +%FT%TZ)" > phase10-evidence/after/ios/manifest.json
+          export PATH="$HOME/.maestro/bin:$PATH"
+          export MAESTRO_CLI_NO_ANALYTICS=1
+          APP_ID="zw.co.healthtimes.app.staging"
+          resolve_article_id() {
+            node <<'NODE'
+          const base=process.env.EXPO_PUBLIC_SUPABASE_URL;
+          const key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+          if(!base || !key) throw new Error("Staging Supabase configuration is required for native Article evidence.");
+          const headers={apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};
+          async function rpc(name,body){
+            let last="";
+            for(let attempt=1;attempt<=5;attempt++){
+              const response=await fetch(`${base}/rest/v1/rpc/${name}`,{
+                method:"POST",
+                headers,
+                body:JSON.stringify(body)
+              });
+              if(response.ok) return response.json();
+              last=`HTTP ${response.status}: ${await response.text()}`;
+              await new Promise((resolve)=>setTimeout(resolve,attempt*1000));
+            }
+            throw new Error(name+" failed after bounded retries: "+last);
+          }
+          (async()=>{
+            const feed=await rpc("ag05_public_feed_rows",{p_limit:12});
+            for(const row of feed ?? []){
+              if(!row?.canonical_url) continue;
+              let pathname;
+              try{ pathname=new URL(row.canonical_url).pathname; }catch{ continue; }
+              if(!pathname.endsWith("/")) pathname+="/";
+              const document=await rpc("ag05_public_story_document",{p_path:pathname});
+              if(document?.story_id){
+                const title=String(document.story_title ?? document.title ?? row.title ?? "").trim();
+                if(!title) continue;
+                process.stdout.write(JSON.stringify({id:String(document.story_id),title}));
+                return;
+              }
+            }
+            throw new Error("No current staging feed story resolved to an Article document.");
+          })().catch((error)=>{
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
+          }
+          ARTICLE_EVIDENCE="$(resolve_article_id)"
+          test -n "$ARTICLE_EVIDENCE"
+          ARTICLE_ID="$(ARTICLE_EVIDENCE="$ARTICLE_EVIDENCE" node -e 'const v=JSON.parse(process.env.ARTICLE_EVIDENCE); process.stdout.write(v.id)')"
+          ARTICLE_TITLE="$(ARTICLE_EVIDENCE="$ARTICLE_EVIDENCE" node -e 'const v=JSON.parse(process.env.ARTICLE_EVIDENCE); process.stdout.write(v.title)')"
+          ARTICLE_TITLE_YAML="$(ARTICLE_TITLE="$ARTICLE_TITLE" node -e 'process.stdout.write(JSON.stringify(process.env.ARTICLE_TITLE))')"
+          test -n "$ARTICLE_ID"
+          test -n "$ARTICLE_TITLE"
+          echo "EVIDENCE_ARTICLE_ID=$ARTICLE_ID"
+          echo "EVIDENCE_ARTICLE_TITLE=$ARTICLE_TITLE"
+          ROOT="$PWD/phase10-evidence/after/ios"
+          FLOW_ROOT="$RUNNER_TEMP/phase10-maestro"
+          mkdir -p "$ROOT/iphone" "$ROOT/ipad" "$FLOW_ROOT"
+
+          DEVICE_JSON="$(xcrun simctl list devices available -j)"
+          PHONE_UDID=$(printf '%s' "$DEVICE_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for _,items in d.items() for x in items if x.get("isAvailable") and x["name"].startswith("iPhone")))')
+          IPAD_UDID=$(printf '%s' "$DEVICE_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; prefs=("iPad Pro 13-inch","iPad Pro (12.9-inch)","iPad Air 13-inch","iPad Pro 11-inch"); xs=[x for _,items in d.items() for x in items if x.get("isAvailable") and x["name"].startswith("iPad")]; print(next((x["udid"] for p in prefs for x in xs if x["name"].startswith(p)),xs[0]["udid"]))')
+          test -n "$PHONE_UDID"
+          test -n "$IPAD_UDID"
+          PHONE_NAME=$(printf '%s' "$DEVICE_JSON" | DEVICE="$PHONE_UDID" python3 -c 'import json,os,sys; d=json.load(sys.stdin)["devices"]; print(next(x["name"] for _,items in d.items() for x in items if x["udid"]==os.environ["DEVICE"]))')
+          IPAD_NAME=$(printf '%s' "$DEVICE_JSON" | DEVICE="$IPAD_UDID" python3 -c 'import json,os,sys; d=json.load(sys.stdin)["devices"]; print(next(x["name"] for _,items in d.items() for x in items if x["udid"]==os.environ["DEVICE"]))')
+          echo "PHONE_UDID=$PHONE_UDID PHONE_NAME=$PHONE_NAME"
+          echo "IPAD_UDID=$IPAD_UDID IPAD_NAME=$IPAD_NAME"
+
+          cat > "$FLOW_ROOT/home.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - launchApp
+          - extendedWaitUntil:
+              visible: "For You"
+              timeout: 45000
+          YAML
+
+          cat > "$FLOW_ROOT/premium.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - scrollUntilVisible:
+              element:
+                text: "View Premium"
+              direction: DOWN
+              timeout: 60000
+              visibilityPercentage: 50
+              centerElement: true
+          - tapOn: "View Premium"
+          - extendedWaitUntil:
+              visible: "Deeper health intelligence. Full reporting. One clear membership."
+              timeout: 45000
+          YAML
+
+          cat > "$FLOW_ROOT/watch.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - scrollUntilVisible:
+              element:
+                text: "Open Watch"
+              direction: DOWN
+              timeout: 60000
+              visibilityPercentage: 50
+              centerElement: true
+          - tapOn: "Open Watch"
+          - extendedWaitUntil:
+              visible: "Featured video"
+              timeout: 45000
+          YAML
+
+          cat > "$FLOW_ROOT/article.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - scrollUntilVisible:
+              element:
+                text: $ARTICLE_TITLE_YAML
+              direction: DOWN
+              timeout: 60000
+              visibilityPercentage: 50
+              centerElement: true
+          - tapOn:
+              text: $ARTICLE_TITLE_YAML
+          - extendedWaitUntil:
+              visible: "Change article text size"
+              timeout: 45000
+          - assertNotVisible: "Loading article…"
+          - assertNotVisible: "Article not found."
+          YAML
+
+          cat > "$FLOW_ROOT/text-scale-step.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - tapOn: "Change article text size"
+          - extendedWaitUntil:
+              visible: "Change article text size"
+              timeout: 10000
+          YAML
+
+          boot_and_install() {
+            local udid="$1"
+            xcrun simctl boot "$udid" || true
+            xcrun simctl bootstatus "$udid" -b
+            xcrun simctl ui "$udid" appearance light
+            xcrun simctl install "$udid" "$IOS_APP"
+          }
+
+          run_flow() {
+            local udid="$1"
+            local flow="$2"
+            local flow_name
+            local attempt_log
+            local status
+            flow_name="$(basename "$flow" .yaml)"
+            attempt_log="$RUNNER_TEMP/maestro-${flow_name}-${RANDOM}.log"
+
+            set +e
+            maestro --device "$udid" test "$flow" 2>&1 | tee "$attempt_log"
+            status=${PIPESTATUS[0]}
+            set -e
+
+            if [[ "$status" -ne 0 ]] && grep -Eq 'iOS driver not ready in time|IOSDriverTimeoutException' "$attempt_log"; then
+              echo "::warning::Maestro iOS driver startup timed out; retrying this flow once after simulator readiness check."
+              xcrun simctl bootstatus "$udid" -b
+              sleep 5
+              set +e
+              maestro --device "$udid" test "$flow" 2>&1 | tee -a "$attempt_log"
+              status=${PIPESTATUS[0]}
+              set -e
+              if [[ -n "${CURRENT_OUTDIR:-}" ]]; then
+                cp "$attempt_log" "$CURRENT_OUTDIR/maestro-${flow_name}-driver-retry.log" || true
+              fi
+            fi
+
+            if [[ "$status" -ne 0 ]]; then
+              if [[ -n "${CURRENT_OUTDIR:-}" ]]; then
+                mkdir -p "$CURRENT_OUTDIR/maestro-debug"
+                cp "$attempt_log" "$CURRENT_OUTDIR/maestro-${flow_name}-failure.log" || true
+                latest_debug="$(find "$HOME/.maestro/tests" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort | tail -n 1)"
+                if [[ -n "$latest_debug" && -d "$latest_debug" ]]; then
+                  cp -R "$latest_debug"/. "$CURRENT_OUTDIR/maestro-debug/" || true
+                fi
+              fi
+              return "$status"
+            fi
+          }
+
+          reset_to_home() {
+            local udid="$1"
+            xcrun simctl terminate "$udid" "$APP_ID" 2>/dev/null || true
+            run_flow "$udid" "$FLOW_ROOT/home.yaml"
+          }
+
+          assert_native_health() {
+            local udid="$1"
+            local outdir="$2"
+            xcrun simctl spawn "$udid" log show --style compact --last 10m --predicate 'process == "HealthTimesStaging" AND (eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "A required entitlement" OR eventMessage CONTAINS[c] "FunctionCallException")' > "$outdir/runtime.log" || true
+            grep -Ev 'log run noninteractively|args:.*eventMessage|predicate' "$outdir/runtime.log" > "$outdir/runtime-errors.log" || true
+            if grep -Eiq 'KeyChainException|A required entitlement|FunctionCallException' "$outdir/runtime-errors.log"; then
+              cat "$outdir/runtime-errors.log"
+              echo "::error::Native staging Reader hit a SecureStore/Keychain runtime failure."
+              exit 1
+            fi
+          }
+
+          capture_device() {
+            local udid="$1"
+            local name="$2"
+            local kind="$3"
+            local outdir="$ROOT/$kind"
+            CURRENT_OUTDIR="$outdir"
+            boot_and_install "$udid"
+            codesign -d --entitlements :- "$IOS_APP" > "$outdir/app-entitlements.plist" 2>&1 || true
+
+            reset_to_home "$udid"
+            xcrun simctl io "$udid" screenshot "$outdir/home.png"
+
+            reset_to_home "$udid"
+            run_flow "$udid" "$FLOW_ROOT/premium.yaml"
+            xcrun simctl io "$udid" screenshot "$outdir/premium.png"
+
+            reset_to_home "$udid"
+            run_flow "$udid" "$FLOW_ROOT/watch.yaml"
+            xcrun simctl io "$udid" screenshot "$outdir/watch.png"
+
+            reset_to_home "$udid"
+            run_flow "$udid" "$FLOW_ROOT/article.yaml"
+            xcrun simctl io "$udid" screenshot "$outdir/article-resolved.png"
+
+            if [[ "$kind" == "iphone" ]]; then
+              run_flow "$udid" "$FLOW_ROOT/text-scale-step.yaml"
+              xcrun simctl io "$udid" screenshot "$outdir/article-text-110.png"
+
+              run_flow "$udid" "$FLOW_ROOT/text-scale-step.yaml"
+              xcrun simctl io "$udid" screenshot "$outdir/article-text-120.png"
+
+              xcrun simctl uninstall "$udid" "$APP_ID"
+              xcrun simctl ui "$udid" appearance dark
+              xcrun simctl install "$udid" "$IOS_APP"
+              run_flow "$udid" "$FLOW_ROOT/home.yaml"
+              xcrun simctl io "$udid" screenshot "$outdir/home-dark.png"
+              printf 'system appearance forced to dark before clean reinstall and launch\n' > "$outdir/dark-mode-proof.txt"
+            fi
+
+            assert_native_health "$udid" "$outdir"
+            DEVICE_NAME="$name" DEVICE_UDID="$udid" DEVICE_KIND="$kind" EVIDENCE_SHA="$EXPECTED_SHA" ARTICLE_ID="$ARTICLE_ID" python3 - <<'PY' > "$outdir/manifest.json"
+          import json, os
+          kind=os.environ["DEVICE_KIND"]
+          screens=[
+            {"route":"/","state":"resolved-home","file":"home.png"},
+            {"route":"/premium","state":"actual-route","file":"premium.png"},
+            {"route":"/watch","state":"actual-route","file":"watch.png"},
+            {"route":"/article/"+os.environ["ARTICLE_ID"],"state":"resolved-article","file":"article-resolved.png"}
+          ]
+          if kind=="iphone":
+            screens += [
+              {"route":"/article/"+os.environ["ARTICLE_ID"],"state":"article-text-110-percent","file":"article-text-110.png"},
+              {"route":"/article/"+os.environ["ARTICLE_ID"],"state":"article-text-120-percent","file":"article-text-120.png"},
+              {"route":"/","state":"system-dark-rendered","file":"home-dark.png"}
+            ]
+          print(json.dumps({
+            "sha":os.environ["EVIDENCE_SHA"],
+            "deviceClass":kind,
+            "deviceName":os.environ["DEVICE_NAME"],
+            "udid":os.environ["DEVICE_UDID"],
+            "articleId":os.environ["ARTICLE_ID"],
+            "navigation":{"premium":"live Home UI navigation","watch":"live Home UI navigation","article":"live migrated-corpus Home card navigation"},
+            "screens":screens
+          },indent=2))
+          PY
+            xcrun simctl shutdown "$udid" || true
+          }
+
+          capture_device "$PHONE_UDID" "$PHONE_NAME" iphone
+          capture_device "$IPAD_UDID" "$IPAD_NAME" ipad
+
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: phase10-candidate-ios-screenshots
-          path: phase10-evidence/after/ios/
+          name: phase10-candidate-ios-iphone-evidence
+          path: phase10-evidence/after/ios/iphone/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase10-candidate-ipad-evidence
+          path: phase10-evidence/after/ios/ipad/
           if-no-files-found: error
           retention-days: 30
 
   candidate-android:
-    name: Candidate Android emulator screenshots
+    name: Candidate Android tablet emulator screenshots
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 70
     env:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
     steps:
@@ -343,35 +623,102 @@ jobs:
       - name: Generate staging Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install
-      - name: Build staging debug APK
+      - name: Build staging release APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon
-      - name: Boot emulator and capture Reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\norg.gradle.workers.max=2\n' >> gradle.properties
+          ./gradlew assembleRelease --no-daemon --max-workers=2
+      - name: Boot genuine tablet AVD and capture Reader
         shell: bash
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-          export ANDROID_AVD_HOME="$RUNNER_TEMP/phase10-avd"
-          mkdir -p "$ANDROID_AVD_HOME"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/phase10-tablet-avd"
+          APP_ID="zw.co.healthtimes.app.staging"
+          resolve_article_id() {
+            node <<'NODE'
+          const base=process.env.EXPO_PUBLIC_SUPABASE_URL;
+          const key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+          if(!base || !key) throw new Error("Staging Supabase configuration is required for native Article evidence.");
+          const headers={apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};
+          async function rpc(name,body){
+            let last="";
+            for(let attempt=1;attempt<=5;attempt++){
+              const response=await fetch(`${base}/rest/v1/rpc/${name}`,{
+                method:"POST",
+                headers,
+                body:JSON.stringify(body)
+              });
+              if(response.ok) return response.json();
+              last=`HTTP ${response.status}: ${await response.text()}`;
+              await new Promise((resolve)=>setTimeout(resolve,attempt*1000));
+            }
+            throw new Error(name+" failed after bounded retries: "+last);
+          }
+          (async()=>{
+            const feed=await rpc("ag05_public_feed_rows",{p_limit:12});
+            for(const row of feed ?? []){
+              if(!row?.canonical_url) continue;
+              let pathname;
+              try{ pathname=new URL(row.canonical_url).pathname; }catch{ continue; }
+              if(!pathname.endsWith("/")) pathname+="/";
+              const document=await rpc("ag05_public_story_document",{p_path:pathname});
+              if(document?.story_id){
+                process.stdout.write(String(document.story_id));
+                return;
+              }
+            }
+            throw new Error("No current staging feed story resolved to an Article document.");
+          })().catch((error)=>{
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
+          }
+          ARTICLE_ID="$(resolve_article_id)"
+          test -n "$ARTICLE_ID"
+          echo "EVIDENCE_ARTICLE_ID=$ARTICLE_ID"
+          OUT="$PWD/phase10-evidence/after/android-tablet"
+          mkdir -p "$ANDROID_AVD_HOME" "$OUT"
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
-          echo no | "$AVDMANAGER" create avd -n phase10candidate -k "system-images;android-35;google_apis;x86_64" --force
-          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
-          "$ANDROID_HOME/emulator/emulator" -list-avds
-          test -f "$ANDROID_AVD_HOME/phase10candidate.ini"
+          SYSTEM_IMAGE="system-images;android-35;default;x86_64"
+          "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
+
+          DEVICE_LIST="$("$AVDMANAGER" list device)"
+          printf '%s\n' "$DEVICE_LIST" > "$OUT/avd-device-catalog.txt"
+          if grep -q 'or "Nexus 10"' "$OUT/avd-device-catalog.txt"; then
+            TABLET_PROFILE="Nexus 10"
+          elif grep -q 'or "pixel_c"' "$OUT/avd-device-catalog.txt"; then
+            TABLET_PROFILE="pixel_c"
+          else
+            echo "::error::No known tablet-class Android device profile is available."
+            cat "$OUT/avd-device-catalog.txt"
+            exit 1
+          fi
+          echo "TABLET_PROFILE=$TABLET_PROFILE"
+          echo no | "$AVDMANAGER" create avd -n phase10tablet -k "$SYSTEM_IMAGE" --device "$TABLET_PROFILE" --force
+          cp "$ANDROID_AVD_HOME/phase10tablet.avd/config.ini" "$OUT/avd-config.ini"
+          grep -E '^(hw.device.name|hw.lcd.width|hw.lcd.height|hw.lcd.density|image.sysdir.1)' "$OUT/avd-config.ini" > "$OUT/tablet-profile-proof.txt" || true
+          if ! grep -Eq '^hw.device.name *= *(pixel_c|Nexus 10)' "$OUT/avd-config.ini"; then
+            echo "::error::Created AVD is not using the selected tablet device profile."
+            cat "$OUT/avd-config.ini"
+            exit 1
+          fi
+
           if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
-          "$ANDROID_HOME/emulator/emulator" -accel-check || true
-          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10candidate -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-metrics >/tmp/phase10-candidate-emulator.log 2>&1 &
+          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10tablet -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-metrics >/tmp/phase10-tablet-emulator.log 2>&1 &
           emulator_pid=$!
           device_ready=0
           for attempt in $(seq 1 120); do
             if ! kill -0 "$emulator_pid" 2>/dev/null; then
-              echo "Android emulator exited before adb registered a device"
-              cat /tmp/phase10-candidate-emulator.log
+              echo "Android tablet emulator exited before adb registered a device"
+              cat /tmp/phase10-tablet-emulator.log
               exit 1
             fi
             if adb devices | awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
@@ -380,12 +727,7 @@ jobs:
             fi
             sleep 2
           done
-          if [[ "$device_ready" != "1" ]]; then
-            echo "Android emulator did not register with adb"
-            adb devices -l || true
-            cat /tmp/phase10-candidate-emulator.log
-            exit 1
-          fi
+          test "$device_ready" = "1"
           boot_ready=0
           for attempt in $(seq 1 120); do
             if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
@@ -394,31 +736,129 @@ jobs:
             fi
             sleep 2
           done
-          if [[ "$boot_ready" != "1" ]]; then
-            echo "Android emulator registered but did not complete boot"
-            adb devices -l || true
-            cat /tmp/phase10-candidate-emulator.log
+          test "$boot_ready" = "1"
+          adb shell settings put global hide_error_dialogs 1 || true
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          adb shell wm dismiss-keyguard || true
+          adb shell input keyevent 82 || true
+          adb shell wm size > "$OUT/wm-size.txt"
+          adb shell wm density > "$OUT/wm-density.txt"
+          adb shell getprop ro.product.model > "$OUT/product-model.txt"
+
+          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+          # The tablet evidence must exercise the app, not depend on Pixel Launcher health.
+          # CI headless tablet AVDs can surface a launcher ANR even when the target app is healthy.
+          adb shell wm dismiss-keyguard || true
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          adb shell am force-stop com.google.android.apps.nexuslauncher || true
+          adb shell am force-stop com.android.launcher3 || true
+          adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS || true
+          LAUNCH_COMPONENT="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$APP_ID" 2>/dev/null | tr -d '\r' | tail -n 1)"
+          if [[ -z "$LAUNCH_COMPONENT" || "$LAUNCH_COMPONENT" == *"No activity found"* ]]; then
+            echo "::error::Could not resolve the HealthTimes staging launcher activity."
+            adb shell dumpsys package "$APP_ID" | head -n 200 || true
             exit 1
           fi
-          adb shell input keyevent 82 || true
-          mkdir -p phase10-evidence/after/android
-          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          adb shell monkey -p zw.co.healthtimes.app.staging -c android.intent.category.LAUNCHER 1
-          sleep 20
-          adb exec-out screencap -p > phase10-evidence/after/android/home.png
-          adb shell am start -a android.intent.action.VIEW -d "healthtimes://premium" zw.co.healthtimes.app.staging || true
-          sleep 4
-          adb exec-out screencap -p > phase10-evidence/after/android/premium.png
-          adb shell am start -a android.intent.action.VIEW -d "healthtimes://watch" zw.co.healthtimes.app.staging || true
-          sleep 4
-          adb exec-out screencap -p > phase10-evidence/after/android/watch.png
-          printf '{"sha":"%s","capturedAt":"%s"}\n' "$EXPECTED_SHA" "$(date -u +%FT%TZ)" > phase10-evidence/after/android/manifest.json
+          printf '%s\n' "$LAUNCH_COMPONENT" > "$OUT/app-launch-component.txt"
+          echo "APP_LAUNCH_COMPONENT=$LAUNCH_COMPONENT"
+
+          launch_healthtimes() {
+            adb shell am force-stop "$APP_ID" || true
+            adb shell am force-stop com.google.android.apps.nexuslauncher || true
+            adb shell am force-stop com.android.launcher3 || true
+            adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+            adb shell am start -W -n "$LAUNCH_COMPONENT"
+          }
+
+          dump_ui() {
+            adb shell uiautomator dump /sdcard/phase10-ui.xml >/dev/null
+            adb pull /sdcard/phase10-ui.xml "$OUT/current-ui.xml" >/dev/null
+          }
+
+          fail_on_app_error() {
+            if grep -Eiq 'Pixel Launcher isn.t responding|Launcher isn.t responding' "$OUT/current-ui.xml"; then
+              adb shell am force-stop com.google.android.apps.nexuslauncher || true
+              adb shell am force-stop com.android.launcher3 || true
+              adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+              launch_healthtimes
+              return 0
+            fi
+            if grep -Eiq 'HealthTimes staging Supabase configuration is missing|FunctionCallException|Unhandled|Article not found\.|Error:' "$OUT/current-ui.xml"; then
+              cat "$OUT/current-ui.xml"
+              echo "::error::Android tablet Reader rendered an application error instead of Home."
+              exit 1
+            fi
+          }
+
+          wait_for_text() {
+            local needle="$1"
+            local label="$2"
+            for attempt in $(seq 1 60); do
+              dump_ui
+              fail_on_app_error
+              if grep -Fq "$needle" "$OUT/current-ui.xml"; then
+                cp "$OUT/current-ui.xml" "$OUT/$label-ui.xml"
+                return 0
+              fi
+              sleep 2
+            done
+            cat "$OUT/current-ui.xml"
+            echo "::error::Timed out waiting for Android tablet state: $needle"
+            exit 1
+          }
+
+          launch_healthtimes
+          wait_for_text 'text="For You"' home
+          if grep -q 'Loading Home' "$OUT/home-ui.xml"; then
+            echo "::error::Android tablet Home remained in Loading Home."
+            exit 1
+          fi
+          adb exec-out screencap -p > "$OUT/home.png"
+
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://premium" -n "$APP_ID/.MainActivity"
+          wait_for_text 'text="Go Premium"' premium
+          adb exec-out screencap -p > "$OUT/premium.png"
+
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://watch" -n "$APP_ID/.MainActivity"
+          wait_for_text 'Watch HealthTimes interviews' watch
+          adb exec-out screencap -p > "$OUT/watch.png"
+
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$ARTICLE_ID" -n "$APP_ID/.MainActivity"
+          wait_for_text 'text="Text 100%"' article
+          if grep -q 'Loading article' "$OUT/article-ui.xml"; then
+            echo "::error::Android tablet Article evidence was captured before resolution."
+            exit 1
+          fi
+          adb exec-out screencap -p > "$OUT/article-resolved.png"
+
+          EVIDENCE_SHA="$EXPECTED_SHA" TABLET_PROFILE="$TABLET_PROFILE" ARTICLE_ID="$ARTICLE_ID" python3 - <<'PY' > "$OUT/manifest.json"
+          import json, os
+          print(json.dumps({
+            "sha":os.environ["EVIDENCE_SHA"],
+            "deviceClass":"android-tablet",
+            "avdName":"phase10tablet",
+            "tabletProfile":os.environ["TABLET_PROFILE"],
+            "articleId":os.environ["ARTICLE_ID"],
+            "screens":[
+              {"route":"/","state":"resolved-home","file":"home.png"},
+              {"route":"/premium","state":"actual-route","file":"premium.png"},
+              {"route":"/watch","state":"actual-route","file":"watch.png"},
+              {"route":"/article/"+os.environ["ARTICLE_ID"],"state":"resolved-article","file":"article-resolved.png"}
+            ]
+          },indent=2))
+          PY
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: phase10-candidate-android-screenshots
+          name: phase10-candidate-android-tablet-evidence
           path: |
-            phase10-evidence/after/android/
-            /tmp/phase10-candidate-emulator.log
+            phase10-evidence/after/android-tablet/
+            /tmp/phase10-tablet-emulator.log
           if-no-files-found: error
           retention-days: 30

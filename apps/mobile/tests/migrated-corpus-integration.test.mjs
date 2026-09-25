@@ -213,3 +213,12 @@ test("14 Web PWA iOS Android share one migrated-corpus Reader contract",()=>{
   assert.doesNotMatch(adapter,/Platform\.OS|\.ios\.|\.android\.|\.web\./);
   assert.doesNotMatch(adapter,/createClient\(/);
 });
+
+test("15 native Home feed is bounded for first render without changing CP5 authority",()=>{
+  const adapter=read("src/services/migrated-corpus.ts");
+  assert.match(adapter,/const FEED_LIMIT = 48;/);
+  assert.match(adapter,/const DETAIL_BATCH_SIZE = 12;/);
+  assert.match(adapter,/ag05_public_feed_rows/);
+  assert.match(adapter,/ag05_public_story_document/);
+  assert.doesNotMatch(adapter,/sourceParityServices\.articles|sourceParityArticles/);
+});

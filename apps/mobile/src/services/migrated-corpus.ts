@@ -60,7 +60,8 @@ type PathResolution = {
 };
 
 const CACHE_MS = 120_000;
-const FEED_LIMIT = 120;
+const FEED_LIMIT = 48;
+const DETAIL_BATCH_SIZE = 12;
 let feedCache: { at: number; articles: ArticleDetail[] } | null = null;
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
@@ -121,7 +122,7 @@ async function loadFeedDocuments(limit = FEED_LIMIT) {
   const feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: limit });
   const mapped = await mapInBatches(
     (feed ?? []).map((row) => row.canonical_url),
-    8,
+    DETAIL_BATCH_SIZE,
     storyForCanonicalUrl
   );
   const articles = mapped.filter((article): article is ArticleDetail => Boolean(article));
@@ -138,7 +139,7 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string) {
   if (!context?.items) return [];
   const mapped = await mapInBatches(
     context.items.map((item) => item.canonical_url ?? null),
-    8,
+    DETAIL_BATCH_SIZE,
     storyForCanonicalUrl
   );
   return mapped.filter((article): article is ArticleDetail => Boolean(article));
