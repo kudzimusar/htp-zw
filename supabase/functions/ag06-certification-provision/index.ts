@@ -72,20 +72,23 @@ Deno.serve(async (req:Request) => {
         .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification")
         .map((p:any)=>String(p.id));
       let deletedMediaAssets = 0;
-      let deletedStorageObjects = 0;
+      let deletedPrivateStorageObjects = 0;
+      let deletedPublicStorageObjects = 0;
       let readerReleasedStoriesCleared = 0;
+      let certificationStoryRowsRetained = 0;
       if (cleanupProfileIds.length) {
         const stories = await admin.from("stories")
           .select("id,distribution")
           .in("owner_staff_id",cleanupProfileIds);
         if (stories.error) throw stories.error;
+        certificationStoryRowsRetained = (stories.data || []).length;
         for (const story of stories.data || []) {
-          const distribution = {
-            ...((story as any).distribution && typeof (story as any).distribution === "object"
+          const currentDistribution =
+            (story as any).distribution && typeof (story as any).distribution === "object"
               ? (story as any).distribution
-              : {}),
-            public_reader:false
-          };
+              : {};
+          if (currentDistribution.public_reader !== true) continue;
+          const distribution = {...currentDistribution,public_reader:false};
           const cleared = await admin.from("stories")
             .update({distribution})
             .eq("id",(story as any).id);
@@ -109,7 +112,7 @@ Deno.serve(async (req:Request) => {
           if (!batch.length) continue;
           const removed=await admin.storage.from("newsroom-private").remove(batch);
           if (removed.error) throw removed.error;
-          deletedStorageObjects += batch.length;
+          deletedPrivateStorageObjects += batch.length;
         }
         const publicKeys = uniqueRows
           .filter((m:any)=>String(m.public_storage_bucket||"")==="newsroom-public")
@@ -120,7 +123,7 @@ Deno.serve(async (req:Request) => {
           if (!batch.length) continue;
           const removed=await admin.storage.from("newsroom-public").remove(batch);
           if (removed.error) throw removed.error;
-          deletedStorageObjects += batch.length;
+          deletedPublicStorageObjects += batch.length;
         }
         const ids=uniqueRows.map((m:any)=>String(m.id));
         for (let offset=0;offset<ids.length;offset+=100) {
@@ -170,8 +173,10 @@ Deno.serve(async (req:Request) => {
         retained_profiles_status:"revoked",
         live_sessions_remaining:liveSessions.length,
         deleted_private_media_assets:deletedMediaAssets,
-        deleted_private_storage_objects:deletedStorageObjects,
-        reader_release_markers_cleared:readerReleasedStoriesCleared
+        deleted_private_storage_objects:deletedPrivateStorageObjects,
+        deleted_public_storage_objects:deletedPublicStorageObjects,
+        reader_release_markers_cleared:readerReleasedStoriesCleared,
+        certification_story_rows_retained:certificationStoryRowsRetained
       });
     }
 
