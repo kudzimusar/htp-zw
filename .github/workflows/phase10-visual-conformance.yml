@@ -633,10 +633,10 @@ jobs:
 
           DEVICE_LIST="$("$AVDMANAGER" list device)"
           printf '%s\n' "$DEVICE_LIST" > "$OUT/avd-device-catalog.txt"
-          if grep -q 'or "pixel_c"' "$OUT/avd-device-catalog.txt"; then
-            TABLET_PROFILE="pixel_c"
-          elif grep -q 'or "Nexus 10"' "$OUT/avd-device-catalog.txt"; then
+          if grep -q 'or "Nexus 10"' "$OUT/avd-device-catalog.txt"; then
             TABLET_PROFILE="Nexus 10"
+          elif grep -q 'or "pixel_c"' "$OUT/avd-device-catalog.txt"; then
+            TABLET_PROFILE="pixel_c"
           else
             echo "::error::No known tablet-class Android device profile is available."
             cat "$OUT/avd-device-catalog.txt"
