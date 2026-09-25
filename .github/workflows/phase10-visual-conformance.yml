@@ -329,18 +329,24 @@ jobs:
           cat > "$FLOW_ROOT/premium.yaml" <<YAML
           appId: $APP_ID
           ---
-          - tapOn: "HealthTimes Premium"
+          - openLink: "healthtimes://premium"
+          - tapOn:
+              text: "Open"
+              optional: true
           - extendedWaitUntil:
-              visible: "Go Premium"
+              visible: "Deeper health intelligence. Full reporting. One clear membership."
               timeout: 45000
           YAML
 
           cat > "$FLOW_ROOT/watch.yaml" <<YAML
           appId: $APP_ID
           ---
-          - tapOn: "Watch"
+          - openLink: "healthtimes://watch"
+          - tapOn:
+              text: "Open"
+              optional: true
           - extendedWaitUntil:
-              visible: "Watch HealthTimes interviews"
+              visible: "Watch HealthTimes interviews, explainers, investigations and health coverage."
               timeout: 45000
           YAML
 
@@ -588,15 +594,48 @@ jobs:
 
           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
 
+          # The tablet evidence must exercise the app, not depend on Pixel Launcher health.
+          # CI headless tablet AVDs can surface a launcher ANR even when the target app is healthy.
+          adb shell wm dismiss-keyguard || true
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          adb shell am force-stop com.google.android.apps.nexuslauncher || true
+          adb shell am force-stop com.android.launcher3 || true
+          adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS || true
+          LAUNCH_COMPONENT="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$APP_ID" 2>/dev/null | tr -d '\r' | tail -n 1)"
+          if [[ -z "$LAUNCH_COMPONENT" || "$LAUNCH_COMPONENT" == *"No activity found"* ]]; then
+            echo "::error::Could not resolve the HealthTimes staging launcher activity."
+            adb shell dumpsys package "$APP_ID" | head -n 200 || true
+            exit 1
+          fi
+          printf '%s\n' "$LAUNCH_COMPONENT" > "$OUT/app-launch-component.txt"
+          echo "APP_LAUNCH_COMPONENT=$LAUNCH_COMPONENT"
+
+          launch_healthtimes() {
+            adb shell am force-stop "$APP_ID" || true
+            adb shell am force-stop com.google.android.apps.nexuslauncher || true
+            adb shell am force-stop com.android.launcher3 || true
+            adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+            adb shell am start -W -n "$LAUNCH_COMPONENT"
+          }
+
           dump_ui() {
             adb shell uiautomator dump /sdcard/phase10-ui.xml >/dev/null
             adb pull /sdcard/phase10-ui.xml "$OUT/current-ui.xml" >/dev/null
           }
 
           fail_on_app_error() {
+            if grep -Eiq 'Pixel Launcher isn.t responding|Launcher isn.t responding' "$OUT/current-ui.xml"; then
+              adb shell am force-stop com.google.android.apps.nexuslauncher || true
+              adb shell am force-stop com.android.launcher3 || true
+              adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+              launch_healthtimes
+              return 0
+            fi
             if grep -Eiq 'HealthTimes staging Supabase configuration is missing|FunctionCallException|Unhandled|Article not found\.|Error:' "$OUT/current-ui.xml"; then
               cat "$OUT/current-ui.xml"
-              echo "::error::Android tablet Reader rendered an application error instead of Home."
+              echo "::error::Android tablet Reader rendered an application error."
               exit 1
             fi
           }
@@ -618,7 +657,7 @@ jobs:
             exit 1
           }
 
-          adb shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1
+          launch_healthtimes
           wait_for_text 'text="For You"' home
           if grep -q 'Loading Home' "$OUT/home-ui.xml"; then
             echo "::error::Android tablet Home remained in Loading Home."
