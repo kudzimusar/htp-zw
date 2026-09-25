@@ -331,7 +331,9 @@ jobs:
               if(!pathname.endsWith("/")) pathname+="/";
               const document=await rpc("ag05_public_story_document",{p_path:pathname});
               if(document?.story_id){
-                process.stdout.write(String(document.story_id));
+                const title=String(document.story_title ?? document.title ?? row.title ?? "").trim();
+                if(!title) continue;
+                process.stdout.write(JSON.stringify({id:String(document.story_id),title}));
                 return;
               }
             }
@@ -342,9 +344,15 @@ jobs:
           });
           NODE
           }
-          ARTICLE_ID="$(resolve_article_id)"
+          ARTICLE_EVIDENCE="$(resolve_article_id)"
+          test -n "$ARTICLE_EVIDENCE"
+          ARTICLE_ID="$(ARTICLE_EVIDENCE="$ARTICLE_EVIDENCE" node -e 'const v=JSON.parse(process.env.ARTICLE_EVIDENCE); process.stdout.write(v.id)')"
+          ARTICLE_TITLE="$(ARTICLE_EVIDENCE="$ARTICLE_EVIDENCE" node -e 'const v=JSON.parse(process.env.ARTICLE_EVIDENCE); process.stdout.write(v.title)')"
+          ARTICLE_TITLE_YAML="$(ARTICLE_TITLE="$ARTICLE_TITLE" node -e 'process.stdout.write(JSON.stringify(process.env.ARTICLE_TITLE))')"
           test -n "$ARTICLE_ID"
+          test -n "$ARTICLE_TITLE"
           echo "EVIDENCE_ARTICLE_ID=$ARTICLE_ID"
+          echo "EVIDENCE_ARTICLE_TITLE=$ARTICLE_TITLE"
           ROOT="$PWD/phase10-evidence/after/ios"
           FLOW_ROOT="$RUNNER_TEMP/phase10-maestro"
           mkdir -p "$ROOT/iphone" "$ROOT/ipad" "$FLOW_ROOT"
@@ -395,10 +403,8 @@ jobs:
           cat > "$FLOW_ROOT/article.yaml" <<YAML
           appId: $APP_ID
           ---
-          - openLink: "healthtimes://article/$ARTICLE_ID"
           - tapOn:
-              text: "Open"
-              optional: true
+              text: $ARTICLE_TITLE_YAML
           - extendedWaitUntil:
               visible: "Text 100%"
               timeout: 45000
