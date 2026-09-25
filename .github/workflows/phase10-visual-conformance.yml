@@ -384,6 +384,8 @@ jobs:
                 text: "View Premium"
               direction: DOWN
               timeout: 60000
+              visibilityPercentage: 50
+              centerElement: true
           - tapOn: "View Premium"
           - extendedWaitUntil:
               visible: "Deeper health intelligence. Full reporting. One clear membership."
@@ -398,6 +400,8 @@ jobs:
                 text: "Open Watch"
               direction: DOWN
               timeout: 60000
+              visibilityPercentage: 50
+              centerElement: true
           - tapOn: "Open Watch"
           - extendedWaitUntil:
               visible: "Featured video"
@@ -412,6 +416,8 @@ jobs:
                 text: $ARTICLE_TITLE_YAML
               direction: DOWN
               timeout: 60000
+              visibilityPercentage: 50
+              centerElement: true
           - tapOn:
               text: $ARTICLE_TITLE_YAML
           - extendedWaitUntil:
