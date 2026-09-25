@@ -436,7 +436,16 @@ jobs:
           run_flow() {
             local udid="$1"
             local flow="$2"
-            maestro --device "$udid" test "$flow"
+            if ! maestro --device "$udid" test "$flow"; then
+              if [[ -n "${CURRENT_OUTDIR:-}" ]]; then
+                mkdir -p "$CURRENT_OUTDIR/maestro-debug"
+                latest_debug="$(find "$HOME/.maestro/tests" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort | tail -n 1)"
+                if [[ -n "$latest_debug" && -d "$latest_debug" ]]; then
+                  cp -R "$latest_debug"/. "$CURRENT_OUTDIR/maestro-debug/" || true
+                fi
+              fi
+              return 1
+            fi
           }
 
           reset_to_home() {
@@ -462,6 +471,7 @@ jobs:
             local name="$2"
             local kind="$3"
             local outdir="$ROOT/$kind"
+            CURRENT_OUTDIR="$outdir"
             boot_and_install "$udid"
             codesign -d --entitlements :- "$IOS_APP" > "$outdir/app-entitlements.plist" 2>&1 || true
 
