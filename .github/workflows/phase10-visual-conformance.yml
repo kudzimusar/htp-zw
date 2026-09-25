@@ -440,18 +440,63 @@ jobs:
           - assertNotVisible: "Article not found."
           YAML
 
-          cat > "$FLOW_ROOT/text-scale.yaml" <<YAML
+          cat > "$FLOW_ROOT/text-scale-step.yaml" <<YAML
           appId: $APP_ID
           ---
           - tapOn: "Change article text size"
           - extendedWaitUntil:
               visible: "Change article text size"
               timeout: 10000
-          - tapOn: "Change article text size"
-          - extendedWaitUntil:
-              visible: "Change article text size"
-              timeout: 10000
           YAML
+
+          cat > "$FLOW_ROOT/native-ocr.swift" <<'SWIFT'
+          import AppKit
+          import Foundation
+          import Vision
+
+          guard CommandLine.arguments.count == 2 else {
+            exit(2)
+          }
+          let path = CommandLine.arguments[1]
+          guard
+            let image = NSImage(contentsOfFile: path),
+            let tiff = image.tiffRepresentation,
+            let bitmap = NSBitmapImageRep(data: tiff),
+            let cgImage = bitmap.cgImage
+          else {
+            exit(3)
+          }
+
+          let request = VNRecognizeTextRequest()
+          request.recognitionLevel = .accurate
+          request.usesLanguageCorrection = false
+          let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+          do {
+            try handler.perform([request])
+          } catch {
+            print(error)
+            exit(4)
+          }
+          for observation in request.results ?? [] {
+            if let candidate = observation.topCandidates(1).first {
+              print(candidate.string)
+            }
+          }
+          SWIFT
+          xcrun swiftc -framework AppKit -framework Vision "$FLOW_ROOT/native-ocr.swift" -o "$FLOW_ROOT/native-ocr"
+
+          assert_rendered_scale() {
+            local image="$1"
+            local percent="$2"
+            local outdir="$3"
+            local ocr_file="$outdir/$(basename "$image" .png)-ocr.txt"
+            "$FLOW_ROOT/native-ocr" "$image" > "$ocr_file"
+            if ! grep -Eiq "Text[[:space:]]*$percent%" "$ocr_file"; then
+              cat "$ocr_file"
+              echo "::error::Native Article screenshot did not render Text $percent%."
+              exit 1
+            fi
+          }
 
           boot_and_install() {
             local udid="$1"
@@ -525,10 +570,16 @@ jobs:
             reset_to_home "$udid"
             run_flow "$udid" "$FLOW_ROOT/article.yaml"
             xcrun simctl io "$udid" screenshot "$outdir/article-resolved.png"
+            assert_rendered_scale "$outdir/article-resolved.png" 100 "$outdir"
 
             if [[ "$kind" == "iphone" ]]; then
-              run_flow "$udid" "$FLOW_ROOT/text-scale.yaml"
+              run_flow "$udid" "$FLOW_ROOT/text-scale-step.yaml"
+              xcrun simctl io "$udid" screenshot "$outdir/article-text-110.png"
+              assert_rendered_scale "$outdir/article-text-110.png" 110 "$outdir"
+
+              run_flow "$udid" "$FLOW_ROOT/text-scale-step.yaml"
               xcrun simctl io "$udid" screenshot "$outdir/article-text-120.png"
+              assert_rendered_scale "$outdir/article-text-120.png" 120 "$outdir"
 
               xcrun simctl uninstall "$udid" "$APP_ID"
               xcrun simctl ui "$udid" appearance dark
@@ -550,6 +601,7 @@ jobs:
           ]
           if kind=="iphone":
             screens += [
+              {"route":"/article/"+os.environ["ARTICLE_ID"],"state":"article-text-110-percent","file":"article-text-110.png"},
               {"route":"/article/"+os.environ["ARTICLE_ID"],"state":"article-text-120-percent","file":"article-text-120.png"},
               {"route":"/","state":"system-dark-rendered","file":"home-dark.png"}
             ]
