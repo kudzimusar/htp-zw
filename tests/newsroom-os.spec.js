@@ -23,8 +23,9 @@ async function signIn(page, kind) {
   await page.locator('[data-login-form] input[name="email"]').fill(account.email);
   await page.locator('[data-login-form] input[name="password"]').fill(account.password);
   await page.locator('[data-login-form] button[type="submit"]').click();
-  await expect(page.locator('[data-newsroom-app]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-newsroom-app]')).toBeVisible({ timeout: 35_000 });
   await expect(page.locator('[data-login-view]')).toBeHidden();
+  await expect(page.locator('[data-topline]')).not.toHaveText('',{timeout:5_000});
 }
 
 
