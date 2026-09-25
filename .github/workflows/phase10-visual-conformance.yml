@@ -507,7 +507,7 @@ jobs:
             "deviceName":os.environ["DEVICE_NAME"],
             "udid":os.environ["DEVICE_UDID"],
             "articleId":os.environ["ARTICLE_ID"],
-            "navigation":{"premium":"in-app header control","watch":"in-app Reader tab","article":"deep link accepted through simulator UI automation"},
+            "navigation":{"premium":"deep link accepted through simulator UI automation","watch":"deep link accepted through simulator UI automation","article":"deep link accepted through simulator UI automation"},
             "screens":screens
           },indent=2))
           PY
