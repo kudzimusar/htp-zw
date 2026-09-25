@@ -400,6 +400,34 @@ jobs:
               timeout: 45000
           YAML
 
+          cat > "$FLOW_ROOT/premium-ipad.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - scrollUntilVisible:
+              element:
+                text: "View Premium"
+              direction: DOWN
+              timeout: 60000
+          - tapOn: "View Premium"
+          - extendedWaitUntil:
+              visible: "Deeper health intelligence. Full reporting. One clear membership."
+              timeout: 45000
+          YAML
+
+          cat > "$FLOW_ROOT/watch-ipad.yaml" <<YAML
+          appId: $APP_ID
+          ---
+          - scrollUntilVisible:
+              element:
+                text: "Open Watch"
+              direction: DOWN
+              timeout: 60000
+          - tapOn: "Open Watch"
+          - extendedWaitUntil:
+              visible: "Featured video"
+              timeout: 45000
+          YAML
+
           cat > "$FLOW_ROOT/article.yaml" <<YAML
           appId: $APP_ID
           ---
@@ -479,11 +507,19 @@ jobs:
             xcrun simctl io "$udid" screenshot "$outdir/home.png"
 
             reset_to_home "$udid"
-            run_flow "$udid" "$FLOW_ROOT/premium.yaml"
+            if [[ "$kind" == "ipad" ]]; then
+              run_flow "$udid" "$FLOW_ROOT/premium-ipad.yaml"
+            else
+              run_flow "$udid" "$FLOW_ROOT/premium.yaml"
+            fi
             xcrun simctl io "$udid" screenshot "$outdir/premium.png"
 
             reset_to_home "$udid"
-            run_flow "$udid" "$FLOW_ROOT/watch.yaml"
+            if [[ "$kind" == "ipad" ]]; then
+              run_flow "$udid" "$FLOW_ROOT/watch-ipad.yaml"
+            else
+              run_flow "$udid" "$FLOW_ROOT/watch.yaml"
+            fi
             xcrun simctl io "$udid" screenshot "$outdir/watch.png"
 
             reset_to_home "$udid"
@@ -523,7 +559,7 @@ jobs:
             "deviceName":os.environ["DEVICE_NAME"],
             "udid":os.environ["DEVICE_UDID"],
             "articleId":os.environ["ARTICLE_ID"],
-            "navigation":{"premium":"deep link accepted through simulator UI automation","watch":"deep link accepted through simulator UI automation","article":"live migrated-corpus Home card navigation"},
+            "navigation":{"premium":"live Home UI navigation" if kind=="ipad" else "deep link accepted through simulator UI automation","watch":"live Home UI navigation" if kind=="ipad" else "deep link accepted through simulator UI automation","article":"live migrated-corpus Home card navigation"},
             "screens":screens
           },indent=2))
           PY
