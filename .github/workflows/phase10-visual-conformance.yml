@@ -566,7 +566,11 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
       - name: Build staging release APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\norg.gradle.workers.max=2\n' >> gradle.properties
+          ./gradlew assembleRelease --no-daemon --max-workers=2
       - name: Boot genuine tablet AVD and capture Reader
         shell: bash
         env:
