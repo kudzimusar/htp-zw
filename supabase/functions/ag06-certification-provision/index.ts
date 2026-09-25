@@ -68,16 +68,9 @@ Deno.serve(async (req:Request) => {
         .select("id,email,status,beat")
         .like("email","ag06-%@healthtimes.co.zw");
       if (certificationProfiles.error) throw certificationProfiles.error;
-      const boundedCertificationProfiles = (certificationProfiles.data || [])
-        .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification");
-      const cleanupProfileIds = boundedCertificationProfiles.map((p:any)=>String(p.id));
-      const certificationEmails = new Set(
-        boundedCertificationProfiles.map((p:any)=>String(p.email||"").toLowerCase()).filter(Boolean)
-      );
-      const boundedAuthUsers = listed.data.users.filter((u:any) =>
-        u.user_metadata?.ag06_staging_test === true &&
-        certificationEmails.has(String(u.email||"").toLowerCase())
-      );
+      const cleanupProfileIds = (certificationProfiles.data || [])
+        .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification")
+        .map((p:any)=>String(p.id));
       let deletedMediaAssets = 0;
       let deletedPrivateStorageObjects = 0;
       let deletedPublicStorageObjects = 0;
@@ -175,48 +168,39 @@ Deno.serve(async (req:Request) => {
       }
 
       const revokedAt = new Date().toISOString();
-      for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
-        const profileBatch=cleanupProfileIds.slice(offset,offset+25);
-        const profiles = await admin.from("staff_profiles")
-          .update({status:"revoked",revoked_at:revokedAt,updated_at:revokedAt})
-          .in("id",profileBatch);
-        if (profiles.error) throw profiles.error;
-
+      if (profileIds.length) {
         const sessions = await admin.from("newsroom_sessions")
           .update({revoked_at:revokedAt})
-          .in("staff_profile_id",profileBatch)
+          .in("staff_profile_id",profileIds)
           .is("revoked_at",null);
         if (sessions.error) throw sessions.error;
       }
-
-      for (const user of boundedAuthUsers) {
+      for (const user of users) {
         const deleted = await admin.auth.admin.deleteUser(user.id);
         if (deleted.error) throw deleted.error;
       }
-
       let retainedProfiles:any[] = [];
       let liveSessions:any[] = [];
-      for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
-        const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+      if (profileIds.length) {
         const profiles = await admin.from("staff_profiles")
           .select("id,status,revoked_at")
-          .in("id",profileBatch);
+          .in("id",profileIds);
         if (profiles.error) throw profiles.error;
-        retainedProfiles.push(...(profiles.data || []));
+        retainedProfiles = profiles.data || [];
+        const invalid = retainedProfiles.filter((p:any)=>String(p.status||"").toLowerCase()!=="revoked" || !p.revoked_at);
+        if (invalid.length) throw new Error("Auth-delete revocation trigger did not inert every retained staff profile");
 
         const sessions = await admin.from("newsroom_sessions")
           .select("id,staff_profile_id,revoked_at")
-          .in("staff_profile_id",profileBatch)
+          .in("staff_profile_id",profileIds)
           .is("revoked_at",null);
         if (sessions.error) throw sessions.error;
-        liveSessions.push(...(sessions.data || []));
+        liveSessions = sessions.data || [];
+        if (liveSessions.length) throw new Error("Live Newsroom sessions remain after Auth cleanup");
       }
-      const invalid = retainedProfiles.filter((p:any)=>String(p.status||"").toLowerCase()!=="revoked" || !p.revoked_at);
-      if (invalid.length) throw new Error("AG-06 certification cleanup did not inert every retained staff profile");
-      if (liveSessions.length) throw new Error("Live Newsroom sessions remain after AG-06 certification cleanup");
       return response(200,{
         ok:true,action:"cleanup",run_id:runId,
-        deleted_auth_users:boundedAuthUsers.length,
+        deleted_auth_users:users.length,
         retained_inert_staff_profiles:retainedProfiles.length,
         retained_profiles_status:"revoked",
         live_sessions_remaining:liveSessions.length,
