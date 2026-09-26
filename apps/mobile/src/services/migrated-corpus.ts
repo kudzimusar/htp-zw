@@ -133,7 +133,7 @@ async function nativeStoryForPath(path: string) {
   const doc = await rpc<NativeStoryDocument | null>("newsroom_public_story_document", {
     p_path: normalizePath(path)
   });
-  return doc?.story_id ? mapNativeStoryDocument(doc) : null;
+  return doc?.story_id ? mapNativeStoryDocument(doc, stagingConfig.url) : null;
 }
 
 async function storyForPath(path: string) {
