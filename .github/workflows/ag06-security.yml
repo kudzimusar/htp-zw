@@ -534,13 +534,26 @@ jobs:
           YAML
             if [[ -n "$NM04_AUTHOR_NAME" ]]; then
               cat >> "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
-          - assertVisible: "$NM04_AUTHOR_NAME"
+          - scrollUntilVisible:
+              element: "$NM04_AUTHOR_NAME"
+              direction: DOWN
+              timeout: 30000
           YAML
             fi
+            published_year="${NM04_PUBLISHED_AT:0:4}"
             cat >> "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
-          - assertVisible: "Published"
-          - assertVisible: "$NM04_CAPTION"
-          - assertVisible: "$NM04_CREDIT"
+          - scrollUntilVisible:
+              element: "Published.*$published_year.*"
+              direction: DOWN
+              timeout: 30000
+          - scrollUntilVisible:
+              element: "$NM04_CAPTION"
+              direction: DOWN
+              timeout: 30000
+          - scrollUntilVisible:
+              element: "$NM04_CREDIT"
+              direction: DOWN
+              timeout: 30000
           YAML
             printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
             if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"; then
@@ -556,11 +569,9 @@ jobs:
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
-          - scroll
-          - scroll
-          - scroll
-          - extendedWaitUntil:
-              visible: "$NM04_BODY_TEXT"
+          - scrollUntilVisible:
+              element: "$NM04_BODY_TEXT"
+              direction: DOWN
               timeout: 30000
           YAML
             if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"; then
