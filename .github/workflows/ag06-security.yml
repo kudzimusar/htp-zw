@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: healthtimes-ag06-staging-certification
+  group: healthtimes-staging-security-live
   cancel-in-progress: false
 
 permissions:
@@ -134,6 +134,8 @@ jobs:
       story_id: ${{ steps.nm04-stage.outputs.story_id }}
       slug: ${{ steps.nm04-stage.outputs.slug }}
       title: ${{ steps.nm04-stage.outputs.title }}
+      author_name: ${{ steps.nm04-stage.outputs.author_name }}
+      published_at: ${{ steps.nm04-stage.outputs.published_at }}
       featured_public_url: ${{ steps.nm04-stage.outputs.featured_public_url }}
       featured_checksum: ${{ steps.nm04-stage.outputs.featured_checksum }}
       body_text: ${{ steps.nm04-stage.outputs.body_text }}
@@ -248,13 +250,15 @@ jobs:
           node - <<'NODE'
           const fs=require("fs");
           const e=JSON.parse(fs.readFileSync("/tmp/nm04-native-fixture.json","utf8"));
-          for(const key of ["story_id","slug","title","featured_public_url","featured_checksum","body_text","alt_text","caption","credit"]){
+          for(const key of ["story_id","slug","title","author_name","published_at","featured_public_url","featured_checksum","body_text","alt_text","caption","credit"]){
             if(!e[key]) throw new Error("Missing NM-04 evidence field: "+key);
           }
           const lines=[
             ["story_id",e.story_id],
             ["slug",e.slug],
             ["title",e.title],
+            ["author_name",e.author_name],
+            ["published_at",e.published_at],
             ["featured_public_url",e.featured_public_url],
             ["featured_checksum",e.featured_checksum],
             ["body_text",e.body_text],
@@ -290,6 +294,8 @@ jobs:
       NM04_STORY_ID: ${{ needs.live-staging-security.outputs.story_id }}
       NM04_SLUG: ${{ needs.live-staging-security.outputs.slug }}
       NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
+      NM04_AUTHOR_NAME: ${{ needs.live-staging-security.outputs.author_name }}
+      NM04_PUBLISHED_AT: ${{ needs.live-staging-security.outputs.published_at }}
       NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
       NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
       NM04_BODY_TEXT: ${{ needs.live-staging-security.outputs.body_text }}
@@ -352,7 +358,7 @@ jobs:
               if(!response?.ok()) throw new Error(item.name+" article HTTP "+response?.status());
               await page.waitForFunction(
                 values => values.every(value => (document.body?.innerText ?? "").includes(value)),
-                [process.env.NM04_TITLE,process.env.NM04_BODY_TEXT,process.env.NM04_CAPTION,process.env.NM04_CREDIT],
+                [process.env.NM04_TITLE,process.env.NM04_AUTHOR_NAME,"Published",process.env.NM04_BODY_TEXT,process.env.NM04_CAPTION,process.env.NM04_CREDIT],
                 {timeout:30000}
               );
               const labeled=page.getByLabel(process.env.NM04_ALT_TEXT);
@@ -390,6 +396,8 @@ jobs:
               slug:process.env.NM04_SLUG,
               publicUrl:process.env.NM04_PUBLIC_URL,
               checksum:process.env.NM04_CHECKSUM,
+              authorName:process.env.NM04_AUTHOR_NAME,
+              publishedAt:process.env.NM04_PUBLISHED_AT,
               screens
             },null,2));
             await browser.close();
@@ -418,6 +426,8 @@ jobs:
       NM04_STORY_ID: ${{ needs.live-staging-security.outputs.story_id }}
       NM04_SLUG: ${{ needs.live-staging-security.outputs.slug }}
       NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
+      NM04_AUTHOR_NAME: ${{ needs.live-staging-security.outputs.author_name }}
+      NM04_PUBLISHED_AT: ${{ needs.live-staging-security.outputs.published_at }}
       NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
       NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
       NM04_BODY_TEXT: ${{ needs.live-staging-security.outputs.body_text }}
@@ -504,6 +514,8 @@ jobs:
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
+          - assertVisible: "$NM04_AUTHOR_NAME"
+          - assertVisible: "Published"
           - assertVisible: "$NM04_CAPTION"
           - assertVisible: "$NM04_CREDIT"
           YAML
@@ -538,6 +550,8 @@ jobs:
             "slug":os.environ["NM04_SLUG"],
             "publicUrl":os.environ["NM04_PUBLIC_URL"],
             "checksum":os.environ["NM04_CHECKSUM"],
+            "authorName":os.environ["NM04_AUTHOR_NAME"],
+            "publishedAt":os.environ["NM04_PUBLISHED_AT"],
             "screens":["article-header.png","article-body.png"]
           },indent=2))
           PY
@@ -566,6 +580,8 @@ jobs:
       NM04_STORY_ID: ${{ needs.live-staging-security.outputs.story_id }}
       NM04_SLUG: ${{ needs.live-staging-security.outputs.slug }}
       NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
+      NM04_AUTHOR_NAME: ${{ needs.live-staging-security.outputs.author_name }}
+      NM04_PUBLISHED_AT: ${{ needs.live-staging-security.outputs.published_at }}
       NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
       NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
       NM04_BODY_TEXT: ${{ needs.live-staging-security.outputs.body_text }}
@@ -650,6 +666,8 @@ jobs:
           done
           test "$found" = "1"
           cp "$OUT/current-ui.xml" "$OUT/article-header-ui.xml"
+          grep -Fq "$NM04_AUTHOR_NAME" "$OUT/article-header-ui.xml"
+          grep -Fq "Published" "$OUT/article-header-ui.xml"
           grep -Fq "$NM04_CAPTION" "$OUT/article-header-ui.xml"
           grep -Fq "$NM04_CREDIT" "$OUT/article-header-ui.xml"
           ! grep -Fq "newsroom-private" "$OUT/article-header-ui.xml"
@@ -674,6 +692,8 @@ jobs:
             "slug":os.environ["NM04_SLUG"],
             "publicUrl":os.environ["NM04_PUBLIC_URL"],
             "checksum":os.environ["NM04_CHECKSUM"],
+            "authorName":os.environ["NM04_AUTHOR_NAME"],
+            "publishedAt":os.environ["NM04_PUBLISHED_AT"],
             "screens":["article-header.png","article-body.png"]
           },indent=2))
           PY
