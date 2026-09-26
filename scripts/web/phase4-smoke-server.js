@@ -57,12 +57,16 @@ function typeFor(file) {
 
 function staticFile(pathname) {
   const clean = decodeURIComponent(pathname).replace(/\.\./g, '');
+  const articleTemplate = /^\/article\/[^/]+\/?$/.test(clean)
+    ? path.join(dist, 'article', '[id].html')
+    : null;
   const candidates = clean === '/'
     ? [path.join(dist, 'index.html')]
     : [
         path.join(dist, clean.replace(/^\//, '')),
         path.join(dist, clean.replace(/^\//, '') + '.html'),
-        path.join(dist, clean.replace(/^\//, ''), 'index.html')
+        path.join(dist, clean.replace(/^\//, ''), 'index.html'),
+        ...(articleTemplate ? [articleTemplate] : [])
       ];
   return candidates.find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile()) || null;
 }
