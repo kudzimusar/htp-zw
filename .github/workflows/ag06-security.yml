@@ -130,6 +130,12 @@ jobs:
 
   # Staging-only certification uses GitHub OIDC and ephemeral Auth users; no repository secrets.
   live-staging-security:
+    outputs:
+      story_id: ${{ steps.nm04-stage.outputs.story_id }}
+      slug: ${{ steps.nm04-stage.outputs.slug }}
+      title: ${{ steps.nm04-stage.outputs.title }}
+      featured_public_url: ${{ steps.nm04-stage.outputs.featured_public_url }}
+      featured_checksum: ${{ steps.nm04-stage.outputs.featured_checksum }}
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
@@ -229,18 +235,18 @@ jobs:
             cat /tmp/ag06-newsroom-server.log || true
             exit 1
           }
-      - name: Revoke ephemeral staging Auth identities
+      - name: Stage and verify released CMS-native Reader story
+        id: nm04-stage
+        env:
+          NM04_FIXTURE_EVIDENCE_PATH: /tmp/nm04-native-fixture.json
+        run: node apps/mobile/tests/nm04-stage-native-fixture.mjs
+      - uses: actions/upload-artifact@v4
         if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
-          oidc_token="$(curl --silent --show-error --fail             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
-          echo "::add-mask::$oidc_token"
-          payload="$(node -e 'const [run,attempt]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"cleanup",run_id:run,run_attempt:attempt}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
-          code="$(curl --silent --show-error -o /tmp/ag06-cleanup.json -w '%{http_code}'             -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision"             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload")"
-          cat /tmp/ag06-cleanup.json
-          [[ "$code" == "200" ]] || { echo "AG-06 staging cleanup failed with HTTP $code."; exit 1; }
+        with:
+          name: nm04-native-reader-fixture
+          path: /tmp/nm04-native-fixture.json
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Stop exact-branch Newsroom gateway
         if: always()
         shell: bash
@@ -248,109 +254,9 @@ jobs:
           test -f /tmp/ag06-newsroom-server.pid && kill "$(cat /tmp/ag06-newsroom-server.pid)" || true
 
 
-  nm04-native-reader-fixture:
-    name: NM-04 stage released CMS-native Reader fixture
-    needs: live-staging-security
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    outputs:
-      story_id: ${{ steps.stage.outputs.story_id }}
-      slug: ${{ steps.stage.outputs.slug }}
-      title: ${{ steps.stage.outputs.title }}
-      featured_public_url: ${{ steps.stage.outputs.featured_public_url }}
-      featured_checksum: ${{ steps.stage.outputs.featured_checksum }}
-    env:
-      AG06_STAGING_BASE_URL: https://localhost:4173
-      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-      EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 1
-      - name: Prove exact checkout SHA
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          echo "EXPECTED_SHA=$EXPECTED_SHA"
-          echo "CHECKED_OUT_SHA=$actual"
-          test "$actual" = "$EXPECTED_SHA"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Provision bounded NM-04 staging identities
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          roles=(reporter editor commercial publisher)
-          accounts_file=/tmp/ag06-accounts.json
-          printf '[' > "$accounts_file"
-          first=1
-          for role in "${roles[@]}"; do
-            upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
-            email="ag06-$role-$tag@healthtimes.co.zw"
-            password="Ht!$(openssl rand -hex 18)Aa7"
-            echo "::add-mask::$password"
-            echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
-            echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
-            item="$(node -e 'const [role,email,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({role,email,password}))' "$role" "$email" "$password")"
-            if [[ "$first" == "0" ]]; then printf ',' >> "$accounts_file"; fi
-            printf '%s' "$item" >> "$accounts_file"
-            first=0
-          done
-          printf ']' >> "$accounts_file"
-          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
-          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
-          echo "::add-mask::$oidc_token"
-          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
-          code="$(curl --silent --show-error -o /tmp/nm04-provision.json -w '%{http_code}' -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
-          cat /tmp/nm04-provision.json
-          test "$code" = "200"
-      - run: npm install --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
-      - name: Start exact-head Newsroom gateway
-        shell: bash
-        run: |
-          set -euo pipefail
-          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -keyout /tmp/ag06-local.key -out /tmp/ag06-local.crt -days 1 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
-          AG06_TEST_TLS_KEY=/tmp/ag06-local.key AG06_TEST_TLS_CERT=/tmp/ag06-local.crt node scripts/ag06/newsroom-test-server.js >/tmp/nm04-newsroom-server.log 2>&1 &
-          echo $! >/tmp/nm04-newsroom-server.pid
-          for attempt in $(seq 1 30); do
-            if curl --silent --insecure --fail https://localhost:4173/newsroom.html >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          cat /tmp/nm04-newsroom-server.log
-          exit 1
-      - name: Stage and verify released CMS-native story
-        id: stage
-        env:
-          NM04_FIXTURE_EVIDENCE_PATH: /tmp/nm04-native-fixture.json
-        run: node apps/mobile/tests/nm04-stage-native-fixture.mjs
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nm04-native-reader-fixture
-          path: /tmp/nm04-native-fixture.json
-          if-no-files-found: error
-          retention-days: 30
-      - name: Stop exact-head Newsroom gateway
-        if: always()
-        shell: bash
-        run: |
-          test -f /tmp/nm04-newsroom-server.pid && kill "$(cat /tmp/nm04-newsroom-server.pid)" || true
-
   nm04-reader-web:
     name: NM-04 Web desktop + mobile PWA native Reader evidence
-    needs: nm04-native-reader-fixture
+    needs: live-staging-security
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -358,11 +264,11 @@ jobs:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
       EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-      NM04_STORY_ID: ${{ needs.nm04-native-reader-fixture.outputs.story_id }}
-      NM04_SLUG: ${{ needs.nm04-native-reader-fixture.outputs.slug }}
-      NM04_TITLE: ${{ needs.nm04-native-reader-fixture.outputs.title }}
-      NM04_PUBLIC_URL: ${{ needs.nm04-native-reader-fixture.outputs.featured_public_url }}
-      NM04_CHECKSUM: ${{ needs.nm04-native-reader-fixture.outputs.featured_checksum }}
+      NM04_STORY_ID: ${{ needs.live-staging-security.outputs.story_id }}
+      NM04_SLUG: ${{ needs.live-staging-security.outputs.slug }}
+      NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
+      NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
+      NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -455,7 +361,7 @@ jobs:
 
   nm04-reader-ios:
     name: NM-04 iPhone + iPad native Reader evidence
-    needs: nm04-native-reader-fixture
+    needs: live-staging-security
     runs-on: macos-latest
     timeout-minutes: 75
     env:
@@ -463,11 +369,11 @@ jobs:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
       EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-      NM04_STORY_ID: ${{ needs.nm04-native-reader-fixture.outputs.story_id }}
-      NM04_SLUG: ${{ needs.nm04-native-reader-fixture.outputs.slug }}
-      NM04_TITLE: ${{ needs.nm04-native-reader-fixture.outputs.title }}
-      NM04_PUBLIC_URL: ${{ needs.nm04-native-reader-fixture.outputs.featured_public_url }}
-      NM04_CHECKSUM: ${{ needs.nm04-native-reader-fixture.outputs.featured_checksum }}
+      NM04_STORY_ID: ${{ needs.live-staging-security.outputs.story_id }}
+      NM04_SLUG: ${{ needs.live-staging-security.outputs.slug }}
+      NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
+      NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
+      NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
       MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
     steps:
       - uses: actions/checkout@v4
@@ -599,7 +505,7 @@ jobs:
 
   nm04-reader-android:
     name: NM-04 Android tablet native Reader evidence
-    needs: nm04-native-reader-fixture
+    needs: live-staging-security
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -607,11 +513,11 @@ jobs:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
       EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-      NM04_STORY_ID: ${{ needs.nm04-native-reader-fixture.outputs.story_id }}
-      NM04_SLUG: ${{ needs.nm04-native-reader-fixture.outputs.slug }}
-      NM04_TITLE: ${{ needs.nm04-native-reader-fixture.outputs.title }}
-      NM04_PUBLIC_URL: ${{ needs.nm04-native-reader-fixture.outputs.featured_public_url }}
-      NM04_CHECKSUM: ${{ needs.nm04-native-reader-fixture.outputs.featured_checksum }}
+      NM04_STORY_ID: ${{ needs.live-staging-security.outputs.story_id }}
+      NM04_SLUG: ${{ needs.live-staging-security.outputs.slug }}
+      NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
+      NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
+      NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -730,7 +636,7 @@ jobs:
   nm04-native-reader-cleanup:
     name: NM-04 cleanup staging certification residue
     needs:
-      - nm04-native-reader-fixture
+      - live-staging-security
       - nm04-reader-web
       - nm04-reader-ios
       - nm04-reader-android
