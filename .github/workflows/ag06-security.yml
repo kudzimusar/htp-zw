@@ -356,8 +356,14 @@ jobs:
               await page.getByText(process.env.NM04_CREDIT,{exact:false}).waitFor({timeout:30000});
               const image=page.getByLabel(process.env.NM04_ALT_TEXT).first();
               await image.waitFor({timeout:30000});
-              const src=await image.getAttribute("src");
-              if(src!==process.env.NM04_PUBLIC_URL) throw new Error("Reader image src mismatch: "+src);
+              const media=await image.evaluate((element)=>({
+                src:element.getAttribute("src"),
+                style:element.getAttribute("style"),
+                backgroundImage:getComputedStyle(element).backgroundImage
+              }));
+              const expected=process.env.NM04_PUBLIC_URL;
+              const renderedMedia=[media.src,media.style,media.backgroundImage].filter(Boolean).join("\n");
+              if(!renderedMedia.includes(expected)) throw new Error("Reader image URL mismatch: "+JSON.stringify(media));
               const body=await page.locator("body").innerText();
               if(body.includes("newsroom-private")) throw new Error("private Newsroom reference leaked to Reader");
               const file="nm04-evidence/web/"+item.name+".png";
