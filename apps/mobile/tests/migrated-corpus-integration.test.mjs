@@ -258,7 +258,7 @@ function nativeFixture(overrides={}){
     excerpt:"CMS-native public Reader excerpt.",
     featured_storage_bucket:"newsroom-public",
     featured_storage_object:"story-media/111/222/checksum/featured.png",
-    featured_public_url:"https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/public/newsroom-public/story-media/111/222/checksum/featured.png",
+    featured_public_url:"/storage/v1/object/public/newsroom-public/story-media/111/222/checksum/featured.png",
     featured_alt_text:"CMS-native featured image alt text",
     featured_caption:"CMS-native featured image caption",
     featured_credit:"HealthTimes",
@@ -269,7 +269,7 @@ function nativeFixture(overrides={}){
 
 test("16 CMS-native public document maps into the existing source-neutral Reader contract",()=>{
   const doc=nativeFixture();
-  const article=mapNativeStoryDocument(doc);
+  const article=mapNativeStoryDocument(doc,url);
   assert.equal(article.canonicalStoryId,doc.story_id);
   assert.equal(article.id,"nm04-native-reader-cert");
   assert.equal(article.sourceProvenance?.system,"healthtimes-native");
@@ -277,7 +277,7 @@ test("16 CMS-native public document maps into the existing source-neutral Reader
   assert.equal(article.bodyHtml,doc.body_html);
   assert.equal(article.author?.displayName,doc.author.name);
   assert.equal(article.primarySection?.slug,doc.section.slug);
-  assert.equal(article.heroMedia?.publicUrl,doc.featured_public_url);
+  assert.equal(article.heroMedia?.publicUrl,url+doc.featured_public_url);
   assert.equal(article.heroMedia?.altText,doc.featured_alt_text);
   assert.equal(article.heroMedia?.caption,doc.featured_caption);
   assert.equal(article.heroMedia?.credit,doc.featured_credit);
@@ -291,20 +291,20 @@ test("17 CMS-native Premium and private-media inputs fail closed in the Reader m
   const premium=mapNativeStoryDocument(nativeFixture({
     access_policy:"premium",
     body_html:"<p>must never persist anonymously</p>"
-  }));
+  }),url);
   assert.equal(premium.accessPolicy,"premium");
   assert.equal(premium.bodyHtml,null);
 
   const privateMedia=mapNativeStoryDocument(nativeFixture({
     featured_storage_bucket:"newsroom-private",
     featured_public_url:"https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/sign/newsroom-private/private.png?token=secret"
-  }));
+  }),url);
   assert.equal(privateMedia.heroMedia,null);
 
   const signedMedia=mapNativeStoryDocument(nativeFixture({
     featured_storage_bucket:"newsroom-public",
     featured_public_url:"https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/sign/newsroom-public/featured.png?token=secret"
-  }));
+  }),url);
   assert.equal(signedMedia.heroMedia,null);
 });
 
@@ -339,4 +339,11 @@ test("20 native integration does not fabricate native category or author browse 
   assert.match(adapter,/article\.sourceProvenance\?\.system !== "wordpress"\) continue/);
   assert.match(adapter,/filter\(\(article\) => article\.sourceProvenance\?\.system === "wordpress"\)/);
   assert.doesNotMatch(adapter,/newsroom_public_(category|author)/);
+});
+
+test("21 CMS-native media origin binding rejects cross-origin public-looking URLs",()=>{
+  const crossOrigin=mapNativeStoryDocument(nativeFixture({
+    featured_public_url:"https://example.invalid/storage/v1/object/public/newsroom-public/story-media/111/222/checksum/featured.png"
+  }),url);
+  assert.equal(crossOrigin.heroMedia,null);
 });
