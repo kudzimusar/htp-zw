@@ -596,7 +596,7 @@ jobs:
               cat > "$body_flow" <<YAML
           appId: zw.co.healthtimes.app.staging
           ---
-          - launchApp
+          - stopApp
           - openLink: "healthtimes://article/$NM04_SLUG"
           - tapOn:
               text: "Open"
