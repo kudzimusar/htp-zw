@@ -90,3 +90,13 @@ test("Android visual evidence fails if Home remains on the loading shell",()=>{
   assert.ok(android.includes("rendered an application error instead of Home"));
   assert.equal(android.includes("did not expose Top Stories"),false);
 });
+
+test("CMS-native web deep links use the dynamic article shell",()=>{
+  const vercel=JSON.parse(readRepo("vercel.json"));
+  assert.ok(vercel.rewrites.some((rewrite)=>
+    rewrite.source==="/article/:id" &&
+    rewrite.destination==="/article/[id].html"
+  ));
+  const smoke=readRepo("scripts/web/phase4-smoke-server.js");
+  assert.ok(smoke.includes("path.join(dist, 'article', '[id].html')"));
+});
