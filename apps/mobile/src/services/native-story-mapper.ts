@@ -60,24 +60,34 @@ function deterministicSlug(value: string | null | undefined) {
 
 function safePublicMediaUrl(
   value: string | null,
-  storageBucket: string | null
+  storageBucket: string | null,
+  publicOrigin?: string | null
 ) {
   if (!value) return null;
   if (storageBucket && storageBucket !== "newsroom-public") return null;
+
+  const publicPrefix = "/storage/v1/object/public/newsroom-public/";
   try {
-    const parsed = new URL(value);
-    const path = parsed.pathname.toLowerCase();
-    if (parsed.protocol !== "https:") return null;
-    if (path.includes("newsroom-private")) return null;
-    if (path.includes("/storage/v1/object/sign/")) return null;
-    if (path.includes("/storage/v1/object/authenticated/")) return null;
-    return value;
+    const base = publicOrigin ? new URL(publicOrigin) : null;
+    const parsed = value.startsWith("/")
+      ? (base ? new URL(value, base.origin) : null)
+      : new URL(value);
+    if (!parsed || parsed.protocol !== "https:") return null;
+    if (!parsed.pathname.startsWith(publicPrefix)) return null;
+    if (parsed.pathname.toLowerCase().includes("newsroom-private")) return null;
+    if (parsed.pathname.includes("/storage/v1/object/sign/")) return null;
+    if (parsed.pathname.includes("/storage/v1/object/authenticated/")) return null;
+    if (base && parsed.origin !== base.origin) return null;
+    return parsed.toString();
   } catch {
     return null;
   }
 }
 
-export function mapNativeStoryDocument(doc: NativeStoryDocument): ArticleDetail {
+export function mapNativeStoryDocument(
+  doc: NativeStoryDocument,
+  publicOrigin?: string | null
+): ArticleDetail {
   const rawAccess = (doc.access_policy ?? "premium").trim().toLowerCase();
   const accessPolicy = rawAccess === "public" ? "public" as const : "premium" as const;
   const canonicalPath =
@@ -91,7 +101,8 @@ export function mapNativeStoryDocument(doc: NativeStoryDocument): ArticleDetail 
   const sectionSlug = deterministicSlug(doc.section?.slug || sectionName);
   const publicMediaUrl = safePublicMediaUrl(
     doc.featured_public_url,
-    doc.featured_storage_bucket
+    doc.featured_storage_bucket,
+    publicOrigin
   );
   const mediaStableKey = doc.featured_storage_object
     ? "newsroom-public:" + doc.featured_storage_object
