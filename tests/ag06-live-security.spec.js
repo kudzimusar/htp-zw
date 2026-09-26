@@ -645,7 +645,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       path,
       title:`AG06 Public Media ${stamp}`,
       body_text:'Public Reader certification body for CMS-native promotion.',
-      featured_public_url:promoted.public_url,
+      featured_public_url:publicUrl,
       featured_storage_bucket:promoted.public_storage_bucket,
       featured_storage_object:promoted.public_storage_key,
       featured_checksum:checksum,
