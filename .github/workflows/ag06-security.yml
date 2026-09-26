@@ -590,16 +590,32 @@ jobs:
               sleep 3
             done
             test "$header_found" = 1
-            cat > "$RUNNER_TEMP/nm04-body-$kind.yaml" <<YAML
+            body_found=0
+            for attempt in $(seq 1 6); do
+              body_flow="$RUNNER_TEMP/nm04-body-$kind-$attempt.yaml"
+              cat > "$body_flow" <<YAML
           appId: zw.co.healthtimes.app.staging
           ---
+          - launchApp
+          - openLink: "healthtimes://article/$NM04_SLUG"
+          - tapOn:
+              text: "Open"
+              optional: true
+          - extendedWaitUntil:
+              visible: "$NM04_TITLE"
+              timeout: 30000
+          - tapOn:
+              text: "Open"
+              optional: true
+          YAML
+              for swipe in $(seq 1 "$attempt"); do
+                cat >> "$body_flow" <<YAML
           - swipe:
               direction: UP
               duration: 500
           YAML
-            body_found=0
-            for attempt in $(seq 1 6); do
-              if ! run_ios_flow "$udid" "$RUNNER_TEMP/nm04-body-$kind.yaml" "$out"; then
+              done
+              if ! run_ios_flow "$udid" "$body_flow" "$out"; then
                 capture_ios_failure "$udid" "$out"
                 return 1
               fi
