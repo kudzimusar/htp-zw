@@ -26,6 +26,10 @@ import {
   mapMigratedStoryDocument,
   type MigratedStoryDocument
 } from "./migrated-corpus-mapper";
+import {
+  mapNativeStoryDocument,
+  type NativeStoryDocument
+} from "./native-story-mapper";
 
 type FeedRow = {
   title: string;
@@ -34,6 +38,20 @@ type FeedRow = {
   modified_at: string | null;
   author_name: string | null;
   description: string | null;
+};
+
+type NativeFeedRow = {
+  id: string;
+  title: string;
+  slug: string;
+  standfirst: string | null;
+  excerpt: string | null;
+  body_html: string | null;
+  published_at: string | null;
+  modified_at: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  canonical_url: string | null;
 };
 
 type ContextDocument = {
@@ -73,6 +91,19 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
+async function boundedRpcRows<T>(
+  name: string,
+  args: Record<string, unknown>,
+  limit: number
+): Promise<T[]> {
+  const client = getStagingSupabaseClient() as any;
+  const { data, error } = await client.rpc(name, args).limit(limit);
+  if (error) {
+    throw new Error(error.message || "HealthTimes public Reader listing request failed.");
+  }
+  return (data ?? []) as T[];
+}
+
 function normalizePath(value: string) {
   const path = value.startsWith("/") ? value : "/" + value;
   return path.endsWith("/") ? path : path + "/";
@@ -91,11 +122,24 @@ function pathFromCanonicalUrl(value: string | null) {
   }
 }
 
-async function storyForPath(path: string) {
+async function migratedStoryForPath(path: string) {
   const doc = await rpc<MigratedStoryDocument | null>("ag05_public_story_document", {
     p_path: normalizePath(path)
   });
   return doc?.story_id ? mapMigratedStoryDocument(doc, stagingConfig.url) : null;
+}
+
+async function nativeStoryForPath(path: string) {
+  const doc = await rpc<NativeStoryDocument | null>("newsroom_public_story_document", {
+    p_path: normalizePath(path)
+  });
+  return doc?.story_id ? mapNativeStoryDocument(doc) : null;
+}
+
+async function storyForPath(path: string) {
+  const migrated = await migratedStoryForPath(path);
+  if (migrated) return migrated;
+  return nativeStoryForPath(path);
 }
 
 async function storyForCanonicalUrl(url: string | null) {
@@ -115,18 +159,73 @@ async function mapInBatches<T, R>(
   return output;
 }
 
+async function nativeStoryForFeedRow(row: NativeFeedRow) {
+  const requestedPath =
+    pathFromCanonicalUrl(row.canonical_url) ??
+    normalizePath("/" + row.slug);
+  const legacy = await rpc<PathResolution | null>("ag05_resolve_public_path", {
+    p_path: requestedPath
+  });
+  if (legacy && legacy.http_status !== 404) return null;
+  return nativeStoryForPath(requestedPath);
+}
+
+function publishedTime(value: string | null) {
+  const parsed = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function articleSort(a: ArticleDetail, b: ArticleDetail) {
+  return (
+    publishedTime(b.publishedAt) - publishedTime(a.publishedAt) ||
+    publishedTime(b.modifiedAt) - publishedTime(a.modifiedAt) ||
+    String(a.canonicalStoryId ?? a.id).localeCompare(String(b.canonicalStoryId ?? b.id))
+  );
+}
+
 async function loadFeedDocuments(limit = FEED_LIMIT) {
-  if (limit === FEED_LIMIT && feedCache && Date.now() - feedCache.at < CACHE_MS) {
+  const boundedLimit = Math.max(1, Math.floor(limit));
+  if (boundedLimit === FEED_LIMIT && feedCache && Date.now() - feedCache.at < CACHE_MS) {
     return feedCache.articles;
   }
-  const feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: limit });
-  const mapped = await mapInBatches(
-    (feed ?? []).map((row) => row.canonical_url),
-    DETAIL_BATCH_SIZE,
-    storyForCanonicalUrl
-  );
-  const articles = mapped.filter((article): article is ArticleDetail => Boolean(article));
-  if (limit === FEED_LIMIT) {
+
+  const [feed, nativeFeed] = await Promise.all([
+    rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: boundedLimit }),
+    boundedRpcRows<NativeFeedRow>(
+      "newsroom_public_published_stories",
+      { p_slug: null },
+      boundedLimit
+    )
+  ]);
+
+  const [mappedMigrated, mappedNative] = await Promise.all([
+    mapInBatches(
+      (feed ?? []).map((row) => row.canonical_url),
+      DETAIL_BATCH_SIZE,
+      storyForCanonicalUrl
+    ),
+    mapInBatches(
+      nativeFeed,
+      DETAIL_BATCH_SIZE,
+      nativeStoryForFeedRow
+    )
+  ]);
+
+  const seen = new Set<string>();
+  const articles = [...mappedMigrated, ...mappedNative]
+    .filter((article): article is ArticleDetail => Boolean(article))
+    .sort(articleSort)
+    .filter((article) => {
+      const key = article.canonicalStoryId
+        ? "story:" + article.canonicalStoryId
+        : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, boundedLimit);
+
+  if (boundedLimit === FEED_LIMIT) {
     feedCache = { at: Date.now(), articles };
   }
   return articles;
@@ -142,7 +241,10 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string) {
     DETAIL_BATCH_SIZE,
     storyForCanonicalUrl
   );
-  return mapped.filter((article): article is ArticleDetail => Boolean(article));
+  return mapped.filter(
+    (article): article is ArticleDetail =>
+      Boolean(article) && article?.sourceProvenance?.system === "wordpress"
+  );
 }
 
 async function resolveIdentity(id: string) {
@@ -165,8 +267,13 @@ async function resolveIdentity(id: string) {
   const resolution = await rpc<PathResolution | null>("ag05_resolve_public_path", {
     p_path: requestedPath
   });
-  if (!resolution || resolution.http_status === 404 || !resolution.target_path) return null;
-  return storyForPath(resolution.target_path);
+
+  if (resolution && resolution.http_status !== 404) {
+    if (!resolution.target_path) return null;
+    return migratedStoryForPath(resolution.target_path);
+  }
+
+  return nativeStoryForPath(requestedPath);
 }
 
 const articleRepository: ArticleRepository = {
@@ -201,15 +308,11 @@ function normalized(value: string) {
   return value.trim().toLowerCase();
 }
 
-function publishedTime(value: string | null) {
-  const parsed = value ? new Date(value).getTime() : 0;
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 async function corpusAuthors() {
   const articles = await loadFeedDocuments(200);
   const authors = new Map<string, AuthorProfile>();
   for (const article of articles) {
+    if (article.sourceProvenance?.system !== "wordpress") continue;
     const author = article.author;
     if (!author) continue;
     const existing = authors.get(author.slug);
@@ -303,7 +406,8 @@ const searchService: SearchService = {
 const taxonomyService: TaxonomyService = {
   async getSnapshot() {
     const canonical = await certifiedTaxonomyFixtureService.getSnapshot();
-    const articles = await loadFeedDocuments(200);
+    const articles = (await loadFeedDocuments(200))
+      .filter((article) => article.sourceProvenance?.system === "wordpress");
     const observedSections = Array.from(
       new Map(
         articles
@@ -388,5 +492,9 @@ export const migratedCorpusStatus = {
     "ag05_public_context_document",
     "ag05_public_feed_rows",
     "ag05_hospaz_direct_ad_preview"
+  ] as const,
+  nativePublicFunctions: [
+    "newsroom_public_story_document",
+    "newsroom_public_published_stories"
   ] as const
 };
