@@ -16,6 +16,10 @@ on:
       - 'package-lock.json'
       - 'ads.txt'
       - 'app-ads.txt'
+      - 'apps/mobile/src/services/**'
+      - 'apps/mobile/tests/**'
+      - '.github/workflows/ag06-security.yml'
+      - '.github/workflows/phase10-visual-conformance.yml'
       - 'docs/migration/agent-reports/AG-03_SOURCE_DATA_CAPTURE.md'
       - '.github/workflows/migration-tests.yml'
 

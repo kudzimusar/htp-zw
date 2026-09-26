@@ -621,6 +621,49 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(premiumList.response)).toBe(200);
     expect(premiumList.body).toEqual([]);
 
+    // Preserve the Premium fail-closed proof above, then restore this same
+    // certified story to Public so NM-04 can render the identical released
+    // identity/media URL across Web/PWA/iOS/iPad/Android before final cleanup.
+    const restoredPublic=await appPost(publisher,'setPremium',{storyId,accessPolicy:'public'});
+    expect(statusOf(restoredPublic)).toBe(200);
+    const restoredDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
+    expect(statusOf(restoredDoc.response)).toBe(200);
+    expect(restoredDoc.body?.story_id).toBe(storyId);
+    expect(restoredDoc.body?.access_policy).toBe('public');
+    expect(restoredDoc.body?.body_html).toContain('Public Reader certification body');
+    expect(restoredDoc.body?.featured_public_url).toBe(promoted.public_url);
+    expect(restoredDoc.body?.featured_checksum).toBe(checksum);
+    const restoredList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
+    expect(statusOf(restoredList.response)).toBe(200);
+    expect(restoredList.body).toHaveLength(1);
+    expect(restoredList.body[0]?.id).toBe(storyId);
+
+    const nm04Evidence={
+      story_id:storyId,
+      media_id:mediaId,
+      slug,
+      path,
+      title:`AG06 Public Media ${stamp}`,
+      author_name:restoredDoc.body?.author?.name ?? null,
+      published_at:restoredDoc.body?.published_at ?? null,
+      body_text:'Public Reader certification body for CMS-native promotion.',
+      featured_public_url:publicUrl,
+      featured_storage_bucket:promoted.public_storage_bucket,
+      featured_storage_object:promoted.public_storage_key,
+      featured_checksum:checksum,
+      alt_text:'HealthTimes AG-06 staging certification image',
+      caption:'AG-06 CMS public media certification',
+      credit:'HealthTimes certification',
+      source_type:restoredDoc.body?.source_type,
+      handling:restoredDoc.body?.handling,
+      access_policy:restoredDoc.body?.access_policy
+    };
+    fs.writeFileSync(
+      process.env.NM04_FIXTURE_EVIDENCE_PATH||'/tmp/nm04-native-fixture.json',
+      JSON.stringify(nm04Evidence,null,2)
+    );
+    console.log('NM04_NATIVE_FIXTURE',JSON.stringify(nm04Evidence));
+
     console.log('AG06_PUBLIC_MEDIA_EVIDENCE',JSON.stringify({
       story_id:storyId,
       media_id:mediaId,
