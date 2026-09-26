@@ -515,6 +515,29 @@ jobs:
             xcrun simctl get_app_container "$udid" zw.co.healthtimes.app.staging app > "$out/app-container.txt" 2>&1 || true
             preserve_maestro_debug "$out"
           }
+          run_ios_flow() {
+            local udid="$1"
+            local flow="$2"
+            local out="$3"
+            local log="$out/$(basename "$flow" .yaml)-maestro.log"
+            local status
+            set +e
+            maestro --device "$udid" test "$flow" > "$log" 2>&1
+            status=$?
+            set -e
+            if [[ "$status" -ne 0 ]]; then
+              xcrun simctl bootstatus "$udid" -b
+              sleep 5
+              set +e
+              maestro --device "$udid" test "$flow" >> "$log" 2>&1
+              status=$?
+              set -e
+            fi
+            if [[ "$status" -ne 0 ]]; then
+              tail -n 80 "$log"
+              return 1
+            fi
+          }
           capture_device() {
             local udid="$1"
             local kind="$2"
@@ -544,7 +567,7 @@ jobs:
           YAML
             fi
             printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
-            if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"; then
+            if ! run_ios_flow "$udid" "$RUNNER_TEMP/nm04-header-$kind.yaml" "$out"; then
               capture_ios_failure "$udid" "$out"
               return 1
             fi
@@ -564,7 +587,7 @@ jobs:
           YAML
             body_found=0
             for attempt in $(seq 1 6); do
-              if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"; then
+              if ! run_ios_flow "$udid" "$RUNNER_TEMP/nm04-body-$kind.yaml" "$out"; then
                 capture_ios_failure "$udid" "$out"
                 return 1
               fi
