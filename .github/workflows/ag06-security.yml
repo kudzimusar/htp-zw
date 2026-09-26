@@ -350,12 +350,18 @@ jobs:
               const page=await browser.newPage({viewport:{width:item.width,height:item.height}});
               const response=await page.goto("http://127.0.0.1:4174/article/"+process.env.NM04_SLUG,{waitUntil:"domcontentloaded",timeout:30000});
               if(!response?.ok()) throw new Error(item.name+" article HTTP "+response?.status());
-              await page.getByText(process.env.NM04_TITLE,{exact:true}).first().waitFor({timeout:30000});
-              await page.getByText(process.env.NM04_BODY_TEXT,{exact:false}).first().waitFor({timeout:30000});
-              await page.getByText(process.env.NM04_CAPTION,{exact:false}).first().waitFor({timeout:30000});
-              await page.getByText(process.env.NM04_CREDIT,{exact:false}).first().waitFor({timeout:30000});
-              const image=page.getByLabel(process.env.NM04_ALT_TEXT).first();
-              await image.waitFor({timeout:30000});
+              await page.waitForFunction(
+                values => values.every(value => (document.body?.innerText ?? "").includes(value)),
+                [process.env.NM04_TITLE,process.env.NM04_BODY_TEXT,process.env.NM04_CAPTION,process.env.NM04_CREDIT],
+                {timeout:30000}
+              );
+              const labeled=page.getByLabel(process.env.NM04_ALT_TEXT);
+              let image=null;
+              for(let index=0;index<await labeled.count();index+=1){
+                const candidate=labeled.nth(index);
+                if(await candidate.isVisible()){ image=candidate; break; }
+              }
+              if(!image) throw new Error("Visible certified Reader image was not found.");
               const media=await image.evaluate((element)=>({
                 src:element.getAttribute("src"),
                 style:element.getAttribute("style"),
