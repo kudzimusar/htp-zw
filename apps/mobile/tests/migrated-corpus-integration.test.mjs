@@ -222,3 +222,121 @@ test("15 native Home feed is bounded for first render without changing CP5 autho
   assert.match(adapter,/ag05_public_story_document/);
   assert.doesNotMatch(adapter,/sourceParityServices\.articles|sourceParityArticles/);
 });
+
+
+const nativeMapperSource=read("src/services/native-story-mapper.ts");
+const nativeMapperOutput=ts.transpileModule(nativeMapperSource,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
+}).outputText;
+const nativeMapperModule={exports:{}};
+new Function("module","exports","require",nativeMapperOutput)(
+  nativeMapperModule,nativeMapperModule.exports,(name)=>{throw new Error("Unexpected runtime import "+name);}
+);
+const {mapNativeStoryDocument}=nativeMapperModule.exports;
+
+function nativeFixture(overrides={}){
+  return {
+    story_id:"11111111-1111-4111-8111-111111111111",
+    source_id:null,
+    source_type:"native-story",
+    source_url:null,
+    old_path:"/nm04-native-reader-cert/",
+    new_path:"/nm04-native-reader-cert/",
+    handling:"native_cms",
+    http_status:200,
+    title:"NM-04 Native Reader Certification",
+    story_title:"NM-04 Native Reader Certification",
+    description:"CMS-native Reader integration proof.",
+    canonical_url:"https://healthtimes.co.zw/nm04-native-reader-cert/",
+    published_at:"2026-09-26T00:00:00Z",
+    modified_at:"2026-09-26T00:01:00Z",
+    author:{name:"HealthTimes Certification",slug:"healthtimes-certification",bio:null},
+    section:{name:"Health News",slug:"health-news"},
+    access_policy:"public",
+    body_html:"<p>CMS-native public Reader body.</p>",
+    standfirst:"CMS-native public Reader standfirst.",
+    excerpt:"CMS-native public Reader excerpt.",
+    featured_storage_bucket:"newsroom-public",
+    featured_storage_object:"story-media/111/222/checksum/featured.png",
+    featured_public_url:"https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/public/newsroom-public/story-media/111/222/checksum/featured.png",
+    featured_alt_text:"CMS-native featured image alt text",
+    featured_caption:"CMS-native featured image caption",
+    featured_credit:"HealthTimes",
+    featured_checksum:"abc123",
+    ...overrides
+  };
+}
+
+test("16 CMS-native public document maps into the existing source-neutral Reader contract",()=>{
+  const doc=nativeFixture();
+  const article=mapNativeStoryDocument(doc);
+  assert.equal(article.canonicalStoryId,doc.story_id);
+  assert.equal(article.id,"nm04-native-reader-cert");
+  assert.equal(article.sourceProvenance?.system,"healthtimes-native");
+  assert.equal(article.sourceProvenance?.stableKey,"healthtimes-native-story:"+doc.story_id);
+  assert.equal(article.bodyHtml,doc.body_html);
+  assert.equal(article.author?.displayName,doc.author.name);
+  assert.equal(article.primarySection?.slug,doc.section.slug);
+  assert.equal(article.heroMedia?.publicUrl,doc.featured_public_url);
+  assert.equal(article.heroMedia?.altText,doc.featured_alt_text);
+  assert.equal(article.heroMedia?.caption,doc.featured_caption);
+  assert.equal(article.heroMedia?.credit,doc.featured_credit);
+  assert.equal(article.heroMedia?.sourceProvenance?.checksum,doc.featured_checksum);
+  assert.equal(article.heroMedia?.sourceProvenance?.system,"healthtimes-native");
+  assert.equal(article.heroMedia?.id,"newsroom-public:"+doc.featured_storage_object);
+  assert.equal("wordpress" in (article.sourceProvenance??{}),false);
+});
+
+test("17 CMS-native Premium and private-media inputs fail closed in the Reader mapper",()=>{
+  const premium=mapNativeStoryDocument(nativeFixture({
+    access_policy:"premium",
+    body_html:"<p>must never persist anonymously</p>"
+  }));
+  assert.equal(premium.accessPolicy,"premium");
+  assert.equal(premium.bodyHtml,null);
+
+  const privateMedia=mapNativeStoryDocument(nativeFixture({
+    featured_storage_bucket:"newsroom-private",
+    featured_public_url:"https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/sign/newsroom-private/private.png?token=secret"
+  }));
+  assert.equal(privateMedia.heroMedia,null);
+
+  const signedMedia=mapNativeStoryDocument(nativeFixture({
+    featured_storage_bucket:"newsroom-public",
+    featured_public_url:"https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/sign/newsroom-public/featured.png?token=secret"
+  }));
+  assert.equal(signedMedia.heroMedia,null);
+});
+
+test("18 legacy path authority precedes native fallback for direct Reader resolution",()=>{
+  const adapter=read("src/services/migrated-corpus.ts");
+  const direct=adapter.split("async function resolveIdentity")[1]?.split("const articleRepository")[0]??"";
+  const resolver=direct.indexOf('"ag05_resolve_public_path"');
+  const nativeFallback=direct.lastIndexOf("return nativeStoryForPath(requestedPath)");
+  assert.ok(resolver>=0);
+  assert.ok(nativeFallback>resolver);
+  assert.match(direct,/resolution && resolution\.http_status !== 404[\s\S]*return migratedStoryForPath\(resolution\.target_path\)[\s\S]*return nativeStoryForPath\(requestedPath\)/);
+
+  const pathMapper=adapter.split("async function storyForPath")[1]?.split("async function storyForCanonicalUrl")[0]??"";
+  assert.ok(pathMapper.indexOf("migratedStoryForPath(path)") < pathMapper.indexOf("nativeStoryForPath(path)"));
+});
+
+test("19 unified Home and Search consume native public discovery with bounded hydration",()=>{
+  const adapter=read("src/services/migrated-corpus.ts");
+  assert.match(adapter,/const FEED_LIMIT = 48;/);
+  assert.match(adapter,/const DETAIL_BATCH_SIZE = 12;/);
+  assert.match(adapter,/boundedRpcRows<NativeFeedRow>[\s\S]*"newsroom_public_published_stories"/);
+  assert.match(adapter,/client\.rpc\(name, args\)\.limit\(limit\)/);
+  assert.match(adapter,/\.slice\(0, boundedLimit\)/);
+  assert.match(adapter,/const all = await loadFeedDocuments\(200\)/);
+  assert.match(adapter,/newsroom_public_story_document/);
+  assert.doesNotMatch(adapter,/\.from\(["']stories["']\)|public\.stories/);
+});
+
+test("20 native integration does not fabricate native category or author browse authority",()=>{
+  const adapter=read("src/services/migrated-corpus.ts");
+  assert.match(adapter,/ag05_public_context_document/);
+  assert.match(adapter,/article\.sourceProvenance\?\.system !== "wordpress"\) continue/);
+  assert.match(adapter,/filter\(\(article\) => article\.sourceProvenance\?\.system === "wordpress"\)/);
+  assert.doesNotMatch(adapter,/newsroom_public_(category|author)/);
+});
