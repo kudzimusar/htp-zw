@@ -19,8 +19,14 @@ on:
       - 'playwright.config.js'
       - 'package.json'
       - 'scripts/ag06/**'
+      - 'apps/mobile/src/services/**'
+      - 'apps/mobile/tests/**'
       - '.github/workflows/ag06-security.yml'
   workflow_dispatch:
+
+concurrency:
+  group: healthtimes-ag06-staging-certification
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -124,9 +130,6 @@ jobs:
 
   # Staging-only certification uses GitHub OIDC and ephemeral Auth users; no repository secrets.
   live-staging-security:
-    concurrency:
-      group: healthtimes-staging-security-live
-      cancel-in-progress: false
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
@@ -243,3 +246,542 @@ jobs:
         shell: bash
         run: |
           test -f /tmp/ag06-newsroom-server.pid && kill "$(cat /tmp/ag06-newsroom-server.pid)" || true
+
+
+  nm04-native-reader-fixture:
+    name: NM-04 stage released CMS-native Reader fixture
+    needs: live-staging-security
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      story_id: ${{ steps.stage.outputs.story_id }}
+      slug: ${{ steps.stage.outputs.slug }}
+      title: ${{ steps.stage.outputs.title }}
+      featured_public_url: ${{ steps.stage.outputs.featured_public_url }}
+      featured_checksum: ${{ steps.stage.outputs.featured_checksum }}
+    env:
+      AG06_STAGING_BASE_URL: https://localhost:4173
+      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      AG06_STAGING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Provision bounded NM-04 staging identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          roles=(reporter editor commercial publisher)
+          accounts_file=/tmp/ag06-accounts.json
+          printf '[' > "$accounts_file"
+          first=1
+          for role in "${roles[@]}"; do
+            upper="$(printf '%s' "$role" | tr '[:lower:]' '[:upper:]')"
+            email="ag06-$role-$tag@healthtimes.co.zw"
+            password="Ht!$(openssl rand -hex 18)Aa7"
+            echo "::add-mask::$password"
+            echo "AG06_${upper}_EMAIL=$email" >> "$GITHUB_ENV"
+            echo "AG06_${upper}_PASSWORD=$password" >> "$GITHUB_ENV"
+            item="$(node -e 'const [role,email,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({role,email,password}))' "$role" "$email" "$password")"
+            if [[ "$first" == "0" ]]; then printf ',' >> "$accounts_file"; fi
+            printf '%s' "$item" >> "$accounts_file"
+            first=0
+          done
+          printf ']' >> "$accounts_file"
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const fs=require("fs");const [run,attempt]=process.argv.slice(1);const accounts=JSON.parse(fs.readFileSync("/tmp/ag06-accounts.json","utf8"));process.stdout.write(JSON.stringify({action:"provision",run_id:run,run_attempt:attempt,accounts}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/nm04-provision.json -w '%{http_code}' -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
+          cat /tmp/nm04-provision.json
+          test "$code" = "200"
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Start exact-head Newsroom gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -keyout /tmp/ag06-local.key -out /tmp/ag06-local.crt -days 1 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+          AG06_TEST_TLS_KEY=/tmp/ag06-local.key AG06_TEST_TLS_CERT=/tmp/ag06-local.crt node scripts/ag06/newsroom-test-server.js >/tmp/nm04-newsroom-server.log 2>&1 &
+          echo $! >/tmp/nm04-newsroom-server.pid
+          for attempt in $(seq 1 30); do
+            if curl --silent --insecure --fail https://localhost:4173/newsroom.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nm04-newsroom-server.log
+          exit 1
+      - name: Stage and verify released CMS-native story
+        id: stage
+        env:
+          NM04_FIXTURE_EVIDENCE_PATH: /tmp/nm04-native-fixture.json
+        run: node apps/mobile/tests/nm04-stage-native-fixture.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nm04-native-reader-fixture
+          path: /tmp/nm04-native-fixture.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Stop exact-head Newsroom gateway
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/nm04-newsroom-server.pid && kill "$(cat /tmp/nm04-newsroom-server.pid)" || true
+
+  nm04-reader-web:
+    name: NM-04 Web desktop + mobile PWA native Reader evidence
+    needs: nm04-native-reader-fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      APP_ENV: staging
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+      EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      NM04_STORY_ID: ${{ needs.nm04-native-reader-fixture.outputs.story_id }}
+      NM04_SLUG: ${{ needs.nm04-native-reader-fixture.outputs.slug }}
+      NM04_TITLE: ${{ needs.nm04-native-reader-fixture.outputs.title }}
+      NM04_PUBLIC_URL: ${{ needs.nm04-native-reader-fixture.outputs.featured_public_url }}
+      NM04_CHECKSUM: ${{ needs.nm04-native-reader-fixture.outputs.featured_checksum }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Build staging Web/PWA
+        run: |
+          npm --prefix apps/mobile run export:web -- --clear
+          node scripts/web/prepare-phase4-vercel.js
+      - run: npx playwright install --with-deps chromium
+      - name: Capture exact native story on desktop and mobile PWA viewport
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p nm04-evidence/web
+          node scripts/web/phase4-smoke-server.js >/tmp/nm04-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "20" ]]; then cat /tmp/nm04-web.log; exit 1; fi
+            sleep 1
+          done
+          node - <<'NODE'
+          const { chromium }=require("@playwright/test");
+          const fs=require("fs");
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const screens=[];
+            for(const item of [
+              {name:"desktop",width:1440,height:1000},
+              {name:"mobile-pwa",width:390,height:844}
+            ]){
+              const page=await browser.newPage({viewport:{width:item.width,height:item.height}});
+              const response=await page.goto("http://127.0.0.1:4174/article/"+process.env.NM04_SLUG,{waitUntil:"domcontentloaded",timeout:30000});
+              if(!response?.ok()) throw new Error(item.name+" article HTTP "+response?.status());
+              await page.getByText(process.env.NM04_TITLE,{exact:true}).waitFor({timeout:30000});
+              await page.getByText("CMS-native public Reader certification body.",{exact:false}).waitFor({timeout:30000});
+              await page.getByText("NM-04 source-neutral Reader certification",{exact:false}).waitFor({timeout:30000});
+              await page.getByText("HealthTimes certification",{exact:false}).waitFor({timeout:30000});
+              const image=page.getByLabel("HealthTimes NM-04 CMS-native certification image").first();
+              await image.waitFor({timeout:30000});
+              const src=await image.getAttribute("src");
+              if(src!==process.env.NM04_PUBLIC_URL) throw new Error("Reader image src mismatch: "+src);
+              const body=await page.locator("body").innerText();
+              if(body.includes("newsroom-private")) throw new Error("private Newsroom reference leaked to Reader");
+              const file="nm04-evidence/web/"+item.name+".png";
+              await page.screenshot({path:file,fullPage:true});
+              screens.push({...item,file,url:page.url()});
+              await page.close();
+            }
+            fs.writeFileSync("nm04-evidence/web/manifest.json",JSON.stringify({
+              sha:process.env.EXPECTED_SHA,
+              storyId:process.env.NM04_STORY_ID,
+              slug:process.env.NM04_SLUG,
+              publicUrl:process.env.NM04_PUBLIC_URL,
+              checksum:process.env.NM04_CHECKSUM,
+              screens
+            },null,2));
+            await browser.close();
+          })().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nm04-native-reader-web-pwa
+          path: |
+            nm04-evidence/web/
+            /tmp/nm04-web.log
+          if-no-files-found: error
+          retention-days: 30
+
+  nm04-reader-ios:
+    name: NM-04 iPhone + iPad native Reader evidence
+    needs: nm04-native-reader-fixture
+    runs-on: macos-latest
+    timeout-minutes: 75
+    env:
+      APP_ENV: staging
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+      EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      NM04_STORY_ID: ${{ needs.nm04-native-reader-fixture.outputs.story_id }}
+      NM04_SLUG: ${{ needs.nm04-native-reader-fixture.outputs.slug }}
+      NM04_TITLE: ${{ needs.nm04-native-reader-fixture.outputs.title }}
+      NM04_PUBLIC_URL: ${{ needs.nm04-native-reader-fixture.outputs.featured_public_url }}
+      NM04_CHECKSUM: ${{ needs.nm04-native-reader-fixture.outputs.featured_checksum }}
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version
+      - name: Build signed staging simulator app
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          npx expo prebuild --platform ios --clean --no-install
+          cd ios
+          pod install
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          test -n "$WORKSPACE"
+          WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild -list -json -workspace "$WORKSPACE" > xcode-list.json
+          SCHEME=$(WORKSPACE_NAME="$WORKSPACE_NAME" python3 - <<'PY'
+          import json, os
+          data=json.load(open('xcode-list.json'))
+          schemes=data.get('workspace',{}).get('schemes',[])
+          preferred=os.environ['WORKSPACE_NAME']
+          print(preferred if preferred in schemes else [s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))][0])
+          PY
+          )
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath "$PWD/DerivedData" build
+          APP=$(find DerivedData/Build/Products/Release-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
+          test -n "$APP"
+          echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
+      - name: Capture same native story on iPhone and iPad
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.maestro/bin:$PATH"
+          export MAESTRO_CLI_NO_ANALYTICS=1
+          ROOT="$PWD/nm04-evidence/ios"
+          mkdir -p "$ROOT/iphone" "$ROOT/ipad"
+          PHONE_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(x["udid"] for items in d.values() for x in items if x.get("isAvailable") and x["name"].startswith("iPhone")))')
+          IPAD_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(x["udid"] for items in d.values() for x in items if x.get("isAvailable") and x["name"].startswith("iPad")))')
+          capture_device() {
+            local udid="$1"
+            local kind="$2"
+            local out="$ROOT/$kind"
+            xcrun simctl boot "$udid" || true
+            xcrun simctl bootstatus "$udid" -b
+            xcrun simctl ui "$udid" appearance light
+            xcrun simctl install "$udid" "$IOS_APP"
+            cat > "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
+          appId: zw.co.healthtimes.app.staging
+          ---
+          - launchApp
+          - openLink: "healthtimes://article/$NM04_SLUG"
+          - extendedWaitUntil:
+              visible: "$NM04_TITLE"
+              timeout: 30000
+          - assertVisible: "NM-04 source-neutral Reader certification"
+          - assertVisible: "HealthTimes certification"
+          YAML
+            maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"
+            xcrun simctl io "$udid" screenshot "$out/article-header.png"
+            cat > "$RUNNER_TEMP/nm04-body-$kind.yaml" <<YAML
+          appId: zw.co.healthtimes.app.staging
+          ---
+          - launchApp
+          - openLink: "healthtimes://article/$NM04_SLUG"
+          - extendedWaitUntil:
+              visible: "$NM04_TITLE"
+              timeout: 30000
+          - scroll
+          - scroll
+          - scroll
+          - extendedWaitUntil:
+              visible: "CMS-native public Reader certification body."
+              timeout: 30000
+          YAML
+            maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"
+            xcrun simctl io "$udid" screenshot "$out/article-body.png"
+            xcrun simctl spawn "$udid" log show --style compact --last 10m --predicate 'process == "HealthTimesStaging" AND (eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "FunctionCallException")' > "$out/runtime.log" || true
+            if grep -Eiq 'KeyChainException|FunctionCallException' "$out/runtime.log"; then cat "$out/runtime.log"; exit 1; fi
+            KIND="$kind" UDID="$udid" EVIDENCE_SHA="$EXPECTED_SHA" python3 - <<'PY' > "$out/manifest.json"
+          import json, os
+          print(json.dumps({
+            "sha":os.environ["EVIDENCE_SHA"],
+            "deviceClass":os.environ["KIND"],
+            "udid":os.environ["UDID"],
+            "storyId":os.environ["NM04_STORY_ID"],
+            "slug":os.environ["NM04_SLUG"],
+            "publicUrl":os.environ["NM04_PUBLIC_URL"],
+            "checksum":os.environ["NM04_CHECKSUM"],
+            "screens":["article-header.png","article-body.png"]
+          },indent=2))
+          PY
+            xcrun simctl shutdown "$udid" || true
+          }
+          capture_device "$PHONE_UDID" iphone
+          capture_device "$IPAD_UDID" ipad
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nm04-native-reader-ios-ipad
+          path: nm04-evidence/ios/
+          if-no-files-found: error
+          retention-days: 30
+
+  nm04-reader-android:
+    name: NM-04 Android tablet native Reader evidence
+    needs: nm04-native-reader-fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      APP_ENV: staging
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+      EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+      NM04_STORY_ID: ${{ needs.nm04-native-reader-fixture.outputs.story_id }}
+      NM04_SLUG: ${{ needs.nm04-native-reader-fixture.outputs.slug }}
+      NM04_TITLE: ${{ needs.nm04-native-reader-fixture.outputs.title }}
+      NM04_PUBLIC_URL: ${{ needs.nm04-native-reader-fixture.outputs.featured_public_url }}
+      NM04_CHECKSUM: ${{ needs.nm04-native-reader-fixture.outputs.featured_checksum }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Build staging Android release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          npx expo prebuild --platform android --clean --no-install
+          cd android
+          printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\norg.gradle.workers.max=2\n' >> gradle.properties
+          ./gradlew assembleRelease --no-daemon --max-workers=2
+      - name: Capture same native story on Android tablet
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/nm04-avd"
+          OUT="$PWD/nm04-evidence/android-tablet"
+          mkdir -p "$ANDROID_AVD_HOME" "$OUT"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          SYSTEM_IMAGE="system-images;android-35;default;x86_64"
+          "$SDKMANAGER" "platform-tools" "emulator" "$SYSTEM_IMAGE"
+          DEVICE_LIST="$("$AVDMANAGER" list device)"
+          if printf '%s\n' "$DEVICE_LIST" | grep -q 'or "Nexus 10"'; then TABLET_PROFILE="Nexus 10"; else TABLET_PROFILE="pixel_c"; fi
+          echo no | "$AVDMANAGER" create avd -n nm04tablet -k "$SYSTEM_IMAGE" --device "$TABLET_PROFILE" --force
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
+          nohup "$ANDROID_HOME/emulator/emulator" -avd nm04tablet -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-metrics >/tmp/nm04-android.log 2>&1 &
+          emulator_pid=$!
+          for attempt in $(seq 1 120); do
+            adb devices | awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}' && break
+            kill -0 "$emulator_pid" 2>/dev/null || { cat /tmp/nm04-android.log; exit 1; }
+            sleep 2
+          done
+          for attempt in $(seq 1 120); do
+            [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          APP_ID="zw.co.healthtimes.app.staging"
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$NM04_SLUG" -n "$APP_ID/.MainActivity"
+          dump_ui() {
+            adb shell uiautomator dump /sdcard/nm04-ui.xml >/dev/null
+            adb pull /sdcard/nm04-ui.xml "$OUT/current-ui.xml" >/dev/null
+          }
+          found=0
+          for attempt in $(seq 1 60); do
+            dump_ui
+            if grep -Fq "$NM04_TITLE" "$OUT/current-ui.xml"; then found=1; break; fi
+            if grep -Fq "Article not found." "$OUT/current-ui.xml"; then cat "$OUT/current-ui.xml"; exit 1; fi
+            sleep 2
+          done
+          test "$found" = "1"
+          cp "$OUT/current-ui.xml" "$OUT/article-header-ui.xml"
+          grep -Fq "NM-04 source-neutral Reader certification" "$OUT/article-header-ui.xml"
+          grep -Fq "HealthTimes certification" "$OUT/article-header-ui.xml"
+          ! grep -Fq "newsroom-private" "$OUT/article-header-ui.xml"
+          adb exec-out screencap -p > "$OUT/article-header.png"
+          body_found=0
+          for attempt in $(seq 1 8); do
+            adb shell input swipe 600 1600 600 350 450
+            sleep 1
+            dump_ui
+            if grep -Fq "CMS-native public Reader certification body." "$OUT/current-ui.xml"; then body_found=1; break; fi
+          done
+          test "$body_found" = "1"
+          cp "$OUT/current-ui.xml" "$OUT/article-body-ui.xml"
+          adb exec-out screencap -p > "$OUT/article-body.png"
+          EVIDENCE_SHA="$EXPECTED_SHA" TABLET_PROFILE="$TABLET_PROFILE" python3 - <<'PY' > "$OUT/manifest.json"
+          import json, os
+          print(json.dumps({
+            "sha":os.environ["EVIDENCE_SHA"],
+            "deviceClass":"android-tablet",
+            "tabletProfile":os.environ["TABLET_PROFILE"],
+            "storyId":os.environ["NM04_STORY_ID"],
+            "slug":os.environ["NM04_SLUG"],
+            "publicUrl":os.environ["NM04_PUBLIC_URL"],
+            "checksum":os.environ["NM04_CHECKSUM"],
+            "screens":["article-header.png","article-body.png"]
+          },indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nm04-native-reader-android-tablet
+          path: |
+            nm04-evidence/android-tablet/
+            /tmp/nm04-android.log
+          if-no-files-found: error
+          retention-days: 30
+
+  nm04-native-reader-cleanup:
+    name: NM-04 cleanup staging certification residue
+    needs:
+      - nm04-native-reader-fixture
+      - nm04-reader-web
+      - nm04-reader-ios
+      - nm04-reader-android
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AG06_STAGING_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Remove bounded NM-04/AG-06 staging identities, stories and media
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=healthtimes-ag06-certification"
+          oidc_token="$(curl --silent --show-error --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$oidc_url" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).value))')"
+          echo "::add-mask::$oidc_token"
+          payload="$(node -e 'const [run,attempt]=process.argv.slice(1);process.stdout.write(JSON.stringify({action:"cleanup",run_id:run,run_attempt:attempt}))' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          code="$(curl --silent --show-error -o /tmp/nm04-cleanup.json -w '%{http_code}' -X POST "$AG06_STAGING_SUPABASE_URL/functions/v1/ag06-certification-provision" -H "Authorization: Bearer $oidc_token" -H "Content-Type: application/json" --data "$payload")"
+          cat /tmp/nm04-cleanup.json
+          test "$code" = "200"
+          node - <<'NODE'
+          const fs=require("fs");
+          const result=JSON.parse(fs.readFileSync("/tmp/nm04-cleanup.json","utf8"));
+          if(!result.ok) throw new Error("cleanup did not report ok");
+          if(result.live_sessions_remaining!==0) throw new Error("live sessions remain");
+          if(result.certification_story_rows_remaining!==0) throw new Error("certification story rows remain");
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nm04-native-reader-cleanup
+          path: /tmp/nm04-cleanup.json
+          if-no-files-found: error
+          retention-days: 30
