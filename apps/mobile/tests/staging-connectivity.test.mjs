@@ -47,7 +47,26 @@ test("HealthTimes Staging PostgREST keeps direct story rows private and exposes 
   assert.equal(projection.ok, true, `Public story projection returned HTTP ${projection.status}`);
   const body = await projection.json();
   assert.equal(Array.isArray(body), true);
-  assert.equal(body.length > 0, true, "Current staging should expose canonical published public stories only through the bounded projection");
+  for (const row of body.slice(0, 3)) {
+    assert.equal(typeof row.id, "string");
+    assert.equal(typeof row.title, "string");
+    assert.equal(typeof row.slug, "string");
+    assert.equal(row.internal_notes, undefined);
+    assert.equal(row.source_notes, undefined);
+    assert.equal(row.owner_staff_id, undefined);
+    assert.equal(row.lock_version, undefined);
+  }
+
+  const unreleasedProbe = await fetch(`${url}/rest/v1/rpc/newsroom_public_story_document`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ p_path: "/nm04-staging-connectivity-definitely-not-a-story/" })
+  });
+  assert.equal(unreleasedProbe.ok, true, `Native public story capability returned HTTP ${unreleasedProbe.status}`);
+  assert.equal(await unreleasedProbe.json(), null, "Unknown/unreleased native story must fail closed");
 });
 
 test("HealthTimes Staging public migrated-media bucket is reachable after AG-04 migration progress", async () => {
