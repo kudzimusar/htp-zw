@@ -629,7 +629,19 @@ jobs:
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
           export ANDROID_AVD_HOME="$RUNNER_TEMP/nm04-avd"
           OUT="$PWD/nm04-evidence/android-tablet"
+          APP_ID="zw.co.healthtimes.app.staging"
           mkdir -p "$ANDROID_AVD_HOME" "$OUT"
+
+          capture_android_diagnostics() {
+            adb shell dumpsys activity activities > "$OUT/activity-state.txt" 2>&1 || true
+            adb shell dumpsys package "$APP_ID" > "$OUT/package-state.txt" 2>&1 || true
+            adb logcat -d -v threadtime > "$OUT/app-logcat.txt" 2>&1 || true
+            adb exec-out screencap -p > "$OUT/failure.png" 2>/dev/null || true
+            adb shell uiautomator dump /sdcard/nm04-failure-ui.xml >/dev/null 2>&1 || true
+            adb pull /sdcard/nm04-failure-ui.xml "$OUT/failure-ui.xml" >/dev/null 2>&1 || true
+          }
+          trap 'status=$?; if [[ "$status" -ne 0 ]]; then capture_android_diagnostics; fi; exit "$status"' EXIT
+
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -651,15 +663,21 @@ jobs:
             sleep 2
           done
           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          APP_ID="zw.co.healthtimes.app.staging"
-          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$NM04_SLUG" -n "$APP_ID/.MainActivity"
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$NM04_SLUG" -n "$APP_ID/.MainActivity" | tee "$OUT/deep-link-command.txt"
+
           dump_ui() {
             adb shell uiautomator dump /sdcard/nm04-ui.xml >/dev/null
             adb pull /sdcard/nm04-ui.xml "$OUT/current-ui.xml" >/dev/null
           }
+
           found=0
+          first_dump=0
           for attempt in $(seq 1 60); do
             dump_ui
+            if [[ "$first_dump" == "0" ]]; then
+              cp "$OUT/current-ui.xml" "$OUT/first-ui.xml"
+              first_dump=1
+            fi
             if grep -Fq "$NM04_TITLE" "$OUT/current-ui.xml"; then found=1; break; fi
             if grep -Fq "Article not found." "$OUT/current-ui.xml"; then cat "$OUT/current-ui.xml"; exit 1; fi
             sleep 2
@@ -668,20 +686,35 @@ jobs:
           cp "$OUT/current-ui.xml" "$OUT/article-header-ui.xml"
           grep -Fq "$NM04_AUTHOR_NAME" "$OUT/article-header-ui.xml"
           grep -Fq "Published" "$OUT/article-header-ui.xml"
-          grep -Fq "$NM04_CAPTION" "$OUT/article-header-ui.xml"
-          grep -Fq "$NM04_CREDIT" "$OUT/article-header-ui.xml"
+          grep -Fq "$NM04_ALT_TEXT" "$OUT/article-header-ui.xml"
           ! grep -Fq "newsroom-private" "$OUT/article-header-ui.xml"
           adb exec-out screencap -p > "$OUT/article-header.png"
-          body_found=0
+
+          media_found=0
           for attempt in $(seq 1 8); do
+            if grep -Fq "$NM04_CAPTION" "$OUT/current-ui.xml" && grep -Fq "$NM04_CREDIT" "$OUT/current-ui.xml"; then
+              media_found=1
+              break
+            fi
+            adb shell input swipe 600 1600 600 450 450
+            sleep 1
+            dump_ui
+          done
+          test "$media_found" = "1"
+          cp "$OUT/current-ui.xml" "$OUT/article-media-ui.xml"
+          adb exec-out screencap -p > "$OUT/article-media.png"
+
+          body_found=0
+          for attempt in $(seq 1 10); do
+            if grep -Fq "$NM04_BODY_TEXT" "$OUT/current-ui.xml"; then body_found=1; break; fi
             adb shell input swipe 600 1600 600 350 450
             sleep 1
             dump_ui
-            if grep -Fq "$NM04_BODY_TEXT" "$OUT/current-ui.xml"; then body_found=1; break; fi
           done
           test "$body_found" = "1"
           cp "$OUT/current-ui.xml" "$OUT/article-body-ui.xml"
           adb exec-out screencap -p > "$OUT/article-body.png"
+
           EVIDENCE_SHA="$EXPECTED_SHA" TABLET_PROFILE="$TABLET_PROFILE" python3 - <<'PY' > "$OUT/manifest.json"
           import json, os
           print(json.dumps({
@@ -694,7 +727,7 @@ jobs:
             "checksum":os.environ["NM04_CHECKSUM"],
             "authorName":os.environ["NM04_AUTHOR_NAME"],
             "publishedAt":os.environ["NM04_PUBLISHED_AT"],
-            "screens":["article-header.png","article-body.png"]
+            "screens":["article-header.png","article-media.png","article-body.png"]
           },indent=2))
           PY
       - uses: actions/upload-artifact@v4
