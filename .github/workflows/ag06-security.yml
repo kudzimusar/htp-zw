@@ -362,14 +362,21 @@ jobs:
                 if(await candidate.isVisible()){ image=candidate; break; }
               }
               if(!image) throw new Error("Visible certified Reader image was not found.");
-              const media=await image.evaluate((element)=>({
-                src:element.getAttribute("src"),
-                style:element.getAttribute("style"),
-                backgroundImage:getComputedStyle(element).backgroundImage
-              }));
+              const media=await image.evaluate((element)=>{
+                const nodes=[element,...element.querySelectorAll("*")];
+                return nodes.flatMap(node=>[
+                  node.getAttribute?.("src"),
+                  node.getAttribute?.("srcset"),
+                  node.getAttribute?.("style"),
+                  getComputedStyle(node).backgroundImage
+                ]).filter(Boolean);
+              });
               const expected=process.env.NM04_PUBLIC_URL;
-              const renderedMedia=[media.src,media.style,media.backgroundImage].filter(Boolean).join("\n");
-              if(!renderedMedia.includes(expected)) throw new Error("Reader image URL mismatch: "+JSON.stringify(media));
+              const loadedResources=await page.evaluate(
+                ()=>performance.getEntriesByType("resource").map(entry=>entry.name)
+              );
+              const renderedMedia=[...media,...loadedResources].join("\n");
+              if(!renderedMedia.includes(expected)) throw new Error("Reader image URL mismatch: "+JSON.stringify({media,loadedResources}));
               const body=await page.locator("body").innerText();
               if(body.includes("newsroom-private")) throw new Error("private Newsroom reference leaked to Reader");
               const file="nm04-evidence/web/"+item.name+".png";
