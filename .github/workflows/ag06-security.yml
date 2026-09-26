@@ -235,17 +235,32 @@ jobs:
             cat /tmp/ag06-newsroom-server.log || true
             exit 1
           }
-      - name: Stage and verify released CMS-native Reader story
+      - name: Expose certified AG-06 public story to NM-04 platform jobs
         id: nm04-stage
-        env:
-          NM04_FIXTURE_EVIDENCE_PATH: /tmp/nm04-native-fixture.json
-        run: node apps/mobile/tests/nm04-stage-native-fixture.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/nm04-native-fixture.json
+          node - <<'NODE'
+          const fs=require("fs");
+          const e=JSON.parse(fs.readFileSync("/tmp/nm04-native-fixture.json","utf8"));
+          for(const key of ["story_id","slug","title","featured_public_url","featured_checksum"]){
+            if(!e[key]) throw new Error("Missing NM-04 evidence field: "+key);
+          }
+          const lines=[
+            ["story_id",e.story_id],
+            ["slug",e.slug],
+            ["title",e.title],
+            ["featured_public_url",e.featured_public_url],
+            ["featured_checksum",e.featured_checksum]
+          ];
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,lines.map(([k,v])=>k+"="+String(v)).join("\n")+"\n");
+          NODE
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: nm04-native-reader-fixture
           path: /tmp/nm04-native-fixture.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 30
       - name: Stop exact-branch Newsroom gateway
         if: always()
