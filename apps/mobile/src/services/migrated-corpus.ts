@@ -136,15 +136,9 @@ async function nativeStoryForPath(path: string) {
   return doc?.story_id ? mapNativeStoryDocument(doc, stagingConfig.url) : null;
 }
 
-async function storyForPath(path: string) {
-  const migrated = await migratedStoryForPath(path);
-  if (migrated) return migrated;
-  return nativeStoryForPath(path);
-}
-
-async function storyForCanonicalUrl(url: string | null) {
+async function migratedStoryForCanonicalUrl(url: string | null) {
   const path = pathFromCanonicalUrl(url);
-  return path ? storyForPath(path) : null;
+  return path ? migratedStoryForPath(path) : null;
 }
 
 async function mapInBatches<T, R>(
@@ -202,7 +196,7 @@ async function loadFeedDocuments(limit = FEED_LIMIT) {
     mapInBatches(
       (feed ?? []).map((row) => row.canonical_url),
       DETAIL_BATCH_SIZE,
-      storyForCanonicalUrl
+      migratedStoryForCanonicalUrl
     ),
     mapInBatches(
       nativeFeed,
@@ -239,7 +233,7 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string) {
   const mapped = await mapInBatches(
     context.items.map((item) => item.canonical_url ?? null),
     DETAIL_BATCH_SIZE,
-    storyForCanonicalUrl
+    migratedStoryForCanonicalUrl
   );
   return mapped.filter(
     (article): article is ArticleDetail =>
