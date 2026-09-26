@@ -136,6 +136,10 @@ jobs:
       title: ${{ steps.nm04-stage.outputs.title }}
       featured_public_url: ${{ steps.nm04-stage.outputs.featured_public_url }}
       featured_checksum: ${{ steps.nm04-stage.outputs.featured_checksum }}
+      body_text: ${{ steps.nm04-stage.outputs.body_text }}
+      alt_text: ${{ steps.nm04-stage.outputs.alt_text }}
+      caption: ${{ steps.nm04-stage.outputs.caption }}
+      credit: ${{ steps.nm04-stage.outputs.credit }}
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
@@ -244,7 +248,7 @@ jobs:
           node - <<'NODE'
           const fs=require("fs");
           const e=JSON.parse(fs.readFileSync("/tmp/nm04-native-fixture.json","utf8"));
-          for(const key of ["story_id","slug","title","featured_public_url","featured_checksum"]){
+          for(const key of ["story_id","slug","title","featured_public_url","featured_checksum","body_text","alt_text","caption","credit"]){
             if(!e[key]) throw new Error("Missing NM-04 evidence field: "+key);
           }
           const lines=[
@@ -252,7 +256,11 @@ jobs:
             ["slug",e.slug],
             ["title",e.title],
             ["featured_public_url",e.featured_public_url],
-            ["featured_checksum",e.featured_checksum]
+            ["featured_checksum",e.featured_checksum],
+            ["body_text",e.body_text],
+            ["alt_text",e.alt_text],
+            ["caption",e.caption],
+            ["credit",e.credit]
           ];
           fs.appendFileSync(process.env.GITHUB_OUTPUT,lines.map(([k,v])=>k+"="+String(v)).join("\n")+"\n");
           NODE
@@ -284,6 +292,10 @@ jobs:
       NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
       NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
       NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
+      NM04_BODY_TEXT: ${{ needs.live-staging-security.outputs.body_text }}
+      NM04_ALT_TEXT: ${{ needs.live-staging-security.outputs.alt_text }}
+      NM04_CAPTION: ${{ needs.live-staging-security.outputs.caption }}
+      NM04_CREDIT: ${{ needs.live-staging-security.outputs.credit }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -339,10 +351,10 @@ jobs:
               const response=await page.goto("http://127.0.0.1:4174/article/"+process.env.NM04_SLUG,{waitUntil:"domcontentloaded",timeout:30000});
               if(!response?.ok()) throw new Error(item.name+" article HTTP "+response?.status());
               await page.getByText(process.env.NM04_TITLE,{exact:true}).waitFor({timeout:30000});
-              await page.getByText("CMS-native public Reader certification body.",{exact:false}).waitFor({timeout:30000});
-              await page.getByText("NM-04 source-neutral Reader certification",{exact:false}).waitFor({timeout:30000});
-              await page.getByText("HealthTimes certification",{exact:false}).waitFor({timeout:30000});
-              const image=page.getByLabel("HealthTimes NM-04 CMS-native certification image").first();
+              await page.getByText(process.env.NM04_BODY_TEXT,{exact:false}).waitFor({timeout:30000});
+              await page.getByText(process.env.NM04_CAPTION,{exact:false}).waitFor({timeout:30000});
+              await page.getByText(process.env.NM04_CREDIT,{exact:false}).waitFor({timeout:30000});
+              const image=page.getByLabel(process.env.NM04_ALT_TEXT).first();
               await image.waitFor({timeout:30000});
               const src=await image.getAttribute("src");
               if(src!==process.env.NM04_PUBLIC_URL) throw new Error("Reader image src mismatch: "+src);
@@ -389,6 +401,10 @@ jobs:
       NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
       NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
       NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
+      NM04_BODY_TEXT: ${{ needs.live-staging-security.outputs.body_text }}
+      NM04_ALT_TEXT: ${{ needs.live-staging-security.outputs.alt_text }}
+      NM04_CAPTION: ${{ needs.live-staging-security.outputs.caption }}
+      NM04_CREDIT: ${{ needs.live-staging-security.outputs.credit }}
       MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
     steps:
       - uses: actions/checkout@v4
@@ -469,8 +485,8 @@ jobs:
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
-          - assertVisible: "NM-04 source-neutral Reader certification"
-          - assertVisible: "HealthTimes certification"
+          - assertVisible: "$NM04_CAPTION"
+          - assertVisible: "$NM04_CREDIT"
           YAML
             maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"
             xcrun simctl io "$udid" screenshot "$out/article-header.png"
@@ -486,7 +502,7 @@ jobs:
           - scroll
           - scroll
           - extendedWaitUntil:
-              visible: "CMS-native public Reader certification body."
+              visible: "$NM04_BODY_TEXT"
               timeout: 30000
           YAML
             maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"
@@ -533,6 +549,10 @@ jobs:
       NM04_TITLE: ${{ needs.live-staging-security.outputs.title }}
       NM04_PUBLIC_URL: ${{ needs.live-staging-security.outputs.featured_public_url }}
       NM04_CHECKSUM: ${{ needs.live-staging-security.outputs.featured_checksum }}
+      NM04_BODY_TEXT: ${{ needs.live-staging-security.outputs.body_text }}
+      NM04_ALT_TEXT: ${{ needs.live-staging-security.outputs.alt_text }}
+      NM04_CAPTION: ${{ needs.live-staging-security.outputs.caption }}
+      NM04_CREDIT: ${{ needs.live-staging-security.outputs.credit }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -611,8 +631,8 @@ jobs:
           done
           test "$found" = "1"
           cp "$OUT/current-ui.xml" "$OUT/article-header-ui.xml"
-          grep -Fq "NM-04 source-neutral Reader certification" "$OUT/article-header-ui.xml"
-          grep -Fq "HealthTimes certification" "$OUT/article-header-ui.xml"
+          grep -Fq "$NM04_CAPTION" "$OUT/article-header-ui.xml"
+          grep -Fq "$NM04_CREDIT" "$OUT/article-header-ui.xml"
           ! grep -Fq "newsroom-private" "$OUT/article-header-ui.xml"
           adb exec-out screencap -p > "$OUT/article-header.png"
           body_found=0
@@ -620,7 +640,7 @@ jobs:
             adb shell input swipe 600 1600 600 350 450
             sleep 1
             dump_ui
-            if grep -Fq "CMS-native public Reader certification body." "$OUT/current-ui.xml"; then body_found=1; break; fi
+            if grep -Fq "$NM04_BODY_TEXT" "$OUT/current-ui.xml"; then body_found=1; break; fi
           done
           test "$body_found" = "1"
           cp "$OUT/current-ui.xml" "$OUT/article-body-ui.xml"
