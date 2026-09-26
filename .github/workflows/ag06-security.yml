@@ -528,6 +528,9 @@ jobs:
           ---
           - launchApp
           - openLink: "healthtimes://article/$NM04_SLUG"
+          - tapOn:
+              text: "Open"
+              optional: true
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
@@ -566,6 +569,9 @@ jobs:
           ---
           - launchApp
           - openLink: "healthtimes://article/$NM04_SLUG"
+          - tapOn:
+              text: "Open"
+              optional: true
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
@@ -710,6 +716,14 @@ jobs:
           done
           adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
           adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://article/$NM04_SLUG" -n "$APP_ID/.MainActivity" | tee "$OUT/deep-link-command.txt"
+          screen_size="$(adb shell wm size | tr -d '\r' | sed -n 's/^Physical size: //p' | tail -1)"
+          screen_width="${screen_size%x*}"
+          screen_height="${screen_size#*x}"
+          test "$screen_width" -gt 0
+          test "$screen_height" -gt 0
+          scroll_article() {
+            adb shell input swipe "$((screen_width / 2))" "$((screen_height * 75 / 100))" "$((screen_width / 2))" "$((screen_height * 30 / 100))" 450
+          }
 
           dump_ui() {
             adb shell uiautomator dump /sdcard/nm04-ui.xml >/dev/null
@@ -744,7 +758,7 @@ jobs:
               media_found=1
               break
             fi
-            adb shell input swipe 600 1600 600 450 450
+            scroll_article
             sleep 1
             dump_ui
           done
@@ -755,7 +769,7 @@ jobs:
           body_found=0
           for attempt in $(seq 1 10); do
             if grep -Fq "$NM04_BODY_TEXT" "$OUT/current-ui.xml"; then body_found=1; break; fi
-            adb shell input swipe 600 1600 600 350 450
+            scroll_article
             sleep 1
             dump_ui
           done
