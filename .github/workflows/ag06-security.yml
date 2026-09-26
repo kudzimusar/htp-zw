@@ -557,6 +557,9 @@ jobs:
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
+          - tapOn:
+              text: "Open"
+              optional: true
           YAML
             if [[ -n "$NM04_AUTHOR_NAME" ]]; then
               cat >> "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
@@ -571,13 +574,22 @@ jobs:
               capture_ios_failure "$udid" "$out"
               return 1
             fi
-            xcrun simctl io "$udid" screenshot "$out/article-header.png"
-            swift scripts/ci/nm04-screen-text.swift "$out/article-header.png" > "$out/article-header-text.txt"
-            grep -Fq "${NM04_TITLE%% *}" "$out/article-header-text.txt"
-            grep -Fq "${NM04_TITLE##* }" "$out/article-header-text.txt"
-            grep -Fq "${NM04_PUBLISHED_AT:0:4}" "$out/article-header-text.txt"
-            grep -Fq "$NM04_CAPTION" "$out/article-header-text.txt"
-            grep -Fq "$NM04_CREDIT" "$out/article-header-text.txt"
+            header_found=0
+            for attempt in $(seq 1 8); do
+              xcrun simctl io "$udid" screenshot "$out/article-header.png"
+              swift scripts/ci/nm04-screen-text.swift "$out/article-header.png" > "$out/article-header-text.txt"
+              if grep -Fq "Public Media" "$out/article-header-text.txt" \
+                && grep -Fq "${NM04_TITLE##* }" "$out/article-header-text.txt" \
+                && grep -Fq "Published" "$out/article-header-text.txt" \
+                && grep -Fq "${NM04_PUBLISHED_AT:0:4}" "$out/article-header-text.txt" \
+                && grep -Fq "$NM04_CAPTION" "$out/article-header-text.txt" \
+                && grep -Fq "$NM04_CREDIT" "$out/article-header-text.txt"; then
+                header_found=1
+                break
+              fi
+              sleep 3
+            done
+            test "$header_found" = 1
             cat > "$RUNNER_TEMP/nm04-body-$kind.yaml" <<YAML
           appId: zw.co.healthtimes.app.staging
           ---
