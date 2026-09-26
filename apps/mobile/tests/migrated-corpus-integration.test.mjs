@@ -317,8 +317,35 @@ test("18 legacy path authority precedes native fallback for direct Reader resolu
   assert.ok(nativeFallback>resolver);
   assert.match(direct,/resolution && resolution\.http_status !== 404[\s\S]*return migratedStoryForPath\(resolution\.target_path\)[\s\S]*return nativeStoryForPath\(requestedPath\)/);
 
-  const pathMapper=adapter.split("async function storyForPath")[1]?.split("async function storyForCanonicalUrl")[0]??"";
-  assert.ok(pathMapper.indexOf("migratedStoryForPath(path)") < pathMapper.indexOf("nativeStoryForPath(path)"));
+});
+
+test("18b migrated feed and context hydration cannot fall through to native stories",()=>{
+  const adapter=read("src/services/migrated-corpus.ts");
+  const canonicalMapper=adapter.split("async function migratedStoryForCanonicalUrl")[1]?.split("async function mapInBatches")[0]??"";
+  assert.match(canonicalMapper,/return path \? migratedStoryForPath\(path\) : null/);
+  assert.doesNotMatch(canonicalMapper,/nativeStoryForPath/);
+  assert.match(adapter,/\(feed \?\? \[\]\)\.map\(\(row\) => row\.canonical_url\)[\s\S]*migratedStoryForCanonicalUrl/);
+  assert.match(adapter,/context\.items\.map\(\(item\) => item\.canonical_url \?\? null\)[\s\S]*migratedStoryForCanonicalUrl/);
+});
+
+test("18c native Reader identity is stable across request-path aliases",()=>{
+  const canonical=nativeFixture({
+    old_path:"/request-alias-one/",
+    new_path:"/request-alias-one/",
+    canonical_url:"https://healthtimes.co.zw/stable-native-story/"
+  });
+  const alias=nativeFixture({
+    old_path:"/request-alias-two/",
+    new_path:"/request-alias-two/",
+    canonical_url:"https://healthtimes.co.zw/stable-native-story/"
+  });
+  const first=mapNativeStoryDocument(canonical,url);
+  const second=mapNativeStoryDocument(alias,url);
+  assert.equal(first.id,"stable-native-story");
+  assert.equal(first.id,second.id);
+  assert.equal(first.slug,second.slug);
+  assert.equal(first.canonicalStoryId,second.canonicalStoryId);
+  assert.equal(first.sourceProvenance.stableKey,second.sourceProvenance.stableKey);
 });
 
 test("19 unified Home and Search consume native public discovery with bounded hydration",()=>{
