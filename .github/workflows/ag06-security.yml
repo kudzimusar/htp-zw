@@ -522,14 +522,14 @@ jobs:
             local log="$out/$(basename "$flow" .yaml)-maestro.log"
             local status
             set +e
-            maestro --device "$udid" test "$flow" > "$log" 2>&1
+            maestro --device "$udid" --test-output-dir "$out/maestro-captures" test "$flow" > "$log" 2>&1
             status=$?
             set -e
             if [[ "$status" -ne 0 ]]; then
               xcrun simctl bootstatus "$udid" -b
               sleep 5
               set +e
-              maestro --device "$udid" test "$flow" >> "$log" 2>&1
+              maestro --device "$udid" --test-output-dir "$out/maestro-captures" test "$flow" >> "$log" 2>&1
               status=$?
               set -e
             fi
@@ -537,6 +537,15 @@ jobs:
               tail -n 80 "$log"
               return 1
             fi
+          }
+          copy_maestro_capture() {
+            local out="$1"
+            local name="$2"
+            local destination="$3"
+            local source
+            source="$(find "$out/maestro-captures" -type f -name "$name.png" -print -quit)"
+            test -n "$source"
+            cp "$source" "$destination"
           }
           capture_device() {
             local udid="$1"
@@ -546,7 +555,8 @@ jobs:
             xcrun simctl bootstatus "$udid" -b
             xcrun simctl ui "$udid" appearance light
             xcrun simctl install "$udid" "$IOS_APP"
-            cat > "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
+            article_flow="$RUNNER_TEMP/nm04-article-$kind.yaml"
+            cat > "$article_flow" <<YAML
           appId: zw.co.healthtimes.app.staging
           ---
           - launchApp
@@ -560,66 +570,44 @@ jobs:
           - tapOn:
               text: "Open"
               optional: true
+          - extendedWaitUntil:
+              visible: "$NM04_CREDIT"
+              timeout: 30000
+          - waitForAnimationToEnd
+          - takeScreenshot: "nm04-$kind-header"
           YAML
             if [[ -n "$NM04_AUTHOR_NAME" ]]; then
-              cat >> "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
+              cat >> "$article_flow" <<YAML
           - scrollUntilVisible:
               element: "$NM04_AUTHOR_NAME"
               direction: DOWN
               timeout: 30000
           YAML
             fi
-            printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
-            if ! run_ios_flow "$udid" "$RUNNER_TEMP/nm04-header-$kind.yaml" "$out"; then
-              capture_ios_failure "$udid" "$out"
-              return 1
-            fi
-            header_found=0
-            for attempt in $(seq 1 8); do
-              xcrun simctl io "$udid" screenshot "$out/article-header.png"
-              swift scripts/ci/nm04-screen-text.swift "$out/article-header.png" > "$out/article-header-text.txt"
-              if grep -Fq "Public Media" "$out/article-header-text.txt" \
-                && grep -Fq "${NM04_TITLE##* }" "$out/article-header-text.txt" \
-                && grep -Fq "Published" "$out/article-header-text.txt" \
-                && grep -Fq "${NM04_PUBLISHED_AT:0:4}" "$out/article-header-text.txt" \
-                && grep -Fq "$NM04_CAPTION" "$out/article-header-text.txt" \
-                && grep -Fq "$NM04_CREDIT" "$out/article-header-text.txt"; then
-                header_found=1
-                break
-              fi
-              sleep 3
-            done
-            test "$header_found" = 1
-            body_found=0
-            for attempt in $(seq 1 6); do
-              body_flow="$RUNNER_TEMP/nm04-body-$kind-$attempt.yaml"
-              cat > "$body_flow" <<YAML
-          appId: zw.co.healthtimes.app.staging
-          ---
-          - stopApp
-          - openLink: "healthtimes://article/$NM04_SLUG"
-          - tapOn:
-              text: "Open"
-              optional: true
-          - extendedWaitUntil:
-              visible: "$NM04_TITLE"
-              timeout: 30000
-          - tapOn:
-              text: "Open"
-              optional: true
-          YAML
-              for swipe in $(seq 1 "$attempt"); do
-                cat >> "$body_flow" <<YAML
+            for swipe in $(seq 1 6); do
+              cat >> "$article_flow" <<YAML
           - swipe:
               direction: UP
               duration: 500
+          - takeScreenshot: "nm04-$kind-body-$swipe"
           YAML
-              done
-              if ! run_ios_flow "$udid" "$body_flow" "$out"; then
-                capture_ios_failure "$udid" "$out"
-                return 1
-              fi
-              xcrun simctl io "$udid" screenshot "$out/article-body-attempt.png"
+            done
+            printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
+            if ! run_ios_flow "$udid" "$article_flow" "$out"; then
+              capture_ios_failure "$udid" "$out"
+              return 1
+            fi
+            copy_maestro_capture "$out" "nm04-$kind-header" "$out/article-header.png"
+            swift scripts/ci/nm04-screen-text.swift "$out/article-header.png" > "$out/article-header-text.txt"
+            grep -Fq "Public Media" "$out/article-header-text.txt"
+            grep -Fq "${NM04_TITLE##* }" "$out/article-header-text.txt"
+            grep -Fq "Published" "$out/article-header-text.txt"
+            grep -Fq "${NM04_PUBLISHED_AT:0:4}" "$out/article-header-text.txt"
+            grep -Fq "$NM04_CAPTION" "$out/article-header-text.txt"
+            grep -Fq "$NM04_CREDIT" "$out/article-header-text.txt"
+            body_found=0
+            for attempt in $(seq 1 6); do
+              copy_maestro_capture "$out" "nm04-$kind-body-$attempt" "$out/article-body-attempt.png"
               swift scripts/ci/nm04-screen-text.swift "$out/article-body-attempt.png" > "$out/article-body-attempt-text.txt"
               if tr '\n' ' ' < "$out/article-body-attempt-text.txt" | grep -Fq "$NM04_BODY_TEXT"; then
                 body_found=1
