@@ -543,48 +543,44 @@ jobs:
               timeout: 30000
           YAML
             fi
-            published_year="${NM04_PUBLISHED_AT:0:4}"
-            cat >> "$RUNNER_TEMP/nm04-header-$kind.yaml" <<YAML
-          - scrollUntilVisible:
-              element: "Published.*$published_year.*"
-              direction: DOWN
-              timeout: 30000
-          - scrollUntilVisible:
-              element: "$NM04_CAPTION"
-              direction: DOWN
-              timeout: 30000
-          - scrollUntilVisible:
-              element: "$NM04_CREDIT"
-              direction: DOWN
-              timeout: 30000
-          YAML
             printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
             if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"; then
               capture_ios_failure "$udid" "$out"
               return 1
             fi
             xcrun simctl io "$udid" screenshot "$out/article-header.png"
+            swift scripts/ci/nm04-screen-text.swift "$out/article-header.png" > "$out/article-header-text.txt"
+            grep -Fq "${NM04_TITLE%% *}" "$out/article-header-text.txt"
+            grep -Fq "${NM04_TITLE##* }" "$out/article-header-text.txt"
+            grep -Fq "${NM04_PUBLISHED_AT:0:4}" "$out/article-header-text.txt"
+            grep -Fq "$NM04_CAPTION" "$out/article-header-text.txt"
+            grep -Fq "$NM04_CREDIT" "$out/article-header-text.txt"
             cat > "$RUNNER_TEMP/nm04-body-$kind.yaml" <<YAML
           appId: zw.co.healthtimes.app.staging
           ---
-          - launchApp
-          - openLink: "healthtimes://article/$NM04_SLUG"
-          - tapOn:
-              text: "Open"
-              optional: true
-          - extendedWaitUntil:
-              visible: "$NM04_TITLE"
-              timeout: 30000
-          - scrollUntilVisible:
-              element: "$NM04_BODY_TEXT"
-              direction: DOWN
-              timeout: 30000
+          - swipe:
+              direction: UP
+              duration: 500
           YAML
-            if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"; then
+            body_found=0
+            for attempt in $(seq 1 6); do
+              if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"; then
+                capture_ios_failure "$udid" "$out"
+                return 1
+              fi
+              xcrun simctl io "$udid" screenshot "$out/article-body-attempt.png"
+              swift scripts/ci/nm04-screen-text.swift "$out/article-body-attempt.png" > "$out/article-body-attempt-text.txt"
+              if tr '\n' ' ' < "$out/article-body-attempt-text.txt" | grep -Fq "$NM04_BODY_TEXT"; then
+                body_found=1
+                break
+              fi
+            done
+            if [[ "$body_found" != 1 ]]; then
               capture_ios_failure "$udid" "$out"
               return 1
             fi
-            xcrun simctl io "$udid" screenshot "$out/article-body.png"
+            mv "$out/article-body-attempt.png" "$out/article-body.png"
+            mv "$out/article-body-attempt-text.txt" "$out/article-body-text.txt"
             xcrun simctl spawn "$udid" log show --style compact --last 10m --predicate 'process == "HealthTimesStaging" AND (eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "FunctionCallException")' > "$out/runtime.log" || true
             if grep -Eiq 'KeyChainException|FunctionCallException' "$out/runtime.log"; then cat "$out/runtime.log"; exit 1; fi
             KIND="$kind" UDID="$udid" EVIDENCE_SHA="$EXPECTED_SHA" python3 - <<'PY' > "$out/manifest.json"
