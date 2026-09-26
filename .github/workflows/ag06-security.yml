@@ -498,6 +498,23 @@ jobs:
           mkdir -p "$ROOT/iphone" "$ROOT/ipad"
           PHONE_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(x["udid"] for items in d.values() for x in items if x.get("isAvailable") and x["name"].startswith("iPhone")))')
           IPAD_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(x["udid"] for items in d.values() for x in items if x.get("isAvailable") and x["name"].startswith("iPad")))')
+          preserve_maestro_debug() {
+            local out="$1"
+            local latest
+            latest="$(find "$HOME/.maestro/tests" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort | tail -1)"
+            if [[ -n "$latest" && -d "$latest" ]]; then
+              mkdir -p "$out/maestro-debug"
+              cp -R "$latest"/. "$out/maestro-debug/" || true
+            fi
+          }
+          capture_ios_failure() {
+            local udid="$1"
+            local out="$2"
+            xcrun simctl io "$udid" screenshot "$out/failure.png" >/dev/null 2>&1 || true
+            xcrun simctl spawn "$udid" log show --style compact --last 10m --predicate 'process == "HealthTimesStaging"' > "$out/runtime-failure.log" 2>&1 || true
+            xcrun simctl get_app_container "$udid" zw.co.healthtimes.app.staging app > "$out/app-container.txt" 2>&1 || true
+            preserve_maestro_debug "$out"
+          }
           capture_device() {
             local udid="$1"
             local kind="$2"
@@ -519,7 +536,11 @@ jobs:
           - assertVisible: "$NM04_CAPTION"
           - assertVisible: "$NM04_CREDIT"
           YAML
-            maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"
+            printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
+            if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-header-$kind.yaml"; then
+              capture_ios_failure "$udid" "$out"
+              return 1
+            fi
             xcrun simctl io "$udid" screenshot "$out/article-header.png"
             cat > "$RUNNER_TEMP/nm04-body-$kind.yaml" <<YAML
           appId: zw.co.healthtimes.app.staging
@@ -536,7 +557,10 @@ jobs:
               visible: "$NM04_BODY_TEXT"
               timeout: 30000
           YAML
-            maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"
+            if ! maestro --device "$udid" test "$RUNNER_TEMP/nm04-body-$kind.yaml"; then
+              capture_ios_failure "$udid" "$out"
+              return 1
+            fi
             xcrun simctl io "$udid" screenshot "$out/article-body.png"
             xcrun simctl spawn "$udid" log show --style compact --last 10m --predicate 'process == "HealthTimesStaging" AND (eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "FunctionCallException")' > "$out/runtime.log" || true
             if grep -Eiq 'KeyChainException|FunctionCallException' "$out/runtime.log"; then cat "$out/runtime.log"; exit 1; fi
