@@ -91,8 +91,8 @@ export function mapNativeStoryDocument(
   const rawAccess = (doc.access_policy ?? "premium").trim().toLowerCase();
   const accessPolicy = rawAccess === "public" ? "public" as const : "premium" as const;
   const canonicalPath =
-    normalizePath(doc.old_path ?? null) ??
     pathFromUrl(doc.canonical_url) ??
+    normalizePath(doc.old_path ?? null) ??
     normalizePath(doc.new_path ?? null);
   const slug = slugFromPath(canonicalPath) || String(doc.story_id);
   const authorName = doc.author?.name?.trim() || null;
