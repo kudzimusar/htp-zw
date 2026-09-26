@@ -659,7 +659,12 @@ jobs:
           capture_android_diagnostics() {
             adb shell dumpsys activity activities > "$OUT/activity-state.txt" 2>&1 || true
             adb shell dumpsys package "$APP_ID" > "$OUT/package-state.txt" 2>&1 || true
-            adb logcat -d -v threadtime > "$OUT/app-logcat.txt" 2>&1 || true
+            app_pid="$(adb shell pidof "$APP_ID" 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+            if [[ -n "$app_pid" ]]; then
+              adb logcat -d --pid="$app_pid" -v threadtime 2>&1 | tail -n 4000 > "$OUT/app-logcat.txt" || true
+            else
+              adb logcat -d -v threadtime 2>&1 | grep -Ei 'ReactNativeJS|HealthTimes|zw\.co\.healthtimes\.app\.staging' | tail -n 4000 > "$OUT/app-logcat.txt" || true
+            fi
             adb exec-out screencap -p > "$OUT/failure.png" 2>/dev/null || true
             adb shell uiautomator dump /sdcard/nm04-failure-ui.xml >/dev/null 2>&1 || true
             adb pull /sdcard/nm04-failure-ui.xml "$OUT/failure-ui.xml" >/dev/null 2>&1 || true
