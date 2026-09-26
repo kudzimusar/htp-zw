@@ -350,10 +350,10 @@ jobs:
               const page=await browser.newPage({viewport:{width:item.width,height:item.height}});
               const response=await page.goto("http://127.0.0.1:4174/article/"+process.env.NM04_SLUG,{waitUntil:"domcontentloaded",timeout:30000});
               if(!response?.ok()) throw new Error(item.name+" article HTTP "+response?.status());
-              await page.getByText(process.env.NM04_TITLE,{exact:true}).waitFor({timeout:30000});
-              await page.getByText(process.env.NM04_BODY_TEXT,{exact:false}).waitFor({timeout:30000});
-              await page.getByText(process.env.NM04_CAPTION,{exact:false}).waitFor({timeout:30000});
-              await page.getByText(process.env.NM04_CREDIT,{exact:false}).waitFor({timeout:30000});
+              await page.getByText(process.env.NM04_TITLE,{exact:true}).first().waitFor({timeout:30000});
+              await page.getByText(process.env.NM04_BODY_TEXT,{exact:false}).first().waitFor({timeout:30000});
+              await page.getByText(process.env.NM04_CAPTION,{exact:false}).first().waitFor({timeout:30000});
+              await page.getByText(process.env.NM04_CREDIT,{exact:false}).first().waitFor({timeout:30000});
               const image=page.getByLabel(process.env.NM04_ALT_TEXT).first();
               await image.waitFor({timeout:30000});
               const media=await image.evaluate((element)=>({
