@@ -342,6 +342,12 @@ test.describe('AG-06 security contract', () => {
     expect(helper).toContain('const activeResiduals = residualBindings.filter');
     expect(helper).toContain('Active temporary public-author binding residue remains');
     expect(helper).toContain('const revokedResidualIds = residualBindings.map');
+    expect(helper).toContain('u.user_metadata?.ag06_staging_test === true');
+    expect(helper).toContain('github_run_id');
+    expect(helper).toContain('^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$');
+    expect(helper).toContain('const boundedUsers = users.filter');
+    expect(helper).toContain('const certificationEmails = new Set');
+    expect(helper).toContain('AG-06 synthetic Auth users remain after cleanup');
     expect(helper).toContain('newsroom_clear_certification_public_author_bindings');
     expect(helper).toContain('Temporary public-author binding residue remains after bounded cleanup');
     expect(helper).not.toContain('.update({public_author_id:null})');

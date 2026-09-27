@@ -53,15 +53,9 @@ Deno.serve(async (req:Request) => {
       if (listed.error) throw listed.error;
       const users = listed.data.users.filter((u:any) =>
         u.user_metadata?.ag06_staging_test === true &&
-        String(u.user_metadata?.github_run_id || "") === runId
+        /^[0-9]+$/.test(String(u.user_metadata?.github_run_id || "")) &&
+        /^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$/i.test(String(u.email||""))
       );
-      const emails = users.map((u:any)=>String(u.email||"").toLowerCase()).filter(Boolean);
-      let profileIds:string[] = [];
-      if (emails.length) {
-        const profiles = await admin.from("staff_profiles").select("id,email").in("email",emails);
-        if (profiles.error) throw profiles.error;
-        profileIds = (profiles.data || []).map((p:any)=>p.id);
-      }
       // Remove only bounded AG-06 certification media from the private Newsroom bucket.
       // Include historical revoked AG-06 profiles so failed prior runs cannot leave private object residue.
       const certificationProfiles = await admin.from("staff_profiles")
@@ -71,6 +65,17 @@ Deno.serve(async (req:Request) => {
       const cleanupProfileIds = (certificationProfiles.data || [])
         .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification")
         .map((p:any)=>String(p.id));
+      const certificationEmails = new Set((certificationProfiles.data || [])
+        .filter((p:any)=>String(p.beat||"")==="AG-06 staging certification")
+        .map((p:any)=>String(p.email||"").toLowerCase()));
+      const boundedUsers = users.filter((u:any)=>certificationEmails.has(String(u.email||"").toLowerCase()));
+      const emails = boundedUsers.map((u:any)=>String(u.email||"").toLowerCase());
+      let profileIds:string[] = [];
+      if (emails.length) {
+        const profiles = await admin.from("staff_profiles").select("id,email").in("email",emails);
+        if (profiles.error) throw profiles.error;
+        profileIds = (profiles.data || []).map((p:any)=>p.id);
+      }
       let deletedMediaAssets = 0;
       let deletedPrivateStorageObjects = 0;
       let deletedPublicStorageObjects = 0;
@@ -207,10 +212,17 @@ Deno.serve(async (req:Request) => {
           .is("revoked_at",null);
         if (sessions.error) throw sessions.error;
       }
-      for (const user of users) {
+      for (const user of boundedUsers) {
         const deleted = await admin.auth.admin.deleteUser(user.id);
         if (deleted.error) throw deleted.error;
       }
+      const authAfter = await admin.auth.admin.listUsers({page:1,perPage:1000});
+      if (authAfter.error) throw authAfter.error;
+      const authUsersRemaining = authAfter.data.users.filter((u:any)=>
+        u.user_metadata?.ag06_staging_test === true &&
+        certificationEmails.has(String(u.email||"").toLowerCase())
+      ).length;
+      if (authUsersRemaining) throw new Error(`AG-06 synthetic Auth users remain after cleanup: ${authUsersRemaining}`);
       let retainedProfiles:any[] = [];
       let liveSessions:any[] = [];
       if (profileIds.length) {
@@ -232,7 +244,8 @@ Deno.serve(async (req:Request) => {
       }
       return response(200,{
         ok:true,action:"cleanup",run_id:runId,
-        deleted_auth_users:users.length,
+        deleted_auth_users:boundedUsers.length,
+        auth_users_remaining:authUsersRemaining,
         retained_inert_staff_profiles:retainedProfiles.length,
         retained_profiles_status:"revoked",
         live_sessions_remaining:liveSessions.length,
