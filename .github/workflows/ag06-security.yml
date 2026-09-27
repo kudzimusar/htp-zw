@@ -522,14 +522,14 @@ jobs:
             local log="$out/$(basename "$flow" .yaml)-maestro.log"
             local status
             set +e
-            maestro --device "$udid" --test-output-dir "$out/maestro-captures" test "$flow" > "$log" 2>&1
+            maestro --device "$udid" test --test-output-dir "$out/maestro-captures" "$flow" > "$log" 2>&1
             status=$?
             set -e
             if [[ "$status" -ne 0 ]]; then
               xcrun simctl bootstatus "$udid" -b
               sleep 5
               set +e
-              maestro --device "$udid" --test-output-dir "$out/maestro-captures" test "$flow" >> "$log" 2>&1
+              maestro --device "$udid" test --test-output-dir "$out/maestro-captures" "$flow" >> "$log" 2>&1
               status=$?
               set -e
             fi
