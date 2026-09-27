@@ -77,10 +77,15 @@ Deno.serve(async (req:Request) => {
       let readerReleasedStoriesCleared = 0;
       let deletedCertificationStoryRows = 0;
       let certificationStoryRowsRemaining = 0;
-      let verifiedPublicAuthorBindingsCleared = 0;
+      let clearedPublicAuthorBindings = 0;
       if (cleanupProfileIds.length) {
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
           const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const cleared = await admin.rpc("newsroom_clear_certification_public_author_bindings",{
+            p_profile_ids:profileBatch
+          });
+          if (cleared.error) throw cleared.error;
+          clearedPublicAuthorBindings += Number(cleared.data || 0);
           const bindings = await admin.from("staff_profiles")
             .select("id,public_author_id")
             .in("id",profileBatch)
@@ -90,7 +95,6 @@ Deno.serve(async (req:Request) => {
           if (residualBindings.length) {
             throw new Error(`Temporary public-author binding residue remains: ${residualBindings.length}`);
           }
-          verifiedPublicAuthorBindingsCleared += profileBatch.length;
         }
         const storyRows:any[] = [];
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
@@ -224,7 +228,7 @@ Deno.serve(async (req:Request) => {
         reader_release_markers_cleared:readerReleasedStoriesCleared,
         deleted_certification_story_rows:deletedCertificationStoryRows,
         certification_story_rows_remaining:certificationStoryRowsRemaining,
-        verified_public_author_bindings_cleared:verifiedPublicAuthorBindingsCleared,
+        cleared_public_author_bindings:clearedPublicAuthorBindings,
         deleted_synthetic_authors:0
       });
     }
