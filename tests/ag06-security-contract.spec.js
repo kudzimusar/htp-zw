@@ -143,6 +143,70 @@ test.describe('AG-06 security contract', () => {
     expect(html).toContain('Draft uploads stay private');
   });
 
+  test('R1 canonical public author and section authority stays server-bound', async () => {
+    const sql = read('supabase/migrations/20260927091500_ag06_canonical_author_section_authority.sql');
+    const api = read('api/newsroom.js');
+    const browser = read('newsroom.js');
+    const html = read('newsroom.html');
+
+    expect(sql).toContain('add column if not exists public_author_id uuid');
+    expect(sql).toContain('references public.authors(id) on delete set null');
+    expect(sql).not.toContain('create table if not exists public.native_authors');
+    expect(sql).not.toContain('create table if not exists public.newsroom_authors');
+    expect(sql).not.toContain('create table if not exists public.native_sections');
+
+    expect(sql).toContain("lower(regexp_replace(trim(display_name),'\\s+',' ','g'))");
+    expect(sql).toContain('staff_unique');
+    expect(sql).toContain('author_unique');
+    expect(sql).toContain('sp.public_author_id is null');
+    expect(sql).not.toMatch(/split_part\s*\(\s*(email|sp\.email)/i);
+    expect(sql).not.toMatch(/levenshtein|similarity\s*\(|soundex|fuzzy/i);
+
+    expect(sql).toContain('create or replace function public.newsroom_create_public_author');
+    expect(sql).toContain('create or replace function public.newsroom_bind_staff_public_author');
+    expect(sql).toContain("newsroom_has_capability('story.edit_all')");
+    expect(sql).toContain('wordpress_source_id');
+    expect(sql).toContain("'Public author slug already exists; bind explicitly instead of mutating the existing author'");
+
+    expect(sql).toContain('select public_author_id into v_default_author');
+    expect(sql).toContain("'Reporter cannot assign another public author'");
+    expect(sql).toContain("'story.edit_all required to change canonical public author'");
+    expect(sql).toContain('author_id=v_author');
+    expect(sql).toContain('primary_section_id=v_section');
+    expect(sql).toContain("'Canonical section does not exist'");
+    expect(sql).toContain('v_owner := v_old.owner_staff_id');
+    expect(sql).not.toMatch(/v_owner\s*:=.*public_author_id/i);
+
+    expect(api).toContain("rpc('newsroom_list_public_authors'");
+    expect(api).toContain("rpc('newsroom_list_sections'");
+    expect(api).toContain("if (action === 'createPublicAuthor')");
+    expect(api).toContain("if (action === 'bindStaffPublicAuthor')");
+    expect(api).toContain('public_author_id');
+
+    expect(browser).not.toContain("section:'Health News'");
+    expect(browser).toContain('sectionId:s.primary_section_id');
+    expect(browser).toContain('authorId:s.author_id');
+    expect(browser).toContain('author_id:story.authorId||null');
+    expect(browser).toContain('primary_section_id:story.sectionId||null');
+    expect(browser).toContain("['status','owner','editor','factChecker','publicAuthor']");
+    expect(browser).toContain('data-public-author-bind');
+
+    expect(html).toContain('<label>Public author<select name="publicAuthor"');
+    expect(html).toContain('<label>Section<select name="section"');
+    expect(html).not.toContain('<label>Section<input name="section"');
+    expect(html).toContain('data-author-modal');
+
+    // Public-author presentation must not turn private staff fields into author data.
+    const renderAuthorsStart=browser.indexOf('function renderAuthors()');
+    const renderAuthorsEnd=browser.indexOf('function renderTopics()',renderAuthorsStart);
+    const authorUi=browser.slice(renderAuthorsStart,renderAuthorsEnd);
+    expect(authorUi).not.toContain('.email');
+    expect(authorUi).not.toContain('.authUserId');
+    expect(authorUi).not.toContain('.mfa');
+    expect(authorUi).not.toContain('.phone');
+    expect(authorUi).not.toContain('.session');
+  });
+
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
     const vercelText = read('vercel.json');
