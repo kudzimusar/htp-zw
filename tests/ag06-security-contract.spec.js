@@ -327,16 +327,20 @@ test.describe('AG-06 security contract', () => {
   });
 
   test('R4 certification cleanup preserves protected author authority', async () => {
-    const sql = read('supabase/migrations/20260927113000_ag06_certification_author_binding_cleanup.sql');
+    const sql = read('supabase/migrations/20260927120000_ag06_certification_cleanup_service_role_claim.sql');
+    const perf = read('supabase/migrations/20260927121500_ag06_audit_bootstrap_performance.sql');
     const helper = read('supabase/functions/ag06-certification-provision/index.ts');
 
-    expect(sql).toContain('create function public.newsroom_clear_certification_public_author_bindings(p_profile_ids uuid[])');
-    expect(sql).toContain("current_setting('request.jwt.claim.role',true) is distinct from 'service_role'");
+    expect(sql).toContain('create or replace function public.newsroom_clear_certification_public_author_bindings(p_profile_ids uuid[])');
+    expect(sql).toContain("auth.role() is distinct from 'service_role'");
     expect(sql).toContain("sp.beat='AG-06 staging certification'");
     expect(sql).toContain("sp.email ~ '^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$'");
     expect(sql).toContain("perform set_config('app.newsroom_rpc','1',true)");
     expect(sql).toContain('revoke execute on function public.newsroom_clear_certification_public_author_bindings(uuid[]) from public, anon, authenticated');
     expect(sql).toContain('grant execute on function public.newsroom_clear_certification_public_author_bindings(uuid[]) to service_role');
+    expect(sql).not.toContain("request.jwt.claim.role");
+    expect(perf).toContain('create index if not exists idx_audit_logs_created_at_desc');
+    expect(perf).toContain('on public.audit_logs(created_at desc)');
 
     expect(helper).toContain('.select("id,status,revoked_at,public_author_id")');
     expect(helper).toContain('const activeResiduals = residualBindings.filter');
