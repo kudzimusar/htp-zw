@@ -345,7 +345,7 @@ function publicStoryMediaKey(storyId, media, checksum){
   return `story-media/${storyId}/${media.media_id}/${checksum}/${filename}`;
 }
 
-async function promoteFeaturedStoryMedia(storyId, token) {
+async function promoteReaderBoundStoryMedia(storyId, token) {
   const rows=await rpc('newsroom_story_media_promotion_plan',{p_story_id:storyId},token);
   const mediaRows=Array.isArray(rows)?rows:[];
   const staged=[];
@@ -403,7 +403,7 @@ async function promoteFeaturedStoryMedia(storyId, token) {
       }
       throw error;
     }
-    staged.push({mediaId:media.media_id,publicKey});
+    staged.push({mediaId:media.media_id,usageType:media.usage_type,publicKey});
   }
 
   return staged;
@@ -422,6 +422,7 @@ async function rollbackStagedStoryMedia(storyId, staged, token) {
         console.error('AG06_PUBLIC_MEDIA_ROLLBACK_FAILED',JSON.stringify({
           storyId,
           mediaId:item.mediaId,
+          usageType:item.usageType||null,
           status:Number(error?.status)||500
         }));
       }
@@ -709,7 +710,7 @@ async function handle(req, res) {
       let staged=[];
       try{
         if(nextStatus==='Published'){
-          staged=await promoteFeaturedStoryMedia(storyId,token);
+          staged=await promoteReaderBoundStoryMedia(storyId,token);
         }
         const status = await call('newsroom_transition_story', {
           p_story_id: storyId,
