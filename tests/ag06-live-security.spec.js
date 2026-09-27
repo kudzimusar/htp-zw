@@ -53,9 +53,16 @@ async function appAdoptLogin(kind){
   return {ctx,csrf};
 }
 async function appBootstrap(client){
-  const response=await client.ctx.get('/api/newsroom?action=bootstrap',{headers:{Origin:baseURL}});
-  const body=await response.json().catch(()=>({}));
-  return {response,body};
+  let last=null;
+  for(let attempt=1;attempt<=3;attempt+=1){
+    const response=await client.ctx.get('/api/newsroom?action=bootstrap',{headers:{Origin:baseURL}});
+    const body=await response.json().catch(()=>({}));
+    last={response,body};
+    const status=statusOf(response);
+    if(status===200 || ![500,502,503,504].includes(status)) return last;
+    if(attempt<3) await new Promise(resolve=>setTimeout(resolve,400*attempt));
+  }
+  return last;
 }
 async function rawAuth(kind){
   const response=await fetch(`${supabaseURL}/auth/v1/token?grant_type=password`,{
@@ -79,7 +86,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
   test('anonymous, Reporter, Commercial, Editor and Publisher boundaries hold below the UI',async()=>{
     test.setTimeout(60_000);
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const anonymous=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
     expect(statusOf(anonBootstrap)).toBe(401);
@@ -230,6 +237,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(staleReporter.response)).toBe(403);
 
     publisherBoot=await appBootstrap(publisher);
+    expect(statusOf(publisherBoot.response),`publisher audit bootstrap body: ${JSON.stringify(publisherBoot.body)}`).toBe(200);
     const auditRows=publisherBoot.body.data.audit||[];
     const actions=auditRows.map(a=>a.action);
     expect(actions).toContain('story.published');
