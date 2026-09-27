@@ -66,3 +66,12 @@ test('AG-04 Phase 5 preserves explicit CP5 and COM-01 adoption identities', asyn
   expect(names.has('ag05_rehearsal_readiness_guard')).toBeTruthy();
   expect(names.has('com01_campaign_and_escalation_authority')).toBeTruthy();
 });
+
+test('AG-06 adopted 040923 identity is replay-safe and 123000 remains executable authority', async () => {
+  const adopted=fs.readFileSync(path.join(migrationDir,'20260927040923_ag06_certification_active_binding_cleanup.sql'),'utf8');
+  const reaffirmed=fs.readFileSync(path.join(migrationDir,'20260927123000_ag06_certification_active_binding_cleanup.sql'),'utf8');
+  expect(adopted).toContain('historical live identity adoption');
+  expect(adopted).not.toMatch(/create\s+(or\s+replace\s+)?function\s+public\.newsroom_clear_certification_public_author_bindings/i);
+  expect(reaffirmed).toMatch(/create\s+or\s+replace\s+function\s+public\.newsroom_clear_certification_public_author_bindings/i);
+});
+
