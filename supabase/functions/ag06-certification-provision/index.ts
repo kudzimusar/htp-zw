@@ -77,7 +77,18 @@ Deno.serve(async (req:Request) => {
       let readerReleasedStoriesCleared = 0;
       let deletedCertificationStoryRows = 0;
       let certificationStoryRowsRemaining = 0;
+      let clearedPublicAuthorBindings = 0;
       if (cleanupProfileIds.length) {
+        for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
+          const profileBatch=cleanupProfileIds.slice(offset,offset+25);
+          const cleared = await admin.from("staff_profiles")
+            .update({public_author_id:null})
+            .in("id",profileBatch)
+            .not("public_author_id","is",null)
+            .select("id");
+          if (cleared.error) throw cleared.error;
+          clearedPublicAuthorBindings += (cleared.data || []).length;
+        }
         const storyRows:any[] = [];
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
           const profileBatch=cleanupProfileIds.slice(offset,offset+25);
@@ -183,12 +194,12 @@ Deno.serve(async (req:Request) => {
       let liveSessions:any[] = [];
       if (profileIds.length) {
         const profiles = await admin.from("staff_profiles")
-          .select("id,status,revoked_at")
+          .select("id,status,revoked_at,public_author_id")
           .in("id",profileIds);
         if (profiles.error) throw profiles.error;
         retainedProfiles = profiles.data || [];
-        const invalid = retainedProfiles.filter((p:any)=>String(p.status||"").toLowerCase()!=="revoked" || !p.revoked_at);
-        if (invalid.length) throw new Error("Auth-delete revocation trigger did not inert every retained staff profile");
+        const invalid = retainedProfiles.filter((p:any)=>String(p.status||"").toLowerCase()!=="revoked" || !p.revoked_at || p.public_author_id);
+        if (invalid.length) throw new Error("Auth-delete cleanup did not inert profiles and clear temporary public-author bindings");
 
         const sessions = await admin.from("newsroom_sessions")
           .select("id,staff_profile_id,revoked_at")
@@ -209,7 +220,9 @@ Deno.serve(async (req:Request) => {
         deleted_public_storage_objects:deletedPublicStorageObjects,
         reader_release_markers_cleared:readerReleasedStoriesCleared,
         deleted_certification_story_rows:deletedCertificationStoryRows,
-        certification_story_rows_remaining:certificationStoryRowsRemaining
+        certification_story_rows_remaining:certificationStoryRowsRemaining,
+        cleared_public_author_bindings:clearedPublicAuthorBindings,
+        deleted_synthetic_authors:0
       });
     }
 
