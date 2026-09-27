@@ -85,6 +85,8 @@ function rateLimit(req, action) {
     finalizeStoryMedia: [30, 60_000],
     attachStoryMedia: [60, 60_000],
     requestStoryChanges: [30, 60_000],
+    createPublicAuthor: [20, 60_000],
+    bindStaffPublicAuthor: [30, 60_000],
     approveCampaign: [30, 60_000],
     changeRole: [30, 60_000],
     revokeStaff: [30, 60_000],
@@ -504,7 +506,7 @@ async function bootstrap(token, req) {
     assignments: 'story_assignments?select=' + encodeSelect('id,story_id,title,reporter_staff_id,assigned_editor_staff_id,desk,deadline_at,priority,notes,status,assigned_by,created_at,updated_at') + '&order=updated_at.desc',
     reviews: 'story_reviews?select=' + encodeSelect('id,story_id,review_type,assigned_to,status,notes,completed_at,completed_by,created_by,created_at,updated_at') + '&order=created_at.desc',
     comments: 'story_internal_comments?select=' + encodeSelect('id,story_id,author_staff_id,body,parent_comment_id,created_at,edited_at,edited_by,resolved_at,resolved_by') + '&order=created_at.asc',
-    staff: 'staff_profiles?select=' + encodeSelect('id,auth_user_id,handle,display_name,email,role_id,desk,beat,country,region,status,assigned_editor_id,last_login_at,mfa_required,mfa_enrolled_at,created_at,updated_at') + '&order=display_name.asc',
+    staff: 'staff_profiles?select=' + encodeSelect('id,auth_user_id,handle,display_name,email,role_id,desk,beat,country,region,status,assigned_editor_id,public_author_id,last_login_at,mfa_required,mfa_enrolled_at,created_at,updated_at') + '&order=display_name.asc',
     roles: 'newsroom_roles?select=' + encodeSelect('id,name,description') + '&order=name.asc',
     audit: 'audit_logs?select=' + encodeSelect('id,actor_staff_id,action,target_table,target_id,metadata,created_at') + '&order=created_at.desc&limit=200',
     sessions: 'newsroom_sessions?select=' + encodeSelect('id,staff_profile_id,provider_session_id,user_agent,created_at,last_seen_at,revoked_at,revoked_by') + '&order=last_seen_at.desc&limit=200',
@@ -518,18 +520,22 @@ async function bootstrap(token, req) {
     advertisers: 'advertisers?select=' + encodeSelect('id,name') + '&order=name.asc',
     subscribers: 'subscribers?select=' + encodeSelect('id,email,display_name,status,created_at') + '&order=created_at.desc&limit=200'
   };
-  const [stories, entries, directory, notifications, inboxSummary, media] = await Promise.all([
+  const [stories, entries, directory, notifications, inboxSummary, media, authors, sections] = await Promise.all([
     rpc('newsroom_list_stories', { p_limit: 200 }, token),
     Promise.all(Object.entries(queries).map(async ([key, query]) => [key, await optionalRows(query, token)])),
     rpc('newsroom_staff_directory', {}, token),
     rpc('newsroom_list_inbox', { p_filter: 'all', p_limit: 50, p_before: null }, token),
     rpc('newsroom_inbox_summary', {}, token),
-    canMedia ? rpc('newsroom_list_media',{p_search:null,p_limit:150},token) : Promise.resolve([])
+    canMedia ? rpc('newsroom_list_media',{p_search:null,p_limit:150},token) : Promise.resolve([]),
+    rpc('newsroom_list_public_authors',{},token),
+    rpc('newsroom_list_sections',{},token)
   ]);
   return {
     context,
     stories: Array.isArray(stories) ? stories : [],
     media: Array.isArray(media) ? media : [],
+    authors: Array.isArray(authors) ? authors : [],
+    sections: Array.isArray(sections) ? sections : [],
     directory: Array.isArray(directory) ? directory : [],
     notifications: Array.isArray(notifications) ? notifications : [],
     inboxSummary: inboxSummary && typeof inboxSummary === 'object' ? inboxSummary : {},
@@ -680,6 +686,22 @@ async function handle(req, res) {
         p_reason: String(body.reason || 'Autosave').slice(0, 240)
       });
       return json(res, 200, { ok: true, version });
+    }
+    if (action === 'createPublicAuthor') {
+      const id = await call('newsroom_create_public_author', {
+        p_display_name: body.displayName,
+        p_slug: body.slug,
+        p_bio: body.bio || null,
+        p_staff_id: body.staffId || null
+      });
+      return json(res, 200, { ok: true, id });
+    }
+    if (action === 'bindStaffPublicAuthor') {
+      const result = await call('newsroom_bind_staff_public_author', {
+        p_staff_id: body.staffId,
+        p_author_id: body.authorId || null
+      });
+      return json(res, 200, { ok: true, result });
     }
     if (action === 'transitionStory') {
       const storyId=body.storyId;
