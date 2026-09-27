@@ -329,6 +329,7 @@ test.describe('AG-06 security contract', () => {
   test('R4 certification cleanup preserves protected author authority', async () => {
     const sql = read('supabase/migrations/20260927120000_ag06_certification_cleanup_service_role_claim.sql');
     const perf = read('supabase/migrations/20260927121500_ag06_audit_feed_performance.sql');
+    const activeCleanup = read('supabase/migrations/20260927123000_ag06_certification_active_binding_cleanup.sql');
     const helper = read('supabase/functions/ag06-certification-provision/index.ts');
 
     expect(sql).toContain('create or replace function public.newsroom_clear_certification_public_author_bindings(p_profile_ids uuid[])');
@@ -341,6 +342,42 @@ test.describe('AG-06 security contract', () => {
     expect(sql).not.toContain("if current_setting('request.jwt.claim.role'");
     expect(perf).toContain('create index if not exists idx_audit_logs_created_at_desc');
     expect(perf).toContain('on public.audit_logs(created_at desc,id desc)');
+    expect(activeCleanup).toContain("auth.role() is distinct from 'service_role'");
+    expect(activeCleanup).toContain("sp.beat='AG-06 staging certification'");
+    expect(activeCleanup).toContain("sp.email ~ '^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw
+    expect(helper).toContain('const residualBindingIds = residualBindings.map');
+    expect(helper).toContain('p_profile_ids:residualBindingIds');
+    expect(helper).not.toContain('Active temporary public-author binding residue remains');
+    expect(helper).toContain('u.user_metadata?.ag06_staging_test === true');
+    expect(helper).toContain('github_run_id');
+    expect(helper).toContain('^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$');
+    expect(helper).toContain('const boundedUsers = users.filter');
+    expect(helper).toContain('const certificationEmails = new Set');
+    expect(helper).toContain('AG-06 synthetic Auth users remain after cleanup');
+    expect(helper).toContain('newsroom_clear_certification_public_author_bindings');
+    expect(helper).toContain('Temporary public-author binding residue remains after bounded cleanup');
+    expect(helper).not.toContain('.update({public_author_id:null})');
+  });
+
+  test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
+    const html = read('newsroom.html');
+    const vercelText = read('vercel.json');
+    const vercel = JSON.parse(vercelText);
+    expect(html).not.toContain('app.js');
+    expect(html).not.toMatch(/googletagmanager|gtag\s*\(/i);
+    const newsroomHeaders = vercel.headers.find((row) => row.source === '/newsroom.html');
+    expect(newsroomHeaders).toBeTruthy();
+    const headerMap = Object.fromEntries(newsroomHeaders.headers.map(({ key, value }) => [key, value]));
+    expect(headerMap['Content-Security-Policy']).toContain("frame-ancestors 'none'");
+    expect(headerMap['X-Content-Type-Options']).toBe('nosniff');
+    expect(headerMap['Permissions-Policy']).toContain('camera=()');
+    expect(headerMap['Cache-Control']).toBe('no-store, private');
+  });
+});
+");
+    expect(activeCleanup).not.toContain("lower(sp.status)='revoked'");
+    expect(activeCleanup).toContain('revoke execute on function public.newsroom_clear_certification_public_author_bindings(uuid[])');
+    expect(activeCleanup).toContain('grant execute on function public.newsroom_clear_certification_public_author_bindings(uuid[])');
 
     expect(helper).toContain('.select("id,status,revoked_at,public_author_id")');
     expect(helper).toContain('const residualBindingIds = residualBindings.map');
