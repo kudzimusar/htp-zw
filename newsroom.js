@@ -132,7 +132,7 @@
     ['System',[['settings','Settings','⚙',CAP.SETTINGS],['integrations','Integrations','⌁','admin'],['security','Security','⌾','security']]]
   ];
 
-  let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null, recoveryMode=false;
+  let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null, recoveryMode=false, inlineMediaInsertOffset=null;
   function ensureSeed(){}
   function getStories(){return read(KEYS.stories,[])} function setStories(v){write(KEYS.stories,v)}
   function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
@@ -726,6 +726,24 @@
   async function revokeStaffSessions(username){if(!(has(CAP.STAFF_REVOKE)||has('security.revoke_session')))return;const s=staffRecord(username);if(!s)return;try{await api('revokeSession',{staffId:s.id});await refreshData();showModule('staff');toast('Sessions revoked');}catch(error){toast(error.message);}}
   async function togglePremium(id){if(!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE)))return;const s=getStories().find(x=>x.id===id);if(!s)return;try{await api('setPremium',{storyId:id,accessPolicy:s.premium?'public':'premium'});await refreshData();showModule('premium');toast('Story access policy updated');}catch(error){toast(error.message);}}
 
+  function inlineMediaMarker(mediaId){return '<figure data-healthtimes-media-id="'+String(mediaId)+'"></figure>';}
+  function rememberInlineMediaInsertionPoint(){
+    const body=$('[data-story-form] textarea[name="body"]');
+    inlineMediaInsertOffset=(editingStoryId&&body&&Number.isInteger(body.selectionStart))?body.selectionStart:null;
+  }
+  async function insertInlineMediaMarker(mediaId,storyId){
+    if(editingStoryId!==storyId)return;
+    const body=$('[data-story-form] textarea[name="body"]');if(!body)return;
+    const marker=inlineMediaMarker(mediaId);
+    if(!body.value.includes(marker)){
+      const fallback=Number.isInteger(body.selectionStart)?body.selectionStart:body.value.length;
+      const at=Number.isInteger(inlineMediaInsertOffset)?Math.max(0,Math.min(inlineMediaInsertOffset,body.value.length)):fallback;
+      body.setRangeText(marker,at,at,'end');
+      inlineMediaInsertOffset=body.selectionEnd;
+      await saveStory(true);
+    }
+  }
+
   function mediaTargetStoryId(){return String($('[data-media-target-story]')?.value||'');}
   function renderMediaModalGrid(){
     const mount=$('[data-media-modal-grid]');if(!mount)return;
@@ -787,6 +805,7 @@
       write(KEYS.media,media);
       const story=getStories().find(s=>s.id===storyId);
       if(story&&finalized.storyVersion){story.lockVersion=finalized.storyVersion;setStories(getStories().map(s=>s.id===storyId?story:s));}
+      if(usageType==='inline'&&editingStoryId===storyId){await insertInlineMediaMarker(mediaId,storyId);}
       form.reset();renderMediaModalGrid();
       if(editingStoryId===storyId&&story)renderStoryMedia(story);
       if(active==='media')showModule('media');
@@ -797,7 +816,17 @@
   async function attachStoryMedia(mediaId){
     const storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
     if(!storyId)return;
-    try{const result=await api('attachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset&&!asset.usages.some(u=>u.storyId===storyId&&u.usageType===usageType))asset.usages.push({storyId,usageType,sourceContext:{attachment_state:'private_draft'}});const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);renderMediaModalGrid();toast('Media attached to story');}catch(error){toast(error.message);}
+    try{
+      const result=await api('attachStoryMedia',{mediaId,storyId,usageType});
+      const asset=getMedia().find(m=>m.id===mediaId);
+      if(asset&&!asset.usages.some(u=>u.storyId===storyId&&u.usageType===usageType))asset.usages.push({storyId,usageType,sourceContext:{attachment_state:'private_draft'}});
+      const story=getStories().find(s=>s.id===storyId);
+      if(story&&result.storyVersion)story.lockVersion=result.storyVersion;
+      write(KEYS.media,getMedia());
+      if(usageType==='inline'&&editingStoryId===storyId){await insertInlineMediaMarker(mediaId,storyId);}
+      if(editingStoryId===storyId&&story)renderStoryMedia(story);
+      renderMediaModalGrid();toast('Media attached to story');
+    }catch(error){toast(error.message);}
   }
   async function detachStoryMedia(mediaId,storyId,usageType){
     try{const result=await api('detachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset)asset.usages=asset.usages.filter(u=>!(u.storyId===storyId&&u.usageType===usageType));const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
@@ -854,7 +883,7 @@
       if(e.target.closest('[data-open-assignment]')){openAssignment();return;}
       if(e.target.closest('[data-assignment-close]')){$('[data-assignment-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-campaign]')){openCampaign();return;}
-      if(e.target.closest('[data-open-story-media]')){openMediaLibrary(editingStoryId);return;}
+      if(e.target.closest('[data-open-story-media]')){rememberInlineMediaInsertionPoint();openMediaLibrary(editingStoryId);return;}
       if(e.target.closest('[data-open-media-library]')){openMediaLibrary();return;}
       if(e.target.closest('[data-media-close]')){closeMediaLibrary();return;}
       const mp=e.target.closest('[data-media-preview]');if(mp){await previewMedia(mp.dataset.mediaPreview);return;}
@@ -892,7 +921,7 @@
       if(e.target.closest('[data-notifications]')){showModule('inbox');return;}
       if(e.target.closest('[data-sidebar-open]')){$('[data-newsroom-sidebar]').classList.add('open');return;}
       if(e.target.closest('[data-sidebar-close]')){$('[data-newsroom-sidebar]').classList.remove('open');return;}
-      const ins=e.target.closest('[data-insert]');if(ins){if(ins.dataset.insert==='media'){openMediaLibrary(editingStoryId);return;}toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
+      const ins=e.target.closest('[data-insert]');if(ins){if(ins.dataset.insert==='media'){rememberInlineMediaInsertionPoint();openMediaLibrary(editingStoryId);return;}toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
     });
     document.addEventListener('change',async e=>{if(e.target.matches('[data-public-author-bind]'))await bindPublicAuthor(e.target);});
     document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);if(e.target.matches('[data-review-state],[data-review-desk],[data-review-owner],[data-review-deadline]'))refreshReviewQueue();if(e.target.matches('[data-media-library-search],[data-media-library-type],[data-media-library-state]'))refreshMediaLibrary();if(e.target.matches('[data-media-modal-search],[data-media-target-story],[data-media-usage-role]'))renderMediaModalGrid();});
