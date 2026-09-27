@@ -250,6 +250,37 @@ test.describe('AG-06 security contract', () => {
     expect(sql).not.toContain('update public.legacy_sources');
   });
 
+  test('R3 inline body binding uses stable same-story media markers and fails closed', async () => {
+    const sql = read('supabase/migrations/20260927094500_ag06_inline_body_binding.sql');
+    const browser = read('newsroom.js');
+
+    expect(sql).toContain("'<figure data-healthtimes-media-id="'||p_media_id::text||'"></figure>'");
+    expect(sql).toContain('create or replace function public.newsroom_validate_inline_body_bindings');
+    expect(sql).toContain('if v_story.legacy_source_id is not null then');
+    expect(sql).toContain("lower(v_body) like '%newsroom-private%'");
+    expect(sql).toContain("lower(v_body) like '%/storage/v1/object/sign/%'");
+    expect(sql).toContain("like '%data-healthtimes-media-id%'");
+    expect(sql).toContain("mu.story_id=p_story_id");
+    expect(sql).toContain("mu.media_id=v_media_id");
+    expect(sql).toContain("mu.usage_type='inline'");
+    expect(sql).toContain("ma.mime_type like 'image/%'");
+    expect(sql).toContain("'Inline media marker is not bound to same-story inline image authority'");
+    expect(sql).toContain('revoke execute on function public.newsroom_validate_inline_body_bindings(uuid) from public,anon,authenticated');
+
+    expect(browser).toContain("function inlineMediaMarker(mediaId){return '<figure data-healthtimes-media-id="'+String(mediaId)+'"></figure>';}");
+    expect(browser).toContain('inlineMediaInsertOffset');
+    expect(browser).toContain('body.setRangeText(marker,at,at');
+    expect(browser).toContain("if(usageType==='inline'&&editingStoryId===storyId){await insertInlineMediaMarker");
+    expect(browser).toContain('await saveStory(true)');
+    expect(browser).toContain('rememberInlineMediaInsertionPoint();openMediaLibrary(editingStoryId)');
+    // Detach deliberately does not remove the body marker; publication validation must catch stale binding.
+    const detachStart=browser.indexOf('async function detachStoryMedia');
+    const detachEnd=browser.indexOf('async function previewMedia',detachStart);
+    const detach=browser.slice(detachStart,detachEnd);
+    expect(detach).not.toContain('replace(');
+    expect(detach).not.toContain('data-healthtimes-media-id');
+  });
+
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
     const vercelText = read('vercel.json');
