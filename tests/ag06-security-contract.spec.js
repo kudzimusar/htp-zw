@@ -326,6 +326,27 @@ test.describe('AG-06 security contract', () => {
     expect(api).toContain('rollbackStagedStoryMedia(storyId,staged,token)');
   });
 
+  test('R4 certification cleanup preserves protected author authority', async () => {
+    const sql = read('supabase/migrations/20260927113000_ag06_certification_author_binding_cleanup.sql');
+    const helper = read('supabase/functions/ag06-certification-provision/index.ts');
+
+    expect(sql).toContain('create function public.newsroom_clear_certification_public_author_bindings(p_profile_ids uuid[])');
+    expect(sql).toContain("current_setting('request.jwt.claim.role',true) is distinct from 'service_role'");
+    expect(sql).toContain("sp.beat='AG-06 staging certification'");
+    expect(sql).toContain("sp.email ~ '^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$'");
+    expect(sql).toContain("perform set_config('app.newsroom_rpc','1',true)");
+    expect(sql).toContain('revoke execute on function public.newsroom_clear_certification_public_author_bindings(uuid[]) from public, anon, authenticated');
+    expect(sql).toContain('grant execute on function public.newsroom_clear_certification_public_author_bindings(uuid[]) to service_role');
+
+    expect(helper).toContain('.select("id,status,revoked_at,public_author_id")');
+    expect(helper).toContain('const activeResiduals = residualBindings.filter');
+    expect(helper).toContain('Active temporary public-author binding residue remains');
+    expect(helper).toContain('const revokedResidualIds = residualBindings.map');
+    expect(helper).toContain('newsroom_clear_certification_public_author_bindings');
+    expect(helper).toContain('Temporary public-author binding residue remains after bounded cleanup');
+    expect(helper).not.toContain('.update({public_author_id:null})');
+  });
+
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
     const vercelText = read('vercel.json');
