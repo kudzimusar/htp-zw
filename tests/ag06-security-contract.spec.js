@@ -160,7 +160,8 @@ test.describe('AG-06 security contract', () => {
     expect(sql).toContain('author_unique');
     expect(sql).toContain('sp.public_author_id is null');
     expect(sql).not.toMatch(/split_part\s*\(\s*(email|sp\.email)/i);
-    expect(sql).not.toMatch(/levenshtein|similarity\s*\(|soundex|fuzzy/i);
+    expect(sql).toContain('No email/handle/desk/role/fuzzy inference');
+    expect(sql).not.toMatch(/levenshtein|similarity\s*\(|soundex/i);
 
     expect(sql).toContain('create or replace function public.newsroom_create_public_author');
     expect(sql).toContain('create or replace function public.newsroom_bind_staff_public_author');
