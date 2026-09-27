@@ -623,7 +623,76 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     });
     expect([400,409]).toContain(statusOf(directFail.response));
 
-    let publisherBoot=await appBootstrap(publisher);
+    const baseBody='Public Reader certification body for CMS-native promotion.\n';
+    const saveMainBody=async(body,reason)=>{
+      const boot=await appBootstrap(publisher);
+      const current=boot.body.data.stories.find(s=>s.id===storyId);
+      expect(current).toBeTruthy();
+      const savedBody=await appPost(publisher,'saveStory',{
+        storyId,expectedVersion:current.lock_version,patch:{body},reason
+      });
+      expect(statusOf(savedBody),reason).toBe(200);
+    };
+    const assertDirectPublishDenied=async(reason)=>{
+      const denied=await rawRpc(rawPublisher,'newsroom_transition_story',{
+        p_story_id:storyId,p_next_status:'Published',p_reason:reason
+      });
+      expect([400,409],reason).toContain(statusOf(denied.response));
+      return statusOf(denied.response);
+    };
+
+    const foreignCreated=await appPost(publisher,'createStory',{story:{
+      title:`AG06 Foreign Inline ${stamp}`,
+      slug:`ag06-foreign-inline-${stamp}`,
+      desk:'Africa',country:'Zimbabwe',region:'Africa',
+      author_id:canonicalAuthor.id,primary_section_id:canonicalSection.id
+    }});
+    expect(statusOf(foreignCreated)).toBe(200);
+    const foreignStoryId=(await foreignCreated.json()).id;
+    const foreignPrepared=await appPost(publisher,'prepareStoryMedia',{
+      storyId:foreignStoryId,filename:foreignFilename,mimeType:'image/png',
+      byteSize:foreignImage.length,checksum:foreignChecksum,
+      altText:'AG-06 foreign story inline certification image',
+      caption:'Foreign-story marker rejection fixture',
+      credit:'HealthTimes certification',
+      sourceProvenance:`AG06_PUBLIC_MEDIA_CERT:${process.env.GITHUB_RUN_ID||stamp}:foreign`,
+      usageType:'inline'
+    });
+    expect(statusOf(foreignPrepared)).toBe(200);
+    const foreignPreparedBody=await foreignPrepared.json();
+    const foreignMediaId=foreignPreparedBody.prepared.media_id;
+    const foreignUploadForm=new FormData();
+    foreignUploadForm.append('cacheControl','3600');
+    foreignUploadForm.append('',new Blob([foreignImage],{type:'image/png'}),foreignFilename);
+    const foreignUploaded=await fetch(foreignPreparedBody.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:foreignUploadForm});
+    expect(statusOf(foreignUploaded)).toBe(200);
+    const foreignFinalized=await appPost(publisher,'finalizeStoryMedia',{
+      mediaId:foreignMediaId,storyId:foreignStoryId,usageType:'inline',checksum:foreignChecksum
+    });
+    expect(statusOf(foreignFinalized)).toBe(200);
+
+    const foreignMarker=`<figure data-healthtimes-media-id="${foreignMediaId}"></figure>`;
+    await saveMainBody(`${baseBody}${foreignMarker}`,'Cross-story inline marker attack');
+    const crossStoryMarkerDenied=await assertDirectPublishDenied('Cross-story inline marker must fail closed');
+
+    await saveMainBody(`${baseBody}${bodyMarker}`,'Restore valid inline marker before detach attack');
+    const detached=await appPost(publisher,'detachStoryMedia',{mediaId:inlineMediaId,storyId,usageType:'inline'});
+    expect(statusOf(detached)).toBe(200);
+    const detachedMarkerDenied=await assertDirectPublishDenied('Detached inline marker must fail closed');
+    const reattached=await appPost(publisher,'attachStoryMedia',{mediaId:inlineMediaId,storyId,usageType:'inline'});
+    expect(statusOf(reattached)).toBe(200);
+
+    const randomMarker=`<figure data-healthtimes-media-id="${crypto.randomUUID()}"></figure>`;
+    await saveMainBody(`${baseBody}${randomMarker}`,'Random inline marker attack');
+    const randomMarkerDenied=await assertDirectPublishDenied('Random inline marker must fail closed');
+
+    const privateSignedBody=`${baseBody}<img src="${supabaseURL}/storage/v1/object/sign/newsroom-private/fake?token=fake" alt="private leak">`;
+    await saveMainBody(privateSignedBody,'Private signed URL attack');
+    const privateUrlDenied=await assertDirectPublishDenied('Private signed URL must fail closed');
+
+    await saveMainBody(`${baseBody}${bodyMarker}\nInline media follows this marker.`,'Restore valid public inline marker');
+
+    publisherBoot=await appBootstrap(publisher);
     story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
     expect(story.workflow_status).toBe('Ready');
     const stillHidden=await anonRpc('newsroom_public_story_document',{p_path:path});
