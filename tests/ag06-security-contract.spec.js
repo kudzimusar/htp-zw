@@ -254,7 +254,7 @@ test.describe('AG-06 security contract', () => {
     const sql = read('supabase/migrations/20260927094500_ag06_inline_body_binding.sql');
     const browser = read('newsroom.js');
 
-    expect(sql).toContain("'<figure data-healthtimes-media-id="'||p_media_id::text||'"></figure>'");
+    expect(sql).toContain(`'<figure data-healthtimes-media-id="'||p_media_id::text||'"></figure>'`);
     expect(sql).toContain('create or replace function public.newsroom_validate_inline_body_bindings');
     expect(sql).toContain('if v_story.legacy_source_id is not null then');
     expect(sql).toContain("lower(v_body) like '%newsroom-private%'");
@@ -267,7 +267,7 @@ test.describe('AG-06 security contract', () => {
     expect(sql).toContain("'Inline media marker is not bound to same-story inline image authority'");
     expect(sql).toContain('revoke execute on function public.newsroom_validate_inline_body_bindings(uuid) from public,anon,authenticated');
 
-    expect(browser).toContain("function inlineMediaMarker(mediaId){return '<figure data-healthtimes-media-id="'+String(mediaId)+'"></figure>';}");
+    expect(browser).toContain(`function inlineMediaMarker(mediaId){return '<figure data-healthtimes-media-id="'+String(mediaId)+'"></figure>';}`);
     expect(browser).toContain('inlineMediaInsertOffset');
     expect(browser).toContain('body.setRangeText(marker,at,at');
     expect(browser).toContain("if(usageType==='inline'&&editingStoryId===storyId){await insertInlineMediaMarker");
