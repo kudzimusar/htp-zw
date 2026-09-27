@@ -709,20 +709,34 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     const plan=await rawRpc(rawPublisher,'newsroom_story_media_promotion_plan',{p_story_id:storyId});
     expect(statusOf(plan.response)).toBe(200);
-    const promoted=(Array.isArray(plan.body)?plan.body:[]).find(m=>m.media_id===mediaId);
+    const planRows=Array.isArray(plan.body)?plan.body:[];
+    const promoted=planRows.find(m=>m.media_id===mediaId&&m.usage_type==='featured');
+    const inlinePromoted=planRows.find(m=>m.media_id===inlineMediaId&&m.usage_type==='inline');
     expect(promoted).toBeTruthy();
+    expect(inlinePromoted).toBeTruthy();
     expect(promoted.private_bucket).toBe('newsroom-private');
     expect(promoted.public_storage_bucket).toBe('newsroom-public');
     expect(promoted.public_storage_key).toBe(publicKey);
     expect(String(promoted.checksum||'').toLowerCase()).toBe(checksum);
     expect(promoted.media_status).toBe('published');
+    expect(inlinePromoted.private_bucket).toBe('newsroom-private');
+    expect(inlinePromoted.public_storage_bucket).toBe('newsroom-public');
+    expect(inlinePromoted.public_storage_key).toBe(inlinePublicKey);
+    expect(String(inlinePromoted.checksum||'').toLowerCase()).toBe(inlineChecksum);
+    expect(inlinePromoted.media_status).toBe('published');
 
     const publicUrl=new URL(String(promoted.public_url),supabaseURL+'/').toString();
+    const inlinePublicUrl=new URL(String(inlinePromoted.public_url),supabaseURL+'/').toString();
     const publicObject=await fetch(publicUrl);
     expect(statusOf(publicObject)).toBe(200);
     const publicBytes=Buffer.from(await publicObject.arrayBuffer());
     const publicChecksum=crypto.createHash('sha256').update(publicBytes).digest('hex');
     expect(publicChecksum).toBe(checksum);
+    const inlinePublicObject=await fetch(inlinePublicUrl);
+    expect(statusOf(inlinePublicObject)).toBe(200);
+    const inlinePublicBytes=Buffer.from(await inlinePublicObject.arrayBuffer());
+    const inlinePublicChecksum=crypto.createHash('sha256').update(inlinePublicBytes).digest('hex');
+    expect(inlinePublicChecksum).toBe(inlineChecksum);
 
     const privateObject=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{
       headers:{apikey:anonKey,Authorization:`Bearer ${rawPublisher.session.access_token}`}
@@ -731,6 +745,13 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const privateBytes=Buffer.from(await privateObject.arrayBuffer());
     const privateChecksum=crypto.createHash('sha256').update(privateBytes).digest('hex');
     expect(privateChecksum).toBe(checksum);
+    const privateInlineObject=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedInlinePrivate}`,{
+      headers:{apikey:anonKey,Authorization:`Bearer ${rawPublisher.session.access_token}`}
+    });
+    expect(statusOf(privateInlineObject)).toBe(200);
+    const privateInlineBytes=Buffer.from(await privateInlineObject.arrayBuffer());
+    const privateInlineChecksum=crypto.createHash('sha256').update(privateInlineBytes).digest('hex');
+    expect(privateInlineChecksum).toBe(inlineChecksum);
 
     const afterDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
     expect(statusOf(afterDoc.response)).toBe(200);
@@ -740,13 +761,42 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(afterDoc.body?.featured_storage_object).toBe(publicKey);
     expect(afterDoc.body?.featured_public_url).toBe(promoted.public_url);
     expect(afterDoc.body?.featured_checksum).toBe(checksum);
+    expect(afterDoc.body?.author?.slug).toBe(canonicalAuthor.slug);
+    expect(afterDoc.body?.section?.slug).toBe(canonicalSection.slug);
     expect(afterDoc.body?.body_html).toContain('Public Reader certification body');
+    expect(afterDoc.body?.body_html).toContain(bodyMarker);
+    expect(afterDoc.body?.body_html).not.toContain('newsroom-private');
+    expect(afterDoc.body?.body_html).not.toContain('/storage/v1/object/sign/');
+    expect(Array.isArray(afterDoc.body?.inline_media)).toBe(true);
+    expect(afterDoc.body.inline_media).toHaveLength(1);
+    expect(afterDoc.body.inline_media[0]).toMatchObject({
+      media_id:inlineMediaId,
+      usage_type:'inline',
+      marker:bodyMarker,
+      public_storage_bucket:'newsroom-public',
+      public_storage_object:inlinePublicKey,
+      public_url:inlinePromoted.public_url,
+      checksum:inlineChecksum,
+      alt_text:'HealthTimes AG-06 inline certification image',
+      caption:'AG-06 CMS inline public media certification',
+      credit:'HealthTimes certification'
+    });
+    expect(JSON.stringify(afterDoc.body.inline_media)).not.toContain('newsroom-private');
+    expect(JSON.stringify(afterDoc.body.inline_media)).not.toContain('source_provenance');
+    expect(JSON.stringify(afterDoc.body.inline_media)).not.toContain('uploaded_by');
 
     const afterList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
     expect(statusOf(afterList.response)).toBe(200);
     expect(Array.isArray(afterList.body)).toBe(true);
     expect(afterList.body).toHaveLength(1);
     expect(afterList.body[0]?.id).toBe(storyId);
+
+    const afterCategory=await anonRpc('newsroom_public_context_document',{p_path:categoryPath});
+    expect(statusOf(afterCategory.response)).toBe(200);
+    expect((afterCategory.body?.items||[]).some(x=>x.story_id===storyId)).toBe(true);
+    const afterAuthor=await anonRpc('newsroom_public_context_document',{p_path:authorPath});
+    expect(statusOf(afterAuthor.response)).toBe(200);
+    expect((afterAuthor.body?.items||[]).some(x=>x.story_id===storyId)).toBe(true);
 
     publisherBoot=await appBootstrap(publisher);
     story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
@@ -762,12 +812,28 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const afterConflict=await fetch(publicUrl);
     expect(statusOf(afterConflict)).toBe(200);
     expect(crypto.createHash('sha256').update(Buffer.from(await afterConflict.arrayBuffer())).digest('hex')).toBe(checksum);
+    const inlineOverwrite=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedInlinePublic}`,{
+      method:'POST',
+      headers:{...rawPublisher.headers,'Content-Type':'image/png','x-upsert':'false'},
+      body:Buffer.from('conflicting inline public media bytes')
+    });
+    expect([400,409]).toContain(statusOf(inlineOverwrite));
+    const inlineAfterConflict=await fetch(inlinePublicUrl);
+    expect(statusOf(inlineAfterConflict)).toBe(200);
+    expect(crypto.createHash('sha256').update(Buffer.from(await inlineAfterConflict.arrayBuffer())).digest('hex')).toBe(inlineChecksum);
 
     const idempotent=await rawRpc(rawPublisher,'newsroom_stage_story_media_promotion',{
       p_story_id:storyId,p_media_id:mediaId,p_public_storage_key:publicKey,p_verified_checksum:checksum
     });
     expect(statusOf(idempotent.response)).toBe(200);
     expect(idempotent.body?.status).toBe('published');
+    expect(idempotent.body?.usage_type).toBe('featured');
+    const inlineIdempotent=await rawRpc(rawPublisher,'newsroom_stage_story_media_promotion',{
+      p_story_id:storyId,p_media_id:inlineMediaId,p_public_storage_key:inlinePublicKey,p_verified_checksum:inlineChecksum
+    });
+    expect(statusOf(inlineIdempotent.response)).toBe(200);
+    expect(inlineIdempotent.body?.status).toBe('published');
+    expect(inlineIdempotent.body?.usage_type).toBe('inline');
 
     const premium=await appPost(publisher,'setPremium',{storyId,accessPolicy:'premium'});
     expect(statusOf(premium)).toBe(200);
@@ -775,7 +841,16 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(premiumDoc.response)).toBe(200);
     expect(premiumDoc.body?.access_policy).toBe('premium');
     expect(premiumDoc.body?.body_html).toBeNull();
+    expect(premiumDoc.body?.inline_media).toEqual([]);
     expect(premiumDoc.body?.featured_public_url).toBe(promoted.public_url);
+    expect(JSON.stringify(premiumDoc.body)).not.toContain(inlinePromoted.public_url);
+
+    const premiumCategory=await anonRpc('newsroom_public_context_document',{p_path:categoryPath});
+    expect(statusOf(premiumCategory.response)).toBe(200);
+    expect(JSON.stringify(premiumCategory.body)).not.toContain('body_html');
+    const premiumAuthor=await anonRpc('newsroom_public_context_document',{p_path:authorPath});
+    expect(statusOf(premiumAuthor.response)).toBe(200);
+    expect(JSON.stringify(premiumAuthor.body)).not.toContain('body_html');
 
     const premiumList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
     expect(statusOf(premiumList.response)).toBe(200);
