@@ -281,6 +281,51 @@ test.describe('AG-06 security contract', () => {
     expect(detach).not.toContain('data-healthtimes-media-id');
   });
 
+  test('R4 public inline promotion generalizes the accepted featured pipeline without Premium leakage', async () => {
+    const sql = read('supabase/migrations/20260927101500_ag06_public_inline_media_promotion.sql');
+    const api = read('api/newsroom.js');
+
+    expect(sql).toContain('create function public.newsroom_story_media_promotion_plan');
+    expect(sql).toContain('usage_type text');
+    expect(sql).toContain("mu.usage_type='featured'");
+    expect(sql).toContain("mu.usage_type='inline'");
+    expect(sql).toContain("lower(coalesce(v_story.access_policy,'public'))='public'");
+    expect(sql).toContain('ma.id=any(v_inline_ids)');
+    expect(sql).toContain('public.newsroom_validate_inline_body_bindings(p_story_id)');
+    expect(sql).toContain("'Premium inline media is not eligible for anonymous public promotion'");
+    expect(sql).toContain("'Bound inline Newsroom media must be promoted before public publication'");
+    expect(sql).toContain("'usage_type',mu.usage_type");
+    expect(sql).toContain("public_storage_bucket='newsroom-public'");
+    expect(sql).toContain("v_expected_prefix text := 'story-media/'||p_story_id::text||'/'||p_media_id::text||'/'");
+    expect(sql).toContain("v_expected_key := v_expected_prefix||v_hash||'/'||v_asset.filename");
+    expect(sql).toContain("'Promoted media checksum does not match private custody'");
+    expect(sql).toContain("'Public media key does not match immutable promotion identity'");
+    expect(sql).toContain("status='public_staged'");
+    expect(sql).toContain("status='published'");
+    expect(sql).toContain('newsroom_clear_staged_story_media');
+
+    expect(sql).toContain("'inline_media',case when lower(coalesce(s.access_policy,'public'))='public'");
+    expect(sql).toContain("'media_id',ma.id");
+    expect(sql).toContain("'usage_type','inline'");
+    expect(sql).toContain("'marker',public.newsroom_inline_media_marker(ma.id)");
+    expect(sql).toContain("'public_storage_object',ma.public_storage_key");
+    expect(sql).toContain("'checksum',ma.checksum");
+    expect(sql).toContain("'alt_text',ma.alt_text");
+    expect(sql).toContain("'caption',ma.caption");
+    expect(sql).toContain("'credit',ma.credit");
+    expect(sql).toContain("'body_html',case when lower(s.access_policy)='public' then s.body_html else null end");
+    expect(sql).toContain("else '[]'::jsonb end");
+    expect(sql).not.toContain("'private_key',");
+    expect(sql).not.toContain("'uploaded_by_staff_id',");
+    expect(sql).not.toContain("'source_provenance',");
+
+    expect(api).toContain('async function promoteReaderBoundStoryMedia');
+    expect(api).not.toContain('async function promoteFeaturedStoryMedia');
+    expect(api).toContain("usageType:media.usage_type");
+    expect(api).toContain("staged=await promoteReaderBoundStoryMedia(storyId,token)");
+    expect(api).toContain('rollbackStagedStoryMedia(storyId,staged,token)');
+  });
+
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
     const vercelText = read('vercel.json');
