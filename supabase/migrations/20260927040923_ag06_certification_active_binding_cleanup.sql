@@ -1,46 +1,21 @@
--- AG-06 R5 certification cleanup: allow service-role cleanup to clear a
--- temporary public-author binding before the synthetic Auth identity is deleted.
--- Scope remains limited to exact AG-06 staging-certification profiles.
+-- Historical staging migration identity adoption.
+--
+-- HealthTimes Staging records version 20260927040923 with the logical name
+-- ag06_certification_active_binding_cleanup. That live migration was applied
+-- after later-version cleanup migrations already existed in staging, so
+-- replaying its original CREATE OR REPLACE body here in lexical/version order
+-- would collide with 20260927113000, which historically uses CREATE FUNCTION.
+--
+-- Repository replay therefore adopts this exact live identity as an intentional
+-- no-op. The authoritative executable final cleanup definition is reaffirmed
+-- later by:
+--   20260927123000_ag06_certification_active_binding_cleanup.sql
+--
+-- Do not remove this identity and do not add schema mutations here. Its purpose
+-- is migration-ledger parity while preserving deterministic from-zero replay.
 
 begin;
 
-create or replace function public.newsroom_clear_certification_public_author_bindings(p_profile_ids uuid[])
-returns integer
-language plpgsql
-security definer
-set search_path = public, auth
-as $$
-declare
-  v_cleared integer := 0;
-begin
-  if auth.role() is distinct from 'service_role' then
-    raise exception using errcode='42501',message='Certification cleanup service role required';
-  end if;
-
-  if p_profile_ids is null
-     or cardinality(p_profile_ids)=0
-     or cardinality(p_profile_ids)>1000 then
-    raise exception using errcode='22023',message='Bounded certification profile IDs required';
-  end if;
-
-  perform set_config('app.newsroom_rpc','1',true);
-
-  update public.staff_profiles sp
-  set public_author_id=null,
-      updated_at=now()
-  where sp.id=any(p_profile_ids)
-    and sp.beat='AG-06 staging certification'
-    and sp.email ~ '^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$'
-    and sp.public_author_id is not null;
-
-  get diagnostics v_cleared = row_count;
-  return v_cleared;
-end;
-$$;
-
-revoke execute on function public.newsroom_clear_certification_public_author_bindings(uuid[])
-  from public, anon, authenticated;
-grant execute on function public.newsroom_clear_certification_public_author_bindings(uuid[])
-  to service_role;
+-- Intentionally no-op: historical live identity adoption only.
 
 commit;
