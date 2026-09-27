@@ -212,6 +212,44 @@ test.describe('AG-06 security contract', () => {
     expect(authorUi).not.toContain('.session');
   });
 
+  test('R2 native public context is minimized, released-only and separate from AG-05', async () => {
+    const sql = read('supabase/migrations/20260927093000_ag06_native_public_context.sql');
+    const ag05 = read('supabase/migrations/20260922030247_ag05_context_routes.sql');
+
+    expect(sql).toContain('create or replace function public.newsroom_public_context_document(p_path text)');
+    expect(sql).toContain("'^/category/[^/]+/$'");
+    expect(sql).toContain("'^/author/[^/]+/$'");
+    expect(sql).not.toContain("'^/tag/");
+    expect(sql).toContain('st.legacy_source_id is null');
+    expect(sql).toContain("lower(st.status) in ('publish','published')");
+    expect(sql).toContain("coalesce((st.distribution->>'public_reader')::boolean,false)=true");
+    expect(sql).toContain('(st.published_at is null or st.published_at<=now())');
+    expect(sql).toContain('st.primary_section_id=v_id');
+    expect(sql).toContain('st.author_id=v_id');
+    expect(sql).toContain('order by st.published_at desc nulls last,st.created_at desc,st.id');
+    expect(sql).toContain('limit 50');
+
+    for (const key of [
+      "'story_id'","'title'","'canonical_url'","'published_at'","'modified_at'",
+      "'author_name'","'author_slug'","'section_name'","'section_slug'","'access_policy'"
+    ]) expect(sql).toContain(key);
+
+    expect(sql).not.toContain("'body_html'");
+    expect(sql).not.toContain("'source_notes'");
+    expect(sql).not.toContain('staff_profiles');
+    expect(sql).not.toContain('newsroom_sessions');
+    expect(sql).not.toContain('auth.users');
+    expect(sql).toContain("'source_type','native-story-context'");
+    expect(sql).toContain("'handling','native_cms'");
+    expect(sql).toContain('revoke execute on function public.newsroom_public_context_document(text) from public');
+    expect(sql).toContain('grant execute on function public.newsroom_public_context_document(text) to anon, authenticated, service_role');
+
+    // R2 adds a separate AG-06 native capability; it does not rewrite AG-05 context authority.
+    expect(ag05).toContain('create or replace function public.ag05_public_context_document');
+    expect(sql).not.toContain('create or replace function public.ag05_public_context_document');
+    expect(sql).not.toContain('update public.legacy_sources');
+  });
+
   test('Newsroom route is isolated from public analytics and hardened with headers', async () => {
     const html = read('newsroom.html');
     const vercelText = read('vercel.json');
