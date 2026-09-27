@@ -570,9 +570,6 @@ jobs:
           - tapOn:
               text: "Open"
               optional: true
-          - extendedWaitUntil:
-              visible: "$NM04_CREDIT"
-              timeout: 30000
           - waitForAnimationToEnd
           - takeScreenshot: "nm04-$kind-header"
           YAML
