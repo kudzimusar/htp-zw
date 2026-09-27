@@ -92,16 +92,10 @@ Deno.serve(async (req:Request) => {
             .not("public_author_id","is",null);
           if (bindings.error) throw bindings.error;
           const residualBindings = bindings.data || [];
-          const activeResiduals = residualBindings.filter((p:any)=>
-            String(p.status||"").toLowerCase()!=="revoked" || !p.revoked_at
-          );
-          if (activeResiduals.length) {
-            throw new Error(`Active temporary public-author binding residue remains: ${activeResiduals.length}`);
-          }
-          const revokedResidualIds = residualBindings.map((p:any)=>String(p.id));
-          if (revokedResidualIds.length) {
+          const residualBindingIds = residualBindings.map((p:any)=>String(p.id));
+          if (residualBindingIds.length) {
             const cleared = await admin.rpc("newsroom_clear_certification_public_author_bindings",{
-              p_profile_ids:revokedResidualIds
+              p_profile_ids:residualBindingIds
             });
             if (cleared.error) throw cleared.error;
             clearedPublicAuthorBindings += Number(cleared.data || 0);
