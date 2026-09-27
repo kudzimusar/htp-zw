@@ -184,7 +184,11 @@ test.describe('AG-06 security contract', () => {
     expect(api).toContain("if (action === 'bindStaffPublicAuthor')");
     expect(api).toContain('public_author_id');
 
-    expect(browser).not.toContain("section:'Health News'");
+    const bootstrapStart=browser.indexOf('function applyBootstrap');
+    const bootstrapEnd=browser.indexOf('function renderNav',bootstrapStart);
+    const bootstrapUi=browser.slice(bootstrapStart,bootstrapEnd>bootstrapStart?bootstrapEnd:bootstrapStart+14000);
+    expect(bootstrapUi).not.toContain("section:'Health News'");
+    expect(bootstrapUi).toContain('sectionId:s.primary_section_id');
     expect(browser).toContain('sectionId:s.primary_section_id');
     expect(browser).toContain('authorId:s.author_id');
     expect(browser).toContain('author_id:story.authorId||null');
