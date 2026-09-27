@@ -81,19 +81,33 @@ Deno.serve(async (req:Request) => {
       if (cleanupProfileIds.length) {
         for (let offset=0;offset<cleanupProfileIds.length;offset+=25) {
           const profileBatch=cleanupProfileIds.slice(offset,offset+25);
-          const cleared = await admin.rpc("newsroom_clear_certification_public_author_bindings",{
-            p_profile_ids:profileBatch
-          });
-          if (cleared.error) throw cleared.error;
-          clearedPublicAuthorBindings += Number(cleared.data || 0);
           const bindings = await admin.from("staff_profiles")
-            .select("id,public_author_id")
+            .select("id,status,revoked_at,public_author_id")
             .in("id",profileBatch)
             .not("public_author_id","is",null);
           if (bindings.error) throw bindings.error;
           const residualBindings = bindings.data || [];
-          if (residualBindings.length) {
-            throw new Error(`Temporary public-author binding residue remains: ${residualBindings.length}`);
+          const activeResiduals = residualBindings.filter((p:any)=>
+            String(p.status||"").toLowerCase()!=="revoked" || !p.revoked_at
+          );
+          if (activeResiduals.length) {
+            throw new Error(`Active temporary public-author binding residue remains: ${activeResiduals.length}`);
+          }
+          const revokedResidualIds = residualBindings.map((p:any)=>String(p.id));
+          if (revokedResidualIds.length) {
+            const cleared = await admin.rpc("newsroom_clear_certification_public_author_bindings",{
+              p_profile_ids:revokedResidualIds
+            });
+            if (cleared.error) throw cleared.error;
+            clearedPublicAuthorBindings += Number(cleared.data || 0);
+          }
+          const verify = await admin.from("staff_profiles")
+            .select("id")
+            .in("id",profileBatch)
+            .not("public_author_id","is",null);
+          if (verify.error) throw verify.error;
+          if ((verify.data || []).length) {
+            throw new Error(`Temporary public-author binding residue remains after bounded cleanup: ${(verify.data || []).length}`);
           }
         }
         const storyRows:any[] = [];
