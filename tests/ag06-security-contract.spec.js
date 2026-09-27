@@ -343,9 +343,9 @@ test.describe('AG-06 security contract', () => {
     expect(perf).toContain('on public.audit_logs(created_at desc,id desc)');
 
     expect(helper).toContain('.select("id,status,revoked_at,public_author_id")');
-    expect(helper).toContain('const activeResiduals = residualBindings.filter');
-    expect(helper).toContain('Active temporary public-author binding residue remains');
-    expect(helper).toContain('const revokedResidualIds = residualBindings.map');
+    expect(helper).toContain('const residualBindingIds = residualBindings.map');
+    expect(helper).toContain('p_profile_ids:residualBindingIds');
+    expect(helper).not.toContain('Active temporary public-author binding residue remains');
     expect(helper).toContain('u.user_metadata?.ag06_staging_test === true');
     expect(helper).toContain('github_run_id');
     expect(helper).toContain('^ag06-(reporter|editor|commercial|publisher)-[0-9]+-[0-9]+@healthtimes[.]co[.]zw$');
