@@ -856,25 +856,67 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(premiumList.response)).toBe(200);
     expect(premiumList.body).toEqual([]);
 
+    const unboundAuthor=await appPost(publisher,'bindStaffPublicAuthor',{
+      staffId:reporterStaffId,authorId:null
+    });
+    expect(statusOf(unboundAuthor)).toBe(200);
+    publisherBoot=await appBootstrap(publisher);
+    const unboundReporter=(publisherBoot.body.data.staff||[]).find(s=>s.id===reporterStaffId);
+    expect(unboundReporter?.public_author_id||null).toBeNull();
+
     console.log('AG06_PUBLIC_MEDIA_EVIDENCE',JSON.stringify({
       story_id:storyId,
-      media_id:mediaId,
-      private_bucket:'newsroom-private',
-      private_key:privateKey,
-      private_checksum:privateChecksum,
-      public_bucket:promoted.public_storage_bucket,
-      public_key:promoted.public_storage_key,
-      public_checksum:publicChecksum,
+      author_id:canonicalAuthor.id,
+      author_slug:canonicalAuthor.slug,
+      section_id:canonicalSection.id,
+      section_slug:canonicalSection.slug,
+      featured_media_id:mediaId,
+      featured_private_bucket:'newsroom-private',
+      featured_private_key:privateKey,
+      featured_private_checksum:privateChecksum,
+      featured_public_bucket:promoted.public_storage_bucket,
+      featured_public_key:promoted.public_storage_key,
+      featured_public_checksum:publicChecksum,
+      inline_media_id:inlineMediaId,
+      inline_private_bucket:'newsroom-private',
+      inline_private_key:inlinePrivateKey,
+      inline_private_checksum:privateInlineChecksum,
+      inline_public_bucket:inlinePromoted.public_storage_bucket,
+      inline_public_key:inlinePromoted.public_storage_key,
+      inline_public_checksum:inlinePublicChecksum,
+      body_marker:bodyMarker,
+      release_state:{
+        workflow_status:story.workflow_status,
+        public_reader:story.distribution?.public_reader===true,
+        publication_status:statusOf(published)
+      },
+      category_context_contains_story:(afterCategory.body?.items||[]).some(x=>x.story_id===storyId),
+      author_context_contains_story:(afterAuthor.body?.items||[]).some(x=>x.story_id===storyId),
+      public_story_document:{
+        source_type:afterDoc.body?.source_type,
+        handling:afterDoc.body?.handling,
+        author_slug:afterDoc.body?.author?.slug,
+        section_slug:afterDoc.body?.section?.slug,
+        featured_public_url:afterDoc.body?.featured_public_url,
+        inline_media:afterDoc.body?.inline_media
+      },
       reporter_publish_denied:statusOf(reporterPublish),
       commercial_publish_denied:statusOf(commercialPublish),
       direct_unpromoted_publish_denied:statusOf(directFail.response),
-      publication_status:statusOf(published),
-      source_type:afterDoc.body?.source_type,
-      handling:afterDoc.body?.handling,
-      public_reader_release:story.distribution?.public_reader===true,
-      anonymous_public_media_status:statusOf(publicObject),
+      cross_story_marker_denied:crossStoryMarkerDenied,
+      detached_marker_denied:detachedMarkerDenied,
+      random_marker_denied:randomMarkerDenied,
+      private_url_denied:privateUrlDenied,
+      anonymous_public_bucket_write_denied:statusOf(anonWrite),
+      conflicting_featured_overwrite_denied:statusOf(overwrite),
+      conflicting_inline_overwrite_denied:statusOf(inlineOverwrite),
+      anonymous_featured_public_status:statusOf(publicObject),
+      anonymous_inline_public_status:statusOf(inlinePublicObject),
       premium_body_protected:premiumDoc.body?.body_html===null,
-      idempotent_promotion:idempotent.body?.status
+      premium_inline_manifest_empty:Array.isArray(premiumDoc.body?.inline_media)&&premiumDoc.body.inline_media.length===0,
+      idempotent_featured_promotion:idempotent.body?.status,
+      idempotent_inline_promotion:inlineIdempotent.body?.status,
+      temporary_public_author_binding_removed:(unboundReporter?.public_author_id||null)===null
     }));
 
     await Promise.all([
