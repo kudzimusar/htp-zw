@@ -405,7 +405,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     await Promise.all([reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose()]);
   });
 
-  test('CMS-native featured media promotion remains private until Publisher publication and releases a public Reader document',async()=>{
+  test('CMS-native featured + inline media remain private until Publisher publication and release a safe public Reader document',async()=>{
     test.setTimeout(240_000);
     expect(directSupabaseConfigured,'Public-media certification requires HealthTimes Staging publishable configuration').toBeTruthy();
 
@@ -413,8 +413,14 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const slug=`ag06-public-media-${stamp}`;
     const path=`/${slug}/`;
     const filename=`ag06-public-${stamp}.png`;
+    const inlineFilename=`ag06-inline-${stamp}.png`;
+    const foreignFilename=`ag06-foreign-${stamp}.png`;
     const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
+    const inlineImage=Buffer.from(image);
+    const foreignImage=Buffer.from(image);
     const checksum=crypto.createHash('sha256').update(image).digest('hex');
+    const inlineChecksum=crypto.createHash('sha256').update(inlineImage).digest('hex');
+    const foreignChecksum=crypto.createHash('sha256').update(foreignImage).digest('hex');
 
     const reporter=await appAdoptLogin('reporter');
     const editor=await appAdoptLogin('editor');
@@ -441,9 +447,29 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     let reporterBoot=await appBootstrap(reporter);
     expect(statusOf(reporterBoot.response)).toBe(200);
+    let publisherBoot=await appBootstrap(publisher);
+    expect(statusOf(publisherBoot.response)).toBe(200);
+
+    const reporterStaffId=reporterBoot.body.data.context.id;
+    const canonicalAuthor=(publisherBoot.body.data.authors||[]).find(a=>a.slug==='healthtimesco');
+    const canonicalSection=(publisherBoot.body.data.sections||[]).find(s=>s.slug==='health-news');
+    expect(canonicalAuthor,'healthtimesco canonical author required for staging certification').toBeTruthy();
+    expect(canonicalSection,'health-news canonical section required for staging certification').toBeTruthy();
+
+    const boundAuthor=await appPost(publisher,'bindStaffPublicAuthor',{
+      staffId:reporterStaffId,authorId:canonicalAuthor.id
+    });
+    expect(statusOf(boundAuthor)).toBe(200);
+
+    reporterBoot=await appBootstrap(reporter);
+    const reporterProfile=(reporterBoot.body.data.staff||[]).find(s=>s.id===reporterStaffId);
+    expect(reporterProfile?.public_author_id).toBe(canonicalAuthor.id);
+
     const created=await appPost(reporter,'createStory',{story:{
       title:`AG06 Public Media ${stamp}`,
-      slug,desk:'Africa',country:'Zimbabwe',region:'Africa'
+      slug,desk:'Africa',country:'Zimbabwe',region:'Africa',
+      author_id:canonicalAuthor.id,
+      primary_section_id:canonicalSection.id
     }});
     expect(statusOf(created)).toBe(200);
     const storyId=(await created.json()).id;
@@ -486,14 +512,58 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const finalized=await appPost(reporter,'finalizeStoryMedia',{mediaId,storyId,usageType:'featured',checksum});
     expect(statusOf(finalized)).toBe(200);
 
+    const inlinePrepared=await appPost(reporter,'prepareStoryMedia',{
+      storyId,filename:inlineFilename,mimeType:'image/png',byteSize:inlineImage.length,checksum:inlineChecksum,
+      altText:'HealthTimes AG-06 inline certification image',
+      caption:'AG-06 CMS inline public media certification',
+      credit:'HealthTimes certification',
+      sourceProvenance:`AG06_PUBLIC_MEDIA_CERT:${process.env.GITHUB_RUN_ID||stamp}:inline`,
+      usageType:'inline'
+    });
+    expect(statusOf(inlinePrepared)).toBe(200);
+    const inlinePreparedBody=await inlinePrepared.json();
+    const inlineMediaId=inlinePreparedBody.prepared.media_id;
+    const inlinePrivateKey=inlinePreparedBody.prepared.storage_key;
+    expect(inlinePreparedBody.prepared.storage_bucket).toBe('newsroom-private');
+
+    const inlineUploadForm=new FormData();
+    inlineUploadForm.append('cacheControl','3600');
+    inlineUploadForm.append('',new Blob([inlineImage],{type:'image/png'}),inlineFilename);
+    const inlineUploaded=await fetch(inlinePreparedBody.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:inlineUploadForm});
+    expect(statusOf(inlineUploaded)).toBe(200);
+    const inlineFinalized=await appPost(reporter,'finalizeStoryMedia',{
+      mediaId:inlineMediaId,storyId,usageType:'inline',checksum:inlineChecksum
+    });
+    expect(statusOf(inlineFinalized)).toBe(200);
+
+    const bodyMarker=`<figure data-healthtimes-media-id="${inlineMediaId}"></figure>`;
+    reporterBoot=await appBootstrap(reporter);
+    let markerStory=reporterBoot.body.data.stories.find(s=>s.id===storyId);
+    const markerSaved=await appPost(reporter,'saveStory',{
+      storyId,expectedVersion:markerStory.lock_version,
+      patch:{
+        body:`Public Reader certification body for CMS-native promotion.\n${bodyMarker}\nInline media follows this marker.`,
+        author_id:canonicalAuthor.id,
+        primary_section_id:canonicalSection.id
+      },
+      reason:'Bind canonical author, section and inline media marker'
+    });
+    expect(statusOf(markerSaved)).toBe(200);
+
     reporterBoot=await appBootstrap(reporter);
     const privateMedia=(reporterBoot.body.data.media||[]).find(m=>m.id===mediaId);
     expect(privateMedia).toBeTruthy();
     expect(privateMedia.storage_bucket).toBe('newsroom-private');
     expect(privateMedia.status).toBe('private_ready');
     expect(String(privateMedia.checksum||'').toLowerCase()).toBe(checksum);
+    const privateInline=(reporterBoot.body.data.media||[]).find(m=>m.id===inlineMediaId);
+    expect(privateInline).toBeTruthy();
+    expect(privateInline.storage_bucket).toBe('newsroom-private');
+    expect(privateInline.status).toBe('private_ready');
+    expect(String(privateInline.checksum||'').toLowerCase()).toBe(inlineChecksum);
 
     const encodedPrivate=privateKey.split('/').map(encodeURIComponent).join('/');
+    const encodedInlinePrivate=inlinePrivateKey.split('/').map(encodeURIComponent).join('/');
     const anonymousPrivate=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{headers:{apikey:anonKey}});
     expect([400,401,403,404]).toContain(statusOf(anonymousPrivate));
 
