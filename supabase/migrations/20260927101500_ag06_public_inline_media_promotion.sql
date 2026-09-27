@@ -97,8 +97,8 @@ begin
     raise exception using errcode='22023',message='Verified SHA-256 checksum is required';
   end if;
 
-  select ma,mu.usage_type,lower(coalesce(s.access_policy,'public'))
-  into v_asset,v_usage_type,v_access_policy
+  select ma.*
+  into v_asset
   from public.media_assets ma
   join public.media_usage mu on mu.media_id=ma.id
   join public.stories s on s.id=mu.story_id
@@ -111,6 +111,16 @@ begin
   order by case mu.usage_type when 'featured' then 0 else 1 end
   limit 1
   for update of ma;
+
+  select mu.usage_type,lower(coalesce(s.access_policy,'public'))
+  into v_usage_type,v_access_policy
+  from public.media_usage mu
+  join public.stories s on s.id=mu.story_id
+  where mu.media_id=p_media_id
+    and mu.story_id=p_story_id
+    and mu.usage_type in ('featured','inline')
+  order by case mu.usage_type when 'featured' then 0 else 1 end
+  limit 1;
 
   if v_asset.id is null then
     raise exception using errcode='P0002',message='Promotable Reader-bound Newsroom media not found';
@@ -206,8 +216,8 @@ begin
     raise exception using errcode='42501',message='story.publish capability required';
   end if;
 
-  select ma,mu.usage_type
-  into v_asset,v_usage_type
+  select ma.*
+  into v_asset
   from public.media_assets ma
   join public.media_usage mu
     on mu.media_id=ma.id
@@ -217,6 +227,15 @@ begin
   order by case mu.usage_type when 'featured' then 0 else 1 end
   limit 1
   for update of ma;
+
+  select mu.usage_type
+  into v_usage_type
+  from public.media_usage mu
+  where mu.media_id=p_media_id
+    and mu.story_id=p_story_id
+    and mu.usage_type in ('featured','inline')
+  order by case mu.usage_type when 'featured' then 0 else 1 end
+  limit 1;
 
   if v_asset.id is null then
     raise exception using errcode='P0002',message='Staged media not found';
