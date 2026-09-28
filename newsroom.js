@@ -9,7 +9,8 @@
     inboxSummary: 'htpNewsroomInboxSummaryV1', desks: 'htpNewsroomDesksV1',
     deskMembers: 'htpNewsroomDeskMembersV1', threads: 'htpNewsroomThreadsV1',
     threadMembers: 'htpNewsroomThreadMembersV1', messages: 'htpNewsroomMessagesV1',
-    announcements: 'htpNewsroomAnnouncementsV1', moderation: 'htpNewsroomModerationV1'
+    announcements: 'htpNewsroomAnnouncementsV1', moderation: 'htpNewsroomModerationV1',
+    authors: 'htpNewsroomAuthorsV1', sections: 'htpNewsroomSectionsV1'
   };
   const HOSPAZ = 'https://healthtimes.co.zw/wp-content/uploads/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg';
   const $ = (s, r=document) => r.querySelector(s);
@@ -131,11 +132,15 @@
     ['System',[['settings','Settings','⚙',CAP.SETTINGS],['integrations','Integrations','⌁','admin'],['security','Security','⌾','security']]]
   ];
 
-  let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null, recoveryMode=false;
+  let active='overview', editingStoryId=null, autosaveTimer=null, pendingConfirm=null, recoveryMode=false, inlineMediaInsertOffset=null;
   function ensureSeed(){}
   function getStories(){return read(KEYS.stories,[])} function setStories(v){write(KEYS.stories,v)}
   function getAssignments(){return read(KEYS.assignments,[])} function setAssignments(v){write(KEYS.assignments,v)}
   function getStaff(){return read(KEYS.staff,[])} function setStaff(v){write(KEYS.staff,v)}
+  function getAuthors(){return read(KEYS.authors,[])}
+  function getSections(){return read(KEYS.sections,[])}
+  function publicAuthorRecord(id){return getAuthors().find(x=>x.id===id)}
+  function sectionRecord(id){return getSections().find(x=>x.id===id)}
   function getMedia(){return read(KEYS.media,[])}
   function mapServerMedia(rows){return (rows||[]).map(m=>({
     id:m.id,filename:m.filename||'',mimeType:m.mime_type||'',byteSize:Number(m.byte_size||0),sourceUrl:m.source_url||'',
@@ -169,6 +174,20 @@
     const data=payload?.data||payload||{};
     const ctx=data.context||{};
     const roles=new Map((data.roles||[]).map(r=>[r.id,r.name]));
+    const authors=(data.authors||[]).map(a=>({
+      id:a.id,displayName:a.display_name||'',slug:a.slug||'',bio:a.bio||'',
+      wordpressSourceId:a.wordpress_source_id||null,provenance:a.provenance||'native',
+      linkedStaff:Array.isArray(a.linked_staff)?a.linked_staff:[]
+    }));
+    const sections=(data.sections||[]).map(s=>({
+      id:s.id,name:s.name||'',slug:s.slug||'',parentId:s.parent_id||null,
+      wordpressSourceId:s.wordpress_source_id||null,provenance:s.provenance||'native'
+    }));
+    write(KEYS.authors,authors);write(KEYS.sections,sections);
+    const authorById=new Map(authors.map(a=>[a.id,a]));
+    const sectionById=new Map(sections.map(s=>[s.id,s]));
+    const staffAuthorById=new Map();
+    for(const a of authors){for(const link of a.linkedStaff||[]){if(link?.staff_profile_id)staffAuthorById.set(link.staff_profile_id,a.id);}}
     const adminStaff=new Map((data.staff||[]).map(s=>[s.id,s]));
     const rawDirectory=(data.directory||[]).length?data.directory:(data.staff||[]).map(s=>({
       id:s.id,handle:s.handle,display_name:s.display_name,role:roles.get(s.role_id)||'Staff',
@@ -182,6 +201,7 @@
         id:s.id,authUserId:admin.auth_user_id||'',username:s.handle||admin.handle||s.id,name:s.display_name||admin.display_name||'Staff',
         email:admin.email||'',role:s.role||roles.get(admin.role_id)||'Staff',desk:s.desk||admin.desk||'',beat:s.beat||admin.beat||'',
         country:s.country||admin.country||'',region:s.region||admin.region||'',
+        publicAuthorId:admin.public_author_id||staffAuthorById.get(s.id)||'',
         status:String(s.status||admin.status||'active').replace(/^./,x=>x.toUpperCase()),
         editor:handleFor(s.assigned_editor_id||admin.assigned_editor_id),
         lastLogin:displayTime(admin.last_login_at),mfa:admin.mfa_enrolled_at?'Enrolled':(admin.mfa_required?'Required':'Available')
@@ -198,9 +218,9 @@
     }
     const stories=(data.stories||[]).map(s=>({
       id:s.id,title:s.title||'',standfirst:s.standfirst||'',body:s.body_html||'',sources:s.source_notes||'',notes:s.internal_notes||'',
-      section:'Health News',desk:s.desk||'',country:s.country||'',region:s.region||'Global',topic:s.topic||'',
+      sectionId:s.primary_section_id||'',section:sectionById.get(s.primary_section_id)?.name||'',desk:s.desk||'',country:s.country||'',region:s.region||'Global',topic:s.topic||'',
       premium:String(s.access_policy||'public').toLowerCase()==='premium',
-      owner:handleFor(s.owner_staff_id),author:staffById.get(s.owner_staff_id)?.name||'HealthTimes',
+      owner:handleFor(s.owner_staff_id),authorId:s.author_id||'',author:authorById.get(s.author_id)?.displayName||'',
       editor:handleFor(s.assigned_editor_staff_id),factChecker:handleFor(s.fact_checker_staff_id),
       status:s.workflow_status||(String(s.status||'').toLowerCase()==='publish'?'Published':'Draft'),
       deadline:localTime(s.deadline_at),schedule:localTime(s.scheduled_at),updated:displayTime(s.updated_at||s.modified_at),
@@ -524,7 +544,16 @@
   function refreshMediaLibrary(){const mount=$('[data-media-library-grid]');if(mount){const rows=mediaLibraryFiltered();mount.innerHTML=rows.map(m=>mediaCard(m)).join('')||'<div class="nr-empty"><strong>No authorised media matches these filters</strong><p>Upload media from a story or change the current filters.</p></div>';}}
   function renderMedia(){const rows=getMedia();return `${head('Media Library','Server-backed editorial media. New draft uploads remain private until an authorised publication-media handoff exists.',has(CAP.MEDIA)?button('＋ Add media','data-open-media-library','nr-primary'):'')}<section class="nr-panel"><div class="nr-filterbar"><input data-media-library-search placeholder="Search filename, caption, credit or source…"><select data-media-library-type><option value="">All types</option><option>Image</option><option>Document</option></select><select data-media-library-state><option value="">All states</option><option value="upload_pending">Upload pending</option><option value="private_ready">Private draft</option><option value="published">Published</option></select></div><div class="nr-media-grid" data-media-library-grid>${rows.map(m=>mediaCard(m)).join('')||'<div class="nr-empty"><strong>No authorised media yet</strong><p>Choose Add media and select an editable story to upload the first private asset.</p></div>'}</div></section>`;}
   function personCard(s){return `<article class="nr-person-card"><span class="nr-avatar">${esc(initials(s.name))}</span><div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span><span>${esc(s.desk)} · ${esc(s.beat)}</span></div></article>`;}
-  function renderAuthors(){return `${head('Authors','Staff identity, beats and public author authority.')}<section class="nr-panel"><div class="nr-staff-card-grid">${getStaff().filter(s=>!['Commercial Manager','Subscriber Manager'].includes(s.role)).map(personCard).join('')}</div></section>`;}
+  function authorBindOptions(selected=''){return '<option value="">Unbound</option>'+getAuthors().map(a=>'<option value="'+esc(a.id)+'" '+(a.id===selected?'selected':'')+'>'+esc(a.displayName)+' · '+esc(a.provenance)+'</option>').join('');}
+  function renderAuthors(){
+    const create=has(CAP.STORY_EDIT_ALL)?button('＋ Create public author','data-open-author','nr-primary'):'';
+    const authorCards=getAuthors().map(a=>{
+      const linked=(a.linkedStaff||[]).map(x=>x.display_name).filter(Boolean);
+      return '<article class="nr-source-card"><strong>'+esc(a.displayName)+'</strong><span>/author/'+esc(a.slug)+'/ · '+esc(a.provenance)+'</span><span>'+esc(a.bio||'No public bio')+'</span><span>'+(linked.length?('Linked staff: '+esc(linked.join(', '))):'No staff binding')+'</span></article>';
+    }).join('');
+    const bindPanel=has(CAP.STORY_EDIT_ALL)?'<section class="nr-panel"><div class="nr-panel-head"><div><h2>Staff → public author binding</h2><p>Workflow identity and public byline remain separate.</p></div></div><div class="nr-list">'+getStaff().filter(s=>s.status==='Active'&&!['Commercial Manager','Subscriber Manager'].includes(s.role)).map(s=>'<div class="nr-list-item"><div><strong>'+esc(s.name)+'</strong><p>'+esc(s.role)+' · '+esc(s.desk||'No desk')+'</p></div><select data-public-author-bind data-staff-id="'+esc(s.id)+'">'+authorBindOptions(s.publicAuthorId||'')+'</select></div>').join('')+'</div></section>':'';
+    return `${head('Authors','Canonical public authors, provenance and explicit staff bindings.',create)}<section class="nr-panel"><div class="nr-source-grid">${authorCards||'<div class="nr-empty"><strong>No canonical authors available</strong></div>'}</div></section>${bindPanel}`;
+  }
   function renderTopics(){const topics=['HIV/AIDS','Malaria','Outbreaks','Medicines','Health financing','Mental health','Maternal health','Research','Health systems','Innovation'];return `${head('Topics','Editorial subject taxonomy used for reporting, SEO and reader follows.')}<section class="nr-panel"><div class="nr-source-grid">${topics.map(t=>`<article class="nr-source-card"><strong>${esc(t)}</strong><span>${getStories().filter(s=>s.topic===t).length} mapped stories</span><span>Topic hub ready</span></article>`).join('')}</div></section>`;}
   function renderRegions(){return `${head('Countries & regions','Global health coverage with Africa as a primary editorial advantage.')}<section class="nr-panel"><div class="nr-source-grid">${REGIONS.map(r=>`<article class="nr-source-card"><strong>${esc(r)}</strong><span>${getStories().filter(s=>s.region===r).length} current stories</span><span>Desk taxonomy active</span></article>`).join('')}</div></section>`;}
   function renderSources(){return `${head('Research / Sources','Primary documents and evidence used across HealthTimes reporting.')}<section class="nr-panel"><div class="nr-source-grid">${[['Parliamentary Committee evidence','Institutional source','NatPharm investigation'],['National AIDS Council briefing','Institutional source','STI coverage'],['Africa CDC surveillance','Public-health source','Outbreak Watch'],['WHO outbreak notices','Global source','Africa outbreak coverage'],['National Health Strategy','Policy document','Implementation tracker'],['Peer-reviewed literature','Research source','Premium analysis']].map(x=>`<article class="nr-source-card"><strong>${x[0]}</strong><span>${x[1]}</span><span>Used in: ${x[2]}</span></article>`).join('')}</div></section>`;}
@@ -571,14 +600,14 @@
   }
   async function closeStory(){await flushAutosave();$('[data-story-modal]').hidden=true;document.body.style.overflow='';editingStoryId=null;}
   function staffOptions(selected='',roles=null){return getStaff().filter(s=>s.status==='Active'&&(!roles||roles.includes(s.role))).map(s=>`<option value="${esc(s.username)}" ${s.username===selected?'selected':''}>${esc(s.name)} · ${esc(s.role)}</option>`).join('');}
-  function populateEditor(){const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const form=$('[data-story-form]'), shadow=$('[data-story-shadow]');form.elements.id.value=s.id;form.elements.title.value=s.title||'';form.elements.standfirst.value=s.standfirst||'';form.elements.body.value=s.body||'';form.elements.sources.value=s.sources||'';form.elements.notes.value=s.notes||'';const fields={status:s.status,deadline:s.deadline||'',owner:s.owner,editor:s.editor||'',factChecker:s.factChecker||'',desk:s.desk||'',section:s.section||'',country:s.country||'',region:s.region||'Global',premium:String(!!s.premium),seoTitle:s.seoTitle||'',metaDescription:s.metaDescription||'',slug:s.slug||'',adSetting:s.adSetting||'Standard',schedule:s.schedule||''};const owner=$('[name="owner"][form="story-shadow"]'), editor=$('[name="editor"][form="story-shadow"]'), checker=$('[name="factChecker"][form="story-shadow"]'), desk=$('[name="desk"][form="story-shadow"]'), region=$('[name="region"][form="story-shadow"]');owner.innerHTML=staffOptions(s.owner,['Reporter / Journalist','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);editor.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.editor,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;checker.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.factChecker,['Fact Checker','Health / Science Editor','Editor-in-Chief'])}`;desk.innerHTML=DESKS.map(x=>`<option ${x===s.desk?'selected':''}>${x}</option>`).join('');region.innerHTML=REGIONS.map(x=>`<option ${x===s.region?'selected':''}>${x}</option>`).join('');Object.entries(fields).forEach(([k,v])=>{const el=$(`[name="${k}"][form="story-shadow"]`);if(el)el.value=v;});['Homepage','Breaking','Newsletter','WhatsApp','Push'].forEach(k=>{const el=$(`[name="dist${k}"][form="story-shadow"]`);if(el)el.checked=!!s.distribution?.[k.toLowerCase()];});$('[data-story-modal-title]').textContent=s.title||'Untitled story';$('[data-editor-state]').textContent=s.status;$('[data-save-state]').textContent='Saved';renderVersions(s);renderComments(s);renderStoryMedia(s);configureEditorAction(s);protectInspector(s);}
-  function protectInspector(s){const reporterOnly=!has(CAP.STORY_EDIT_ALL);['status','owner','editor','factChecker'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=reporterOnly;});const premium=$('[name="premium"][form="story-shadow"]');if(premium)premium.disabled=!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE));const schedule=$('[name="schedule"][form="story-shadow"]');if(schedule)schedule.disabled=!has(CAP.STORY_PUBLISH);const adSetting=$('[name="adSetting"][form="story-shadow"]');if(adSetting)adSetting.disabled=!has(CAP.STORY_EDIT_ALL);const canDistribute=has(CAP.DISTRIBUTION)||has(CAP.STORY_EDIT_ALL);['distHomepage','distBreaking','distNewsletter','distWhatsApp','distPush'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=!canDistribute;});}
-  function formStory(){const old=getStories().find(x=>x.id===editingStoryId);if(!old)return null;const f=$('[data-story-form]'), d=new FormData($('[data-story-shadow]'));const canPremium=has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE),canSchedule=has(CAP.STORY_PUBLISH),canAds=has(CAP.STORY_EDIT_ALL),canDistribute=has(CAP.DISTRIBUTION)||has(CAP.STORY_EDIT_ALL);return {...old,title:f.elements.title.value.trim(),standfirst:f.elements.standfirst.value.trim(),body:f.elements.body.value,sources:f.elements.sources.value,notes:f.elements.notes.value,status:String(d.get('status')||old.status),deadline:String(d.get('deadline')||''),owner:String(d.get('owner')||old.owner),editor:String(d.get('editor')||old.editor||''),factChecker:String(d.get('factChecker')||old.factChecker||''),desk:String(d.get('desk')||old.desk),section:String(d.get('section')||old.section),country:String(d.get('country')||old.country),region:String(d.get('region')||old.region),premium:canPremium?String(d.get('premium'))==='true':!!old.premium,seoTitle:String(d.get('seoTitle')||''),metaDescription:String(d.get('metaDescription')||''),slug:String(d.get('slug')||slugify(f.elements.title.value)),adSetting:canAds?String(d.get('adSetting')||old.adSetting||'Standard'):(old.adSetting||'Standard'),schedule:canSchedule?String(d.get('schedule')||''):(old.schedule||''),distribution:canDistribute?{homepage:!!d.get('distHomepage'),breaking:!!d.get('distBreaking'),newsletter:!!d.get('distNewsletter'),whatsapp:!!d.get('distWhatsApp'),push:!!d.get('distPush')}:(old.distribution||{})};}
+  function populateEditor(){const s=getStories().find(x=>x.id===editingStoryId);if(!s)return;const form=$('[data-story-form]'), shadow=$('[data-story-shadow]');form.elements.id.value=s.id;form.elements.title.value=s.title||'';form.elements.standfirst.value=s.standfirst||'';form.elements.body.value=s.body||'';form.elements.sources.value=s.sources||'';form.elements.notes.value=s.notes||'';const fields={status:s.status,deadline:s.deadline||'',owner:s.owner,editor:s.editor||'',factChecker:s.factChecker||'',desk:s.desk||'',publicAuthor:s.authorId||'',section:s.sectionId||'',country:s.country||'',region:s.region||'Global',premium:String(!!s.premium),seoTitle:s.seoTitle||'',metaDescription:s.metaDescription||'',slug:s.slug||'',adSetting:s.adSetting||'Standard',schedule:s.schedule||''};const owner=$('[name="owner"][form="story-shadow"]'), editor=$('[name="editor"][form="story-shadow"]'), checker=$('[name="factChecker"][form="story-shadow"]'), desk=$('[name="desk"][form="story-shadow"]'), publicAuthor=$('[name="publicAuthor"][form="story-shadow"]'), section=$('[name="section"][form="story-shadow"]'), region=$('[name="region"][form="story-shadow"]');owner.innerHTML=staffOptions(s.owner,['Reporter / Journalist','Editor-in-Chief','Managing Editor','Section Editor','News Editor']);editor.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.editor,['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;checker.innerHTML=`<option value="">Unassigned</option>${staffOptions(s.factChecker,['Fact Checker','Health / Science Editor','Editor-in-Chief'])}`;desk.innerHTML=DESKS.map(x=>`<option ${x===s.desk?'selected':''}>${x}</option>`).join('');publicAuthor.innerHTML=`<option value="">Unassigned public author</option>${getAuthors().map(a=>`<option value="${esc(a.id)}">${esc(a.displayName)} · ${esc(a.provenance)}</option>`).join('')}`;section.innerHTML=`<option value="">No canonical section</option>${getSections().map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}`;region.innerHTML=REGIONS.map(x=>`<option ${x===s.region?'selected':''}>${x}</option>`).join('');Object.entries(fields).forEach(([k,v])=>{const el=$(`[name="${k}"][form="story-shadow"]`);if(el)el.value=v;});['Homepage','Breaking','Newsletter','WhatsApp','Push'].forEach(k=>{const el=$(`[name="dist${k}"][form="story-shadow"]`);if(el)el.checked=!!s.distribution?.[k.toLowerCase()];});$('[data-story-modal-title]').textContent=s.title||'Untitled story';$('[data-editor-state]').textContent=s.status;$('[data-save-state]').textContent='Saved';renderVersions(s);renderComments(s);renderStoryMedia(s);configureEditorAction(s);protectInspector(s);}
+  function protectInspector(s){const reporterOnly=!has(CAP.STORY_EDIT_ALL);['status','owner','editor','factChecker','publicAuthor'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=reporterOnly;});const premium=$('[name="premium"][form="story-shadow"]');if(premium)premium.disabled=!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE));const schedule=$('[name="schedule"][form="story-shadow"]');if(schedule)schedule.disabled=!has(CAP.STORY_PUBLISH);const adSetting=$('[name="adSetting"][form="story-shadow"]');if(adSetting)adSetting.disabled=!has(CAP.STORY_EDIT_ALL);const canDistribute=has(CAP.DISTRIBUTION)||has(CAP.STORY_EDIT_ALL);['distHomepage','distBreaking','distNewsletter','distWhatsApp','distPush'].forEach(n=>{const el=$(`[name="${n}"][form="story-shadow"]`);if(el)el.disabled=!canDistribute;});}
+  function formStory(){const old=getStories().find(x=>x.id===editingStoryId);if(!old)return null;const f=$('[data-story-form]'), d=new FormData($('[data-story-shadow]'));const canPremium=has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE),canSchedule=has(CAP.STORY_PUBLISH),canAds=has(CAP.STORY_EDIT_ALL),canDistribute=has(CAP.DISTRIBUTION)||has(CAP.STORY_EDIT_ALL);return {...old,title:f.elements.title.value.trim(),standfirst:f.elements.standfirst.value.trim(),body:f.elements.body.value,sources:f.elements.sources.value,notes:f.elements.notes.value,status:String(d.get('status')||old.status),deadline:String(d.get('deadline')||''),owner:String(d.get('owner')||old.owner),editor:String(d.get('editor')||old.editor||''),factChecker:String(d.get('factChecker')||old.factChecker||''),desk:String(d.get('desk')||old.desk),authorId:String(d.get('publicAuthor')||old.authorId||''),sectionId:String(d.get('section')||old.sectionId||''),section:sectionRecord(String(d.get('section')||old.sectionId||''))?.name||'',author:publicAuthorRecord(String(d.get('publicAuthor')||old.authorId||''))?.displayName||'',country:String(d.get('country')||old.country),region:String(d.get('region')||old.region),premium:canPremium?String(d.get('premium'))==='true':!!old.premium,seoTitle:String(d.get('seoTitle')||''),metaDescription:String(d.get('metaDescription')||''),slug:String(d.get('slug')||slugify(f.elements.title.value)),adSetting:canAds?String(d.get('adSetting')||old.adSetting||'Standard'):(old.adSetting||'Standard'),schedule:canSchedule?String(d.get('schedule')||''):(old.schedule||''),distribution:canDistribute?{homepage:!!d.get('distHomepage'),breaking:!!d.get('distBreaking'),newsletter:!!d.get('distNewsletter'),whatsapp:!!d.get('distWhatsApp'),push:!!d.get('distPush')}:(old.distribution||{})};}
   async function saveStory(manual=false){
     if(!editingStoryId)return;
     const story=formStory();if(!story)return;
     const owner=staffRecord(story.owner),editor=staffRecord(story.editor),checker=staffRecord(story.factChecker);
-    const patch={title:story.title,standfirst:story.standfirst,body:story.body,sources:story.sources,notes:story.notes,desk:story.desk,topic:story.topic||'',country:story.country,region:story.region,deadline_at:story.deadline||'',seo_title:story.seoTitle,seo_description:story.metaDescription,slug:story.slug,scheduled_at:story.schedule||'',distribution:story.distribution,ad_setting:story.adSetting};
+    const patch={title:story.title,standfirst:story.standfirst,body:story.body,sources:story.sources,notes:story.notes,desk:story.desk,topic:story.topic||'',author_id:story.authorId||null,primary_section_id:story.sectionId||null,country:story.country,region:story.region,deadline_at:story.deadline||'',seo_title:story.seoTitle,seo_description:story.metaDescription,slug:story.slug,scheduled_at:story.schedule||'',distribution:story.distribution,ad_setting:story.adSetting};
     if(owner)patch.owner_staff_id=owner.id;if(editor)patch.assigned_editor_staff_id=editor.id;if(checker)patch.fact_checker_staff_id=checker.id;
     patch.access_policy=story.premium?'premium':'public';
     try{
@@ -663,6 +692,32 @@
       await refreshData();showModule('advertising');toast('Campaign draft created');
     }catch(error){toast(error.message);}
   }
+  function openAuthorModal(){
+    if(!has(CAP.STORY_EDIT_ALL)){toast('story.edit_all authority is required.');return;}
+    const form=$('[data-author-form]');form.reset();
+    form.elements.staffId.innerHTML='<option value="">Do not bind now</option>'+getStaff().filter(s=>s.status==='Active'&&!['Commercial Manager','Subscriber Manager'].includes(s.role)).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.role)+'</option>').join('');
+    $('[data-author-modal]').hidden=false;
+  }
+  async function savePublicAuthor(form){
+    const d=new FormData(form);
+    try{
+      await api('createPublicAuthor',{
+        displayName:String(d.get('displayName')||'').trim(),
+        slug:String(d.get('slug')||'').trim(),
+        bio:String(d.get('bio')||'').trim(),
+        staffId:String(d.get('staffId')||'')||null
+      });
+      $('[data-author-modal]').hidden=true;await refreshData();showModule('authors');toast('Canonical public author created');
+    }catch(error){toast(error.message);}
+  }
+  async function bindPublicAuthor(select){
+    if(!has(CAP.STORY_EDIT_ALL))return;
+    try{
+      await api('bindStaffPublicAuthor',{staffId:select.dataset.staffId,authorId:select.value||null});
+      await refreshData();showModule('authors');toast('Public author binding updated');
+    }catch(error){toast(error.message);await refreshData();showModule('authors');}
+  }
+
   function openInvite(){if(!has(CAP.STAFF_INVITE))return;const f=$('[data-invite-form]');f.reset();f.elements.role.innerHTML=Object.keys(ROLE_CAPS).map(x=>`<option>${esc(x)}</option>`).join('');f.elements.desk.innerHTML=DESKS.map(x=>`<option>${esc(x)}</option>`).join('');f.elements.editor.innerHTML=`<option value="">None</option>${staffOptions('', ['Publisher / Owner','Editor-in-Chief','Managing Editor','Section Editor','News Editor'])}`;$('[data-invite-modal]').hidden=false;}
   async function saveInvite(form){const d=new FormData(form),editor=staffRecord(String(d.get('editor')));try{await api('invite',{displayName:String(d.get('name')),email:String(d.get('email')),role:String(d.get('role')),desk:String(d.get('desk')),country:String(d.get('country')||''),assignedEditorId:editor?.id||null});$('[data-invite-modal]').hidden=true;await refreshData();showModule('staff');toast('Staff invitation requested');}catch(error){toast(error.message);}}
   async function changeStaffRole(username){if(!has(CAP.STAFF_ROLE))return;const s=staffRecord(username);if(!s)return;const roles=Object.keys(ROLE_CAPS),i=roles.indexOf(s.role),next=roles[(i+1)%roles.length];try{await api('changeRole',{staffId:s.id,role:next});await refreshData();showModule('staff');toast('Role updated');}catch(error){toast(error.message);}}
@@ -670,6 +725,24 @@
   function revokeAccess(username){if(!has(CAP.STAFF_REVOKE))return;const s=staffRecord(username);if(!s)return;confirm('Revoke Newsroom access?',`${s.name} will no longer be able to use HealthTimes Newsroom.`,async()=>{try{await api('revokeStaff',{staffId:s.id,status:'revoked'});await refreshData();showModule('staff');toast('Access revoked');}catch(error){toast(error.message);}});}
   async function revokeStaffSessions(username){if(!(has(CAP.STAFF_REVOKE)||has('security.revoke_session')))return;const s=staffRecord(username);if(!s)return;try{await api('revokeSession',{staffId:s.id});await refreshData();showModule('staff');toast('Sessions revoked');}catch(error){toast(error.message);}}
   async function togglePremium(id){if(!(has(CAP.PREMIUM_ASSIGN)||has(CAP.PREMIUM_MANAGE)))return;const s=getStories().find(x=>x.id===id);if(!s)return;try{await api('setPremium',{storyId:id,accessPolicy:s.premium?'public':'premium'});await refreshData();showModule('premium');toast('Story access policy updated');}catch(error){toast(error.message);}}
+
+  function inlineMediaMarker(mediaId){return '<figure data-healthtimes-media-id="'+String(mediaId)+'"></figure>';}
+  function rememberInlineMediaInsertionPoint(){
+    const body=$('[data-story-form] textarea[name="body"]');
+    inlineMediaInsertOffset=(editingStoryId&&body&&Number.isInteger(body.selectionStart))?body.selectionStart:null;
+  }
+  async function insertInlineMediaMarker(mediaId,storyId){
+    if(editingStoryId!==storyId)return;
+    const body=$('[data-story-form] textarea[name="body"]');if(!body)return;
+    const marker=inlineMediaMarker(mediaId);
+    if(!body.value.includes(marker)){
+      const fallback=Number.isInteger(body.selectionStart)?body.selectionStart:body.value.length;
+      const at=Number.isInteger(inlineMediaInsertOffset)?Math.max(0,Math.min(inlineMediaInsertOffset,body.value.length)):fallback;
+      body.setRangeText(marker,at,at,'end');
+      inlineMediaInsertOffset=body.selectionEnd;
+      await saveStory(true);
+    }
+  }
 
   function mediaTargetStoryId(){return String($('[data-media-target-story]')?.value||'');}
   function renderMediaModalGrid(){
@@ -732,6 +805,7 @@
       write(KEYS.media,media);
       const story=getStories().find(s=>s.id===storyId);
       if(story&&finalized.storyVersion){story.lockVersion=finalized.storyVersion;setStories(getStories().map(s=>s.id===storyId?story:s));}
+      if(usageType==='inline'&&editingStoryId===storyId){await insertInlineMediaMarker(mediaId,storyId);}
       form.reset();renderMediaModalGrid();
       if(editingStoryId===storyId&&story)renderStoryMedia(story);
       if(active==='media')showModule('media');
@@ -742,7 +816,17 @@
   async function attachStoryMedia(mediaId){
     const storyId=mediaTargetStoryId(),usageType=$('[data-media-usage-role]')?.value||'inline';
     if(!storyId)return;
-    try{const result=await api('attachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset&&!asset.usages.some(u=>u.storyId===storyId&&u.usageType===usageType))asset.usages.push({storyId,usageType,sourceContext:{attachment_state:'private_draft'}});const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);renderMediaModalGrid();toast('Media attached to story');}catch(error){toast(error.message);}
+    try{
+      const result=await api('attachStoryMedia',{mediaId,storyId,usageType});
+      const asset=getMedia().find(m=>m.id===mediaId);
+      if(asset&&!asset.usages.some(u=>u.storyId===storyId&&u.usageType===usageType))asset.usages.push({storyId,usageType,sourceContext:{attachment_state:'private_draft'}});
+      const story=getStories().find(s=>s.id===storyId);
+      if(story&&result.storyVersion)story.lockVersion=result.storyVersion;
+      write(KEYS.media,getMedia());
+      if(usageType==='inline'&&editingStoryId===storyId){await insertInlineMediaMarker(mediaId,storyId);}
+      if(editingStoryId===storyId&&story)renderStoryMedia(story);
+      renderMediaModalGrid();toast('Media attached to story');
+    }catch(error){toast(error.message);}
   }
   async function detachStoryMedia(mediaId,storyId,usageType){
     try{const result=await api('detachStoryMedia',{mediaId,storyId,usageType});const asset=getMedia().find(m=>m.id===mediaId);if(asset)asset.usages=asset.usages.filter(u=>!(u.storyId===storyId&&u.usageType===usageType));const story=getStories().find(s=>s.id===storyId);if(story&&result.storyVersion)story.lockVersion=result.storyVersion;write(KEYS.media,getMedia());if(editingStoryId===storyId&&story)renderStoryMedia(story);if(active==='media')showModule('media');toast('Media detached from story');}catch(error){toast(error.message);}
@@ -799,13 +883,15 @@
       if(e.target.closest('[data-open-assignment]')){openAssignment();return;}
       if(e.target.closest('[data-assignment-close]')){$('[data-assignment-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-campaign]')){openCampaign();return;}
-      if(e.target.closest('[data-open-story-media]')){openMediaLibrary(editingStoryId);return;}
+      if(e.target.closest('[data-open-story-media]')){rememberInlineMediaInsertionPoint();openMediaLibrary(editingStoryId);return;}
       if(e.target.closest('[data-open-media-library]')){openMediaLibrary();return;}
       if(e.target.closest('[data-media-close]')){closeMediaLibrary();return;}
       const mp=e.target.closest('[data-media-preview]');if(mp){await previewMedia(mp.dataset.mediaPreview);return;}
       const ma=e.target.closest('[data-media-attach]');if(ma){await attachStoryMedia(ma.dataset.mediaAttach);return;}
       const md=e.target.closest('[data-media-detach]');if(md){await detachStoryMedia(md.dataset.mediaDetach,md.dataset.storyId,md.dataset.usageType);return;}
       if(e.target.closest('[data-campaign-close]')){$('[data-campaign-modal]').hidden=true;return;}
+      if(e.target.closest('[data-open-author]')){openAuthorModal();return;}
+      if(e.target.closest('[data-author-close]')){$('[data-author-modal]').hidden=true;return;}
       if(e.target.closest('[data-open-invite]')){openInvite();return;}
       if(e.target.closest('[data-invite-close]')){$('[data-invite-modal]').hidden=true;return;}
       const sr=e.target.closest('[data-staff-role]');if(sr){await changeStaffRole(sr.dataset.staffRole);return;}
@@ -835,11 +921,13 @@
       if(e.target.closest('[data-notifications]')){showModule('inbox');return;}
       if(e.target.closest('[data-sidebar-open]')){$('[data-newsroom-sidebar]').classList.add('open');return;}
       if(e.target.closest('[data-sidebar-close]')){$('[data-newsroom-sidebar]').classList.remove('open');return;}
-      const ins=e.target.closest('[data-insert]');if(ins){if(ins.dataset.insert==='media'){openMediaLibrary(editingStoryId);return;}toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
+      const ins=e.target.closest('[data-insert]');if(ins){if(ins.dataset.insert==='media'){rememberInlineMediaInsertionPoint();openMediaLibrary(editingStoryId);return;}toast(`${ins.dataset.insert} placeholder added to the reporting workflow.`);return;}
     });
+    document.addEventListener('change',async e=>{if(e.target.matches('[data-public-author-bind]'))await bindPublicAuthor(e.target);});
     document.addEventListener('input',e=>{if(e.target.closest('[data-story-form]')||e.target.getAttribute('form')==='story-shadow')scheduleAutosave();if(e.target.matches('[data-story-search],[data-story-status],[data-story-desk]'))filterStories();if(e.target.matches('[data-newsroom-search-input]'))searchNewsroom(e.target.value);if(e.target.matches('[data-review-state],[data-review-desk],[data-review-owner],[data-review-deadline]'))refreshReviewQueue();if(e.target.matches('[data-media-library-search],[data-media-library-type],[data-media-library-state]'))refreshMediaLibrary();if(e.target.matches('[data-media-modal-search],[data-media-target-story],[data-media-usage-role]'))renderMediaModalGrid();});
     $('[data-assignment-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveAssignment(e.currentTarget);});
     $('[data-campaign-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveCampaign(e.currentTarget);});
+    $('[data-author-form]')?.addEventListener('submit',async e=>{e.preventDefault();await savePublicAuthor(e.currentTarget);});
     $('[data-media-upload-form]')?.addEventListener('submit',async e=>{e.preventDefault();await uploadStoryMedia(e.currentTarget);});
     $('[data-request-changes-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveRequestChanges(e.currentTarget);});
     $('[data-invite-form]')?.addEventListener('submit',async e=>{e.preventDefault();await saveInvite(e.currentTarget);});

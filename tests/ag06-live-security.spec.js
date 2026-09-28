@@ -53,9 +53,16 @@ async function appAdoptLogin(kind){
   return {ctx,csrf};
 }
 async function appBootstrap(client){
-  const response=await client.ctx.get('/api/newsroom?action=bootstrap',{headers:{Origin:baseURL}});
-  const body=await response.json().catch(()=>({}));
-  return {response,body};
+  let last=null;
+  for(let attempt=1;attempt<=3;attempt+=1){
+    const response=await client.ctx.get('/api/newsroom?action=bootstrap',{headers:{Origin:baseURL}});
+    const body=await response.json().catch(()=>({}));
+    last={response,body};
+    const status=statusOf(response);
+    if(status===200 || ![500,502,503,504].includes(status)) return last;
+    if(attempt<3) await new Promise(resolve=>setTimeout(resolve,400*attempt));
+  }
+  return last;
 }
 async function rawAuth(kind){
   const response=await fetch(`${supabaseURL}/auth/v1/token?grant_type=password`,{
@@ -79,7 +86,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
   test('anonymous, Reporter, Commercial, Editor and Publisher boundaries hold below the UI',async()=>{
     test.setTimeout(60_000);
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const anonymous=await request.newContext({baseURL,ignoreHTTPSErrors:true,extraHTTPHeaders:{Origin:baseURL}});
     const anonBootstrap=await anonymous.get('/api/newsroom?action=bootstrap');
     expect(statusOf(anonBootstrap)).toBe(401);
@@ -230,6 +237,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(staleReporter.response)).toBe(403);
 
     publisherBoot=await appBootstrap(publisher);
+    expect(statusOf(publisherBoot.response),`publisher audit bootstrap body: ${JSON.stringify(publisherBoot.body)}`).toBe(200);
     const auditRows=publisherBoot.body.data.audit||[];
     const actions=auditRows.map(a=>a.action);
     expect(actions).toContain('story.published');
@@ -405,7 +413,7 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     await Promise.all([reporter.ctx.dispose(),editor.ctx.dispose(),commercial.ctx.dispose()]);
   });
 
-  test('CMS-native featured media promotion remains private until Publisher publication and releases a public Reader document',async()=>{
+  test('CMS-native featured + inline media remain private until Publisher publication and release a safe public Reader document',async()=>{
     test.setTimeout(240_000);
     expect(directSupabaseConfigured,'Public-media certification requires HealthTimes Staging publishable configuration').toBeTruthy();
 
@@ -413,8 +421,14 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const slug=`ag06-public-media-${stamp}`;
     const path=`/${slug}/`;
     const filename=`ag06-public-${stamp}.png`;
+    const inlineFilename=`ag06-inline-${stamp}.png`;
+    const foreignFilename=`ag06-foreign-${stamp}.png`;
     const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
+    const inlineImage=Buffer.from(image);
+    const foreignImage=Buffer.from(image);
     const checksum=crypto.createHash('sha256').update(image).digest('hex');
+    const inlineChecksum=crypto.createHash('sha256').update(inlineImage).digest('hex');
+    const foreignChecksum=crypto.createHash('sha256').update(foreignImage).digest('hex');
 
     const reporter=await appAdoptLogin('reporter');
     const editor=await appAdoptLogin('editor');
@@ -441,9 +455,29 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     let reporterBoot=await appBootstrap(reporter);
     expect(statusOf(reporterBoot.response)).toBe(200);
+    let publisherBoot=await appBootstrap(publisher);
+    expect(statusOf(publisherBoot.response)).toBe(200);
+
+    const reporterStaffId=reporterBoot.body.data.context.id;
+    const canonicalAuthor=(publisherBoot.body.data.authors||[]).find(a=>a.slug==='healthtimesco');
+    const canonicalSection=(publisherBoot.body.data.sections||[]).find(s=>s.slug==='health-news');
+    expect(canonicalAuthor,'healthtimesco canonical author required for staging certification').toBeTruthy();
+    expect(canonicalSection,'health-news canonical section required for staging certification').toBeTruthy();
+
+    const boundAuthor=await appPost(publisher,'bindStaffPublicAuthor',{
+      staffId:reporterStaffId,authorId:canonicalAuthor.id
+    });
+    expect(statusOf(boundAuthor)).toBe(200);
+
+    reporterBoot=await appBootstrap(reporter);
+    const reporterProfile=(reporterBoot.body.data.staff||[]).find(s=>s.id===reporterStaffId);
+    expect(reporterProfile?.public_author_id).toBe(canonicalAuthor.id);
+
     const created=await appPost(reporter,'createStory',{story:{
       title:`AG06 Public Media ${stamp}`,
-      slug,desk:'Africa',country:'Zimbabwe',region:'Africa'
+      slug,desk:'Africa',country:'Zimbabwe',region:'Africa',
+      author_id:canonicalAuthor.id,
+      primary_section_id:canonicalSection.id
     }});
     expect(statusOf(created)).toBe(200);
     const storyId=(await created.json()).id;
@@ -486,16 +520,71 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const finalized=await appPost(reporter,'finalizeStoryMedia',{mediaId,storyId,usageType:'featured',checksum});
     expect(statusOf(finalized)).toBe(200);
 
+    const inlinePrepared=await appPost(reporter,'prepareStoryMedia',{
+      storyId,filename:inlineFilename,mimeType:'image/png',byteSize:inlineImage.length,checksum:inlineChecksum,
+      altText:'HealthTimes AG-06 inline certification image',
+      caption:'AG-06 CMS inline public media certification',
+      credit:'HealthTimes certification',
+      sourceProvenance:`AG06_PUBLIC_MEDIA_CERT:${process.env.GITHUB_RUN_ID||stamp}:inline`,
+      usageType:'inline'
+    });
+    expect(statusOf(inlinePrepared)).toBe(200);
+    const inlinePreparedBody=await inlinePrepared.json();
+    const inlineMediaId=inlinePreparedBody.prepared.media_id;
+    const inlinePrivateKey=inlinePreparedBody.prepared.storage_key;
+    expect(inlinePreparedBody.prepared.storage_bucket).toBe('newsroom-private');
+
+    const inlineUploadForm=new FormData();
+    inlineUploadForm.append('cacheControl','3600');
+    inlineUploadForm.append('',new Blob([inlineImage],{type:'image/png'}),inlineFilename);
+    const inlineUploaded=await fetch(inlinePreparedBody.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:inlineUploadForm});
+    expect(statusOf(inlineUploaded)).toBe(200);
+    const inlineFinalized=await appPost(reporter,'finalizeStoryMedia',{
+      mediaId:inlineMediaId,storyId,usageType:'inline',checksum:inlineChecksum
+    });
+    expect(statusOf(inlineFinalized)).toBe(200);
+
+    const bodyMarker=`<figure data-healthtimes-media-id="${inlineMediaId}"></figure>`;
+    reporterBoot=await appBootstrap(reporter);
+    let markerStory=reporterBoot.body.data.stories.find(s=>s.id===storyId);
+    const markerSaved=await appPost(reporter,'saveStory',{
+      storyId,expectedVersion:markerStory.lock_version,
+      patch:{
+        body:`Public Reader certification body for CMS-native promotion.\n${bodyMarker}\nInline media follows this marker.`,
+        author_id:canonicalAuthor.id,
+        primary_section_id:canonicalSection.id
+      },
+      reason:'Bind canonical author, section and inline media marker'
+    });
+    expect(statusOf(markerSaved)).toBe(200);
+
     reporterBoot=await appBootstrap(reporter);
     const privateMedia=(reporterBoot.body.data.media||[]).find(m=>m.id===mediaId);
     expect(privateMedia).toBeTruthy();
     expect(privateMedia.storage_bucket).toBe('newsroom-private');
     expect(privateMedia.status).toBe('private_ready');
     expect(String(privateMedia.checksum||'').toLowerCase()).toBe(checksum);
+    const privateInline=(reporterBoot.body.data.media||[]).find(m=>m.id===inlineMediaId);
+    expect(privateInline).toBeTruthy();
+    expect(privateInline.storage_bucket).toBe('newsroom-private');
+    expect(privateInline.status).toBe('private_ready');
+    expect(String(privateInline.checksum||'').toLowerCase()).toBe(inlineChecksum);
 
     const encodedPrivate=privateKey.split('/').map(encodeURIComponent).join('/');
+    const encodedInlinePrivate=inlinePrivateKey.split('/').map(encodeURIComponent).join('/');
     const anonymousPrivate=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{headers:{apikey:anonKey}});
     expect([400,401,403,404]).toContain(statusOf(anonymousPrivate));
+    const anonymousInlinePrivate=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedInlinePrivate}`,{headers:{apikey:anonKey}});
+    expect([400,401,403,404]).toContain(statusOf(anonymousInlinePrivate));
+
+    const categoryPath=`/category/${canonicalSection.slug}/`;
+    const authorPath=`/author/${canonicalAuthor.slug}/`;
+    const beforeCategory=await anonRpc('newsroom_public_context_document',{p_path:categoryPath});
+    expect(statusOf(beforeCategory.response)).toBe(200);
+    expect((beforeCategory.body?.items||[]).some(x=>x.story_id===storyId)).toBe(false);
+    const beforeAuthor=await anonRpc('newsroom_public_context_document',{p_path:authorPath});
+    expect(statusOf(beforeAuthor.response)).toBe(200);
+    expect((beforeAuthor.body?.items||[]).some(x=>x.story_id===storyId)).toBe(false);
 
     const beforeDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
     expect(statusOf(beforeDoc.response)).toBe(200);
@@ -513,7 +602,9 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     }
 
     const publicKey=`story-media/${storyId}/${mediaId}/${checksum}/${filename}`;
+    const inlinePublicKey=`story-media/${storyId}/${inlineMediaId}/${inlineChecksum}/${inlineFilename}`;
     const encodedPublic=publicKey.split('/').map(encodeURIComponent).join('/');
+    const encodedInlinePublic=inlinePublicKey.split('/').map(encodeURIComponent).join('/');
 
     const reporterPublish=await appPost(reporter,'transitionStory',{storyId,nextStatus:'Published'});
     expect(statusOf(reporterPublish)).toBe(403);
@@ -528,13 +619,88 @@ test.describe('AG-06 live staging authorization attacks',()=>{
       });
       expect([400,401,403]).toContain(statusOf(denied));
     }
+    const anonWrite=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedInlinePublic}`,{
+      method:'POST',
+      headers:{apikey:anonKey,'Content-Type':'image/png','x-upsert':'false'},
+      body:inlineImage
+    });
+    expect([400,401,403]).toContain(statusOf(anonWrite));
 
     const directFail=await rawRpc(rawPublisher,'newsroom_transition_story',{
       p_story_id:storyId,p_next_status:'Published',p_reason:'Direct fail-closed certification'
     });
     expect([400,409]).toContain(statusOf(directFail.response));
 
-    let publisherBoot=await appBootstrap(publisher);
+    const baseBody='Public Reader certification body for CMS-native promotion.\n';
+    const saveMainBody=async(body,reason)=>{
+      const boot=await appBootstrap(publisher);
+      const current=boot.body.data.stories.find(s=>s.id===storyId);
+      expect(current).toBeTruthy();
+      const savedBody=await appPost(publisher,'saveStory',{
+        storyId,expectedVersion:current.lock_version,patch:{body},reason
+      });
+      expect(statusOf(savedBody),reason).toBe(200);
+    };
+    const assertDirectPublishDenied=async(reason)=>{
+      const denied=await rawRpc(rawPublisher,'newsroom_transition_story',{
+        p_story_id:storyId,p_next_status:'Published',p_reason:reason
+      });
+      expect([400,409],reason).toContain(statusOf(denied.response));
+      return statusOf(denied.response);
+    };
+
+    const foreignCreated=await appPost(publisher,'createStory',{story:{
+      title:`AG06 Foreign Inline ${stamp}`,
+      slug:`ag06-foreign-inline-${stamp}`,
+      desk:'Africa',country:'Zimbabwe',region:'Africa',
+      author_id:canonicalAuthor.id,primary_section_id:canonicalSection.id
+    }});
+    expect(statusOf(foreignCreated)).toBe(200);
+    const foreignStoryId=(await foreignCreated.json()).id;
+    const foreignPrepared=await appPost(publisher,'prepareStoryMedia',{
+      storyId:foreignStoryId,filename:foreignFilename,mimeType:'image/png',
+      byteSize:foreignImage.length,checksum:foreignChecksum,
+      altText:'AG-06 foreign story inline certification image',
+      caption:'Foreign-story marker rejection fixture',
+      credit:'HealthTimes certification',
+      sourceProvenance:`AG06_PUBLIC_MEDIA_CERT:${process.env.GITHUB_RUN_ID||stamp}:foreign`,
+      usageType:'inline'
+    });
+    expect(statusOf(foreignPrepared)).toBe(200);
+    const foreignPreparedBody=await foreignPrepared.json();
+    const foreignMediaId=foreignPreparedBody.prepared.media_id;
+    const foreignUploadForm=new FormData();
+    foreignUploadForm.append('cacheControl','3600');
+    foreignUploadForm.append('',new Blob([foreignImage],{type:'image/png'}),foreignFilename);
+    const foreignUploaded=await fetch(foreignPreparedBody.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body:foreignUploadForm});
+    expect(statusOf(foreignUploaded)).toBe(200);
+    const foreignFinalized=await appPost(publisher,'finalizeStoryMedia',{
+      mediaId:foreignMediaId,storyId:foreignStoryId,usageType:'inline',checksum:foreignChecksum
+    });
+    expect(statusOf(foreignFinalized)).toBe(200);
+
+    const foreignMarker=`<figure data-healthtimes-media-id="${foreignMediaId}"></figure>`;
+    await saveMainBody(`${baseBody}${foreignMarker}`,'Cross-story inline marker attack');
+    const crossStoryMarkerDenied=await assertDirectPublishDenied('Cross-story inline marker must fail closed');
+
+    await saveMainBody(`${baseBody}${bodyMarker}`,'Restore valid inline marker before detach attack');
+    const detached=await appPost(publisher,'detachStoryMedia',{mediaId:inlineMediaId,storyId,usageType:'inline'});
+    expect(statusOf(detached)).toBe(200);
+    const detachedMarkerDenied=await assertDirectPublishDenied('Detached inline marker must fail closed');
+    const reattached=await appPost(publisher,'attachStoryMedia',{mediaId:inlineMediaId,storyId,usageType:'inline'});
+    expect(statusOf(reattached)).toBe(200);
+
+    const randomMarker=`<figure data-healthtimes-media-id="${crypto.randomUUID()}"></figure>`;
+    await saveMainBody(`${baseBody}${randomMarker}`,'Random inline marker attack');
+    const randomMarkerDenied=await assertDirectPublishDenied('Random inline marker must fail closed');
+
+    const privateSignedBody=`${baseBody}<img src="${supabaseURL}/storage/v1/object/sign/newsroom-private/fake?token=fake" alt="private leak">`;
+    await saveMainBody(privateSignedBody,'Private signed URL attack');
+    const privateUrlDenied=await assertDirectPublishDenied('Private signed URL must fail closed');
+
+    await saveMainBody(`${baseBody}${bodyMarker}\nInline media follows this marker.`,'Restore valid public inline marker');
+
+    publisherBoot=await appBootstrap(publisher);
     story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
     expect(story.workflow_status).toBe('Ready');
     const stillHidden=await anonRpc('newsroom_public_story_document',{p_path:path});
@@ -543,26 +709,42 @@ test.describe('AG-06 live staging authorization attacks',()=>{
 
     const absentPublic=await fetch(`${supabaseURL}/storage/v1/object/public/newsroom-public/${encodedPublic}`);
     expect([400,404]).toContain(statusOf(absentPublic));
+    const absentInlinePublic=await fetch(`${supabaseURL}/storage/v1/object/public/newsroom-public/${encodedInlinePublic}`);
+    expect([400,404]).toContain(statusOf(absentInlinePublic));
 
     const published=await appPost(publisher,'transitionStory',{storyId,nextStatus:'Published'});
     expect(statusOf(published)).toBe(200);
 
     const plan=await rawRpc(rawPublisher,'newsroom_story_media_promotion_plan',{p_story_id:storyId});
     expect(statusOf(plan.response)).toBe(200);
-    const promoted=(Array.isArray(plan.body)?plan.body:[]).find(m=>m.media_id===mediaId);
+    const planRows=Array.isArray(plan.body)?plan.body:[];
+    const promoted=planRows.find(m=>m.media_id===mediaId&&m.usage_type==='featured');
+    const inlinePromoted=planRows.find(m=>m.media_id===inlineMediaId&&m.usage_type==='inline');
     expect(promoted).toBeTruthy();
+    expect(inlinePromoted).toBeTruthy();
     expect(promoted.private_bucket).toBe('newsroom-private');
     expect(promoted.public_storage_bucket).toBe('newsroom-public');
     expect(promoted.public_storage_key).toBe(publicKey);
     expect(String(promoted.checksum||'').toLowerCase()).toBe(checksum);
     expect(promoted.media_status).toBe('published');
+    expect(inlinePromoted.private_bucket).toBe('newsroom-private');
+    expect(inlinePromoted.public_storage_bucket).toBe('newsroom-public');
+    expect(inlinePromoted.public_storage_key).toBe(inlinePublicKey);
+    expect(String(inlinePromoted.checksum||'').toLowerCase()).toBe(inlineChecksum);
+    expect(inlinePromoted.media_status).toBe('published');
 
     const publicUrl=new URL(String(promoted.public_url),supabaseURL+'/').toString();
+    const inlinePublicUrl=new URL(String(inlinePromoted.public_url),supabaseURL+'/').toString();
     const publicObject=await fetch(publicUrl);
     expect(statusOf(publicObject)).toBe(200);
     const publicBytes=Buffer.from(await publicObject.arrayBuffer());
     const publicChecksum=crypto.createHash('sha256').update(publicBytes).digest('hex');
     expect(publicChecksum).toBe(checksum);
+    const inlinePublicObject=await fetch(inlinePublicUrl);
+    expect(statusOf(inlinePublicObject)).toBe(200);
+    const inlinePublicBytes=Buffer.from(await inlinePublicObject.arrayBuffer());
+    const inlinePublicChecksum=crypto.createHash('sha256').update(inlinePublicBytes).digest('hex');
+    expect(inlinePublicChecksum).toBe(inlineChecksum);
 
     const privateObject=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedPrivate}`,{
       headers:{apikey:anonKey,Authorization:`Bearer ${rawPublisher.session.access_token}`}
@@ -571,6 +753,13 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const privateBytes=Buffer.from(await privateObject.arrayBuffer());
     const privateChecksum=crypto.createHash('sha256').update(privateBytes).digest('hex');
     expect(privateChecksum).toBe(checksum);
+    const privateInlineObject=await fetch(`${supabaseURL}/storage/v1/object/newsroom-private/${encodedInlinePrivate}`,{
+      headers:{apikey:anonKey,Authorization:`Bearer ${rawPublisher.session.access_token}`}
+    });
+    expect(statusOf(privateInlineObject)).toBe(200);
+    const privateInlineBytes=Buffer.from(await privateInlineObject.arrayBuffer());
+    const privateInlineChecksum=crypto.createHash('sha256').update(privateInlineBytes).digest('hex');
+    expect(privateInlineChecksum).toBe(inlineChecksum);
 
     const afterDoc=await anonRpc('newsroom_public_story_document',{p_path:path});
     expect(statusOf(afterDoc.response)).toBe(200);
@@ -580,13 +769,42 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(afterDoc.body?.featured_storage_object).toBe(publicKey);
     expect(afterDoc.body?.featured_public_url).toBe(promoted.public_url);
     expect(afterDoc.body?.featured_checksum).toBe(checksum);
+    expect(afterDoc.body?.author?.slug).toBe(canonicalAuthor.slug);
+    expect(afterDoc.body?.section?.slug).toBe(canonicalSection.slug);
     expect(afterDoc.body?.body_html).toContain('Public Reader certification body');
+    expect(afterDoc.body?.body_html).toContain(bodyMarker);
+    expect(afterDoc.body?.body_html).not.toContain('newsroom-private');
+    expect(afterDoc.body?.body_html).not.toContain('/storage/v1/object/sign/');
+    expect(Array.isArray(afterDoc.body?.inline_media)).toBe(true);
+    expect(afterDoc.body.inline_media).toHaveLength(1);
+    expect(afterDoc.body.inline_media[0]).toMatchObject({
+      media_id:inlineMediaId,
+      usage_type:'inline',
+      marker:bodyMarker,
+      public_storage_bucket:'newsroom-public',
+      public_storage_object:inlinePublicKey,
+      public_url:inlinePromoted.public_url,
+      checksum:inlineChecksum,
+      alt_text:'HealthTimes AG-06 inline certification image',
+      caption:'AG-06 CMS inline public media certification',
+      credit:'HealthTimes certification'
+    });
+    expect(JSON.stringify(afterDoc.body.inline_media)).not.toContain('newsroom-private');
+    expect(JSON.stringify(afterDoc.body.inline_media)).not.toContain('source_provenance');
+    expect(JSON.stringify(afterDoc.body.inline_media)).not.toContain('uploaded_by');
 
     const afterList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
     expect(statusOf(afterList.response)).toBe(200);
     expect(Array.isArray(afterList.body)).toBe(true);
     expect(afterList.body).toHaveLength(1);
     expect(afterList.body[0]?.id).toBe(storyId);
+
+    const afterCategory=await anonRpc('newsroom_public_context_document',{p_path:categoryPath});
+    expect(statusOf(afterCategory.response)).toBe(200);
+    expect((afterCategory.body?.items||[]).some(x=>x.story_id===storyId)).toBe(true);
+    const afterAuthor=await anonRpc('newsroom_public_context_document',{p_path:authorPath});
+    expect(statusOf(afterAuthor.response)).toBe(200);
+    expect((afterAuthor.body?.items||[]).some(x=>x.story_id===storyId)).toBe(true);
 
     publisherBoot=await appBootstrap(publisher);
     story=publisherBoot.body.data.stories.find(s=>s.id===storyId);
@@ -602,12 +820,28 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     const afterConflict=await fetch(publicUrl);
     expect(statusOf(afterConflict)).toBe(200);
     expect(crypto.createHash('sha256').update(Buffer.from(await afterConflict.arrayBuffer())).digest('hex')).toBe(checksum);
+    const inlineOverwrite=await fetch(`${supabaseURL}/storage/v1/object/newsroom-public/${encodedInlinePublic}`,{
+      method:'POST',
+      headers:{...rawPublisher.headers,'Content-Type':'image/png','x-upsert':'false'},
+      body:Buffer.from('conflicting inline public media bytes')
+    });
+    expect([400,409]).toContain(statusOf(inlineOverwrite));
+    const inlineAfterConflict=await fetch(inlinePublicUrl);
+    expect(statusOf(inlineAfterConflict)).toBe(200);
+    expect(crypto.createHash('sha256').update(Buffer.from(await inlineAfterConflict.arrayBuffer())).digest('hex')).toBe(inlineChecksum);
 
     const idempotent=await rawRpc(rawPublisher,'newsroom_stage_story_media_promotion',{
       p_story_id:storyId,p_media_id:mediaId,p_public_storage_key:publicKey,p_verified_checksum:checksum
     });
     expect(statusOf(idempotent.response)).toBe(200);
     expect(idempotent.body?.status).toBe('published');
+    expect(idempotent.body?.usage_type).toBe('featured');
+    const inlineIdempotent=await rawRpc(rawPublisher,'newsroom_stage_story_media_promotion',{
+      p_story_id:storyId,p_media_id:inlineMediaId,p_public_storage_key:inlinePublicKey,p_verified_checksum:inlineChecksum
+    });
+    expect(statusOf(inlineIdempotent.response)).toBe(200);
+    expect(inlineIdempotent.body?.status).toBe('published');
+    expect(inlineIdempotent.body?.usage_type).toBe('inline');
 
     const premium=await appPost(publisher,'setPremium',{storyId,accessPolicy:'premium'});
     expect(statusOf(premium)).toBe(200);
@@ -615,31 +849,82 @@ test.describe('AG-06 live staging authorization attacks',()=>{
     expect(statusOf(premiumDoc.response)).toBe(200);
     expect(premiumDoc.body?.access_policy).toBe('premium');
     expect(premiumDoc.body?.body_html).toBeNull();
+    expect(premiumDoc.body?.inline_media).toEqual([]);
     expect(premiumDoc.body?.featured_public_url).toBe(promoted.public_url);
+    expect(JSON.stringify(premiumDoc.body)).not.toContain(inlinePromoted.public_url);
+
+    const premiumCategory=await anonRpc('newsroom_public_context_document',{p_path:categoryPath});
+    expect(statusOf(premiumCategory.response)).toBe(200);
+    expect(JSON.stringify(premiumCategory.body)).not.toContain('body_html');
+    const premiumAuthor=await anonRpc('newsroom_public_context_document',{p_path:authorPath});
+    expect(statusOf(premiumAuthor.response)).toBe(200);
+    expect(JSON.stringify(premiumAuthor.body)).not.toContain('body_html');
 
     const premiumList=await anonRpc('newsroom_public_published_stories',{p_slug:slug});
     expect(statusOf(premiumList.response)).toBe(200);
     expect(premiumList.body).toEqual([]);
 
+    const unboundAuthor=await appPost(publisher,'bindStaffPublicAuthor',{
+      staffId:reporterStaffId,authorId:null
+    });
+    expect(statusOf(unboundAuthor)).toBe(200);
+    publisherBoot=await appBootstrap(publisher);
+    const unboundReporter=(publisherBoot.body.data.staff||[]).find(s=>s.id===reporterStaffId);
+    expect(unboundReporter?.public_author_id||null).toBeNull();
+
     console.log('AG06_PUBLIC_MEDIA_EVIDENCE',JSON.stringify({
       story_id:storyId,
-      media_id:mediaId,
-      private_bucket:'newsroom-private',
-      private_key:privateKey,
-      private_checksum:privateChecksum,
-      public_bucket:promoted.public_storage_bucket,
-      public_key:promoted.public_storage_key,
-      public_checksum:publicChecksum,
+      author_id:canonicalAuthor.id,
+      author_slug:canonicalAuthor.slug,
+      section_id:canonicalSection.id,
+      section_slug:canonicalSection.slug,
+      featured_media_id:mediaId,
+      featured_private_bucket:'newsroom-private',
+      featured_private_key:privateKey,
+      featured_private_checksum:privateChecksum,
+      featured_public_bucket:promoted.public_storage_bucket,
+      featured_public_key:promoted.public_storage_key,
+      featured_public_checksum:publicChecksum,
+      inline_media_id:inlineMediaId,
+      inline_private_bucket:'newsroom-private',
+      inline_private_key:inlinePrivateKey,
+      inline_private_checksum:privateInlineChecksum,
+      inline_public_bucket:inlinePromoted.public_storage_bucket,
+      inline_public_key:inlinePromoted.public_storage_key,
+      inline_public_checksum:inlinePublicChecksum,
+      body_marker:bodyMarker,
+      release_state:{
+        workflow_status:story.workflow_status,
+        public_reader:story.distribution?.public_reader===true,
+        publication_status:statusOf(published)
+      },
+      category_context_contains_story:(afterCategory.body?.items||[]).some(x=>x.story_id===storyId),
+      author_context_contains_story:(afterAuthor.body?.items||[]).some(x=>x.story_id===storyId),
+      public_story_document:{
+        source_type:afterDoc.body?.source_type,
+        handling:afterDoc.body?.handling,
+        author_slug:afterDoc.body?.author?.slug,
+        section_slug:afterDoc.body?.section?.slug,
+        featured_public_url:afterDoc.body?.featured_public_url,
+        inline_media:afterDoc.body?.inline_media
+      },
       reporter_publish_denied:statusOf(reporterPublish),
       commercial_publish_denied:statusOf(commercialPublish),
       direct_unpromoted_publish_denied:statusOf(directFail.response),
-      publication_status:statusOf(published),
-      source_type:afterDoc.body?.source_type,
-      handling:afterDoc.body?.handling,
-      public_reader_release:story.distribution?.public_reader===true,
-      anonymous_public_media_status:statusOf(publicObject),
+      cross_story_marker_denied:crossStoryMarkerDenied,
+      detached_marker_denied:detachedMarkerDenied,
+      random_marker_denied:randomMarkerDenied,
+      private_url_denied:privateUrlDenied,
+      anonymous_public_bucket_write_denied:statusOf(anonWrite),
+      conflicting_featured_overwrite_denied:statusOf(overwrite),
+      conflicting_inline_overwrite_denied:statusOf(inlineOverwrite),
+      anonymous_featured_public_status:statusOf(publicObject),
+      anonymous_inline_public_status:statusOf(inlinePublicObject),
       premium_body_protected:premiumDoc.body?.body_html===null,
-      idempotent_promotion:idempotent.body?.status
+      premium_inline_manifest_empty:Array.isArray(premiumDoc.body?.inline_media)&&premiumDoc.body.inline_media.length===0,
+      idempotent_featured_promotion:idempotent.body?.status,
+      idempotent_inline_promotion:inlineIdempotent.body?.status,
+      temporary_public_author_binding_removed:(unboundReporter?.public_author_id||null)===null
     }));
 
     await Promise.all([

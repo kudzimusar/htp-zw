@@ -14,7 +14,17 @@ const declaredForwardMigrations=[
   '20260924074219_ag06_media_storage_read_helper.sql',
   '20260924103201_ag06_cms_public_media_promotion.sql',
   '20260924105815_ag06_native_reader_release_marker.sql',
-  '20260925230247_ag06_public_story_release_boundary_hardening.sql'
+  '20260925230247_ag06_public_story_release_boundary_hardening.sql',
+  '20260927040923_ag06_certification_active_binding_cleanup.sql',
+  '20260927091500_ag06_canonical_author_section_authority.sql',
+  '20260927093000_ag06_native_public_context.sql',
+  '20260927094500_ag06_inline_body_binding.sql',
+  '20260927101500_ag06_public_inline_media_promotion.sql',
+  '20260927110000_ag06_inline_public_storage_authority.sql',
+  '20260927113000_ag06_certification_author_binding_cleanup.sql',
+  '20260927120000_ag06_certification_cleanup_service_role_claim.sql',
+  '20260927121500_ag06_audit_feed_performance.sql',
+  '20260927123000_ag06_certification_active_binding_cleanup.sql'
 ].sort();
 const currentExpected=[...expected,...declaredForwardMigrations].sort();
 
@@ -22,7 +32,7 @@ test('AG-04 Phase 5 adopted live ledger identities remain present and unchanged 
   const actual=fs.readdirSync(migrationDir).filter((x)=>x.endsWith('.sql')).sort();
   expect(actual).toEqual(currentExpected);
   expect(expected).toHaveLength(43);
-  expect(declaredForwardMigrations).toHaveLength(7);
+  expect(declaredForwardMigrations).toHaveLength(17);
   expect(new Set(manifest.entries.map((e)=>e.live_version)).size).toBe(43);
   for(const filename of expected) expect(fs.existsSync(path.join(migrationDir,filename))).toBeTruthy();
 });
@@ -56,3 +66,12 @@ test('AG-04 Phase 5 preserves explicit CP5 and COM-01 adoption identities', asyn
   expect(names.has('ag05_rehearsal_readiness_guard')).toBeTruthy();
   expect(names.has('com01_campaign_and_escalation_authority')).toBeTruthy();
 });
+
+test('AG-06 adopted 040923 identity is replay-safe and 123000 remains executable authority', async () => {
+  const adopted=fs.readFileSync(path.join(migrationDir,'20260927040923_ag06_certification_active_binding_cleanup.sql'),'utf8');
+  const reaffirmed=fs.readFileSync(path.join(migrationDir,'20260927123000_ag06_certification_active_binding_cleanup.sql'),'utf8');
+  expect(adopted).toContain('historical live identity adoption');
+  expect(adopted).not.toMatch(/create\s+(or\s+replace\s+)?function\s+public\.newsroom_clear_certification_public_author_bindings/i);
+  expect(reaffirmed).toMatch(/create\s+or\s+replace\s+function\s+public\.newsroom_clear_certification_public_author_bindings/i);
+});
+

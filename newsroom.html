@@ -100,7 +100,7 @@
         <aside class="nr-editor-inspector">
           <div class="nr-inspector-section"><h3>Workflow</h3><label>Status<select name="status" form="story-shadow"><option>Pitch</option><option>Approved</option><option>Assigned</option><option>Reporting</option><option>Draft</option><option>Submitted</option><option>Fact check</option><option>Health / Science review</option><option>Copy edit</option><option>Editor review</option><option>Ready</option><option>Scheduled</option><option>Published</option><option>Updated / Corrected</option><option>Archived</option></select></label><label>Deadline<input type="datetime-local" name="deadline" form="story-shadow" /></label></div>
           <div class="nr-inspector-section"><h3>Assignment</h3><label>Reporter<select name="owner" form="story-shadow"></select></label><label>Editor<select name="editor" form="story-shadow"></select></label><label>Fact checker<select name="factChecker" form="story-shadow"></select></label></div>
-          <div class="nr-inspector-section"><h3>Publication</h3><label>Desk<select name="desk" form="story-shadow"></select></label><label>Section<input name="section" form="story-shadow" /></label><label>Country<input name="country" form="story-shadow" /></label><label>Region<select name="region" form="story-shadow"></select></label><label>Access<select name="premium" form="story-shadow"><option value="false">Public</option><option value="true">HealthTimes Premium</option></select></label></div>
+          <div class="nr-inspector-section"><h3>Publication</h3><label>Desk<select name="desk" form="story-shadow"></select></label><label>Public author<select name="publicAuthor" form="story-shadow"></select></label><label>Section<select name="section" form="story-shadow"></select></label><label>Country<input name="country" form="story-shadow" /></label><label>Region<select name="region" form="story-shadow"></select></label><label>Access<select name="premium" form="story-shadow"><option value="false">Public</option><option value="true">HealthTimes Premium</option></select></label></div>
           <div class="nr-inspector-section"><h3>SEO</h3><label>SEO title<input name="seoTitle" form="story-shadow" /></label><label>Meta description<textarea name="metaDescription" rows="3" form="story-shadow"></textarea></label><label>URL slug<input name="slug" form="story-shadow" /></label></div>
           <div class="nr-inspector-section"><h3>Distribution</h3><div class="nr-check-grid"><label><input type="checkbox" name="distHomepage" form="story-shadow" /> Homepage</label><label><input type="checkbox" name="distBreaking" form="story-shadow" /> Breaking</label><label><input type="checkbox" name="distNewsletter" form="story-shadow" /> Newsletter</label><label><input type="checkbox" name="distWhatsApp" form="story-shadow" /> WhatsApp</label><label><input type="checkbox" name="distPush" form="story-shadow" /> Push</label></div></div>
           <div class="nr-inspector-section"><h3>Commercial</h3><label>Advertising<select name="adSetting" form="story-shadow"><option>Standard</option><option>Reduced</option><option>None</option></select></label><label>Publish at<input type="datetime-local" name="schedule" form="story-shadow" /></label></div>
@@ -145,6 +145,20 @@
       <form data-request-changes-form class="nr-dialog-form">
         <label class="nr-wide">Editorial note<textarea name="reason" rows="5" required minlength="3" placeholder="Explain exactly what needs to change before resubmission."></textarea></label>
         <div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-request-changes-close>Cancel</button><button type="submit" class="nr-danger">Return to reporter</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="nr-modal" data-author-modal hidden aria-label="Create public author">
+    <div class="nr-dialog">
+      <div class="nr-dialog-head"><div><span class="nr-kicker">Canonical public identity</span><h2>Create native public author</h2><p>Creates a new record in the canonical authors table. Imported authors are never rewritten.</p></div><button class="nr-icon-btn" type="button" data-author-close>×</button></div>
+      <form data-author-form class="nr-dialog-form">
+        <label>Display name<input name="displayName" required maxlength="160" /></label>
+        <label>Slug<input name="slug" required maxlength="180" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" /></label>
+        <label class="nr-wide">Public bio<textarea name="bio" rows="5"></textarea></label>
+        <label class="nr-wide">Bind to active staff<select name="staffId"><option value="">Do not bind now</option></select></label>
+        <div class="nr-wide nr-note">Requires editorial leadership authority. Staff workflow identity and public byline remain separate.</div>
+        <div class="nr-dialog-actions"><button type="button" class="nr-secondary" data-author-close>Cancel</button><button type="submit" class="nr-primary">Create public author</button></div>
       </form>
     </div>
   </section>
