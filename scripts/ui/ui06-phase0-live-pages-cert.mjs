@@ -79,40 +79,39 @@ async function homeReady(page,v){
 async function contentChecks(page){
   const top=page.getByText("Top Stories",{exact:true});
   const filters=page.getByLabel("Editorial filters");
-  const topY=await y(top);
-  const filterBox=await filters.boundingBox().catch(()=>null);
-  const links=page.locator('[role="link"]');
-  const n=await links.count();
-  const exclude=new Set(["Home","Explore","Live","Watch","My HT","My HealthTimes","HealthTimes Home","Search HealthTimes","Notifications","HealthTimes Premium"]);
-  const preTop=[];
-  for(let i=0;i<n;i++){
-    const loc=links.nth(i);
-    if(!(await loc.isVisible().catch(()=>false))) continue;
-    const b=await loc.boundingBox().catch(()=>null);
-    if(!b) continue;
-    const name=((await loc.getAttribute("aria-label").catch(()=>null))||(await loc.innerText().catch(()=>""))).trim();
-    if(!name||exclude.has(name)) continue;
-    if(filterBox&&b.y<=filterBox.y+filterBox.height) continue;
-    if(topY!==null&&b.y>=topY) continue;
-    preTop.push({name,box:b});
-  }
-  preTop.sort((a,b)=>a.box.y-b.box.y);
-  const hero=preTop[0]||null;
 
+  // HomeScreen renders HeroStory as the immediate product sibling after the
+  // editorial-filter container. Certify that existing structure directly
+  // instead of assuming React Native Web exposes Pressable as role="link".
+  const hero=filters.locator("xpath=following-sibling::*[1]");
+  const heroVisible=await hero.isVisible().catch(()=>false);
+  const heroText=heroVisible ? (await hero.innerText().catch(()=>"")).replace(/\s+/g," ").trim() : "";
+  const heroLabel=heroVisible ? ((await hero.getAttribute("aria-label").catch(()=>null))||"").trim() : "";
+  const heroRole=heroVisible ? await hero.getAttribute("role").catch(()=>null) : null;
+  const heroImage=heroVisible ? await hero.locator("img").first().isVisible().catch(()=>false) : false;
+  const heroMeaningful=heroVisible && (heroLabel.length>=12 || heroText.length>=24);
+
+  const topY=await y(top);
   const next=await y(page.getByText("JUST PUBLISHED",{exact:true}));
+  const storyTargets=page.locator('[role="link"],a');
+  const n=await storyTargets.count();
+  const exclude=new Set(["Home","Explore","Live","Watch","My HT","My HealthTimes","HealthTimes Home","Search HealthTimes","Notifications","HealthTimes Premium"]);
   const items=[];
   for(let i=0;i<n;i++){
-    const loc=links.nth(i);
+    const loc=storyTargets.nth(i);
     if(!(await loc.isVisible().catch(()=>false))) continue;
     const b=await loc.boundingBox().catch(()=>null);
     if(!b||topY===null||b.y<=topY) continue;
     if(next!==null&&b.y>=next) continue;
-    const name=((await loc.getAttribute("aria-label").catch(()=>null))||(await loc.innerText().catch(()=>""))).trim();
+    const name=((await loc.getAttribute("aria-label").catch(()=>null))||(await loc.innerText().catch(()=>""))).replace(/\s+/g," ").trim();
     if(name&&!exclude.has(name)) items.push(name);
   }
+
   return {
-    hero_present:Boolean(hero),
-    hero_label:hero?.name||null,
+    hero_present:heroMeaningful,
+    hero_label:heroLabel||heroText.slice(0,180)||null,
+    hero_role:heroRole,
+    hero_image_present:heroImage,
     top_stories_present:await top.isVisible().catch(()=>false),
     top_stories_item_count:items.length,
     first_top_story_label:items[0]||null
