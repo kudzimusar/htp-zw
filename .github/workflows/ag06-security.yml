@@ -607,9 +607,9 @@ jobs:
           import re, sys
           observed = open(sys.argv[1], encoding="utf-8").read()
           expected = sys.argv[2]
-          observed = re.sub(r"-\\s+", "-", observed)
-          observed = re.sub(r"\\s+", " ", observed).strip()
-          expected = re.sub(r"\\s+", " ", expected).strip()
+          observed = re.sub(r"-\s+", "-", observed)
+          observed = re.sub(r"\s+", " ", observed).strip()
+          expected = re.sub(r"\s+", " ", expected).strip()
           if expected not in observed:
               print(observed)
               raise SystemExit(1)
