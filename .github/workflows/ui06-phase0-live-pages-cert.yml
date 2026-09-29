@@ -1,0 +1,63 @@
+name: UI-06 Phase 0 Live Pages Certification
+
+on:
+  push:
+    branches:
+      - test/ui06-phase0-live-pages-cert
+    paths:
+      - '.github/workflows/ui06-phase0-live-pages-cert.yml'
+      - 'scripts/ui/ui06-phase0-live-pages-cert.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-live-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PUBLIC_URL: https://kudzimusar.github.io/htp-zw/
+      TARGET_DEPLOYED_SHA: e275e53071bbbb519b6e7a4f3805e77038567b54
+      UNDERLYING_READER_SHA: f36d6336c65c598191ea2841952a8c9f18bcf57e
+      ARTIFACT_DIR: artifacts/ui06/phase0-live-pages
+    steps:
+      - name: Check out certification tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Prove tooling checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CERTIFICATION_TOOLING_SHA=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install certification dependency only
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run live Pages browser certification
+        env:
+          CERTIFICATION_TOOLING_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: node scripts/ui/ui06-phase0-live-pages-cert.mjs
+
+      - name: Upload UI-06 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-phase0-live-pages-cert
+          path: artifacts/ui06/phase0-live-pages/
+          if-no-files-found: warn
+          retention-days: 30
