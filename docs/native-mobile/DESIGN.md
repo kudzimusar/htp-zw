@@ -8,7 +8,7 @@
 **Applies to:** iOS, Android, mobile PWA, tablet PWA, desktop PWA/Web, HealthTimes Studio/Admin  
 **Product authority companion:** `docs/native-mobile/HEALTHTIMES_NATIVE_MOBILE_MASTER_PLAN.md`  
 **Canonical Reader implementation:** `apps/mobile`  
-**Approved visual asset:** `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.jpg`
+**Approved visual asset:** `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png`
 
 ---
 
@@ -68,7 +68,7 @@ The approved board contains 18 numbered surfaces:
 17. Role-Based Access
 18. Onboarding (Welcome)
 
-The image at `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.jpg` is the primary visual reference. It is a repository-optimized visual copy of the owner-approved board; the downloadable reference package retains the full-resolution PNG.
+The image at `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png` is the primary visual reference and is the full-resolution owner-approved board supplied for this UI governance baseline.
 
 The wireframe uses illustrative content, prices, audience counts and advertising examples. The **layout, hierarchy, navigation model, relative emphasis and product identity are authoritative**. Illustrative business facts are not authoritative.
 
