@@ -603,7 +603,17 @@ jobs:
             grep -Fq "$NM04_CREDIT" "$out/article-header-text.txt"
             copy_maestro_capture "$out" "nm04-$kind-body" "$out/article-body.png"
             swift scripts/ci/nm04-screen-text.swift "$out/article-body.png" > "$out/article-body-text.txt"
-            tr '\n' ' ' < "$out/article-body-text.txt" | grep -Fq "$NM04_BODY_TEXT"
+            python3 - "$out/article-body-text.txt" "$NM04_BODY_TEXT" <<'PY'
+          import re, sys
+          observed = open(sys.argv[1], encoding="utf-8").read()
+          expected = sys.argv[2]
+          observed = re.sub(r"-\\s+", "-", observed)
+          observed = re.sub(r"\\s+", " ", observed).strip()
+          expected = re.sub(r"\\s+", " ", expected).strip()
+          if expected not in observed:
+              print(observed)
+              raise SystemExit(1)
+          PY
             xcrun simctl spawn "$udid" log show --style compact --last 10m --predicate 'process == "HealthTimesStaging" AND (eventMessage CONTAINS[c] "KeyChainException" OR eventMessage CONTAINS[c] "FunctionCallException")' > "$out/runtime.log" || true
             if grep -Eiq 'KeyChainException|FunctionCallException' "$out/runtime.log"; then cat "$out/runtime.log"; exit 1; fi
             KIND="$kind" UDID="$udid" EVIDENCE_SHA="$EXPECTED_SHA" python3 - <<'PY' > "$out/manifest.json"
