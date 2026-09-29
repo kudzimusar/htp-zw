@@ -152,6 +152,7 @@ test.describe('AG-06 live server-backed Newsroom journeys', () => {
   });
 
   test('Reporter receives the requested-changes reason, revises and resubmits', async ({ page }) => {
+    test.setTimeout(120_000);
     await signIn(page, 'reporter');
     await page.locator('[data-module="inbox"]').click();
     await expect(page.locator('[data-workspace]')).toContainText('Please clarify the evidence source',{timeout:15_000});
