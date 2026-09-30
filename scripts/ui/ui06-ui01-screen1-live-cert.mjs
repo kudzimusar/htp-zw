@@ -251,6 +251,16 @@ async function heroEvidence(page,v){
   }
   let imageInfo={present:false,url:null,natural_width:0,natural_height:0,box:null,network_status:null,requestfailed:false,visible_render_result:false};
   if(image){
+    await image.evaluate(img=>{
+      if(img.complete) return true;
+      return new Promise(resolve=>{
+        const finish=()=>resolve(true);
+        img.addEventListener("load",finish,{once:true});
+        img.addEventListener("error",finish,{once:true});
+        setTimeout(finish,5000);
+      });
+    }).catch(()=>false);
+    await page.waitForTimeout(150);
     const info=await image.evaluate(img=>({
       url:img.currentSrc||img.src||null,
       natural_width:img.naturalWidth||0,
