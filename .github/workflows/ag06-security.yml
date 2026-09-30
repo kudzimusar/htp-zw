@@ -561,15 +561,22 @@ jobs:
           ---
           - launchApp
           - openLink: "healthtimes://article/$NM04_SLUG"
-          - tapOn:
-              text: "Open"
-              optional: true
+          - runFlow:
+              when:
+                visible: 'Open in.*HealthTimes Staging.*'
+              commands:
+                - tapOn: "Open"
           - extendedWaitUntil:
               visible: "$NM04_TITLE"
               timeout: 30000
-          - tapOn:
-              text: "Open"
-              optional: true
+          - runFlow:
+              when:
+                visible: 'Open in.*HealthTimes Staging.*'
+              commands:
+                - tapOn: "Open"
+                - extendedWaitUntil:
+                    visible: "$NM04_TITLE"
+                    timeout: 30000
           - waitForAnimationToEnd
           - takeScreenshot: "nm04-$kind-header"
           YAML
@@ -582,10 +589,21 @@ jobs:
           YAML
             fi
             cat >> "$article_flow" <<YAML
-          - scrollUntilVisible:
-              element: "$NM04_BODY_TEXT"
-              direction: DOWN
-              timeout: 30000
+          - retry:
+              maxRetries: 1
+              commands:
+                - runFlow:
+                    when:
+                      visible: 'Open in.*HealthTimes Staging.*'
+                    commands:
+                      - tapOn: "Open"
+                      - extendedWaitUntil:
+                          visible: "$NM04_TITLE"
+                          timeout: 30000
+                - scrollUntilVisible:
+                    element: "$NM04_BODY_TEXT"
+                    direction: DOWN
+                    timeout: 30000
           - takeScreenshot: "nm04-$kind-body"
           YAML
             printf '%s\n' "healthtimes://article/$NM04_SLUG" > "$out/deep-link-target.txt"
