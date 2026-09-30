@@ -187,7 +187,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate'
     environment:
       name: github-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
@@ -201,7 +201,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   verify-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate'
     runs-on: ubuntu-latest
     needs: deploy-native-preview
     steps:
