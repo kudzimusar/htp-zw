@@ -199,7 +199,7 @@ jobs:
               page.on('console',msg=>{ if(msg.type()==='error') diagnostics.push('console:'+msg.text()); });
               page.on('requestfailed',req=>diagnostics.push('requestfailed:'+req.url()+':'+(req.failure()?.errorText??'unknown')));
               await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:30000});
-              await page.getByText('ACCEPTED MIGRATED CORPUS',{exact:false}).first().waitFor({timeout:30000});
+              await page.getByLabel('HealthTimes Home').first().waitFor({timeout:30000});
               await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
               const ad=page.locator('[aria-label="Advertising placement hospaz-header-direct"]');
               try{
