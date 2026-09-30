@@ -62,13 +62,13 @@ export default function ReaderTabs() {
         tabBarActiveTintColor:palette.blue,
         tabBarInactiveTintColor:palette.inkMuted,
         tabBarStyle: desktop ? { display:"none" } : {
-          minHeight:72,
+          minHeight:66,
           borderTopColor:palette.border,
           backgroundColor:palette.paper,
-          paddingTop:5
+          paddingTop:4
         },
-        tabBarItemStyle:{minHeight:60},
-        tabBarLabelStyle:{fontSize:10,fontWeight:"800",paddingBottom:7}
+        tabBarItemStyle:{minHeight:56},
+        tabBarLabelStyle:{fontSize:9,fontWeight:"800",paddingBottom:5}
       }}
     >
       <Tabs.Screen name="index" options={{title:"Home",tabBarIcon:icon("home")}} />

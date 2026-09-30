@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
 import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
@@ -58,18 +58,21 @@ function EditorialSection({
   title,
   eyebrow,
   stories,
-  onExplore
+  onExplore,
+  presentation="grid"
 }:{
   title:string;
   eyebrow?:string;
   stories:ArticleSummary[];
   onExplore?:()=>void;
+  presentation?:"grid"|"list";
 }){
   if(!stories.length) return null;
+  const visible=stories.slice(0,presentation==="list"?4:3);
   return (
     <Section>
       <SectionHeader title={title} eyebrow={eyebrow} action={onExplore?"Explore":undefined} onAction={onExplore} />
-      <StoryGrid stories={stories.slice(0,3)} />
+      {presentation==="list" ? <StoryList stories={visible} /> : <StoryGrid stories={visible} />}
     </Section>
   );
 }
@@ -89,7 +92,7 @@ function OpportunityLinks({links}:{links:PublicationLink[]}){
         >
           <Text style={[styles.opportunityEyebrow,{color:palette.blue}]}>HEALTHTIMES</Text>
           <Text style={[styles.opportunityTitle,{color:palette.ink}]}>{link.label}</Text>
-          <Text style={[styles.opportunityAction,{color:palette.inkMuted}]}>Open current publication destination →</Text>
+          <Text style={[styles.opportunityAction,{color:palette.inkMuted}]}>Explore opportunity →</Text>
         </Pressable>
       ))}
     </View>
@@ -183,40 +186,45 @@ export default function HomeScreen() {
 
   return (
     <Page>
-      <View style={styles.editorialFilters} accessibilityLabel="Editorial filters">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.editorialFilterRail}
+        contentContainerStyle={styles.editorialFilters}
+        accessibilityLabel="Editorial filters"
+      >
         {filters.map((item)=>(
           <Chip key={item.key} active={activeFilter===item.key} onPress={()=>setActiveFilter(item.key)}>{item.label}</Chip>
         ))}
-      </View>
-
+      </ScrollView>
 
       {hero ? <HeroStory story={hero} /> : null}
 
-      <Section><AdSlot placement="hospaz-header-direct" sensitiveHealthContext /></Section>
+      <AdSlot placement="hospaz-header-direct" sensitiveHealthContext />
 
       {!!liveItems.length && (
-        <Section>
+        <View style={styles.prioritySection}>
           <SectionHeader title="Live Now" eyebrow="LIVE" action="Open Live" onAction={() => router.push("/live" as never)} />
           <LiveRail items={liveItems} />
-        </Section>
+        </View>
       )}
 
-      <Section><AdSlot placement="home_after_live" /></Section>
+      <AdSlot placement="home_after_live" />
 
-      <Section>
+      <View style={styles.prioritySection}>
         <SectionHeader title="Top Stories" eyebrow="EDITOR'S DESK" action="Explore" onAction={() => router.push("/explore" as never)} />
         {topStories.length
           ? <StoryList stories={topStories} />
-          : <EmptyState title="No additional stories in this view" message="Choose another front-page filter or Explore the wider HealthTimes taxonomy." />}
-      </Section>
+          : <EmptyState title="More reporting is on the way" message="Choose another front-page filter or explore more HealthTimes coverage." />}
+      </View>
 
-      <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} onExplore={()=>setActiveFilter("latest")} />
+      <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
       <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
-      <EditorialSection title="Public Health" stories={publicHealth} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Public Health" stories={publicHealth} presentation="list" onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Research & Findings" stories={research} onExplore={()=>router.push("/explore" as never)} />
-      <EditorialSection title="Health Financing & Health Business" stories={financing} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Health Financing & Health Business" stories={financing} presentation="list" onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="HIV/AIDS" stories={hiv} onExplore={()=>router.push("/explore" as never)} />
-      <EditorialSection title="Global Health" stories={globalHealth} onExplore={()=>router.push("/explore" as never)} />
+      <EditorialSection title="Global Health" stories={globalHealth} presentation="list" onExplore={()=>router.push("/explore" as never)} />
 
       <Section>
         <SectionHeader title="Watch" eyebrow="HEALTHTIMES VIDEO" action="Open Watch" onAction={() => router.push("/watch" as never)} />
@@ -233,10 +241,20 @@ export default function HomeScreen() {
         <SectionHeader title="Premium Intelligence" eyebrow="MEMBER REPORTING" action="View Premium" onAction={() => router.push("/premium" as never)} />
         {premium.length
           ? <StoryGrid stories={premium.slice(0,3)} />
-          : <EmptyState title="Premium reporting unavailable in this source window" message="Premium presentation remains fail-closed until source metadata and entitlement authority are available." />}
+          : (
+            <EmptyState
+              title="Discover HealthTimes Premium"
+              message="Member reporting and analysis will appear here as it becomes available."
+              action={
+                <Pressable accessibilityRole="button" accessibilityLabel="Explore HealthTimes Premium" onPress={() => router.push("/premium" as never)}>
+                  <Text style={[styles.premiumLink,{color:palette.blue}]}>Explore Premium →</Text>
+                </Pressable>
+              }
+            />
+          )}
       </Section>
 
-      <Section><AdSlot placement="home_watch" /></Section>
+      <AdSlot placement="home_watch" />
 
       {!!opportunityLinks.length && (
         <Section>
@@ -250,7 +268,7 @@ export default function HomeScreen() {
         {editionStories.length ? (
           <StoryGrid stories={editionStories.slice(0,3)} />
         ) : (
-          <EmptyState title="Edition coverage is being prepared" message="The edition is supported by the global model, but the current bounded public source does not contain enough matching reporting yet." />
+          <EmptyState title={"More "+edition+" coverage is coming"} message="Explore the latest HealthTimes reporting while this edition grows." />
         )}
       </Section>
 
@@ -261,21 +279,16 @@ export default function HomeScreen() {
         </Section>
       )}
 
-      <Section>
-        <SectionHeader title="Most Read / Trending" />
-        <EmptyState
-          title="Most Read is not available yet"
-          message="Audience-ranked stories will appear here when readership data is available."
-        />
-      </Section>
-
-      <Section><AdSlot placement="home_deep_feed" /></Section>
+      <AdSlot placement="home_deep_feed" />
     </Page>
   );
 }
 
 const styles=StyleSheet.create({
-  editorialFilters:{paddingVertical:spacing.lg,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  editorialFilterRail:{marginHorizontal:-spacing.sm},
+  editorialFilters:{paddingVertical:spacing.md,paddingHorizontal:spacing.sm,flexDirection:"row",gap:spacing.sm},
+  prioritySection:{marginTop:spacing.xl},
+  premiumLink:{minHeight:44,textAlignVertical:"center",fontSize:13,fontWeight:"900",paddingVertical:12},
   previewNotice:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.md,paddingHorizontal:spacing.lg,marginBottom:spacing.xl,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.2},
   previewText:{fontSize:12,lineHeight:18,flex:1,minWidth:220},

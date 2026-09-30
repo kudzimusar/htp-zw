@@ -1,5 +1,5 @@
-import { useEffect, useRef, type PropsWithChildren } from "react";
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
 import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
@@ -13,34 +13,75 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function useHydratedCardWidth() {
+  const { width }=useWindowDimensions();
+  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
+  useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
+  return responsiveReady ? width : 0;
+}
+
 export function HeroStory({ story }: { story: ArticleSummary }) {
   const router=useRouter();
   const { palette }=useAppearance();
-  const { width }=useWindowDimensions();
+  const width=useHydratedCardWidth();
+  const phone=width < breakpoints.tablet;
+  const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
+  const hasMedia=Boolean(story.heroMedia?.publicUrl);
+  const imageHeadline=phone && hasMedia;
   return (
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={story.title}
       accessibilityHint="Opens the full HealthTimes article"
-      style={[styles.hero,{borderBottomColor:palette.border},desktop && styles.heroDesktop]}
+      style={[
+        styles.hero,
+        {borderBottomColor:palette.border},
+        imageHeadline && styles.heroPhoneMedia,
+        tablet && styles.heroTablet,
+        desktop && styles.heroDesktop
+      ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
       {story.heroMedia?.publicUrl ? (
         <Image
           source={{ uri: story.heroMedia.publicUrl }}
-          style={[styles.heroImage,{backgroundColor:palette.paperMuted},desktop && styles.heroImageDesktop]}
+          style={[
+            styles.heroImage,
+            {backgroundColor:palette.paperMuted},
+            phone && styles.heroImagePhone,
+            tablet && styles.heroImageTablet,
+            desktop && styles.heroImageDesktop
+          ]}
           accessibilityLabel={story.heroMedia.altText ?? story.title}
         />
       ) : null}
-      <View style={[styles.heroBody,desktop && styles.heroBodyDesktop]}>
+      <View style={[
+        styles.heroBody,
+        imageHeadline && styles.heroBodyOverlay,
+        tablet && styles.heroBodyTablet,
+        desktop && styles.heroBodyDesktop
+      ]}>
         <View style={styles.metaRow}>
-          <Text style={[styles.kicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
+          <Text style={[styles.kicker,{color:imageHeadline?"#D9F5F3":palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
           {story.accessPolicy === "premium" && <PremiumBadge />}
         </View>
-        <Text style={[styles.heroTitle,{color:palette.ink},desktop && styles.heroTitleDesktop]}>{story.title}</Text>
-        {!!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
-        <Text style={[styles.meta,{color:palette.inkMuted}]}>{story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}</Text>
+        <Text
+          numberOfLines={imageHeadline ? 4 : undefined}
+          style={[
+            styles.heroTitle,
+            {color:imageHeadline?"#FFFFFF":palette.ink},
+            imageHeadline && styles.heroTitleOverlay,
+            tablet && styles.heroTitleTablet,
+            desktop && styles.heroTitleDesktop
+          ]}
+        >
+          {story.title}
+        </Text>
+        {!imageHeadline && !!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
+        <Text style={[styles.meta,{color:imageHeadline?"#E7EDF3":palette.inkMuted}]}>
+          {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
+        </Text>
       </View>
     </Pressable>
   );
@@ -246,13 +287,21 @@ export function Surface({ children }: PropsWithChildren) {
 }
 
 const styles=StyleSheet.create({
-  hero:{borderBottomWidth:1,paddingBottom:spacing.xl},
+  hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
+  heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
+  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
   heroImage:{width:"100%",aspectRatio:16/9},
+  heroImagePhone:{aspectRatio:4/3},
+  heroImageTablet:{width:"56%",aspectRatio:4/3},
   heroImageDesktop:{width:"59%",aspectRatio:16/10},
   heroBody:{paddingTop:spacing.lg,gap:spacing.sm},
+  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.76)"},
+  heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
   heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
+  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
+  heroTitleTablet:{fontSize:30,lineHeight:35},
   heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
   metaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
@@ -261,7 +310,7 @@ const styles=StyleSheet.create({
   storyCard:{borderBottomWidth:1,paddingBottom:spacing.lg,gap:spacing.md},
   storyCompact:{flexDirection:"row",alignItems:"flex-start"},
   storyImage:{width:"100%",aspectRatio:16/9},
-  storyImageCompact:{width:132,height:92,aspectRatio:undefined},
+  storyImageCompact:{width:112,height:78,aspectRatio:undefined},
   storyBody:{gap:spacing.xs,flex:1},
   storyTitle:{fontSize:type.story,lineHeight:25,fontWeight:"900"},
   excerpt:{fontSize:14,lineHeight:21},

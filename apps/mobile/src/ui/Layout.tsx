@@ -53,7 +53,6 @@ export function Page({
 
   const body = (
     <View style={[styles.page, { backgroundColor: palette.paper }]}>
-      {chrome && <EnvironmentBanner />}
       {chrome && <AppHeader />}
       <ContentWidth bottomInset={mobileTabsVisible ? 96 : 64}>
         {!!title && (
@@ -151,8 +150,7 @@ export function AppHeader() {
         accessibilityLabel="Search HealthTimes"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>DISCOVER</Text>
-        <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
+        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Search</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/notifications")}
@@ -160,17 +158,15 @@ export function AppHeader() {
         accessibilityLabel="Notifications"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>UPDATES</Text>
-        <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
+        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Alerts</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/premium")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, styles.premiumAction, phone && styles.phoneActionButton, { borderColor: palette.border }]}
         accessibilityLabel="HealthTimes Premium"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionEyebrow, { color: palette.inkMuted }]}>MEMBERS</Text>
-        <Text style={[styles.actionText, { color: palette.ink }]}>Premium</Text>
+        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.blue }]}>Premium</Text>
       </Pressable>
     </View>
   );
@@ -179,7 +175,7 @@ export function AppHeader() {
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
       <View style={[styles.headerInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
-          <Text style={[styles.brand, { color: palette.ink }]}>HealthTimes</Text>
+          <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
         </Pressable>
 
         <Pressable
@@ -209,16 +205,8 @@ export function AppHeader() {
           </View>
         )}
 
-        {!phone && actions}
+        {actions}
       </View>
-
-      {phone && (
-        <View style={[styles.mobileUtilityWrap, { borderTopColor: palette.border }]}>
-          <View style={[styles.mobileUtilityInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
-            {actions}
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -301,24 +289,24 @@ const styles=StyleSheet.create({
   environment:{paddingVertical:6,paddingHorizontal:12},
   environmentText:{color:"#FFFFFF",fontSize:10,fontWeight:"800",textAlign:"center",letterSpacing:0.7},
   header:{borderBottomWidth:1},
-  headerInner:{width:"100%",alignSelf:"center",minHeight:68,flexDirection:"row",alignItems:"center",gap:spacing.md},
-  brandButton:{minHeight:layout.touchMin,justifyContent:"center"},
+  headerInner:{width:"100%",alignSelf:"center",minHeight:58,flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  brandButton:{minHeight:layout.touchMin,justifyContent:"center",flexShrink:0},
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
-  editionButton:{minHeight:layout.touchMin,maxWidth:150,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.md},
-  phoneEditionButton:{marginLeft:"auto",maxWidth:128,flexShrink:1},
-  editionLabel:{fontSize:9,fontWeight:"900",letterSpacing:1},
-  editionValue:{fontSize:12,fontWeight:"900",marginTop:2},
+  phoneBrand:{fontSize:21,letterSpacing:-0.6},
+  editionButton:{minHeight:layout.touchMin,maxWidth:122,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.sm,flexShrink:1},
+  phoneEditionButton:{maxWidth:62,paddingLeft:6},
+  editionLabel:{fontSize:8,fontWeight:"900",letterSpacing:.8},
+  editionValue:{fontSize:11,fontWeight:"900",marginTop:1},
   desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
   desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
   desktopNavText:{fontSize:14,fontWeight:"800"},
-  headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.sm},
-  phoneActions:{width:"100%",marginLeft:0},
-  actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderWidth:1,borderRadius:radius.sm},
-  phoneActionButton:{flex:1,minHeight:50},
-  actionEyebrow:{fontSize:8,fontWeight:"900",letterSpacing:0.9},
-  actionText:{fontSize:13,fontWeight:"900",marginTop:1},
-  mobileUtilityWrap:{borderTopWidth:1},
-  mobileUtilityInner:{width:"100%",alignSelf:"center",paddingVertical:spacing.sm},
+  headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.xs,flexShrink:0},
+  phoneActions:{gap:2},
+  actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:10,borderWidth:1,borderRadius:radius.sm},
+  premiumAction:{borderColor:"transparent"},
+  phoneActionButton:{paddingHorizontal:5,borderWidth:0,minWidth:44,alignItems:"center"},
+  actionText:{fontSize:12,fontWeight:"900"},
+  phoneActionText:{fontSize:10.5},
   screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},

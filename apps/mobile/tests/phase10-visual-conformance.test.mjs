@@ -57,6 +57,25 @@ test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
   assert.match(layout,/chrome\?: boolean/);
 });
 
+test("UI-01 Screen 1 shell removes dominant environment chrome and mobile utility cards",()=>{
+  assert.doesNotMatch(layout,/\{chrome && <EnvironmentBanner \/>\}/);
+  assert.doesNotMatch(layout,/mobileUtilityWrap/);
+  assert.match(layout,/phoneActionButton/);
+  assert.match(layout,/phoneBrand/);
+});
+
+test("UI-01 Home keeps filters single-row, collapses absent ads, and uses publication language",()=>{
+  assert.match(home,/<ScrollView[\s\S]*horizontal[\s\S]*accessibilityLabel="Editorial filters"/);
+  assert.doesNotMatch(home,/editorialFilters:\{[^}]*flexWrap:"wrap"/);
+  assert.doesNotMatch(home,/<Section><AdSlot placement="hospaz-header-direct"/);
+  assert.doesNotMatch(home,/<Section><AdSlot placement="home_after_live"/);
+  assert.doesNotMatch(home,/Premium reporting unavailable in this source window/);
+  assert.doesNotMatch(home,/bounded public source/);
+  assert.doesNotMatch(home,/Most Read \/ Trending/);
+  assert.match(cards,/heroBodyOverlay/);
+  assert.match(cards,/useHydratedCardWidth/);
+});
+
 test("Phase 10 public Article Reader hides migration-internal taxonomy labels",()=>{
   assert.doesNotMatch(article,/Canonical desk/);
   assert.doesNotMatch(article,/Legacy source taxonomy/);
