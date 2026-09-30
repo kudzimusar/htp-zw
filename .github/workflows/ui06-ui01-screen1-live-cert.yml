@@ -1,0 +1,79 @@
+name: UI-06 UI-01 Screen 1 Live Candidate Certification
+
+on:
+  push:
+    branches:
+      - test/ui06-ui01-screen1-live-cert
+    paths:
+      - '.github/workflows/ui06-ui01-screen1-live-cert.yml'
+      - 'scripts/ui/ui06-ui01-screen1-live-cert.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-live-ui01-home:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUBLIC_URL: https://kudzimusar.github.io/htp-zw/
+      TARGET_DEPLOYMENT_WRAPPER: c462b4cdf10bf0072cac48bbf163bb567428ce77
+      ACCEPTED_UI01_EXECUTABLE: c233377d71a6758d080ee3fffbd7c8731daf333a
+      ARTIFACT_DIR: artifacts/ui06/ui01-screen1-live-cert
+    steps:
+      - name: Check out certification tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Prove certification tooling identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "CERTIFICATION_TOOLING_SHA=$actual"
+          echo "TARGET_DEPLOYMENT_WRAPPER=$TARGET_DEPLOYMENT_WRAPPER"
+          echo "ACCEPTED_UI01_EXECUTABLE=$ACCEPTED_UI01_EXECUTABLE"
+          test "$actual" = "$GITHUB_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Record browser environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          echo "ImageOS=${ImageOS:-unknown}"
+          echo "ImageVersion=${ImageVersion:-unknown}"
+          echo "RUNNER_OS=${RUNNER_OS:-unknown}"
+          echo "RUNNER_ARCH=${RUNNER_ARCH:-unknown}"
+
+      - name: Install certification dependency only
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium
+        run: |
+          npx playwright --version
+          npx playwright install --with-deps chromium
+
+      - name: Run live UI-01 Screen 1 certification
+        env:
+          CERTIFICATION_TOOLING_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: node scripts/ui/ui06-ui01-screen1-live-cert.mjs
+
+      - name: Upload UI-06 UI-01 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-ui01-screen1-live-cert
+          path: artifacts/ui06/ui01-screen1-live-cert/
+          if-no-files-found: warn
+          retention-days: 30
