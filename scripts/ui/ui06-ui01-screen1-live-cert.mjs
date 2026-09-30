@@ -340,17 +340,12 @@ async function optionalAndTopStories(page,v,hero){
   const heroBottom=hero.hero_box?hero.hero_box.y+hero.hero_box.height:null;
   const gap=(heroBottom!==null&&topBox)?Math.max(0,topBox.y-heroBottom):null;
 
-  const next=page.getByText("Latest",{exact:true});
-  const nextBox=await box(next);
-  const storyLinks=page.locator('[role="link"]');
+  const topSection=top.locator("xpath=../../..");
+  const storyLinks=topSection.locator('[role="link"]');
   let count=0;
   for(let i=0;i<await storyLinks.count();i++){
     const l=storyLinks.nth(i);
-    if(!(await l.isVisible().catch(()=>false))) continue;
-    const b=await box(l);
-    if(!b||!topBox||b.y<=topBox.y) continue;
-    if(nextBox&&b.y>=nextBox.y) continue;
-    count++;
+    if(await l.isVisible().catch(()=>false)) count++;
   }
 
   const unexplained=!livePresent&&!hospazPresent&&!homeAfterPresent&&gap!==null&&gap>GAP_BLOCKER_PX;
@@ -512,19 +507,87 @@ async function markMaxresVisibility(page,v){
 async function screenshots(page,v,hero,top){
   const folder=path.join(ROOT,v.key);
   await mkdir(folder);
-  const full=path.join(folder,"home.png");
-  await page.screenshot({path:full,fullPage:true});
+
   if(v.key==="mobile"){
     await page.screenshot({path:path.join(folder,"above-fold.png"),clip:{x:0,y:0,width:v.width,height:v.height}});
   }else{
     const heroBox=hero.hero_box;
     const topY=top.Top_Stories_heading_top;
     if(heroBox&&topY!==null){
-      const docHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
+      const viewportDocHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
       const start=Math.max(0,heroBox.y-40);
-      const end=Math.min(docHeight,topY+440);
+      const end=Math.min(viewportDocHeight,topY+440);
       await page.screenshot({path:path.join(folder,"hero-topstories.png"),clip:{x:0,y:start,width:v.width,height:Math.max(100,end-start)}});
     }
+  }
+
+  const capture=await page.context().newPage();
+  try{
+    await capture.goto(PUBLIC_URL+"?ui06=full-"+v.key+"-"+Date.now(),{waitUntil:"domcontentloaded",timeout:TIMEOUT});
+    await capture.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout:TIMEOUT});
+    const before=await capture.evaluate(()=>({
+      document_scroll_height:document.documentElement.scrollHeight,
+      body_scroll_height:document.body?.scrollHeight??0,
+      viewport_height:innerHeight,
+      scroll_candidates:Array.from(document.querySelectorAll("*"))
+        .map((el,index)=>{
+          const style=getComputedStyle(el);
+          return {index,tag:el.tagName,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight,overflowY:style.overflowY};
+        })
+        .filter(x=>x.scrollHeight>x.clientHeight+200&&(x.overflowY==="auto"||x.overflowY==="scroll"))
+        .sort((a,b)=>(b.scrollHeight-b.clientHeight)-(a.scrollHeight-a.clientHeight))
+        .slice(0,5)
+    }));
+
+    const expanded=await capture.evaluate(()=>{
+      const candidates=Array.from(document.querySelectorAll("*"))
+        .map(el=>({el,style:getComputedStyle(el),delta:el.scrollHeight-el.clientHeight}))
+        .filter(x=>x.delta>200&&(x.style.overflowY==="auto"||x.style.overflowY==="scroll"))
+        .sort((a,b)=>b.delta-a.delta);
+      const scroller=candidates[0]?.el||null;
+      if(!scroller) return {scroller_found:false,original_scroll_height:null,original_client_height:null};
+
+      const originalScrollHeight=scroller.scrollHeight;
+      const originalClientHeight=scroller.clientHeight;
+      scroller.scrollTop=0;
+      scroller.style.setProperty("height",originalScrollHeight+"px","important");
+      scroller.style.setProperty("max-height","none","important");
+      scroller.style.setProperty("overflow","visible","important");
+      scroller.style.setProperty("overflow-y","visible","important");
+      scroller.style.setProperty("flex","none","important");
+
+      let node=scroller.parentElement;
+      while(node){
+        node.style.setProperty("height","auto","important");
+        node.style.setProperty("max-height","none","important");
+        node.style.setProperty("overflow","visible","important");
+        node.style.setProperty("overflow-y","visible","important");
+        if(node===document.body) break;
+        node=node.parentElement;
+      }
+      document.documentElement.style.setProperty("height","auto","important");
+      document.documentElement.style.setProperty("max-height","none","important");
+      document.documentElement.style.setProperty("overflow","visible","important");
+      document.body.style.setProperty("height","auto","important");
+      document.body.style.setProperty("max-height","none","important");
+      document.body.style.setProperty("overflow","visible","important");
+      window.scrollTo(0,0);
+      return {scroller_found:true,original_scroll_height:originalScrollHeight,original_client_height:originalClientHeight};
+    });
+
+    await capture.waitForTimeout(250);
+    const after=await capture.evaluate(()=>({
+      document_scroll_height:document.documentElement.scrollHeight,
+      body_scroll_height:document.body?.scrollHeight??0,
+      viewport_height:innerHeight
+    }));
+    if(expanded.scroller_found&&expanded.original_scroll_height>v.height+200&&after.document_scroll_height<=v.height+100){
+      throw new Error("Full Home evidence capture did not expand the React Native Web scroll container.");
+    }
+    await capture.screenshot({path:path.join(folder,"home.png"),fullPage:true});
+    return {before,expanded,after};
+  }finally{
+    await capture.close();
   }
 }
 
@@ -554,14 +617,14 @@ async function runViewport(browser,v){
     out.service_worker=await serviceWorkerEvidence(page,v);
     out.language_feed=await languageAndFeedEvidence(page,v);
 
-    await markMaxresVisibility(page,v);
-    await screenshots(page,v,out.hero,out.editorial);
-
     if(!firstBlocker || (firstBlocker.category!=="RUNTIME DEFECT"&&firstBlocker.category!=="MEDIA / DATA DEFECT"&&firstBlocker.category!=="DEPLOYMENT DEFECT")){
       out.premium=await premiumEvidence(page,v);
     }else{
       out.premium={skipped_due_to_blocker:true};
     }
+
+    await markMaxresVisibility(page,v);
+    out.screenshot_capture=await screenshots(page,v,out.hero,out.editorial);
 
     const viewportErrors=[
       ...pageErrors.filter(x=>x.viewport===v.key).map(x=>x.message),
