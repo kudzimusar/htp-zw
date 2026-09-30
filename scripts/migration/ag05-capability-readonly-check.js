@@ -59,35 +59,22 @@ async function main() {
     return data;
   }
 
-  const [
-    directResolution,
-    premiumResolution,
-    aliasResolution,
-    explicit404Resolution,
-    directDoc,
-    premiumDoc,
-    categoryDoc,
-    tagDoc,
-    authorDoc,
-    unverifiableAuthorAlias,
-    sitemapXml,
-    feedRows,
-    hospaz
-  ] = await Promise.all([
-    rpc('ag05_resolve_public_path', { p_path: directPath }),
-    rpc('ag05_resolve_public_path', { p_path: premiumPath }),
-    rpc('ag05_resolve_public_path', { p_path: aliasPath }),
-    rpc('ag05_resolve_public_path', { p_path: explicit404Path }),
-    rpc('ag05_public_story_document', { p_path: directPath }),
-    rpc('ag05_public_story_document', { p_path: premiumPath }),
-    rpc('ag05_public_context_document', { p_path: categoryPath }),
-    rpc('ag05_public_context_document', { p_path: tagPath }),
-    rpc('ag05_public_context_document', { p_path: authorPath }),
-    rpc('ag05_public_context_document', { p_path: unverifiableAuthorAliasPath }),
-    rpc('ag05_public_sitemap_xml', {}),
-    rpc('ag05_public_feed_rows', { p_limit: EXPECTED_FEED_ITEMS }),
-    rpc('ag05_hospaz_direct_ad_preview', {})
-  ]);
+  // Keep this staging proof intentionally read-only and sequential.
+  // These RPCs query the same migrated corpus; firing all of them concurrently can
+  // exhaust the bounded PostgREST statement window and create a false CP5 failure.
+  const directResolution = await rpc('ag05_resolve_public_path', { p_path: directPath });
+  const premiumResolution = await rpc('ag05_resolve_public_path', { p_path: premiumPath });
+  const aliasResolution = await rpc('ag05_resolve_public_path', { p_path: aliasPath });
+  const explicit404Resolution = await rpc('ag05_resolve_public_path', { p_path: explicit404Path });
+  const directDoc = await rpc('ag05_public_story_document', { p_path: directPath });
+  const premiumDoc = await rpc('ag05_public_story_document', { p_path: premiumPath });
+  const categoryDoc = await rpc('ag05_public_context_document', { p_path: categoryPath });
+  const tagDoc = await rpc('ag05_public_context_document', { p_path: tagPath });
+  const authorDoc = await rpc('ag05_public_context_document', { p_path: authorPath });
+  const unverifiableAuthorAlias = await rpc('ag05_public_context_document', { p_path: unverifiableAuthorAliasPath });
+  const sitemapXml = await rpc('ag05_public_sitemap_xml', {});
+  const feedRows = await rpc('ag05_public_feed_rows', { p_limit: EXPECTED_FEED_ITEMS });
+  const hospaz = await rpc('ag05_hospaz_direct_ad_preview', {});
 
   const directRoute = routeDecision(directResolution);
   const premiumRoute = routeDecision(premiumResolution);
