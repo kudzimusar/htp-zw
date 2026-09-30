@@ -164,7 +164,8 @@ test("responsive Reader shell keeps mobile native and desktop editorial navigati
   assert.ok(tabs.includes("tabBarActiveTintColor:palette.blue"));
   assert.ok(tabs.includes("tabBarInactiveTintColor:palette.inkMuted"));
   assert.ok(layout.includes("phone = width < breakpoints.tablet"));
-  assert.ok(layout.includes("mobileUtilityWrap"));
+  assert.ok(!layout.includes("mobileUtilityWrap"));
+  assert.ok(layout.includes("phoneActions"));
   assert.ok(layout.includes("Search HealthTimes"));
   assert.ok(layout.includes("Notifications"));
   assert.ok(layout.includes("Change edition"));

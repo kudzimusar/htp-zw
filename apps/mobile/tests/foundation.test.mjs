@@ -152,11 +152,19 @@ test("approved design hierarchy remains visible in the core UI", () => {
     "Health Business",
     "Premium Intelligence",
     "Watch",
+    "Global Health"
+  ]) {
+    assert.match(home, new RegExp(heading.replace(/[&/]/g, "\\    "Premium Intelligence",
+    "Watch",
     "Global Health",
     "Most Read / Trending"
   ]) {
     assert.match(home, new RegExp(heading.replace(/[&/]/g, "\\$&")));
   }
+
+  const studio")));
+  }
+  assert.doesNotMatch(home, /Most Read \/ Trending/);
 
   const studio = read("src/ui/Studio.tsx");
   assert.match(studio, /Create \/ Edit/);
