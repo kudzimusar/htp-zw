@@ -557,6 +557,10 @@ async function screenshots(page,v,hero,top){
     }));
 
     const expanded=await capture.evaluate(()=>{
+      document.querySelectorAll('[role="tablist"]').forEach(node=>{
+        node.style.setProperty("visibility","hidden","important");
+        node.style.setProperty("pointer-events","none","important");
+      });
       const controlName=n=>(n.getAttribute("aria-label")||n.textContent||"").replace(/\s+/g," ").trim();
       const visible=n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0;};
       const controls=Array.from(document.querySelectorAll('[role="tab"],[role="button"],[role="link"],a')).filter(visible);
