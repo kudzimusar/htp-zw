@@ -558,6 +558,7 @@ async function screenshots(page,v,hero,top){
 
     const expanded=await capture.evaluate(()=>{
       document.querySelectorAll('[role="tablist"]').forEach(node=>{
+        node.style.setProperty("display","none","important");
         node.style.setProperty("visibility","hidden","important");
         node.style.setProperty("pointer-events","none","important");
       });
