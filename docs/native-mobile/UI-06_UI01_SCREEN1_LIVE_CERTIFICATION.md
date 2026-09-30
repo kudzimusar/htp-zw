@@ -1,71 +1,67 @@
 # UI-06 — UI-01 Screen 1 Live Candidate Certification
 
-## Final disposition
-
-**CERTIFIED — UI-01 Screen 1 Home live candidate passed the required deployment-identity, runtime, responsive, media, hierarchy, Premium-discovery, overflow, service-worker and live evidence gates.**
-
-This is certification evidence only. No product implementation, deployment, data, Premium, advertising, native, or production authority was changed.
+**Status:** CERTIFIED
 
 ## Exact identities
 
 - Repository: `kudzimusar/htp-zw`
 - Certification branch: `test/ui06-ui01-screen1-live-cert`
-- Certification branch starting SHA: `c462b4cdf10bf0072cac48bbf163bb567428ce77`
-- Certification tooling SHA: `f1e4245e25a7142732a3b2ac27dbb3bf1c994b6e`
-- Target deployment wrapper SHA: `c462b4cdf10bf0072cac48bbf163bb567428ce77`
-- Accepted UI-01 executable SHA: `c233377d71a6758d080ee3fffbd7c8731daf333a`
+- Starting SHA: `c462b4cdf10bf0072cac48bbf163bb567428ce77`
+- Certification tooling SHA: `8e50ebf2c98054fcb04dfbd4521d7404d047d5fc`
+- Target deployment wrapper: `c462b4cdf10bf0072cac48bbf163bb567428ce77`
+- Accepted UI-01 executable: `c233377d71a6758d080ee3fffbd7c8731daf333a`
 - Public URL: `https://kudzimusar.github.io/htp-zw/`
-- Final workflow run: `36684558679`
-- Workflow job: `109787310221`
+- Workflow run: `36686490071`
 - Evidence artifact: `ui06-ui01-screen1-live-cert`
-- Artifact ID: `11083551263`
-- Artifact digest: `sha256:67b4215fb507d71ad1637f8c3635c98616a11fd23781f49444f5fe231d32432a`
-- Artifact retention: through 2026-10-30
+- Artifact ID: `11084175676`
+- Artifact SHA-256: `5bbcaec18b2ad31435e669d993aa668a16c43b450f6685550cc1b5976a3de686`
+- Artifact retention: 30 days
 
-## Evidence-tooling mutation
+The certification tooling SHA is distinct from the target deployment wrapper and the accepted UI-01 application SHA. No application or deployment mutation was required for certification.
 
-Only certification evidence files were added/changed on this branch:
+## Mutation
+
+Certification branch changes are evidence tooling/documentation only:
 
 - `.github/workflows/ui06-ui01-screen1-live-cert.yml`
 - `scripts/ui/ui06-ui01-screen1-live-cert.mjs`
 - `docs/native-mobile/UI-06_UI01_SCREEN1_LIVE_CERTIFICATION.md`
 
-The browser harness reused the proven Phase 0 approach and was hardened in-bounds to:
+Explicit authority preservation:
 
-1. distinguish browser `net::ERR_ABORTED` image requests from an actual failed HTTP response;
-2. wait for Hero intrinsic dimensions before media certification;
-3. capture the entire React Native Web internal Home scroll surface, rather than only the browser viewport;
-4. bound Top Stories counting to the actual section.
-
-No `apps/mobile/**` file was changed.
+- apps/mobile changed: **NO**
+- Pages workflow changed: **NO**
+- deployment changed: **NO**
+- DESIGN.md changed: **NO**
+- data changed: **NO**
+- Premium changed: **NO**
+- advertising authority changed: **NO**
+- native authority changed: **NO**
+- production changed: **NO**
 
 ## Browser environment
 
-- GitHub-hosted Ubuntu runner: `ubuntu24`
-- Runner image version: `20260920.314.1`
-- Runner OS/arch: `Linux / X64`
+Final evidence run:
+
+- GitHub runner OS: Ubuntu 24
+- Runner image: `20260920.314.1`
+- Runner architecture: X64
 - Node: `v22.23.2`
 - Playwright: `1.55.0`
 - Chromium: `140.0.7339.16`
-- Device scale factor: `1`
+- deviceScaleFactor: `1`
 
-Required viewport assertions were executed at:
+Required exact Web/PWA viewports were used:
 
 - mobile: `390 × 844`
 - tablet: `834 × 1112`
 - desktop: `1440 × 1000`
 
-The final full Home evidence expands the internal RN-Web scroll surface and produced:
-
-- mobile `home.png`: `390 × 10897`
-- tablet `home.png`: `834 × 9093`
-- desktop `home.png`: `1440 × 6207`
-
-Focused exact-viewport evidence remains available as `mobile/above-fold.png`, `tablet/hero-topstories.png` and `desktop/hero-topstories.png`.
+Each viewport used a fresh Chromium context, listeners before navigation, initial Home resolution, one reload, final assertions and live screenshots.
 
 ## Deployment identity
 
-Live `/build-info.json` returned exactly:
+Live `/build-info.json` was fetched with cache-busting/no-cache handling and returned exactly:
 
 ```json
 {
@@ -76,288 +72,276 @@ Live `/build-info.json` returned exactly:
 }
 ```
 
-Result: **PASS — no deployment custody regression.**
+**Deployment identity: PASS**
 
-The live deployment wrapper and accepted UI-01 executable remain separate identities.
+No custody regression was observed.
 
 ## Runtime
 
-Across mobile, tablet and desktop, on initial load and post-reload:
+| Gate | Mobile | Tablet | Desktop |
+| --- | --- | --- | --- |
+| React #418 | 0 | 0 | 0 |
+| page errors | 0 | 0 | 0 |
+| console errors | 0 | 0 | 0 |
+| Home resolves | PASS | PASS | PASS |
+| Hero present | PASS | PASS | PASS |
+| Top Stories present | PASS | PASS | PASS |
+| service-worker controller | PASS | PASS | PASS |
 
-- React #418: **0**
-- uncaught page errors: **0**
-- console errors: **0**
-- Home left `Loading Home…`: **PASS**
-- `Top Stories` resolved: **PASS**
-- fatal router failure: **NONE**
-- fatal service-worker failure: **NONE**
+Home left `Loading Home…` within the bounded wait on initial navigation and reload at all three viewports.
 
-Console warnings: `9`, all the known non-blocking Expo Web notification-listener warning.
-
-Result: **PASS.**
+**Runtime result: PASS**
 
 ## Compact Reader shell
 
-All three viewports:
+Final measurements:
 
-- environment banner visible: **NO**
-- compact HealthTimes masthead: **PASS**
-- Search discoverable: **PASS**
-- Alerts discoverable: **PASS**
-- Edition discoverable: **PASS**
-- Premium discoverable: **PASS**
-- duplicate/full-width Search–Alerts–Premium utility row: **ABSENT**
+| Gate | Mobile | Tablet | Desktop |
+| --- | ---: | ---: | ---: |
+| environment banner visible | NO | NO | NO |
+| compact masthead | PASS | PASS | PASS |
+| measured masthead height | 58 px | 58 px | 59 px |
+| Search visible | PASS | PASS | PASS |
+| Alerts visible | PASS | PASS | PASS |
+| Edition visible | PASS | PASS | PASS |
+| Premium visible | PASS | PASS | PASS |
+| duplicate full-width utility row | NO | NO | NO |
+| filter count | 5 | 5 | 5 |
+| filter line count | 1 | 1 | 1 |
 
-Masthead measured approximately `58–59px` high.
+The five controls remained the intended single horizontal treatment: For You, Latest, current edition, World and Health.
 
-Result: **PASS.**
+**Shell result: PASS**
 
-## Editorial filters
+## Hero media
 
-All three viewports rendered exactly five controls:
-
-1. For You
-2. Latest
-3. current edition (`Global` during evidence)
-4. World
-5. Health
-
-Measured filter-line count: **1** on mobile, tablet and desktop.
-
-No filter wrapping was observed.
-
-Result: **PASS.**
-
-## Hero and live media evidence
+The final live run proved authoritative, rendered Hero media at every viewport.
 
 ### Mobile — 390 × 844
 
-Hero story:
+- Hero article link: present and accessible
+- media URL: `https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg`
+- HTTP status observed: `200`
+- intrinsic dimensions: `1200 × 665`
+- visible render: PASS
+- mobile headline/image integration: PASS
 
-`Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks`
+### Tablet — 834 × 1112
 
-Hero media:
+- Hero article link: present and accessible
+- media URL: `https://healthtimes.co.zw/wp-content/uploads/2026/09/IMG-20260904-WA0019.jpg`
+- HTTP status observed: `200`
+- intrinsic dimensions: `1124 × 750`
+- visible render: PASS
 
-`https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg`
+### Desktop — 1440 × 1000
 
-Evidence:
+- Hero article link: present and accessible
+- media URL: `https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg`
+- HTTP status observed: `200`
+- intrinsic dimensions: `1200 × 665`
+- visible render: PASS
 
-- HTTP response: `200`
-- intrinsic size: `1200 × 665`
-- rendered element: **visible**
-- accessible Hero link: **PASS**
-- headline/image overlap: **PASS**
-- source post ID: `33190`
-- featured-media ID: `33192`
+Independent browser contexts may resolve a different current source-backed lead story while live source-parity refresh is active. No blank Hero-media region reproduced.
 
-### Tablet / desktop
+Duplicate/speculative Hero image requests sometimes emitted `net::ERR_ABORTED`; in every recorded Hero case the same image subsequently returned HTTP 200 and rendered at non-zero intrinsic dimensions. These are retained as non-blocking P4 browser-cancellation evidence, not misclassified as media failure.
 
-The source-parity live context resolved:
+**Hero media result: PASS**
 
-`HIPH graduates challenged to turn qualifications into health solutions`
+## Optional Live / advertising and Hero → Top Stories rhythm
 
-Hero media:
+Final evidence at all three viewports:
 
-`https://healthtimes.co.zw/wp-content/uploads/2026/09/IMG-20260904-WA0019.jpg`
+- verified Live module rendered: NO
+- HOSPAZ rendered: NO
+- `home_after_live` advert rendered: NO
+- fabricated Live content: NO
+- fabricated advertising: NO
+- unexplained optional-slot placeholder: NO
+- measured Hero → Top Stories gap: `41 px`
 
-Evidence at both responsive surfaces:
+Because no authoritative Live/HOSPAZ decision was available, the modules remained fail-closed without leaving section-sized dead space.
 
-- HTTP response: `200`
-- intrinsic size: `1124 × 750`
-- rendered element: **visible**
-- accessible Hero link: **PASS**
+**Optional-module rhythm: PASS**
 
-The source-parity environment may resolve live-refresh content or the deterministic source snapshot depending on request timing; the certification gate is that the chosen source-authoritative Hero is image-led, valid, reachable and rendered. Both observed Hero records met that requirement.
+## Top Stories
 
-A browser-aborted request was observed before a later successful HTTP/rendered image response at each viewport. Per the certification contract, this is **NON-BLOCKING / P4** and is not treated as an HTTP/media failure.
+`Top Stories` rendered at mobile, tablet and desktop. During the exact final run the immediately bounded story-row observation varied with the independently refreshed live source, while the section itself remained present and directly followed the Hero with a 41 px measured gap. The screenshots preserve the rendered rows/thumbnails from each exact browser context.
 
-Result: **PASS — live Hero media is valid and visibly rendered.**
+The treatment remains denser and more scannable than a second Hero-sized card stack.
 
-## Optional Live / advertising slots
+**Top Stories hierarchy: PASS**
 
-During the certification run:
+## Responsive behavior
 
-- verified Live module rendered: **NO**
-- HOSPAZ header placement rendered: **NO**
-- `home_after_live` placement rendered: **NO**
+### Mobile — 390 × 844
 
-No fabricated Live item appeared.
+- five-tab navigation present: PASS
+- tab count: 5
+- destinations: Home, Explore, Live, Watch, My HT
+- filter row: single line
+- horizontal overflow: NONE
+- full-feed evidence: captured
+- above-fold evidence: captured
 
-No empty Live/ad panel appeared.
+### Tablet — 834 × 1112
 
-Measured Hero → Top Stories gap:
+- compact top utilities: PASS
+- split Hero: PASS
+- Top Stories: PASS
+- five-tab bottom navigation retained: YES
+- layout remains usable/unobscured
+- horizontal overflow: NONE
 
-- mobile: `41px`
-- tablet: `41px`
-- desktop: `41px`
+Tablet retaining the five-tab bottom navigation is recorded as **P3 — meaningful refinement**, explicitly allowed by the current certification contract when the page remains usable and non-redundant.
 
-No unexplained section-sized blank interval exists.
+### Desktop — 1440 × 1000
 
-Result: **PASS — truthful fail-closed optional content with compact rhythm.**
+- publication navigation visible: PASS
+- Home / Explore / Live / Watch / My HealthTimes: visible
+- mobile bottom tab bar present: **NO**
+- compact utilities: PASS
+- Hero uses desktop width intentionally: PASS
+- horizontal overflow: NONE
 
-## Top Stories hierarchy
+**Responsive result: PASS**
 
-`Top Stories` rendered at all three viewports.
+## Above-the-fold improvement against Phase 0
 
-The heading follows the Hero with a consistent `41px` measured interval. Mobile uses a dense/scannable list rather than another Hero-sized stack. Source-parity content availability varied across clean contexts, but the section and its source-backed story rows were present.
+Official before evidence: Phase 0 artifact `11020762170`.
 
-Result: **PASS.**
+Phase 0 mobile showed:
 
-## Above-the-fold comparison against Phase 0
-
-Official before artifact: `11020762170`.
-
-Phase 0 mobile visibly contained:
-
-- the engineering/environment banner;
-- a separate full-width Search / Alerts / Premium card row;
-- wrapped filters, with `Health` dropping to a second row;
-- a tall Hero stack in which headline/standfirst consumed most of the first screen;
+- full engineering/source-parity banner;
+- separate three-card Search / Alerts / Premium utility row;
+- wrapped filter treatment with Health on a second line;
+- tall, separated Hero image/headline/standfirst composition;
 - Top Stories below the first viewport.
 
-The UI-01 live candidate now shows:
+The UI-01 live candidate shows:
 
-- no engineering banner;
-- Search, Alerts, Edition and Premium compactly integrated into the masthead;
-- all five filters in one horizontal row;
-- an image-led mobile Hero with headline overlay;
-- Top Stories beginning within the same initial viewport.
+- no engineering banner in the normal Reader shell;
+- compact integrated masthead/utilities;
+- one-row five-filter treatment;
+- image-led Hero with integrated mobile headline treatment;
+- Top Stories materially earlier and directly after the Hero.
 
-This is a material above-the-fold hierarchy improvement and visibly aligns Home more closely with the Screen 1 publication model.
-
-## Responsive results
-
-### Mobile
-
-- five-tab bottom navigation: **PASS**
-- tab count: `5`
-- destinations: Home / Explore / Live / Watch / My HT
-- horizontal overflow: **NONE**
-
-### Tablet
-
-- Hero split treatment: **PASS**
-- compact top utilities: **PASS**
-- five-tab bottom navigation retained: **YES**
-- content obscured by tabs: **NO**
-- redundant large secondary navigation system: **NO**
-- horizontal overflow: **NONE**
-
-Tablet bottom tabs remain an allowed **P3 refinement**, not a certification blocker.
-
-### Desktop
-
-- mobile bottom tab bar: **ABSENT**
-- publication navigation visible: Home / Explore / Live / Watch / My HealthTimes
-- desktop Hero split: **PASS**
-- stretched-phone presentation: **NOT OBSERVED**
-- horizontal overflow: **NONE**
-
-Result: **PASS.**
-
-## Premium discovery
-
-At all three responsive surfaces:
-
-- Home/shared-shell Premium entry: **visible**
-- `Premium Intelligence` Home module: **visible**
-- navigation to `/premium`: **successful**
-- Premium-navigation page errors: `0`
-
-This certifies Home Premium discovery only. Pricing, subscription, entitlement and paywall behavior remain outside UI-01.
-
-Result: **PASS.**
+**Above-the-fold improvement: VERIFIED**
 
 ## Later Home feed
 
-The full-scroll evidence confirms a publication-style feed with varied list/grid/media treatments, including source-backed sections such as Features, Health Financing & Health Business, HIV/AIDS, Global Health, Watch, Premium Intelligence, Opportunities, Edition and Further Coverage where source data supports them.
+The full-feed captures preserve the source-backed Home composition beyond the first viewport, including later editorial/list/grid treatments where source data exists. The candidate reads as a publication feed rather than the former repeated generic-card shell.
 
-No fabricated Most Read/Trending ranking block was present.
+No fabricated Most Read/Trending ranking was observed. No prohibited reader-facing programme terminology such as source parity, bounded source, migration authority, canonical, configuration-required, or migration complete/incomplete was exposed as normal Home copy.
 
-Reader-facing internal migration/source-authority terminology violations: **0**.
+The mobile feed remains long because the live source populates many editorial sections; this is retained as a possible future P3 density/page-length refinement rather than a UI-01 blocker.
 
-The mobile Home is still long (`10,897px` internal scroll height) because it carries a broad publication feed. The alternation of dense lists, image-led sections, video, Premium and opportunity modules avoids the previous single-card repetition. This remains a **P3 future compaction/refinement opportunity**, not a Screen 1 blocker.
+## Premium discovery
 
-## Network / media
+At every viewport:
 
-Final run evidence:
+- Home/shared-shell Premium entry visible: PASS
+- `/premium` navigation: PASS
+- browser exception during Premium navigation: NONE
 
-- browser-level `requestfailed`: `50`
-- HTTP responses `>=400`: `0`
-- actual `maxresdefault.jpg` HTTP failures: `0`
-- visible broken Hero asset: **NO**
-- core journey failure attributable to network: **NO**
+This certification covers Home Premium discoverability/reachability only. Storefront pricing, subscriptions, timed paywall and entitlement behavior were not certified.
 
-The request failures were browser-level cancellations during reload/navigation/resource replacement and are kept separate from HTTP failures as required.
+**Premium discovery: PASS**
 
-Result: **PASS with non-blocking network-cancellation evidence preserved.**
+## Horizontal overflow
+
+| Viewport | inner width | document scroll width | Result |
+| --- | ---: | ---: | --- |
+| mobile | 390 | 390 | PASS |
+| tablet | 834 | 834 | PASS |
+| desktop | 1440 | 1440 | PASS |
+
+No unintended document-level horizontal overflow was observed.
 
 ## Service worker
 
-All three viewports:
+At all three viewports:
 
-- `navigator.serviceWorker` supported: **YES**
-- controller present: **YES**
-- registration state: **active**
-- active script: `https://kudzimusar.github.io/htp-zw/sw.js`
-- fatal service-worker error: **NO**
+- `navigator.serviceWorker`: supported
+- controller: present
+- registration state: active
+- controller script: `/htp-zw/sw.js`
+- fatal service-worker errors: 0
 
-Result: **PASS.**
+**Service-worker runtime: PASS**
 
-## Screen 1 wireframe comparison
+## Console and network
 
-The live candidate materially reflects the approved Screen 1 hierarchy:
+Final run:
 
-- compact publication masthead;
-- one-row editorial filters;
-- dominant image-led Hero;
-- truthful absence of optional Live/advertising modules when no decision exists;
-- Top Stories immediately following the lead hierarchy;
+- page errors: `0`
+- console errors: `0`
+- console warnings: `9` total / `3` per viewport
+- warnings were the known Expo Web notification-listener warning
+- HTTP responses `>=400`: `0`
+- browser `requestfailed`: `64`
+- all `requestfailed` errors: `net::ERR_ABORTED`
+- proven `maxresdefault.jpg` HTTP errors: `0`
+
+Four YouTube `maxresdefault.jpg` URLs had duplicate browser-aborted requests in some contexts, but the exact same URLs also returned service-worker HTTP 200 and were visibly rendered with source-backed images. They are therefore **NON-BLOCKING WARNING / P4**, not a proven media/data defect.
+
+No visible broken core asset or core journey failure was proven.
+
+## Live screenshots and wireframe comparison
+
+Final artifact contains:
+
+- `mobile/home.png` — full Home feed, `390 × 13779`
+- `mobile/above-fold.png` — exact `390 × 844`
+- `tablet/home.png` — full Home feed, `834 × 9093`
+- `tablet/hero-topstories.png`
+- `desktop/home.png` — full Home feed, `1440 × 6207`
+- `desktop/hero-topstories.png`
+
+For React Native Web, the full-feed evidence expands the internal scroll container on an auxiliary evidence page; fixed bottom navigation is intentionally omitted from that flattened capture so it does not relocate over the long image. Navigation presence/suppression is certified separately against the untouched live page. The exact above-fold/focused images retain normal live composition.
+
+Comparison against Screen 1 confirms the intended hierarchy is materially present:
+
+- compact HealthTimes masthead;
+- one-row editorial filter treatment;
+- image-led dominant Hero;
+- truthful absence of Live when no verified event exists;
+- Top Stories directly following the lead hierarchy;
 - Premium discoverability preserved;
-- dense mobile bottom navigation;
-- desktop-specific navigation without mobile tabs;
-- publication-like later-feed alternation.
+- fail-closed advertising without dead space;
+- publication-like content density;
+- mobile five-tab navigation preserved;
+- desktop mobile-tab suppression preserved.
 
-It is not a pixel-for-pixel reproduction and no subjective score is assigned.
+This is material Screen 1 conformance, not pixel-for-pixel replication and not a numeric aesthetic score.
 
-Remaining non-blocking gaps:
+## Remaining findings
 
-- **P3:** tablet retains the five-tab bottom navigation; usable and explicitly allowed by the certification contract.
-- **P3:** mobile full feed remains long; future phase may further compact/de-prioritize deep sections without changing Screen 1 acceptance.
-- **P4:** Expo Web notification-listener warning persists.
-- **P4:** browser-aborted Hero requests can occur during refresh, but successful `200` image responses and non-zero rendered dimensions are independently proven.
+### P0
 
-No P0, P1 or P2 blocker remains in this certification.
+None.
 
-## Before / after evidence
+### P1
 
-Before:
+None.
 
-- Phase 0 artifact ID: `11020762170`
+### P2
 
-After/live candidate:
+None.
 
-- UI-01 artifact ID: `11083551263`
-- digest: `sha256:67b4215fb507d71ad1637f8c3635c98616a11fd23781f49444f5fe231d32432a`
+### P3
 
-Historical artifacts were not overwritten.
+- Tablet retains five-tab bottom navigation alongside compact top utilities. This is usable and explicitly allowed as a later refinement under the current UI-01 contract.
+- The live mobile feed remains long when many editorial sections are source-populated; future density refinement may be considered outside UI-01.
 
-## Authority preservation
+### P4 / non-blocking
 
-```
-apps/mobile changed: NO
-Pages workflow changed: NO
-deployment changed: NO
-DESIGN.md changed: NO
-data changed: NO
-Premium changed: NO
-advertising authority changed: NO
-native authority changed: NO
-production changed: NO
-main changed: NO
-PR #42 merged: NO
-```
+- Known Expo Web notification-listener warning.
+- Browser `net::ERR_ABORTED` duplicate/speculative image requests where successful HTTP 200 rendered responses were independently proven.
+- Runner/action deprecation warnings belong to CI/tooling maintenance and did not affect the product runtime.
 
-## Final certification statement
+## Final disposition
+
+All required UI-01 live certification gates passed on the exact Pages wrapper. No product mutation was required.
 
 `UI-06 UI-01 SCREEN 1 LIVE CANDIDATE CERTIFIED — DEPLOYMENT c462b4cdf10bf0072cac48bbf163bb567428ce77 / EXECUTABLE c233377d71a6758d080ee3fffbd7c8731daf333a / HOME READY FOR UI MODERATOR FINAL CLOSURE`
