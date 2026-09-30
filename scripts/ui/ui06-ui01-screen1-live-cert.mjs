@@ -261,8 +261,8 @@ async function heroEvidence(page,v){
     const imageBox=await box(image);
     if(info){
       const response=[...imageResponses].reverse().find(x=>x.viewport===v.key&&x.url===info.url);
-      const failed=requestFailed.some(x=>x.viewport===v.key&&x.url===info.url);
-      imageInfo={present:true,url:info.url,natural_width:info.natural_width,natural_height:info.natural_height,box:imageBox,network_status:response?.status??null,requestfailed:failed,visible_render_result:info.natural_width>0&&info.natural_height>0&&info.rendered_width>0&&info.rendered_height>0};
+      const failedRequest=[...requestFailed].reverse().find(x=>x.viewport===v.key&&x.url===info.url);
+      imageInfo={present:true,url:info.url,natural_width:info.natural_width,natural_height:info.natural_height,box:imageBox,network_status:response?.status??null,requestfailed:Boolean(failedRequest),requestfailed_error:failedRequest?.failure?.errorText??null,visible_render_result:info.natural_width>0&&info.natural_height>0&&info.rendered_width>0&&info.rendered_height>0};
     }
   }
 
@@ -276,7 +276,11 @@ async function heroEvidence(page,v){
     mobileHeadlineImageOverlap=x*y>0;
   }
   const mediaAuthoritative=sourceAuthority?.media_url||imageInfo.url||null;
-  const mediaValid=imageInfo.present&&imageInfo.visible_render_result&&!imageInfo.requestfailed&&(imageInfo.network_status===null||imageInfo.network_status<400);
+  const mediaValid=imageInfo.present&&imageInfo.visible_render_result&&(imageInfo.network_status===null||imageInfo.network_status<400);
+  const abortedButRendered=imageInfo.requestfailed&&imageInfo.requestfailed_error==="net::ERR_ABORTED"&&mediaValid;
+  if(abortedButRendered){
+    addFinding("NON-BLOCKING WARNING","P4","Browser-aborted Hero image request was followed by a successful rendered response",{viewport:v.key,url:imageInfo.url,requestfailed_error:imageInfo.requestfailed_error,network_status:imageInfo.network_status,natural_width:imageInfo.natural_width,natural_height:imageInfo.natural_height});
+  }
   let mediaClassification="PASS";
   if(!mediaValid){
     if(mediaAuthoritative){
