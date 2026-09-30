@@ -340,12 +340,17 @@ async function optionalAndTopStories(page,v,hero){
   const heroBottom=hero.hero_box?hero.hero_box.y+hero.hero_box.height:null;
   const gap=(heroBottom!==null&&topBox)?Math.max(0,topBox.y-heroBottom):null;
 
-  const topSection=top.locator("xpath=../../..");
-  const storyLinks=topSection.locator('[role="link"]');
+  const latestHeading=page.getByText("Latest",{exact:true}).last();
+  const latestBox=await box(latestHeading);
+  const storyLinks=page.locator('[role="link"]');
   let count=0;
   for(let i=0;i<await storyLinks.count();i++){
     const l=storyLinks.nth(i);
-    if(await l.isVisible().catch(()=>false)) count++;
+    if(!(await l.isVisible().catch(()=>false))) continue;
+    const b=await box(l);
+    if(!b||!topBox||b.y<=topBox.y) continue;
+    if(latestBox&&b.y>=latestBox.y) continue;
+    count++;
   }
 
   const unexplained=!livePresent&&!hospazPresent&&!homeAfterPresent&&gap!==null&&gap>GAP_BLOCKER_PX;
@@ -409,7 +414,8 @@ async function responsiveEvidence(page,v){
     if(!tabs.present||tabs.tab_count!==5) block("RUNTIME DEFECT","P1","Mobile five-tab Reader navigation missing/incomplete at "+viewLabel(v),tabs);
   }else if(v.key==="tablet"){
     out.tablet_bottom_tabs=tabs.present;out.tab_count=tabs.tab_count;out.destinations=tabs.destinations;
-    if(!tabs.present) addFinding("VISUAL DESIGN GAP","P3","Tablet bottom navigation is absent; verify top utilities/navigation remain sufficient",{});
+    if(tabs.present) addFinding("VISUAL DESIGN GAP","P3","Tablet retains five-tab bottom navigation alongside compact top utilities; allowed refinement while the layout remains usable",{destinations:tabs.destinations});
+    else addFinding("VISUAL DESIGN GAP","P3","Tablet bottom navigation is absent; verify top utilities/navigation remain sufficient",{});
   }else{
     out.desktop_mobile_tabbar_present=tabs.present;
     if(tabs.present) block("RUNTIME DEFECT","P1","Desktop mobile bottom tabs returned at "+viewLabel(v),tabs);
@@ -540,12 +546,38 @@ async function screenshots(page,v,hero,top){
     }));
 
     const expanded=await capture.evaluate(()=>{
+      const controlName=n=>(n.getAttribute("aria-label")||n.textContent||"").replace(/\s+/g," ").trim();
+      const visible=n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0;};
+      const controls=Array.from(document.querySelectorAll('[role="tab"],[role="button"],[role="link"],a')).filter(visible);
+      const bottom=controls.filter(n=>{const r=n.getBoundingClientRect();return r.top>=innerHeight-190&&r.bottom<=innerHeight+60;});
+      const chosen=["Home","Explore","Live","Watch"].map(x=>bottom.find(n=>controlName(n)===x)).filter(Boolean);
+      const my=bottom.find(n=>["My HT","My HealthTimes"].includes(controlName(n)));
+      if(my) chosen.push(my);
+      let navHidden=false;
+      if(chosen.length===5){
+        let node=chosen[0].parentElement,best=null;
+        while(node&&node!==document.body){
+          if(chosen.every(n=>node.contains(n))){
+            const r=node.getBoundingClientRect();
+            if(r.top>=innerHeight-220&&r.height<=220){
+              const area=r.width*r.height;
+              if(!best||area<best.area) best={node,area};
+            }
+          }
+          node=node.parentElement;
+        }
+        if(best){
+          best.node.style.setProperty("visibility","hidden","important");
+          navHidden=true;
+        }
+      }
+
       const candidates=Array.from(document.querySelectorAll("*"))
         .map(el=>({el,style:getComputedStyle(el),delta:el.scrollHeight-el.clientHeight}))
         .filter(x=>x.delta>200&&(x.style.overflowY==="auto"||x.style.overflowY==="scroll"))
         .sort((a,b)=>b.delta-a.delta);
       const scroller=candidates[0]?.el||null;
-      if(!scroller) return {scroller_found:false,original_scroll_height:null,original_client_height:null};
+      if(!scroller) return {scroller_found:false,original_scroll_height:null,original_client_height:null,fixed_navigation_hidden:navHidden};
 
       const originalScrollHeight=scroller.scrollHeight;
       const originalClientHeight=scroller.clientHeight;
@@ -572,7 +604,7 @@ async function screenshots(page,v,hero,top){
       document.body.style.setProperty("max-height","none","important");
       document.body.style.setProperty("overflow","visible","important");
       window.scrollTo(0,0);
-      return {scroller_found:true,original_scroll_height:originalScrollHeight,original_client_height:originalClientHeight};
+      return {scroller_found:true,original_scroll_height:originalScrollHeight,original_client_height:originalClientHeight,fixed_navigation_hidden:navHidden};
     });
 
     await capture.waitForTimeout(250);
