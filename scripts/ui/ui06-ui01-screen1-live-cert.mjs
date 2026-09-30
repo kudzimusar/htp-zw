@@ -502,10 +502,21 @@ async function markMaxresVisibility(page,v){
     item.visible_in_document=await page.evaluate(url=>Array.from(document.images).some(img=>{
       const src=img.currentSrc||img.src||"";
       const r=img.getBoundingClientRect();
-      return src===url&&r.width>0&&r.height>0;
+      return src===url&&r.width>0&&r.height>0&&img.naturalWidth>0&&img.naturalHeight>0;
     }),item.url).catch(()=>false);
-    if(item.visible_in_document){
-      addFinding("MEDIA / DATA DEFECT","P3","A visible Home/Watch maxresdefault.jpg asset failed",{...item});
+
+    const successful=[...imageResponses].reverse().find(x=>x.viewport===v.key&&x.url===item.url&&x.status<400);
+    const actualHttp=httpErrors.find(x=>x.viewport===v.key&&x.url===item.url);
+    item.successful_http_status=successful?.status??null;
+    item.successful_from_service_worker=successful?.from_service_worker??null;
+    item.actual_http_error_status=actualHttp?.status??null;
+
+    if(actualHttp){
+      addFinding("MEDIA / DATA DEFECT","P3","Visible Home/Watch maxresdefault.jpg returned an actual HTTP error",{...item});
+    }else if(item.kind==="requestfailed"&&item.failure?.errorText==="net::ERR_ABORTED"&&successful){
+      addFinding("NON-BLOCKING WARNING","P4","Browser-aborted maxresdefault.jpg request was followed by a successful rendered response",{...item});
+    }else if(item.kind==="requestfailed"&&!successful&&item.visible_in_document===false){
+      addFinding("MEDIA / DATA DEFECT","P3","Home/Watch maxresdefault.jpg request failed without a proven successful rendered response",{...item});
     }
   }
 }
