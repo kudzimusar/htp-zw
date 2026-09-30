@@ -27,7 +27,8 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
   const phone=width < breakpoints.tablet;
   const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
-  const hasMedia=Boolean(story.heroMedia?.publicUrl);
+  const [mediaFailed,setMediaFailed]=useState(false);
+  const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -43,9 +44,10 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {story.heroMedia?.publicUrl ? (
+      {hasMedia && story.heroMedia?.publicUrl ? (
         <Image
           source={{ uri: story.heroMedia.publicUrl }}
+          onError={()=>setMediaFailed(true)}
           style={[
             styles.heroImage,
             {backgroundColor:palette.paperMuted},

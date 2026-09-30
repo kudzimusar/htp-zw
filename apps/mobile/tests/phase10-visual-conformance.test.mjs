@@ -74,6 +74,7 @@ test("UI-01 Home keeps filters single-row, collapses absent ads, and uses public
   assert.doesNotMatch(home,/Most Read \/ Trending/);
   assert.match(cards,/heroBodyOverlay/);
   assert.match(cards,/useHydratedCardWidth/);
+  assert.match(cards,/onError=\{\(\)=>setMediaFailed\(true\)\}/);
 });
 
 test("Phase 10 public Article Reader hides migration-internal taxonomy labels",()=>{

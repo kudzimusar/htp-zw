@@ -154,35 +154,7 @@ test("approved design hierarchy remains visible in the core UI", () => {
     "Watch",
     "Global Health"
   ]) {
-    assert.match(home, new RegExp(heading.replace(/[&/]/g, "\\test("approved design hierarchy remains visible in the core UI", () => {
-  const home = read("app/(reader)/index.tsx");
-  for (const heading of [
-    "Live Now",
-    "Top Stories",
-    "For You",
-    "Primary Edition",
-    "Research & Findings",
-    "Health Business",
-    "Premium Intelligence",
-    "Watch",
-    "Global Health"
-  ]) {
-    assert.match(home, new RegExp(heading.replace(/[&/]/g, "\\    "Premium Intelligence",
-    "Watch",
-    "Global Health",
-    "Most Read / Trending"
-  ]) {
-    assert.match(home, new RegExp(heading.replace(/[&/]/g, "\\$&")));
-  }
-
-  const studio")));
-  }
-  assert.doesNotMatch(home, /Most Read \/ Trending/);
-
-  const studio = read("src/ui/Studio.tsx");
-  assert.match(studio, /Create \/ Edit/);
-  assert.match(studio, /Authority: AG-06 server roles only/);
-});")));
+    assert.ok(home.includes(heading), `missing approved Home hierarchy label: ${heading}`);
   }
   assert.doesNotMatch(home, /Most Read \/ Trending/);
 
