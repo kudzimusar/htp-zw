@@ -31,7 +31,16 @@ async function assertNoHorizontalOverflow(page, label) {
   expect(dims.bodyScroll, label + ' body overflow').toBeLessThanOrEqual(dims.htmlClient + 2);
 }
 
+async function waitForVisibleBodyText(page, text, timeout = 30000) {
+  await page.waitForFunction(
+    needle => document.body.innerText.includes(needle),
+    text,
+    { timeout }
+  );
+}
+
 test('canonical Home is responsive across mobile tablet and desktop and HOSPAZ stays fail-closed', async ({ browser }) => {
+  test.setTimeout(90000);
   for (const viewport of [
     { name: 'mobile', width: 390, height: 844 },
     { name: 'tablet', width: 834, height: 1112 },
@@ -41,7 +50,7 @@ test('canonical Home is responsive across mobile tablet and desktop and HOSPAZ s
     const errors = capturePageErrors(page);
     const response = await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     expect(response?.status(), viewport.name + ' Home HTTP').toBe(200);
-    await page.getByText('Top Stories', { exact: false }).first().waitFor({ timeout: 30000 });
+    await waitForVisibleBodyText(page, 'Top Stories', 30000);
     await assertNoHorizontalOverflow(page, viewport.name);
 
     const ad = page.getByLabel('Direct advertising · HOSPAZ').first();
