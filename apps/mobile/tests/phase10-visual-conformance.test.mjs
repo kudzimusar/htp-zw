@@ -110,7 +110,7 @@ test("Phase 10 onboarding uses focused welcome chrome",()=>{
 
 test("Phase 10 preserves fail-closed direct advertising and Premium commerce truth",()=>{
   assert.match(cards,/const clickable=\/\^https:\\\/\\\/\/i\.test\(destination\)/);
-  assert.match(cards,/No verified destination is available for this direct advertisement/);
+  assert.match(cards,/No verified destination is available for this advertisement/);
   assert.match(premiumStore,/status: "configuration-required"/);
   assert.doesNotMatch(premium,/AUTHORITATIVE ACCESS POLICY|platform configuration|product identifier/);
   assert.doesNotMatch(premium,/\$[0-9]+(?:\.[0-9]{2})?/);
