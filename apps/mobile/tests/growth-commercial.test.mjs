@@ -100,7 +100,8 @@ test("Premium storefront remains configuration-driven and server entitlement rem
   assert.ok(store.includes("offers: []"));
   assert.ok(premium.includes("premiumStore.getState"));
   assert.ok(premium.includes('store.data?.status==="available"'));
-  assert.ok(premium.includes("Membership options aren't available on this build yet"));
+  assert.ok(premium.includes("Membership options aren't available here yet"));
+  assert.equal(/on this build|approved store|secure member service/i.test(premium),false);
   assert.equal(premium.includes("configuration-required"),false);
   assert.equal(/\$\d|US\$|ZW\$/.test(premium),false);
   assert.ok(article.includes("services.premium.hasEntitlement"));
