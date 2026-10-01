@@ -26,7 +26,6 @@ function ToolbarAction({ glyph, label, onPress, selected = false }: ToolbarActio
       ]}
     >
       <Text style={[styles.glyph, { color: palette.ink }]}>{glyph}</Text>
-      <Text style={[styles.label, { color: palette.ink }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -56,13 +55,13 @@ export function ArticleToolbar({
         <View style={styles.spacer} />
         <ToolbarAction
           glyph="Aa"
-          label={"Text " + Math.round(textScale * 100) + "%"}
+          label={"Text size " + Math.round(textScale * 100) + "%"}
           selected={textScale !== 1}
           onPress={onTextScale}
         />
-        <ToolbarAction glyph="☆" label="Save" onPress={onSave} />
-        <ToolbarAction glyph="▶" label="Listen" onPress={onListen} />
-        <ToolbarAction glyph="↗" label="Share" onPress={onShare} />
+        <ToolbarAction glyph="☆" label="Save article" onPress={onSave} />
+        <ToolbarAction glyph="▶" label="Listen to article" onPress={onListen} />
+        <ToolbarAction glyph="↗" label="Share article" onPress={onShare} />
       </View>
       <Pressable
         accessibilityRole="button"
@@ -98,11 +97,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 4
+    flexDirection: "row"
   },
-  glyph: { fontSize: 14, fontWeight: "900" },
-  label: { fontSize: 11, fontWeight: "800" },
+  glyph: { fontSize: 16, fontWeight: "900" },
   offline: {
     alignSelf: "flex-end",
     minHeight: 32,
