@@ -71,15 +71,11 @@ export default function ExploreScreen(){
     }).slice(0,6);
   },[desks,topics]);
 
-  const allTopicDesk=useMemo(()=>orderedExisting(
-    [...desks,...topics],
-    ["Public Health","Research","Policy","Health Business","HIV/AIDS","Health Financing","Global Health","Africa"]
-  ),[desks,topics]);
-
   const premiumAvailable=(stories.data ?? []).some((story)=>story.accessPolicy==="premium");
   const groups=[
     ["Places",orderedExisting([...countries,...regions],["Zimbabwe","Africa","Southern Africa","Global"])],
-    ["Topics & desks",allTopicDesk],
+    ["Editorial desks",desks],
+    ["Topics & categories",topics],
     ["Formats",["Articles","Live","Video","Audio",...(premiumAvailable?["Premium"]:[])]],
     ["More from HealthTimes",["Authors","About HealthTimes",...sourceProducts]]
   ] as const;
@@ -185,7 +181,7 @@ export default function ExploreScreen(){
             ) : (
               <EmptyState
                 title="Topics are not available yet"
-                message="HealthTimes will show source-backed discovery topics here when they are available."
+                message="HealthTimes will show available discovery topics here as the publication taxonomy grows."
               />
             )}
           </Section>
@@ -238,7 +234,7 @@ export default function ExploreScreen(){
                       })}
                     </View>
                   ) : (
-                    <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>No source-backed {title.toLowerCase()} are available.</Text>
+                    <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>No {title.toLowerCase()} are available.</Text>
                   )}
                 </View>
               ))}
@@ -265,7 +261,7 @@ export default function ExploreScreen(){
               <EmptyState
                 title={active?"No "+active+" stories found":"No reporting available"}
                 message={active
-                  ?"Try another source-backed topic, desk, place or format."
+                  ?"Try another topic, desk, place or format."
                   :"HealthTimes reporting will appear here when it is available."}
               />
             )}

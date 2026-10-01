@@ -307,7 +307,7 @@ export default function SearchScreen(){
 
           {!!visibleAuthors.length && (
             <Section>
-              <SectionHeader title="Authors" eyebrow="PEOPLE" />
+              <SectionHeader title="Author matches" eyebrow="PEOPLE" />
               <View style={styles.authorGrid}>
                 {visibleAuthors.map((author)=>(
                   <Pressable

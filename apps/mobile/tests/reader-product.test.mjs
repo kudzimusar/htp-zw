@@ -110,7 +110,8 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   assert.match(explore, /Explore by topic/);
   assert.match(explore, /More ways to explore/);
   assert.match(explore, /Browse all discovery options/);
-  assert.match(explore, /Topics & desks/);
+  assert.match(explore, /Editorial desks/);
+  assert.match(explore, /Topics & categories/);
   assert.match(explore, /Formats/);
   for (const internalCopy of [
     "TAXONOMY GATEWAY",
