@@ -98,6 +98,16 @@ test.describe('AG-06 security contract', () => {
     expect(pkg.scripts['test:ag06:live']).toBe('playwright test tests/newsroom-os.spec.js && playwright test tests/ag06-live-security.spec.js');
   });
 
+  test('AG-06 and CA-01 share one non-cancelling live staging security lock', async () => {
+    const ag06 = read('.github/workflows/ag06-security.yml');
+    const ca01 = read('.github/workflows/ca01-communications.yml');
+    for (const workflow of [ag06, ca01]) {
+      expect(workflow).toContain('group: healthtimes-staging-security-live');
+      expect(workflow).toContain('cancel-in-progress: false');
+    }
+    expect(ag06).not.toContain('healthtimes-ag06-staging-certification');
+  });
+
   test('synthetic certification identities never send outbound Auth email', async () => {
     const workflow = read('.github/workflows/ag06-security.yml');
     const provisioner = read('supabase/functions/ag06-certification-provision/index.ts');

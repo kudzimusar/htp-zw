@@ -43,6 +43,8 @@ test("reader discussion adapter fails closed without a canonical story UUID and 
   assert.ok(communications.includes("Canonical HealthTimes story identity is required"));
   assert.ok(readerSection.includes('"reader_submit_story_comment"'));
   assert.ok(readerSection.includes('"reader_public_story_comments"'));
+  assert.ok(readerSection.includes("client.auth.getSession()"));
+  assert.ok(readerSection.includes('reason:"authentication_required"'));
   assert.equal(readerSection.includes("story_internal_comments"),false);
 });
 

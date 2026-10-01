@@ -23,7 +23,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     scheme: "healthtimes",
     orientation: "default",
     userInterfaceStyle: "automatic",
-    plugins: ["expo-router", "expo-secure-store", "expo-notifications"],
+    plugins: [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            enableSceneSupport: true
+          }
+        }
+      ]
+    ],
     experiments: {
       typedRoutes: true,
       ...(webBaseUrl ? { baseUrl: webBaseUrl } : {})

@@ -191,6 +191,10 @@
       "destination": "/system-status.html"
     },
     {
+      "source": "/article/:id",
+      "destination": "/article/[id].html"
+    },
+    {
       "source": "/:path*/",
       "destination": "/api/web?path=/:path*/"
     },

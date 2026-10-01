@@ -66,6 +66,12 @@ export const stagingReaderDiscussionService:ReaderDiscussionService={
     if(!canonicalStoryId || !canonicalStoryPattern.test(canonicalStoryId)){
       return {status:"blocked",reason:"canonical_story_required",profileId:null,publishedCommentCount:0};
     }
+    const client=getStagingSupabaseClient() as any;
+    const {data:sessionData,error:sessionError}=await client.auth.getSession();
+    if(sessionError) throw new Error(sessionError.message || "HealthTimes reader session check failed.");
+    if(!sessionData?.session){
+      return {status:"blocked",reason:"authentication_required",profileId:null,publishedCommentCount:0};
+    }
     const result=await rpc<Record<string,unknown>>("reader_comment_eligibility",{p_story_id:canonicalStoryId});
     return {
       status:(result.status==="allowed"||result.status==="pre_moderated" ? result.status : "blocked") as ReaderCommentEligibility["status"],
