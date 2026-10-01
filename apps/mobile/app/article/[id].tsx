@@ -53,6 +53,28 @@ function estimateReadingMinutes(bodyHtml:string|null){
   return Math.max(1,Math.ceil(words/220));
 }
 
+function readerFacingStandfirst(value:string|null|undefined,authorName:string|null|undefined){
+  const text=value?.trim();
+  if(!text) return null;
+  const author=authorName?.trim();
+  if(!author) return text;
+  const lower=text.toLowerCase();
+  for(const prefix of ["By "+author+" ","By "+author+": ","By "+author+" — ","By "+author+" - "]){
+    if(lower.startsWith(prefix.toLowerCase())){
+      const stripped=text.slice(prefix.length).trim();
+      return stripped || text;
+    }
+  }
+  return text;
+}
+
+function readerFacingMediaCredit(value:string|null|undefined){
+  const text=value?.trim();
+  if(!text) return null;
+  const internal=/current healthtimes public source|runtime media url|read-only source bridge|source parity|migration authority/i;
+  return internal.test(text) ? null : text;
+}
+
 type PremiumPreviewState="preview"|"warning"|"locked";
 
 export function ArticleReader({ initialStory = null }: { initialStory?: ArticleDetail | null }){
@@ -157,6 +179,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       ? entitledArticle.data
       : null;
   const story=verifiedPremiumStory ?? publicStory;
+  const displayStandfirst=readerFacingStandfirst(story.standfirst ?? story.excerpt,story.author?.displayName);
+  const previewCopy=readerFacingStandfirst(story.excerpt ?? story.standfirst,story.author?.displayName);
+  const displayMediaCredit=readerFacingMediaCredit(story.heroMedia?.credit);
   const protectedBody=
     publicStory.accessPolicy==="premium" &&
     !verifiedPremiumStory?.bodyHtml;
@@ -242,7 +267,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         <View style={styles.heroWrap}>
           <Image source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
           {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
-          {!!story.heroMedia.credit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{story.heroMedia.credit}</Text>}
+          {!!displayMediaCredit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{displayMediaCredit}</Text>}
         </View>
       )}
 
@@ -252,7 +277,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
           {story.accessPolicy==="premium" && <PremiumBadge />}
         </View>
         <Text style={[styles.title,{color:palette.ink},desktop && styles.titleDesktop]}>{story.title}</Text>
-        {!!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
+        {!!displayStandfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{displayStandfirst}</Text>}
         <View style={styles.publicationMeta}>
           {story.author ? (
             <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
@@ -288,7 +313,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         ) : nonEntitledPremium ? (
           previewVisible ? (
             <View style={styles.preview}>
-              <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst ?? ""}</Text>
+              {!!previewCopy && previewCopy!==displayStandfirst && (
+                <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{previewCopy}</Text>
+              )}
               <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite">
                 <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>
                 <Text style={[styles.previewText,{color:palette.inkMuted}]}>
