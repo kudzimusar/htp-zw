@@ -131,9 +131,15 @@ async function selectDarkAppearance(page){
   await dark.waitFor({state:"visible",timeout:30000});
   await dark.click();
   await page.waitForFunction(
-    ()=>Array.from(document.querySelectorAll('[role="button"]')).some(element=>
-      element.textContent?.trim()==="Dark" && element.getAttribute("aria-selected")==="true"
-    ),
+    ()=>{
+      const buttons=Array.from(document.querySelectorAll('[role="button"]'));
+      const darkButton=buttons.find(element=>element.textContent?.trim()==="Dark");
+      const lightButton=buttons.find(element=>element.textContent?.trim()==="Light");
+      if(!darkButton||!lightButton) return false;
+      const darkBackground=getComputedStyle(darkButton).backgroundColor;
+      const inactiveBackground=getComputedStyle(lightButton).backgroundColor;
+      return darkBackground==="rgb(243, 247, 250)" && inactiveBackground==="rgb(11, 22, 34)";
+    },
     null,
     {timeout:10000}
   );
