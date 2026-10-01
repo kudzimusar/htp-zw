@@ -87,3 +87,13 @@ test("UI-03 leaves Home implementation and fixed HOSPAZ placement intact",()=>{
   assert.match(home,/SectionHeader title="Top Stories"/);
   assert.match(home,/Editorial filters/);
 });
+
+
+test("UI-03 Article Reader keeps internal source-bridge notes out of publication copy",()=>{
+  const article=read("app/article/[id].tsx");
+  assert.match(article,/readerFacingStandfirst/);
+  assert.match(article,/readerFacingMediaCredit/);
+  assert.match(article,/previewCopy!==displayStandfirst/);
+  assert.match(article,/read-only source bridge/);
+  assert.match(article,/return internal\.test\(text\) \? null : text/);
+});
