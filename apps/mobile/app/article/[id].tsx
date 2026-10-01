@@ -265,7 +265,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
       {story.heroMedia?.publicUrl && (
         <View style={styles.heroWrap}>
-          <Image source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
+          <Image testID="article-hero-media" source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
           {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
           {!!displayMediaCredit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{displayMediaCredit}</Text>}
         </View>
