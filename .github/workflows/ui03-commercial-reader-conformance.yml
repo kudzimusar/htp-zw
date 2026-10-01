@@ -132,21 +132,21 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          cat > ui03-evidence/summary.md <<EOF
-          # UI-03 Commercial Reader Conformance Evidence
-
-          - Candidate SHA: `$EXPECTED_SHA`
-          - Base SHA: `$UI03_BASE_SHA`
-          - Branch: `feat/ui03-article-premium-advertising-conformance`
-          - Premium preview evidence duration: `$EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS seconds`
-          - Test duration is evidence configuration, not final commercial policy.
-          - Anonymous Premium source-parity delivery requests metadata only; protected body is neither requested nor rendered.
-          - Real storefront state remains configuration-required with zero offers; reader-facing UI does not expose that engineering string.
-          - Source-parity no-decision advertising collapses without a visual gap.
-          - Staging HOSPAZ remains disclosed and non-clickable because destination authority is unknown.
-          - CONTROLLED FIXTURE — NON-PRODUCTION advertising screenshots: NONE. No Article advertisement was fabricated.
-          - Public Pages deployment: NOT MODIFIED.
-          EOF
+          {
+            echo "# UI-03 Commercial Reader Conformance Evidence"
+            echo
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Base SHA: $UI03_BASE_SHA"
+            echo "- Branch: feat/ui03-article-premium-advertising-conformance"
+            echo "- Premium preview evidence duration: $EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS seconds"
+            echo "- Test duration is evidence configuration, not final commercial policy."
+            echo "- Anonymous Premium source-parity delivery requests metadata only; protected body is neither requested nor rendered."
+            echo "- Real storefront state remains configuration-required with zero offers; reader-facing UI does not expose that engineering string."
+            echo "- Source-parity no-decision advertising collapses without a visual gap."
+            echo "- Staging HOSPAZ remains disclosed and non-clickable because destination authority is unknown."
+            echo "- CONTROLLED FIXTURE — NON-PRODUCTION advertising screenshots: NONE. No Article advertisement was fabricated."
+            echo "- Public Pages deployment: NOT MODIFIED."
+          } > ui03-evidence/summary.md
 
       - uses: actions/upload-artifact@v4
         with:
