@@ -4,11 +4,14 @@ import { Image, Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
 import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
+import { ArticleToolbar } from "../../src/ui/ArticleToolbar";
+import { PremiumPaywall } from "../../src/ui/PremiumPaywall";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { breakpoints, colors, layout, radius, spacing, type } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
+import { premiumPreviewConfiguration } from "../../src/growth/config";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 import { parseArticleContent, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
@@ -35,17 +38,36 @@ function formatArticleTime(value:string|null){
   });
 }
 
+function estimateReadingMinutes(bodyHtml:string|null){
+  if(!bodyHtml) return null;
+  const text=bodyHtml
+    .replace(/<script[\s\S]*?<\/script>/gi," ")
+    .replace(/<style[\s\S]*?<\/style>/gi," ")
+    .replace(/<[^>]+>/g," ")
+    .replace(/&[a-z0-9#]+;/gi," ")
+    .replace(/\s+/g," ")
+    .trim();
+  if(!text) return null;
+  const words=text.split(" ").filter(Boolean).length;
+  if(words<20) return null;
+  return Math.max(1,Math.ceil(words/220));
+}
+
+type PremiumPreviewState="preview"|"warning"|"locked";
+
 export function ArticleReader({ initialStory = null }: { initialStory?: ArticleDetail | null }){
   const { id }=useLocalSearchParams<{id:string}>();
   const router=useRouter();
   const { palette }=useAppearance();
   const { width }=useWindowDimensions();
+  const previewConfig=premiumPreviewConfiguration();
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
+  const [premiumState,setPremiumState]=useState<PremiumPreviewState>(previewConfig.seconds>0?"preview":"locked");
   const lastProgressWrite=useRef({at:0,value:0});
   const trackedArticleId=useRef<string|null>(null);
   const trackedProgressEvents=useRef(new Set<string>());
-  const premiumLockTracked=useRef(false);
+  const premiumSessionKey=useRef("");
   const article=useAsync(()=>initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
   const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
@@ -65,20 +87,66 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     if(trackedArticleId.current!==current.id){
       trackedArticleId.current=current.id;
       trackedProgressEvents.current.clear();
-      premiumLockTracked.current=false;
       void services.analytics.track(event("article_view",{
         premium_state:current.accessPolicy,
         section:current.primarySection?.slug ?? "unassigned"
       },{storyId:current.id,pagePath:"/article/"+current.id}));
     }
+  },[article.data?.id]);
 
-    if(current.accessPolicy==="premium" && entitlement.data===false && !premiumLockTracked.current){
-      premiumLockTracked.current=true;
+  useEffect(()=>{
+    const current=article.data;
+    if(!current || current.accessPolicy!=="premium") return;
+    if(entitlement.loading || entitlement.data===true || entitlement.data!==false) return;
+
+    const sessionKey=current.id+"|"+previewConfig.source+"|"+previewConfig.seconds;
+    if(premiumSessionKey.current===sessionKey) return;
+    premiumSessionKey.current=sessionKey;
+
+    if(previewConfig.seconds<=0){
+      setPremiumState("locked");
       void services.analytics.track(event("premium_locked",{
         seconds_elapsed:0
       },{storyId:current.id,pagePath:"/article/"+current.id}));
+      return;
     }
-  },[article.data?.id,entitlement.data]);
+
+    setPremiumState("preview");
+    void services.analytics.track(event("premium_preview_started",{
+      surface:"article_reader",
+      preview_seconds:previewConfig.seconds
+    },{storyId:current.id,pagePath:"/article/"+current.id}));
+
+    const warningAt=Math.max(1,Math.floor(previewConfig.seconds*0.75));
+    const warningTimer=warningAt<previewConfig.seconds
+      ? setTimeout(()=>{
+          setPremiumState("warning");
+          void services.analytics.track(event("premium_warning_shown",{
+            seconds_elapsed:warningAt,
+            seconds_remaining:previewConfig.seconds-warningAt
+          },{storyId:current.id,pagePath:"/article/"+current.id}));
+        },warningAt*1000)
+      : null;
+
+    const lockTimer=setTimeout(()=>{
+      setPremiumState("locked");
+      void services.analytics.track(event("premium_locked",{
+        seconds_elapsed:previewConfig.seconds
+      },{storyId:current.id,pagePath:"/article/"+current.id}));
+    },previewConfig.seconds*1000);
+
+    return ()=>{
+      if(warningTimer) clearTimeout(warningTimer);
+      clearTimeout(lockTimer);
+    };
+  },[
+    article.data?.id,
+    article.data?.accessPolicy,
+    entitlement.data,
+    entitlement.loading,
+    previewConfig.seconds,
+    previewConfig.source
+  ]);
 
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
@@ -97,6 +165,12 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const publishedLabel=formatArticleTime(story.publishedAt);
   const modifiedLabel=formatArticleTime(story.modifiedAt);
   const showUpdated=Boolean(story.modifiedAt && story.modifiedAt!==story.publishedAt);
+  const readingMinutes=protectedBody ? null : estimateReadingMinutes(story.bodyHtml);
+  const nonEntitledPremium=publicStory.accessPolicy==="premium" && entitlement.data===false && !verifiedPremiumStory;
+  const previewVisible=nonEntitledPremium && previewConfig.seconds>0 && premiumState!=="locked";
+  const entitledDeliveryUnavailable=publicStory.accessPolicy==="premium" && entitlement.data===true && !verifiedPremiumStory?.bodyHtml;
+  const showInContentAd=!protectedBody && blocks.length>=4;
+  const showArticleEndAd=!protectedBody && blocks.length>=3;
 
   const persistProgress=(progress:number)=>{
     const now=Date.now();
@@ -148,32 +222,29 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     setActionStatus("Available offline");
   };
 
-  const actionButton=(label:string,onPress:()=>void,accessibilityLabel=label)=>(
-    <Pressable
-      key={label}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      style={[styles.action,{borderColor:palette.border,backgroundColor:palette.paper}]}
-      onPress={onPress}
-    >
-      <Text style={[styles.actionText,{color:palette.ink}]}>{label}</Text>
-    </Pressable>
-  );
-
   return (
     <Page
       initialScrollProgress={readPosition.data ?? 0}
       onScrollProgress={persistProgress}
     >
-      <View style={styles.actions}>
-        {actionButton("Back",()=>router.back(),"Go back")}
-        {actionButton("Text " + Math.round(textScale*100) + "%",()=>setTextScale(textScale>=1.25?0.9:textScale+0.1),"Change article text size")}
-        {actionButton("Save",()=>{void save();},"Save article")}
-        {actionButton("Offline",()=>{void download();},"Download article for offline reading")}
-        {actionButton("Listen",()=>router.push("/listen" as never),"Listen to article")}
-        {actionButton("Share",()=>{void share();},"Share article")}
-      </View>
+      <ArticleToolbar
+        textScale={textScale}
+        onBack={()=>router.back()}
+        onTextScale={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}
+        onSave={()=>{void save();}}
+        onListen={()=>router.push("/listen" as never)}
+        onShare={()=>{void share();}}
+        onOffline={()=>{void download();}}
+      />
       {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:colors.success}]}>{actionStatus}</Text>}
+
+      {story.heroMedia?.publicUrl && (
+        <View style={styles.heroWrap}>
+          <Image source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
+          {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
+          {!!story.heroMedia.credit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{story.heroMedia.credit}</Text>}
+        </View>
+      )}
 
       <View style={styles.articleHeader}>
         <View style={styles.metaRow}>
@@ -190,8 +261,11 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
           ) : (
             <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes</Text>
           )}
-          {!!publishedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Published {publishedLabel}</Text>}
-          {showUpdated && !!modifiedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Updated {modifiedLabel}</Text>}
+          <View style={styles.readingContext}>
+            {!!publishedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Published {publishedLabel}</Text>}
+            {showUpdated && !!modifiedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Updated {modifiedLabel}</Text>}
+            {!!readingMinutes && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>{readingMinutes} min read</Text>}
+          </View>
         </View>
         {!!story.geography.length && (
           <View style={styles.geography}>
@@ -200,31 +274,36 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         )}
       </View>
 
-      {story.heroMedia?.publicUrl && (
-        <View style={styles.heroWrap}>
-          <Image source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
-          {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
-          {!!story.heroMedia.credit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{story.heroMedia.credit}</Text>}
-        </View>
-      )}
-
       <View style={styles.body}>
-        {protectedBody ? (
-          <>
-            <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst}</Text>
-            <View style={[styles.lock,{borderTopColor:colors.premium}]}>
-              <Text style={[styles.lockTitle,{color:palette.ink}]}>Premium member access</Text>
-              <Text style={[styles.lockText,{color:palette.inkMuted}]}>
-                {entitlement.data===true
-                  ? "Your membership entitlement is verified, but protected article delivery is not currently available. The source body remains protected."
-                  : "This Premium article is available to members. HealthTimes must verify member entitlement before protected body content can be requested."}
-              </Text>
-              <View style={styles.lockActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="View Premium access" style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>router.push("/premium" as never)}><Text style={[styles.primaryText,{color:palette.paper}]}>View Premium access</Text></Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="Member sign in" style={[styles.secondary,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}><Text style={[styles.secondaryText,{color:palette.ink}]}>Member sign in</Text></Pressable>
+        {publicStory.accessPolicy==="premium" && entitlement.loading ? (
+          <View style={[styles.memberState,{borderColor:palette.border}]}>
+            <Text style={[styles.memberStateTitle,{color:palette.ink}]}>Checking member access…</Text>
+            <Text style={[styles.memberStateText,{color:palette.inkMuted}]}>HealthTimes is confirming whether this account can open the full article.</Text>
+          </View>
+        ) : entitledDeliveryUnavailable ? (
+          <View style={[styles.memberState,{borderColor:palette.border}]}>
+            <Text style={[styles.memberStateTitle,{color:palette.ink}]}>Premium member access is active</Text>
+            <Text style={[styles.memberStateText,{color:palette.inkMuted}]}>This protected article is not available to load right now. No protected text has been exposed.</Text>
+          </View>
+        ) : nonEntitledPremium ? (
+          previewVisible ? (
+            <View style={styles.preview}>
+              <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? story.standfirst ?? ""}</Text>
+              <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite">
+                <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>
+                <Text style={[styles.previewText,{color:palette.inkMuted}]}>
+                  {premiumState==="warning"
+                    ? "Your preview is ending soon. Members can continue with the full article."
+                    : "You are reading the public preview. The full member article has not been downloaded."}
+                </Text>
               </View>
             </View>
-          </>
+          ) : (
+            <PremiumPaywall
+              onGoPremium={()=>router.push("/premium" as never)}
+              onSignIn={()=>router.push("/account-access" as never)}
+            />
+          )
         ):(
           <>
             {blocks.length ? (
@@ -241,7 +320,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
                   ) : (
                     <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"paragraph-"+index,palette.blue)}</Text>
                   )}
-                  {index===0 && (
+                  {showInContentAd && index===1 && (
                     <View style={styles.inlineAd}>
                       <AdSlot placement="article_after_intro" />
                     </View>
@@ -266,54 +345,49 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         </View>
       </Section>
 
-      <Section><AdSlot placement="article_end" /></Section>
+      {showArticleEndAd && <Section><AdSlot placement="article_end" /></Section>}
     </Page>
   );
 }
 const styles=StyleSheet.create({
-  actions:{marginTop:spacing.lg,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  action:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderRadius:radius.sm},
-  actionText:{fontSize:13,fontWeight:"800"},
   actionStatus:{fontSize:12,fontWeight:"700",marginTop:spacing.sm},
+  heroWrap:{marginTop:spacing.lg,width:"100%",alignSelf:"center"},
+  hero:{width:"100%",aspectRatio:16/9,borderRadius:radius.sm},
   articleHeader:{marginTop:spacing.xl,gap:spacing.md,maxWidth:layout.articleMax,alignSelf:"center",width:"100%"},
   metaRow:{flexDirection:"row",gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
   kicker:{fontSize:12,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
   title:{fontSize:36,lineHeight:42,fontWeight:"900",letterSpacing:-0.9},
   titleDesktop:{fontSize:48,lineHeight:54,letterSpacing:-1.2},
-  standfirst:{fontSize:18,lineHeight:27},
-  publicationMeta:{gap:3},
+  standfirst:{fontSize:18,lineHeight:28,maxWidth:700},
+  publicationMeta:{gap:5},
+  readingContext:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   byline:{fontSize:13,fontWeight:"800"},
   timeMeta:{fontSize:11,lineHeight:17},
   geography:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  sourceTaxonomy:{gap:spacing.sm,marginTop:spacing.xs},
-  sourceTaxonomyLabel:{fontSize:10,fontWeight:"900",letterSpacing:0.8,textTransform:"uppercase"},
   geoLabel:{fontSize:11,fontWeight:"700",borderWidth:1,borderRadius:radius.sm,paddingHorizontal:8,paddingVertical:5},
-  heroWrap:{marginTop:spacing.xl},
-  hero:{width:"100%",aspectRatio:16/9},
   caption:{fontSize:12,lineHeight:18,marginTop:spacing.sm,maxWidth:900},
   credit:{fontSize:11,marginTop:spacing.xs},
   body:{maxWidth:layout.articleMax,alignSelf:"center",width:"100%",marginTop:spacing.xl},
-  paragraph:{marginBottom:spacing.lg},
-  bodyHeading:{fontWeight:"900",letterSpacing:-.4,marginTop:spacing.lg,marginBottom:spacing.md},
-  quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.lg},
+  paragraph:{marginBottom:spacing.xl},
+  bodyHeading:{fontWeight:"900",letterSpacing:-.4,marginTop:spacing.xl,marginBottom:spacing.md},
+  quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.xl},
   quoteText:{fontWeight:"700",fontStyle:"italic"},
-  articleList:{marginBottom:spacing.md},
+  articleList:{marginBottom:spacing.lg},
   listRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,marginBottom:spacing.md},
   listBullet:{fontSize:18,fontWeight:"900",lineHeight:29},
   listText:{flex:1},
-  inlineFigure:{marginBottom:spacing.xl,gap:spacing.sm},
-  inlineFigureImage:{width:"100%",aspectRatio:16/9},
+  inlineFigure:{marginVertical:spacing.xl,gap:spacing.sm},
+  inlineFigureImage:{width:"100%",aspectRatio:16/9,borderRadius:radius.sm},
   inlineStrong:{fontWeight:"900"},
   inlineEmphasis:{fontStyle:"italic"},
-  inlineAd:{marginVertical:spacing.lg},
-  lock:{marginTop:spacing.xl,borderTopWidth:3,paddingTop:spacing.xl,gap:spacing.sm},
-  lockTitle:{fontSize:24,fontWeight:"900"},
-  lockText:{fontSize:15,lineHeight:22},
-  lockActions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  primary:{alignSelf:"flex-start",minHeight:44,justifyContent:"center",paddingHorizontal:16,marginTop:spacing.sm,borderRadius:radius.sm},
-  primaryText:{fontWeight:"900"},
-  secondary:{alignSelf:"flex-start",minHeight:44,justifyContent:"center",paddingHorizontal:16,marginTop:spacing.sm,borderRadius:radius.sm,borderWidth:1},
-  secondaryText:{fontWeight:"900"},
+  inlineAd:{marginVertical:spacing.xxl},
+  preview:{gap:spacing.md},
+  previewNotice:{borderLeftWidth:3,padding:spacing.lg,gap:spacing.xs},
+  previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1,color:colors.premium},
+  previewText:{fontSize:13,lineHeight:20},
+  memberState:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xl,gap:spacing.sm},
+  memberStateTitle:{fontSize:21,fontWeight:"900"},
+  memberStateText:{fontSize:14,lineHeight:22,maxWidth:620},
   muted:{fontSize:14,lineHeight:21},
   sourceBlock:{gap:spacing.md,maxWidth:760},
   sourceButton:{minHeight:44,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:14,borderWidth:1,borderRadius:radius.sm},
