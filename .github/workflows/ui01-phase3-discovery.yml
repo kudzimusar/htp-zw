@@ -85,6 +85,7 @@ jobs:
           const path=require('path');
           const base='http://127.0.0.1:4174';
           const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const expectedSuggestions=['Breaking News','Features','Epidemics','Academic & Research','Global Health','Community Development'];
           const viewports=[
             ['mobile',390,844],
             ['tablet',834,1112],
@@ -192,12 +193,11 @@ jobs:
               await search.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
               const suggestionsLoading=search.getByText('Loading suggestions…',{exact:true});
               if(await suggestionsLoading.count()) await suggestionsLoading.waitFor({state:'hidden',timeout:30000});
-              await search.waitForFunction(()=>{
-                const pageText=document.body.innerText;
-                return !pageText.includes('Loading suggestions…') &&
-                  (document.querySelectorAll('[role="button"]').length>4 ||
-                   pageText.includes('Enter a word, author, topic or country to search HealthTimes.'));
-              },null,{timeout:30000});
+              await search.getByRole('button',{name:expectedSuggestions[0],exact:true}).waitFor({timeout:30000});
+              const suggestionCount=(await Promise.all(expectedSuggestions.map(async(label)=>
+                search.getByRole('button',{name:label,exact:true}).isVisible().catch(()=>false)
+              ))).filter(Boolean).length;
+              if(suggestionCount<1) throw new Error(viewport+' Search did not resolve source-backed suggestions');
               const initialInspect=await inspect(search);
               assertErrors(viewport+' search initial resolved',searchDiag);
               if(initialInspect.horizontalOverflow) throw new Error(viewport+' search initial horizontal overflow');
@@ -210,6 +210,7 @@ jobs:
                 status:searchResponse?.status()??null,file:initialFile,
                 resolvedState:'initial',
                 actualContentState:'suggestions',
+                suggestionCount,
                 pageErrors:searchDiag.pageErrors,
                 consoleErrors:searchDiag.consoleErrors,
                 react418:0,
@@ -319,6 +320,7 @@ jobs:
             await dark.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
             const darkSuggestionsLoading=dark.getByText('Loading suggestions…',{exact:true});
             if(await darkSuggestionsLoading.count()) await darkSuggestionsLoading.waitFor({state:'hidden',timeout:30000});
+            await dark.getByRole('button',{name:expectedSuggestions[0],exact:true}).waitFor({timeout:30000});
             const darkSearchInspect=await inspect(dark);
             assertErrors('dark Search resolved',darkDiag);
             if(darkSearchInspect.horizontalOverflow) throw new Error('dark Search horizontal overflow');
