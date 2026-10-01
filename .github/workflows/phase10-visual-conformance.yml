@@ -201,7 +201,7 @@ jobs:
               await page.goto('http://127.0.0.1:4174/',{waitUntil:'domcontentloaded',timeout:30000});
               await page.getByLabel('HealthTimes Home').first().waitFor({timeout:30000});
               await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
-              const ad=page.locator('[aria-label="Advertising placement hospaz-header-direct"]');
+              const ad=page.getByLabel('Direct advertising · HOSPAZ').first();
               try{
                 await ad.waitFor({timeout:30000});
               }catch(error){
