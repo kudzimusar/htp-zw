@@ -87,7 +87,7 @@ test('canonical Reader routes Home Explore Search Live Watch Premium and My Heal
   await expect(search).toBeVisible();
   await search.fill('HIV');
   await search.press('Enter');
-  await page.getByText('Article results', { exact: true }).first().waitFor({ timeout: 30000 });
+  await page.getByText(/results for “HIV”/).first().waitFor({ timeout: 30000 });
 
   response = await page.goto('/live', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
