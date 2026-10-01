@@ -194,7 +194,7 @@ jobs:
                 ...initialInspect
               });
 
-              const input=search.getByLabel('Search HealthTimes');
+              const input=search.getByRole('textbox',{name:'Search HealthTimes'});
               await input.fill('HIV');
               await input.press('Enter');
               await search.getByText(/results for “HIV”/).waitFor({timeout:30000});
