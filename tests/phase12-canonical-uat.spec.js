@@ -101,7 +101,7 @@ test('canonical Reader routes Home Explore Search Live Watch Premium and My Heal
   expect(response?.status()).toBe(200);
   await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).first().waitFor({ timeout: 30000 });
   await page.getByText('Your membership', { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText("Membership options aren't available on this build yet", { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByText("Membership options aren't available here yet", { exact: true }).waitFor({ timeout: 30000 });
 
   response = await page.goto('/my', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
