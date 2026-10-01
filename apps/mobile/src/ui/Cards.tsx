@@ -213,7 +213,9 @@ export function AdSlot({
   sensitiveHealthContext?: boolean;
 }) {
   const { palette }=useAppearance();
+  const { width }=useWindowDimensions();
   const impressionKey=useRef("");
+  const [creativeAspect,setCreativeAspect]=useState<number|null>(null);
   const decision=useAsync(
     ()=>services.advertising.getDecision(placement,{
       consentForPersonalizedAds:false,
@@ -223,6 +225,10 @@ export function AdSlot({
   );
 
   const adDecision=decision.data;
+
+  useEffect(()=>{
+    setCreativeAspect(null);
+  },[adDecision?.creativeUrl]);
 
   useEffect(()=>{
     if(adDecision?.source!=="direct" || !adDecision.creativeUrl) return;
@@ -236,10 +242,15 @@ export function AdSlot({
     }));
   },[placement,adDecision?.source,adDecision?.creativeUrl]);
 
-  if(!adDecision || adDecision.source === "none") return null;
-  const message=adDecision.policyReason ?? "Advertising delivery is controlled by the HealthTimes advertising service.";
+  if(!adDecision || adDecision.source === "none" || !adDecision.creativeUrl) return null;
+
   const destination=adDecision.destinationUrl?.trim() ?? "";
   const clickable=/^https:\/\//i.test(destination);
+  const desktop=width>=breakpoints.desktop;
+  const tablet=width>=breakpoints.tablet && !desktop;
+  const inArticle=placement==="article_after_intro";
+  const articleEnd=placement==="article_end";
+  const fallbackAspect=inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 8/1 : tablet ? 6/1 : 16/3;
 
   const openDestination=()=>{
     if(!clickable) return;
@@ -251,30 +262,46 @@ export function AdSlot({
     void Linking.openURL(destination);
   };
 
-  const creative=adDecision.creativeUrl ? (
+  const creative=(
     <Image
       source={{uri:adDecision.creativeUrl}}
-      style={[styles.adCreative,{backgroundColor:palette.paper}]}
+      style={[
+        styles.adCreative,
+        {backgroundColor:palette.paper,aspectRatio:creativeAspect ?? fallbackAspect}
+      ]}
       resizeMode="contain"
-      accessibilityLabel={adDecision.disclosureLabel}
+      onLoad={(event)=>{
+        const source=event.nativeEvent.source;
+        const naturalWidth=Number(source?.width ?? 0);
+        const naturalHeight=Number(source?.height ?? 0);
+        if(naturalWidth>0 && naturalHeight>0) setCreativeAspect(naturalWidth/naturalHeight);
+      }}
+      accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
     />
-  ) : null;
+  );
 
   return (
     <View
-      style={[styles.adSlot,{backgroundColor:palette.paperMuted,borderColor:palette.border}]}
-      accessibilityLabel={"Advertising placement " + placement}
+      style={[
+        styles.adSlot,
+        {backgroundColor:palette.paperMuted,borderColor:palette.border},
+        inArticle && styles.adSlotInArticle,
+        inArticle && width<breakpoints.tablet && styles.adSlotMobileRectangle,
+        inArticle && tablet && styles.adSlotTablet,
+        inArticle && desktop && styles.adSlotDesktop,
+        articleEnd && styles.adSlotArticleEnd
+      ]}
+      accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
     >
       <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
-      <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel ?? "Sponsored"}</Text>
-      {clickable && creative ? (
-        <Pressable accessibilityRole="link" accessibilityLabel={"Open "+adDecision.disclosureLabel} onPress={openDestination}>
+      {!!adDecision.disclosureLabel && <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel}</Text>}
+      {clickable ? (
+        <Pressable accessibilityRole="link" accessibilityLabel={"Open "+adDecision.disclosureLabel} onPress={openDestination} style={styles.adCreativePressable}>
           {creative}
         </Pressable>
       ) : creative}
-      <Text style={[styles.adMessage,{color:palette.inkMuted}]}>{message}</Text>
       {!clickable && adDecision.source==="direct" && (
-        <Text style={[styles.adNoDestination,{color:palette.inkMuted}]}>No verified destination is available for this direct advertisement.</Text>
+        <Text style={[styles.adNoDestination,{color:palette.inkMuted}]}>No verified destination is available for this advertisement.</Text>
       )}
     </View>
   );
@@ -348,11 +375,16 @@ const styles=StyleSheet.create({
   audioButton:{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center"},
   audioButtonText:{fontSize:18},
   audioTitle:{fontSize:17,fontWeight:"900",lineHeight:22},
-  adSlot:{minHeight:136,borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",padding:spacing.lg,gap:spacing.xs},
+  adSlot:{width:"100%",borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
+  adSlotInArticle:{alignSelf:"center",maxWidth:760},
+  adSlotMobileRectangle:{maxWidth:360,paddingVertical:spacing.lg},
+  adSlotTablet:{maxWidth:640},
+  adSlotDesktop:{maxWidth:900},
+  adSlotArticleEnd:{maxWidth:980,alignSelf:"center"},
   adLabel:{fontSize:9,fontWeight:"900",letterSpacing:1.4},
-  adPlacement:{fontSize:13,fontWeight:"800"},
-  adMessage:{fontSize:12,lineHeight:18,textAlign:"center",maxWidth:620},
-  adCreative:{width:"100%",maxWidth:980,aspectRatio:16/3},
+  adPlacement:{fontSize:12,fontWeight:"800",textAlign:"center"},
+  adCreativePressable:{width:"100%"},
+  adCreative:{width:"100%"},
   adNoDestination:{fontSize:11,lineHeight:16,textAlign:"center",maxWidth:620,fontStyle:"italic"},
   premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,color:colors.premium,borderWidth:1,borderColor:colors.premium,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
   surface:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg}
