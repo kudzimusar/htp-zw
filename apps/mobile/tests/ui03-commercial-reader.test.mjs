@@ -119,7 +119,8 @@ test("UI-03 evidence uses HealthTimes Dark state and waits for media readiness",
   const article=read("app/article/[id].tsx");
   assert.match(evidence,/open\(page,"\/appearance","appearance preference"\)/);
   assert.match(evidence,/getByRole\("button",\{name:"Dark",exact:true\}\)/);
-  assert.match(evidence,/aria-selected/);
+  assert.match(evidence,/rgb\(243, 247, 250\)/);
+  assert.match(evidence,/rgb\(11, 22, 34\)/);
   assert.match(evidence,/appearance_preference/);
   assert.match(evidence,/img\.complete===true/);
   assert.match(evidence,/img\.naturalWidth>0/);
