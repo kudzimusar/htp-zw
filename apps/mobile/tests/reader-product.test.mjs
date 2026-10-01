@@ -125,7 +125,8 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   assert.match(search, /LiveRail/);
   assert.match(article, /parseArticleContent/);
   assert.match(article, /article_after_intro/);
-  assert.match(article, /This Premium article is available to members/);
+  assert.match(article, /PremiumPaywall/);
+  assert.match(article, /previewVisible/);
 });
 
 
