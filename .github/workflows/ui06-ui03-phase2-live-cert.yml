@@ -8,6 +8,12 @@ on:
     paths:
       - '.github/workflows/ui06-ui03-phase2-live-cert.yml'
       - 'scripts/ui/ui06-ui03-phase2-live-cert.mjs'
+  pull_request:
+    branches:
+      - deployment/ui03-phase2-commercial-reader-candidate
+    paths:
+      - '.github/workflows/ui06-ui03-phase2-live-cert.yml'
+      - 'scripts/ui/ui06-ui03-phase2-live-cert.mjs'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +36,7 @@ jobs:
       - name: Check out certification tooling
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
 
       - name: Prove exact certification tooling SHA
@@ -38,10 +44,12 @@ jobs:
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
           echo "CERTIFICATION_TOOLING_SHA=$actual"
+          echo "EXPECTED_TOOLING_SHA=$expected"
           echo "DEPLOYED_WRAPPER_SHA=$TARGET_DEPLOYED_SHA"
           echo "ACCEPTED_EXECUTABLE_SHA=$ACCEPTED_EXECUTABLE_SHA"
-          test "$actual" = "$GITHUB_SHA"
+          test "$actual" = "$expected"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -57,7 +65,7 @@ jobs:
 
       - name: Run live UI-06 Phase 2 certification
         env:
-          CERTIFICATION_TOOLING_SHA: ${{ github.sha }}
+          CERTIFICATION_TOOLING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: node --input-type=module -e 'globalThis.viewports={mobile:{width:390,height:844},tablet:{width:834,height:1112},desktop:{width:1440,height:1000}}; await import("./scripts/ui/ui06-ui03-phase2-live-cert.mjs")'
 
