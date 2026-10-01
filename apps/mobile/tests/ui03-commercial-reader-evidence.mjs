@@ -69,6 +69,14 @@ async function waitForVisibleBodyText(page,text,timeout=30000){
   );
 }
 
+async function waitForBodyTextAbsent(page,text,timeout=30000){
+  await page.waitForFunction(
+    needle=>!document.body.innerText.includes(needle),
+    text,
+    {timeout}
+  );
+}
+
 async function imageReadiness(page,locator,label,{required=true}={}){
   const count=await locator.count();
   if(count<1){
@@ -271,6 +279,7 @@ async function sourceParityEvidence(){
     const status=await open(page,"/premium","premium landing "+name);
     await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
     await waitForVisibleBodyText(page,"Membership options aren't available here yet",10000);
+    await waitForBodyTextAbsent(page,"Checking member access…",30000);
     const premiumStoryCount=await resolvedPremiumJournalism(page,"premium landing "+name);
     const body=await page.locator("body").innerText();
     for(const forbidden of ["on this build","approved store","secure member service","configuration-required"]){
@@ -324,6 +333,7 @@ async function sourceParityEvidence(){
     }else{
       await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
       await waitForVisibleBodyText(page,"Membership options aren't available here yet",10000);
+      await waitForBodyTextAbsent(page,"Checking member access…",30000);
       await resolvedPremiumJournalism(page,"dark Premium landing");
     }
 
@@ -431,10 +441,11 @@ async function stagingAdvertisingEvidence(){
     await page.screenshot({path:file,fullPage:true});
     results.push({
       viewport:name,...viewport,status,
+      placement:"hospaz-header-direct",
       ad_placement:"hospaz-header-direct",
       ad_source:"direct",
+      disclosure:true,
       ad_disclosure:true,
-      destination_verified:false,
       ad_clickable:false,
       creative_url:creative.url,
       creative_complete:creative.complete,
