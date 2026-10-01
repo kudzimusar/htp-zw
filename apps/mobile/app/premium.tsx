@@ -58,7 +58,7 @@ export default function PremiumScreen(){
           <Text style={styles.eyebrow}>HEALTHTIMES PREMIUM</Text>
         </View>
         <Text style={[styles.title,{color:palette.ink}]}>Deeper reporting for readers who want the full health story.</Text>
-        <Text style={[styles.text,{color:palette.inkMuted}]}>HealthTimes Premium brings member journalism together with the reader features that are actually available on this build. Prices and products appear only when the approved store provides them.</Text>
+        <Text style={[styles.text,{color:palette.inkMuted}]}>HealthTimes Premium brings member journalism together with reader features available to you. Membership options will appear here when purchasing is available.</Text>
       </View>
 
       <Section>
@@ -75,7 +75,7 @@ export default function PremiumScreen(){
             {entitlement.loading
               ? "HealthTimes is checking the membership connected to this account."
               : entitlement.data===true
-                ? "Your account can request protected Premium stories through the secure member service."
+                ? "Your Premium access is active."
                 : "Sign in to check your existing membership, or restore a previous store purchase."}
           </Text>
           {entitlement.data!==true && !entitlement.loading && (
@@ -110,8 +110,8 @@ export default function PremiumScreen(){
           </View>
         ) : (
           <View style={[styles.unavailable,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
-            <Text style={[styles.unavailableTitle,{color:palette.ink}]}>Membership options aren't available on this build yet</Text>
-            <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>Existing members can still sign in or restore access. HealthTimes will show approved membership options here when the store makes them available.</Text>
+            <Text style={[styles.unavailableTitle,{color:palette.ink}]}>Membership options aren't available here yet</Text>
+            <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>Existing members can still sign in or restore purchases. Available membership options will appear here when purchasing is available.</Text>
             <View style={styles.unavailableActions}>
               <Pressable accessibilityRole="button" style={[styles.secondaryAction,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}>
                 <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Member sign in</Text>
@@ -127,9 +127,23 @@ export default function PremiumScreen(){
 
       <Section>
         <SectionHeader title="From HealthTimes Premium" eyebrow="MEMBER JOURNALISM" />
-        {premiumStories.length
-          ? <StoryGrid stories={premiumStories} />
-          : <EmptyState title="No Premium stories available" message="Premium reporting will appear here when published." />}
+        {sourceStories.loading ? (
+          <View accessibilityLabel="Premium stories loading">
+            <LoadingBlock label="Loading Premium journalism…" />
+          </View>
+        ) : sourceStories.error ? (
+          <View accessibilityLabel="Premium stories unavailable">
+            <EmptyState title="Premium journalism is temporarily unavailable" message="Please try again shortly." />
+          </View>
+        ) : premiumStories.length > 0 ? (
+          <View accessibilityLabel="Source-backed Premium journalism">
+            <StoryGrid stories={premiumStories} />
+          </View>
+        ) : (
+          <View accessibilityLabel="Premium stories empty">
+            <EmptyState title="No Premium stories available" message="Premium reporting will appear here when published." />
+          </View>
+        )}
       </Section>
 
       <Section>
