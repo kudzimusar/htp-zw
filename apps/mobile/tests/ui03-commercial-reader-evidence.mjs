@@ -55,6 +55,14 @@ async function open(page,route,label){
   return response.status();
 }
 
+async function waitForVisibleBodyText(page,text,timeout=30000){
+  await page.waitForFunction(
+    needle=>document.body.innerText.includes(needle),
+    text,
+    {timeout}
+  );
+}
+
 async function sourceParityEvidence(){
   if(!Number.isFinite(previewSeconds)||previewSeconds<=0) throw new Error("Evidence preview seconds must be positive.");
   const browser=await chromium.launch({headless:true});
@@ -69,7 +77,8 @@ async function sourceParityEvidence(){
     const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const diag=diagnostics(page);
     const status=await open(page,"/article/"+publicId,"public article "+name);
-    await page.getByText("Zimbabwe Looks to Strengthen Social Contracting",{exact:false}).first().waitFor({timeout:30000});
+    await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
+    await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
     const body=await page.locator("body").innerText();
     if(body.includes("PREMIUM PREVIEW")||body.includes("Continue reading with HealthTimes Premium")){
       throw new Error("Known public article unexpectedly rendered Premium state at "+name);
@@ -105,8 +114,9 @@ async function sourceParityEvidence(){
     const requests=[];
     page.on("request",request=>requests.push(request.url()));
     const status=await open(page,"/article/"+premiumId,"premium preview "+name);
-    await page.getByText("US Embassy Challenges Zimbabwe",{exact:false}).first().waitFor({timeout:30000});
-    await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({timeout:10000});
+    await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
+    await waitForVisibleBodyText(page,"US Embassy Challenges Zimbabwe");
+    await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
     const previewBody=await page.locator("body").innerText();
     if(!previewBody.includes("full member article has not been downloaded")){
       throw new Error("Premium public-preview disclosure missing at "+name);
@@ -120,7 +130,7 @@ async function sourceParityEvidence(){
     await page.screenshot({path:previewFile,fullPage:true});
 
     await page.waitForTimeout((previewSeconds+1)*1000);
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({timeout:10000});
+    await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",10000);
     if(await page.getByRole("button",{name:/Go to HealthTimes Premium/i}).count()!==1){
       throw new Error("Go Premium CTA missing after lock at "+name);
     }
@@ -174,8 +184,8 @@ async function sourceParityEvidence(){
     const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const diag=diagnostics(page);
     const status=await open(page,"/premium","premium landing "+name);
-    await page.getByText("HEALTHTIMES PREMIUM",{exact:true}).first().waitFor({timeout:10000});
-    await page.getByText("Membership options aren't available on this build yet",{exact:true}).waitFor({timeout:10000});
+    await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
+    await waitForVisibleBodyText(page,"Membership options aren't available on this build yet",10000);
     const body=await page.locator("body").innerText();
     if(body.includes("configuration-required")) throw new Error("Internal store status leaked at "+name);
     if(/\$\s*\d+(?:\.\d{2})?/.test(body)) throw new Error("Unverified price rendered at "+name);
@@ -286,7 +296,7 @@ async function stagingAdvertisingEvidence(){
     const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const diag=diagnostics(page);
     const status=await open(page,"/","HOSPAZ Home "+name);
-    await page.getByText("Direct advertising · HOSPAZ",{exact:true}).waitFor({timeout:30000});
+    await waitForVisibleBodyText(page,"Direct advertising · HOSPAZ",30000);
     const disclosure=page.getByText("Direct advertising · HOSPAZ",{exact:true}).first();
     const container=disclosure.locator("..");
     const body=await container.innerText();
