@@ -23,7 +23,8 @@
     "test:ca01-communications": "node --test tests/ca01-communications.test.mjs",
     "test:migrated-corpus": "node --test tests/migrated-corpus-integration.test.mjs",
     "test:premium-hospaz": "node --test tests/premium-hospaz-convergence.test.mjs",
-    "test:phase12-authority": "node --test tests/phase12-authority.test.mjs"
+    "test:phase12-authority": "node --test tests/phase12-authority.test.mjs",
+    "test:ui03": "node --test tests/ui03-commercial-reader.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
