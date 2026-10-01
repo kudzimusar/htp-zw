@@ -25,7 +25,7 @@ test("Phase 3 Intelligent Search preserves service authority and adds progressiv
   const search=read("app/search.tsx");
   assert.match(search,/services\.search\.search/);
   assert.match(search,/query_redacted:true/);
-  assert.match(search,/Raw health search words are not sent/);
+  assert.match(search,/raw health search words are not sent/i);
   assert.match(search,/Suggested searches/);
   assert.match(search,/Searching HealthTimes/);
   assert.match(search,/Search is temporarily unavailable/);
@@ -43,7 +43,7 @@ test("Phase 3 Intelligent Search preserves service authority and adds progressiv
 });
 
 test("Phase 3 evidence workflow proves exact head, responsive states and Phase 2 smoke",()=>{
-  const workflow=read("../.github/workflows/ui01-phase3-discovery.yml");
+  const workflow=read("../../.github/workflows/ui01-phase3-discovery.yml");
   assert.match(workflow,/Prove exact candidate checkout/);
   assert.match(workflow,/390,844/);
   assert.match(workflow,/834,1112/);
