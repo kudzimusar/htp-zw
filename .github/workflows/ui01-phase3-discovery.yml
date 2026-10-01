@@ -139,8 +139,17 @@ jobs:
               const exploreResponse=await explore.goto(base+'/explore',{waitUntil:'domcontentloaded',timeout:30000});
               await explore.getByText('Explore by topic',{exact:true}).waitFor({timeout:30000});
               await explore.getByText('HealthTimes reporting',{exact:true}).waitFor({timeout:30000});
+              await explore.waitForFunction(
+                ()=>document.querySelectorAll('[aria-label$=" desk"], [aria-label$=" topic"]').length>0,
+                null,
+                {timeout:30000}
+              );
+              const exploreTopicsLoading=explore.getByText('Loading topics…',{exact:true});
+              if(await exploreTopicsLoading.count()) await exploreTopicsLoading.waitFor({state:'hidden',timeout:30000});
+              const exploreReportingLoading=explore.getByText('Loading reporting…',{exact:true});
+              if(await exploreReportingLoading.count()) await exploreReportingLoading.waitFor({state:'hidden',timeout:30000});
               const exploreInspect=await inspect(explore);
-              assertErrors(viewport+' explore',exploreDiag);
+              assertErrors(viewport+' explore resolved',exploreDiag);
               if(exploreInspect.horizontalOverflow) throw new Error(viewport+' explore horizontal overflow');
               if(viewport==='desktop'&&exploreInspect.mobileTabCount!==0) throw new Error('desktop Explore rendered mobile bottom tabs');
               const exploreFile=path.join('ui01-phase3-evidence/web',viewport+'-explore.png');
@@ -160,13 +169,19 @@ jobs:
               if(viewport==='mobile'){
                 await explore.getByLabel('Browse all discovery options').click();
                 await explore.getByLabel('Expanded discovery options').waitFor({timeout:5000});
+                const expandedInspect=await inspect(explore);
+                assertErrors('mobile explore expanded',exploreDiag);
+                if(expandedInspect.horizontalOverflow) throw new Error('mobile expanded Explore horizontal overflow');
                 const expandedFile=path.join('ui01-phase3-evidence/web','mobile-explore-expanded.png');
                 await explore.screenshot({path:expandedFile,fullPage:true});
                 manifest.screens.push({
                   name:'explore-expanded',route:'/explore',viewport,width,height,
                   file:expandedFile,resolvedState:'progressive taxonomy disclosed',
                   expandedDiscovery:true,
-                  ...(await inspect(explore))
+                  pageErrors:exploreDiag.pageErrors,
+                  consoleErrors:exploreDiag.consoleErrors,
+                  react418:0,
+                  ...expandedInspect
                 });
               }
               await explore.close();
@@ -175,8 +190,16 @@ jobs:
               const searchDiag=diagnostics(search);
               const searchResponse=await search.goto(base+'/search',{waitUntil:'domcontentloaded',timeout:30000});
               await search.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
+              const suggestionsLoading=search.getByText('Loading suggestions…',{exact:true});
+              if(await suggestionsLoading.count()) await suggestionsLoading.waitFor({state:'hidden',timeout:30000});
+              await search.waitForFunction(()=>{
+                const pageText=document.body.innerText;
+                return !pageText.includes('Loading suggestions…') &&
+                  (document.querySelectorAll('[role="button"]').length>4 ||
+                   pageText.includes('Enter a word, author, topic or country to search HealthTimes.'));
+              },null,{timeout:30000});
               const initialInspect=await inspect(search);
-              assertErrors(viewport+' search initial',searchDiag);
+              assertErrors(viewport+' search initial resolved',searchDiag);
               if(initialInspect.horizontalOverflow) throw new Error(viewport+' search initial horizontal overflow');
               if(viewport==='desktop'&&initialInspect.mobileTabCount!==0) throw new Error('desktop Search rendered mobile bottom tabs');
               if(viewport==='desktop'&&initialInspect.activeLabel!=='Search HealthTimes') throw new Error('desktop Search did not focus search input');
@@ -199,6 +222,7 @@ jobs:
               await input.press('Enter');
               await search.getByText(/results for “HIV”/).waitFor({timeout:30000});
               const populatedInspect=await inspect(search);
+              assertErrors(viewport+' search populated',searchDiag);
               if(populatedInspect.horizontalOverflow) throw new Error(viewport+' populated Search horizontal overflow');
               const populatedFile=path.join('ui01-phase3-evidence/web',viewport+'-search-populated.png');
               await search.screenshot({path:populatedFile,fullPage:true});
@@ -215,6 +239,7 @@ jobs:
               await input.press('Enter');
               await search.getByText('No HealthTimes results found',{exact:true}).waitFor({timeout:30000});
               const noResultInspect=await inspect(search);
+              assertErrors(viewport+' search no-results',searchDiag);
               if(noResultInspect.horizontalOverflow) throw new Error(viewport+' no-result Search horizontal overflow');
               const noResultFile=path.join('ui01-phase3-evidence/web',viewport+'-search-no-results.png');
               await search.screenshot({path:noResultFile,fullPage:true});
@@ -233,12 +258,17 @@ jobs:
                 if(await loading.isVisible().catch(()=>false)){
                   const loadingFile=path.join('ui01-phase3-evidence/web','mobile-search-loading.png');
                   await search.screenshot({path:loadingFile,fullPage:true});
+                  const loadingInspect=await inspect(search);
+                  assertErrors('mobile search loading',searchDiag);
+                  if(loadingInspect.horizontalOverflow) throw new Error('mobile loading Search horizontal overflow');
                   manifest.screens.push({
                     name:'search-loading',route:'/search',viewport,width,height,
                     file:loadingFile,resolvedState:'loading',
                     actualContentState:'service request pending',
+                    pageErrors:searchDiag.pageErrors,
+                    consoleErrors:searchDiag.consoleErrors,
                     react418:0,
-                    ...(await inspect(search))
+                    ...loadingInspect
                   });
                 }else{
                   manifest.screens.push({
@@ -250,14 +280,19 @@ jobs:
                 }
                 await search.getByLabel('Show search filters').click();
                 await search.getByLabel('Hide search filters').waitFor({timeout:5000});
+                const filtersInspect=await inspect(search);
+                assertErrors('mobile search filters open',searchDiag);
+                if(filtersInspect.horizontalOverflow) throw new Error('mobile filtered Search horizontal overflow');
                 const filtersFile=path.join('ui01-phase3-evidence/web','mobile-search-filters-open.png');
                 await search.screenshot({path:filtersFile,fullPage:true});
                 manifest.screens.push({
                   name:'search-filters-open',route:'/search',viewport,width,height,
                   file:filtersFile,resolvedState:'progressive filters disclosed',
                   actualContentState:'source-backed country/topic controls',
+                  pageErrors:searchDiag.pageErrors,
+                  consoleErrors:searchDiag.consoleErrors,
                   react418:0,
-                  ...(await inspect(search))
+                  ...filtersInspect
                 });
               }
               await search.close();
@@ -269,15 +304,28 @@ jobs:
             await dark.getByRole('button',{name:'Dark'}).click();
             await dark.goto(base+'/explore',{waitUntil:'domcontentloaded',timeout:30000});
             await dark.getByText('Explore by topic',{exact:true}).waitFor({timeout:30000});
+            await dark.waitForFunction(
+              ()=>document.querySelectorAll('[aria-label$=" desk"], [aria-label$=" topic"]').length>0,
+              null,
+              {timeout:30000}
+            );
+            const darkExploreInspect=await inspect(dark);
+            assertErrors('dark Explore resolved',darkDiag);
+            if(darkExploreInspect.horizontalOverflow) throw new Error('dark Explore horizontal overflow');
             const darkExploreFile=path.join('ui01-phase3-evidence/web','dark-explore.png');
             await dark.screenshot({path:darkExploreFile,fullPage:true});
-            manifest.screens.push({name:'dark-explore',route:'/explore',viewport:'mobile',width:390,height:844,file:darkExploreFile,resolvedState:'dark',react418:0,...(await inspect(dark))});
+            manifest.screens.push({name:'dark-explore',route:'/explore',viewport:'mobile',width:390,height:844,file:darkExploreFile,resolvedState:'dark',pageErrors:darkDiag.pageErrors,consoleErrors:darkDiag.consoleErrors,react418:0,...darkExploreInspect});
             await dark.goto(base+'/search',{waitUntil:'domcontentloaded',timeout:30000});
             await dark.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
+            const darkSuggestionsLoading=dark.getByText('Loading suggestions…',{exact:true});
+            if(await darkSuggestionsLoading.count()) await darkSuggestionsLoading.waitFor({state:'hidden',timeout:30000});
+            const darkSearchInspect=await inspect(dark);
+            assertErrors('dark Search resolved',darkDiag);
+            if(darkSearchInspect.horizontalOverflow) throw new Error('dark Search horizontal overflow');
             const darkSearchFile=path.join('ui01-phase3-evidence/web','dark-search.png');
             await dark.screenshot({path:darkSearchFile,fullPage:true});
-            manifest.screens.push({name:'dark-search',route:'/search',viewport:'mobile',width:390,height:844,file:darkSearchFile,resolvedState:'dark',react418:0,...(await inspect(dark))});
-            assertErrors('dark discovery',darkDiag);
+            manifest.screens.push({name:'dark-search',route:'/search',viewport:'mobile',width:390,height:844,file:darkSearchFile,resolvedState:'dark',pageErrors:darkDiag.pageErrors,consoleErrors:darkDiag.consoleErrors,react418:0,...darkSearchInspect});
+            assertErrors('dark discovery final',darkDiag);
             await dark.close();
 
             for(const [name,route] of [
