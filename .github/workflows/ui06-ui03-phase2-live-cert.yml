@@ -2,12 +2,6 @@ name: UI-06 UI-03 Phase 2 Live Certification
 # exact-head certification trigger: 2026-10-02
 
 on:
-  push:
-    branches:
-      - test/ui06-ui03-phase2-live-cert
-    paths:
-      - '.github/workflows/ui06-ui03-phase2-live-cert.yml'
-      - 'scripts/ui/ui06-ui03-phase2-live-cert.mjs'
   pull_request:
     branches:
       - deployment/ui03-phase2-commercial-reader-candidate
