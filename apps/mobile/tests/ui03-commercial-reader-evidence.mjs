@@ -69,6 +69,75 @@ async function waitForVisibleBodyText(page,text,timeout=30000){
   );
 }
 
+async function imageReadiness(page,locator,label,{required=true}={}){
+  const count=await locator.count();
+  if(count<1){
+    if(required) throw new Error(label+" image is absent");
+    return {
+      present:false,
+      url:null,
+      complete:false,
+      natural_width:0,
+      natural_height:0,
+      visible_width:0,
+      visible_height:0
+    };
+  }
+  const image=locator.first();
+  await image.waitFor({state:"visible",timeout:30000});
+  const handle=await image.elementHandle();
+  if(!handle) throw new Error(label+" image handle unavailable");
+  await page.waitForFunction(
+    img=>{
+      const rect=img.getBoundingClientRect();
+      return img.complete===true &&
+        img.naturalWidth>0 &&
+        img.naturalHeight>0 &&
+        rect.width>0 &&
+        rect.height>0;
+    },
+    handle,
+    {timeout:30000}
+  );
+  const metrics=await image.evaluate(img=>{
+    const rect=img.getBoundingClientRect();
+    return {
+      present:true,
+      url:img.currentSrc||img.src||null,
+      complete:img.complete===true,
+      natural_width:img.naturalWidth,
+      natural_height:img.naturalHeight,
+      visible_width:Math.round(rect.width),
+      visible_height:Math.round(rect.height)
+    };
+  });
+  await handle.dispose();
+  return metrics;
+}
+
+async function selectDarkAppearance(page){
+  await open(page,"/appearance","appearance preference");
+  const dark=page.getByRole("button",{name:"Dark",exact:true});
+  await dark.waitFor({state:"visible",timeout:30000});
+  await dark.click();
+  await page.waitForFunction(
+    ()=>Array.from(document.querySelectorAll('[role="button"]')).some(element=>
+      element.textContent?.trim()==="Dark" && element.getAttribute("aria-selected")==="true"
+    ),
+    null,
+    {timeout:10000}
+  );
+  return "dark";
+}
+
+async function resolvedPremiumJournalism(page,label){
+  const region=page.getByLabel("Source-backed Premium journalism");
+  await region.waitFor({state:"visible",timeout:30000});
+  const count=await region.getByRole("link").count();
+  if(count<1) throw new Error(label+" resolved without source-backed Premium journalism");
+  return count;
+}
+
 async function sourceParityEvidence(){
   if(!Number.isFinite(previewSeconds)||previewSeconds<=0) throw new Error("Evidence preview seconds must be positive.");
   const browser=await chromium.launch({headless:true});
@@ -85,6 +154,7 @@ async function sourceParityEvidence(){
     const status=await open(page,"/article/"+publicId,"public article "+name);
     await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
     await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
+    const hero=await imageReadiness(page,page.getByTestId("article-hero-media"),"public Article Hero "+name);
     const body=await page.locator("body").innerText();
     if(body.includes("PREMIUM PREVIEW")||body.includes("Continue reading with HealthTimes Premium")){
       throw new Error("Known public article unexpectedly rendered Premium state at "+name);
@@ -108,6 +178,13 @@ async function sourceParityEvidence(){
       console_error_count:diag.consoleErrors.length,
       resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:ov.overflow,
+      hero_media_present:hero.present,
+      hero_media_url:hero.url,
+      hero_media_complete:hero.complete,
+      hero_media_natural_width:hero.natural_width,
+      hero_media_natural_height:hero.natural_height,
+      hero_media_visible_width:hero.visible_width,
+      hero_media_visible_height:hero.visible_height,
       article_ad_visible:(await page.getByText("ADVERTISEMENT",{exact:true}).count())>0,
       ad_source_expected:"none_when_no_decision"
     });
@@ -193,9 +270,12 @@ async function sourceParityEvidence(){
     const diag=diagnostics(page);
     const status=await open(page,"/premium","premium landing "+name);
     await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
-    await waitForVisibleBodyText(page,"Membership options aren't available on this build yet",10000);
+    await waitForVisibleBodyText(page,"Membership options aren't available here yet",10000);
+    const premiumStoryCount=await resolvedPremiumJournalism(page,"premium landing "+name);
     const body=await page.locator("body").innerText();
-    if(body.includes("configuration-required")) throw new Error("Internal store status leaked at "+name);
+    for(const forbidden of ["on this build","approved store","secure member service","configuration-required"]){
+      if(body.toLowerCase().includes(forbidden)) throw new Error("Implementation-facing Premium copy leaked at "+name+": "+forbidden);
+    }
     if(/\$\s*\d+(?:\.\d{2})?/.test(body)) throw new Error("Unverified price rendered at "+name);
     if(/MOST POPULAR/i.test(body)) throw new Error("Unapproved recommended-plan claim rendered at "+name);
     const ov=await overflow(page);
@@ -205,6 +285,9 @@ async function sourceParityEvidence(){
     await page.screenshot({path:file,fullPage:true});
     premiumLanding.push({
       viewport:name,...viewport,status,file,
+      premium_stories_loading:false,
+      premium_stories_error:false,
+      premium_story_count:premiumStoryCount,
       store_status:"configuration-required",
       offer_count:0,
       invented_price:false,
@@ -222,16 +305,43 @@ async function sourceParityEvidence(){
     ["premium-paywall","/article/"+premiumId],
     ["premium-landing","/premium"]
   ]){
-    const page=await browser.newPage({viewport:viewports.mobile,deviceScaleFactor:1,colorScheme:"dark"});
+    const page=await browser.newPage({viewport:viewports.mobile,deviceScaleFactor:1,colorScheme:"light"});
     const diag=diagnostics(page);
+    const appearancePreference=await selectDarkAppearance(page);
     await open(page,route,"dark "+name);
-    if(name==="premium-paywall") await page.waitForTimeout((previewSeconds+1)*1000);
+
+    if(name==="article"){
+      await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
+      await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
+      await imageReadiness(page,page.getByTestId("article-hero-media"),"dark public Article Hero");
+    }else if(name==="premium-paywall"){
+      await waitForVisibleBodyText(page,"US Embassy Challenges Zimbabwe");
+      await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
+      await page.waitForTimeout((previewSeconds+1)*1000);
+      await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",10000);
+      const lockedBody=await page.locator("body").innerText();
+      if(lockedBody.includes("PREMIUM PREVIEW")) throw new Error("Dark Premium preview remained active after lock");
+    }else{
+      await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
+      await waitForVisibleBodyText(page,"Membership options aren't available here yet",10000);
+      await resolvedPremiumJournalism(page,"dark Premium landing");
+    }
+
+    const body=await page.locator("body").innerText();
+    if(body.includes("Loading article…")) throw new Error("Dark "+name+" captured unresolved Article loading state");
     const ov=await overflow(page);
     if(ov.overflow) throw new Error("Dark-mode horizontal overflow on "+name);
-    assertClean("dark "+name,diag);
+    const react418=assertClean("dark "+name,diag);
     const file=path.join(root,"dark",name+"-mobile.png");
     await page.screenshot({path:file,fullPage:true});
-    dark.push({name,file,viewport:"mobile",...viewports.mobile,horizontal_overflow:ov.overflow});
+    dark.push({
+      name,file,viewport:"mobile",...viewports.mobile,
+      appearance_preference:appearancePreference,
+      React_418_count:react418,
+      pageerror_count:diag.pageErrors.length,
+      console_error_count:diag.consoleErrors.length,
+      horizontal_overflow:ov.overflow
+    });
     await page.close();
   }
 
@@ -264,6 +374,7 @@ async function sourceParityEvidence(){
     candidate_sha:candidateSha,
     base_sha:baseSha,
     branch,
+    appearance_preference:"dark",
     browser:"chromium",
     browser_version:version,
     captured_at:new Date().toISOString(),
@@ -312,6 +423,7 @@ async function stagingAdvertisingEvidence(){
     const body=await container.innerText();
     if(!body.includes("ADVERTISEMENT")) throw new Error("Advertisement disclosure missing at "+name);
     if(await container.locator("a").count()) throw new Error("HOSPAZ became clickable without verified destination at "+name);
+    const creative=await imageReadiness(page,container.locator("img"),"HOSPAZ creative "+name);
     const ov=await overflow(page);
     if(ov.overflow) throw new Error("HOSPAZ Home overflow at "+name);
     const react418=assertClean("HOSPAZ "+name,diag);
@@ -324,6 +436,12 @@ async function stagingAdvertisingEvidence(){
       ad_disclosure:true,
       destination_verified:false,
       ad_clickable:false,
+      creative_url:creative.url,
+      creative_complete:creative.complete,
+      creative_natural_width:creative.natural_width,
+      creative_natural_height:creative.natural_height,
+      destination_verified:false,
+      clickable:false,
       sensitive_health_context:true,
       personalization:"none",
       file,
