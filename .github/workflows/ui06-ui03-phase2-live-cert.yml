@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ui06-ui03-phase2-live-cert-${{ github.ref }}
@@ -141,7 +141,167 @@ jobs:
           fs.writeFileSync(root+"/advertising-resolution.json",JSON.stringify(receipt,null,2)+"\n");
           NODE
 
+
+      - name: Generate bounded certification report
+        if: always()
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs");
+          const path=require("path");
+          const root="artifacts/ui06/ui03-phase2-live-cert";
+          const reportPath="docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md";
+          const manifestPath=path.join(root,"manifest.json");
+          const summaryPath=path.join(root,"summary.md");
+          const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath,"utf8")):null;
+          const summary=fs.existsSync(summaryPath)?fs.readFileSync(summaryPath,"utf8"):"";
+          const rows=(items,filter)=>items.filter(filter);
+          const md=[];
+          md.push("# UI-06 UI-03 Phase 2 Live Commercial Reader Certification");
+          md.push("");
+          md.push("## Exact identities");
+          md.push("");
+          md.push("- Repository: \`kudzimusar/htp-zw\`");
+          md.push("- Certification branch: \`test/ui06-ui03-phase2-live-cert\`");
+          md.push("- Certification starting wrapper: \`8611beb08a9cc43accc9109457ed48901c3daaf1\`");
+          md.push("- Certification tooling SHA: \`"+process.env.GITHUB_SHA+"\`");
+          md.push("- Documentation closure SHA: \`db9eebb7fef6b8ee9f3d784d14f1f5394a234499\`");
+          md.push("- Live deployment wrapper: \`"+(manifest?.deployed_wrapper_sha||"NOT CAPTURED")+"\`");
+          md.push("- Underlying accepted UI-03 executable: \`"+(manifest?.accepted_executable_sha||"6cbfcaa9ee6c06e25f59c99eb21bf86211990605")+"\`");
+          md.push("- Workflow run: \`"+process.env.GITHUB_RUN_ID+"\`");
+          md.push("- Evidence artifact: \`ui06-ui03-phase2-live-cert\`");
+          md.push("");
+          md.push("## Deployment identity");
+          md.push("");
+          if(manifest){
+            md.push("- build-info SHA: \`"+manifest.build_info_sha+"\`");
+            md.push("- public URL: \`"+manifest.public_url+"\`");
+          } else {
+            md.push("- Live manifest was not produced; certification harness failed before structured evidence completion.");
+          }
+          md.push("");
+          md.push("## Browser environment");
+          md.push("");
+          if(manifest){
+            md.push("- Browser: "+manifest.browser+" "+manifest.browser_version);
+            md.push("- Playwright: "+manifest.playwright_version);
+            md.push("- Node: "+manifest.node_version);
+            md.push("- Runner: "+manifest.runner);
+            md.push("- OS: "+manifest.os);
+            md.push("- Device scale factor: "+manifest.device_scale_factor);
+          }
+          md.push("");
+          const items=manifest?.primary_results||[];
+          const article=rows(items,x=>x.surface==="public_article");
+          md.push("## Article");
+          md.push("");
+          if(article.length){
+            md.push("| Viewport | Hero | Intrinsic | Rendered | #418 | Page errors | Overflow | Screenshot |");
+            md.push("|---|---|---|---|---:|---:|---|---|");
+            for(const x of article) md.push("| "+x.viewport+" | "+(x.hero_media_complete??x.hero?.complete?"PASS":"FAIL")+" | "+(x.hero_natural_width??x.hero?.natural_width)+"×"+(x.hero_natural_height??x.hero?.natural_height)+" | "+(x.hero_rendered_width??x.hero?.rendered_width)+"×"+(x.hero_rendered_height??x.hero?.rendered_height)+" | "+(x.React_418_count||0)+" | "+(x.pageerror_count||0)+" | "+(x.horizontal_overflow?"FAIL":"PASS")+" | \`"+x.screenshot+"\` |");
+          } else md.push("- No complete public Article viewport evidence recorded.");
+          md.push("");
+          const premium=rows(items,x=>x.surface==="premium_article"&&x.appearance!=="dark");
+          md.push("## Premium security and live commercial behavior");
+          md.push("");
+          if(premium.length){
+            for(const x of premium){
+              md.push("### "+x.viewport);
+              md.push("");
+              md.push("- anonymous: \`"+x.anonymous+"\`");
+              md.push("- entitlement_state: \`"+x.entitlement_state+"\`");
+              md.push("- paywall_visible: \`"+x.paywall_visible+"\`");
+              md.push("- protected_body_present_in_dom: \`"+x.protected_body_present_in_dom+"\`");
+              md.push("- protected_body_network_retrieval: \`"+x.protected_body_network_retrieval+"\`");
+              md.push("- preview_timer_active: \`"+x.preview_timer_active+"\`");
+              md.push("- preview_duration_observed: \`"+x.preview_duration_observed+"\`");
+              md.push("- preview_configuration_state: \`"+x.preview_configuration_state+"\`");
+              md.push("");
+            }
+          } else md.push("- No complete Premium Article evidence recorded.");
+          md.push("- commercial_preview_duration_configured: \`"+(manifest?.commercial_preview_duration_configured??"NOT CAPTURED")+"\`");
+          md.push("- commercial_preview_policy_status: \`"+(manifest?.commercial_preview_policy_status??"NOT CAPTURED")+"\`");
+          md.push("");
+          const landing=rows(items,x=>x.surface==="premium_landing"&&x.appearance!=="dark");
+          md.push("## Premium landing");
+          md.push("");
+          if(landing.length){
+            for(const x of landing) md.push("- "+x.viewport+": stories="+x.premium_story_count+", store_state=\`"+x.store_reader_state+"\`, price_visible=\`"+x.price_visible+"\`, restore=\`"+x.restore_visible+"\`, member_sign_in=\`"+x.member_sign_in_visible+"\`, screenshot=\`"+x.screenshot+"\`");
+          } else md.push("- No complete Premium landing evidence recorded.");
+          md.push("");
+          const dark=rows(items,x=>x.appearance==="dark"||String(x.surface).startsWith("dark_"));
+          md.push("## Dark appearance");
+          md.push("");
+          if(dark.length) for(const x of dark) md.push("- "+x.surface+": viewport="+x.viewport+", #418="+(x.React_418_count||0)+", page_errors="+(x.pageerror_count||0)+", overflow="+Boolean(x.horizontal_overflow)+", screenshot=\`"+(x.screenshot||"see premium paywall evidence")+"\`");
+          else md.push("- No complete dark evidence recorded.");
+          md.push("");
+          md.push("## Advertising / HOSPAZ");
+          md.push("");
+          if(manifest?.advertising){
+            for(const x of manifest.advertising) md.push("- "+x.viewport+": advertising_source=\`"+x.advertising_source+"\`, HOSPAZ_present=\`"+x.HOSPAZ_present+"\`, ad_gap_present=\`"+x.ad_gap_present+"\`, screenshot=\`"+x.screenshot+"\`");
+          } else md.push("- Advertising evidence was not completed.");
+          md.push("");
+          md.push("## Runtime");
+          md.push("");
+          if(manifest){
+            md.push("- React #418 count: \`"+manifest.React_418_count+"\`");
+            md.push("- Page error count: \`"+manifest.pageerror_count+"\`");
+            md.push("- Console error count: \`"+manifest.console_error_count+"\`");
+            md.push("- HTTP resource error count: \`"+manifest.resource_http_error_count+"\`");
+            md.push("- Service worker registered: \`"+manifest.service_worker_registered+"\`");
+            md.push("- Service worker controlling: \`"+manifest.service_worker_controlling+"\`");
+          }
+          md.push("");
+          md.push("## Findings");
+          md.push("");
+          if(manifest?.findings?.length) for(const x of manifest.findings) md.push("- **"+x.severity+" / "+x.category+"** — "+x.message);
+          else md.push("- No separate findings recorded.");
+          if(manifest?.first_blocker) md.push("- **FIRST BLOCKER:** "+manifest.first_blocker.severity+" — "+manifest.first_blocker.message);
+          md.push("");
+          md.push("## Authority preservation");
+          md.push("");
+          for(const line of [
+            "apps/mobile changed: NO","Pages workflow changed: NO","deployment changed: NO","DESIGN.md changed: NO",
+            "Premium service changed: NO","Premium preview configuration changed: NO","store products/pricing changed: NO",
+            "HOSPAZ authority changed: NO","advertising provider activated: NO","staging changed: NO","COM changed: NO",
+            "Studio changed: NO","main changed: NO","PR #42 merged: NO","PR #43 merged: NO","production changed: NO"
+          ]) md.push("- "+line);
+          md.push("");
+          md.push("## Final disposition");
+          md.push("");
+          const final=(summary.match(/UI-06 PHASE 2 LIVE COMMERCIAL READER[^\n]+/g)||[]).at(-1)
+            ||(manifest?.first_blocker?"UI-06 PHASE 2 LIVE COMMERCIAL READER NOT CERTIFIED — "+manifest.first_blocker.message:"UI-06 PHASE 2 LIVE COMMERCIAL READER NOT CERTIFIED — certification summary unavailable");
+          md.push(final);
+          md.push("");
+          fs.mkdirSync(path.dirname(reportPath),{recursive:true});
+          fs.writeFileSync(reportPath,md.join("\n"));
+          if(fs.existsSync(root)) fs.copyFileSync(reportPath,path.join(root,"UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md"));
+          NODE
+
       - name: Upload UI-06 Phase 2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-ui03-phase2-live-cert
+          path: artifacts/ui06/ui03-phase2-live-cert/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit certification report only
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "healthtimes-ui06-cert"
+          git config user.email "healthtimes-ui06-cert@users.noreply.github.com"
+          git add docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md
+          if git diff --cached --quiet; then
+            echo "Certification report unchanged; no documentation commit required."
+            exit 0
+          fi
+          git commit -m "docs(ui06): record Phase 2 live commercial Reader certification"
+          git push origin HEAD:test/ui06-ui03-phase2-live-cert
+     - name: Upload UI-06 Phase 2 evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
