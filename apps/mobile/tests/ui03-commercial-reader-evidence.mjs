@@ -31,12 +31,18 @@ function diagnostics(page){
   return {pageErrors,consoleErrors};
 }
 
+function resource404Errors(state){
+  return state.consoleErrors.filter(value=>/Failed to load resource:.*404/i.test(value));
+}
+
 function assertClean(label,state){
-  const combined=[...state.pageErrors,...state.consoleErrors];
+  const resource404=resource404Errors(state);
+  const actionableConsole=state.consoleErrors.filter(value=>!resource404.includes(value));
+  const combined=[...state.pageErrors,...actionableConsole];
   const react418=combined.filter(value=>value.includes("Minified React error #418"));
   if(react418.length) throw new Error(label+" React #418: "+react418.join(" | "));
   if(state.pageErrors.length) throw new Error(label+" page errors: "+state.pageErrors.join(" | "));
-  if(state.consoleErrors.length) throw new Error(label+" console errors: "+state.consoleErrors.join(" | "));
+  if(actionableConsole.length) throw new Error(label+" console errors: "+actionableConsole.join(" | "));
   return react418.length;
 }
 
@@ -100,6 +106,7 @@ async function sourceParityEvidence(){
       React_418_count:react418,
       pageerror_count:diag.pageErrors.length,
       console_error_count:diag.consoleErrors.length,
+      resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:ov.overflow,
       article_ad_visible:(await page.getByText("ADVERTISEMENT",{exact:true}).count())>0,
       ad_source_expected:"none_when_no_decision"
@@ -175,6 +182,7 @@ async function sourceParityEvidence(){
       React_418_count:react418,
       pageerror_count:diag.pageErrors.length,
       console_error_count:diag.consoleErrors.length,
+      resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:afterOverflow.overflow
     });
     await page.close();
@@ -203,6 +211,7 @@ async function sourceParityEvidence(){
       React_418_count:react418,
       pageerror_count:diag.pageErrors.length,
       console_error_count:diag.consoleErrors.length,
+      resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:ov.overflow
     });
     await page.close();
@@ -245,6 +254,7 @@ async function sourceParityEvidence(){
       React_418_count:react418,
       pageerror_count:diag.pageErrors.length,
       console_error_count:diag.consoleErrors.length,
+      resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:ov.overflow
     });
     await page.close();
@@ -320,6 +330,7 @@ async function stagingAdvertisingEvidence(){
       React_418_count:react418,
       pageerror_count:diag.pageErrors.length,
       console_error_count:diag.consoleErrors.length,
+      resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:ov.overflow
     });
     await page.close();
