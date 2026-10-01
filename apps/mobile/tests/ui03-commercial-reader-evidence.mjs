@@ -77,7 +77,7 @@ async function waitForBodyTextAbsent(page,text,timeout=30000){
   );
 }
 
-async function imageReadiness(page,locator,label,{required=true}={}){
+async function imageReadiness(page,locator,label,{required=true,boundsLocator=null}={}){
   const count=await locator.count();
   if(count<1){
     if(required) throw new Error(label+" image is absent");
@@ -92,35 +92,37 @@ async function imageReadiness(page,locator,label,{required=true}={}){
     };
   }
   const image=locator.first();
-  await image.waitFor({state:"visible",timeout:30000});
+  await image.waitFor({state:"attached",timeout:30000});
   const handle=await image.elementHandle();
   if(!handle) throw new Error(label+" image handle unavailable");
   await page.waitForFunction(
-    img=>{
-      const rect=img.getBoundingClientRect();
-      return img.complete===true &&
-        img.naturalWidth>0 &&
-        img.naturalHeight>0 &&
-        rect.width>0 &&
-        rect.height>0;
-    },
+    img=>img.complete===true && img.naturalWidth>0 && img.naturalHeight>0,
     handle,
     {timeout:30000}
   );
-  const metrics=await image.evaluate(img=>{
-    const rect=img.getBoundingClientRect();
+  const rendered=boundsLocator ? boundsLocator.first() : image;
+  await rendered.waitFor({state:"visible",timeout:30000});
+  const metrics=await image.evaluate((img)=>{
     return {
       present:true,
       url:img.currentSrc||img.src||null,
       complete:img.complete===true,
       natural_width:img.naturalWidth,
-      natural_height:img.naturalHeight,
+      natural_height:img.naturalHeight
+    };
+  });
+  const bounds=await rendered.evaluate(element=>{
+    const rect=element.getBoundingClientRect();
+    return {
       visible_width:Math.round(rect.width),
       visible_height:Math.round(rect.height)
     };
   });
   await handle.dispose();
-  return metrics;
+  if(bounds.visible_width<=0 || bounds.visible_height<=0){
+    throw new Error(label+" rendered bounds are zero");
+  }
+  return {...metrics,...bounds};
 }
 
 async function selectDarkAppearance(page){
@@ -162,7 +164,8 @@ async function sourceParityEvidence(){
     const status=await open(page,"/article/"+publicId,"public article "+name);
     await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
     await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
-    const hero=await imageReadiness(page,page.getByTestId("article-hero-media"),"public Article Hero "+name);
+    const heroWrapper=page.locator('[data-testid="article-hero-media"]:visible').first();
+    const hero=await imageReadiness(page,heroWrapper.locator("img"),"public Article Hero "+name,{boundsLocator:heroWrapper});
     const body=await page.locator("body").innerText();
     if(body.includes("PREMIUM PREVIEW")||body.includes("Continue reading with HealthTimes Premium")){
       throw new Error("Known public article unexpectedly rendered Premium state at "+name);
@@ -322,7 +325,8 @@ async function sourceParityEvidence(){
     if(name==="article"){
       await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
       await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
-      await imageReadiness(page,page.getByTestId("article-hero-media"),"dark public Article Hero");
+      const heroWrapper=page.locator('[data-testid="article-hero-media"]:visible').first();
+      await imageReadiness(page,heroWrapper.locator("img"),"dark public Article Hero",{boundsLocator:heroWrapper});
     }else if(name==="premium-paywall"){
       await waitForVisibleBodyText(page,"US Embassy Challenges Zimbabwe");
       await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
@@ -433,7 +437,7 @@ async function stagingAdvertisingEvidence(){
     const body=await container.innerText();
     if(!body.includes("ADVERTISEMENT")) throw new Error("Advertisement disclosure missing at "+name);
     if(await container.locator("a").count()) throw new Error("HOSPAZ became clickable without verified destination at "+name);
-    const creative=await imageReadiness(page,container.locator("img"),"HOSPAZ creative "+name);
+    const creative=await imageReadiness(page,container.locator("img"),"HOSPAZ creative "+name,{boundsLocator:container});
     const ov=await overflow(page);
     if(ov.overflow) throw new Error("HOSPAZ Home overflow at "+name);
     const react418=assertClean("HOSPAZ "+name,diag);
