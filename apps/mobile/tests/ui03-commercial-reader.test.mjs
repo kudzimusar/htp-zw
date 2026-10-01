@@ -38,28 +38,42 @@ test("UI-03 timed preview lifecycle records configured elapsed time",()=>{
   assert.match(article,/premiumState==="warning"/);
 });
 
-test("UI-03 Article toolbar keeps primary actions compact and offline secondary",()=>{
+test("UI-03 Article toolbar is icon-led, accessible, and keeps Offline secondary",()=>{
   const toolbar=read("src/ui/ArticleToolbar.tsx");
   for(const label of [
     "Back",
-    "Text ",
-    "Save",
-    "Listen",
-    "Share",
+    "Text size ",
+    "Save article",
+    "Listen to article",
+    "Share article",
     "Download article for offline reading"
-  ]) assert.ok(toolbar.includes(label),"missing toolbar action "+label);
+  ]) assert.ok(toolbar.includes(label),"missing accessible toolbar action "+label);
+  for(const glyph of ['glyph="←"','glyph="Aa"','glyph="☆"','glyph="▶"','glyph="↗"']){
+    assert.ok(toolbar.includes(glyph),"missing toolbar glyph "+glyph);
+  }
   assert.match(toolbar,/accessibilityRole="toolbar"/);
   assert.match(toolbar,/accessibilityRole="button"/);
+  assert.match(toolbar,/accessibilityLabel=\{label\}/);
   assert.match(toolbar,/minHeight: layout\.touchMin/);
   assert.match(toolbar,/↓ Offline/);
+  assert.doesNotMatch(toolbar,/styles\.label/);
 });
 
-test("UI-03 Premium landing is truthful and does not invent commercial facts",()=>{
+test("UI-03 Premium landing separates source states and keeps reader copy truthful",()=>{
   const premium=read("app/premium.tsx");
-  assert.match(premium,/Membership options aren't available on this build yet/);
+  assert.match(premium,/sourceStories\.loading/);
+  assert.match(premium,/sourceStories\.error/);
+  assert.match(premium,/premiumStories\.length > 0/);
+  assert.match(premium,/Premium stories loading/);
+  assert.match(premium,/Premium stories unavailable/);
+  assert.match(premium,/Source-backed Premium journalism/);
+  assert.match(premium,/Premium stories empty/);
+  assert.match(premium,/Membership options aren't available here yet/);
+  assert.match(premium,/Your Premium access is active\./);
   assert.match(premium,/store\.data\?\.status==="available"/);
   assert.match(premium,/offer\.displayPrice/);
   assert.match(premium,/offer\.storeProductId/);
+  assert.doesNotMatch(premium,/on this build|approved store|secure member service/i);
   assert.doesNotMatch(premium,/MOST POPULAR|Most Popular/);
   assert.doesNotMatch(premium,/configuration-required/);
   assert.doesNotMatch(premium,/\$\d|US\$|ZW\$|7-day trial|free trial|20% OFF/i);
@@ -97,4 +111,22 @@ test("UI-03 Article Reader keeps internal source-bridge notes out of publication
   assert.match(article,/previewCopy!==displayStandfirst/);
   assert.match(article,/read-only source bridge/);
   assert.match(article,/return internal\.test\(text\) \? null : text/);
+});
+
+
+test("UI-03 evidence uses HealthTimes Dark state and waits for media readiness",()=>{
+  const evidence=read("tests/ui03-commercial-reader-evidence.mjs");
+  const article=read("app/article/[id].tsx");
+  assert.match(evidence,/open\(page,"\/appearance","appearance preference"\)/);
+  assert.match(evidence,/getByRole\("button",\{name:"Dark",exact:true\}\)/);
+  assert.match(evidence,/aria-selected/);
+  assert.match(evidence,/appearance_preference/);
+  assert.match(evidence,/img\.complete===true/);
+  assert.match(evidence,/img\.naturalWidth>0/);
+  assert.match(evidence,/img\.naturalHeight>0/);
+  assert.match(evidence,/Source-backed Premium journalism/);
+  assert.match(evidence,/hero_media_complete/);
+  assert.match(evidence,/creative_complete/);
+  assert.match(evidence,/Loading article…/);
+  assert.match(article,/testID="article-hero-media"/);
 });
