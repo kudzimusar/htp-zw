@@ -1,10 +1,9 @@
 name: UI-06 UI-03 Phase 2 Live Certification
-# exact-head certification trigger: 2026-10-02
 
 on:
-  pull_request:
+  push:
     branches:
-      - deployment/ui03-phase2-commercial-reader-candidate
+      - test/ui06-ui03-phase2-live-cert
     paths:
       - '.github/workflows/ui06-ui03-phase2-live-cert.yml'
       - 'scripts/ui/ui06-ui03-phase2-live-cert.mjs'
@@ -26,11 +25,12 @@ jobs:
       TARGET_DEPLOYED_SHA: 8611beb08a9cc43accc9109457ed48901c3daaf1
       ACCEPTED_EXECUTABLE_SHA: 6cbfcaa9ee6c06e25f59c99eb21bf86211990605
       ARTIFACT_DIR: artifacts/ui06/ui03-phase2-live-cert
+
     steps:
       - name: Check out certification tooling
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Prove exact certification tooling SHA
@@ -38,12 +38,10 @@ jobs:
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          expected="${{ github.event.pull_request.head.sha || github.sha }}"
           echo "CERTIFICATION_TOOLING_SHA=$actual"
-          echo "EXPECTED_TOOLING_SHA=$expected"
           echo "DEPLOYED_WRAPPER_SHA=$TARGET_DEPLOYED_SHA"
           echo "ACCEPTED_EXECUTABLE_SHA=$ACCEPTED_EXECUTABLE_SHA"
-          test "$actual" = "$expected"
+          test "$actual" = "$GITHUB_SHA"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -55,92 +53,14 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Install Chromium
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run live UI-06 Phase 2 certification
         env:
-          CERTIFICATION_TOOLING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CERTIFICATION_TOOLING_SHA: ${{ github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}
-        run: node --input-type=module -e 'globalThis.viewports={mobile:{width:390,height:844},tablet:{width:834,height:1112},desktop:{width:1440,height:1000}}; await import("./scripts/ui/ui06-ui03-phase2-live-cert.mjs")'
-
-      - name: Re-capture focused Premium paywall evidence
-        if: success()
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { chromium } from "@playwright/test";
-          import fs from "node:fs";
-          const base="https://kudzimusar.github.io/htp-zw";
-          const root="artifacts/ui06/ui03-phase2-live-cert";
-          const article="/article/source-us-embassy-challenges-zimbabwe-rejected-health-mou";
-          const browser=await chromium.launch({headless:true});
-          async function capture(name,viewport,dark=false){
-            const context=await browser.newContext({viewport,deviceScaleFactor:1});
-            const page=await context.newPage();
-            if(dark){
-              await page.goto(base+"/appearance",{waitUntil:"domcontentloaded",timeout:30000});
-              const button=page.getByRole("button",{name:"Dark",exact:true});
-              await button.waitFor({state:"visible",timeout:30000});
-              await button.click();
-              await page.waitForTimeout(500);
-            }
-            await page.goto(base+article,{waitUntil:"domcontentloaded",timeout:30000});
-            const heading=page.getByText("Continue reading with HealthTimes Premium",{exact:false}).first();
-            await heading.waitFor({state:"visible",timeout:30000});
-            const member=page.getByRole("button",{name:/Sign in as an existing member|Member sign in|Sign in/i}).first();
-            await member.waitFor({state:"visible",timeout:30000});
-            await member.scrollIntoViewIfNeeded();
-            await page.waitForTimeout(300);
-            const file=dark?root+"/dark/premium-paywall-mobile.png":root+"/premium-article/"+name+"-paywall.png";
-            await page.screenshot({path:file,fullPage:false});
-            await context.close();
-          }
-          try {
-            await capture("mobile",{width:390,height:844},false);
-            await capture("desktop",{width:1440,height:1000},false);
-            await capture("mobile",{width:390,height:844},true);
-          } finally {
-            await browser.close();
-          }
-          fs.writeFileSync(root+"/paywall-visual-recapture.json",JSON.stringify({
-            mobile_light:"premium-article/mobile-paywall.png",
-            desktop_light:"premium-article/desktop-paywall.png",
-            mobile_dark:"dark/premium-paywall-mobile.png",
-            paywall_cta_scrolled_into_view:true
-          },null,2)+"\n");
-          NODE
-
-      - name: Re-capture resolved public advertising state
-        if: success()
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { chromium } from "@playwright/test";
-          import fs from "node:fs";
-          const base="https://kudzimusar.github.io/htp-zw";
-          const root="artifacts/ui06/ui03-phase2-live-cert";
-          const views={mobile:{width:390,height:844},tablet:{width:834,height:1112},desktop:{width:1440,height:1000}};
-          const browser=await chromium.launch({headless:true});
-          const receipt=[];
-          try {
-            for (const [name,viewport] of Object.entries(views)) {
-              const context=await browser.newContext({viewport,deviceScaleFactor:1});
-              const page=await context.newPage();
-              const response=await page.goto(base+"/",{waitUntil:"domcontentloaded",timeout:30000});
-              await page.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout:30000});
-              await page.waitForFunction(()=>!document.body.innerText.includes("Loading Home…"),null,{timeout:30000});
-              const hospaz=await page.getByText("Direct advertising · HOSPAZ",{exact:true}).first().isVisible().catch(()=>false);
-              const file=root+"/advertising/"+name+"-source-parity.png";
-              await page.screenshot({path:file,fullPage:true});
-              receipt.push({viewport:name,status:response?.status()||null,home_resolved:true,HOSPAZ_present:hospaz,screenshot:"advertising/"+name+"-source-parity.png"});
-              await context.close();
-            }
-          } finally {
-            await browser.close();
-          }
-          fs.writeFileSync(root+"/advertising-resolution.json",JSON.stringify(receipt,null,2)+"\n");
-          NODE
-
+          RUNNER_NAME: ${{ runner.name }}
+        run: node scripts/ui/ui06-ui03-phase2-live-cert.mjs
 
       - name: Generate bounded certification report
         if: always()
@@ -150,132 +70,107 @@ jobs:
           const fs=require("fs");
           const path=require("path");
           const root="artifacts/ui06/ui03-phase2-live-cert";
-          const reportPath="docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md";
           const manifestPath=path.join(root,"manifest.json");
           const summaryPath=path.join(root,"summary.md");
+          const reportPath="docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md";
           const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath,"utf8")):null;
           const summary=fs.existsSync(summaryPath)?fs.readFileSync(summaryPath,"utf8"):"";
-          const rows=(items,filter)=>items.filter(filter);
-          const md=[];
-          md.push("# UI-06 UI-03 Phase 2 Live Commercial Reader Certification");
-          md.push("");
-          md.push("## Exact identities");
-          md.push("");
-          md.push("- Repository: \`kudzimusar/htp-zw\`");
-          md.push("- Certification branch: \`test/ui06-ui03-phase2-live-cert\`");
-          md.push("- Certification starting wrapper: \`8611beb08a9cc43accc9109457ed48901c3daaf1\`");
-          md.push("- Certification tooling SHA: \`"+process.env.GITHUB_SHA+"\`");
-          md.push("- Documentation closure SHA: \`db9eebb7fef6b8ee9f3d784d14f1f5394a234499\`");
-          md.push("- Live deployment wrapper: \`"+(manifest?.deployed_wrapper_sha||"NOT CAPTURED")+"\`");
-          md.push("- Underlying accepted UI-03 executable: \`"+(manifest?.accepted_executable_sha||"6cbfcaa9ee6c06e25f59c99eb21bf86211990605")+"\`");
-          md.push("- Workflow run: \`"+process.env.GITHUB_RUN_ID+"\`");
-          md.push("- Evidence artifact: \`ui06-ui03-phase2-live-cert\`");
-          md.push("");
-          md.push("## Deployment identity");
-          md.push("");
-          if(manifest){
-            md.push("- build-info SHA: \`"+manifest.build_info_sha+"\`");
-            md.push("- public URL: \`"+manifest.public_url+"\`");
-          } else {
-            md.push("- Live manifest was not produced; certification harness failed before structured evidence completion.");
-          }
-          md.push("");
-          md.push("## Browser environment");
-          md.push("");
-          if(manifest){
-            md.push("- Browser: "+manifest.browser+" "+manifest.browser_version);
-            md.push("- Playwright: "+manifest.playwright_version);
-            md.push("- Node: "+manifest.node_version);
-            md.push("- Runner: "+manifest.runner);
-            md.push("- OS: "+manifest.os);
-            md.push("- Device scale factor: "+manifest.device_scale_factor);
-          }
-          md.push("");
           const items=manifest?.primary_results||[];
-          const article=rows(items,x=>x.surface==="public_article");
-          md.push("## Article");
-          md.push("");
+          const article=items.filter(x=>x.surface==="public_article");
+          const premium=items.filter(x=>x.surface==="premium_article"&&x.appearance!=="dark");
+          const landing=items.filter(x=>x.surface==="premium_landing"&&x.appearance!=="dark");
+          const dark=items.filter(x=>x.appearance==="dark"||String(x.surface).startsWith("dark_"));
+          const md=[];
+          const p=x=>md.push(x);
+          p("# UI-06 UI-03 Phase 2 Live Commercial Reader Certification");
+          p("");
+          p("## Exact identities");
+          p("");
+          p("- Repository: `kudzimusar/htp-zw`");
+          p("- Certification branch: `test/ui06-ui03-phase2-live-cert`");
+          p("- Certification starting wrapper: `8611beb08a9cc43accc9109457ed48901c3daaf1`");
+          p("- Certification tooling SHA: `"+process.env.GITHUB_SHA+"`");
+          p("- Documentation closure SHA: `db9eebb7fef6b8ee9f3d784d14f1f5394a234499`");
+          p("- Live deployment wrapper: `"+(manifest?.deployed_wrapper_sha||"NOT CAPTURED")+"`");
+          p("- Underlying accepted UI-03 executable: `"+(manifest?.accepted_executable_sha||"6cbfcaa9ee6c06e25f59c99eb21bf86211990605")+"`");
+          p("- Workflow run: `"+process.env.GITHUB_RUN_ID+"`");
+          p("- Evidence artifact: `ui06-ui03-phase2-live-cert`");
+          p("");
+          p("## Deployment identity");
+          p("");
+          if(manifest){p("- build-info SHA: `"+manifest.build_info_sha+"`");p("- public URL: `"+manifest.public_url+"`");}
+          else p("- Structured live manifest was not produced.");
+          p("");
+          p("## Browser environment");
+          p("");
+          if(manifest){p("- Browser: "+manifest.browser+" "+manifest.browser_version);p("- Playwright: "+manifest.playwright_version);p("- Node: "+manifest.node_version);p("- Runner: "+manifest.runner);p("- OS: "+manifest.os);p("- Device scale factor: "+manifest.device_scale_factor);}
+          p("");
+          p("## Article");
+          p("");
           if(article.length){
-            md.push("| Viewport | Hero | Intrinsic | Rendered | #418 | Page errors | Overflow | Screenshot |");
-            md.push("|---|---|---|---|---:|---:|---|---|");
-            for(const x of article) md.push("| "+x.viewport+" | "+(x.hero_media_complete??x.hero?.complete?"PASS":"FAIL")+" | "+(x.hero_natural_width??x.hero?.natural_width)+"×"+(x.hero_natural_height??x.hero?.natural_height)+" | "+(x.hero_rendered_width??x.hero?.rendered_width)+"×"+(x.hero_rendered_height??x.hero?.rendered_height)+" | "+(x.React_418_count||0)+" | "+(x.pageerror_count||0)+" | "+(x.horizontal_overflow?"FAIL":"PASS")+" | \`"+x.screenshot+"\` |");
-          } else md.push("- No complete public Article viewport evidence recorded.");
-          md.push("");
-          const premium=rows(items,x=>x.surface==="premium_article"&&x.appearance!=="dark");
-          md.push("## Premium security and live commercial behavior");
-          md.push("");
+            p("| Viewport | Hero | Intrinsic | Rendered | #418 | Page errors | Overflow | Screenshot |");
+            p("|---|---|---|---|---:|---:|---|---|");
+            for(const x of article){
+              const h=x.hero||x;
+              p("| "+x.viewport+" | "+(h.complete??x.hero_media_complete?"PASS":"FAIL")+" | "+(h.natural_width??x.hero_natural_width)+"×"+(h.natural_height??x.hero_natural_height)+" | "+(h.rendered_width??x.hero_rendered_width)+"×"+(h.rendered_height??x.hero_rendered_height)+" | "+(x.React_418_count||0)+" | "+(x.pageerror_count||0)+" | "+(x.horizontal_overflow?"FAIL":"PASS")+" | `"+x.screenshot+"` |");
+            }
+          } else p("- No complete public Article viewport evidence recorded.");
+          p("");
+          p("## Premium security and live commercial behavior");
+          p("");
           if(premium.length){
             for(const x of premium){
-              md.push("### "+x.viewport);
-              md.push("");
-              md.push("- anonymous: \`"+x.anonymous+"\`");
-              md.push("- entitlement_state: \`"+x.entitlement_state+"\`");
-              md.push("- paywall_visible: \`"+x.paywall_visible+"\`");
-              md.push("- protected_body_present_in_dom: \`"+x.protected_body_present_in_dom+"\`");
-              md.push("- protected_body_network_retrieval: \`"+x.protected_body_network_retrieval+"\`");
-              md.push("- preview_timer_active: \`"+x.preview_timer_active+"\`");
-              md.push("- preview_duration_observed: \`"+x.preview_duration_observed+"\`");
-              md.push("- preview_configuration_state: \`"+x.preview_configuration_state+"\`");
-              md.push("");
+              p("### "+x.viewport);p("");
+              p("- anonymous: `"+x.anonymous+"`");
+              p("- entitlement_state: `"+x.entitlement_state+"`");
+              p("- paywall_visible: `"+x.paywall_visible+"`");
+              p("- protected_body_present_in_dom: `"+x.protected_body_present_in_dom+"`");
+              p("- protected_body_network_retrieval: `"+x.protected_body_network_retrieval+"`");
+              p("- preview_timer_active: `"+x.preview_timer_active+"`");
+              p("- preview_duration_observed: `"+x.preview_duration_observed+"`");
+              p("- preview_configuration_state: `"+x.preview_configuration_state+"`");p("");
             }
-          } else md.push("- No complete Premium Article evidence recorded.");
-          md.push("- commercial_preview_duration_configured: \`"+(manifest?.commercial_preview_duration_configured??"NOT CAPTURED")+"\`");
-          md.push("- commercial_preview_policy_status: \`"+(manifest?.commercial_preview_policy_status??"NOT CAPTURED")+"\`");
-          md.push("");
-          const landing=rows(items,x=>x.surface==="premium_landing"&&x.appearance!=="dark");
-          md.push("## Premium landing");
-          md.push("");
-          if(landing.length){
-            for(const x of landing) md.push("- "+x.viewport+": stories="+x.premium_story_count+", store_state=\`"+x.store_reader_state+"\`, price_visible=\`"+x.price_visible+"\`, restore=\`"+x.restore_visible+"\`, member_sign_in=\`"+x.member_sign_in_visible+"\`, screenshot=\`"+x.screenshot+"\`");
-          } else md.push("- No complete Premium landing evidence recorded.");
-          md.push("");
-          const dark=rows(items,x=>x.appearance==="dark"||String(x.surface).startsWith("dark_"));
-          md.push("## Dark appearance");
-          md.push("");
-          if(dark.length) for(const x of dark) md.push("- "+x.surface+": viewport="+x.viewport+", #418="+(x.React_418_count||0)+", page_errors="+(x.pageerror_count||0)+", overflow="+Boolean(x.horizontal_overflow)+", screenshot=\`"+(x.screenshot||"see premium paywall evidence")+"\`");
-          else md.push("- No complete dark evidence recorded.");
-          md.push("");
-          md.push("## Advertising / HOSPAZ");
-          md.push("");
-          if(manifest?.advertising){
-            for(const x of manifest.advertising) md.push("- "+x.viewport+": advertising_source=\`"+x.advertising_source+"\`, HOSPAZ_present=\`"+x.HOSPAZ_present+"\`, ad_gap_present=\`"+x.ad_gap_present+"\`, screenshot=\`"+x.screenshot+"\`");
-          } else md.push("- Advertising evidence was not completed.");
-          md.push("");
-          md.push("## Runtime");
-          md.push("");
-          if(manifest){
-            md.push("- React #418 count: \`"+manifest.React_418_count+"\`");
-            md.push("- Page error count: \`"+manifest.pageerror_count+"\`");
-            md.push("- Console error count: \`"+manifest.console_error_count+"\`");
-            md.push("- HTTP resource error count: \`"+manifest.resource_http_error_count+"\`");
-            md.push("- Service worker registered: \`"+manifest.service_worker_registered+"\`");
-            md.push("- Service worker controlling: \`"+manifest.service_worker_controlling+"\`");
-          }
-          md.push("");
-          md.push("## Findings");
-          md.push("");
-          if(manifest?.findings?.length) for(const x of manifest.findings) md.push("- **"+x.severity+" / "+x.category+"** — "+x.message);
-          else md.push("- No separate findings recorded.");
-          if(manifest?.first_blocker) md.push("- **FIRST BLOCKER:** "+manifest.first_blocker.severity+" — "+manifest.first_blocker.message);
-          md.push("");
-          md.push("## Authority preservation");
-          md.push("");
-          for(const line of [
-            "apps/mobile changed: NO","Pages workflow changed: NO","deployment changed: NO","DESIGN.md changed: NO",
-            "Premium service changed: NO","Premium preview configuration changed: NO","store products/pricing changed: NO",
-            "HOSPAZ authority changed: NO","advertising provider activated: NO","staging changed: NO","COM changed: NO",
-            "Studio changed: NO","main changed: NO","PR #42 merged: NO","PR #43 merged: NO","production changed: NO"
-          ]) md.push("- "+line);
-          md.push("");
-          md.push("## Final disposition");
-          md.push("");
+          } else p("- No complete Premium Article evidence recorded.");
+          p("- commercial_preview_duration_configured: `"+(manifest?.commercial_preview_duration_configured??"NOT CAPTURED")+"`");
+          p("- commercial_preview_policy_status: `"+(manifest?.commercial_preview_policy_status??"NOT CAPTURED")+"`");
+          p("");
+          p("## Premium landing");
+          p("");
+          if(landing.length) for(const x of landing) p("- "+x.viewport+": stories="+x.premium_story_count+", store_state=`"+x.store_reader_state+"`, price_visible=`"+x.price_visible+"`, restore=`"+x.restore_visible+"`, member_sign_in=`"+x.member_sign_in_visible+"`, screenshot=`"+x.screenshot+"`");
+          else p("- No complete Premium landing evidence recorded.");
+          p("");
+          p("## Dark appearance");
+          p("");
+          if(dark.length) for(const x of dark) p("- "+x.surface+": viewport="+x.viewport+", #418="+(x.React_418_count||0)+", page_errors="+(x.pageerror_count||0)+", overflow="+Boolean(x.horizontal_overflow)+", screenshot=`"+(x.screenshot||"see paywall evidence")+"`");
+          else p("- No complete dark evidence recorded.");
+          p("");
+          p("## Advertising / HOSPAZ");
+          p("");
+          if(manifest?.advertising) for(const x of manifest.advertising) p("- "+x.viewport+": advertising_source=`"+x.advertising_source+"`, HOSPAZ_present=`"+x.HOSPAZ_present+"`, ad_gap_present=`"+x.ad_gap_present+"`, screenshot=`"+x.screenshot+"`");
+          else p("- Advertising evidence was not completed.");
+          p("");
+          p("## Runtime");
+          p("");
+          if(manifest){p("- React #418 count: `"+manifest.React_418_count+"`");p("- Page error count: `"+manifest.pageerror_count+"`");p("- Console error count: `"+manifest.console_error_count+"`");p("- HTTP resource error count: `"+manifest.resource_http_error_count+"`");p("- Service worker registered: `"+manifest.service_worker_registered+"`");p("- Service worker controlling: `"+manifest.service_worker_controlling+"`");}
+          p("");
+          p("## Findings");
+          p("");
+          if(manifest?.findings?.length) for(const x of manifest.findings) p("- **"+x.severity+" / "+x.category+"** — "+x.message);
+          else p("- No separate findings recorded.");
+          if(manifest?.first_blocker) p("- **FIRST BLOCKER:** "+manifest.first_blocker.severity+" — "+manifest.first_blocker.message);
+          p("");
+          p("## Authority preservation");
+          p("");
+          for(const x of ["apps/mobile changed: NO","Pages workflow changed: NO","deployment changed: NO","DESIGN.md changed: NO","Premium service changed: NO","Premium preview configuration changed: NO","store products/pricing changed: NO","HOSPAZ authority changed: NO","advertising provider activated: NO","staging changed: NO","COM changed: NO","Studio changed: NO","main changed: NO","PR #42 merged: NO","PR #43 merged: NO","production changed: NO"]) p("- "+x);
+          p("");
+          p("## Final disposition");
+          p("");
           const final=(summary.match(/UI-06 PHASE 2 LIVE COMMERCIAL READER[^\n]+/g)||[]).at(-1)
             ||(manifest?.first_blocker?"UI-06 PHASE 2 LIVE COMMERCIAL READER NOT CERTIFIED — "+manifest.first_blocker.message:"UI-06 PHASE 2 LIVE COMMERCIAL READER NOT CERTIFIED — certification summary unavailable");
-          md.push(final);
-          md.push("");
+          p(final);p("");
           fs.mkdirSync(path.dirname(reportPath),{recursive:true});
           fs.writeFileSync(reportPath,md.join("\n"));
-          if(fs.existsSync(root)) fs.copyFileSync(reportPath,path.join(root,"UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md"));
+          if(fs.existsSync(root))fs.copyFileSync(reportPath,path.join(root,"UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md"));
           NODE
 
       - name: Upload UI-06 Phase 2 evidence
@@ -292,20 +187,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md
           git config user.name "healthtimes-ui06-cert"
           git config user.email "healthtimes-ui06-cert@users.noreply.github.com"
           git add docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md
           if git diff --cached --quiet; then
-            echo "Certification report unchanged; no documentation commit required."
+            echo "Certification report unchanged."
             exit 0
           fi
           git commit -m "docs(ui06): record Phase 2 live commercial Reader certification"
           git push origin HEAD:test/ui06-ui03-phase2-live-cert
-     - name: Upload UI-06 Phase 2 evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui06-ui03-phase2-live-cert
-          path: artifacts/ui06/ui03-phase2-live-cert/
-          if-no-files-found: warn
-          retention-days: 30
