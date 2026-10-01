@@ -21,7 +21,8 @@ test("UI-03 anonymous Premium Reader never parses protected body for preview",()
   const article=read("app/article/[id].tsx");
   assert.match(sourceParity,/bodyHtml:accessPolicy==="premium" \? null/);
   assert.match(article,/parseArticleContent\(protectedBody \? null : story\.bodyHtml/);
-  assert.match(article,/story\.excerpt \?\? story\.standfirst \?\? ""/);
+  assert.match(article,/const previewCopy=readerFacingStandfirst\(story\.excerpt \?\? story\.standfirst,story\.author\?\.displayName\)/);
+  assert.match(article,/previewCopy!==displayStandfirst/);
   assert.match(article,/previewVisible/);
   assert.match(article,/PremiumPaywall/);
   assert.doesNotMatch(article,/previewVisible[\s\S]{0,900}story\.bodyHtml/);
