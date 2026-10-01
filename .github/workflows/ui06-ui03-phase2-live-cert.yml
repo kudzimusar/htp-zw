@@ -1,12 +1,6 @@
 name: UI-06 UI-03 Phase 2 Live Certification
 
 on:
-  push:
-    branches:
-      - test/ui06-ui03-phase2-live-cert
-    paths:
-      - '.github/workflows/ui06-ui03-phase2-live-cert.yml'
-      - 'scripts/ui/ui06-ui03-phase2-live-cert.mjs'
   pull_request:
     branches:
       - deployment/ui03-phase2-commercial-reader-candidate
@@ -16,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ui06-ui03-phase2-live-cert-${{ github.ref }}
@@ -70,6 +64,84 @@ jobs:
           RUNNER_NAME: ${{ runner.name }}
         run: node scripts/ui/ui06-ui03-phase2-live-cert.mjs
 
+      - name: Re-capture focused Premium paywall evidence
+        if: success()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from "@playwright/test";
+          import fs from "node:fs";
+          const base="https://kudzimusar.github.io/htp-zw";
+          const root="artifacts/ui06/ui03-phase2-live-cert";
+          const article="/article/source-us-embassy-challenges-zimbabwe-rejected-health-mou";
+          const browser=await chromium.launch({headless:true});
+          async function capture(name,viewport,dark=false){
+            const context=await browser.newContext({viewport,deviceScaleFactor:1});
+            const page=await context.newPage();
+            if(dark){
+              await page.goto(base+"/appearance",{waitUntil:"domcontentloaded",timeout:30000});
+              const button=page.getByRole("button",{name:"Dark",exact:true});
+              await button.waitFor({state:"visible",timeout:30000});
+              await button.click();
+              await page.waitForTimeout(500);
+            }
+            await page.goto(base+article,{waitUntil:"domcontentloaded",timeout:30000});
+            const heading=page.getByText("Continue reading with HealthTimes Premium",{exact:false}).first();
+            await heading.waitFor({state:"visible",timeout:30000});
+            const member=page.getByRole("button",{name:/Sign in as an existing member|Member sign in|Sign in/i}).first();
+            await member.waitFor({state:"visible",timeout:30000});
+            await member.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(300);
+            const file=dark?root+"/dark/premium-paywall-mobile.png":root+"/premium-article/"+name+"-paywall.png";
+            await page.screenshot({path:file,fullPage:false});
+            await context.close();
+          }
+          try {
+            await capture("mobile",{width:390,height:844},false);
+            await capture("desktop",{width:1440,height:1000},false);
+            await capture("mobile",{width:390,height:844},true);
+          } finally {
+            await browser.close();
+          }
+          fs.writeFileSync(root+"/paywall-visual-recapture.json",JSON.stringify({
+            mobile_light:"premium-article/mobile-paywall.png",
+            desktop_light:"premium-article/desktop-paywall.png",
+            mobile_dark:"dark/premium-paywall-mobile.png",
+            paywall_cta_scrolled_into_view:true
+          },null,2)+"\n");
+          NODE
+
+      - name: Re-capture resolved public advertising state
+        if: success()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from "@playwright/test";
+          import fs from "node:fs";
+          const base="https://kudzimusar.github.io/htp-zw";
+          const root="artifacts/ui06/ui03-phase2-live-cert";
+          const views={mobile:{width:390,height:844},tablet:{width:834,height:1112},desktop:{width:1440,height:1000}};
+          const browser=await chromium.launch({headless:true});
+          const receipt=[];
+          try {
+            for (const [name,viewport] of Object.entries(views)) {
+              const context=await browser.newContext({viewport,deviceScaleFactor:1});
+              const page=await context.newPage();
+              const response=await page.goto(base+"/",{waitUntil:"domcontentloaded",timeout:30000});
+              await page.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout:30000});
+              await page.waitForFunction(()=>!document.body.innerText.includes("Loading Home…"),null,{timeout:30000});
+              const hospaz=await page.getByText("Direct advertising · HOSPAZ",{exact:true}).first().isVisible().catch(()=>false);
+              const file=root+"/advertising/"+name+"-source-parity.png";
+              await page.screenshot({path:file,fullPage:true});
+              receipt.push({viewport:name,status:response?.status()||null,home_resolved:true,HOSPAZ_present:hospaz,screenshot:"advertising/"+name+"-source-parity.png"});
+              await context.close();
+            }
+          } finally {
+            await browser.close();
+          }
+          fs.writeFileSync(root+"/advertising-resolution.json",JSON.stringify(receipt,null,2)+"\n");
+          NODE
+
       - name: Capture first-blocker Article evidence
         if: failure()
         shell: bash
@@ -122,6 +194,8 @@ jobs:
       - name: Generate bounded certification report
         if: always()
         shell: bash
+        env:
+          CERTIFICATION_TOOLING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           node <<'NODE'
           const fs=require("fs");
@@ -146,7 +220,7 @@ jobs:
           p("- Repository: `kudzimusar/htp-zw`");
           p("- Certification branch: `test/ui06-ui03-phase2-live-cert`");
           p("- Certification starting wrapper: `8611beb08a9cc43accc9109457ed48901c3daaf1`");
-          p("- Certification tooling SHA: `"+process.env.GITHUB_SHA+"`");
+          p("- Certification tooling SHA: `"+process.env.CERTIFICATION_TOOLING_SHA+"`");
           p("- Documentation closure SHA: `db9eebb7fef6b8ee9f3d784d14f1f5394a234499`");
           p("- Live deployment wrapper: `"+(manifest?.deployed_wrapper_sha||"NOT CAPTURED")+"`");
           p("- Underlying accepted UI-03 executable: `"+(manifest?.accepted_executable_sha||"6cbfcaa9ee6c06e25f59c99eb21bf86211990605")+"`");
@@ -239,18 +313,3 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Commit certification report only
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md
-          git config user.name "healthtimes-ui06-cert"
-          git config user.email "healthtimes-ui06-cert@users.noreply.github.com"
-          git add docs/native-mobile/UI-06_UI03_PHASE2_LIVE_CERTIFICATION.md
-          if git diff --cached --quiet; then
-            echo "Certification report unchanged."
-            exit 0
-          fi
-          git commit -m "docs(ui06): record Phase 2 live commercial Reader certification"
-          git push origin HEAD:test/ui06-ui03-phase2-live-cert
