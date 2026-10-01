@@ -85,7 +85,7 @@ jobs:
           const path=require('path');
           const base='http://127.0.0.1:4174';
           const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
-          const expectedSuggestions=['Breaking News','Features','Epidemics','Academic & Research','Global Health','Community Development'];
+          const expectedSuggestions=['Global Health','Africa','Research','Policy','Investigations','Public Health'];
           const viewports=[
             ['mobile',390,844],
             ['tablet',834,1112],
