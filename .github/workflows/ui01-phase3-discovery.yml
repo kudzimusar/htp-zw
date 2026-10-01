@@ -1,0 +1,309 @@
+name: UI-01 Phase 3 Discovery Conformance
+
+on:
+  push:
+    branches:
+      - feat/ui01-phase3-discovery-conformance
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui01-phase3-discovery-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  discovery-web:
+    name: Explore + Intelligent Search exact-head evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Run Phase 3 discovery contract
+        run: node --test apps/mobile/tests/ui01-phase3-discovery.test.mjs
+      - name: Typecheck canonical Reader
+        run: npm --prefix apps/mobile run typecheck
+      - name: Run Reader discovery regressions
+        run: |
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:ui03
+      - name: Build exact-head source-parity Web/PWA
+        run: npm run build:phase4:web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture Explore and Search responsive/state evidence
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui01-phase3.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "10" ]]; then cat /tmp/ui01-phase3.log; exit 1; fi
+            sleep 1
+          done
+          mkdir -p ui01-phase3-evidence/web
+          node - <<'NODE'
+          const { chromium }=require('@playwright/test');
+          const fs=require('fs');
+          const path=require('path');
+          const base='http://127.0.0.1:4174';
+          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const viewports=[
+            ['mobile',390,844],
+            ['tablet',834,1112],
+            ['desktop',1440,1000]
+          ];
+
+          function diagnostics(page){
+            const pageErrors=[];
+            const consoleErrors=[];
+            page.on('pageerror',error=>pageErrors.push(String(error)));
+            page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text());});
+            return {pageErrors,consoleErrors};
+          }
+          async function inspect(page){
+            const metrics=await page.evaluate(()=>({
+              scrollWidth:document.documentElement.scrollWidth,
+              clientWidth:document.documentElement.clientWidth,
+              activeLabel:document.activeElement?.getAttribute?.('aria-label')||document.activeElement?.tagName||null
+            }));
+            return {
+              ...metrics,
+              horizontalOverflow:metrics.scrollWidth>metrics.clientWidth+1,
+              mobileTabCount:await page.getByRole('tab').count()
+            };
+          }
+          function assertErrors(label,diag){
+            const react418=[...diag.pageErrors,...diag.consoleErrors].filter(x=>x.includes('Minified React error #418')||x.includes('React error #418'));
+            if(react418.length) throw new Error(label+' React #418: '+react418.join(' | '));
+            if(diag.pageErrors.length) throw new Error(label+' page errors: '+diag.pageErrors.join(' | '));
+            return react418;
+          }
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const manifest={
+              sha:process.env.EXPECTED_SHA,
+              capturedAt:new Date().toISOString(),
+              serviceMode:'source-parity',
+              screens:[],
+              phase2Regression:[],
+              authority:{
+                dataServiceMutation:false,
+                premiumSecurityMutation:false,
+                advertisingAuthorityMutation:false,
+                deploymentMutation:false
+              }
+            };
+
+            for(const [viewport,width,height] of viewports){
+              const explore=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+              const exploreDiag=diagnostics(explore);
+              const exploreResponse=await explore.goto(base+'/explore',{waitUntil:'domcontentloaded',timeout:30000});
+              await explore.getByText('Explore by topic',{exact:true}).waitFor({timeout:30000});
+              await explore.getByText('HealthTimes reporting',{exact:true}).waitFor({timeout:30000});
+              const exploreInspect=await inspect(explore);
+              assertErrors(viewport+' explore',exploreDiag);
+              if(exploreInspect.horizontalOverflow) throw new Error(viewport+' explore horizontal overflow');
+              if(viewport==='desktop'&&exploreInspect.mobileTabCount!==0) throw new Error('desktop Explore rendered mobile bottom tabs');
+              const exploreFile=path.join('ui01-phase3-evidence/web',viewport+'-explore.png');
+              await explore.screenshot({path:exploreFile,fullPage:true});
+              manifest.screens.push({
+                name:'explore-resolved',route:'/explore',viewport,width,height,
+                status:exploreResponse?.status()??null,file:exploreFile,
+                resolvedState:'source-backed discovery',
+                shortcutCount:await explore.locator('[aria-label$=" desk"], [aria-label$=" topic"]').count(),
+                expandedDiscovery:false,
+                pageErrors:exploreDiag.pageErrors,
+                consoleErrors:exploreDiag.consoleErrors,
+                react418:0,
+                ...exploreInspect
+              });
+
+              if(viewport==='mobile'){
+                await explore.getByLabel('Browse all discovery options').click();
+                await explore.getByLabel('Expanded discovery options').waitFor({timeout:5000});
+                const expandedFile=path.join('ui01-phase3-evidence/web','mobile-explore-expanded.png');
+                await explore.screenshot({path:expandedFile,fullPage:true});
+                manifest.screens.push({
+                  name:'explore-expanded',route:'/explore',viewport,width,height,
+                  file:expandedFile,resolvedState:'progressive taxonomy disclosed',
+                  expandedDiscovery:true,
+                  ...(await inspect(explore))
+                });
+              }
+              await explore.close();
+
+              const search=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+              const searchDiag=diagnostics(search);
+              const searchResponse=await search.goto(base+'/search',{waitUntil:'domcontentloaded',timeout:30000});
+              await search.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
+              const initialInspect=await inspect(search);
+              assertErrors(viewport+' search initial',searchDiag);
+              if(initialInspect.horizontalOverflow) throw new Error(viewport+' search initial horizontal overflow');
+              if(viewport==='desktop'&&initialInspect.mobileTabCount!==0) throw new Error('desktop Search rendered mobile bottom tabs');
+              if(viewport==='desktop'&&initialInspect.activeLabel!=='Search HealthTimes') throw new Error('desktop Search did not focus search input');
+              const initialFile=path.join('ui01-phase3-evidence/web',viewport+'-search-initial.png');
+              await search.screenshot({path:initialFile,fullPage:true});
+              manifest.screens.push({
+                name:'search-initial',route:'/search',viewport,width,height,
+                status:searchResponse?.status()??null,file:initialFile,
+                resolvedState:'initial',
+                actualContentState:'suggestions',
+                pageErrors:searchDiag.pageErrors,
+                consoleErrors:searchDiag.consoleErrors,
+                react418:0,
+                focusObservation:initialInspect.activeLabel,
+                ...initialInspect
+              });
+
+              const input=search.getByLabel('Search HealthTimes');
+              await input.fill('HIV');
+              await input.press('Enter');
+              await search.getByText(/results for “HIV”/).waitFor({timeout:30000});
+              const populatedInspect=await inspect(search);
+              if(populatedInspect.horizontalOverflow) throw new Error(viewport+' populated Search horizontal overflow');
+              const populatedFile=path.join('ui01-phase3-evidence/web',viewport+'-search-populated.png');
+              await search.screenshot({path:populatedFile,fullPage:true});
+              manifest.screens.push({
+                name:'search-populated',route:'/search',viewport,width,height,
+                file:populatedFile,resolvedState:'resolved query',
+                actualContentState:'HIV',
+                resultHeading:await search.getByText(/results for “HIV”/).innerText(),
+                react418:0,
+                ...populatedInspect
+              });
+
+              await input.fill('zzzzhealthtimesnoresult2026');
+              await input.press('Enter');
+              await search.getByText('No HealthTimes results found',{exact:true}).waitFor({timeout:30000});
+              const noResultInspect=await inspect(search);
+              if(noResultInspect.horizontalOverflow) throw new Error(viewport+' no-result Search horizontal overflow');
+              const noResultFile=path.join('ui01-phase3-evidence/web',viewport+'-search-no-results.png');
+              await search.screenshot({path:noResultFile,fullPage:true});
+              manifest.screens.push({
+                name:'search-no-results',route:'/search',viewport,width,height,
+                file:noResultFile,resolvedState:'no results',
+                actualContentState:'zero source-backed matches',
+                react418:0,
+                ...noResultInspect
+              });
+
+              if(viewport==='mobile'){
+                await input.fill('malaria');
+                await input.press('Enter');
+                const loading=search.getByText('Searching HealthTimes…',{exact:true});
+                if(await loading.isVisible().catch(()=>false)){
+                  const loadingFile=path.join('ui01-phase3-evidence/web','mobile-search-loading.png');
+                  await search.screenshot({path:loadingFile,fullPage:true});
+                  manifest.screens.push({
+                    name:'search-loading',route:'/search',viewport,width,height,
+                    file:loadingFile,resolvedState:'loading',
+                    actualContentState:'service request pending',
+                    react418:0,
+                    ...(await inspect(search))
+                  });
+                }else{
+                  manifest.screens.push({
+                    name:'search-loading',route:'/search',viewport,width,height,
+                    file:null,resolvedState:'not captured',
+                    actualContentState:'source-parity resolved before loading screenshot could be captured',
+                    react418:0
+                  });
+                }
+                await search.getByLabel('Show search filters').click();
+                await search.getByLabel('Hide search filters').waitFor({timeout:5000});
+                const filtersFile=path.join('ui01-phase3-evidence/web','mobile-search-filters-open.png');
+                await search.screenshot({path:filtersFile,fullPage:true});
+                manifest.screens.push({
+                  name:'search-filters-open',route:'/search',viewport,width,height,
+                  file:filtersFile,resolvedState:'progressive filters disclosed',
+                  actualContentState:'source-backed country/topic controls',
+                  react418:0,
+                  ...(await inspect(search))
+                });
+              }
+              await search.close();
+            }
+
+            const dark=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+            const darkDiag=diagnostics(dark);
+            await dark.goto(base+'/appearance',{waitUntil:'domcontentloaded',timeout:30000});
+            await dark.getByRole('button',{name:'Dark'}).click();
+            await dark.goto(base+'/explore',{waitUntil:'domcontentloaded',timeout:30000});
+            await dark.getByText('Explore by topic',{exact:true}).waitFor({timeout:30000});
+            const darkExploreFile=path.join('ui01-phase3-evidence/web','dark-explore.png');
+            await dark.screenshot({path:darkExploreFile,fullPage:true});
+            manifest.screens.push({name:'dark-explore',route:'/explore',viewport:'mobile',width:390,height:844,file:darkExploreFile,resolvedState:'dark',react418:0,...(await inspect(dark))});
+            await dark.goto(base+'/search',{waitUntil:'domcontentloaded',timeout:30000});
+            await dark.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
+            const darkSearchFile=path.join('ui01-phase3-evidence/web','dark-search.png');
+            await dark.screenshot({path:darkSearchFile,fullPage:true});
+            manifest.screens.push({name:'dark-search',route:'/search',viewport:'mobile',width:390,height:844,file:darkSearchFile,resolvedState:'dark',react418:0,...(await inspect(dark))});
+            assertErrors('dark discovery',darkDiag);
+            await dark.close();
+
+            for(const [name,route,readyText] of [
+              ['article-phase2-regression','/article/'+articleId,'Discussion'],
+              ['premium-phase2-regression','/premium','HealthTimes Premium']
+            ]){
+              const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+              const diag=diagnostics(page);
+              const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
+              await page.getByText(readyText,{exact:false}).first().waitFor({timeout:30000});
+              const state=await inspect(page);
+              assertErrors(name,diag);
+              if(state.horizontalOverflow) throw new Error(name+' horizontal overflow');
+              manifest.phase2Regression.push({name,route,status:response?.status()??null,pageErrors:diag.pageErrors,consoleErrors:diag.consoleErrors,react418:0,...state});
+              await page.close();
+            }
+
+            fs.writeFileSync('ui01-phase3-evidence/manifest.json',JSON.stringify(manifest,null,2));
+            await browser.close();
+          })().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui01-phase3-discovery-conformance
+          path: |
+            ui01-phase3-evidence/
+            /tmp/ui01-phase3.log
+          if-no-files-found: error
+          retention-days: 30
