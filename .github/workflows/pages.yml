@@ -6,6 +6,8 @@ on:
       - main
       - feat/native-mobile-nm07-native-certification
       - deployment/ui-phase0-pages-recovery
+      - deployment/ui01-screen1-home-candidate
+      - deployment/ui03-phase2-commercial-reader-candidate
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -119,7 +121,7 @@ jobs:
           }
           const sw=fs.readFileSync(path.join(dist,"sw.js"),"utf8");
           if(!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive Pages scope.");
-          const required=["explore","live","search","premium","watch","my"];
+          const required=["explore","live","search","premium","appearance","watch","my"];
           const routeExists=(route)=>[
             path.join(dist,route+".html"),
             path.join(dist,route,"index.html")
@@ -186,7 +188,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate'
     environment:
       name: github-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
@@ -227,18 +229,33 @@ jobs:
 
           routes=(
             ""
-            "live"
-            "explore"
-            "search"
             "premium"
+            "appearance"
+            "explore"
+            "live"
             "watch"
             "my"
+            "search"
             "article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
           )
           for route in "${routes[@]}"; do
             curl -fsSL --max-time 20 "$base/$route" >/dev/null
             echo "Canonical route PASS: /$route"
           done
+
+          premium_article="article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+          premium_body="$(mktemp)"
+          premium_status="$(curl -sS --max-time 20 -o "$premium_body" -w '%{http_code}' "$base/$premium_article")"
+          if [[ "$premium_status" == "200" ]]; then
+            echo "Premium Article route PASS: /$premium_article (HTTP 200)"
+          elif [[ "$premium_status" == "404" ]]; then
+            grep -q 'HEALTHTIMES_PWA_DEEP_LINK_FALLBACK' "$premium_body"
+            grep -q 'ht:nm04:pwa-deep-link' "$premium_body"
+            echo "Premium Article canonical PWA fallback PASS: /$premium_article (HTTP 404 fallback)"
+          else
+            echo "::error::Premium Article route returned unexpected HTTP $premium_status"
+            exit 1
+          fi
 
           synthetic_route="article/source-nm04-live-discovered-${expected_sha:0:12}"
           fallback_body="$(mktemp)"
