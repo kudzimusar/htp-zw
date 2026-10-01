@@ -127,12 +127,12 @@ async function article(browser,name,v,{dark=false}={}){
     await p.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout});
     const hero=await imageReady(p,p.locator('[data-testid="article-hero-media"]:visible').first(),"Article Hero "+name);
     const actions=await toolbar(p,"Article "+name);await noReaderLeak(p,"Article "+name);
-    if(dark){const x=p.getByText(/Discussion/i).last();if(await x.count()){await x.scrollIntoViewIfNeeded().catch(()=>{});await p.waitForTimeout(250);}}
+    let discussionFixedLight=null;if(dark){const x=p.getByText(/Discussion/i).last();if(await x.count()){await x.scrollIntoViewIfNeeded().catch(()=>{});await p.waitForTimeout(250);}discussionFixedLight=await p.evaluate(()=>{const all=Array.from(document.querySelectorAll("*"));const n=all.find(e=>(e.textContent||"").trim().startsWith("Discussion"));if(!n)return false;let cur=n;for(let i=0;i<4&&cur;i++,cur=cur.parentElement){const bg=getComputedStyle(cur).backgroundColor;if(bg==="rgb(255, 255, 255)")return true;}return false;});if(discussionFixedLight)block("P1","Dark Article Discussion fixed-light regression");}
     const overflow=await ov(p);if(!overflow.pass)block("P1","Article "+name+" overflow "+overflow.overflow_pixels+"px");
     if(name==="desktop"&&await mobileTabsPresent(p))block("P1","Desktop Article exposes mobile bottom navigation");
     const runtime=assertRuntime("Article "+name,d),service_worker=await sw(p);
     const file=await shot(p,dark?"dark/article-mobile.png":"article/"+name+"-public.png");
-    const r={surface:dark?"dark_article":"public_article",route:"/article/"+publicId,viewport:name,...v,deployed_sha:wrapper,appearance:dark?"dark":"light",loaded_resolved:true,status,screenshot:file,hero,...hero,toolbar:actions,reader_copy_guard:true,horizontal_overflow:!overflow.pass,overflow,service_worker,...runtime};
+    const r={surface:dark?"dark_article":"public_article",route:"/article/"+publicId,viewport:name,...v,deployed_sha:wrapper,appearance:dark?"dark":"light",loaded_resolved:true,status,screenshot:file,hero,...hero,toolbar:actions,reader_copy_guard:true,discussion_fixed_light:discussionFixedLight,horizontal_overflow:!overflow.pass,overflow,service_worker,...runtime};
     results.push(r);return r;
   }finally{await c.close();}
 }
@@ -171,12 +171,12 @@ async function premiumLanding(browser,name,v,{dark=false}={}){
     if(dark)await selectDark(p);
     const status=await open(p,"/premium",(dark?"Dark ":"")+"Premium "+name);
     await p.getByText("HEALTHTIMES PREMIUM",{exact:true}).waitFor({state:"visible",timeout});
-    await p.waitForFunction(()=>!document.body.innerText.includes("Checking member access…"),null,{timeout});
+    await p.waitForFunction(()=>!document.body.innerText.includes("Checking member access…"),null,{timeout});await p.waitForFunction(()=>!document.body.innerText.includes("Checking membership options…"),null,{timeout});
     const region=p.getByLabel("Source-backed Premium journalism");await region.waitFor({state:"visible",timeout});const storyCount=await region.getByRole("link").count();
     const body=await p.locator("body").innerText(),lower=body.toLowerCase();
     for(const x of ["configuration-required","on this build","approved store","secure member service"])if(lower.includes(x))block("P1","Premium reader copy leak: "+x);
     const priceVisible=/\$\s*\d+(?:\.\d{2})?/.test(body);if(/20% OFF|7-day trial|free trial|MOST POPULAR/i.test(body))block("P1","Premium fabricated commercial claim");
-    const restore=await p.getByRole("button",{name:/Restore/i}).isVisible().catch(()=>false),signIn=await p.getByRole("button",{name:/Sign in/i}).isVisible().catch(()=>false);
+    const restore=await p.getByRole("button",{name:/Restore/i}).first().isVisible().catch(()=>false),signIn=await p.getByRole("button",{name:/Sign in|Member sign in/i}).first().isVisible().catch(()=>false);
     if(!restore||!signIn)block("P1","Premium restore/member sign-in missing");
     const overflow=await ov(p);if(!overflow.pass)block("P1","Premium "+name+" horizontal overflow");
     const runtime=assertRuntime("Premium "+name,d),service_worker=await sw(p);
@@ -216,7 +216,7 @@ async function smoke(browser){
   return out;
 }
 function finish(extra={}){
-  const manifest={certification_tooling_sha:tooling,deployed_wrapper_sha:wrapper,accepted_executable_sha:executable,build_info_sha:buildInfo?.sha||null,public_url:base,workflow_run_id:runId,captured_at:stamp(),browser:"chromium",browser_version:browserVersion,runner:process.env.RUNNER_NAME||"github-actions",os:os.platform()+" "+os.release(),node_version:process.version,playwright_version:playwrightVersion,device_scale_factor:1,viewports,primary_results:results,findings,commercial_preview_duration_configured:extra.preview?.preview_configuration_state==="timed-preview",commercial_preview_policy_status:extra.preview?.preview_configuration_state==="timed-preview"?"configured-runtime-observed":"owner-duration-not-configured",advertising:extra.ads||null,route_smoke:extra.smoke||null,React_418_count:results.reduce((n,x)=>n+(x.React_418_count||0),0),pageerror_count:pageErrors.length,console_error_count:consoleLog.filter(x=>x.type==="error").length,resource_http_error_count:network.filter(x=>x.event==="http_error").length,service_worker_registered:results.some(x=>x.service_worker?.registered),service_worker_controlling:results.some(x=>x.service_worker?.controlling),first_blocker:firstBlocker};
+  const manifest={certification_tooling_sha:tooling,deployed_wrapper_sha:wrapper,accepted_executable_sha:executable,build_info_sha:buildInfo?.sha||null,public_url:base,workflow_run_id:runId,captured_at:stamp(),browser:"chromium",browser_version:browserVersion,runner:process.env.RUNNER_NAME||"github-actions",os:os.platform()+" "+os.release(),node_version:process.version,playwright_version:playwrightVersion,device_scale_factor:1,viewports:views,primary_results:results,findings,commercial_preview_duration_configured:extra.preview?.preview_configuration_state==="timed-preview",commercial_preview_policy_status:extra.preview?.preview_configuration_state==="timed-preview"?"configured-runtime-observed":"owner-duration-not-configured",advertising:extra.ads||null,route_smoke:extra.smoke||null,React_418_count:results.reduce((n,x)=>n+(x.React_418_count||0),0),pageerror_count:pageErrors.length,console_error_count:consoleLog.filter(x=>x.type==="error").length,resource_http_error_count:network.filter(x=>x.event==="http_error").length,service_worker_registered:results.some(x=>x.service_worker?.registered),service_worker_controlling:results.some(x=>x.service_worker?.controlling),first_blocker:firstBlocker};
   write("manifest.json",manifest);write("console.json",consoleLog);write("network.json",network);write("service-worker.json",results.filter(x=>x.service_worker).map(x=>({surface:x.surface,viewport:x.viewport,state:x.service_worker})));
   write("premium-security.json",results.filter(x=>x.surface==="premium_article").map(x=>({viewport:x.viewport,anonymous:x.anonymous,protected_body_present_in_dom:x.protected_body_present_in_dom,protected_body_network_retrieval:x.protected_body_network_retrieval,paywall_visible:x.paywall_visible})));
   write("premium-commercial-policy.json",{preview_timer_active:extra.preview?.preview_timer_active??null,preview_duration_observed:extra.preview?.preview_duration_observed??null,commercial_preview_duration_configured:manifest.commercial_preview_duration_configured,commercial_preview_policy_status:manifest.commercial_preview_policy_status});
