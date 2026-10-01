@@ -3,10 +3,12 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { services } from "../services";
 import type { ReaderCommentEligibility, ReaderStoryComment } from "../domain/models";
 import { colors, radius, spacing } from "../theme/tokens";
+import { useAppearance } from "../theme/AppearanceProvider";
 
 type Props={canonicalStoryId:string|null};
 
 export function ReaderDiscussionPanel({canonicalStoryId}:Props){
+  const { palette }=useAppearance();
   const [comments,setComments]=useState<ReaderStoryComment[]>([]);
   const [eligibility,setEligibility]=useState<ReaderCommentEligibility|null>(null);
   const [loading,setLoading]=useState(false);
@@ -40,10 +42,10 @@ export function ReaderDiscussionPanel({canonicalStoryId}:Props){
 
   if(!canonical){
     return (
-      <View style={styles.panel}>
-        <Text style={styles.title}>Discussion</Text>
-        <Text style={styles.muted}>
-          Reader discussion is unavailable on this source-parity or fixture story because no canonical HealthTimes story identity is certified yet.
+      <View style={[styles.panel,{borderColor:palette.border,backgroundColor:palette.paper}]}>
+        <Text style={[styles.title,{color:palette.ink}]}>Discussion</Text>
+        <Text style={[styles.muted,{color:palette.inkMuted}]}>
+          Discussion isn't available for this article yet.
         </Text>
       </View>
     );
@@ -87,17 +89,17 @@ export function ReaderDiscussionPanel({canonicalStoryId}:Props){
   const renderComment=(comment:ReaderStoryComment)=>{
     const children=comments.filter(row=>row.parentCommentId===comment.id);
     return (
-      <View key={comment.id} style={styles.comment}>
+      <View key={comment.id} style={[styles.comment,{borderTopColor:palette.border}]}>
         <View style={styles.commentHeader}>
-          <Text style={styles.author}>{comment.displayName}</Text>
-          <Text style={styles.meta}>{comment.edited ? "Edited" : ""}</Text>
+          <Text style={[styles.author,{color:palette.ink}]}>{comment.displayName}</Text>
+          <Text style={[styles.meta,{color:palette.inkMuted}]}>{comment.edited ? "Edited" : ""}</Text>
         </View>
-        <Text style={styles.body}>{comment.body}</Text>
+        <Text style={[styles.body,{color:palette.ink}]}>{comment.body}</Text>
         <View style={styles.actions}>
-          <Pressable onPress={()=>setParentId(comment.id)}><Text style={styles.action}>Reply</Text></Pressable>
-          <Pressable onPress={()=>{void report(comment.id);}}><Text style={styles.action}>Report</Text></Pressable>
+          <Pressable onPress={()=>setParentId(comment.id)}><Text style={[styles.action,{color:palette.blue}]}>Reply</Text></Pressable>
+          <Pressable onPress={()=>{void report(comment.id);}}><Text style={[styles.action,{color:palette.blue}]}>Report</Text></Pressable>
         </View>
-        {children.length>0 && <View style={styles.replies}>{children.map(renderComment)}</View>}
+        {children.length>0 && <View style={[styles.replies,{borderLeftColor:palette.border}]}>{children.map(renderComment)}</View>}
       </View>
     );
   };
@@ -106,73 +108,75 @@ export function ReaderDiscussionPanel({canonicalStoryId}:Props){
   const canWrite=eligibility?.status==="allowed" || eligibility?.status==="pre_moderated";
 
   return (
-    <View style={styles.panel}>
-      <Text style={styles.title}>Discussion</Text>
-      <Text style={styles.muted}>Verified HealthTimes accounts only. Comments may be held for moderation.</Text>
+    <View style={[styles.panel,{borderColor:palette.border,backgroundColor:palette.paper}]}>
+      <Text style={[styles.title,{color:palette.ink}]}>Discussion</Text>
+      <Text style={[styles.muted,{color:palette.inkMuted}]}>Verified HealthTimes accounts only. Comments may be held for moderation.</Text>
 
-      {loading && <Text style={styles.muted}>Loading discussion…</Text>}
+      {loading && <Text style={[styles.muted,{color:palette.inkMuted}]}>Loading discussion…</Text>}
       {!!error && <Text style={styles.status}>{error}</Text>}
 
-      {roots.length>0 ? <View style={styles.list}>{roots.map(renderComment)}</View> : <Text style={styles.muted}>No published comments yet.</Text>}
+      {roots.length>0 ? <View style={styles.list}>{roots.map(renderComment)}</View> : <Text style={[styles.muted,{color:palette.inkMuted}]}>No published comments yet.</Text>}
 
       {profileRequired && (
-        <View style={styles.composer}>
-          <Text style={styles.label}>Create your comment profile</Text>
+        <View style={[styles.composer,{borderTopColor:palette.border}]}>
+          <Text style={[styles.label,{color:palette.ink}]}>Create your comment profile</Text>
           <TextInput
             value={displayName}
             onChangeText={setDisplayName}
             placeholder="Display name"
+            placeholderTextColor={palette.inkMuted}
             autoCapitalize="words"
-            style={styles.input}
+            style={[styles.input,{borderColor:palette.border,color:palette.ink,backgroundColor:palette.paper}]}
           />
-          <Pressable style={styles.primary} onPress={()=>{void setupProfile();}}><Text style={styles.primaryText}>Create profile</Text></Pressable>
+          <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>{void setupProfile();}}><Text style={[styles.primaryText,{color:palette.paper}]}>Create profile</Text></Pressable>
         </View>
       )}
 
       {canWrite && (
-        <View style={styles.composer}>
-          <Text style={styles.label}>{parentId ? "Reply to this discussion" : "Add a comment"}</Text>
-          {eligibility?.status==="pre_moderated" && <Text style={styles.muted}>Your comment will be reviewed before publication.</Text>}
+        <View style={[styles.composer,{borderTopColor:palette.border}]}>
+          <Text style={[styles.label,{color:palette.ink}]}>{parentId ? "Reply to this discussion" : "Add a comment"}</Text>
+          {eligibility?.status==="pre_moderated" && <Text style={[styles.muted,{color:palette.inkMuted}]}>Your comment will be reviewed before publication.</Text>}
           <TextInput
             value={body}
             onChangeText={setBody}
             placeholder="Write a respectful, relevant comment"
+            placeholderTextColor={palette.inkMuted}
             multiline
             maxLength={4000}
-            style={[styles.input,styles.textarea]}
+            style={[styles.input,styles.textarea,{borderColor:palette.border,color:palette.ink,backgroundColor:palette.paper}]}
           />
           <View style={styles.actions}>
-            <Pressable style={styles.primary} onPress={()=>{void submit();}}><Text style={styles.primaryText}>Submit</Text></Pressable>
-            {parentId && <Pressable onPress={()=>setParentId(null)}><Text style={styles.action}>Cancel reply</Text></Pressable>}
+            <Pressable style={[styles.primary,{backgroundColor:palette.blue}]} onPress={()=>{void submit();}}><Text style={[styles.primaryText,{color:palette.paper}]}>Submit</Text></Pressable>
+            {parentId && <Pressable onPress={()=>setParentId(null)}><Text style={[styles.action,{color:palette.blue}]}>Cancel reply</Text></Pressable>}
           </View>
         </View>
       )}
 
       {eligibility?.status==="blocked" && !profileRequired && (
-        <Text style={styles.muted}>Commenting is currently unavailable for this account or story.</Text>
+        <Text style={[styles.muted,{color:palette.inkMuted}]}>Commenting is currently unavailable for this account or story.</Text>
       )}
     </View>
   );
 }
 
 const styles=StyleSheet.create({
-  panel:{marginTop:spacing.xl,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,padding:spacing.lg,gap:spacing.md,backgroundColor:"#FFFFFF"},
-  title:{fontSize:22,fontWeight:"900",color:colors.ink},
-  muted:{fontSize:12,lineHeight:18,color:colors.inkMuted},
+  panel:{marginTop:spacing.xl,borderWidth:1,borderRadius:radius.md,padding:spacing.lg,gap:spacing.md},
+  title:{fontSize:22,fontWeight:"900"},
+  muted:{fontSize:12,lineHeight:18},
   status:{fontSize:12,lineHeight:18,color:colors.warning,fontWeight:"700"},
   list:{gap:spacing.md},
-  comment:{borderTopWidth:1,borderTopColor:colors.border,paddingTop:spacing.md,gap:spacing.xs},
+  comment:{borderTopWidth:1,paddingTop:spacing.md,gap:spacing.xs},
   commentHeader:{flexDirection:"row",justifyContent:"space-between",gap:spacing.sm},
-  author:{fontSize:13,fontWeight:"900",color:colors.ink},
-  meta:{fontSize:10,color:colors.inkMuted},
-  body:{fontSize:14,lineHeight:21,color:colors.ink},
-  replies:{marginLeft:spacing.lg,borderLeftWidth:2,borderLeftColor:colors.border,paddingLeft:spacing.md,gap:spacing.md},
+  author:{fontSize:13,fontWeight:"900"},
+  meta:{fontSize:10},
+  body:{fontSize:14,lineHeight:21},
+  replies:{marginLeft:spacing.lg,borderLeftWidth:2,paddingLeft:spacing.md,gap:spacing.md},
   actions:{flexDirection:"row",alignItems:"center",gap:spacing.md,flexWrap:"wrap"},
-  action:{fontSize:12,fontWeight:"800",color:colors.blue},
-  composer:{borderTopWidth:1,borderTopColor:colors.border,paddingTop:spacing.md,gap:spacing.sm},
-  label:{fontSize:12,fontWeight:"900",color:colors.ink},
-  input:{minHeight:44,borderWidth:1,borderColor:colors.border,borderRadius:radius.sm,paddingHorizontal:12,paddingVertical:10,fontSize:14,color:colors.ink,backgroundColor:"#FFFFFF"},
+  action:{fontSize:12,fontWeight:"800"},
+  composer:{borderTopWidth:1,paddingTop:spacing.md,gap:spacing.sm},
+  label:{fontSize:12,fontWeight:"900"},
+  input:{minHeight:44,borderWidth:1,borderRadius:radius.sm,paddingHorizontal:12,paddingVertical:10,fontSize:14},
   textarea:{minHeight:100,textAlignVertical:"top"},
-  primary:{minHeight:44,alignSelf:"flex-start",justifyContent:"center",backgroundColor:colors.blue,paddingHorizontal:16,borderRadius:radius.sm},
-  primaryText:{color:"#FFFFFF",fontWeight:"900"}
+  primary:{minHeight:44,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:16,borderRadius:radius.sm},
+  primaryText:{fontWeight:"900"}
 });
