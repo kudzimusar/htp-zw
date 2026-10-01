@@ -92,7 +92,7 @@ test("4 shared AdSlot renders accepted creative and emits clicks only behind a v
   assert.match(cards,/const clickable=\/\^https:/);
   assert.match(cards,/if\(!clickable\) return;/);
   assert.match(cards,/event\("ad_click"/);
-  assert.match(cards,/No verified destination is available for this direct advertisement/);
+  assert.match(cards,/No verified destination is available for this advertisement/);
   const clickIndex=cards.indexOf('event("ad_click"');
   const guardIndex=cards.lastIndexOf("if(!clickable) return;",clickIndex);
   assert.ok(guardIndex>=0 && guardIndex<clickIndex,"ad_click must remain behind destination verification");
