@@ -115,11 +115,13 @@ test("6 migrated Premium reference 33190 remains body-protected at the public CP
 
 test("7 Article Reader requests protected content only after authoritative entitlement",()=>{
   const article=read("app/article/[id].tsx");
+  const paywall=read("src/ui/PremiumPaywall.tsx");
   assert.match(article,/entitlement\.data===true/);
   assert.match(article,/services\.premium\.getProtectedArticle/);
   assert.match(article,/const protectedBody=/);
   assert.match(article,/parseArticleContent\(protectedBody \? null : story\.bodyHtml/);
-  assert.match(article,/Member sign in/);
+  assert.match(article,/PremiumPaywall/);
+  assert.match(paywall,/Member sign in/);
 });
 
 test("8 offline persistence rejects Premium articles independently of screen behavior",()=>{
@@ -154,7 +156,7 @@ test("10 Premium discovery remains access-policy driven across Home cards and la
   assert.match(home,/source\.filter\(\(story\)=>story\.accessPolicy==="premium"\)/);
   assert.match(cards,/story\.accessPolicy === "premium" && <PremiumBadge/);
   assert.match(premium,/filter\(\(story\)=>story\.accessPolicy==="premium"\)/);
-  assert.match(premium,/Premium entitlement is checked securely/);
+  assert.match(premium,/Premium member access/);
 });
 
 test("11 sensitive-health advertising and analytics remain non-personalized and non-sensitive",()=>{
