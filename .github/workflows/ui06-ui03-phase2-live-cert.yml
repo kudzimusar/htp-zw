@@ -62,6 +62,55 @@ jobs:
           RUNNER_NAME: ${{ runner.name }}
         run: node scripts/ui/ui06-ui03-phase2-live-cert.mjs
 
+      - name: Capture first-blocker Article evidence
+        if: failure()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from "@playwright/test";
+          import fs from "node:fs";
+          const root="artifacts/ui06/ui03-phase2-live-cert";
+          fs.mkdirSync(root+"/article",{recursive:true});
+          const url="https://kudzimusar.github.io/htp-zw/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
+          const browser=await chromium.launch({headless:true});
+          const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
+          const page=await context.newPage();
+          const imageResponses=[];
+          page.on("response",r=>{
+            if(r.request().resourceType()==="image") imageResponses.push({url:r.url(),status:r.status()});
+          });
+          const response=await page.goto(url,{waitUntil:"domcontentloaded",timeout:30000});
+          await page.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout:30000}).catch(()=>{});
+          await page.waitForTimeout(1200);
+          const hero=page.locator('[data-testid="article-hero-media"]:visible img').first();
+          const heroPresent=await hero.count()>0;
+          const metrics=heroPresent?await hero.evaluate(img=>{
+            const r=img.getBoundingClientRect();
+            return {
+              src:img.currentSrc||img.src||null,
+              complete:img.complete,
+              naturalWidth:img.naturalWidth,
+              naturalHeight:img.naturalHeight,
+              renderedWidth:Math.round(r.width),
+              renderedHeight:Math.round(r.height)
+            };
+          }).catch(()=>null):null;
+          const screenshot="article/mobile-public-failure.png";
+          await page.screenshot({path:root+"/"+screenshot,fullPage:true});
+          const heroResponse=metrics?.src?imageResponses.find(x=>x.url===metrics.src)||null:null;
+          fs.writeFileSync(root+"/blocker-evidence.json",JSON.stringify({
+            route:url,
+            viewport:{width:390,height:844},
+            document_status:response?.status()||null,
+            screenshot,
+            hero:metrics,
+            hero_response:heroResponse,
+            image_responses:imageResponses
+          },null,2)+"\n");
+          await context.close();
+          await browser.close();
+          NODE
+
       - name: Generate bounded certification report
         if: always()
         shell: bash
