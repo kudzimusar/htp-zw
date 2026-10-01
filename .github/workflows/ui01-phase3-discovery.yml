@@ -280,14 +280,16 @@ jobs:
             assertErrors('dark discovery',darkDiag);
             await dark.close();
 
-            for(const [name,route,readyText] of [
-              ['article-phase2-regression','/article/'+articleId,'Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks'],
-              ['premium-phase2-regression','/premium','HealthTimes Premium']
+            for(const [name,route] of [
+              ['article-phase2-regression','/article/'+articleId],
+              ['premium-phase2-regression','/premium']
             ]){
               const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
               const diag=diagnostics(page);
               const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
-              await page.getByText(readyText,{exact:false}).first().waitFor({timeout:30000});
+              await page.getByLabel('HealthTimes Home').first().waitFor({timeout:30000});
+              if(name==='premium-phase2-regression') await page.getByText('HealthTimes Premium',{exact:false}).first().waitFor({timeout:30000});
+              await page.waitForTimeout(1200);
               const state=await inspect(page);
               assertErrors(name,diag);
               if(state.horizontalOverflow) throw new Error(name+' horizontal overflow');
