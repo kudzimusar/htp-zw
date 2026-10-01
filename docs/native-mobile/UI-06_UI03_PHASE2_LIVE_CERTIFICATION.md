@@ -5,11 +5,11 @@
 - Repository: `kudzimusar/htp-zw`
 - Certification branch: `test/ui06-ui03-phase2-live-cert`
 - Certification starting wrapper: `8611beb08a9cc43accc9109457ed48901c3daaf1`
-- Certification tooling SHA: `43f13ab29cf46e8fea043f2fabf48a414db178a9`
+- Certification tooling SHA: `2ea2a6bb82b89a01c58fdef397f83a438a941e7a`
 - Documentation closure SHA: `db9eebb7fef6b8ee9f3d784d14f1f5394a234499`
 - Live deployment wrapper: `8611beb08a9cc43accc9109457ed48901c3daaf1`
 - Underlying accepted UI-03 executable: `6cbfcaa9ee6c06e25f59c99eb21bf86211990605`
-- Workflow run: `36940443644`
+- Workflow run: `36941182772`
 - Evidence artifact: `ui06-ui03-phase2-live-cert`
 
 ## Deployment identity
@@ -22,45 +22,77 @@
 - Browser: chromium 140.0.7339.16
 - Playwright: 1.55.0
 - Node: v22.23.3
-- Runner: GitHub Actions 1000111308
+- Runner: GitHub Actions 1000111394
 - OS: linux 6.17.0-1022-azure
 - Device scale factor: 1
 
 ## Article
 
-- No complete public Article viewport evidence recorded.
+| Viewport | Hero | Intrinsic | Rendered | #418 | Page errors | Overflow | Screenshot |
+|---|---|---|---|---:|---:|---|---|
+| mobile | PASS | 1200×665 | 358×201 | 0 | 0 | PASS | `article/mobile-public.png` |
+| tablet | PASS | 1200×665 | 786×442 | 0 | 0 | PASS | `article/tablet-public.png` |
+| desktop | PASS | 1200×665 | 1116×628 | 0 | 0 | PASS | `article/desktop-public.png` |
 
 ## Premium security and live commercial behavior
 
-- No complete Premium Article evidence recorded.
+### mobile
+
+- anonymous: `true`
+- entitlement_state: `false`
+- paywall_visible: `true`
+- protected_body_present_in_dom: `false`
+- protected_body_network_retrieval: `false`
+- preview_timer_active: `false`
+- preview_duration_observed: `0`
+- preview_configuration_state: `fail-closed`
+
+### desktop
+
+- anonymous: `true`
+- entitlement_state: `false`
+- paywall_visible: `true`
+- protected_body_present_in_dom: `false`
+- protected_body_network_retrieval: `false`
+- preview_timer_active: `false`
+- preview_duration_observed: `0`
+- preview_configuration_state: `fail-closed`
+
 - commercial_preview_duration_configured: `false`
 - commercial_preview_policy_status: `owner-duration-not-configured`
 
 ## Premium landing
 
-- No complete Premium landing evidence recorded.
+- mobile: stories=3, store_state=`membership-options-unavailable`, price_visible=`false`, restore=`true`, member_sign_in=`true`, screenshot=`premium/mobile.png`
+- tablet: stories=3, store_state=`membership-options-unavailable`, price_visible=`false`, restore=`true`, member_sign_in=`true`, screenshot=`premium/tablet.png`
+- desktop: stories=3, store_state=`membership-options-unavailable`, price_visible=`false`, restore=`true`, member_sign_in=`true`, screenshot=`premium/desktop.png`
 
 ## Dark appearance
 
-- No complete dark evidence recorded.
+- dark_article: viewport=mobile, #418=0, page_errors=0, overflow=false, screenshot=`dark/article-mobile.png`
+- premium_article: viewport=mobile, #418=0, page_errors=0, overflow=false, screenshot=`dark/premium-paywall-mobile.png`
+- premium_landing: viewport=mobile, #418=0, page_errors=0, overflow=false, screenshot=`dark/premium-landing-mobile.png`
 
 ## Advertising / HOSPAZ
 
-- Advertising evidence was not completed.
+- mobile: advertising_source=`none`, HOSPAZ_present=`false`, ad_gap_present=`false`, screenshot=`advertising/mobile-source-parity.png`
+- tablet: advertising_source=`none`, HOSPAZ_present=`false`, ad_gap_present=`false`, screenshot=`advertising/tablet-source-parity.png`
+- desktop: advertising_source=`none`, HOSPAZ_present=`false`, ad_gap_present=`false`, screenshot=`advertising/desktop-source-parity.png`
 
 ## Runtime
 
 - React #418 count: `0`
 - Page error count: `0`
-- Console error count: `7`
-- HTTP resource error count: `2`
-- Service worker registered: `false`
-- Service worker controlling: `false`
+- Console error count: `1`
+- HTTP resource error count: `1`
+- Service worker registered: `true`
+- Service worker controlling: `true`
 
 ## Findings
 
-- No separate findings recorded.
-- **FIRST BLOCKER:** P1 — Article Hero mobile not complete
+- **P4 / advertising** — HOSPAZ NOT PRESENT ON PUBLIC SOURCE-PARITY RUNTIME
+- **P3 / watch-media** — Watch media/resource debt remains outside UI-03
+- **P2 / commercial-activation** — COMMERCIAL ACTIVATION GAP — NON-ZERO PREMIUM PREVIEW DURATION NOT CONFIGURED ON PUBLIC CERTIFICATION BUILD
 
 ## Authority preservation
 
@@ -83,4 +115,4 @@
 
 ## Final disposition
 
-UI-06 PHASE 2 LIVE COMMERCIAL READER NOT CERTIFIED — Article Hero mobile not complete
+UI-06 PHASE 2 LIVE COMMERCIAL READER TECHNICALLY CERTIFIED — PREMIUM SECURITY / ARTICLE / PREMIUM UI PASS, BUT NON-ZERO COMMERCIAL PREVIEW DURATION IS NOT CONFIGURED
