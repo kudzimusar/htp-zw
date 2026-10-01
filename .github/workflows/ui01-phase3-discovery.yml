@@ -281,7 +281,7 @@ jobs:
             await dark.close();
 
             for(const [name,route,readyText] of [
-              ['article-phase2-regression','/article/'+articleId,'Discussion'],
+              ['article-phase2-regression','/article/'+articleId,'Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks'],
               ['premium-phase2-regression','/premium','HealthTimes Premium']
             ]){
               const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
