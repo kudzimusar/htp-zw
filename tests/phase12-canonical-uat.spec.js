@@ -44,7 +44,7 @@ test('canonical Home is responsive across mobile tablet and desktop and HOSPAZ s
     await page.getByText('Top Stories', { exact: false }).first().waitFor({ timeout: 30000 });
     await assertNoHorizontalOverflow(page, viewport.name);
 
-    const ad = page.locator('[aria-label="Advertising placement hospaz-header-direct"]');
+    const ad = page.getByLabel('Direct advertising · HOSPAZ').first();
     await expect(ad).toBeVisible({ timeout: 30000 });
     await expect(ad).toContainText('HOSPAZ');
     await expect(ad.locator('a')).toHaveCount(0);
@@ -90,9 +90,9 @@ test('canonical Reader routes Home Explore Search Live Watch Premium and My Heal
 
   response = await page.goto('/premium', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
-  await page.getByText('Go Premium', { exact: true }).first().waitFor({ timeout: 30000 });
-  await page.getByText('Premium access', { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText('Membership options appear here only when they are available for your device and region.', { exact: false }).waitFor({ timeout: 30000 });
+  await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).first().waitFor({ timeout: 30000 });
+  await page.getByText('Your membership', { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByText("Membership options aren't available on this build yet", { exact: true }).waitFor({ timeout: 30000 });
 
   response = await page.goto('/my', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
@@ -107,10 +107,10 @@ test('recent and older migrated stories render through the canonical apps/mobile
   for (const [label, path] of [['recent', directPath], ['older', oldPath]]) {
     const response = await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 30000 });
     expect(response?.status(), label + ' migrated HTTP').toBe(200);
-    await page.getByRole('button', { name: 'Save article' }).waitFor({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Save' }).waitFor({ timeout: 30000 });
     await page.getByRole('button', { name: 'Download article for offline reading' }).waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Listen to article' }).waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Share article' }).waitFor({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Listen' }).waitFor({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Share' }).waitFor({ timeout: 30000 });
     await page.getByText('Original publication', { exact: true }).waitFor({ timeout: 30000 });
     await expect(page.getByText('Article not found.', { exact: true })).toHaveCount(0);
   }
@@ -121,9 +121,10 @@ test('Premium migrated article remains visibly protected and never becomes a pub
   const errors = capturePageErrors(page);
   const response = await page.goto(premiumPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
-  await page.getByText('Premium member access', { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText('HealthTimes must verify member entitlement before protected body content can be requested.', { exact: false }).waitFor({ timeout: 30000 });
-  await page.getByRole('button', { name: 'View Premium access' }).waitFor({ timeout: 30000 });
+  await page.getByText('Continue reading with HealthTimes Premium', { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByText('This article continues for members.', { exact: false }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Go to HealthTimes Premium' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Sign in as an existing member' }).waitFor({ timeout: 30000 });
   await assertNoPageErrors(errors, 'Premium protected article');
 });
 
