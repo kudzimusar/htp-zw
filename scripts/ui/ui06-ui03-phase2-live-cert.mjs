@@ -239,3 +239,5 @@ async function main(){
 await main();
 
 // Trigger exact-head UI-06 live certification after workflow installation.
+
+// UI-06 exact-head certification dispatch marker: 2026-10-02.
