@@ -237,3 +237,5 @@ async function main(){
   const disposition=finish({preview,ads,smoke:smokes});console.log(disposition);if(firstBlocker)process.exitCode=1;
 }
 await main();
+
+// Trigger exact-head UI-06 live certification after workflow installation.
