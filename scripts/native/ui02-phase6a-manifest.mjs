@@ -103,6 +103,8 @@ const manifest={
   orientation,
   capturedAt:new Date().toISOString(),
   evidenceSource:"real native simulator/emulator via Maestro; no resized browser substitution",
+  matrixCellDisposition:"CAPTURED — READY FOR UI MODERATOR REVIEW",
+  certificationDisposition:"IMPLEMENTATION AGENT DOES NOT SELF-ACCEPT",
   screens,
   nativeRuntimeErrorLineCount:nativeErrors.length,
   unavailableMatrixCells:[],
