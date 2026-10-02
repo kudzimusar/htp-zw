@@ -77,6 +77,15 @@ function wpPostQuery(options:{includeContent:boolean}){
   return "&_embed=1&_fields="+encodeURIComponent(options.includeContent ? wpPublicDetailFields : wpMetadataFields);
 }
 
+function legacyDatedArticlePermalinkCandidate(article:Pick<ArticleDetail,"publishedAt"|"slug">){
+  const match=article.publishedAt?.trim().match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  const slug=article.slug?.trim();
+  if(!match || !slug) return null;
+  // Compatibility candidate only. AG-05 remains authority: an invalid path
+  // returns null and can never authorize a protected WordPress body request.
+  return sourceBase+"/"+match[1]+"/"+match[2]+"/"+match[3]+"/"+slug+"/";
+}
+
 function decodeEntities(value:string){
   const named:Record<string,string>={
     amp:"&",lt:"<",gt:">",quot:'"',apos:"'",nbsp:" ",ndash:"–",mdash:"—",rsquo:"’",lsquo:"‘",ldquo:"“",rdquo:"”",hellip:"…"
@@ -380,6 +389,30 @@ const articleRepository:ArticleRepository={
   async getById(id){
     const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
     if(!current) return null;
+
+    // Snapshot-classified Premium must not depend on browser WordPress metadata.
+    // The deterministic snapshot preserves publication date + slug, so ask
+    // bounded AG-05 authority on the dated compatibility path first.
+    const snapshotPremiumUrl=current.accessPolicy==="premium"
+      ? legacyDatedArticlePermalinkCandidate(current)
+      : null;
+    if(snapshotPremiumUrl){
+      const snapshotPremiumAuthority=await getPublicPremiumTeaserAuthority(snapshotPremiumUrl);
+      if(snapshotPremiumAuthority?.accessPolicy==="premium"){
+        const snapshotDecision=sourceParityPremiumDetailDecision(
+          current.accessPolicy,
+          snapshotPremiumAuthority,
+          false
+        );
+        return {
+          ...current,
+          accessPolicy:"premium",
+          bodyHtml:null,
+          premiumTeaserHtml:snapshotDecision.premiumTeaserHtml
+        };
+      }
+    }
+
     // Resolve authoritative WordPress permalink metadata before asking the
     // bounded Premium teaser authority for classification. This request never
     // includes content.rendered.
