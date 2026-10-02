@@ -1,0 +1,82 @@
+name: UI-06 Live Premium Prompt Certification
+
+on:
+  pull_request:
+    branches:
+      - deployment/nm05r-premium-teaser-path-candidate
+    paths:
+      - '.github/workflows/ui06-premium-prompt-live-cert.yml'
+      - 'scripts/ui/ui06-premium-prompt-live-cert.mjs'
+      - 'scripts/ui/ui06-premium-prompt-initial-state.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui06-premium-prompt-live-cert-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
+
+jobs:
+  certify-live-premium-prompt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PUBLIC_URL: https://kudzimusar.github.io/htp-zw
+      TARGET_DEPLOYED_SHA: 4dd51e1bc7abc8413097c4d7295f54e4ce4c00e9
+      ACCEPTED_EXECUTABLE_SHA: c1a9f642a735ad2d02775a7d8668e797bedbb426
+      ARTIFACT_DIR: artifacts/ui06/premium-prompt-live-cert
+
+    steps:
+      - name: Check out exact certification tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact tooling identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "CERTIFICATION_TOOLING_SHA=$actual"
+          echo "EXPECTED_TOOLING_SHA=$expected"
+          echo "LIVE_WRAPPER_SHA=$TARGET_DEPLOYED_SHA"
+          echo "ACCEPTED_EXECUTABLE_SHA=$ACCEPTED_EXECUTABLE_SHA"
+          test "$actual" = "$expected"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install existing Playwright dependency
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture Premium initial-state authority evidence
+        env:
+          CERTIFICATION_TOOLING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          RUNNER_NAME: ${{ runner.name }}
+        run: node scripts/ui/ui06-premium-prompt-initial-state.mjs
+
+      - name: Run live Premium teaser + prompt certification
+        env:
+          CERTIFICATION_TOOLING_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          RUNNER_NAME: ${{ runner.name }}
+        run: node scripts/ui/ui06-premium-prompt-live-cert.mjs
+
+      - name: Upload UI-06 Premium prompt evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-premium-prompt-live-cert
+          path: artifacts/ui06/premium-prompt-live-cert/
+          if-no-files-found: warn
+          retention-days: 30
