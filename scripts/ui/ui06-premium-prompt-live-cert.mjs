@@ -169,10 +169,19 @@ async function installPromptCounter(page){
 }
 async function teaserAuthority(response){
   if(!response)return null;
-  let raw=null;try{raw=await response.json();}catch{return null;}
+  let payload=null;try{payload=await response.json();}catch{return null;}
+  const raw=Array.isArray(payload)?(payload[0]??null):payload;
   if(!raw||typeof raw!=="object")return null;
   const html=typeof raw.premium_teaser_html==="string"?raw.premium_teaser_html:"";
-  return{source_id:String(raw.source_id??""),access_policy:String(raw.access_policy??""),body_html_null:raw.body_html===null,premium_teaser_html_present:Boolean(html),teaser_html_length:html.length};
+  return{
+    response_shape:Array.isArray(payload)?"array":"object",
+    row_count:Array.isArray(payload)?payload.length:1,
+    source_id:String(raw.source_id??""),
+    access_policy:String(raw.access_policy??""),
+    body_html_null:raw.body_html===null,
+    premium_teaser_html_present:Boolean(html),
+    teaser_html_length:html.length
+  };
 }
 async function mainMobileJourney(browser){
   const v=views.mobile,c=await browser.newContext({viewport:v,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"premium-mobile-primary");
