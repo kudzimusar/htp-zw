@@ -127,6 +127,25 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     if(/\/api\/commerce(?:\?|$)/.test(url)) commerceRequests.push(url);
   });
 
+  await page.route("https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
+    let payload=null;
+    try{payload=route.request().postDataJSON();}catch{}
+    if(payload?.p_path===premiumCurrentPath){
+      // UI-06 independently proves the current slug-only permalink returns null.
+      // Freeze that first miss so this regression deterministically exercises
+      // the metadata-derived dated fallback; the dated request still reaches
+      // the real live AG-05 authority below.
+      await route.fulfill({
+        status:200,
+        contentType:"application/json",
+        headers:{"access-control-allow-origin":"*"},
+        body:"null"
+      });
+      return;
+    }
+    await route.continue();
+  });
+
   await page.route("https://healthtimes.co.zw/wp-json/wp/v2/posts**",async route=>{
     const url=new URL(route.request().url());
     const slug=url.searchParams.get("slug");
