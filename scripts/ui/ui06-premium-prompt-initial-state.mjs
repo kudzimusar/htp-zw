@@ -20,10 +20,13 @@ const rpc=await rpcPromise;
 let authority=null;
 if(rpc){
   try{
-    const raw=await rpc.json();
+    const payload=await rpc.json();
+    const raw=Array.isArray(payload)?(payload[0]??{}):payload;
     const html=typeof raw?.premium_teaser_html==="string"?raw.premium_teaser_html:"";
     authority={
       http_status:rpc.status(),
+      response_shape:Array.isArray(payload)?"array":"object",
+      row_count:Array.isArray(payload)?payload.length:1,
       source_id:String(raw?.source_id??""),
       access_policy:String(raw?.access_policy??""),
       body_html_null:raw?.body_html===null,
@@ -47,8 +50,11 @@ const badge=await page.getByText("PREMIUM",{exact:true}).first().isVisible().cat
 const teaser=page.getByTestId("premium-teaser-paragraph");
 const teaser_visible=await teaser.isVisible().catch(()=>false);
 const teaser_text=teaser_visible?(await teaser.innerText()).trim():"";
+const paywallLocator=page.getByText("Continue reading with HealthTimes Premium",{exact:false}).first();
+if(initial_state==="paywall")await paywallLocator.scrollIntoViewIfNeeded().catch(()=>{});
+await page.waitForTimeout(250);
 const screenshot="premium-prompt/live-mobile-initial-state.png";
-await page.screenshot({path:path.join(root,screenshot),fullPage:true});
+await page.screenshot({path:path.join(root,screenshot),fullPage:false});
 const result={
   document_status:response?.status()||null,
   route,
@@ -69,3 +75,7 @@ fs.writeFileSync(path.join(root,"premium-prompt","initial-state.json"),JSON.stri
 console.log(JSON.stringify(result));
 await context.close();
 await browser.close();
+if(initial_state!=="preview"){
+  console.error("UI-06 LIVE PREMIUM JOURNEY NOT CERTIFIED — authorized Premium teaser opened in "+initial_state+" state instead of 20-second preview");
+  process.exitCode=1;
+}
