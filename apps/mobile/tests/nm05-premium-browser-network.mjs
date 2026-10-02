@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import http from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { extname, join, normalize, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,10 +155,36 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     });
   });
 
+  const liveTeaserResponsePromise=metadataAvailable
+    ? page.waitForResponse(
+        response=>response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document"),
+        {timeout:15000}
+      )
+    : null;
+
   await page.goto(origin+basePath+"/article/"+premiumArticleId,{waitUntil:"domcontentloaded"});
 
+  let liveTeaserEvidence=null;
   if(metadataAvailable){
     await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({state:"visible",timeout:15000});
+    const teaserResponse=await liveTeaserResponsePromise;
+    const teaserPayload=await teaserResponse.json();
+    const teaserHtml=String(teaserPayload?.premium_teaser_html ?? "").trim();
+    const teaserParagraphs=teaserHtml.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
+    liveTeaserEvidence={
+      source_id:teaserPayload?.source_id===null || teaserPayload?.source_id===undefined
+        ? null
+        : String(teaserPayload.source_id),
+      access_policy:teaserPayload?.access_policy ?? null,
+      body_html_is_null:teaserPayload?.body_html===null,
+      teaser_paragraph_count:teaserParagraphs.length,
+      teaser_length:teaserHtml.length,
+      teaser_sha256:createHash("sha256").update(teaserHtml).digest("hex")
+    };
+    assert.equal(liveTeaserEvidence.source_id,"33190");
+    assert.equal(liveTeaserEvidence.access_policy,"premium_marker_review");
+    assert.equal(liveTeaserEvidence.body_html_is_null,true);
+    assert.equal(liveTeaserEvidence.teaser_paragraph_count,1);
     assert.equal(teaserRequests.length,1,"Premium flow must issue exactly one bounded teaser lookup");
     assert.equal(teaserRequests[0].p_path,premiumDatedPath,"teaser RPC must receive resolved WordPress dated path");
 
@@ -217,7 +243,8 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     wordpress_metadata_requests:wordpressRequests.length,
     wordpress_content_field_requests:wordpressContentFieldRequests.length,
     protected_article_requests:protectedRequests.length,
-    automatic_commerce_requests:commerceRequests.length
+    automatic_commerce_requests:commerceRequests.length,
+    live_teaser:liveTeaserEvidence
   };
 }
 
@@ -313,19 +340,16 @@ async function main(){
     const failedMetadata=await runPremiumScenario(browser,origin,{metadataAvailable:false});
     const publicComparison=await runPublicComparison(browser,origin);
 
-    const teaserDigest=createHash("sha256")
-      .update("live-authority-proven-separately")
-      .digest("hex");
-
-    console.log(JSON.stringify({
+    const evidence={
       story_source_id:"33190",
       accepted_access_policy:"premium_marker_review",
       repaired,
       metadata_failure:failedMetadata,
-      public_comparison:publicComparison,
-      teaser_evidence:"live nm05-premium-live test records paragraph count/length/digest without protected text",
-      browser_evidence_marker_sha256:teaserDigest
-    }));
+      public_comparison:publicComparison
+    };
+    const evidencePath=process.env.NM05R_EVIDENCE_PATH || join(distRoot,"nm05r-live-path-evidence.json");
+    await writeFile(evidencePath,JSON.stringify(evidence,null,2)+"\n","utf8");
+    console.log(JSON.stringify(evidence));
   }finally{
     if(browser) await browser.close();
     if(server) await new Promise((resolveClose,reject)=>server.close(error=>error?reject(error):resolveClose()));
