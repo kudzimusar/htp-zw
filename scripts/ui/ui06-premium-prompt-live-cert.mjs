@@ -270,16 +270,40 @@ async function popupScenario(browser,name,v,action,{dark=false}={}){
 }
 async function publicComparison(browser,name,v){
   const c=await browser.newContext({viewport:v,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"public-"+name);
+  const teaserResponses=[];
+  p.on("response",r=>{
+    if(classify(r.url())!=="teaser_rpc")return;
+    let pPath=null;
+    try{pPath=r.request().postDataJSON()?.p_path ?? null;}catch{}
+    teaserResponses.push({response:r,p_path:pPath});
+  });
   try{
     const status=await open(p,publicRoute,"Public comparison "+name);
     await p.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout});
+    await p.waitForTimeout(600);
     const hero=await imageReady(p,"Public comparison "+name);
+    const authority=[];
+    for(const item of teaserResponses){
+      let payload=null;
+      try{payload=await item.response.json();}catch{}
+      const raw=Array.isArray(payload)?(payload[0]??null):payload;
+      authority.push({
+        p_path:item.p_path,
+        http_status:item.response.status(),
+        source_id:raw?.source_id===null||raw?.source_id===undefined?null:String(raw.source_id),
+        access_policy:raw?.access_policy??null,
+        body_html_null:raw?.body_html===null,
+        teaser_present:Boolean(String(raw?.premium_teaser_html??"").trim())
+      });
+    }
     const previewActive=await p.getByTestId("premium-preview-notice").isVisible().catch(()=>false);
     const paywallActive=await p.getByLabel("HealthTimes Premium article paywall").isVisible().catch(()=>false);
     const promptActive=await prompt(p).isVisible().catch(()=>false);
-    if(previewActive||paywallActive||promptActive)block("P1","Premium access policy bled into public comparison Article");
+    const state={route:publicRoute,preview_active:previewActive,paywall_active:paywallActive,prompt_active:promptActive,authority};
+    write("public-article/"+name+"-authority.json",state);
+    if(previewActive||paywallActive||promptActive)block("P1","Premium access policy bled into public comparison Article: "+JSON.stringify(state));
     const file=await shot(p,"public-article/"+name+".png",{fullPage:true}),o=await overflow(p);if(!o.pass)block("P2","Public Article "+name+" overflow");
-    return{status,viewport:name,...v,hero,premium_preview_absent:true,premium_popup_absent:true,public_body_normal:true,screenshot:file,overflow:o,...assertRuntime("Public comparison "+name,d)};
+    return{status,viewport:name,...v,hero,premium_preview_absent:true,premium_paywall_absent:true,premium_popup_absent:true,public_body_normal:true,authority,screenshot:file,overflow:o,...assertRuntime("Public comparison "+name,d)};
   }finally{await c.close();}
 }
 async function premiumLanding(browser,name,v){
@@ -333,6 +357,7 @@ async function main(){
   try{
     await identity();browser=await chromium.launch({headless:true});browserVersion=browser.version();
     await mainMobileJourney(browser);
+    extra.publicComparison=[await publicComparison(browser,"mobile",views.mobile),await publicComparison(browser,"desktop",views.desktop)];
     extra.tablet=await popupScenario(browser,"premium-tablet",views.tablet,"observe");
     extra.desktop=await popupScenario(browser,"premium-desktop",views.desktop,"escape");
     extra.explore=await popupScenario(browser,"premium-explore",views.mobile,"explore");
@@ -340,7 +365,6 @@ async function main(){
     extra.close=await popupScenario(browser,"premium-close",views.mobile,"close");
     extra.darkMobile=await popupScenario(browser,"premium-dark-mobile",views.mobile,"observe",{dark:true});
     extra.darkDesktop=await popupScenario(browser,"premium-dark-desktop",views.desktop,"observe",{dark:true});
-    extra.publicComparison=[await publicComparison(browser,"mobile",views.mobile),await publicComparison(browser,"desktop",views.desktop)];
     extra.premiumLanding=[await premiumLanding(browser,"mobile",views.mobile),await premiumLanding(browser,"desktop",views.desktop)];
     extra.smoke=await shellSmoke(browser);
     finding("P3","provider-activation","Paynow/PayPal commerce authority remains intentionally unconfigured on this live certification build.");
