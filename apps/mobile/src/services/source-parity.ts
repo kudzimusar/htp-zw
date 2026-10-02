@@ -29,6 +29,7 @@ import {
   sourceParityVideos
 } from "../source-parity/snapshot";
 import {
+  canonicalPremiumSourcePath,
   getPublicPremiumTeaserAuthority,
   sourceParityPremiumDetailDecision
 } from "./premium-teaser-authority";
@@ -306,7 +307,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
         featuredMediaId:post.featured_media ? String(post.featured_media) : undefined,
         categoryIds:(post.categories ?? []).map(String),
         tagIds:(post.tags ?? []).map(String),
-        legacyPath:"/"+post.slug+"/"
+        legacyPath:canonicalPremiumSourcePath(canonicalUrl) ?? "/"+post.slug+"/"
       },
       exceptions
     },
@@ -384,10 +385,22 @@ const articleRepository:ArticleRepository={
       (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
     );
 
-    // The bounded teaser authority is consulted before deciding whether WordPress
-    // content may be requested. This lets staging authority upgrade a legacy
-    // source-parity classification to Premium without ever downloading the body.
-    const teaserAuthority=await getPublicPremiumTeaserAuthority(current.canonicalUrl);
+    // Resolve authoritative WordPress permalink metadata before asking the
+    // bounded Premium teaser authority for classification. This request never
+    // includes content.rendered.
+    const metadata=await sourceGet<WpPost[]>(
+      "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+
+        wpPostQuery({includeContent:false})
+    );
+    const metadataPost=metadata?.[0] ?? null;
+    const metadataStory=metadataPost ? mapWpPost(metadataPost,current) : current;
+    const trustedPremiumSourceUrl=metadataPost?.link?.trim() ? metadataPost.link : null;
+
+    // If metadata cannot provide a trusted permalink, Premium stays fail-closed:
+    // no teaser authority lookup from snapshot slug-only identity and no body fetch.
+    const teaserAuthority=trustedPremiumSourceUrl
+      ? await getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)
+      : null;
     const detailDecision=sourceParityPremiumDetailDecision(
       current.accessPolicy,
       teaserAuthority,
@@ -396,27 +409,24 @@ const articleRepository:ArticleRepository={
     const boundedCurrent:ArticleDetail=
       detailDecision.accessPolicy==="premium"
         ? {
-            ...current,
+            ...metadataStory,
             accessPolicy:"premium",
             bodyHtml:null,
             premiumTeaserHtml:detailDecision.premiumTeaserHtml
           }
-        : current;
+        : metadataStory;
 
+    if(!detailDecision.includeWordPressContent){
+      return boundedCurrent;
+    }
+
+    // Public content is requested only after the metadata/teaser classification
+    // step has completed and explicitly left the story public.
     const live=await sourceGet<WpPost[]>(
       "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+
-        wpPostQuery({includeContent:detailDecision.includeWordPressContent})
+        wpPostQuery({includeContent:true})
     );
-    const mapped=live?.[0] ? mapWpPost(live[0],boundedCurrent) : boundedCurrent;
-
-    return detailDecision.accessPolicy==="premium"
-      ? {
-          ...mapped,
-          accessPolicy:"premium",
-          bodyHtml:null,
-          premiumTeaserHtml:detailDecision.premiumTeaserHtml
-        }
-      : mapped;
+    return live?.[0] ? mapWpPost(live[0],boundedCurrent) : boundedCurrent;
   },
   async getRelated(id){
     const all=await refreshedArticles();
