@@ -557,3 +557,108 @@ The moderator should independently verify:
 11. The staging bounded-public-projection failure remains separately classified rather than being patched through UI-03.
 
 No deployment or merge should occur as part of UI-03 closure.
+
+---
+
+## UI Moderator accessibility recertification addendum
+
+Independent moderator inspection found one bounded accessibility defect in the original prompt component: the modal card itself was marked `accessible`, which can group/collapse nested controls into a single accessibility element on native platforms, while the invisible full-backdrop `Pressable` was also exposed as a duplicate Close control.
+
+No AG-05, NM-05, teaser, timer, commerce or payment authority defect was found.
+
+The moderator applied two bounded presentation/test commits:
+
+- `3113c38b0ba316baf0ac6b3a4e3456aa55e37ad9` — keep Premium prompt controls individually accessible;
+- `31d3cce2edfa37761a9cff21db0024842773058d` — guard the prompt accessibility tree in the UI-03 test contract.
+
+The accepted executable candidate is therefore superseded from `4b1f175376ca3147b18561404aaf58a2eb3932e1` to:
+
+`31d3cce2edfa37761a9cff21db0024842773058d`
+
+The visual presentation is unchanged. The accessibility correction:
+
+- removes the invisible backdrop from the accessibility tree while retaining outside-tap dismissal;
+- removes the accessible-group wrapper from the card;
+- exposes the prompt heading as a header;
+- preserves the visible Close, primary CTA, Member sign in and Not now controls as individually navigable actions.
+
+### Superseding exact-head certification
+
+Dedicated UI-03 Premium Subscription Prompt workflow:
+
+- run: `36988544348`
+- result: **SUCCESS**
+- evidence artifact: `11218562410`
+- artifact digest: `sha256:316014ee72f58aef8772ea7d443a3900193fbcdadccd4c6d120a2264ab312448`
+
+The superseding manifest is exact-head at `31d3cce...` and records:
+
+- source ID `33190`;
+- one-paragraph teaser policy;
+- 20-second owner policy;
+- body_html null;
+- teaser paragraph count 1;
+- protected body absent;
+- paragraph 2 absent;
+- popup absent before expiry;
+- popup opens once after expiry;
+- Not now closes popup;
+- inline paywall remains after dismissal;
+- teaser does not restart after refresh;
+- popup does not reopen after refresh;
+- WordPress content-field requests 0;
+- protected article requests 0;
+- automatic commerce requests on popup open 0.
+
+Measured preview durations on the superseding run:
+
+- mobile: 20.326s;
+- tablet: 20.166s;
+- desktop: 20.169s;
+- dark mobile: 20.167s;
+- dark desktop: 20.171s.
+
+### Adjacent exact-head programme gates at 31d3cce
+
+Successful:
+
+- Validate HealthTimes Canonical Reader + Protected Operations — `36988544262`;
+- AG-05 Premium Commerce + Teaser Authority — `36988544285`;
+- AG-05 + NM-07 Phase 7 Premium + HOSPAZ — `36988544268`;
+- NM-05 Premium Teaser + Commerce Consumer Conformance — `36988544251`;
+- NM-07 Phase 6 Migrated Corpus Reader — `36988544374`;
+- Chromium UAT — Canonical Reader — `36988544314`;
+- Phase 10 Web/PWA Evidence — `36988544248`;
+- UI-03 Premium Subscription Prompt Conformance — `36988544348`;
+- UI-03 Commercial Reader Conformance — `36988544278`.
+
+The generic Native Mobile umbrella remains red only at the previously known live staging assertion:
+
+`Current staging should expose canonical published public stories only through the bounded projection`
+
+This is the existing staging/PostgREST bounded-projection issue and was not altered by UI-03.
+
+### Final moderator disposition
+
+**ACCEPTED — UI-03 PREMIUM SUBSCRIPTION PROMPT CONFORMANCE CLOSED AT EXECUTABLE `31d3cce2edfa37761a9cff21db0024842773058d`.**
+
+The following are accepted:
+
+- first authorized editorial paragraph only;
+- frozen 20-second preview;
+- one-shot subscription prompt;
+- mobile bottom-sheet presentation;
+- tablet/desktop centered card;
+- light/dark conformance;
+- Not now dismissal;
+- inline paywall preservation after dismissal;
+- no preview restart after refresh;
+- no protected-body or paragraph-2 exposure;
+- no automatic commerce request on popup open;
+- fail-closed Explore Premium behavior while commerce is unconfigured;
+- Member sign in route;
+- individually accessible prompt controls.
+
+Operational Paynow/PayPal checkout remains a separate provider-activation lane.
+
+The next programme action is a bounded AG-02 deployment of this accepted executable to the GitHub Pages certification surface, followed by independent UI-06 live certification. Do not merge PR #50 from this closure.
