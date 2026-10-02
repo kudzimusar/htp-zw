@@ -245,17 +245,19 @@ jobs:
                 const page=await context.newPage();
                 const {diag,response,state}=await navigateClean(page,viewport+' edition','/edition','Primary Edition');
                 const radioCount=await page.getByRole('radio').count();
-                if(radioCount<1) throw new Error(viewport+' Edition has no single-selection controls');
+                if(radioCount<2) throw new Error(viewport+' Edition did not resolve source-backed primary choices');
+                const more=page.getByText('Show More Countries/Regions',{exact:true});
+                const progressiveDisclosure=await more.count()>0;
+                if(!progressiveDisclosure) throw new Error(viewport+' Edition did not expose bounded country/region disclosure');
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-edition.png');
                 await page.screenshot({path:file,fullPage:true});
                 assertClean(viewport+' edition post-capture',diag,await inspect(page));
                 manifest.screens.push(record('edition-collapsed','/edition',viewport,width,height,file,response,diag,state,{
                   primarySelectionRole:'radio',
                   primaryChoiceCount:radioCount,
-                  progressiveDisclosure:await page.getByText('Show More Countries/Regions',{exact:true}).count()>0
+                  progressiveDisclosure
                 }));
                 if(viewport==='mobile'){
-                  const more=page.getByText('Show More Countries/Regions',{exact:true});
                   if(await more.count()){
                     await more.click();
                     await page.getByText('Show Fewer Countries/Regions',{exact:true}).waitFor({timeout:5000});
