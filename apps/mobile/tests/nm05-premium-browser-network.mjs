@@ -110,6 +110,7 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
   const protectedRequests=[];
   const commerceRequests=[];
   const browserErrors=[];
+  let datedTeaserRequest=null;
 
   page.on("pageerror",error=>browserErrors.push(error.message));
   page.on("console",message=>{
@@ -121,7 +122,9 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     if(url.includes("/rest/v1/rpc/ag05_public_story_teaser_document")){
       let payload=null;
       try{payload=request.postDataJSON();}catch{}
-      teaserRequests.push({url,p_path:payload?.p_path ?? null});
+      const p_path=payload?.p_path ?? null;
+      teaserRequests.push({url,p_path});
+      if(p_path===premiumDatedPath) datedTeaserRequest=request;
     }
     if(url.includes("/rest/v1/rpc/ag05_public_story_document")) protectedRequests.push(url);
     if(/\/api\/commerce(?:\?|$)/.test(url)) commerceRequests.push(url);
@@ -175,22 +178,14 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     });
   });
 
-  const liveTeaserResponsePromise=metadataAvailable
-    ? page.waitForResponse(
-        response=>{
-          if(!response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document")) return false;
-          try{return response.request().postDataJSON()?.p_path===premiumDatedPath;}catch{return false;}
-        },
-        {timeout:15000}
-      )
-    : null;
-
   await page.goto(origin+basePath+"/article/"+premiumArticleId,{waitUntil:"domcontentloaded"});
 
   let liveTeaserEvidence=null;
   if(metadataAvailable){
     await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({state:"visible",timeout:15000});
-    const teaserResponse=await liveTeaserResponsePromise;
+    assert.ok(datedTeaserRequest,"dated teaser request must be observed in the browser");
+    const teaserResponse=await datedTeaserRequest.response();
+    assert.ok(teaserResponse,"dated teaser request must receive a live response");
     const teaserPayload=await teaserResponse.json();
     const teaserHtml=String(teaserPayload?.premium_teaser_html ?? "").trim();
     const teaserParagraphs=teaserHtml.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
