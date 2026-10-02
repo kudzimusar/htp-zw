@@ -89,10 +89,12 @@ export async function getPublicPremiumTeaserAuthority(
       };
     }
 
-    if(!normalizedAccess || raw.body_html!==null) return null;
-    const teaser=oneEditorialParagraph(raw.premium_teaser_html);
-    if(!teaser) return null;
+    if(!normalizedAccess) return null;
 
+    // Once the bounded authority classifies a story as Premium, never downgrade
+    // it merely because the teaser is unavailable or malformed. That state must
+    // become an immediate paywall and must never authorize a WordPress body fetch.
+    const teaser=raw.body_html===null ? oneEditorialParagraph(raw.premium_teaser_html) : null;
     return {
       sourceId:raw.source_id===null || raw.source_id===undefined ? null : String(raw.source_id),
       accessPolicy:"premium",
