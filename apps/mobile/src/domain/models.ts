@@ -239,6 +239,32 @@ export type PremiumRestoreResult = {
   reason: "restored" | "nothing-to-restore" | "configuration-required" | "unavailable";
 };
 
+export type PremiumCommerceStatus =
+  | "configuration-required"
+  | "available"
+  | "unavailable"
+  | "error";
+
+export type PremiumCommerceAuthority = {
+  channel: "web-server" | "native-store";
+  status: PremiumCommerceStatus;
+  provider: string | null;
+  price: string | null;
+  currency: string | null;
+  billingInterval: string | null;
+  productPlanId: string | null;
+  checkoutUrl: string | null;
+  entitlementGranted: false;
+  message: string;
+};
+
+export type PremiumCheckoutResult = {
+  status: "redirect-required" | "configuration-required" | "unavailable" | "error";
+  checkoutUrl: string | null;
+  entitlementGranted: false;
+  message: string;
+};
+
 export type NotificationItem = {
   id: string;
   category: "breaking" | "live" | "topic" | "premium" | "system";
