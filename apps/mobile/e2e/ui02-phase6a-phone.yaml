@@ -14,11 +14,14 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
-- tapOn: "Search HealthTimes"
+- tapOn: "Search stories, people and topics"
 - inputText: "health"
 - takeScreenshot: ${EVIDENCE_DIR}/search-keyboard
 - hideKeyboard
-- tapOn: "Search"
+- tapOn: "Submit HealthTimes search"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES SEARCH"
+    timeout: 20000
 - takeScreenshot: ${EVIDENCE_DIR}/search-results
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
