@@ -287,7 +287,7 @@ jobs:
             ~/.android/adb*
           key: avd-36-${{ matrix.profile }}-v3
 
-      - name: Run Android native journey
+      - name: Run Android native journey with maestro test
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -298,40 +298,7 @@ jobs:
           enable-hw-keyboard: false
           disk-size: 6000M
           heap-size: 1024M
-          script: |
-            set -eu
-            export APP_ENV=development
-            export EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity
-            export EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS=0
-            EVIDENCE_DIR="ui02-phase6a-native-evidence/android-${{ matrix.device_class }}"
-            mkdir -p "$EVIDENCE_DIR"
-            adb wait-for-device
-            adb shell cmd uimode night no || true
-            adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-            adb reverse tcp:8081 tcp:8081
-
-            (cd apps/mobile && CI=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1) &
-            METRO_PID=$!
-            trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
-
-            for i in $(seq 1 30); do
-              if curl -fsS http://127.0.0.1:8081/status 2>/dev/null | grep -q "packager-status:running"; then
-                break
-              fi
-              if [ "$i" = 30 ]; then
-                cat "$EVIDENCE_DIR/metro.log"
-                exit 1
-              fi
-              sleep 2
-            done
-
-            maestro --device emulator-5554 test               --test-output-dir "$EVIDENCE_DIR"               "${{ matrix.flow }}"
-
-            adb logcat -d '*:E' 2>/dev/null               | grep -Ei 'healthtimes|ReactNativeJS|AndroidRuntime'               > "$EVIDENCE_DIR/native-errors.log" || true
-
-            DEVICE_NAME=$(adb shell getprop ro.product.model | tr -d '\r')
-            OS_VERSION=$(adb shell getprop ro.build.version.release | tr -d '\r')
-            EVIDENCE_DIR="$EVIDENCE_DIR"             CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"             NATIVE_PLATFORM="Android"             DEVICE_CLASS="${{ matrix.device_class }}"             DEVICE_IDENTITY="$DEVICE_NAME (${{ matrix.profile }})"             OS_VERSION="$OS_VERSION"             ORIENTATION="portrait"               node scripts/native/ui02-phase6a-manifest.mjs
+          script: bash scripts/native/ui02-phase6a-android-run.sh "${{ matrix.device_class }}" "${{ matrix.profile }}" "${{ matrix.flow }}" "${{ github.event.pull_request.head.sha || github.sha }}"
 
       - name: Upload Android Phase 6A evidence
         if: always()
