@@ -225,7 +225,7 @@ jobs:
                     if(await loading.count()) throw new Error(viewport+' History remained in loading state');
                   });
                   await page.getByText('Reading history',{exact:true}).first().waitFor({state:'visible',timeout:30000});
-                  const seededHistoryStory=page.getByRole('link',{name:'Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding',exact:true});
+                  const seededHistoryStory=page.getByText('Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding',{exact:true});
                   await seededHistoryStory.first().waitFor({state:'visible',timeout:30000});
                   const loadingVisible=await loading.isVisible().catch(()=>false);
                   const historyEmpty=await page.getByText('No reading history yet',{exact:true}).isVisible().catch(()=>false);
