@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      PRODUCT_SHA: 5a92786ac5bda3e829bcd4d60bf101f3d66a5d28
+      PRODUCT_SHA: 9a5750c261609f5cfbf577229808841d979fe66f
     steps:
       - name: Check out certification tooling
         uses: actions/checkout@v4
