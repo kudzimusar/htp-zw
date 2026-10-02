@@ -6,6 +6,9 @@ on:
       - main
       - feat/native-mobile-nm07-native-certification
       - deployment/ui-phase0-pages-recovery
+      - deployment/ui01-screen1-home-candidate
+      - deployment/ui03-phase2-commercial-reader-candidate
+      - deployment/ui03-premium-prompt-candidate
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -110,6 +113,35 @@ jobs:
           HEALTHTIMES_WEB_BASE_URL: /htp-zw
         run: npm run native:export:web
 
+      - name: Prove Premium prompt deployment safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${EXPO_PUBLIC_SUPABASE_URL:-}"
+          test -n "${EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+          node <<'NODE'
+          const fs=require("fs"),path=require("path");
+          const snapshot=fs.readFileSync("apps/mobile/src/source-parity/snapshot.ts","utf8");
+          if(!/source_id 33190[\s\S]{0,260}accessPolicy:"premium"/.test(snapshot)) throw new Error("Source 33190 is not preserved as Premium.");
+          const teaser=fs.readFileSync("apps/mobile/src/services/premium-teaser-authority.ts","utf8");
+          if(!teaser.includes("ag05_public_story_teaser_document")) throw new Error("Public teaser RPC capability missing.");
+          const prompt=fs.readFileSync("apps/mobile/src/ui/PremiumSubscriptionPrompt.tsx","utf8");
+          if(!prompt.includes("Explore Premium")) throw new Error("Fail-closed Explore Premium label missing.");
+          const files=[]; const walk=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name);if(e.isDirectory())walk(p);else if(/\.(?:js|html|json)$/i.test(e.name))files.push(p);}};
+          walk("apps/mobile/dist");
+          const bundle=files.map(p=>fs.readFileSync(p,"utf8")).join("\n");
+          if(!bundle.includes("ag05_public_story_teaser_document")) throw new Error("Exported PWA lacks public teaser RPC capability.");
+          const url=(process.env.EXPO_PUBLIC_SUPABASE_URL||"").trim();
+          const key=(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY||"").trim();
+          if(!url||!key||!bundle.includes(url)||!bundle.includes(key)) throw new Error("Exported PWA lacks accepted public teaser configuration.");
+          if(!bundle.includes("Explore Premium")) throw new Error("Exported PWA lacks fail-closed Premium prompt.");
+          console.log("Premium source 33190 authority: PASS");
+          console.log("Public teaser capability/config bundled: PASS");
+          console.log("Commerce authority URL configured: NO");
+          console.log("Fail-closed CTA: Explore Premium");
+          NODE
+
       - name: Verify canonical Pages output
         shell: bash
         run: |
@@ -132,7 +164,7 @@ jobs:
           }
           const sw=fs.readFileSync(path.join(dist,"sw.js"),"utf8");
           if(!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive Pages scope.");
-          const required=["explore","live","search","premium","watch","my"];
+          const required=["explore","live","search","premium","appearance","account-access","watch","my"];
           const routeExists=(route)=>[
             path.join(dist,route+".html"),
             path.join(dist,route,"index.html")
@@ -199,7 +231,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate'
     environment:
       name: github-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
@@ -240,18 +272,27 @@ jobs:
 
           routes=(
             ""
-            "live"
+            "premium"
+            "appearance"
+            "account-access"
             "explore"
             "search"
-            "premium"
+            "live"
             "watch"
             "my"
-            "article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
           )
           for route in "${routes[@]}"; do
             curl -fsSL --max-time 20 "$base/$route" >/dev/null
             echo "Canonical route PASS: /$route"
           done
+
+          premium_story="article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+          curl -fsSL --max-time 20 "$base/$premium_story" >/dev/null
+          echo "Premium reference route PASS: /$premium_story (source 33190)"
+
+          public_story="article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
+          curl -fsSL --max-time 20 "$base/$public_story" >/dev/null
+          echo "Public source-parity route PASS: /$public_story"
 
           synthetic_route="article/source-nm04-live-discovered-${expected_sha:0:12}"
           fallback_body="$(mktemp)"
