@@ -1,0 +1,128 @@
+name: UI-03 Premium Subscription Prompt Conformance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/app/article/[id].tsx'
+      - 'apps/mobile/src/ui/PremiumSubscriptionPrompt.tsx'
+      - 'apps/mobile/src/ui/PremiumPaywall.tsx'
+      - 'apps/mobile/tests/**'
+      - 'apps/mobile/package.json'
+      - '.github/workflows/ui03-premium-subscription-prompt-conformance.yml'
+      - 'docs/native-mobile/UI-03_PREMIUM_SUBSCRIPTION_PROMPT_CONFORMANCE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui03-premium-prompt-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  UI03_PROMPT_BASE_SHA: d30014da648eaf257513ad904b2878eab33a811d
+
+jobs:
+  conformance:
+    name: Exact-head 20-second teaser + subscription prompt evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Load accepted public teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+
+      - name: Run required UI-03 and NM-05 preservation matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run native:check
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:nm05-premium-consumer
+          npm --prefix apps/mobile run test:nm05-premium-live
+          npx playwright test tests/migration/ag05-premium-commerce-teaser.spec.js --reporter=line
+
+      - name: Export source-parity Web/PWA with frozen 20-second policy
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          HEALTHTIMES_WEB_BASE_URL: /htp-zw
+        run: |
+          set -euo pipefail
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+          npm run native:export:web
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture exact-head Premium prompt evidence
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH_NAME: feat/ui03-premium-subscription-prompt-conformance
+        run: node apps/mobile/tests/ui03-premium-subscription-prompt-evidence.mjs
+
+      - name: Verify fail-closed commerce and evidence identity
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test -f ui03-premium-prompt-evidence/manifest.json
+          test -f ui03-premium-prompt-evidence/network.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const manifest=JSON.parse(fs.readFileSync('ui03-premium-prompt-evidence/manifest.json','utf8'));
+          if(manifest.candidate_sha!==process.env.EXPECTED_SHA) throw new Error('mixed-SHA prompt evidence');
+          if(manifest.teaser_paragraph_policy!==1) throw new Error('teaser paragraph policy changed');
+          if(manifest.teaser_duration_policy_seconds!==20) throw new Error('teaser duration policy changed');
+          if(manifest.mobile.commerce_requests_before_cta!==0) throw new Error('automatic commerce request detected');
+          if(manifest.mobile.protected_body_present!==false) throw new Error('protected body exposure detected');
+          NODE
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+          printf '{"sha":"%s","base_sha":"%s","teaser_paragraphs":1,"preview_seconds":20,"commerce":"configuration-required"}\n'             "$EXPECTED_SHA" "$UI03_PROMPT_BASE_SHA" > ui03-premium-prompt-evidence/build-info.json
+
+      - name: Upload Premium prompt evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui03-premium-subscription-prompt-conformance
+          path: ui03-premium-prompt-evidence/
+          if-no-files-found: error
+          retention-days: 30
