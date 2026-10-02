@@ -65,7 +65,27 @@ function walk(root){
   return result;
 }
 
-const pngPaths=walk(dir).filter((path)=>path.toLowerCase().endsWith(".png")).sort();
+const pngPaths=walk(dir)
+  .filter((path)=>path.toLowerCase().endsWith(".png"))
+  .filter((path)=>Object.hasOwn(routes,basename(path,".png")))
+  .sort();
+
+const requiredPhoneScreens=[
+  "home-light","search-keyboard","search-results","article-actions-light","article-native-share",
+  "saved-persistence","offline-persistence","premium-locked-light","explore-light","live-light",
+  "watch-light","watch-external-youtube","listen-truthful","my-healthtimes-light","edition-light",
+  "appearance-dark-selected","home-dark","article-dark","premium-dark","premium-landing-dark",
+  "watch-dark","my-healthtimes-dark"
+];
+const requiredTabletScreens=[
+  "tablet-home","tablet-article","tablet-watch","tablet-my-healthtimes","tablet-edition","tablet-home-landscape"
+];
+const requiredScreens=deviceClass==="tablet" ? requiredTabletScreens : requiredPhoneScreens;
+const capturedKeys=new Set(pngPaths.map((path)=>basename(path,".png")));
+const missingScreens=requiredScreens.filter((key)=>!capturedKeys.has(key));
+if(missingScreens.length){
+  throw new Error("Required native screenshots missing: "+missingScreens.join(", "));
+}
 const errorFile=join(dir,"native-errors.log");
 const nativeErrors=existsSync(errorFile)
   ? readFileSync(errorFile,"utf8").split(/\r?\n/).filter(Boolean).slice(0,200)
@@ -106,10 +126,6 @@ const screens=pngPaths.map((path)=>{
     testedInteractionResult:interaction
   };
 });
-
-if(screens.length===0){
-  throw new Error("No native screenshots were found beneath "+dir);
-}
 
 const manifest={
   phase:"UI-02 Phase 6A Native Cross-Device Realization",
