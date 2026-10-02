@@ -5,6 +5,9 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "HealthTimes"
     timeout: 30000
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 30000
 - takeScreenshot: ${EVIDENCE_DIR}/home-light
 
 - tapOn: "Search"
@@ -36,6 +39,9 @@ appId: zw.co.healthtimes.app.dev
 
 - launchApp
 - openLink: "healthtimes://saved?tab=saved"
+- extendedWaitUntil:
+    visible: "Saved & Offline"
+    timeout: 20000
 - extendedWaitUntil:
     visible: "Saved stories"
     timeout: 20000
@@ -69,6 +75,9 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: ${EVIDENCE_DIR}/live-light
 
 - openLink: "healthtimes://watch"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 30000
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
