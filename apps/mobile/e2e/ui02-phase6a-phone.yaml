@@ -106,6 +106,22 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Edition & Preferences"
     timeout: 20000
+- tapOn: "Search country or region"
+- inputText: "Africa"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Africa primary edition"
+    timeout: 10000
+- tapOn: "Africa primary edition"
+- scrollUntilVisible:
+    element:
+      text: "Save Preferences"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Save Preferences"
+- extendedWaitUntil:
+    visible: "Preferences saved on this device."
+    timeout: 10000
 - takeScreenshot: ${EVIDENCE_DIR}/edition-light
 
 - openLink: "healthtimes://appearance"
