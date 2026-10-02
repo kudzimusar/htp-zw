@@ -91,11 +91,12 @@ test('canonical Reader routes Home Explore Search Live Watch Premium and My Heal
 
   response = await page.goto('/live', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
-  await page.getByText('Live is a first-class format', { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByText('No live coverage right now', { exact: true }).waitFor({ timeout: 30000 });
 
   response = await page.goto('/watch', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
-  await page.getByText('Watch HealthTimes interviews, explainers, investigations and health coverage.', { exact: false }).waitFor({ timeout: 30000 });
+  await page.getByText('Featured video', { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByText('Watch on YouTube ↗', { exact: true }).first().waitFor({ timeout: 30000 });
 
   response = await page.goto('/premium', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
