@@ -275,7 +275,7 @@ test("unfilled advertising inventory collapses instead of rendering wireframe pl
 test("institutional continuity is discoverable from My HealthTimes and About",()=>{
   const my=read("app/(reader)/my.tsx");
   const about=read("app/about.tsx");
-  assert.match(my,/PUBLICATION & INSTITUTIONAL/);
+  assert.match(my,/Help & About/);
   assert.match(my,/Corrections & Editorial Standards/);
   assert.match(my,/services\.publication\.getProfile/);
   assert.match(about,/Corrections & editorial standards/);
