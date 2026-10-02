@@ -274,8 +274,10 @@ async function publicComparison(browser,name,v){
     const status=await open(p,publicRoute,"Public comparison "+name);
     await p.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout});
     const hero=await imageReady(p,"Public comparison "+name);
-    const body=await p.locator("body").innerText();
-    if(body.includes("PREMIUM PREVIEW")||body.includes("Continue reading with HealthTimes Premium")||await prompt(p).isVisible().catch(()=>false))block("P1","Premium access policy bled into public comparison Article");
+    const previewActive=await p.getByTestId("premium-preview-notice").isVisible().catch(()=>false);
+    const paywallActive=await p.getByLabel("HealthTimes Premium article paywall").isVisible().catch(()=>false);
+    const promptActive=await prompt(p).isVisible().catch(()=>false);
+    if(previewActive||paywallActive||promptActive)block("P1","Premium access policy bled into public comparison Article");
     const file=await shot(p,"public-article/"+name+".png",{fullPage:true}),o=await overflow(p);if(!o.pass)block("P2","Public Article "+name+" overflow");
     return{status,viewport:name,...v,hero,premium_preview_absent:true,premium_popup_absent:true,public_body_normal:true,screenshot:file,overflow:o,...assertRuntime("Public comparison "+name,d)};
   }finally{await c.close();}
