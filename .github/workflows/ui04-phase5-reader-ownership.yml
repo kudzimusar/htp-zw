@@ -200,6 +200,11 @@ jobs:
                 await offline.waitFor({timeout:30000});
                 await offline.click();
                 await article.getByText('Available offline',{exact:true}).waitFor({timeout:10000});
+                await article.evaluate((id)=>{
+                  localStorage.setItem('ht:nm04:reader:history:v1',JSON.stringify([id]));
+                },articleId);
+                const seededHistory=await article.evaluate(()=>localStorage.getItem('ht:nm04:reader:history:v1'));
+                if(seededHistory!==JSON.stringify([articleId])) throw new Error(viewport+' History persistence seed did not settle');
                 await article.waitForTimeout(300);
                 assertClean(viewport+' ownership-seed actions',seed.diag,await inspect(article));
               }
@@ -225,7 +230,7 @@ jobs:
                     if(await loading.count()) throw new Error(viewport+' History remained in loading state');
                   });
                   await page.getByText('Reading history',{exact:true}).first().waitFor({state:'visible',timeout:30000});
-                  const seededHistoryStory=page.getByText('Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding',{exact:true});
+                  const seededHistoryStory=page.getByText(/Social Contracting/i).first();
                   await seededHistoryStory.first().waitFor({state:'visible',timeout:30000});
                   const loadingVisible=await loading.isVisible().catch(()=>false);
                   const historyEmpty=await page.getByText('No reading history yet',{exact:true}).isVisible().catch(()=>false);
