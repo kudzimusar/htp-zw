@@ -38,7 +38,7 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: tablet-edition
 
 # Tablet orientation evidence: same accepted hierarchy using extra width deliberately.
-- setOrientation: LANDSCAPE
+- setOrientation: LANDSCAPE_LEFT
 - openLink: "healthtimes://"
 - extendedWaitUntil:
     visible: "Top Stories"

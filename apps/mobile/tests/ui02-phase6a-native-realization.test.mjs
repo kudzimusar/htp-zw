@@ -105,6 +105,9 @@ test("Phase 6A tablet flow targets the five tablet-sensitive surfaces",()=>{
     "Zimbabwe Looks to Strengthen Social Contracting",
     "Watch",
     "My HealthTimes",
-    "Edition & Preferences"
+    "Edition & Preferences",
+    "setOrientation: LANDSCAPE_LEFT",
+    "setOrientation: PORTRAIT"
   ]) assert.ok(flow.includes(expected),expected);
+  assert.equal(flow.includes("setOrientation: LANDSCAPE\n"),false);
 });
