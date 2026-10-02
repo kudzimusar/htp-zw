@@ -412,9 +412,10 @@ async function main(){
       wordpress_requests:mobile.wordpress_requests_before_refresh,
       wordpress_content_requests:mobile.wordpress_content_requests,
       protected_article_requests:mobile.protected_article_requests,
-      commerce_requests_before_cta:mobile.commerce_requests_before_cta,
-      commerce_requests_after_cta:mobile.commerce_requests_after_cta,
-      note:"Counts before refresh describe the primary mobile expiry/dismissal journey. Refresh is separately used to prove teaser persistence and one-shot prompt consumption."
+      commerce_requests_before_cta:tablet.action_result?.commerce_requests_before_cta ?? 0,
+      commerce_requests_after_cta:tablet.action_result?.commerce_requests_after_cta ?? 0,
+      automatic_commerce_requests_on_popup_open:mobile.commerce_requests_before_cta,
+      note:"Primary CTA counts come from the tablet Explore Premium journey. The mobile count separately proves that popup opening itself performs no automatic commerce request."
     },null,2));
   }finally{
     if(browser) await browser.close();
