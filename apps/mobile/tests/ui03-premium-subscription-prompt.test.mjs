@@ -18,6 +18,8 @@ test("UI-03 Premium prompt is a bounded responsive acquisition surface",()=>{
   assert.match(prompt,/phone \? styles\.backdropPhone : styles\.backdropCentered/);
   assert.match(prompt,/maxWidth: 600/);
   assert.match(prompt,/maxHeight: "88%"/);
+  assert.match(prompt,/phone && Platform\.OS === "web" \? styles\.cardPhoneWeb : null/);
+  assert.match(prompt,/cardPhoneWeb:\s*\{[\s\S]*position: "absolute"[\s\S]*bottom: 0/);
   assert.match(prompt,/HEALTHTIMES PREMIUM/);
   assert.match(prompt,/Keep reading with HealthTimes Premium/);
   assert.match(prompt,/Explore Premium/);
