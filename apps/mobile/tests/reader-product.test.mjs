@@ -54,7 +54,7 @@ test("Article Reader restores progress and blocks unauthorized Premium offline b
 
 test("Saved and Offline library keeps bookmarks, downloads and history distinct", () => {
   const saved = read("app/saved.tsx");
-  assert.match(saved, /type LibraryTab = "saved" \\| "offline" \\| "history"/);
+  assert.match(saved, /type LibraryTab = "saved" \| "offline" \| "history"/);
   assert.match(saved, /Saved bookmarks, offline downloads and reading history are separate/);
   assert.match(saved, /Saving a story does not download it for offline reading/);
   assert.match(saved, /Available offline/);
