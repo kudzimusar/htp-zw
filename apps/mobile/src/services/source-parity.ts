@@ -356,8 +356,8 @@ export function legacyDatedPermalinkCandidate(article:Pick<ArticleDetail,"slug"|
 
 async function boundedTeaserAuthority(article:ArticleDetail){
   const candidates=[
-    article.canonicalUrl,
-    legacyDatedPermalinkCandidate(article)
+    legacyDatedPermalinkCandidate(article),
+    article.canonicalUrl
   ].filter((value,index,all):value is string=>Boolean(value?.trim()) && all.indexOf(value)===index);
 
   for(const candidate of candidates){
