@@ -247,9 +247,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     previewConfig.source
   ]);
 
-  const previewArticle=article.data;
-  const previewTeaserBlock=previewArticle
-    ? premiumTeaserParagraph(previewArticle.premiumTeaserHtml,previewArticle.canonicalUrl)
+  const publicStory=article.data;
+  const previewTeaserBlock=publicStory
+    ? premiumTeaserParagraph(publicStory.premiumTeaserHtml,publicStory.canonicalUrl)
     : null;
   const premiumPreview=premiumPreviewConsumerState({
     previewState:premiumState,
@@ -288,9 +288,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   ]);
 
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
-  if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
-
-  const publicStory=article.data;
+  if(!publicStory) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
   const verifiedPremiumStory=
     entitlement.data===true && entitledArticle.data?.bodyHtml
       ? entitledArticle.data
