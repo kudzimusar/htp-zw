@@ -1,21 +1,21 @@
-name: NM-05R Premium Teaser Path Resolution
+name: NM-05R2 Premium Teaser Pages Boundary
 
 on:
   push:
     branches:
-      - fix/nm05-live-premium-teaser-path-resolution
+      - fix/nm05r2-premium-teaser-pages-boundary
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: nm05r-live-premium-teaser-path-${{ github.sha }}
+  group: nm05r2-premium-teaser-pages-boundary-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   certify:
-    name: Exact-head NM-05R source-parity Premium path certification
+    name: Exact-head NM-05R2 Premium Pages boundary certification
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -86,7 +86,7 @@ jobs:
 
       - name: Prove repaired browser/network path and 20-second journey
         env:
-          NM05R_EVIDENCE_PATH: apps/mobile/dist/nm05r-live-path-evidence.json
+          NM05R2_EVIDENCE_PATH: apps/mobile/dist/nm05r2-live-boundary-evidence.json
         run: node apps/mobile/tests/nm05-premium-browser-network.mjs
 
       - name: Verify bounded evidence receipt
@@ -95,22 +95,25 @@ jobs:
           set -euo pipefail
           node <<'NODE'
           const fs=require("fs");
-          const evidence=JSON.parse(fs.readFileSync("apps/mobile/dist/nm05r-live-path-evidence.json","utf8"));
+          const evidence=JSON.parse(fs.readFileSync("apps/mobile/dist/nm05r2-live-boundary-evidence.json","utf8"));
           const expected="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
           if(evidence.repaired.requested_p_path!==expected) throw new Error("repaired p_path mismatch");
           if(evidence.repaired.wordpress_content_field_requests!==0) throw new Error("Premium WordPress content request detected");
           if(evidence.repaired.protected_article_requests!==0) throw new Error("protected article request detected");
           if(evidence.repaired.automatic_commerce_requests!==0) throw new Error("automatic commerce request detected");
-          if(evidence.metadata_failure.requested_p_path!==null) throw new Error("metadata failure must not attempt teaser lookup");
+          if(evidence.wordpress_unavailable.requested_p_path!==expected) throw new Error("WordPress-unavailable journey did not reach dated teaser authority");
+          if(evidence.wordpress_unavailable.wordpress_content_field_requests!==0) throw new Error("WordPress-unavailable Premium content request detected");
+          if(evidence.wordpress_unavailable.protected_article_requests!==0) throw new Error("WordPress-unavailable protected article request detected");
+          if(evidence.wordpress_unavailable.automatic_commerce_requests!==0) throw new Error("WordPress-unavailable automatic commerce request detected");
           if(!evidence.public_comparison.public_body_visible) throw new Error("public comparison body unavailable");
           if(evidence.repaired.live_teaser?.source_id!=="33190") throw new Error("live teaser source mismatch");
           if(evidence.repaired.live_teaser?.teaser_paragraph_count!==1) throw new Error("teaser paragraph count mismatch");
           if(evidence.repaired.live_teaser?.body_html_is_null!==true) throw new Error("Premium body was not null");
           fs.writeFileSync(
-            "apps/mobile/dist/nm05r-build-info.json",
+            "apps/mobile/dist/nm05r2-build-info.json",
             JSON.stringify({
               sha:process.env.GITHUB_SHA,
-              branch:"fix/nm05-live-premium-teaser-path-resolution",
+              branch:"fix/nm05r2-premium-teaser-pages-boundary",
               pre_remediation_p_path:"/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/",
               post_remediation_p_path:evidence.repaired.requested_p_path,
               pages_deployed:false
@@ -121,9 +124,9 @@ jobs:
       - name: Upload bounded NM-05R evidence
         uses: actions/upload-artifact@v4
         with:
-          name: nm05r-live-premium-teaser-path-evidence
+          name: nm05r2-premium-teaser-pages-boundary-evidence
           path: |
-            apps/mobile/dist/nm05r-live-path-evidence.json
-            apps/mobile/dist/nm05r-build-info.json
+            apps/mobile/dist/nm05r2-live-boundary-evidence.json
+            apps/mobile/dist/nm05r2-build-info.json
           if-no-files-found: error
           retention-days: 30
