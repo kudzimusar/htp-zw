@@ -201,7 +201,7 @@ jobs:
           xcrun simctl ui "$SIM_UDID" appearance light || true
           xcrun simctl install "$SIM_UDID" "$IOS_APP"
 
-          maestro test             --device "$SIM_UDID"             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"
+          maestro --device "$SIM_UDID" test             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"
 
           xcrun simctl spawn "$SIM_UDID" log show --last 30m --style compact             --predicate 'process CONTAINS[c] "HealthTimes"' 2>/dev/null             | grep -Ei 'error|fault|fatal|exception'             > "$EVIDENCE_DIR/native-errors.log" || true
 
@@ -325,7 +325,7 @@ jobs:
               sleep 2
             done
 
-            maestro test               --device emulator-5554               --test-output-dir "$EVIDENCE_DIR"               "${{ matrix.flow }}"
+            maestro --device emulator-5554 test               --test-output-dir "$EVIDENCE_DIR"               "${{ matrix.flow }}"
 
             adb logcat -d '*:E' 2>/dev/null               | grep -Ei 'healthtimes|ReactNativeJS|AndroidRuntime'               > "$EVIDENCE_DIR/native-errors.log" || true
 
