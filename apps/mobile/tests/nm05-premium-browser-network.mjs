@@ -344,7 +344,7 @@ async function main(){
       wordpress_unavailable:wordpressUnavailable,
       public_comparison:publicComparison
     };
-    const evidencePath=process.env.NM05R_EVIDENCE_PATH || join(distRoot,"nm05r-live-path-evidence.json");
+    const evidencePath=process.env.NM05R2_EVIDENCE_PATH || join(distRoot,"nm05r2-live-boundary-evidence.json");
     await writeFile(evidencePath,JSON.stringify(evidence,null,2)+"\n","utf8");
     console.log(JSON.stringify(evidence));
   }finally{
