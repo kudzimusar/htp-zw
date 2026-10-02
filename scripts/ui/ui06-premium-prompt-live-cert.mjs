@@ -14,7 +14,7 @@ const tooling=process.env.CERTIFICATION_TOOLING_SHA||process.env.GITHUB_SHA||"un
 const runId=process.env.GITHUB_RUN_ID||"local";
 const root=process.env.ARTIFACT_DIR||"artifacts/ui06/premium-prompt-live-cert";
 const premiumRoute="/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
-const publicRoute="/article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users";
+const publicRoute="/article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
 const sourceId="33190";
 const views={mobile:{width:390,height:844},tablet:{width:834,height:1112},desktop:{width:1440,height:1000}};
 const timeout=35000,tolerance=8;
