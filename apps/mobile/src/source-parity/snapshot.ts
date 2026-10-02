@@ -1,4 +1,5 @@
 import type {
+  AccessPolicy,
   ArticleDetail,
   AuthorProfile,
   PublicationProfile,
