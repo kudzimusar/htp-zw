@@ -380,11 +380,6 @@ const articleRepository:ArticleRepository={
   async getById(id){
     const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
     if(!current) return null;
-    const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
-      exception.kind==="taxonomy-unresolved" &&
-      (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
-    );
-
     // Resolve authoritative WordPress permalink metadata before asking the
     // bounded Premium teaser authority for classification. This request never
     // includes content.rendered.
@@ -394,6 +389,10 @@ const articleRepository:ArticleRepository={
     );
     const metadataPost=metadata?.[0] ?? null;
     const metadataStory=metadataPost ? mapWpPost(metadataPost,current) : current;
+    const taxonomyUnresolved=(metadataStory.sourceProvenance?.exceptions ?? []).some((exception)=>
+      exception.kind==="taxonomy-unresolved" &&
+      (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
+    );
     const trustedPremiumSourceUrl=metadataPost?.link?.trim() ? metadataPost.link : null;
 
     // If metadata cannot provide a trusted permalink, Premium stays fail-closed:
@@ -402,7 +401,7 @@ const articleRepository:ArticleRepository={
       ? await getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)
       : null;
     const detailDecision=sourceParityPremiumDetailDecision(
-      current.accessPolicy,
+      metadataStory.accessPolicy,
       teaserAuthority,
       taxonomyUnresolved
     );
