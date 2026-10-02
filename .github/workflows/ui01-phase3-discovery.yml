@@ -115,6 +115,7 @@ jobs:
             const react418=[...diag.pageErrors,...diag.consoleErrors].filter(x=>x.includes('Minified React error #418')||x.includes('React error #418'));
             if(react418.length) throw new Error(label+' React #418: '+react418.join(' | '));
             if(diag.pageErrors.length) throw new Error(label+' page errors: '+diag.pageErrors.join(' | '));
+            if(diag.consoleErrors.length) throw new Error(label+' console errors: '+diag.consoleErrors.join(' | '));
             return react418;
           }
 
@@ -232,6 +233,8 @@ jobs:
                 file:populatedFile,resolvedState:'resolved query',
                 actualContentState:'HIV',
                 resultHeading:await search.getByText(/results for “HIV”/).innerText(),
+                pageErrors:searchDiag.pageErrors,
+                consoleErrors:searchDiag.consoleErrors,
                 react418:0,
                 ...populatedInspect
               });
@@ -248,6 +251,8 @@ jobs:
                 name:'search-no-results',route:'/search',viewport,width,height,
                 file:noResultFile,resolvedState:'no results',
                 actualContentState:'zero source-backed matches',
+                pageErrors:searchDiag.pageErrors,
+                consoleErrors:searchDiag.consoleErrors,
                 react418:0,
                 ...noResultInspect
               });
