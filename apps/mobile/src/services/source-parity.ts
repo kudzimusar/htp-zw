@@ -28,6 +28,10 @@ import {
   sourceParityPublication,
   sourceParityVideos
 } from "../source-parity/snapshot";
+import {
+  getPublicPremiumTeaserAuthority,
+  sourceParityPremiumDetailDecision
+} from "./premium-teaser-authority";
 
 type WpRendered={rendered?:string};
 type WpTerm={id:number;name:string;slug:string;taxonomy?:string};
@@ -379,11 +383,40 @@ const articleRepository:ArticleRepository={
       exception.kind==="taxonomy-unresolved" &&
       (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
     );
-    const includeContent=current.accessPolicy==="public" && !taxonomyUnresolved;
-    const live=await sourceGet<WpPost[]>(
-      "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+wpPostQuery({includeContent})
+
+    // The bounded teaser authority is consulted before deciding whether WordPress
+    // content may be requested. This lets staging authority upgrade a legacy
+    // source-parity classification to Premium without ever downloading the body.
+    const teaserAuthority=await getPublicPremiumTeaserAuthority(current.canonicalUrl);
+    const detailDecision=sourceParityPremiumDetailDecision(
+      current.accessPolicy,
+      teaserAuthority,
+      taxonomyUnresolved
     );
-    return live?.[0] ? mapWpPost(live[0],current) : current;
+    const boundedCurrent:ArticleDetail=
+      detailDecision.accessPolicy==="premium"
+        ? {
+            ...current,
+            accessPolicy:"premium",
+            bodyHtml:null,
+            premiumTeaserHtml:detailDecision.premiumTeaserHtml
+          }
+        : current;
+
+    const live=await sourceGet<WpPost[]>(
+      "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+
+        wpPostQuery({includeContent:detailDecision.includeWordPressContent})
+    );
+    const mapped=live?.[0] ? mapWpPost(live[0],boundedCurrent) : boundedCurrent;
+
+    return detailDecision.accessPolicy==="premium"
+      ? {
+          ...mapped,
+          accessPolicy:"premium",
+          bodyHtml:null,
+          premiumTeaserHtml:detailDecision.premiumTeaserHtml
+        }
+      : mapped;
   },
   async getRelated(id){
     const all=await refreshedArticles();
@@ -522,6 +555,7 @@ export const sourceParityStatus={
   mode:"read-only-public-source" as const,
   sourceBase,
   verifiedAt:SOURCE_PARITY_VERIFIED_AT,
+  premiumTeaserAuthority:"ag05_public_story_teaser_document" as const,
   ag03AuthoritativeSnapshotRequired:true,
   ag04ReplacementRequired:true
 };
