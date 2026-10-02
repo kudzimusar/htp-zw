@@ -36,3 +36,11 @@ appId: zw.co.healthtimes.app.dev
     visible: "Edition & Preferences"
     timeout: 20000
 - takeScreenshot: ${EVIDENCE_DIR}/tablet-edition
+
+- setOrientation: LANDSCAPE
+- openLink: "healthtimes://"
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/tablet-home-landscape
+- setOrientation: PORTRAIT
