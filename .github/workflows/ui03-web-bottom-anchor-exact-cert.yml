@@ -1,0 +1,78 @@
+name: UI-03 Web Premium Bottom Anchor Exact Certification
+
+on:
+  push:
+    branches:
+      - test/ui03-web-bottom-anchor-exact-cert
+    paths:
+      - '.github/workflows/ui03-web-bottom-anchor-exact-cert.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui03-web-bottom-anchor-exact-cert
+  cancel-in-progress: true
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact certification head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Prove executable ancestry
+        shell: bash
+        env:
+          ACCEPTED_PRODUCT_SHA: d9575d9e3236114fd1d2b68547102f3bd42d045f
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$ACCEPTED_PRODUCT_SHA" HEAD
+          test "$(git diff --name-only "$ACCEPTED_PRODUCT_SHA"..HEAD -- apps/mobile | wc -l | tr -d ' ')" = "0"
+          echo "ACCEPTED_PRODUCT_SHA=$ACCEPTED_PRODUCT_SHA"
+          echo "CERT_TOOLING_SHA=$(git rev-parse HEAD)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+
+      - name: Load public teaser config
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "EXPO_PUBLIC_SUPABASE_URL=$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")" >> "$GITHUB_ENV"
+
+      - name: Run bounded preservation gates
+        run: |
+          npm run native:check
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:nm05-premium-consumer
+          npm --prefix apps/mobile run test:source-parity
+
+      - name: Export Pages-equivalent Web Reader
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          HEALTHTIMES_WEB_BASE_URL: /htp-zw
+        run: npm run native:export:web
+
+      - name: Prove exported prompt fix is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f apps/mobile/dist/index.html
+          grep -R -q "Keep reading with HealthTimes Premium" apps/mobile/dist
+          echo "UI03_WEB_BOTTOM_ANCHOR_EXACT_CERT=PASS"
