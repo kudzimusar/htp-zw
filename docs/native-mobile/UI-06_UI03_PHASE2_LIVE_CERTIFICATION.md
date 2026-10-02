@@ -362,3 +362,70 @@ Return the separate Watch thumbnail 404 to the appropriate Watch/media lane; it 
 ## Final disposition
 
 UI-06 PHASE 2 LIVE COMMERCIAL READER TECHNICALLY CERTIFIED — PREMIUM SECURITY / ARTICLE / PREMIUM UI PASS, BUT NON-ZERO COMMERCIAL PREVIEW DURATION IS NOT CONFIGURED
+
+---
+
+## 17. UI Moderator advertising-evidence recertification addendum
+
+During independent moderator inspection of artifact `11199609201`, the original `advertising/*-source-parity.png` captures were found to have been taken before Home resolved: the screenshots still displayed `Loading Home…`. The original harness also wrote `ad_gap_present:false` without actually measuring that state. This was an evidence-harness defect, not a Reader implementation defect.
+
+A bounded moderator correction was applied only to:
+
+`scripts/ui/ui06-ui03-phase2-live-cert.mjs`
+
+Moderator tooling SHA:
+
+`be755592987e5d947ba6a3a5031b4f1a83a671be`
+
+The correction requires:
+
+- live Home to resolve;
+- `Top Stories` to be visibly present;
+- `Loading Home…` to be absent;
+- advertising/HOSPAZ presence to be assessed only after resolution;
+- the resolved `Top Stories` position to be recorded;
+- no fabricated `ad_gap_present:false` value.
+
+Superseding exact-head certification run:
+
+`36945899530` — **SUCCESS**
+
+Job:
+
+`110647838922` — **SUCCESS**
+
+Superseding evidence artifact:
+
+`11202605291`
+
+Artifact digest:
+
+`sha256:828e99f26273e41b90f5b22b5fdae143ddc3f4a4deb7b82a44b03bcc32e33541`
+
+The resolved advertising evidence records:
+
+| Viewport | Home resolved | Top Stories visible | Top Stories top | advertising_source | HOSPAZ | HTTP resource errors |
+|---|---|---|---:|---|---|---:|
+| 390×844 | true | true | 438px | `none` | false | 0 |
+| 834×1112 | true | true | 535px | `none` | false | 0 |
+| 1440×1000 | true | true | 621px | `none` | false | 0 |
+
+The screenshots now show resolved editorial Home content rather than the loading skeleton. No Advertisement disclosure, HOSPAZ unit, or empty advertisement placeholder is present on the public source-parity runtime.
+
+This addendum supersedes only the original advertising evidence identity. It does not change the already-certified Article, Premium security, Premium landing, Dark, Home regression, service-worker, Watch-media or commercial-preview-policy findings.
+
+### Final technical certification after moderator recertification
+
+The live Phase-2 Reader remains technically/security certified at deployment wrapper:
+
+`8611beb08a9cc43accc9109457ed48901c3daaf1`
+
+underlying executable:
+
+`6cbfcaa9ee6c06e25f59c99eb21bf86211990605`
+
+with the following unresolved commercial-policy finding:
+
+**P2 — the public build has no configured non-zero Premium preview duration.**
+
+The secure fail-closed immediate paywall remains active. This is not a security defect, but it means the requested `short preview → paywall` commercial policy is not yet activated on the live certification build.
