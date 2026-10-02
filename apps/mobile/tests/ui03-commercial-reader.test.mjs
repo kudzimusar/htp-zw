@@ -22,7 +22,7 @@ test("UI-03 anonymous Premium Reader uses only explicit public teaser authority"
   assert.match(sourceParity,/bodyHtml:accessPolicy==="premium" \? null/);
   assert.match(sourceParity,/premiumTeaserHtml:accessPolicy==="premium"/);
   assert.match(article,/parseArticleContent\(protectedBody \? null : story\.bodyHtml/);
-  assert.match(article,/publicStory\.premiumTeaserHtml/);
+  assert.match(article,/previewArticle\.premiumTeaserHtml/);
   assert.match(article,/premiumTeaserParagraph/);
   assert.match(article,/premiumTeaserBlock/);
   assert.match(article,/previewVisible/);
@@ -41,7 +41,7 @@ test("UI-03 timed preview lifecycle uses the persistent 20-second story ledger",
   assert.match(article,/previewConfig\.seconds===20/);
   assert.match(article,/previewWindow\.remainingSeconds\*1000/);
   assert.match(article,/seconds_elapsed:previewConfig\.seconds/);
-  assert.match(article,/premiumState==="warning"/);
+  assert.match(article,/premiumPreview\.state==="warning"/);
 });
 
 test("UI-03 Article toolbar is icon-led, accessible, and keeps Offline secondary",()=>{
