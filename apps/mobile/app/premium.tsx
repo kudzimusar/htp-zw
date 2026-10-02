@@ -220,7 +220,11 @@ export default function PremiumScreen(){
             <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Sign in as existing member</Text>
           </Pressable>
         </View>
-        <Text style={[styles.signin,{color:palette.inkMuted}]}>Already a member? Sign in to restore your HealthTimes Premium access.</Text>
+        <Text style={[styles.signin,{color:palette.inkMuted}]}>
+          {webCommerce
+            ? "Already a member? Sign in to restore your HealthTimes Premium access."
+            : "Already a member? Sign in or restore a store purchase to recover your HealthTimes Premium access."}
+        </Text>
       </Section>
     </Page>
   );
