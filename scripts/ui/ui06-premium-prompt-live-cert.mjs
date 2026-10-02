@@ -8,7 +8,7 @@ import { chromium } from "@playwright/test";
 const require=createRequire(import.meta.url);
 const pwVersion=require("@playwright/test/package.json").version;
 const base=(process.env.PUBLIC_URL||"https://kudzimusar.github.io/htp-zw").replace(/\/+$/,"");
-const wrapper=process.env.TARGET_DEPLOYED_SHA||"0c60f1961da3131b00433c33f009cbd0c79f277a";
+const wrapper=process.env.TARGET_DEPLOYED_SHA||"7f78776e19ea8a0680f9d88906aa4dd00a6c1385";
 const executable=process.env.ACCEPTED_EXECUTABLE_SHA||"3d7f59f97f195a304d5ed5571a7e71ec8f91810c";
 const tooling=process.env.CERTIFICATION_TOOLING_SHA||process.env.GITHUB_SHA||"unknown";
 const runId=process.env.GITHUB_RUN_ID||"local";
