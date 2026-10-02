@@ -162,11 +162,13 @@ jobs:
           print("SIM_RUNTIME="+runtime.rsplit(".",1)[-1].replace("-",".").replace("iOS.","iOS "))
           PY
 
-      - name: Start selected iOS simulator migration
+      - name: Reset and start selected iOS simulator
         shell: bash
         run: |
           set -euo pipefail
-          xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl shutdown "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl erase "$SIM_UDID"
+          xcrun simctl boot "$SIM_UDID"
 
       - name: Build self-contained iOS Simulator app
         working-directory: apps/mobile/ios
@@ -192,6 +194,8 @@ jobs:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           DEVICE_CLASS: ${{ matrix.device_class }}
           FLOW: ${{ matrix.flow }}
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"
+          MAESTRO_CLI_NO_ANALYTICS: "1"
         run: |
           set -euo pipefail
           EVIDENCE_DIR="ui02-phase6a-native-evidence/ios-$DEVICE_CLASS"

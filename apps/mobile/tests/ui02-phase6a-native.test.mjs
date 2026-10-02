@@ -84,6 +84,8 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(workflow.includes("xcrun simctl"));
   assert.ok(workflow.includes("reactivecircus/android-emulator-runner@v2"));
   assert.ok(workflow.includes('maestro --device "$SIM_UDID" test'));
+  assert.ok(workflow.includes('xcrun simctl erase "$SIM_UDID"'));
+  assert.ok(workflow.includes('MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"'));
   assert.ok(workflow.includes("scripts/native/ui02-phase6a-android-run.sh"));
   assert.ok(androidRunner.includes("maestro --device emulator-5554 test"));
   assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
