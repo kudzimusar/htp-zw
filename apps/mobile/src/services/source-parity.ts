@@ -77,6 +77,15 @@ function wpPostQuery(options:{includeContent:boolean}){
   return "&_embed=1&_fields="+encodeURIComponent(options.includeContent ? wpPublicDetailFields : wpMetadataFields);
 }
 
+function legacyDatedPermalinkCandidate(post:WpPost){
+  const match=post.date?.trim().match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  const slug=post.slug?.trim();
+  if(!match || !slug) return null;
+  // Compatibility candidate only. AG-05 remains authority: a wrong candidate
+  // returns null and never authorizes a protected-body fetch.
+  return sourceBase+"/"+match[1]+"/"+match[2]+"/"+match[3]+"/"+slug+"/";
+}
+
 function decodeEntities(value:string){
   const named:Record<string,string>={
     amp:"&",lt:"<",gt:">",quot:'"',apos:"'",nbsp:" ",ndash:"–",mdash:"—",rsquo:"’",lsquo:"‘",ldquo:"“",rdquo:"”",hellip:"…"
@@ -393,13 +402,19 @@ const articleRepository:ArticleRepository={
       exception.kind==="taxonomy-unresolved" &&
       (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
     );
-    const trustedPremiumSourceUrl=metadataPost?.link?.trim() ? metadataPost.link : null;
+    const currentPermalinkCandidate=metadataPost?.link?.trim() ? metadataPost.link : null;
+    const datedPermalinkCandidate=metadataPost ? legacyDatedPermalinkCandidate(metadataPost) : null;
 
-    // If metadata cannot provide a trusted permalink, Premium stays fail-closed:
-    // no teaser authority lookup from snapshot slug-only identity and no body fetch.
-    const teaserAuthority=trustedPremiumSourceUrl
-      ? await getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)
+    // Current WordPress may expose a rewritten slug-only permalink while AG-05
+    // preserves the historical dated legacy path. Try the current link first,
+    // then the date+slug compatibility candidate; AG-05 validates either path.
+    // If neither resolves, Premium remains fail-closed and body content is never fetched.
+    let teaserAuthority=currentPermalinkCandidate
+      ? await getPublicPremiumTeaserAuthority(currentPermalinkCandidate)
       : null;
+    if(!teaserAuthority && datedPermalinkCandidate && datedPermalinkCandidate!==currentPermalinkCandidate){
+      teaserAuthority=await getPublicPremiumTeaserAuthority(datedPermalinkCandidate);
+    }
     const detailDecision=sourceParityPremiumDetailDecision(
       metadataStory.accessPolicy,
       teaserAuthority,
