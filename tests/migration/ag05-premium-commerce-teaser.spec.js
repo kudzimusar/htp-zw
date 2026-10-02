@@ -74,7 +74,7 @@ test('CP5 capability exposes separate sanitized teaser while full Premium body r
 });
 
 test('migration publishes only a bounded teaser projection', async () => {
-  const sql = read('supabase/migrations/20261002050300_ag05_premium_teaser_public_projection.sql');
+  const sql = read('supabase/migrations/20261002060846_ag05_premium_teaser_public_projection.sql');
   expect(sql).toContain('ag05_first_editorial_paragraph_html');
   expect(sql).toContain('regexp_split_to_table');
   expect(sql).toContain('ag05_public_story_teaser_document');
