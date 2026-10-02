@@ -389,6 +389,7 @@ export const migratedCorpusStatus = {
   totalMigratedMediaObjects: 5705,
   cp5Functions: [
     "ag05_resolve_public_path",
+    "ag05_public_story_teaser_document",
     "ag05_public_story_document",
     "ag05_public_context_document",
     "ag05_public_feed_rows",
