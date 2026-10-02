@@ -27,12 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
       - name: Prove exact candidate checkout
         shell: bash
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
@@ -45,7 +45,7 @@ jobs:
       - name: Install canonical Reader
         run: npm install --prefix apps/mobile --no-audit --no-fund
       - name: Run Phase 6A native realization contract
-        run: node --test apps/mobile/tests/ui02-phase6a-native.test.mjs
+        run: node --test apps/mobile/tests/ui02-phase6a-native.test.mjs apps/mobile/tests/ui02-phase6a-native-realization.test.mjs
       - name: Typecheck canonical Reader
         run: npm --prefix apps/mobile run typecheck
       - name: Re-run accepted Phase 3-5 Reader contracts
@@ -66,12 +66,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
       - name: Prove exact candidate checkout
         shell: bash
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
@@ -156,7 +156,7 @@ jobs:
       - name: Capture iOS phone native journey
         shell: bash
         env:
-          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mkdir -p ui02-phase6a-native-evidence/ios-phone
@@ -171,7 +171,7 @@ jobs:
       - name: Capture iPad native journey
         shell: bash
         env:
-          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mkdir -p ui02-phase6a-native-evidence/ipad
@@ -206,12 +206,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
       - name: Prove exact candidate checkout
         shell: bash
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
@@ -285,7 +285,7 @@ jobs:
             adb logcat -d '*:E' 2>/dev/null               | grep -Ei 'healthtimes|ReactNativeJS|AndroidRuntime'               > "ui02-phase6a-native-evidence/android-${{ matrix.device_class }}/native-errors.log" || true
             DEVICE_NAME=$(adb shell getprop ro.product.model | tr -d '\r')
             OS_VERSION=$(adb shell getprop ro.build.version.release | tr -d '\r')
-            EVIDENCE_DIR="ui02-phase6a-native-evidence/android-${{ matrix.device_class }}"             CANDIDATE_SHA="${{ github.sha }}"             NATIVE_PLATFORM="Android"             DEVICE_CLASS="${{ matrix.device_class }}"             DEVICE_IDENTITY="$DEVICE_NAME (${{ matrix.profile }})"             OS_VERSION="$OS_VERSION"             ORIENTATION="portrait"               node scripts/native/ui02-phase6a-manifest.mjs
+            EVIDENCE_DIR="ui02-phase6a-native-evidence/android-${{ matrix.device_class }}"             CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"             NATIVE_PLATFORM="Android"             DEVICE_CLASS="${{ matrix.device_class }}"             DEVICE_IDENTITY="$DEVICE_NAME (${{ matrix.profile }})"             OS_VERSION="$OS_VERSION"             ORIENTATION="portrait"               node scripts/native/ui02-phase6a-manifest.mjs
       - name: Upload Android Phase 6A evidence
         uses: actions/upload-artifact@v4
         if: always()
