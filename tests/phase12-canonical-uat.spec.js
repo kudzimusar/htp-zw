@@ -107,7 +107,8 @@ test('canonical Reader routes Home Explore Search Live Watch Premium and My Heal
   response = await page.goto('/my', { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response?.status()).toBe(200);
   await page.getByText('My HealthTimes', { exact: true }).first().waitFor({ timeout: 30000 });
-  await page.getByText('HealthTimes Studio', { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).first().waitFor({ timeout: 30000 });
+  await expect(page.getByText('HealthTimes Studio', { exact: true })).toHaveCount(0);
 
   await assertNoPageErrors(errors, 'canonical Reader routes');
 });
