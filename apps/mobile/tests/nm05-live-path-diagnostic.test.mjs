@@ -1,59 +1,50 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { loadTs } from "./ts-module-loader.mjs";
+import { loadTs, mobileRoot } from "./ts-module-loader.mjs";
 
-test("PRE-REMEDIATION DIAGNOSTIC captures source-parity fallback p_path for source 33190",async()=>{
+test("NM-05R preserves the diagnosed slug-only fallback but never uses it as Premium teaser authority",()=>{
   const snapshot=loadTs("src/source-parity/snapshot.ts");
+  const authority=loadTs("src/services/premium-teaser-authority.ts",{
+    mocks:{
+      "../platform/config":{
+        hasStagingConfig:false,
+        stagingConfig:{url:"",publishableKey:""}
+      }
+    }
+  });
   const story=snapshot.sourceParityArticles.find(
     (article)=>article.id==="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
   );
-  assert.ok(story,"source 33190 fallback story must exist");
+  assert.ok(story);
 
-  const requests=[];
-  const previousFetch=global.fetch;
-  global.fetch=async(url,options={})=>{
-    requests.push({url:String(url),body:String(options.body ?? "")});
-    return {
-      ok:true,
-      async json(){return null;}
-    };
-  };
+  const preRemediationPath=authority.canonicalPremiumSourcePath(story.canonicalUrl);
+  assert.equal(
+    preRemediationPath,
+    "/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/"
+  );
 
-  try{
-    const authority=loadTs("src/services/premium-teaser-authority.ts",{
-      mocks:{
-        "../platform/config":{
-          hasStagingConfig:true,
-          stagingConfig:{
-            url:"https://example.supabase.co",
-            publishableKey:"sb_publishable_redacted"
-          }
-        }
-      }
-    });
+  const acceptedMetadataUrl=
+    "https://healthtimes.co.zw/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
+  const resolvedPath=authority.canonicalPremiumSourcePath(acceptedMetadataUrl);
+  assert.equal(
+    resolvedPath,
+    "/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/"
+  );
 
-    await authority.getPublicPremiumTeaserAuthority(story.canonicalUrl);
+  const sourceParity=readFileSync(join(mobileRoot,"src/services/source-parity.ts"),"utf8");
+  assert.match(sourceParity,/const metadata=await sourceGet<WpPost\[\]>/);
+  assert.match(sourceParity,/wpPostQuery\(\{includeContent:false\}\)/);
+  assert.match(sourceParity,/trustedPremiumSourceUrl=metadataPost\?\.link/);
+  assert.match(sourceParity,/getPublicPremiumTeaserAuthority\(trustedPremiumSourceUrl\)/);
+  assert.doesNotMatch(sourceParity,/getPublicPremiumTeaserAuthority\(current\.canonicalUrl\)/);
 
-    assert.equal(requests.length,1);
-    const body=JSON.parse(requests[0].body);
-    console.log(JSON.stringify({
-      story_id:story.id,
-      canonical_url:story.canonicalUrl,
-      snapshot_legacy_path:story.sourceProvenance?.wordpress?.legacyPath ?? null,
-      outgoing_p_path:body.p_path
-    }));
-
-    assert.equal(
-      body.p_path,
-      "/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/",
-      "diagnostic must capture the current slug-only lookup key before remediation"
-    );
-    assert.notEqual(
-      body.p_path,
-      "/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/",
-      "current fallback path must be proven different from the accepted live dated path"
-    );
-  }finally{
-    global.fetch=previousFetch;
-  }
+  console.log(JSON.stringify({
+    source_id:"33190",
+    pre_remediation_snapshot_p_path:preRemediationPath,
+    metadata_resolved_p_path:resolvedPath,
+    product_consumer_uses_snapshot_p_path:false
+  }));
 });
