@@ -297,7 +297,7 @@ jobs:
           disk-size: 6000M
           heap-size: 1024M
           script: |
-            set -euo pipefail
+            set -eu
             export APP_ENV=development
             export EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity
             export EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS=0
