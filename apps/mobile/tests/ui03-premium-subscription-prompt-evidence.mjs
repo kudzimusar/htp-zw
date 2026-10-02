@@ -1,4 +1,5 @@
 import { chromium } from "@playwright/test";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
@@ -15,6 +16,7 @@ const candidateSha=process.env.EXPECTED_SHA ?? "";
 const baseSha=process.env.UI03_PROMPT_BASE_SHA ?? "";
 const branch=process.env.BRANCH_NAME ?? "feat/ui03-premium-subscription-prompt-conformance";
 const premiumArticleId="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
+const referencePath="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
 const viewports={
   mobile:{width:390,height:844},
   tablet:{width:834,height:1112},
@@ -82,6 +84,65 @@ async function startServer(){
   await new Promise(resolveReady=>server.listen(0,"127.0.0.1",resolveReady));
   const address=server.address();
   return {server,origin:"http://127.0.0.1:"+address.port};
+}
+
+async function loadAcceptedLiveTeaserAuthority(){
+  const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/,"");
+  const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "");
+  if(!/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/.test(url)) throw new Error("Accepted teaser Supabase URL unavailable");
+  if(!/^sb_publishable_/.test(key)) throw new Error("Accepted teaser publishable key unavailable");
+
+  const response=await fetch(url+"/rest/v1/rpc/ag05_public_story_teaser_document",{
+    method:"POST",
+    headers:{
+      apikey:key,
+      Accept:"application/json",
+      "Content-Type":"application/json",
+      "x-healthtimes-client":"ui03-premium-prompt-certification"
+    },
+    body:JSON.stringify({p_path:referencePath})
+  });
+  const payload=await response.json().catch(()=>null);
+  if(!response.ok || !payload) throw new Error("Live bounded teaser authority unavailable");
+  if(String(payload.source_id)!=="33190") throw new Error("Unexpected Premium source authority");
+  if(payload.access_policy!=="premium_marker_review") throw new Error("Unexpected Premium access authority");
+  if(payload.body_html!==null) throw new Error("Live public teaser authority exposed protected body");
+
+  const teaser=String(payload.premium_teaser_html ?? "").trim();
+  const paragraphs=teaser.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
+  if(paragraphs.length!==1 || paragraphs[0].trim()!==teaser){
+    throw new Error("Live teaser authority is not exactly one paragraph");
+  }
+
+  return {
+    payload,
+    teaser_length:teaser.length,
+    teaser_sha256:createHash("sha256").update(teaser).digest("hex")
+  };
+}
+
+async function installAcceptedAuthorityRoutes(page,authority){
+  await page.route("https://healthtimes.co.zw/wp-json/wp/v2/posts**",async route=>{
+    await route.fulfill({
+      status:200,
+      contentType:"application/json",
+      headers:{
+        "access-control-allow-origin":"*",
+        "x-wp-total":"0",
+        "x-wp-totalpages":"0"
+      },
+      body:"[]"
+    });
+  });
+
+  await page.route("https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
+    await route.fulfill({
+      status:200,
+      contentType:"application/json",
+      headers:{"access-control-allow-origin":"*"},
+      body:JSON.stringify(authority.payload)
+    });
+  });
 }
 
 function recordNetwork(page){
@@ -180,14 +241,16 @@ async function screenshot(page,path){
   await page.screenshot({path,fullPage:false});
 }
 
-async function freshPage(browser,viewport){
+async function freshPage(browser,viewport,authority){
   const context=await browser.newContext({viewport,deviceScaleFactor:1,serviceWorkers:"block"});
   const page=await context.newPage();
-  return {context,page,network:recordNetwork(page)};
+  const network=recordNetwork(page);
+  await installAcceptedAuthorityRoutes(page,authority);
+  return {context,page,network};
 }
 
-async function capturePopupScenario(browser,origin,name,viewport,{dark=false,afterOpen="none"}={}){
-  const {context,page,network}=await freshPage(browser,viewport);
+async function capturePopupScenario(browser,origin,authority,name,viewport,{dark=false,afterOpen="none"}={}){
+  const {context,page,network}=await freshPage(browser,viewport,authority);
   try{
     let appearancePreference="system";
     if(dark) appearancePreference=await selectDarkAppearance(page,origin);
@@ -268,8 +331,8 @@ async function capturePopupScenario(browser,origin,name,viewport,{dark=false,aft
   }
 }
 
-async function mobileJourney(browser,origin){
-  const {context,page,network}=await freshPage(browser,viewports.mobile);
+async function mobileJourney(browser,origin,authority){
+  const {context,page,network}=await freshPage(browser,viewports.mobile,authority);
   try{
     await open(page,origin,"/article/"+premiumArticleId,"mobile Premium article");
     await waitForPreview(page);
@@ -364,15 +427,16 @@ async function main(){
   await mkdir(promptDir,{recursive:true});
   await mkdir(darkDir,{recursive:true});
 
+  const authority=await loadAcceptedLiveTeaserAuthority();
   const {server,origin}=await startServer();
   let browser;
   try{
     browser=await chromium.launch({headless:true});
-    const mobile=await mobileJourney(browser,origin);
-    const tablet=await capturePopupScenario(browser,origin,"tablet",viewports.tablet,{afterOpen:"primary"});
-    const desktop=await capturePopupScenario(browser,origin,"desktop",viewports.desktop,{afterOpen:"sign-in"});
-    const darkMobile=await capturePopupScenario(browser,origin,"mobile",viewports.mobile,{dark:true});
-    const darkDesktop=await capturePopupScenario(browser,origin,"desktop",viewports.desktop,{dark:true,afterOpen:"escape"});
+    const mobile=await mobileJourney(browser,origin,authority);
+    const tablet=await capturePopupScenario(browser,origin,authority,"tablet",viewports.tablet,{afterOpen:"primary"});
+    const desktop=await capturePopupScenario(browser,origin,authority,"desktop",viewports.desktop,{afterOpen:"sign-in"});
+    const darkMobile=await capturePopupScenario(browser,origin,authority,"mobile",viewports.mobile,{dark:true});
+    const darkDesktop=await capturePopupScenario(browser,origin,authority,"desktop",viewports.desktop,{dark:true,afterOpen:"escape"});
 
     const manifest={
       candidate_sha:candidateSha,
@@ -384,6 +448,14 @@ async function main(){
       teaser_duration_policy_seconds:20,
       test_duration_is_commercial_policy:true,
       commerce_authority_expected:"configuration-required",
+      accepted_teaser_authority:{
+        source_id:"33190",
+        access_policy:"premium_marker_review",
+        body_html_is_null:true,
+        teaser_paragraphs:1,
+        teaser_length:authority.teaser_length,
+        teaser_sha256:authority.teaser_sha256
+      },
       mobile,
       tablet,
       desktop,
