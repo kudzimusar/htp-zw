@@ -53,10 +53,15 @@ test("source-parity Premium authority is bounded before WordPress detail content
       p_path:"/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/"
     });
 
-    const decision=authorityModule.sourceParityPremiumDetailDecision("public",authority,false);
+    const decision=authorityModule.sourceParityPremiumDetailDecision("premium",authority,false);
     assert.equal(decision.accessPolicy,"premium");
     assert.equal(decision.includeWordPressContent,false);
     assert.equal(decision.premiumTeaserHtml,"<p>AUTHORIZED PUBLIC TEASER</p>");
+
+    const reviewMarkerOnPublic=authorityModule.sourceParityPremiumDetailDecision("public",authority,false);
+    assert.equal(reviewMarkerOnPublic.accessPolicy,"public");
+    assert.equal(reviewMarkerOnPublic.includeWordPressContent,true);
+    assert.equal(reviewMarkerOnPublic.premiumTeaserHtml,null);
 
     const missingTeaserDecision=authorityModule.sourceParityPremiumDetailDecision(
       "premium",
@@ -98,7 +103,7 @@ test("malformed Premium projection remains Premium and falls to immediate paywal
     );
     assert.equal(authority.accessPolicy,"premium");
     assert.equal(authority.premiumTeaserHtml,null);
-    const decision=authorityModule.sourceParityPremiumDetailDecision("public",authority,false);
+    const decision=authorityModule.sourceParityPremiumDetailDecision("premium",authority,false);
     assert.equal(decision.includeWordPressContent,false);
   }finally{
     global.fetch=previousFetch;
