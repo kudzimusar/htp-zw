@@ -5,6 +5,9 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "HealthTimes"
     timeout: 30000
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 30000
 - takeScreenshot: ${EVIDENCE_DIR}/tablet-home
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
@@ -14,6 +17,9 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: ${EVIDENCE_DIR}/tablet-article
 
 - openLink: "healthtimes://watch"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 30000
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
