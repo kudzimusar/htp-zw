@@ -13,7 +13,6 @@ permissions:
 
 env:
   UI03_BASE_SHA: 4038f1536b1611b2ee6d9082f90d5d78457ab676
-  EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS: "4"
 
 jobs:
   web-evidence:
@@ -58,6 +57,17 @@ jobs:
           npm --prefix apps/mobile run test:ui03
           node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
 
+      - name: Load accepted public teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+
       - name: Build source-parity Web PWA
         env:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
@@ -73,7 +83,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          BRANCH_NAME: feat/ui03-article-premium-advertising-conformance
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref || github.ref_name }}
         run: |
           set -euo pipefail
           node scripts/web/phase4-smoke-server.js >/tmp/ui03-source-parity.log 2>&1 &
@@ -88,17 +98,6 @@ jobs:
           kill "$server_pid" 2>/dev/null || true
           trap - EXIT
 
-      - name: Load existing staging public configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
-          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
-          test -n "$url"
-          test -n "$key"
-          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
-          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
-
       - name: Build staging service candidate for HOSPAZ proof
         env:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
@@ -112,7 +111,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          BRANCH_NAME: feat/ui03-article-premium-advertising-conformance
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref || github.ref_name }}
         run: |
           set -euo pipefail
           node scripts/web/phase4-smoke-server.js >/tmp/ui03-staging.log 2>&1 &
@@ -137,9 +136,9 @@ jobs:
             echo
             echo "- Candidate SHA: $EXPECTED_SHA"
             echo "- Base SHA: $UI03_BASE_SHA"
-            echo "- Branch: feat/ui03-article-premium-advertising-conformance"
-            echo "- Premium preview evidence duration: $EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS seconds"
-            echo "- Test duration is evidence configuration, not final commercial policy."
+            echo "- Branch: ${{ github.event.pull_request.head.ref || github.ref_name }}"
+            echo "- Premium preview evidence duration: 20 seconds"
+            echo "- 20 seconds is the frozen owner product policy; CI does not shorten it."
             echo "- Anonymous Premium source-parity delivery requests metadata only; protected body is neither requested nor rendered."
             echo "- Real storefront state remains configuration-required with zero offers; reader-facing UI does not expose that engineering string."
             echo "- Source-parity no-decision advertising collapses without a visual gap."
