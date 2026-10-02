@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { StoryGrid } from "../src/ui/Cards";
@@ -13,9 +13,11 @@ export default function PremiumScreen(){
   const router=useRouter();
   const { palette }=useAppearance();
   const store=useAsync(()=>services.premiumStore.getState(),[]);
+  const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
   const sourceStories=useAsync(()=>services.articles.getHome(),[]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const premiumStories=(sourceStories.data ?? []).filter((story)=>story.accessPolicy==="premium");
+  const webCommerce=Platform.OS==="web";
   const [status,setStatus]=useState("");
   const previewTracked=useRef(false);
 
@@ -37,6 +39,25 @@ export default function PremiumScreen(){
       await services.premiumStore.startPurchase(storeProductId);
     }catch{
       setStatus("We couldn't start checkout. Please try again when membership purchases are available.");
+    }
+  };
+
+  const startWebCheckout=async()=>{
+    setStatus("");
+    try{
+      await services.analytics.track(event("subscription_started",{
+        source_path:"/premium",
+        commerce_channel:"web-server"
+      },{pagePath:"/premium"}));
+      const result=await services.premiumCommerce.startCheckout({
+        productPlanId:commerce.data?.productPlanId ?? null
+      });
+      setStatus(result.message);
+      if(result.status==="redirect-required" && result.checkoutUrl){
+        await Linking.openURL(result.checkoutUrl);
+      }
+    }catch{
+      setStatus("Premium checkout is unavailable. No membership access has been granted.");
     }
   };
 
@@ -76,7 +97,9 @@ export default function PremiumScreen(){
               ? "HealthTimes is checking the membership connected to this account."
               : entitlement.data===true
                 ? "Your Premium access is active."
-                : "Sign in to check your existing membership, or restore a previous store purchase."}
+                : webCommerce
+                  ? "Sign in to check your existing membership."
+                  : "Sign in to check your existing membership, or restore a previous store purchase."}
           </Text>
           {entitlement.data!==true && !entitlement.loading && (
             <Pressable accessibilityRole="button" style={[styles.secondaryAction,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}>
@@ -88,7 +111,37 @@ export default function PremiumScreen(){
 
       <Section>
         <SectionHeader title="Membership options" eyebrow="GO PREMIUM" />
-        {store.loading ? (
+        {webCommerce ? (
+          commerce.loading ? (
+            <LoadingBlock label="Checking membership options…" />
+          ) : commerce.data?.status==="available" && commerce.data.price && commerce.data.currency ? (
+            <View style={styles.plans} accessibilityLabel="Available HealthTimes Premium web membership">
+              <View style={[styles.plan,{borderColor:palette.border,backgroundColor:palette.paper}]}>
+                <Text style={[styles.planTitle,{color:palette.ink}]}>Premium membership</Text>
+                <Text style={[styles.price,{color:palette.ink}]}>{commerce.data.price+" "+commerce.data.currency}</Text>
+                {!!commerce.data.billingInterval && <Text style={[styles.planText,{color:palette.inkMuted}]}>{commerce.data.billingInterval}</Text>}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue to Premium checkout"
+                  style={[styles.cta,{backgroundColor:palette.blue}]}
+                  onPress={()=>void startWebCheckout()}
+                >
+                  <Text style={[styles.ctaText,{color:palette.paper}]}>Become Premium</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.unavailable,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+              <Text style={[styles.unavailableTitle,{color:palette.ink}]}>Membership options aren't available here yet</Text>
+              <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>Existing members can still sign in. Available membership options will appear here when secure web checkout is configured.</Text>
+              <View style={styles.unavailableActions}>
+                <Pressable accessibilityRole="button" style={[styles.secondaryAction,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}>
+                  <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Member sign in</Text>
+                </Pressable>
+              </View>
+            </View>
+          )
+        ) : store.loading ? (
           <LoadingBlock label="Checking membership options…" />
         ) : store.data?.status==="available" && store.data.offers.length ? (
           <View style={styles.plans} accessibilityLabel="Available HealthTimes Premium plans">
@@ -158,9 +211,11 @@ export default function PremiumScreen(){
           ].map((item)=><View key={item} style={styles.benefitRow}><Text style={styles.benefitCheck}>✓</Text><Text style={[styles.benefit,{color:palette.ink}]}>{item}</Text></View>)}
         </View>
         <View style={styles.memberActions}>
-          <Pressable accessibilityRole="button" style={[styles.secondaryAction,{borderColor:palette.border}]} onPress={()=>void restore()}>
-            <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Restore purchases</Text>
-          </Pressable>
+          {!webCommerce && (
+            <Pressable accessibilityRole="button" style={[styles.secondaryAction,{borderColor:palette.border}]} onPress={()=>void restore()}>
+              <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Restore purchases</Text>
+            </Pressable>
+          )}
           <Pressable accessibilityRole="button" style={[styles.secondaryAction,{borderColor:palette.border}]} onPress={()=>router.push("/account-access" as never)}>
             <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Sign in as existing member</Text>
           </Pressable>
