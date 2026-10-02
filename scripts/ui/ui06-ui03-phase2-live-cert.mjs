@@ -190,13 +190,45 @@ async function advertising(browser){
   for(const [name,v] of Object.entries(views)){
     const c=await browser.newContext({viewport:v,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"advertising",name);
     try{
-      await open(p,"/","Advertising "+name);const label=p.getByText("Direct advertising · HOSPAZ",{exact:true}).first();const present=await label.isVisible().catch(()=>false);let hospaz=null;
-      if(present){const box=label.locator("..");if(!(await box.innerText()).includes("ADVERTISEMENT"))block("P1","HOSPAZ disclosure missing");const image=await imageReady(p,box,"HOSPAZ "+name);const clickable=(await box.locator("a").count())>0;if(clickable)block("P1","ADVERTISING DESTINATION AUTHORITY VIOLATION");hospaz={advertiser:"HOSPAZ",placement:"hospaz-header-direct",...image,destination_verified:false,clickable:false,personalization:"none"};}
-      const overflow=await ov(p);if(!overflow.pass)block("P1","Advertising "+name+" overflow");const runtime=assertRuntime("Advertising "+name,d);const file=await shot(p,"advertising/"+name+"-source-parity.png");
-      out.push({viewport:name,...v,advertising_source:present?"direct":"none",ad_visible:present,ad_gap_present:false,HOSPAZ_present:present,HOSPAZ:hospaz,screenshot:file,...runtime});
+      await open(p,"/","Advertising "+name);
+      const topStories=p.getByText("Top Stories",{exact:true}).first();
+      await topStories.waitFor({state:"visible",timeout});
+      await p.waitForFunction(()=>!document.body.innerText.includes("Loading Home…"),null,{timeout});
+      const topStoriesBox=await topStories.boundingBox();
+      const label=p.getByText("Direct advertising · HOSPAZ",{exact:true}).first();
+      const present=await label.isVisible().catch(()=>false);
+      let hospaz=null;
+      if(present){
+        const box=label.locator("..");
+        if(!(await box.innerText()).includes("ADVERTISEMENT"))block("P1","HOSPAZ disclosure missing");
+        const image=await imageReady(p,box,"HOSPAZ "+name);
+        const clickable=(await box.locator("a").count())>0;
+        if(clickable)block("P1","ADVERTISING DESTINATION AUTHORITY VIOLATION");
+        hospaz={advertiser:"HOSPAZ",placement:"hospaz-header-direct",...image,destination_verified:false,clickable:false,personalization:"none"};
+      }
+      const visibleAdLabels=await p.getByText("ADVERTISEMENT",{exact:true}).count();
+      const overflow=await ov(p);
+      if(!overflow.pass)block("P1","Advertising "+name+" overflow");
+      const runtime=assertRuntime("Advertising "+name,d);
+      const file=await shot(p,"advertising/"+name+"-source-parity.png");
+      out.push({
+        viewport:name,...v,
+        home_resolved:true,
+        top_stories_visible:true,
+        top_stories_top:Math.round(topStoriesBox?.y||0),
+        advertising_source:present?"direct":"none",
+        ad_visible:present,
+        visible_ad_disclosure_count:visibleAdLabels,
+        ad_gap_present:null,
+        ad_gap_evidence:"resolved Home screenshot + Top Stories position; no placeholder inference",
+        HOSPAZ_present:present,
+        HOSPAZ:hospaz,
+        screenshot:file,
+        ...runtime
+      });
     }finally{await c.close();}
   }
-  if(out.every(x=>!x.HOSPAZ_present))finding("P4","advertising","HOSPAZ NOT PRESENT ON PUBLIC SOURCE-PARITY RUNTIME");
+  if(out.every(x=>!x.HOSPAZ_present))finding("P4","advertising","HOSPAZ NOT PRESENT ON PUBLIC SOURCE-PARITY RUNTIME AFTER HOME RESOLVED");
   write("advertising.json",{deployed_wrapper_sha:wrapper,results:out});return out;
 }
 async function smoke(browser){
