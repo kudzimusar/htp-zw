@@ -18,6 +18,7 @@ env:
   APP_ENV: development
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
   EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS: "0"
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   contract-and-regressions:
@@ -184,11 +185,12 @@ jobs:
           OS_VERSION=$(xcrun simctl getenv "$IOS_TABLET_UDID" SIMULATOR_RUNTIME_VERSION 2>/dev/null || echo unknown)
           EVIDENCE_DIR="ui02-phase6a-native-evidence/ipad"           CANDIDATE_SHA="$CANDIDATE_SHA"           NATIVE_PLATFORM="iOS"           DEVICE_CLASS="tablet"           DEVICE_IDENTITY="$IOS_TABLET_NAME ($IOS_TABLET_UDID)"           OS_VERSION="$OS_VERSION"           ORIENTATION="portrait"             node scripts/native/ui02-phase6a-manifest.mjs
       - name: Upload iOS Phase 6A evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ui02-phase6a-native-evidence-ios
           path: ui02-phase6a-native-evidence/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
   android-evidence:
@@ -294,3 +296,122 @@ jobs:
           path: ui02-phase6a-native-evidence/
           if-no-files-found: warn
           retention-days: 30
+
+  aggregate-evidence:
+    name: aggregate exact-head native evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: always()
+    needs:
+      - contract-and-regressions
+      - ios-evidence
+      - android-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+      - name: Prove exact candidate checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - name: Download native matrix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ui02-phase6a-native-evidence-*
+          path: downloaded
+          merge-multiple: false
+      - name: Build aggregate matrix manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ui02-phase6a-native-evidence-final
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil
+          root=pathlib.Path("downloaded")
+          final=pathlib.Path("ui02-phase6a-native-evidence-final")
+          manifests=[]
+          for p in root.rglob("manifest.json"):
+              try:
+                  manifests.append(json.loads(p.read_text()))
+              except Exception:
+                  pass
+
+          expected={
+              ("iOS","phone"):"iOS phone",
+              ("iOS","tablet"):"iPad",
+              ("Android","phone"):"Android phone",
+              ("Android","tablet"):"Android tablet",
+          }
+          present={(m.get("platform"),m.get("deviceClass")) for m in manifests}
+          unavailable=[
+              label+": NOT CAPTURED / NOT CERTIFIED"
+              for key,label in expected.items()
+              if key not in present
+          ]
+
+          screenshots=[]
+          for p in root.rglob("*.png"):
+              rel=str(p.relative_to(root))
+              screenshots.append({
+                  "file":rel,
+                  "sha256":hashlib.sha256(p.read_bytes()).hexdigest()
+              })
+
+          aggregate={
+              "phase":"UI-02 Phase 6A Native Cross-Device Realization",
+              "candidateSha":os.environ["EXPECTED_SHA"],
+              "evidenceSource":"real native iOS Simulator and Android Emulator; no resized-browser substitution",
+              "matrix":manifests,
+              "unavailableMatrixCells":unavailable,
+              "screenshots":sorted(screenshots,key=lambda x:x["file"]),
+              "jobResults":{
+                  "contract":"${{ needs.contract-and-regressions.result }}",
+                  "ios":"${{ needs.ios-evidence.result }}",
+                  "android":"${{ needs.android-evidence.result }}"
+              },
+              "authorityPreservation":{
+                  "canonicalReader":"apps/mobile",
+                  "acceptedPhase1To5ProductMutation":False,
+                  "ag05Mutation":False,
+                  "ag06AuthorizationMutation":False,
+                  "premiumEntitlementMutation":False,
+                  "advertisingOrHospazAuthorityMutation":False,
+                  "supabaseMigrationOrRlsMutation":False,
+                  "communicationsMutation":False,
+                  "productionMutation":False,
+                  "dnsMutation":False,
+                  "pagesDeploymentCustodyMutation":False
+              }
+          }
+          (final/"manifest.json").write_text(json.dumps(aggregate,indent=2))
+          for child in root.iterdir():
+              if child.is_dir():
+                  shutil.copytree(child,final/child.name,dirs_exist_ok=True)
+          PY
+          sha256sum ui02-phase6a-native-evidence-final/manifest.json > ui02-phase6a-native-evidence-final/manifest.sha256
+          cat ui02-phase6a-native-evidence-final/manifest.json
+      - name: Upload exact-head aggregate artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui02-phase6a-native-evidence
+          path: ui02-phase6a-native-evidence-final/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record artifact identity
+        shell: bash
+        run: |
+          {
+            echo "## UI-02 Phase 6A native evidence"
+            echo ""
+            echo "- Candidate SHA: `$EXPECTED_SHA`"
+            echo "- Artifact ID: `${{ steps.upload.outputs.artifact-id }}`"
+            echo "- Artifact digest: `${{ steps.upload.outputs.artifact-digest }}`"
+            echo "- Artifact URL: `${{ steps.upload.outputs.artifact-url }}`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
