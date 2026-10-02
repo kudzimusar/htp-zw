@@ -18,6 +18,8 @@ import type {
   PlatformConnectivityReport,
   PremiumRestoreResult,
   PremiumPreviewWindow,
+  PremiumCheckoutResult,
+  PremiumCommerceAuthority,
   ReaderCommentEligibility,
   ReaderStoryComment,
   NewsroomInboxItem,
@@ -97,6 +99,7 @@ export interface ReaderRepository {
   getReadPosition(articleId: string): Promise<number>;
   setReadPosition(articleId: string, progress: number): Promise<void>;
   getPremiumPreviewWindow(stableStoryId: string, durationSeconds: number): Promise<PremiumPreviewWindow | null>;
+  requestPremiumPreviewPrompt(stableStoryId: string): Promise<boolean>;
   recordReadingHistory(articleId: string): Promise<void>;
   getReadingHistoryIds(): Promise<string[]>;
 }
@@ -110,6 +113,11 @@ export interface PremiumStoreService {
   getState(): Promise<PremiumStoreState>;
   startPurchase(storeProductId: string): Promise<void>;
   restorePurchases(): Promise<PremiumRestoreResult>;
+}
+
+export interface PremiumCommerceService {
+  getAuthority(): Promise<PremiumCommerceAuthority>;
+  startCheckout(input?: { productPlanId?: string | null }): Promise<PremiumCheckoutResult>;
 }
 
 export interface AdvertisingService {
@@ -208,6 +216,7 @@ export interface HealthTimesServices {
   reader: ReaderRepository;
   premium: PremiumService;
   premiumStore: PremiumStoreService;
+  premiumCommerce: PremiumCommerceService;
   advertising: AdvertisingService;
   analytics: AnalyticsService;
   live: LiveService;
