@@ -221,7 +221,7 @@ export function FeaturedVideoCard({item}:{item:VideoItem}){
           <Image
             source={{uri:thumbnailUrl}}
             style={[styles.featuredVideoImage,{backgroundColor:palette.paperMuted}]}
-            accessibilityLabel={item.thumbnail.altText??item.title}
+            accessibilityLabel={item.thumbnail?.altText??item.title}
             onError={()=>setThumbnailFailed(true)}
           />
         ) : (
@@ -265,7 +265,7 @@ export function VideoCard({item}:{item:VideoItem}){
         <Image
           source={{uri:thumbnailUrl}}
           style={[styles.videoImage,{backgroundColor:palette.paperMuted}]}
-          accessibilityLabel={item.thumbnail.altText??item.title}
+          accessibilityLabel={item.thumbnail?.altText??item.title}
           onError={()=>setThumbnailFailed(true)}
         />
       ) : (
