@@ -59,7 +59,6 @@ export function PremiumSubscriptionPrompt({
         <View
           testID="premium-subscription-prompt"
           accessible
-          accessibilityRole="dialog"
           accessibilityLabel="HealthTimes Premium membership prompt"
           style={[
             styles.card,
