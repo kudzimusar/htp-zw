@@ -12,6 +12,7 @@ import { breakpoints, colors, layout, radius, spacing, type } from "../../src/th
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { premiumPreviewConfiguration } from "../../src/growth/config";
+import { premiumPreviewConsumerState } from "../../src/growth/premium-consumer";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
@@ -99,6 +100,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
   const [premiumState,setPremiumState]=useState<PremiumPreviewState>("locked");
+  const [premiumRemainingSeconds,setPremiumRemainingSeconds]=useState(0);
+  const [premiumPromptRequested,setPremiumPromptRequested]=useState(false);
   const lastProgressWrite=useRef({at:0,value:0});
   const trackedArticleId=useRef<string|null>(null);
   const trackedProgressEvents=useRef(new Set<string>());
@@ -106,6 +109,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const article=useAsync(()=>initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
   const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
+  const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
   const entitledArticle=useAsync(async()=>{
     const current=article.data;
@@ -144,6 +148,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     const sessionKey=stableStoryId+"|"+previewConfig.source+"|"+previewConfig.paragraphCount+"|"+previewConfig.seconds;
     if(premiumSessionKey.current===sessionKey) return;
     premiumSessionKey.current=sessionKey;
+    setPremiumPromptRequested(false);
+    setPremiumRemainingSeconds(0);
 
     if(!policyValid || !teaserBlock){
       setPremiumState("locked");
@@ -156,6 +162,12 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     let cancelled=false;
     let warningTimer:ReturnType<typeof setTimeout>|null=null;
     let lockTimer:ReturnType<typeof setTimeout>|null=null;
+    let remainingTimer:ReturnType<typeof setInterval>|null=null;
+
+    const requestPromptOnce=async()=>{
+      const shouldRequest=await services.reader.requestPremiumPreviewPrompt(stableStoryId);
+      if(!cancelled && shouldRequest) setPremiumPromptRequested(true);
+    };
 
     void (async()=>{
       const previewWindow=await services.reader.getPremiumPreviewWindow(stableStoryId,previewConfig.seconds);
@@ -163,6 +175,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
       if(!previewWindow || previewWindow.remainingSeconds<=0){
         setPremiumState("locked");
+        setPremiumRemainingSeconds(0);
+        void requestPromptOnce();
         void services.analytics.track(event("premium_locked",{
           seconds_elapsed:previewConfig.seconds
         },{storyId:current.id,pagePath:"/article/"+current.id}));
@@ -171,12 +185,19 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
       const warningRemaining=Math.max(1,Math.ceil(previewConfig.seconds*0.25));
       const warningDelaySeconds=Math.max(0,previewWindow.remainingSeconds-warningRemaining);
+      const expiresAt=new Date(previewWindow.expiresAt).getTime();
 
+      setPremiumRemainingSeconds(previewWindow.remainingSeconds);
       setPremiumState(
         previewWindow.remainingSeconds<=warningRemaining
           ? "warning"
           : "preview"
       );
+
+      remainingTimer=setInterval(()=>{
+        const remaining=Math.max(0,Math.ceil((expiresAt-Date.now())/1000));
+        setPremiumRemainingSeconds(remaining);
+      },1000);
 
       void services.analytics.track(event("premium_preview_started",{
         surface:"article_reader",
@@ -196,6 +217,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
       lockTimer=setTimeout(()=>{
         setPremiumState("locked");
+        setPremiumRemainingSeconds(0);
+        if(remainingTimer) clearInterval(remainingTimer);
+        void requestPromptOnce();
         void services.analytics.track(event("premium_locked",{
           seconds_elapsed:previewConfig.seconds
         },{storyId:current.id,pagePath:"/article/"+current.id}));
@@ -206,6 +230,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       cancelled=true;
       if(warningTimer) clearTimeout(warningTimer);
       if(lockTimer) clearTimeout(lockTimer);
+      if(remainingTimer) clearInterval(remainingTimer);
     };
   },[
     article.data?.id,
@@ -241,13 +266,22 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const showUpdated=Boolean(story.modifiedAt && story.modifiedAt!==story.publishedAt);
   const readingMinutes=protectedBody ? null : estimateReadingMinutes(story.bodyHtml);
   const nonEntitledPremium=publicStory.accessPolicy==="premium" && entitlement.data===false && !verifiedPremiumStory;
+  // UI-03 handoff contract: presentation may consume this state without
+  // reconstructing teaser, timer, commerce or prompt-transition authority.
+  const premiumPreview=premiumPreviewConsumerState({
+    previewState:premiumState,
+    remainingSeconds:premiumRemainingSeconds,
+    teaserAvailable:
+      premiumTeaserBlock!==null &&
+      previewConfig.source==="owner-policy" &&
+      previewConfig.paragraphCount===1 &&
+      previewConfig.seconds===20,
+    commerceStatus:commerce.loading ? "loading" : (commerce.data?.status ?? "unavailable"),
+    promptRequested:premiumPromptRequested
+  });
   const previewVisible=
     nonEntitledPremium &&
-    premiumTeaserBlock!==null &&
-    previewConfig.source==="owner-policy" &&
-    previewConfig.paragraphCount===1 &&
-    previewConfig.seconds===20 &&
-    premiumState!=="locked";
+    (premiumPreview.state==="available" || premiumPreview.state==="warning");
   const entitledDeliveryUnavailable=publicStory.accessPolicy==="premium" && entitlement.data===true && !verifiedPremiumStory?.bodyHtml;
   const showInContentAd=!protectedBody && blocks.length>=4;
   const showArticleEndAd=!protectedBody && blocks.length>=3;
