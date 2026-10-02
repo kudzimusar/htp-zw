@@ -60,6 +60,7 @@ export function PremiumSubscriptionPrompt({
           style={[
             styles.card,
             phone ? styles.cardPhone : styles.cardDesktop,
+            phone && Platform.OS === "web" ? styles.cardPhoneWeb : null,
             { backgroundColor: palette.paper, borderColor: palette.border }
           ]}
         >
@@ -161,6 +162,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingBottom: spacing.lg
+  },
+  cardPhoneWeb: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0
   },
   cardDesktop: {
     maxWidth: 600,
