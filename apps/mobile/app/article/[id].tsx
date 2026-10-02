@@ -75,6 +75,16 @@ function readerFacingMediaCredit(value:string|null|undefined){
   return internal.test(text) ? null : text;
 }
 
+function premiumTeaserParagraph(value:string|null|undefined,canonicalUrl:string|null){
+  if(!value?.trim()) return null;
+  const teaserBlocks=parseArticleContent(value,canonicalUrl);
+  if(teaserBlocks.length!==1) return null;
+  const block=teaserBlocks[0];
+  if(block.kind!=="paragraph") return null;
+  if(!block.inlines.some((inline)=>inline.text.trim())) return null;
+  return block;
+}
+
 type PremiumPreviewState="preview"|"warning"|"locked";
 
 export function ArticleReader({ initialStory = null }: { initialStory?: ArticleDetail | null }){
@@ -85,7 +95,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const previewConfig=premiumPreviewConfiguration();
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
-  const [premiumState,setPremiumState]=useState<PremiumPreviewState>(previewConfig.seconds>0?"preview":"locked");
+  const [premiumState,setPremiumState]=useState<PremiumPreviewState>("locked");
   const lastProgressWrite=useRef({at:0,value:0});
   const trackedArticleId=useRef<string|null>(null);
   const trackedProgressEvents=useRef(new Set<string>());
@@ -121,11 +131,18 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     if(!current || current.accessPolicy!=="premium") return;
     if(entitlement.loading || entitlement.data===true || entitlement.data!==false) return;
 
-    const sessionKey=current.id+"|"+previewConfig.source+"|"+previewConfig.seconds;
+    const stableStoryId=current.canonicalStoryId ?? current.id;
+    const teaserBlock=premiumTeaserParagraph(current.premiumTeaserHtml,current.canonicalUrl);
+    const policyValid=
+      previewConfig.source==="owner-policy" &&
+      previewConfig.paragraphCount===1 &&
+      previewConfig.seconds===20;
+
+    const sessionKey=stableStoryId+"|"+previewConfig.source+"|"+previewConfig.paragraphCount+"|"+previewConfig.seconds;
     if(premiumSessionKey.current===sessionKey) return;
     premiumSessionKey.current=sessionKey;
 
-    if(previewConfig.seconds<=0){
+    if(!policyValid || !teaserBlock){
       setPremiumState("locked");
       void services.analytics.track(event("premium_locked",{
         seconds_elapsed:0
@@ -133,39 +150,68 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       return;
     }
 
-    setPremiumState("preview");
-    void services.analytics.track(event("premium_preview_started",{
-      surface:"article_reader",
-      preview_seconds:previewConfig.seconds
-    },{storyId:current.id,pagePath:"/article/"+current.id}));
+    let cancelled=false;
+    let warningTimer:ReturnType<typeof setTimeout>|null=null;
+    let lockTimer:ReturnType<typeof setTimeout>|null=null;
 
-    const warningAt=Math.max(1,Math.floor(previewConfig.seconds*0.75));
-    const warningTimer=warningAt<previewConfig.seconds
-      ? setTimeout(()=>{
+    void (async()=>{
+      const previewWindow=await services.reader.getPremiumPreviewWindow(stableStoryId,previewConfig.seconds);
+      if(cancelled) return;
+
+      if(!previewWindow || previewWindow.remainingSeconds<=0){
+        setPremiumState("locked");
+        void services.analytics.track(event("premium_locked",{
+          seconds_elapsed:previewConfig.seconds
+        },{storyId:current.id,pagePath:"/article/"+current.id}));
+        return;
+      }
+
+      const warningRemaining=Math.max(1,Math.ceil(previewConfig.seconds*0.25));
+      const warningDelaySeconds=Math.max(0,previewWindow.remainingSeconds-warningRemaining);
+
+      setPremiumState(
+        previewWindow.remainingSeconds<=warningRemaining
+          ? "warning"
+          : "preview"
+      );
+
+      void services.analytics.track(event("premium_preview_started",{
+        surface:"article_reader",
+        preview_seconds:previewConfig.seconds,
+        preview_remaining_seconds:previewWindow.remainingSeconds
+      },{storyId:current.id,pagePath:"/article/"+current.id}));
+
+      if(warningDelaySeconds>0){
+        warningTimer=setTimeout(()=>{
           setPremiumState("warning");
           void services.analytics.track(event("premium_warning_shown",{
-            seconds_elapsed:warningAt,
-            seconds_remaining:previewConfig.seconds-warningAt
+            seconds_elapsed:previewConfig.seconds-warningRemaining,
+            seconds_remaining:warningRemaining
           },{storyId:current.id,pagePath:"/article/"+current.id}));
-        },warningAt*1000)
-      : null;
+        },warningDelaySeconds*1000);
+      }
 
-    const lockTimer=setTimeout(()=>{
-      setPremiumState("locked");
-      void services.analytics.track(event("premium_locked",{
-        seconds_elapsed:previewConfig.seconds
-      },{storyId:current.id,pagePath:"/article/"+current.id}));
-    },previewConfig.seconds*1000);
+      lockTimer=setTimeout(()=>{
+        setPremiumState("locked");
+        void services.analytics.track(event("premium_locked",{
+          seconds_elapsed:previewConfig.seconds
+        },{storyId:current.id,pagePath:"/article/"+current.id}));
+      },previewWindow.remainingSeconds*1000);
+    })();
 
     return ()=>{
+      cancelled=true;
       if(warningTimer) clearTimeout(warningTimer);
-      clearTimeout(lockTimer);
+      if(lockTimer) clearTimeout(lockTimer);
     };
   },[
     article.data?.id,
+    article.data?.canonicalStoryId,
     article.data?.accessPolicy,
+    article.data?.premiumTeaserHtml,
     entitlement.data,
     entitlement.loading,
+    previewConfig.paragraphCount,
     previewConfig.seconds,
     previewConfig.source
   ]);
@@ -180,7 +226,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       : null;
   const story=verifiedPremiumStory ?? publicStory;
   const displayStandfirst=readerFacingStandfirst(story.standfirst ?? story.excerpt,story.author?.displayName);
-  const previewCopy=readerFacingStandfirst(story.excerpt ?? story.standfirst,story.author?.displayName);
+  const premiumTeaserBlock=premiumTeaserParagraph(publicStory.premiumTeaserHtml,publicStory.canonicalUrl);
   const displayMediaCredit=readerFacingMediaCredit(story.heroMedia?.credit);
   const protectedBody=
     publicStory.accessPolicy==="premium" &&
@@ -192,7 +238,13 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const showUpdated=Boolean(story.modifiedAt && story.modifiedAt!==story.publishedAt);
   const readingMinutes=protectedBody ? null : estimateReadingMinutes(story.bodyHtml);
   const nonEntitledPremium=publicStory.accessPolicy==="premium" && entitlement.data===false && !verifiedPremiumStory;
-  const previewVisible=nonEntitledPremium && previewConfig.seconds>0 && premiumState!=="locked";
+  const previewVisible=
+    nonEntitledPremium &&
+    premiumTeaserBlock!==null &&
+    previewConfig.source==="owner-policy" &&
+    previewConfig.paragraphCount===1 &&
+    previewConfig.seconds===20 &&
+    premiumState!=="locked";
   const entitledDeliveryUnavailable=publicStory.accessPolicy==="premium" && entitlement.data===true && !verifiedPremiumStory?.bodyHtml;
   const showInContentAd=!protectedBody && blocks.length>=4;
   const showArticleEndAd=!protectedBody && blocks.length>=3;
@@ -313,8 +365,10 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         ) : nonEntitledPremium ? (
           previewVisible ? (
             <View style={styles.preview}>
-              {!!previewCopy && previewCopy!==displayStandfirst && (
-                <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{previewCopy}</Text>
+              {premiumTeaserBlock && (
+                <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>
+                  {renderInlines(premiumTeaserBlock.inlines,"premium-teaser",palette.blue)}
+                </Text>
               )}
               <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite">
                 <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>

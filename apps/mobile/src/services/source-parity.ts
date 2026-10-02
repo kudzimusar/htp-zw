@@ -241,6 +241,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     standfirst:excerpt || fallback?.standfirst || null,
     excerpt,
     bodyHtml:accessPolicy==="premium" ? null : (post.content?.rendered ?? fallback?.bodyHtml ?? null),
+    premiumTeaserHtml:accessPolicy==="premium" ? (fallback?.premiumTeaserHtml ?? null) : null,
     canonicalUrl,
     accessPolicy,
     status:"published",

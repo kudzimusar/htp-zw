@@ -91,9 +91,15 @@ function pathFromCanonicalUrl(value: string | null) {
 }
 
 async function storyForPath(path: string) {
-  const doc = await rpc<MigratedStoryDocument | null>("ag05_public_story_document", {
-    p_path: normalizePath(path)
-  });
+  const args={p_path:normalizePath(path)};
+  let doc:MigratedStoryDocument|null=null;
+  try{
+    doc=await rpc<MigratedStoryDocument | null>("ag05_public_story_teaser_document",args);
+  }catch{
+    // Fail closed during staged contract rollout: the legacy public document
+    // still withholds Premium body_html and therefore yields immediate paywall.
+    doc=await rpc<MigratedStoryDocument | null>("ag05_public_story_document",args);
+  }
   return doc?.story_id ? mapMigratedStoryDocument(doc, stagingConfig.url) : null;
 }
 

@@ -1,0 +1,68 @@
+name: AG-05 Premium Commerce + Teaser Authority
+
+on:
+  push:
+    branches:
+      - recovery/ag05-premium-commerce-teaser-authority
+  pull_request:
+    paths:
+      - 'api/commerce.js'
+      - 'api/public.js'
+      - 'lib/ag05-premium-commerce.js'
+      - 'lib/ag05-capability.js'
+      - 'apps/mobile/**'
+      - 'supabase/migrations/20261002050300_ag05_premium_teaser_public_projection.sql'
+      - 'tests/migration/ag05-premium-commerce-teaser.spec.js'
+      - '.github/workflows/ag05-premium-commerce-teaser.yml'
+      - 'docs/migration/AG-05_PREMIUM_COMMERCE_TEASER_AUTHORITY.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ag05-premium-commerce-teaser-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$CHECKED_OUT_SHA"
+          test "$CHECKED_OUT_SHA" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Typecheck canonical Reader
+        run: npm run native:check
+      - name: AG-05 Premium commerce and teaser contract
+        run: npx playwright test tests/migration/ag05-premium-commerce-teaser.spec.js
+      - name: Preserve CP5 contract
+        run: npm run test:ag05:capability
+      - name: Preserve UI-03 security/product contract
+        run: npm --prefix apps/mobile run test:ui03
+      - name: Preserve Premium, corpus, growth and source-parity contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run test:migrated-corpus
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:source-parity

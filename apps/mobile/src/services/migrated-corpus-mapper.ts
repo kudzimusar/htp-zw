@@ -23,6 +23,7 @@ export type MigratedStoryDocument = {
   section: { name?: string | null; slug?: string | null } | null;
   access_policy: string | null;
   body_html: string | null;
+  premium_teaser_html?: string | null;
   standfirst: string | null;
   excerpt: string | null;
 };
@@ -98,6 +99,7 @@ export function mapMigratedStoryDocument(
     standfirst: doc.standfirst ?? doc.description ?? null,
     excerpt: doc.excerpt ?? doc.description ?? null,
     bodyHtml: accessPolicy === "public" ? doc.body_html : null,
+    premiumTeaserHtml: accessPolicy === "premium" ? (doc.premium_teaser_html ?? null) : null,
     canonicalUrl: doc.canonical_url,
     accessPolicy,
     status: "published",

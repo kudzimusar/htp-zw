@@ -17,6 +17,7 @@ import type {
   NotificationItem,
   PlatformConnectivityReport,
   PremiumRestoreResult,
+  PremiumPreviewWindow,
   ReaderCommentEligibility,
   ReaderStoryComment,
   NewsroomInboxItem,
@@ -95,6 +96,7 @@ export interface ReaderRepository {
   removeDownloadedArticle(id: string): Promise<void>;
   getReadPosition(articleId: string): Promise<number>;
   setReadPosition(articleId: string, progress: number): Promise<void>;
+  getPremiumPreviewWindow(stableStoryId: string, durationSeconds: number): Promise<PremiumPreviewWindow | null>;
   recordReadingHistory(articleId: string): Promise<void>;
   getReadingHistoryIds(): Promise<string[]>;
 }

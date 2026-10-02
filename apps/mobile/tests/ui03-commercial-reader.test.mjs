@@ -7,34 +7,40 @@ import { fileURLToPath } from "node:url";
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
 const read=(path)=>readFileSync(join(root,path),"utf8");
 
-test("UI-03 Premium preview configuration is explicit and fails closed",()=>{
+test("UI-03 Premium preview configuration follows frozen owner teaser policy and fails closed",()=>{
   const config=read("src/growth/config.ts");
-  assert.match(config,/EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS/);
-  assert.match(config,/seconds: 0, source: "fail-closed"/);
-  assert.match(config,/parsed <= 0/);
-  assert.match(config,/parsed > MAX_PREMIUM_PREVIEW_SECONDS/);
-  assert.doesNotMatch(read("app/article/[id].tsx"),/setTimeout\([^,]+,\s*(10000|30000|60000)\)/);
+  assert.match(config,/premiumTeaserParagraphCount: 1/);
+  assert.match(config,/premiumTeaserDurationSeconds: 20/);
+  assert.match(config,/paragraphCount!==1 \|\| durationSeconds!==20/);
+  assert.match(config,/source:"fail-closed"/);
+  assert.doesNotMatch(config,/EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS/);
 });
 
-test("UI-03 anonymous Premium Reader never parses protected body for preview",()=>{
+test("UI-03 anonymous Premium Reader uses only explicit public teaser authority",()=>{
   const sourceParity=read("src/services/source-parity.ts");
   const article=read("app/article/[id].tsx");
   assert.match(sourceParity,/bodyHtml:accessPolicy==="premium" \? null/);
+  assert.match(sourceParity,/premiumTeaserHtml:accessPolicy==="premium"/);
   assert.match(article,/parseArticleContent\(protectedBody \? null : story\.bodyHtml/);
-  assert.match(article,/const previewCopy=readerFacingStandfirst\(story\.excerpt \?\? story\.standfirst,story\.author\?\.displayName\)/);
-  assert.match(article,/previewCopy!==displayStandfirst/);
+  assert.match(article,/publicStory\.premiumTeaserHtml/);
+  assert.match(article,/premiumTeaserParagraph/);
+  assert.match(article,/premiumTeaserBlock/);
   assert.match(article,/previewVisible/);
   assert.match(article,/PremiumPaywall/);
-  assert.doesNotMatch(article,/previewVisible[\s\S]{0,900}story\.bodyHtml/);
+  assert.doesNotMatch(article,/const previewCopy=/);
+  assert.doesNotMatch(article,/previewVisible[\s\S]{0,1200}story\.bodyHtml/);
 });
 
-test("UI-03 timed preview lifecycle records configured elapsed time",()=>{
+test("UI-03 timed preview lifecycle uses the persistent 20-second story ledger",()=>{
   const article=read("app/article/[id].tsx");
   for(const name of ["premium_preview_started","premium_warning_shown","premium_locked"]){
     assert.ok(article.includes('"'+name+'"'),"missing event "+name);
   }
+  assert.match(article,/getPremiumPreviewWindow/);
+  assert.match(article,/current\.canonicalStoryId \?\? current\.id/);
+  assert.match(article,/previewConfig\.seconds===20/);
+  assert.match(article,/previewWindow\.remainingSeconds\*1000/);
   assert.match(article,/seconds_elapsed:previewConfig\.seconds/);
-  assert.match(article,/previewConfig\.seconds\*1000/);
   assert.match(article,/premiumState==="warning"/);
 });
 
@@ -108,7 +114,7 @@ test("UI-03 Article Reader keeps internal source-bridge notes out of publication
   const article=read("app/article/[id].tsx");
   assert.match(article,/readerFacingStandfirst/);
   assert.match(article,/readerFacingMediaCredit/);
-  assert.match(article,/previewCopy!==displayStandfirst/);
+  assert.match(article,/premiumTeaserBlock/);
   assert.match(article,/read-only source bridge/);
   assert.match(article,/return internal\.test\(text\) \? null : text/);
 });

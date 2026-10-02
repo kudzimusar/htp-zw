@@ -25,25 +25,29 @@ export const MOBILE_GROWTH_CONFIGURATION = {
   status: "configuration-required"
 } as const;
 
+export const PREMIUM_TEASER_POLICY = {
+  premiumTeaserParagraphCount: 1,
+  premiumTeaserDurationSeconds: 20
+} as const;
+
 export type PremiumPreviewConfiguration = {
   seconds: number;
-  source: "environment" | "fail-closed";
+  paragraphCount: number;
+  source: "owner-policy" | "fail-closed";
 };
 
-const MAX_PREMIUM_PREVIEW_SECONDS = 300;
-
 export function premiumPreviewConfiguration(): PremiumPreviewConfiguration {
-  const raw = process.env.EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS?.trim();
-  if (!raw) return { seconds: 0, source: "fail-closed" };
+  const paragraphCount=PREMIUM_TEASER_POLICY.premiumTeaserParagraphCount;
+  const durationSeconds=PREMIUM_TEASER_POLICY.premiumTeaserDurationSeconds;
 
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > MAX_PREMIUM_PREVIEW_SECONDS) {
-    return { seconds: 0, source: "fail-closed" };
+  if(paragraphCount!==1 || durationSeconds!==20){
+    return {seconds:0,paragraphCount:0,source:"fail-closed"};
   }
 
   return {
-    seconds: Math.floor(parsed),
-    source: "environment"
+    seconds: durationSeconds,
+    paragraphCount,
+    source: "owner-policy"
   };
 }
 

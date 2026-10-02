@@ -74,6 +74,18 @@ function requestedPath(url) {
   return normalizePath(url.searchParams.get('path') || '/');
 }
 
+async function publicStoryDocument(path) {
+  try {
+    return await rpc('ag05_public_story_teaser_document', { p_path: path });
+  } catch (error) {
+    const backend = JSON.stringify(error?.backend || '');
+    if (Number(error?.status) === 404 || /PGRST202|Could not find the function|schema cache/i.test(backend)) {
+      return rpc('ag05_public_story_document', { p_path: path });
+    }
+    throw error;
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return send(res, 405, 'Method not allowed', 'text/plain; charset=utf-8', 'no-store');
@@ -173,7 +185,7 @@ module.exports = async function handler(req, res) {
       }, 'public, max-age=60');
     }
 
-    const doc = await rpc('ag05_public_story_document', { p_path: path });
+    const doc = await publicStoryDocument(path);
     if (!doc) {
       res.setHeader('X-AG05-Resolution', 'document_missing');
       return sendJson(req, res, 404, {
@@ -201,4 +213,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._internals = { config, rpc, requestedPath };
+module.exports._internals = { config, rpc, requestedPath, publicStoryDocument };

@@ -81,7 +81,20 @@ export type ArticleSummary = {
 
 export type ArticleDetail = ArticleSummary & {
   bodyHtml: string | null;
+  /**
+   * Exactly one explicitly public editorial paragraph from otherwise protected
+   * Premium content. This is not a bodyHtml/excerpt/standfirst alias.
+   */
+  premiumTeaserHtml?: string | null;
   canonicalUrl: string | null;
+};
+
+export type PremiumPreviewWindow = {
+  scopeId: string;
+  storyId: string;
+  startedAt: string;
+  expiresAt: string;
+  remainingSeconds: number;
 };
 
 export type LiveItem = {
