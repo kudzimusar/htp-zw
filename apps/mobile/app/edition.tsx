@@ -114,6 +114,7 @@ export default function EditionScreen(){
               return (
                 <Pressable
                   key={item}
+                  testID="primary-edition-option"
                   accessibilityRole="radio"
                   accessibilityState={{selected}}
                   accessibilityLabel={item+" primary edition"}
@@ -133,6 +134,7 @@ export default function EditionScreen(){
 
         {!query.trim() && editions.length>conciseEditions.length && (
           <Pressable
+            testID="edition-more-locations"
             accessibilityRole="button"
             accessibilityState={{expanded:showMoreLocations}}
             style={styles.moreButton}
