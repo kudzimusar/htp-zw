@@ -1,4 +1,4 @@
-name: UI-02 Phase 6A Native Cross-Device Realization
+name: UI-02 Phase 6A Native Cross-Device Evidence
 
 on:
   push:
@@ -58,7 +58,7 @@ jobs:
           npm --prefix apps/mobile run test:identity-security
           npm --prefix apps/mobile run test:native-certification
 
-  ios-native-evidence:
+  ios-evidence:
     name: iOS phone + iPad real simulator evidence
     runs-on: macos-latest
     timeout-minutes: 85
@@ -190,7 +190,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  android-native-evidence:
+  android-evidence:
     name: Android ${{ matrix.device_class }} real emulator evidence
     runs-on: ubuntu-latest
     timeout-minutes: 65
