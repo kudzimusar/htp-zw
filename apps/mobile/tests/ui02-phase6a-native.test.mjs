@@ -49,11 +49,9 @@ test("article native interactions keep accessible touch targets and persistence 
   const article=read("app/article/[id].tsx");
   const persistence=read("src/services/reader-persistence.ts");
   assert.ok(toolbar.includes("minHeight: layout.touchMin"));
-  for(const label of [
-    'label="Save article"',
-    'label="Share article"',
-    'label="Download article for offline reading"'
-  ]) assert.ok(toolbar.includes(label));
+  assert.ok(toolbar.includes('label="Save article"'));
+  assert.ok(toolbar.includes('label="Share article"'));
+  assert.ok(toolbar.includes('accessibilityLabel="Download article for offline reading"'));
   assert.ok(article.includes("Share.share"));
   assert.ok(article.includes("services.reader.toggleSavedArticle"));
   assert.ok(article.includes("services.reader.downloadArticle"));
@@ -74,8 +72,8 @@ test("appearance preference is HealthTimes-owned and persistent",()=>{
   const provider=read("src/theme/AppearanceProvider.tsx");
   const persistence=read("src/services/reader-persistence.ts");
   assert.ok(appearance.includes('["system", "light", "dark"]'));
-  assert.ok(provider.includes("services.reader.getAppearance"));
-  assert.ok(provider.includes("services.reader.setAppearance"));
+  assert.ok(provider.includes(".getAppearance()"));
+  assert.ok(provider.includes(".setAppearance(next)"));
   assert.ok(persistence.includes("ht:nm04:reader:appearance:v1"));
 });
 
