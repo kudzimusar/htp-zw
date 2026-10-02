@@ -14,7 +14,7 @@ export type PremiumTeaserAuthority = {
   premiumTeaserHtml: string | null;
 };
 
-function canonicalPath(value:string|null|undefined){
+export function canonicalPremiumSourcePath(value:string|null|undefined){
   if(!value?.trim()) return null;
   try{
     const url=new URL(value);
@@ -55,7 +55,7 @@ export function sourceParityPremiumDetailDecision(
 export async function getPublicPremiumTeaserAuthority(
   canonicalUrl:string|null|undefined
 ):Promise<PremiumTeaserAuthority|null>{
-  const path=canonicalPath(canonicalUrl);
+  const path=canonicalPremiumSourcePath(canonicalUrl);
   if(!path || !hasStagingConfig) return null;
 
   const controller=new AbortController();
