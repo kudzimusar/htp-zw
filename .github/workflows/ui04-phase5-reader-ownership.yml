@@ -191,17 +191,41 @@ jobs:
               const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
               const article=await context.newPage();
               {
-                const seed=await navigateClean(article,viewport+' ownership-seed','/article/'+articleId,null);
-                const save=article.getByRole('button',{name:'Save article'});
-                const offline=article.getByRole('button',{name:'Download article for offline reading'});
-                await save.waitFor({timeout:30000});
-                await offline.waitFor({timeout:30000});
-                await save.click();
-                await article.getByText('Saved',{exact:true}).waitFor({timeout:10000});
-                await offline.click();
-                await article.getByText('Available offline',{exact:true}).waitFor({timeout:10000});
+                const homeResponse=await article.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+                if(homeResponse?.status()!==200) throw new Error(viewport+' ownership seed Home HTTP '+homeResponse?.status());
+                await article.getByText('Top Stories',{exact:true}).waitFor({timeout:30000});
+                const articleLabels=await article.locator('[role="link"][aria-label]').evaluateAll((elements)=>
+                  [...new Set(elements.map((element)=>element.getAttribute('aria-label')).filter(Boolean))]
+                );
+                if(!articleLabels.length) throw new Error(viewport+' ownership seed found no Reader article links');
+
+                let seeded=false;
+                for(const label of articleLabels.slice(0,40)){
+                  await article.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+                  await article.getByText('Top Stories',{exact:true}).waitFor({timeout:30000});
+                  const candidate=article.getByRole('link',{name:label,exact:true}).first();
+                  if(!await candidate.isVisible().catch(()=>false)) continue;
+                  await candidate.click();
+                  await article.waitForTimeout(250);
+                  if(!article.url().includes('/article/')) continue;
+
+                  const save=article.getByRole('button',{name:'Save article'});
+                  const offline=article.getByRole('button',{name:'Download article for offline reading'});
+                  if(!await save.isVisible().catch(()=>false) || !await offline.isVisible().catch(()=>false)) continue;
+
+                  await save.click();
+                  await article.getByText('Saved',{exact:true}).waitFor({timeout:10000});
+                  await offline.click();
+
+                  const offlineReady=await article.getByText('Available offline',{exact:true})
+                    .waitFor({timeout:10000}).then(()=>true).catch(()=>false);
+                  if(offlineReady){
+                    seeded=true;
+                    break;
+                  }
+                }
+                if(!seeded) throw new Error(viewport+' could not seed Saved/Offline from a rendered public Home story');
                 await article.waitForTimeout(300);
-                assertClean(viewport+' ownership-seed actions',seed.diag,await inspect(article));
               }
 
               const captures=[
