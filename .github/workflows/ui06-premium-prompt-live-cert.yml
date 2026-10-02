@@ -1,13 +1,6 @@
 name: UI-06 Live Premium Prompt Certification
 
 on:
-  push:
-    branches:
-      - test/ui06-premium-prompt-live-cert
-    paths:
-      - '.github/workflows/ui06-premium-prompt-live-cert.yml'
-      - 'scripts/ui/ui06-premium-prompt-live-cert.mjs'
-      - 'scripts/ui/ui06-premium-prompt-initial-state.mjs'
   pull_request:
     branches:
       - deployment/ui03-premium-prompt-candidate
@@ -21,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui06-premium-prompt-live-cert-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ui06-premium-prompt-live-cert-${{ github.event.pull_request.head.sha }}
   cancel-in-progress: true
 
 jobs:
