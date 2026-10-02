@@ -79,10 +79,14 @@ test("appearance preference is HealthTimes-owned and persistent",()=>{
 
 test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
+  const androidRunner=readRepo("scripts/native/ui02-phase6a-android-run.sh");
   assert.ok(workflow.includes("Prove exact candidate checkout"));
   assert.ok(workflow.includes("xcrun simctl"));
   assert.ok(workflow.includes("reactivecircus/android-emulator-runner@v2"));
-  assert.ok(workflow.includes("maestro test"));
+  assert.ok(workflow.includes('maestro --device "$SIM_UDID" test'));
+  assert.ok(workflow.includes("scripts/native/ui02-phase6a-android-run.sh"));
+  assert.ok(androidRunner.includes("maestro --device emulator-5554 test"));
+  assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
   assert.ok(workflow.includes("ui02-phase6a-native-evidence"));
   assert.equal(workflow.includes("playwright"),false);
 });
