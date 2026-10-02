@@ -62,15 +62,15 @@ export default function SavedScreen(){
 
       <View style={styles.summary}>
         <View style={[styles.stat,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.statValue,{color:palette.ink}]}>{library.data?.saved.length ?? 0}</Text>
+          <Text style={[styles.statValue,{color:palette.ink}]}>{library.loading ? "—" : library.data?.saved.length ?? 0}</Text>
           <Text style={[styles.statLabel,{color:palette.inkMuted}]}>Saved</Text>
         </View>
         <View style={[styles.stat,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.statValue,{color:palette.ink}]}>{library.data?.downloads.length ?? 0}</Text>
+          <Text style={[styles.statValue,{color:palette.ink}]}>{library.loading ? "—" : library.data?.downloads.length ?? 0}</Text>
           <Text style={[styles.statLabel,{color:palette.inkMuted}]}>Offline</Text>
         </View>
         <View style={[styles.stat,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.statValue,{color:palette.ink}]}>{library.data?.history.length ?? 0}</Text>
+          <Text style={[styles.statValue,{color:palette.ink}]}>{library.loading ? "—" : library.data?.history.length ?? 0}</Text>
           <Text style={[styles.statLabel,{color:palette.inkMuted}]}>History</Text>
         </View>
       </View>
@@ -81,7 +81,19 @@ export default function SavedScreen(){
         ))}
       </View>
 
-      {active==="saved" && (
+      {library.loading && (
+        <Section>
+          <Text accessibilityLiveRegion="polite" style={[styles.libraryState,{color:palette.inkMuted}]}>Loading your library…</Text>
+        </Section>
+      )}
+
+      {!library.loading && library.error && (
+        <Section>
+          <EmptyState title="Your library is temporarily unavailable" message="Saved stories, offline downloads and reading history could not be loaded. Try again shortly." />
+        </Section>
+      )}
+
+      {!library.loading && !library.error && active==="saved" && (
         <Section>
           <SectionHeader title="Saved stories" eyebrow="BOOKMARKS" />
           {library.data?.saved.length
@@ -90,7 +102,7 @@ export default function SavedScreen(){
         </Section>
       )}
 
-      {active==="offline" && (
+      {!library.loading && !library.error && active==="offline" && (
         <Section>
           <SectionHeader title="Available offline" eyebrow="DOWNLOADED" />
           {library.data?.downloads.length ? (
@@ -118,7 +130,7 @@ export default function SavedScreen(){
         </Section>
       )}
 
-      {active==="history" && (
+      {!library.loading && !library.error && active==="history" && (
         <Section>
           <SectionHeader title="Reading history" eyebrow="RECENT" />
           {library.data?.history.length
@@ -142,5 +154,6 @@ const styles=StyleSheet.create({
   offlineBadgeRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md,marginBottom:spacing.md},
   offlineBadge:{fontSize:10,fontWeight:"900",letterSpacing:1,color:colors.success},
   removeButton:{minHeight:44,justifyContent:"center",paddingHorizontal:10},
-  removeText:{fontSize:12,fontWeight:"800"}
+  removeText:{fontSize:12,fontWeight:"800"},
+  libraryState:{fontSize:14,lineHeight:22}
 });
