@@ -98,8 +98,8 @@ async function serviceWorker(page){
 }
 async function shot(page,file,{fullPage=false}={}){await page.screenshot({path:path.join(root,file),fullPage});return file;}
 async function imageReady(page,label){
-  const img=page.locator('[data-testid="article-hero-media"]:visible img').first();
-  if(await img.count()<1)block("P1",label+" Hero absent");
+  const img=page.locator('[data-testid="article-hero-media"] img').first();
+  try{await img.waitFor({state:"attached",timeout});}catch{block("P1",label+" Hero absent after Article resolution");}
   const h=await img.elementHandle();if(!h)block("P1",label+" Hero handle unavailable");
   try{await page.waitForFunction(i=>i.complete&&i.naturalWidth>0&&i.naturalHeight>0,h,{timeout});}catch{block("P1",label+" Hero failed readiness");}
   const m=await img.evaluate(i=>{const r=i.getBoundingClientRect();return{url:i.currentSrc||i.src,complete:i.complete,natural_width:i.naturalWidth,natural_height:i.naturalHeight,rendered_width:Math.round(r.width),rendered_height:Math.round(r.height)};});await h.dispose();return m;
@@ -179,8 +179,9 @@ async function mainMobileJourney(browser){
   try{
     const rpc=p.waitForResponse(r=>r.url().includes("ag05_public_story_teaser_document"),{timeout}).catch(()=>null);
     const status=await open(p,premiumRoute,"Premium mobile");
-    await imageReady(p,"Premium mobile");
+    await p.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout});
     await p.getByText("PREMIUM",{exact:true}).first().waitFor({state:"visible",timeout});
+    await imageReady(p,"Premium mobile");
     const initial=await waitForPreview(p),started=Date.now(),startedAt=now();
     await installPromptCounter(p);
     const auth=await teaserAuthority(await rpc);
@@ -264,8 +265,9 @@ async function popupScenario(browser,name,v,action,{dark=false}={}){
 async function publicComparison(browser,name,v){
   const c=await browser.newContext({viewport:v,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"public-"+name);
   try{
-    const status=await open(p,publicRoute,"Public comparison "+name);const hero=await imageReady(p,"Public comparison "+name);
+    const status=await open(p,publicRoute,"Public comparison "+name);
     await p.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout});
+    const hero=await imageReady(p,"Public comparison "+name);
     const body=await p.locator("body").innerText();
     if(body.includes("PREMIUM PREVIEW")||body.includes("Continue reading with HealthTimes Premium")||await prompt(p).isVisible().catch(()=>false))block("P1","Premium access policy bled into public comparison Article");
     const file=await shot(p,"public-article/"+name+".png",{fullPage:true}),o=await overflow(p);if(!o.pass)block("P2","Public Article "+name+" overflow");
