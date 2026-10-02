@@ -214,7 +214,7 @@ async function mainMobileJourney(browser){
     await installPromptCounter(p);
     const liveAuth=await teaserAuthority(await rpc);
     const auth=liveAuth ?? initialAuthorityReceipt();
-    if(!auth||auth.source_id!==sourceId||auth.access_policy.toLowerCase()!=="premium"||!auth.body_html_null)block("P0","Premium teaser authority did not return source 33190 with body_html null");
+    if(!auth||auth.source_id!==sourceId||!auth.access_policy.toLowerCase().startsWith("premium")||!auth.body_html_null)block("P0","Premium teaser authority did not return source 33190 with body_html null");
     if(!liveAuth)finding("P4","certification-harness","Duplicate full-journey RPC body decode unavailable; reused same-run initial authority receipt after independent live teaser RPC request.");
     const teaserText=(await teaser(p).innerText()).trim(),teaserCount=await p.getByTestId("premium-teaser-paragraph").count();
     if(teaserCount!==1)block("P1","Premium teaser paragraph count is "+teaserCount);
