@@ -1,9 +1,7 @@
 name: UI-02 Phase 6A Native Cross-Device Evidence
 
 on:
-  push:
-    branches:
-      - feat/ui02-phase6-native-cross-device-certification
+  pull_request:
   workflow_dispatch:
 
 permissions:
