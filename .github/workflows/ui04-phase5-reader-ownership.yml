@@ -210,7 +210,7 @@ jobs:
                 ['history-populated','/saved?tab=history','Reading history']
               ];
               for(const [name,route,ready] of captures){
-                const page=await context.newPage();
+                const page=article;
                 const {diag,response,state}=await navigateClean(page,viewport+' '+name,route,ready);
                 if(name==='saved-populated' && await page.getByText('Nothing saved yet',{exact:true}).count()) throw new Error(viewport+' Saved did not populate');
                 if(name==='offline-populated'){
@@ -222,7 +222,6 @@ jobs:
                 await page.screenshot({path:file,fullPage:true});
                 assertClean(viewport+' '+name+' post-capture',diag,await inspect(page));
                 manifest.screens.push(record(name,route,viewport,width,height,file,response,diag,state,{ownershipState:'populated'}));
-                await page.close();
               }
 
               {
