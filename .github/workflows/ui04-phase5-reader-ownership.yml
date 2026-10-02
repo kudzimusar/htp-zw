@@ -244,9 +244,11 @@ jobs:
               {
                 const page=await context.newPage();
                 const {diag,response,state}=await navigateClean(page,viewport+' edition','/edition','Primary Edition');
-                const radioCount=await page.getByRole('radio').count();
-                if(radioCount<2) throw new Error(viewport+' Edition did not resolve source-backed primary choices');
-                const more=page.getByText('Show More Countries/Regions',{exact:true});
+                const optionCount=await page.locator('[data-testid="primary-edition-option"]').count();
+                if(optionCount<2) throw new Error(viewport+' Edition did not resolve source-backed primary choices');
+                const selectedCount=await page.getByText('SELECTED',{exact:true}).count();
+                if(selectedCount!==1) throw new Error(viewport+' Edition must expose exactly one selected primary edition');
+                const more=page.locator('[data-testid="edition-more-locations"]');
                 const progressiveDisclosure=await more.count()>0;
                 if(!progressiveDisclosure) throw new Error(viewport+' Edition did not expose bounded country/region disclosure');
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-edition.png');
@@ -254,7 +256,8 @@ jobs:
                 assertClean(viewport+' edition post-capture',diag,await inspect(page));
                 manifest.screens.push(record('edition-collapsed','/edition',viewport,width,height,file,response,diag,state,{
                   primarySelectionRole:'radio',
-                  primaryChoiceCount:radioCount,
+                  primaryChoiceCount:optionCount,
+                  selectedPrimaryCount:selectedCount,
                   progressiveDisclosure
                 }));
                 if(viewport==='mobile'){
