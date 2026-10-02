@@ -9,10 +9,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: nm05r-live-premium-teaser-path-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
-  diagnostic:
-    name: Pre-remediation source-parity lookup-key diagnostic
+  certify:
+    name: Exact-head NM-05R source-parity Premium path certification
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,8 +37,93 @@ jobs:
           echo "CHECKED_OUT_SHA=$actual"
           test "$actual" = "$GITHUB_SHA"
 
-      - name: Install Reader dependencies
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Install root and Reader dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
 
-      - name: Capture current source-parity Premium teaser p_path
+      - name: Load accepted public staging teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+
+      - name: Re-prove diagnosed lookup-key boundary
         run: node --test apps/mobile/tests/nm05-live-path-diagnostic.test.mjs
+
+      - name: Run required existing gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run native:check
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:nm05-premium-consumer
+          npm --prefix apps/mobile run test:nm05-premium-live
+
+      - name: Re-prove AG-05 commerce and teaser protection contract
+        run: npx playwright test tests/migration/ag05-premium-commerce-teaser.spec.js --reporter=line
+
+      - name: Export Pages-equivalent source-parity Web/PWA
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          HEALTHTIMES_WEB_BASE_URL: /htp-zw
+        run: npm run native:export:web
+
+      - name: Install Chromium network harness
+        run: npx playwright install --with-deps chromium
+
+      - name: Prove repaired browser/network path and 20-second journey
+        env:
+          NM05R_EVIDENCE_PATH: apps/mobile/dist/nm05r-live-path-evidence.json
+        run: node apps/mobile/tests/nm05-premium-browser-network.mjs
+
+      - name: Verify bounded evidence receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require("fs");
+          const evidence=JSON.parse(fs.readFileSync("apps/mobile/dist/nm05r-live-path-evidence.json","utf8"));
+          const expected="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
+          if(evidence.repaired.requested_p_path!==expected) throw new Error("repaired p_path mismatch");
+          if(evidence.repaired.wordpress_content_field_requests!==0) throw new Error("Premium WordPress content request detected");
+          if(evidence.repaired.protected_article_requests!==0) throw new Error("protected article request detected");
+          if(evidence.repaired.automatic_commerce_requests!==0) throw new Error("automatic commerce request detected");
+          if(evidence.metadata_failure.requested_p_path!==null) throw new Error("metadata failure must not attempt teaser lookup");
+          if(!evidence.public_comparison.public_body_visible) throw new Error("public comparison body unavailable");
+          if(evidence.repaired.live_teaser?.source_id!=="33190") throw new Error("live teaser source mismatch");
+          if(evidence.repaired.live_teaser?.teaser_paragraph_count!==1) throw new Error("teaser paragraph count mismatch");
+          if(evidence.repaired.live_teaser?.body_html_is_null!==true) throw new Error("Premium body was not null");
+          fs.writeFileSync(
+            "apps/mobile/dist/nm05r-build-info.json",
+            JSON.stringify({
+              sha:process.env.GITHUB_SHA,
+              branch:"fix/nm05-live-premium-teaser-path-resolution",
+              pre_remediation_p_path:"/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/",
+              post_remediation_p_path:evidence.repaired.requested_p_path,
+              pages_deployed:false
+            },null,2)+"\n"
+          );
+          NODE
+
+      - name: Upload bounded NM-05R evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: nm05r-live-premium-teaser-path-evidence
+          path: |
+            apps/mobile/dist/nm05r-live-path-evidence.json
+            apps/mobile/dist/nm05r-build-info.json
+          if-no-files-found: error
+          retention-days: 30
