@@ -1,0 +1,123 @@
+name: NM-05 Premium Teaser + Commerce Consumer Conformance
+
+on:
+  push:
+    branches:
+      - feat/nm05-premium-teaser-commerce-consumer-conformance
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'api/commerce.js'
+      - 'lib/ag05-premium-commerce.js'
+      - 'tests/migration/ag05-premium-commerce-teaser.spec.js'
+      - '.github/workflows/nm05-premium-teaser-commerce-consumer.yml'
+      - 'docs/native-mobile/NM-05_PREMIUM_TEASER_COMMERCE_CONSUMER_CONFORMANCE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nm05-premium-consumer-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Exact-head Premium teaser + commerce consumer contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install root and Reader dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Load existing public staging teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+          # Static/PWA commerce authority is intentionally left unconfigured.
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+
+      - name: Run required Reader and UI-03 preservation gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run native:check
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:ui03
+
+      - name: Run NM-05 consumer convergence behavior
+        run: npm --prefix apps/mobile run test:nm05-premium-consumer
+
+      - name: Re-prove live bounded teaser authority
+        run: npm --prefix apps/mobile run test:nm05-premium-live
+
+      - name: Preserve migrated-corpus teaser path
+        run: npm --prefix apps/mobile run test:migrated-corpus
+
+      - name: Re-prove AG-05 commerce and teaser protection contract
+        run: npx playwright test tests/migration/ag05-premium-commerce-teaser.spec.js --reporter=line
+
+      - name: Export source-parity Web/PWA consumer
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          HEALTHTIMES_WEB_BASE_URL: /htp-zw
+        run: npm run native:export:web
+
+      - name: Verify fail-closed static commerce and source-parity output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f apps/mobile/dist/index.html
+          test -f apps/mobile/dist/manifest.json
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+          grep -Rqs 'ag05_public_story_teaser_document' apps/mobile/dist/_expo/static/js || {
+            echo "::error::PWA bundle does not contain bounded Premium teaser authority."
+            exit 1
+          }
+          if grep -Rqs 'EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL=https' apps/mobile/dist; then
+            echo "::error::Static PWA contains an activated server commerce endpoint."
+            exit 1
+          fi
+          printf '{"sha":"%s","service_mode":"source-parity","commerce":"configuration-required"}\n' "$GITHUB_SHA" > apps/mobile/dist/nm05-consumer-build-info.json
+
+      - name: Upload bounded certification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: nm05-premium-teaser-commerce-consumer
+          path: |
+            apps/mobile/dist/nm05-consumer-build-info.json
+          if-no-files-found: error
+          retention-days: 30
