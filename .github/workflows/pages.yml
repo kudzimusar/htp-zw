@@ -54,11 +54,24 @@ jobs:
           npm install --no-audit --no-fund
           npm install --prefix apps/mobile --no-audit --no-fund
 
+      - name: Load existing public staging teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+
       - name: Validate universal Reader
         run: |
           npm run native:check
           npm --prefix apps/mobile run test:source-parity
           npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:nm05-premium-consumer
 
       - name: Probe public WordPress source reachability and browser CORS
         shell: bash
