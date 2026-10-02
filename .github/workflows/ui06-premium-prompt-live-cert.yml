@@ -14,12 +14,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui06-premium-prompt-live-cert-${{ github.event.pull_request.head.sha }}
+  group: ui06-nm05r2-live-cert
   cancel-in-progress: true
 
 jobs:
   certify-live-premium-prompt:
-    runs-on: macos-14
+    runs-on: windows-latest
     timeout-minutes: 30
     env:
       PUBLIC_URL: https://kudzimusar.github.io/htp-zw
