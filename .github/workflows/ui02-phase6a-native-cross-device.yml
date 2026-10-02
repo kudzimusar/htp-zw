@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - feat/ui02-phase6-native-cross-device-certification
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ui02-phase6a-native-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ui02-phase6a-native-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 env:
