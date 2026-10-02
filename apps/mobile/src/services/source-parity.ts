@@ -344,6 +344,29 @@ function snapshotBySlug(){
   return new Map(sourceParityArticles.map((article)=>[article.slug,article]));
 }
 
+export function legacyDatedPermalinkCandidate(article:Pick<ArticleDetail,"slug"|"publishedAt">){
+  if(!article.publishedAt?.trim() || !article.slug?.trim()) return null;
+  const published=new Date(article.publishedAt);
+  if(!Number.isFinite(published.getTime())) return null;
+  const year=String(published.getUTCFullYear()).padStart(4,"0");
+  const month=String(published.getUTCMonth()+1).padStart(2,"0");
+  const day=String(published.getUTCDate()).padStart(2,"0");
+  return sourceBase+"/"+year+"/"+month+"/"+day+"/"+article.slug+"/";
+}
+
+async function boundedTeaserAuthority(article:ArticleDetail){
+  const candidates=[
+    article.canonicalUrl,
+    legacyDatedPermalinkCandidate(article)
+  ].filter((value,index,all):value is string=>Boolean(value?.trim()) && all.indexOf(value)===index);
+
+  for(const candidate of candidates){
+    const authority=await getPublicPremiumTeaserAuthority(candidate);
+    if(authority) return authority;
+  }
+  return null;
+}
+
 async function refreshedArticles():Promise<ArticleDetail[]>{
   if(cache.articles && Date.now()-cache.at<cacheMs) return cache.articles;
   const fallbackBySlug=snapshotBySlug();
@@ -380,47 +403,38 @@ const articleRepository:ArticleRepository={
   async getById(id){
     const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
     if(!current) return null;
-    // Resolve authoritative WordPress permalink metadata before asking the
-    // bounded Premium teaser authority for classification. This request never
-    // includes content.rendered.
-    const metadata=await sourceGet<WpPost[]>(
-      "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+
-        wpPostQuery({includeContent:false})
-    );
-    const metadataPost=metadata?.[0] ?? null;
-    const metadataStory=metadataPost ? mapWpPost(metadataPost,current) : current;
-    const taxonomyUnresolved=(metadataStory.sourceProvenance?.exceptions ?? []).some((exception)=>
+    const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
       exception.kind==="taxonomy-unresolved" &&
       (exception.field==="legacyTaxonomy" || exception.field==="primarySection")
     );
-    const trustedPremiumSourceUrl=metadataPost?.link?.trim() ? metadataPost.link : null;
 
-    // If metadata cannot provide a trusted permalink, Premium stays fail-closed:
-    // no teaser authority lookup from snapshot slug-only identity and no body fetch.
-    const teaserAuthority=trustedPremiumSourceUrl
-      ? await getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)
-      : null;
+    // Pages cannot rely on browser WordPress metadata fetches before Premium
+    // classification: those cross-origin requests may be unavailable. Resolve
+    // the bounded AG-05 teaser authority directly from repository-known article
+    // identity, trying canonical provenance first and then the generic historical
+    // YYYY/MM/DD/slug candidate derived from publishedAt.
+    const teaserAuthority=await boundedTeaserAuthority(current);
     const detailDecision=sourceParityPremiumDetailDecision(
-      metadataStory.accessPolicy,
+      current.accessPolicy,
       teaserAuthority,
       taxonomyUnresolved
     );
     const boundedCurrent:ArticleDetail=
       detailDecision.accessPolicy==="premium"
         ? {
-            ...metadataStory,
+            ...current,
             accessPolicy:"premium",
             bodyHtml:null,
             premiumTeaserHtml:detailDecision.premiumTeaserHtml
           }
-        : metadataStory;
+        : current;
 
     if(!detailDecision.includeWordPressContent){
       return boundedCurrent;
     }
 
-    // Public content is requested only after the metadata/teaser classification
-    // step has completed and explicitly left the story public.
+    // Public content is requested only after bounded classification has left the
+    // story public. Premium never reaches this request path.
     const live=await sourceGet<WpPost[]>(
       "/posts?slug="+encodeURIComponent(current.slug)+"&status=publish"+
         wpPostQuery({includeContent:true})
