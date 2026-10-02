@@ -10,13 +10,13 @@ appId: zw.co.healthtimes.app.dev
     timeout: 30000
 - takeScreenshot: tablet-home
 
-- openLink: "healthtimes:///article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - extendedWaitUntil:
     visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
     timeout: 30000
 - takeScreenshot: tablet-article
 
-- openLink: "healthtimes:///watch"
+- openLink: "healthtimes://watch"
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
@@ -25,7 +25,7 @@ appId: zw.co.healthtimes.app.dev
     timeout: 30000
 - takeScreenshot: tablet-watch
 
-- openLink: "healthtimes:///my"
+- openLink: "healthtimes://my"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -39,7 +39,7 @@ appId: zw.co.healthtimes.app.dev
 
 # Tablet orientation evidence: same accepted hierarchy using extra width deliberately.
 - setOrientation: LANDSCAPE
-- openLink: "healthtimes:///"
+- openLink: "healthtimes://"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 30000
