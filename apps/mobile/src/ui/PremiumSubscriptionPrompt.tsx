@@ -52,14 +52,11 @@ export function PremiumSubscriptionPrompt({
       >
         <Pressable
           style={StyleSheet.absoluteFill}
-          accessibilityRole="button"
-          accessibilityLabel="Close Premium membership prompt"
+          accessible={false}
           onPress={onDismiss}
         />
         <View
           testID="premium-subscription-prompt"
-          accessible
-          accessibilityLabel="HealthTimes Premium membership prompt"
           style={[
             styles.card,
             phone ? styles.cardPhone : styles.cardDesktop,
@@ -87,7 +84,7 @@ export function PremiumSubscriptionPrompt({
               </Pressable>
             </View>
 
-            <Text style={[styles.title, { color: palette.ink }]}>
+            <Text accessibilityRole="header" style={[styles.title, { color: palette.ink }]}>
               Keep reading with HealthTimes Premium
             </Text>
             <Text style={[styles.body, { color: palette.inkMuted }]}>
