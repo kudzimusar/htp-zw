@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { ArticleDetail } from "../../src/domain/models";
-import { Image, Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Image, Linking, Platform, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AdSlot, PremiumBadge, StoryCard } from "../../src/ui/Cards";
 import { LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { ArticleToolbar } from "../../src/ui/ArticleToolbar";
 import { PremiumPaywall } from "../../src/ui/PremiumPaywall";
+import { PremiumSubscriptionPrompt } from "../../src/ui/PremiumSubscriptionPrompt";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { breakpoints, colors, layout, radius, spacing, type } from "../../src/theme/tokens";
@@ -102,10 +103,12 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const [premiumState,setPremiumState]=useState<PremiumPreviewState>("locked");
   const [premiumRemainingSeconds,setPremiumRemainingSeconds]=useState(0);
   const [premiumPromptRequested,setPremiumPromptRequested]=useState(false);
+  const [premiumPromptVisible,setPremiumPromptVisible]=useState(false);
   const lastProgressWrite=useRef({at:0,value:0});
   const trackedArticleId=useRef<string|null>(null);
   const trackedProgressEvents=useRef(new Set<string>());
   const premiumSessionKey=useRef("");
+  const premiumPromptOpenedSession=useRef("");
   const article=useAsync(()=>initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
   const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
@@ -244,6 +247,46 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     previewConfig.source
   ]);
 
+  const previewArticle=article.data;
+  const previewTeaserBlock=previewArticle
+    ? premiumTeaserParagraph(previewArticle.premiumTeaserHtml,previewArticle.canonicalUrl)
+    : null;
+  const premiumPreview=premiumPreviewConsumerState({
+    previewState:premiumState,
+    remainingSeconds:premiumRemainingSeconds,
+    teaserAvailable:
+      previewTeaserBlock!==null &&
+      previewConfig.source==="owner-policy" &&
+      previewConfig.paragraphCount===1 &&
+      previewConfig.seconds===20,
+    commerceStatus:commerce.loading ? "loading" : (commerce.data?.status ?? "unavailable"),
+    promptRequested:premiumPromptRequested
+  });
+
+  useEffect(()=>{
+    const current=article.data;
+    if(!current || current.accessPolicy!=="premium" || entitlement.data!==false){
+      setPremiumPromptVisible(false);
+      return;
+    }
+    const stableStoryId=current.canonicalStoryId ?? current.id;
+    const sessionKey=stableStoryId+"|"+previewConfig.source+"|"+previewConfig.paragraphCount+"|"+previewConfig.seconds;
+    if(premiumPreview.state!=="expired" || premiumPreview.promptRequested!==true) return;
+    if(premiumPromptOpenedSession.current===sessionKey) return;
+    premiumPromptOpenedSession.current=sessionKey;
+    setPremiumPromptVisible(true);
+  },[
+    article.data?.id,
+    article.data?.canonicalStoryId,
+    article.data?.accessPolicy,
+    entitlement.data,
+    premiumPreview.state,
+    premiumPreview.promptRequested,
+    previewConfig.paragraphCount,
+    previewConfig.seconds,
+    previewConfig.source
+  ]);
+
   if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
   if(!article.data) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
 
@@ -254,7 +297,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       : null;
   const story=verifiedPremiumStory ?? publicStory;
   const displayStandfirst=readerFacingStandfirst(story.standfirst ?? story.excerpt,story.author?.displayName);
-  const premiumTeaserBlock=premiumTeaserParagraph(publicStory.premiumTeaserHtml,publicStory.canonicalUrl);
+  const premiumTeaserBlock=previewTeaserBlock;
   const displayMediaCredit=readerFacingMediaCredit(story.heroMedia?.credit);
   const protectedBody=
     publicStory.accessPolicy==="premium" &&
@@ -266,19 +309,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const showUpdated=Boolean(story.modifiedAt && story.modifiedAt!==story.publishedAt);
   const readingMinutes=protectedBody ? null : estimateReadingMinutes(story.bodyHtml);
   const nonEntitledPremium=publicStory.accessPolicy==="premium" && entitlement.data===false && !verifiedPremiumStory;
-  // UI-03 handoff contract: presentation may consume this state without
-  // reconstructing teaser, timer, commerce or prompt-transition authority.
-  const premiumPreview=premiumPreviewConsumerState({
-    previewState:premiumState,
-    remainingSeconds:premiumRemainingSeconds,
-    teaserAvailable:
-      premiumTeaserBlock!==null &&
-      previewConfig.source==="owner-policy" &&
-      previewConfig.paragraphCount===1 &&
-      previewConfig.seconds===20,
-    commerceStatus:commerce.loading ? "loading" : (commerce.data?.status ?? "unavailable"),
-    promptRequested:premiumPromptRequested
-  });
+  // UI-03 consumes the NM-05 preview/commerce/prompt state derived above.
   const previewVisible=
     nonEntitledPremium &&
     (premiumPreview.state==="available" || premiumPreview.state==="warning");
@@ -334,6 +365,44 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     }
     await services.reader.downloadArticle(story);
     setActionStatus("Available offline");
+  };
+
+  const dismissPremiumPrompt=()=>{
+    setPremiumPromptVisible(false);
+  };
+
+  const signInFromPrompt=()=>{
+    setPremiumPromptVisible(false);
+    router.push("/account-access" as never);
+  };
+
+  const startPremiumAcquisition=async()=>{
+    if(Platform.OS!=="web" || !premiumPreview.commerceAvailable){
+      setPremiumPromptVisible(false);
+      router.push("/premium" as never);
+      return;
+    }
+
+    try{
+      await services.analytics.track(event("subscription_started",{
+        source_path:"/article/"+story.id,
+        commerce_channel:"web-server"
+      },{storyId:story.id,pagePath:"/article/"+story.id}));
+      const result=await services.premiumCommerce.startCheckout({
+        productPlanId:commerce.data?.productPlanId ?? null
+      });
+      const checkoutUrl=result.checkoutUrl?.trim() ?? "";
+      if(result.status==="redirect-required" && /^https:\/\//i.test(checkoutUrl)){
+        setPremiumPromptVisible(false);
+        await Linking.openURL(checkoutUrl);
+        return;
+      }
+      setPremiumPromptVisible(false);
+      setActionStatus(result.message || "Premium checkout is unavailable. No membership access has been granted.");
+    }catch{
+      setPremiumPromptVisible(false);
+      setActionStatus("Premium checkout is unavailable. No membership access has been granted.");
+    }
   };
 
   return (
@@ -407,12 +476,20 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
                   {renderInlines(premiumTeaserBlock.inlines,"premium-teaser",palette.blue)}
                 </Text>
               )}
-              <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite">
+              <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]}>
                 <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>
-                <Text style={[styles.previewText,{color:palette.inkMuted}]}>
-                  {premiumState==="warning"
-                    ? "Your preview is ending soon. Members can continue with the full article."
-                    : "You are reading the public preview. The full member article has not been downloaded."}
+                <Text style={[styles.previewCountdown,{color:palette.ink}]}>
+                  {premiumPreview.state==="warning"
+                    ? "Your Premium preview is ending soon"
+                    : "Premium preview · "+premiumPreview.remainingSeconds+" seconds remaining"}
+                </Text>
+                <Text
+                  accessibilityLiveRegion={premiumPreview.state==="warning" ? "polite" : undefined}
+                  style={[styles.previewText,{color:palette.inkMuted}]}
+                >
+                  {premiumPreview.state==="warning"
+                    ? "Members can continue with the full article after the preview ends."
+                    : "You are reading the authorized first-paragraph preview. The full member article has not been downloaded."}
                 </Text>
               </View>
             </View>
@@ -464,6 +541,19 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       </Section>
 
       {showArticleEndAd && <Section><AdSlot placement="article_end" /></Section>}
+
+      <PremiumSubscriptionPrompt
+        visible={
+          premiumPromptVisible &&
+          nonEntitledPremium &&
+          premiumPreview.state==="expired" &&
+          premiumPreview.promptRequested===true
+        }
+        commerceAvailable={premiumPreview.commerceAvailable}
+        onPrimary={()=>{void startPremiumAcquisition();}}
+        onSignIn={signInFromPrompt}
+        onDismiss={dismissPremiumPrompt}
+      />
     </Page>
   );
 }
@@ -502,6 +592,7 @@ const styles=StyleSheet.create({
   preview:{gap:spacing.md},
   previewNotice:{borderLeftWidth:3,padding:spacing.lg,gap:spacing.xs},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1,color:colors.premium},
+  previewCountdown:{fontSize:14,lineHeight:21,fontWeight:"900"},
   previewText:{fontSize:13,lineHeight:20},
   memberState:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xl,gap:spacing.sm},
   memberStateTitle:{fontSize:21,fontWeight:"900"},
