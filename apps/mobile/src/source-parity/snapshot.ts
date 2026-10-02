@@ -59,8 +59,9 @@ function sourceArticle(input:{
   imageAlt?:string;
   imageUrl?:string;
   geography:"zimbabwe"|"africa"|"global";
+  accessPolicy?:AccessPolicy;
 }):ArticleDetail {
-  const accessPolicy=input.categories.includes("HealthTimes Premium") ? "premium" : "public";
+  const accessPolicy=input.accessPolicy ?? (input.categories.includes("HealthTimes Premium") ? "premium" : "public");
   const canonicalUrl=SOURCE_PARITY_PUBLIC_BASE_URL+"/"+input.slug+"/";
   const author=authorIdentity[input.author] ?? {
     id:"source-author-"+slugify(input.author),
@@ -150,6 +151,10 @@ export const sourceParityArticles:ArticleDetail[]=[
     date:"2026-09-18",
     author:"Michael Gwarisa",
     categories:["Health News","HIV/AIDS"],
+    // AG-05 staging authority source_id 33190 classifies this story as
+    // premium_marker_review. Preserve that access classification separately
+    // from observed WordPress taxonomy; no protected paragraph is stored here.
+    accessPolicy:"premium",
     excerpt:"Zimbabwe is examining how domestic social contracting can sustain community-led HIV services as international donor support declines.",
     imageAlt:"Stakeholders at a Zimbabwe social contracting and HIV financing dialogue in Harare",
     imageUrl:"https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
