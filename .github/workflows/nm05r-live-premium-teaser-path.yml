@@ -16,7 +16,7 @@ concurrency:
 jobs:
   certify:
     name: Exact-head NM-05R2 Premium Pages boundary certification
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
