@@ -132,6 +132,17 @@ async function main(){
     assert.ok(teaserRequests.length>=1,"Expected bounded AG-05 teaser RPC request.");
     assert.ok(wordpressRequests.length>=1,"Expected source-parity WordPress metadata request.");
 
+    const beforeExpiryWordPressCount=wordpressRequests.length;
+    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({
+      state:"visible",
+      timeout:25000
+    });
+    assert.equal(
+      wordpressRequests.length,
+      beforeExpiryWordPressCount,
+      "Preview expiry must not trigger any additional WordPress request"
+    );
+
     for(const rawUrl of wordpressRequests){
       const url=new URL(rawUrl);
       const fields=decodeURIComponent(url.searchParams.get("_fields") ?? "");
@@ -159,7 +170,9 @@ async function main(){
       wordpress_requests:wordpressRequests.length,
       wordpress_content_field_requests:0,
       commerce_requests:commerceRequests.length,
-      premium_preview_visible:true
+      premium_preview_visible:true,
+      expired_to_inline_paywall:true,
+      expiry_additional_wordpress_requests:0
     }));
   }finally{
     if(browser) await browser.close();
