@@ -170,8 +170,8 @@ test("Premium content is excluded from browser REST requests before mapping",()=
   assert.match(service,/const wpMetadataFields=/);
   assert.match(service,/const wpPublicDetailFields=wpMetadataFields\+",content"/);
   assert.match(service,/wpPostQuery\(\{includeContent:false\}\)/);
-  assert.match(service,/trustedPremiumSourceUrl=metadataPost\?\.link/);
-  assert.match(service,/getPublicPremiumTeaserAuthority\(trustedPremiumSourceUrl\)/);
+  assert.match(service,/legacyDatedPermalinkCandidate/);
+  assert.match(service,/boundedTeaserAuthority\(current\)/);
   assert.match(service,/sourceParityPremiumDetailDecision/);
   assert.match(service,/if\(!detailDecision\.includeWordPressContent\)\{[\s\S]*return boundedCurrent/);
   assert.match(service,/wpPostQuery\(\{includeContent:true\}\)/);
