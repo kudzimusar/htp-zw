@@ -72,7 +72,7 @@ test("UI-03 acquisition stays fail-closed and native never invokes Web checkout"
   assert.match(article,/result\.status==="redirect-required"/);
   assert.match(article,/\^https:\\\/\\\//i);
   assert.doesNotMatch(article,/subscription_completed/);
-  assert.doesNotMatch(article,/setEntitlement|grantEntitlement|entitlement\.data\s*=/);
+  assert.doesNotMatch(article,/setEntitlement|grantEntitlement|entitlement\.data\s*=(?!=)/);
 });
 
 test("UI-03 existing-member action routes through accepted account authority",()=>{
