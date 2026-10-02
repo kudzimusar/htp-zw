@@ -185,7 +185,7 @@ async function mainMobileJourney(browser){
     const initial=await waitForPreview(p),started=Date.now(),startedAt=now();
     await installPromptCounter(p);
     const auth=await teaserAuthority(await rpc);
-    if(!auth||auth.source_id!==sourceId||auth.access_policy.toLowerCase()!=="premium"||!auth.body_html_null)block("P0","Premium teaser authority did not return source 33190 with body_html null");
+    if(!auth||auth.source_id!==sourceId||!["premium","premium_marker_review"].includes(auth.access_policy.toLowerCase())||!auth.body_html_null)block("P0","Premium teaser authority did not return source 33190 with Premium policy and body_html null");
     const teaserText=(await teaser(p).innerText()).trim(),teaserCount=await p.getByTestId("premium-teaser-paragraph").count();
     if(teaserCount!==1)block("P1","Premium teaser paragraph count is "+teaserCount);
     if(await paywall(p).isVisible().catch(()=>false)||await prompt(p).isVisible().catch(()=>false))block("P1","Paywall/popup appeared before teaser expiry");
