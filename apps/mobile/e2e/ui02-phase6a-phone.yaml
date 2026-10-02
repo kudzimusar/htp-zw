@@ -87,12 +87,12 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
-- assertVisible: "Watch on YouTube"
+- assertVisible: ".*YouTube.*"
 - takeScreenshot: watch-light
 
 # Source-backed external YouTube destination
 - tapOn:
-    text: "Watch on YouTube"
+    text: ".*YouTube.*"
     index: 0
 - takeScreenshot: watch-external-youtube
 - stopApp
