@@ -1,6 +1,13 @@
 name: UI-06 Live Premium Prompt Certification
 
 on:
+  push:
+    branches:
+      - test/ui06-nm05r2-premium-live-cert-release
+    paths:
+      - '.github/workflows/ui06-premium-prompt-live-cert.yml'
+      - 'scripts/ui/ui06-premium-prompt-live-cert.mjs'
+      - 'scripts/ui/ui06-premium-prompt-initial-state.mjs'
   pull_request:
     branches:
       - deployment/nm05r2-premium-teaser-pages-candidate
