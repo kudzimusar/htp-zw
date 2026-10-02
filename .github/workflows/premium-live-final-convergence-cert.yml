@@ -1,0 +1,87 @@
+name: Premium Live Final Convergence Exact Certification
+
+on:
+  push:
+    branches:
+      - test/premium-live-final-convergence-cert
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: premium-live-final-convergence-cert
+  cancel-in-progress: true
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PRODUCT_SHA: 9d093426970cdc09c23663022480af60a079f712
+    steps:
+      - name: Check out certification tooling
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out exact combined product
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$PRODUCT_SHA"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          echo "PRODUCT_SHA=$PRODUCT_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Load accepted public teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "EXPO_PUBLIC_SUPABASE_URL=$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")" >> "$GITHUB_ENV"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+
+      - name: Run combined preservation matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run native:check
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:nm05-premium-consumer
+          npm --prefix apps/mobile run test:nm05-premium-live
+          npx playwright test tests/migration/ag05-premium-commerce-teaser.spec.js --reporter=line
+
+      - name: Export Pages-equivalent Reader
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          HEALTHTIMES_WEB_BASE_URL: /htp-zw
+        run: npm run native:export:web
+
+      - name: Prove combined product boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require("fs");
+          const auth=fs.readFileSync("apps/mobile/src/services/premium-teaser-authority.ts","utf8");
+          const prompt=fs.readFileSync("apps/mobile/src/ui/PremiumSubscriptionPrompt.tsx","utf8");
+          if(!auth.includes("const accessPolicy:AccessPolicy=currentAccessPolicy")) throw new Error("NM-05R3 policy boundary missing");
+          if(!prompt.includes('phone && Platform.OS === "web" ? styles.cardPhoneWeb : null')) throw new Error("UI-03 Web anchor selection missing");
+          if(!/cardPhoneWeb:\s*\{[\s\S]*position: "absolute"[\s\S]*bottom: 0/.test(prompt)) throw new Error("UI-03 Web bottom anchor missing");
+          console.log("COMBINED_PREMIUM_PRODUCT_BOUNDARY=PASS");
+          NODE
