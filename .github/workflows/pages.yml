@@ -10,7 +10,7 @@ on:
       - deployment/ui03-phase2-commercial-reader-candidate
       - deployment/ui03-premium-prompt-candidate
       - deployment/nm05r-premium-teaser-path-candidate
-      - deployment/nm05r2-premium-teaser-pages-candidate-v2
+      - deployment/nm05r2-premium-teaser-pages-candidate-arm
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - name: Check out exact repository head
@@ -225,7 +225,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: macos-14
+    runs-on: ubuntu-24.04-arm
     needs: build
     steps:
       - name: Deploy canonical HealthTimes PWA
@@ -233,11 +233,11 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate-v2'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate-arm'
     environment:
       name: github-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: macos-14
+    runs-on: ubuntu-24.04-arm
     needs: build
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
@@ -247,8 +247,8 @@ jobs:
         uses: actions/deploy-pages@v4
 
   verify-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate-v2'
-    runs-on: macos-14
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate-arm'
+    runs-on: ubuntu-24.04-arm
     needs: deploy-native-preview
     steps:
       - name: Verify exact-head Pages deployment and canonical routes
