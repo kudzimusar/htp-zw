@@ -8,23 +8,25 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 30000
-- takeScreenshot: ${EVIDENCE_DIR}/home-light
+- takeScreenshot: home-light
 
+# Search keyboard/focus
 - tapOn: "Search"
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
 - tapOn: "Search stories, people and topics"
 - inputText: "health"
-- takeScreenshot: ${EVIDENCE_DIR}/search-keyboard
+- takeScreenshot: search-keyboard
 - hideKeyboard
 - tapOn: "Submit HealthTimes search"
 - extendedWaitUntil:
     visible: "HEALTHTIMES SEARCH"
     timeout: 20000
-- takeScreenshot: ${EVIDENCE_DIR}/search-results
+- takeScreenshot: search-results
 
-- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+# Public Article + native Save/Offline/Share
+- openLink: "healthtimes:///article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - extendedWaitUntil:
     visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
     timeout: 30000
@@ -36,12 +38,13 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Available offline"
     timeout: 10000
-- takeScreenshot: ${EVIDENCE_DIR}/article-actions-light
+- takeScreenshot: article-actions-light
 - tapOn: "Share article"
-- takeScreenshot: ${EVIDENCE_DIR}/article-native-share
+- takeScreenshot: article-native-share
 
+# Saved + Offline persistence after leaving the Article route
 - launchApp
-- openLink: "healthtimes://saved?tab=saved"
+- openLink: "healthtimes:///saved?tab=saved"
 - extendedWaitUntil:
     visible: "Saved & Offline"
     timeout: 20000
@@ -49,35 +52,37 @@ appId: zw.co.healthtimes.app.dev
     visible: "Saved stories"
     timeout: 20000
 - assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
-- takeScreenshot: ${EVIDENCE_DIR}/saved-persistence
+- takeScreenshot: saved-persistence
 
-- openLink: "healthtimes://saved?tab=offline"
+- openLink: "healthtimes:///saved?tab=offline"
 - extendedWaitUntil:
     visible: "Available offline"
     timeout: 20000
 - assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
-- takeScreenshot: ${EVIDENCE_DIR}/offline-persistence
+- takeScreenshot: offline-persistence
 
-- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+# Premium anonymous body protection / paywall
+- openLink: "healthtimes:///article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
 - extendedWaitUntil:
     visible: "Continue reading with HealthTimes Premium"
     timeout: 30000
 - assertVisible: "Go Premium"
-- takeScreenshot: ${EVIDENCE_DIR}/premium-locked-light
+- takeScreenshot: premium-locked-light
 
-- openLink: "healthtimes://explore"
+# Representative accepted Reader surfaces
+- openLink: "healthtimes:///explore"
 - extendedWaitUntil:
     visible: "Explore"
     timeout: 20000
-- takeScreenshot: ${EVIDENCE_DIR}/explore-light
+- takeScreenshot: explore-light
 
-- openLink: "healthtimes://live"
+- openLink: "healthtimes:///live"
 - extendedWaitUntil:
     visible: "Live"
     timeout: 20000
-- takeScreenshot: ${EVIDENCE_DIR}/live-light
+- takeScreenshot: live-light
 
-- openLink: "healthtimes://watch"
+- openLink: "healthtimes:///watch"
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
@@ -85,30 +90,34 @@ appId: zw.co.healthtimes.app.dev
     visible: "Featured video"
     timeout: 30000
 - assertVisible: "Watch on YouTube"
-- takeScreenshot: ${EVIDENCE_DIR}/watch-light
+- takeScreenshot: watch-light
+
+# Source-backed external YouTube destination
 - tapOn:
     text: "Watch on YouTube"
     index: 0
-- takeScreenshot: ${EVIDENCE_DIR}/watch-external-youtube
+- takeScreenshot: watch-external-youtube
 
 - launchApp
-- openLink: "healthtimes://listen"
+- openLink: "healthtimes:///listen"
 - extendedWaitUntil:
     visible: "Listen"
     timeout: 20000
 - assertVisible: "No audio published yet"
-- takeScreenshot: ${EVIDENCE_DIR}/listen-truthful
+- takeScreenshot: listen-truthful
 
-- openLink: "healthtimes://my"
+# My HealthTimes and intentional navigation into Edition
+- openLink: "healthtimes:///my"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
-- takeScreenshot: ${EVIDENCE_DIR}/my-healthtimes-light
-
-- openLink: "healthtimes://edition"
+- takeScreenshot: my-healthtimes-light
+- tapOn: "Countries & Interests"
 - extendedWaitUntil:
     visible: "Edition & Preferences"
     timeout: 20000
+
+# Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
 - hideKeyboard
@@ -125,42 +134,59 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Preferences saved on this device."
     timeout: 10000
-- takeScreenshot: ${EVIDENCE_DIR}/edition-light
+- takeScreenshot: edition-light
 
-- openLink: "healthtimes://appearance"
+# My HealthTimes navigation to the actual Appearance preference
+- openLink: "healthtimes:///my"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: "Appearance / Theme"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Appearance / Theme"
 - extendedWaitUntil:
     visible: "Appearance"
     timeout: 20000
 - tapOn: "Dark"
 - assertVisible: "Dark"
-- takeScreenshot: ${EVIDENCE_DIR}/appearance-dark-selected
+- takeScreenshot: appearance-dark-selected
 
-- openLink: "healthtimes://"
+# Required native dark-mode matrix
+- openLink: "healthtimes:///"
 - extendedWaitUntil:
-    visible: "HealthTimes"
-    timeout: 20000
-- takeScreenshot: ${EVIDENCE_DIR}/home-dark
+    visible: "Top Stories"
+    timeout: 30000
+- takeScreenshot: home-dark
 
-- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- openLink: "healthtimes:///article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - extendedWaitUntil:
     visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
     timeout: 30000
-- takeScreenshot: ${EVIDENCE_DIR}/article-dark
+- takeScreenshot: article-dark
 
-- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- openLink: "healthtimes:///article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
 - extendedWaitUntil:
     visible: "Continue reading with HealthTimes Premium"
     timeout: 30000
-- takeScreenshot: ${EVIDENCE_DIR}/premium-dark
+- takeScreenshot: premium-dark
 
-- openLink: "healthtimes://watch"
+- openLink: "healthtimes:///premium"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES PREMIUM"
+    timeout: 30000
+- takeScreenshot: premium-landing-dark
+
+- openLink: "healthtimes:///watch"
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
-- takeScreenshot: ${EVIDENCE_DIR}/watch-dark
+- takeScreenshot: watch-dark
 
-- openLink: "healthtimes://my"
+- openLink: "healthtimes:///my"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
-- takeScreenshot: ${EVIDENCE_DIR}/my-healthtimes-dark
+- takeScreenshot: my-healthtimes-dark
