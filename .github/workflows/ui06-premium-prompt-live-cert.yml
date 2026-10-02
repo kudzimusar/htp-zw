@@ -14,12 +14,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui06-premium-prompt-live-cert-${{ github.event.pull_request.head.sha }}
+  group: ui06-premium-prompt-live-cert-final
   cancel-in-progress: true
 
 jobs:
   certify-live-premium-prompt:
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       PUBLIC_URL: https://kudzimusar.github.io/htp-zw
@@ -56,7 +56,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Install Chromium
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Capture Premium initial-state authority evidence
         env:
