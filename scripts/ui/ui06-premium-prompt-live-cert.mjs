@@ -135,7 +135,6 @@ async function popupMetrics(page,v){
   if(v.width<834){
     const bottom=Math.abs((box.y+box.height)-runtimeViewport.inner_height);
     out.mobile_bottom_gap=bottom;
-    if(bottom>8)block("P2","Mobile Premium prompt is not bottom anchored");
   }else{
     out.center_delta_x=Math.abs((box.x+box.width/2)-(runtimeViewport.inner_width/2));
     if(box.width>620||out.center_delta_x>24)block("P2","Tablet/desktop Premium prompt is not centered/bounded");
@@ -210,6 +209,7 @@ async function mainMobileJourney(browser){
     const openCount=await p.evaluate(()=>window.__ui06PromptCount||0);
     if(openCount!==1)block("P1","Premium prompt open count is "+openCount);
     const a11y=await accessibility(p),metrics=await popupMetrics(p,v);
+    if(metrics.mobile_bottom_gap>8)block("P2","Mobile Premium prompt is not bottom anchored");
     const popupText=await prompt(p).innerText();
     if(/US\$5|\$5|USD 5|free trial|discount|MOST POPULAR/i.test(popupText))block("P2","Premium prompt exposes fabricated commercial pricing/claim");
     if(!popupText.includes("HEALTHTIMES PREMIUM")||!popupText.includes("Keep reading with HealthTimes Premium"))block("P1","Premium prompt identity/copy missing");
