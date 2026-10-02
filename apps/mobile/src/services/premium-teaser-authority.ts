@@ -38,10 +38,11 @@ export function sourceParityPremiumDetailDecision(
   authority:PremiumTeaserAuthority|null,
   taxonomyUnresolved:boolean
 ){
-  const accessPolicy:AccessPolicy=
-    currentAccessPolicy==="premium" || authority?.accessPolicy==="premium"
-      ? "premium"
-      : "public";
+  // Source-parity owns public-vs-Premium classification. The bounded AG-05
+  // projection may confirm/supply a teaser for an already-Premium story, but a
+  // legacy premium_marker_review projection must not promote a public story into
+  // paid access by itself.
+  const accessPolicy:AccessPolicy=currentAccessPolicy;
   return {
     accessPolicy,
     includeWordPressContent:accessPolicy==="public" && !taxonomyUnresolved,
