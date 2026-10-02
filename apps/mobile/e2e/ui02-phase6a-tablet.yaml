@@ -3,9 +3,6 @@ appId: zw.co.healthtimes.app.dev
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "HealthTimes"
-    timeout: 30000
-- extendedWaitUntil:
     visible: "Top Stories"
     timeout: 30000
 - takeScreenshot: tablet-home

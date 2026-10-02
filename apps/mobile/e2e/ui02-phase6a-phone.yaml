@@ -3,15 +3,12 @@ appId: zw.co.healthtimes.app.dev
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "HealthTimes"
-    timeout: 30000
-- extendedWaitUntil:
     visible: "Top Stories"
     timeout: 30000
 - takeScreenshot: home-light
 
 # Search keyboard/focus
-- tapOn: "Search"
+- openLink: "healthtimes://search"
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
