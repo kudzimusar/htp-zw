@@ -96,6 +96,12 @@ jobs:
           HEALTHTIMES_WEB_BASE_URL: /htp-zw
         run: npm run native:export:web
 
+      - name: Install Chromium for source-parity network proof
+        run: npx playwright install --with-deps chromium
+
+      - name: Prove Premium source-parity browser network is metadata plus bounded teaser only
+        run: node apps/mobile/tests/nm05-premium-browser-network.mjs
+
       - name: Verify fail-closed static commerce and source-parity output
         shell: bash
         run: |
