@@ -243,9 +243,17 @@ jobs:
 
               {
                 const page=await context.newPage();
-                const {diag,response,state}=await navigateClean(page,viewport+' edition','/edition','Primary Edition');
-                const optionCount=await page.locator('[data-testid="primary-edition-option"]').count();
-                if(optionCount<2) throw new Error(viewport+' Edition did not resolve source-backed primary choices');
+                const {diag,response}=await navigateClean(page,viewport+' edition','/edition',null);
+                const primaryOptions=page.locator('[data-testid="primary-edition-option"]');
+                await primaryOptions.first().waitFor({state:'visible',timeout:30000});
+                await page.waitForFunction(
+                  ()=>document.querySelectorAll('[data-testid="primary-edition-option"]').length>=2,
+                  null,
+                  {timeout:30000}
+                );
+                const state=await inspect(page);
+                assertClean(viewport+' edition resolved',diag,state);
+                const optionCount=await primaryOptions.count();
                 const selectedCount=await page.getByText('SELECTED',{exact:true}).count();
                 if(selectedCount!==1) throw new Error(viewport+' Edition must expose exactly one selected primary edition');
                 const more=page.locator('[data-testid="edition-more-locations"]');
@@ -287,9 +295,15 @@ jobs:
               for(const [name,route,ready] of [
                 ['dark-my-healthtimes','/my','HEALTHTIMES PREMIUM'],
                 ['dark-saved','/saved?tab=saved','Nothing saved yet'],
-                ['dark-edition','/edition','Primary Edition']
+                ['dark-edition','/edition',null]
               ]){
-                const {diag,response,state}=await navigateClean(page,'mobile '+name,route,ready);
+                const result=await navigateClean(page,'mobile '+name,route,ready);
+                const {diag,response}=result;
+                if(name==='dark-edition'){
+                  await page.locator('[data-testid="primary-edition-option"]').first().waitFor({state:'visible',timeout:30000});
+                }
+                const state=await inspect(page);
+                assertClean('mobile '+name+' resolved',diag,state);
                 const studioCount=name==='dark-my-healthtimes' ? await page.getByText('HealthTimes Studio',{exact:true}).count() : null;
                 if(studioCount!==null && studioCount!==0) throw new Error('dark My HealthTimes exposed Studio');
                 const file=path.join('ui04-phase5-evidence/web',name+'.png');
