@@ -21,7 +21,7 @@ METRO_PID=$!
 trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
 
 for i in $(seq 1 90); do
-  if curl -fsS http://127.0.0.1:8081/status 2>/dev/null | grep -q "packager-status:running"; then
+  if (echo > /dev/tcp/127.0.0.1/8081) 2>/dev/null; then
     break
   fi
   if [[ "$i" == "90" ]]; then

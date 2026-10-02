@@ -85,9 +85,13 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(workflow.includes("reactivecircus/android-emulator-runner@v2"));
   assert.ok(workflow.includes('maestro --device "$SIM_UDID" test'));
   assert.ok(workflow.includes('xcrun simctl erase "$SIM_UDID"'));
+  assert.ok(workflow.includes("runs-on: macos-15"));
+  assert.ok(workflow.includes("/Applications/Xcode_16.4.app/Contents/Developer"));
+  assert.ok(workflow.includes("version[:2] != (18,5)"));
   assert.ok(workflow.includes('MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"'));
   assert.ok(workflow.includes("scripts/native/ui02-phase6a-android-run.sh"));
   assert.ok(androidRunner.includes("maestro --device emulator-5554 test"));
+  assert.ok(androidRunner.includes("/dev/tcp/127.0.0.1/8081"));
   assert.ok(androidRunner.includes("EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost"));
   assert.ok(androidRunner.includes("for i in $(seq 1 90); do"));
   assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
