@@ -15,6 +15,10 @@ test("Phase 5 Saved exposes only persisted Reader ownership states",()=>{
   assert.match(saved,/Available offline/);
   assert.match(saved,/Premium stories are not stored here without verified offline access/);
   assert.match(saved,/Reading history/);
+  assert.match(saved,/library\.loading/);
+  assert.match(saved,/Loading your library…/);
+  assert.match(saved,/Your library is temporarily unavailable/);
+  assert.match(saved,/library\.error/);
   assert.match(saved,/services\.reader\.getSavedArticleIds/);
   assert.match(saved,/services\.reader\.getDownloadedArticles/);
   assert.match(saved,/services\.reader\.getReadingHistoryIds/);
