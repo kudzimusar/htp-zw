@@ -5,10 +5,13 @@ import path from "node:path";
 const base="http://127.0.0.1:4174";
 const candidateSha=process.env.EXPECTED_SHA ?? "";
 const baseSha=process.env.UI03_BASE_SHA ?? "";
-const branch=process.env.BRANCH_NAME ?? "feat/ui03-article-premium-advertising-conformance";
-const previewSeconds=Number(process.env.EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS ?? "0");
-const publicId="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
-const premiumId="source-us-embassy-challenges-zimbabwe-rejected-health-mou";
+const branch=process.env.BRANCH_NAME ?? "feat/ui03-premium-subscription-prompt-conformance";
+const previewSeconds=20;
+const publicId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
+const publicTitle="Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt";
+const premiumId="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
+const premiumTitle="Zimbabwe Looks to Strengthen Social Contracting";
+const premiumReferencePath="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
 const viewports={
   mobile:{width:390,height:844},
   tablet:{width:834,height:1112},
@@ -154,8 +157,59 @@ async function resolvedPremiumJournalism(page,label){
   return count;
 }
 
+async function loadAcceptedPremiumTeaserAuthority(){
+  const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/,"");
+  const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "");
+  if(!/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/.test(url)) throw new Error("Accepted teaser Supabase URL unavailable");
+  if(!/^sb_publishable_/.test(key)) throw new Error("Accepted teaser publishable key unavailable");
+
+  const response=await fetch(url+"/rest/v1/rpc/ag05_public_story_teaser_document",{
+    method:"POST",
+    headers:{
+      apikey:key,
+      Accept:"application/json",
+      "Content-Type":"application/json",
+      "x-healthtimes-client":"ui03-commercial-reader-certification"
+    },
+    body:JSON.stringify({p_path:premiumReferencePath})
+  });
+  const payload=await response.json().catch(()=>null);
+  if(!response.ok || !payload) throw new Error("Accepted Premium teaser authority unavailable");
+  if(String(payload.source_id)!=="33190") throw new Error("Unexpected Premium source authority");
+  if(payload.access_policy!=="premium_marker_review") throw new Error("Unexpected Premium access authority");
+  if(payload.body_html!==null) throw new Error("Premium teaser authority exposed protected body");
+  const teaser=String(payload.premium_teaser_html ?? "").trim();
+  const paragraphs=teaser.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
+  if(paragraphs.length!==1 || paragraphs[0].trim()!==teaser) throw new Error("Premium teaser authority is not exactly one paragraph");
+  return payload;
+}
+
+async function installPremiumAuthorityRoutes(page,payload){
+  await page.route("https://healthtimes.co.zw/wp-json/wp/v2/posts**",async route=>{
+    await route.fulfill({
+      status:200,
+      contentType:"application/json",
+      headers:{
+        "access-control-allow-origin":"*",
+        "x-wp-total":"0",
+        "x-wp-totalpages":"0"
+      },
+      body:"[]"
+    });
+  });
+  await page.route("https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
+    await route.fulfill({
+      status:200,
+      contentType:"application/json",
+      headers:{"access-control-allow-origin":"*"},
+      body:JSON.stringify(payload)
+    });
+  });
+}
+
 async function sourceParityEvidence(){
-  if(!Number.isFinite(previewSeconds)||previewSeconds<=0) throw new Error("Evidence preview seconds must be positive.");
+  if(previewSeconds!==20) throw new Error("UI-03 evidence must preserve the frozen 20-second policy.");
+  const premiumAuthority=await loadAcceptedPremiumTeaserAuthority();
   const browser=await chromium.launch({headless:true});
   const version=browser.version();
   const publicArticle=[];
@@ -169,7 +223,7 @@ async function sourceParityEvidence(){
     const diag=diagnostics(page);
     const status=await open(page,"/article/"+publicId,"public article "+name);
     await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
-    await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
+    await waitForVisibleBodyText(page,publicTitle);
     const heroWrapper=page.locator('[data-testid="article-hero-media"]:visible').first();
     const hero=await imageReadiness(page,heroWrapper.locator("img"),"public Article Hero "+name,{boundsLocator:heroWrapper});
     const body=await page.locator("body").innerText();
@@ -212,11 +266,12 @@ async function sourceParityEvidence(){
     const viewport=viewports[name];
     const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const diag=diagnostics(page);
+    await installPremiumAuthorityRoutes(page,premiumAuthority);
     const requests=[];
     page.on("request",request=>requests.push(request.url()));
     const status=await open(page,"/article/"+premiumId,"premium preview "+name);
     await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
-    await waitForVisibleBodyText(page,"US Embassy Challenges Zimbabwe");
+    await waitForVisibleBodyText(page,premiumTitle);
     await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
     const previewBody=await page.locator("body").innerText();
     if(!previewBody.includes("full member article has not been downloaded")){
@@ -232,6 +287,11 @@ async function sourceParityEvidence(){
 
     await page.waitForTimeout((previewSeconds+1)*1000);
     await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",10000);
+    const supplementalPrompt=page.getByTestId("premium-subscription-prompt");
+    if(await supplementalPrompt.count()){
+      await supplementalPrompt.getByRole("button",{name:"Not now",exact:true}).click();
+      await supplementalPrompt.waitFor({state:"hidden",timeout:10000});
+    }
     if(await page.getByRole("button",{name:/Go to HealthTimes Premium/i}).count()!==1){
       throw new Error("Go Premium CTA missing after lock at "+name);
     }
@@ -264,9 +324,9 @@ async function sourceParityEvidence(){
       article_id:premiumId,
       access_policy:"premium",
       entitlement_state:false,
-      preview_configuration_source:"environment",
+      preview_configuration_source:"owner-policy",
       preview_seconds_for_test:previewSeconds,
-      test_duration_is_commercial_policy:false,
+      test_duration_is_commercial_policy:true,
       preview_started:true,
       preview_file:previewFile,
       paywall_visible:true,
@@ -326,18 +386,24 @@ async function sourceParityEvidence(){
     const page=await browser.newPage({viewport:viewports.mobile,deviceScaleFactor:1,colorScheme:"light"});
     const diag=diagnostics(page);
     const appearancePreference=await selectDarkAppearance(page);
+    if(name==="premium-paywall") await installPremiumAuthorityRoutes(page,premiumAuthority);
     await open(page,route,"dark "+name);
 
     if(name==="article"){
-      await waitForVisibleBodyText(page,"Zimbabwe Looks to Strengthen Social Contracting");
+      await waitForVisibleBodyText(page,publicTitle);
       await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
       const heroWrapper=page.locator('[data-testid="article-hero-media"]:visible').first();
       await imageReadiness(page,heroWrapper.locator("img"),"dark public Article Hero",{boundsLocator:heroWrapper});
     }else if(name==="premium-paywall"){
-      await waitForVisibleBodyText(page,"US Embassy Challenges Zimbabwe");
+      await waitForVisibleBodyText(page,premiumTitle);
       await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
       await page.waitForTimeout((previewSeconds+1)*1000);
       await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",10000);
+      const supplementalPrompt=page.getByTestId("premium-subscription-prompt");
+      if(await supplementalPrompt.count()){
+        await supplementalPrompt.getByRole("button",{name:"Not now",exact:true}).click();
+        await supplementalPrompt.waitFor({state:"hidden",timeout:10000});
+      }
       const lockedBody=await page.locator("body").innerText();
       if(lockedBody.includes("PREMIUM PREVIEW")) throw new Error("Dark Premium preview remained active after lock");
     }else{
@@ -400,7 +466,8 @@ async function sourceParityEvidence(){
     captured_at:new Date().toISOString(),
     evidence_configuration:{
       premium_preview_seconds:previewSeconds,
-      note:"Test duration is evidence configuration, not final commercial policy."
+      source:"owner-policy",
+      note:"20 seconds is the frozen owner product policy; evidence does not shorten it."
     },
     public_article:publicArticle,
     premium_preview:premiumPreview,
@@ -413,9 +480,9 @@ async function sourceParityEvidence(){
     candidate_sha:candidateSha,
     article_id:premiumId,
     entitlement_state:false,
-    preview_configuration_source:"environment",
+    preview_configuration_source:"owner-policy",
     preview_seconds_for_test:previewSeconds,
-    test_duration_is_commercial_policy:false,
+    test_duration_is_commercial_policy:true,
     anonymous_full_protected_body_received:false,
     anonymous_full_protected_body_rendered:false,
     evidence:premiumPreview
