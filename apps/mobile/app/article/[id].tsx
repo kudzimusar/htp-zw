@@ -472,11 +472,11 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
           previewVisible ? (
             <View style={styles.preview}>
               {premiumTeaserBlock && (
-                <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>
+                <Text testID="premium-teaser-paragraph" style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>
                   {renderInlines(premiumTeaserBlock.inlines,"premium-teaser",palette.blue)}
                 </Text>
               )}
-              <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]}>
+              <View testID="premium-preview-notice" style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]}>
                 <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>
                 <Text style={[styles.previewCountdown,{color:palette.ink}]}>
                   {premiumPreview.state==="warning"
