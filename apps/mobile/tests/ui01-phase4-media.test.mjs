@@ -34,6 +34,8 @@ test("Phase 4 Watch exposes only supported discovery and preserves direct verifi
   assert.doesNotMatch(watch,/<Section><AdSlot placement="watch_feed"/);
   assert.match(cards,/verifiedVideoDestination/);
   assert.match(cards,/isYouTubeDestination/);
+  assert.match(cards,/renderableVideoThumbnail/);
+  assert.match(cards,/img\\.youtube\\.com/);
   assert.match(cards,/Watch on YouTube/);
   assert.match(cards,/Linking\.openURL/);
   assert.match(cards,/FeaturedVideoCard/);

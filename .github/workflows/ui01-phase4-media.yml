@@ -177,10 +177,13 @@ jobs:
                 const diag=diagnostics(page);
                 const response=await page.goto(base+'/live',{waitUntil:'domcontentloaded',timeout:30000});
                 await page.getByText('No live coverage right now',{exact:true}).waitFor({timeout:30000});
+                await page.waitForTimeout(700);
                 const state=await inspect(page);
                 assertClean(viewport+' live',diag,state);
                 const file=path.join('ui01-phase4-evidence/web',viewport+'-live.png');
                 await page.screenshot({path:file,fullPage:true});
+                await page.waitForTimeout(200);
+                assertClean(viewport+' live post-capture',diag,await inspect(page));
                 manifest.screens.push(recordBase('live-empty','/live',viewport,width,height,file,response,diag,state,{
                   actualSourceBackedState:'truthful empty Live state',
                   mediaAvailability:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE',
@@ -199,11 +202,14 @@ jobs:
                 await youtubeLinks.first().waitFor({timeout:30000});
                 const youtubeCount=await youtubeLinks.count();
                 if(youtubeCount<1) throw new Error(viewport+' Watch has no verified YouTube destination');
+                await page.waitForTimeout(700);
                 const state=await inspect(page);
                 assertClean(viewport+' watch',diag,state);
                 const durationMetadata=await page.locator('text=/^\\d+:\\d{2}$/').allTextContents();
                 const file=path.join('ui01-phase4-evidence/web',viewport+'-watch.png');
                 await page.screenshot({path:file,fullPage:true});
+                await page.waitForTimeout(200);
+                assertClean(viewport+' watch post-capture',diag,await inspect(page));
                 manifest.screens.push(recordBase('watch-latest','/watch',viewport,width,height,file,response,diag,state,{
                   actualSourceBackedState:'featured + latest HealthTimes videos',
                   mediaAvailability:youtubeCount+' source-backed videos with verified destinations',
@@ -222,10 +228,13 @@ jobs:
                 await page.getByText('No audio published yet',{exact:true}).waitFor({timeout:30000});
                 const playControls=await page.getByRole('button',{name:/play/i}).count();
                 if(playControls!==0) throw new Error(viewport+' Listen exposes a play control without playback authority');
+                await page.waitForTimeout(700);
                 const state=await inspect(page);
                 assertClean(viewport+' listen',diag,state);
                 const file=path.join('ui01-phase4-evidence/web',viewport+'-listen.png');
                 await page.screenshot({path:file,fullPage:true});
+                await page.waitForTimeout(200);
+                assertClean(viewport+' listen post-capture',diag,await inspect(page));
                 manifest.screens.push(recordBase('listen-empty','/listen',viewport,width,height,file,response,diag,state,{
                   actualSourceBackedState:'truthful empty Listen state',
                   mediaAvailability:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE',
@@ -246,10 +255,13 @@ jobs:
               const diag=diagnostics(dark);
               const response=await dark.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
               await dark.getByText(ready,{exact:true}).first().waitFor({timeout:30000});
+              await dark.waitForTimeout(700);
               const state=await inspect(dark);
               assertClean('mobile '+name,diag,state);
               const file=path.join('ui01-phase4-evidence/web',name+'.png');
               await dark.screenshot({path:file,fullPage:true});
+              await dark.waitForTimeout(200);
+              assertClean('mobile '+name+' post-capture',diag,await inspect(dark));
               manifest.screens.push(recordBase(name,route,'mobile-dark',390,844,file,response,diag,state,{
                 actualSourceBackedState:'dark appearance',
                 mediaAvailability:availability,
@@ -277,7 +289,7 @@ jobs:
                 const focused=await input.evaluate(el=>el===document.activeElement);
                 if(!focused) throw new Error('Phase 3 desktop Search focus regressed');
               }
-              await page.waitForTimeout(700);
+              await page.waitForTimeout(900);
               const state=await inspect(page);
               assertClean('desktop '+name,diag,state);
               manifest.regressions.push({

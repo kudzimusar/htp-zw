@@ -187,6 +187,15 @@ function videoAccessibilityLabel(item:VideoItem,destination:string|null){
   if(!destination) return item.title+" video unavailable";
   return isYouTubeDestination(destination) ? "Watch "+item.title+" on YouTube" : "Watch "+item.title;
 }
+function renderableVideoThumbnail(item:VideoItem){
+  const value=item.thumbnail?.publicUrl?.trim() ?? "";
+  if(!value) return null;
+  // The accepted source snapshot records YouTube maxres thumbnail references, but
+  // those provider assets are not guaranteed to exist. Do not create a broken
+  // resource request or derive an unverified replacement thumbnail URL.
+  if(/^https:\/\/img\.youtube\.com\//i.test(value)) return null;
+  return value;
+}
 
 export function FeaturedVideoCard({item}:{item:VideoItem}){
   const { palette }=useAppearance();
@@ -195,7 +204,8 @@ export function FeaturedVideoCard({item}:{item:VideoItem}){
   const desktop=width>=breakpoints.desktop;
   const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
   const destination=verifiedVideoDestination(item);
-  const showThumbnail=Boolean(item.thumbnail?.publicUrl)&&!thumbnailFailed;
+  const thumbnailUrl=renderableVideoThumbnail(item);
+  const showThumbnail=Boolean(thumbnailUrl)&&!thumbnailFailed;
   return (
     <Pressable
       style={[styles.featuredVideo,desktop&&styles.featuredVideoDesktop,{borderColor:palette.border}]}
@@ -207,9 +217,9 @@ export function FeaturedVideoCard({item}:{item:VideoItem}){
       onPress={destination?()=>{void Linking.openURL(destination);}:undefined}
     >
       <View style={[styles.featuredVideoMedia,desktop&&styles.featuredVideoMediaDesktop]}>
-        {showThumbnail&&item.thumbnail?.publicUrl ? (
+        {showThumbnail&&thumbnailUrl ? (
           <Image
-            source={{uri:item.thumbnail.publicUrl}}
+            source={{uri:thumbnailUrl}}
             style={[styles.featuredVideoImage,{backgroundColor:palette.paperMuted}]}
             accessibilityLabel={item.thumbnail.altText??item.title}
             onError={()=>setThumbnailFailed(true)}
@@ -218,7 +228,7 @@ export function FeaturedVideoCard({item}:{item:VideoItem}){
           <View style={[styles.featuredVideoFallback,{backgroundColor:palette.navy}]}>
             <Text style={styles.videoFallbackBrand}>HealthTimes</Text>
             <Text style={styles.videoFallbackLabel}>VIDEO</Text>
-            <Text style={styles.videoFallbackNote}>Thumbnail unavailable</Text>
+            <Text style={styles.videoFallbackNote}>HealthTimes video</Text>
           </View>
         )}
         {destination&&<View style={styles.featuredPlayBadge}><Text style={styles.featuredPlayText}>▶</Text></View>}
@@ -239,7 +249,8 @@ export function VideoCard({item}:{item:VideoItem}){
   const [thumbnailFailed,setThumbnailFailed]=useState(false);
   const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
   const destination=verifiedVideoDestination(item);
-  const showThumbnail=Boolean(item.thumbnail?.publicUrl)&&!thumbnailFailed;
+  const thumbnailUrl=renderableVideoThumbnail(item);
+  const showThumbnail=Boolean(thumbnailUrl)&&!thumbnailFailed;
   return (
     <Pressable
       style={styles.videoCard}
@@ -250,9 +261,9 @@ export function VideoCard({item}:{item:VideoItem}){
       accessibilityHint={destination?"Opens the published video destination":undefined}
       onPress={destination?()=>{void Linking.openURL(destination);}:undefined}
     >
-      {showThumbnail&&item.thumbnail?.publicUrl ? (
+      {showThumbnail&&thumbnailUrl ? (
         <Image
-          source={{uri:item.thumbnail.publicUrl}}
+          source={{uri:thumbnailUrl}}
           style={[styles.videoImage,{backgroundColor:palette.paperMuted}]}
           accessibilityLabel={item.thumbnail.altText??item.title}
           onError={()=>setThumbnailFailed(true)}
@@ -261,7 +272,7 @@ export function VideoCard({item}:{item:VideoItem}){
         <View style={[styles.videoFallback,{backgroundColor:palette.navy}]}>
           <Text style={styles.videoFallbackBrand}>HealthTimes</Text>
           <Text style={styles.videoFallbackLabel}>VIDEO</Text>
-          <Text style={styles.videoFallbackNote}>Thumbnail unavailable</Text>
+          <Text style={styles.videoFallbackNote}>HealthTimes video</Text>
         </View>
       )}
       {destination&&<View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>}
