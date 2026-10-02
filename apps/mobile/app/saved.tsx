@@ -27,19 +27,22 @@ export default function SavedScreen(){
   },[requestedTab]);
 
   const library=useAsync(async()=>{
-    const [savedIds,home,downloads,historyIds]=await Promise.all([
+    const [savedIds,downloads,historyIds]=await Promise.all([
       services.reader.getSavedArticleIds(),
-      services.articles.getHome(),
       services.reader.getDownloadedArticles(),
       services.reader.getReadingHistoryIds()
     ]);
 
-    const byId=new Map(home.map((item)=>[item.id,item]));
-    return {
-      saved:home.filter((item)=>savedIds.includes(item.id)),
-      downloads,
-      history:historyIds.map((id)=>byId.get(id)).filter((item): item is NonNullable<typeof item>=>Boolean(item))
+    const resolveArticles=async(ids:string[])=>{
+      const stories=await Promise.all(ids.map((id)=>services.articles.getById(id)));
+      return stories.filter((item): item is NonNullable<typeof item>=>Boolean(item));
     };
+    const [saved,history]=await Promise.all([
+      resolveArticles(savedIds),
+      resolveArticles(historyIds)
+    ]);
+
+    return {saved,downloads,history};
   },[refresh]);
 
   const removeDownload=async(id:string)=>{
