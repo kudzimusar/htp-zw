@@ -10,9 +10,14 @@ fs.mkdirSync(path.join(root,"premium-prompt"),{recursive:true});
 const browser=await chromium.launch({headless:true});
 const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
 const page=await context.newPage();
-const requests=[];
-page.on("request",r=>requests.push({url:r.url(),method:r.method(),type:r.resourceType()}));
+const requests=[],responses=[],failed=[],consoleLog=[];
+const safe=u=>{try{const x=new URL(u);return x.origin+x.pathname+x.search;}catch{return u;}};
+page.on("request",r=>requests.push({url:safe(r.url()),method:r.method(),type:r.resourceType()}));
+page.on("response",r=>responses.push({url:safe(r.url()),status:r.status(),type:r.request().resourceType()}));
+page.on("requestfailed",r=>failed.push({url:safe(r.url()),failure:r.failure(),type:r.resourceType()}));
+page.on("console",m=>{if(["error","warning"].includes(m.type()))consoleLog.push({type:m.type(),text:m.text()});});
 
+const buildInfo=await fetch(base+"/build-info.json",{headers:{"cache-control":"no-cache"}}).then(async r=>({status:r.status,body:await r.text()})).catch(error=>({status:null,error:String(error)}));
 const rpcPromise=page.waitForResponse(r=>r.url().includes("ag05_public_story_teaser_document"),{timeout:35000}).catch(()=>null);
 const response=await page.goto(base+route,{waitUntil:"domcontentloaded",timeout:35000});
 await page.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout:35000}).catch(()=>{});
@@ -69,6 +74,14 @@ const result={
   teaser_text_digest:teaser_text?crypto.createHash("sha256").update(teaser_text).digest("hex"):null,
   wordpress_content_field_requests:requests.filter(x=>decodeURIComponent(x.url).toLowerCase().includes("wp-json/wp/v2")&&decodeURIComponent(x.url).toLowerCase().includes("content")).length,
   protected_article_requests:requests.filter(x=>/protected.*article|premium.*body|ag05_public_story_document/i.test(x.url)).length,
+  teaser_rpc_requests:requests.filter(x=>x.url.includes("ag05_public_story_teaser_document")).length,
+  wordpress_metadata_requests:requests.filter(x=>x.url.includes("healthtimes.co.zw/wp-json/wp/v2/posts")&&!decodeURIComponent(x.url).toLowerCase().includes("content")).length,
+  wordpress_request_failures:failed.filter(x=>x.url.includes("healthtimes.co.zw/wp-json/wp/v2/posts")),
+  teaser_rpc_failures:failed.filter(x=>x.url.includes("ag05_public_story_teaser_document")),
+  wordpress_responses:responses.filter(x=>x.url.includes("healthtimes.co.zw/wp-json/wp/v2/posts")),
+  teaser_rpc_responses:responses.filter(x=>x.url.includes("ag05_public_story_teaser_document")),
+  console:consoleLog,
+  build_info:buildInfo,
   screenshot
 };
 fs.writeFileSync(path.join(root,"premium-prompt","initial-state.json"),JSON.stringify(result,null,2)+"\n");
