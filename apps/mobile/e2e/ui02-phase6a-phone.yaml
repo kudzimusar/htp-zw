@@ -41,6 +41,7 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: article-actions-light
 - tapOn: "Share article"
 - takeScreenshot: article-native-share
+- stopApp
 
 # Saved + Offline persistence after leaving the Article route
 - launchApp
@@ -97,6 +98,7 @@ appId: zw.co.healthtimes.app.dev
     text: "Watch on YouTube"
     index: 0
 - takeScreenshot: watch-external-youtube
+- stopApp
 
 - launchApp
 - openLink: "healthtimes://listen"
