@@ -13,7 +13,7 @@ import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { premiumPreviewConfiguration } from "../../src/growth/config";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
-import { parseArticleContent, type ArticleInline } from "../../src/reader/article-content";
+import { parseArticleContent, type ArticleContentBlock, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
 
 export function generateStaticParams() {
@@ -75,12 +75,15 @@ function readerFacingMediaCredit(value:string|null|undefined){
   return internal.test(text) ? null : text;
 }
 
-function premiumTeaserParagraph(value:string|null|undefined,canonicalUrl:string|null){
+function premiumTeaserParagraph(
+  value:string|null|undefined,
+  canonicalUrl:string|null
+):Extract<ArticleContentBlock,{kind:"paragraph"}>|null{
   if(!value?.trim()) return null;
   const teaserBlocks=parseArticleContent(value,canonicalUrl);
   if(teaserBlocks.length!==1) return null;
   const block=teaserBlocks[0];
-  if(block.kind!=="paragraph") return null;
+  if(!block || block.kind!=="paragraph") return null;
   if(!block.inlines.some((inline)=>inline.text.trim())) return null;
   return block;
 }
