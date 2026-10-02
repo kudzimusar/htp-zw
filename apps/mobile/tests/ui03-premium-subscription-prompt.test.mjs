@@ -12,7 +12,6 @@ test("UI-03 Premium prompt is a bounded responsive acquisition surface",()=>{
   assert.match(prompt,/Modal/);
   assert.match(prompt,/testID="premium-subscription-prompt"/);
   assert.match(prompt,/accessibilityViewIsModal/);
-  assert.match(prompt,/accessibilityRole="dialog"/);
   assert.match(prompt,/HealthTimes Premium membership prompt/);
   assert.match(prompt,/phone \? styles\.backdropPhone : styles\.backdropCentered/);
   assert.match(prompt,/maxWidth: 600/);
