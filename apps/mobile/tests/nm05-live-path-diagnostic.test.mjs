@@ -35,16 +35,17 @@ test("NM-05R preserves the diagnosed slug-only fallback but never uses it as Pre
   );
 
   const sourceParity=readFileSync(join(mobileRoot,"src/services/source-parity.ts"),"utf8");
-  assert.match(sourceParity,/const metadata=await sourceGet<WpPost\[\]>/);
-  assert.match(sourceParity,/wpPostQuery\(\{includeContent:false\}\)/);
-  assert.match(sourceParity,/trustedPremiumSourceUrl=metadataPost\?\.link/);
-  assert.match(sourceParity,/getPublicPremiumTeaserAuthority\(trustedPremiumSourceUrl\)/);
-  assert.doesNotMatch(sourceParity,/getPublicPremiumTeaserAuthority\(current\.canonicalUrl\)/);
+  assert.match(sourceParity,/legacyDatedPermalinkCandidate/);
+  assert.match(sourceParity,/boundedTeaserAuthority\(current\)/);
+  assert.match(sourceParity,/article\.publishedAt/);
+  assert.match(sourceParity,/article\.slug/);
+  assert.doesNotMatch(sourceParity,/trustedPremiumSourceUrl=metadataPost/);
+  assert.doesNotMatch(sourceParity,/const metadata=await sourceGet<WpPost\[\]>/);
 
   console.log(JSON.stringify({
     source_id:"33190",
-    pre_remediation_snapshot_p_path:preRemediationPath,
-    metadata_resolved_p_path:resolvedPath,
-    product_consumer_uses_snapshot_p_path:false
+    canonical_candidate_p_path:preRemediationPath,
+    dated_candidate_p_path:resolvedPath,
+    browser_wordpress_metadata_required:false
   }));
 });
