@@ -15,7 +15,7 @@ adb reverse tcp:8081 tcp:8081
 
 (
   cd apps/mobile
-  CI=1 EXPO_NO_DEV_TOOLS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1
+  CI=1 EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1
 ) &
 METRO_PID=$!
 trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
