@@ -1,0 +1,138 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "HealthTimes"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/home-light
+
+- tapOn: "Search"
+- extendedWaitUntil:
+    visible: "Intelligent Search"
+    timeout: 20000
+- tapOn: "Search HealthTimes"
+- inputText: "health"
+- takeScreenshot: ${EVIDENCE_DIR}/search-keyboard
+- hideKeyboard
+- tapOn: "Search"
+- takeScreenshot: ${EVIDENCE_DIR}/search-results
+
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- extendedWaitUntil:
+    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    timeout: 30000
+- tapOn: "Save article"
+- extendedWaitUntil:
+    visible: "Saved"
+    timeout: 10000
+- tapOn: "Download article for offline reading"
+- extendedWaitUntil:
+    visible: "Available offline"
+    timeout: 10000
+- takeScreenshot: ${EVIDENCE_DIR}/article-actions-light
+- tapOn: "Share article"
+- takeScreenshot: ${EVIDENCE_DIR}/article-native-share
+
+- launchApp
+- openLink: "healthtimes://saved?tab=saved"
+- extendedWaitUntil:
+    visible: "Saved stories"
+    timeout: 20000
+- assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+- takeScreenshot: ${EVIDENCE_DIR}/saved-persistence
+
+- openLink: "healthtimes://saved?tab=offline"
+- extendedWaitUntil:
+    visible: "Available offline"
+    timeout: 20000
+- assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+- takeScreenshot: ${EVIDENCE_DIR}/offline-persistence
+
+- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- extendedWaitUntil:
+    visible: "Continue reading with HealthTimes Premium"
+    timeout: 30000
+- assertVisible: "Go Premium"
+- takeScreenshot: ${EVIDENCE_DIR}/premium-locked-light
+
+- openLink: "healthtimes://explore"
+- extendedWaitUntil:
+    visible: "Explore"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/explore-light
+
+- openLink: "healthtimes://live"
+- extendedWaitUntil:
+    visible: "Live"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/live-light
+
+- openLink: "healthtimes://watch"
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- assertVisible: "Watch on YouTube"
+- takeScreenshot: ${EVIDENCE_DIR}/watch-light
+- tapOn:
+    text: "Watch on YouTube"
+    index: 0
+- takeScreenshot: ${EVIDENCE_DIR}/watch-external-youtube
+
+- launchApp
+- openLink: "healthtimes://listen"
+- extendedWaitUntil:
+    visible: "Listen"
+    timeout: 20000
+- assertVisible: "No audio published yet"
+- takeScreenshot: ${EVIDENCE_DIR}/listen-truthful
+
+- openLink: "healthtimes://my"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/my-healthtimes-light
+
+- openLink: "healthtimes://edition"
+- extendedWaitUntil:
+    visible: "Edition & Preferences"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/edition-light
+
+- openLink: "healthtimes://appearance"
+- extendedWaitUntil:
+    visible: "Appearance"
+    timeout: 20000
+- tapOn: "Dark"
+- assertVisible: "Dark"
+- takeScreenshot: ${EVIDENCE_DIR}/appearance-dark-selected
+
+- openLink: "healthtimes://"
+- extendedWaitUntil:
+    visible: "HealthTimes"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/home-dark
+
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- extendedWaitUntil:
+    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/article-dark
+
+- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- extendedWaitUntil:
+    visible: "Continue reading with HealthTimes Premium"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/premium-dark
+
+- openLink: "healthtimes://watch"
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/watch-dark
+
+- openLink: "healthtimes://my"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/my-healthtimes-dark
