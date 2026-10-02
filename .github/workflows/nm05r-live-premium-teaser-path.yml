@@ -1,0 +1,39 @@
+name: NM-05R Premium Teaser Path Resolution
+
+on:
+  push:
+    branches:
+      - fix/nm05-live-premium-teaser-path-resolution
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    name: Pre-remediation source-parity lookup-key diagnostic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$GITHUB_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$GITHUB_SHA"
+
+      - name: Install Reader dependencies
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Capture current source-parity Premium teaser p_path
+        run: node --test apps/mobile/tests/nm05-live-path-diagnostic.test.mjs
