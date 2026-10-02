@@ -89,8 +89,10 @@ test('source-parity never fetches complete Premium WordPress content', async () 
   const source = read('apps/mobile/src/services/source-parity.ts');
   const authority = read('apps/mobile/src/services/premium-teaser-authority.ts');
   expect(source).toContain('wpPostQuery({includeContent:false})');
-  expect(source).toContain('trustedPremiumSourceUrl=metadataPost?.link');
-  expect(source).toContain('getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)');
+  expect(source).toContain('currentPermalinkCandidate=metadataPost?.link');
+  expect(source).toContain('datedPermalinkCandidate=metadataPost ? legacyDatedPermalinkCandidate(metadataPost) : null');
+  expect(source).toContain('getPublicPremiumTeaserAuthority(currentPermalinkCandidate)');
+  expect(source).toContain('getPublicPremiumTeaserAuthority(datedPermalinkCandidate)');
   expect(source).toContain('sourceParityPremiumDetailDecision');
   expect(source).toContain('if(!detailDecision.includeWordPressContent)');
   expect(source).toContain('wpPostQuery({includeContent:true})');
