@@ -26,6 +26,7 @@ import { decideFixtureAd } from "../growth/advertising";
 import { validatePublicAnalyticsEvent } from "../growth/events";
 import { attributedShareUrl, canonicalArticleUrl } from "../growth/deepLinks";
 import { fixturePremiumStoreService } from "../growth/premium-store";
+import { premiumCommerceService } from "../growth/premium-commerce";
 import { emptyAuthorizationSnapshot, hasServerCapability } from "../security/capabilities";
 import { getNotificationPreferences, saveNotificationPreferences } from "../security/notification-preferences";
 
@@ -279,6 +280,7 @@ export const fixtureServices: HealthTimesServices = {
   reader: persistentReaderRepository,
   premium: premiumService,
   premiumStore: fixturePremiumStoreService,
+  premiumCommerce: premiumCommerceService,
   advertising: advertisingService,
   analytics: analyticsService,
   live: liveService,
