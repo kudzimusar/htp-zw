@@ -103,7 +103,7 @@ test("malformed Premium projection remains Premium and falls to immediate paywal
     );
     assert.equal(authority.accessPolicy,"premium");
     assert.equal(authority.premiumTeaserHtml,null);
-    const decision=authorityModule.sourceParityPremiumDetailDecision("public",authority,false);
+    const decision=authorityModule.sourceParityPremiumDetailDecision("premium",authority,false);
     assert.equal(decision.includeWordPressContent,false);
   }finally{
     global.fetch=previousFetch;
