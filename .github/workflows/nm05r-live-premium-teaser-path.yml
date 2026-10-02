@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: nm05r2-premium-teaser-pages-boundary-${{ github.sha }}
-  cancel-in-progress: false
+  group: nm05r2-premium-teaser-pages-boundary
+  cancel-in-progress: true
 
 jobs:
   certify:
@@ -82,7 +82,7 @@ jobs:
         run: npm run native:export:web
 
       - name: Install Chromium network harness
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Prove repaired browser/network path and 20-second journey
         env:
