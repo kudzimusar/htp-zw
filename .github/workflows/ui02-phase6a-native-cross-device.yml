@@ -165,6 +165,12 @@ jobs:
           print("SIM_RUNTIME="+runtime.rsplit(".",1)[-1].replace("-",".").replace("iOS.","iOS "))
           PY
 
+      - name: Start selected iOS simulator migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
+
       - name: Build self-contained iOS Simulator app
         working-directory: apps/mobile/ios
         shell: bash
@@ -193,8 +199,7 @@ jobs:
           set -euo pipefail
           EVIDENCE_DIR="ui02-phase6a-native-evidence/ios-$DEVICE_CLASS"
           mkdir -p "$EVIDENCE_DIR"
-          xcrun simctl shutdown all || true
-          xcrun simctl boot "$SIM_UDID"
+          xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
           xcrun simctl bootstatus "$SIM_UDID" -b
           xcrun simctl ui "$SIM_UDID" appearance light || true
           xcrun simctl install "$SIM_UDID" "$IOS_APP"
@@ -375,7 +380,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p ui02-phase6a-native-evidence-final
+          mkdir -p downloaded ui02-phase6a-native-evidence-final
           python3 - <<'PY'
           import hashlib, json, os, pathlib, shutil
           root=pathlib.Path("downloaded")
@@ -463,10 +468,10 @@ jobs:
           {
             echo "## UI-02 Phase 6A native evidence"
             echo ""
-            echo "- Candidate SHA: `$EXPECTED_SHA`"
-            echo "- Artifact ID: `${{ steps.upload.outputs.artifact-id }}`"
-            echo "- Artifact digest: `${{ steps.upload.outputs.artifact-digest }}`"
-            echo "- Artifact URL: `${{ steps.upload.outputs.artifact-url }}`"
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Artifact ID: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- Artifact digest: ${{ steps.upload.outputs.artifact-digest }}"
+            echo "- Artifact URL: ${{ steps.upload.outputs.artifact-url }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Enforce complete required native matrix
