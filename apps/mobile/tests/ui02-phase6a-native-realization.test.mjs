@@ -32,7 +32,7 @@ test("native search retains focusable keyboard input and touch-safe controls",()
   assert.ok(search.includes("<TextInput"));
   assert.ok(search.includes('returnKeyType="search"'));
   assert.ok(search.includes('accessibilityLabel="Search HealthTimes"'));
-  assert.ok(tokens.includes("touchMin:44"));
+  assert.ok(tokens.includes("touchMin: 44"));
 });
 
 test("article native actions preserve save offline share and Premium boundaries",()=>{
