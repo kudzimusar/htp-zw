@@ -12,6 +12,7 @@ const basePath="/htp-zw";
 
 const premiumSlug="zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
 const premiumArticleId="source-"+premiumSlug;
+const premiumCurrentPath="/"+premiumSlug+"/";
 const premiumDatedPath="/2026/09/18/"+premiumSlug+"/";
 const publicSlug="ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
 const publicArticleId="source-"+publicSlug;
@@ -137,7 +138,7 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
       payload=[wpPost({
         id:33190,
         slug:premiumSlug,
-        path:premiumDatedPath,
+        path:premiumCurrentPath,
         title:"Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks",
         excerpt:"Public metadata only."
       })];
@@ -157,7 +158,10 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
 
   const liveTeaserResponsePromise=metadataAvailable
     ? page.waitForResponse(
-        response=>response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document"),
+        response=>{
+          if(!response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document")) return false;
+          try{return response.request().postDataJSON()?.p_path===premiumDatedPath;}catch{return false;}
+        },
         {timeout:15000}
       )
     : null;
@@ -185,8 +189,9 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     assert.equal(liveTeaserEvidence.access_policy,"premium_marker_review");
     assert.equal(liveTeaserEvidence.body_html_is_null,true);
     assert.equal(liveTeaserEvidence.teaser_paragraph_count,1);
-    assert.equal(teaserRequests.length,1,"Premium flow must issue exactly one bounded teaser lookup");
-    assert.equal(teaserRequests[0].p_path,premiumDatedPath,"teaser RPC must receive resolved WordPress dated path");
+    assert.equal(teaserRequests.length,2,"Premium flow must try current permalink then bounded dated compatibility path");
+    assert.equal(teaserRequests[0].p_path,premiumCurrentPath,"first teaser RPC must use current WordPress permalink");
+    assert.equal(teaserRequests[1].p_path,premiumDatedPath,"second teaser RPC must use metadata-derived dated compatibility path");
 
     const teaserText=page.locator('[data-testid="premium-preview-teaser"]');
     if(await teaserText.count()){
@@ -239,7 +244,8 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
   await context.close();
   return {
     metadata_available:metadataAvailable,
-    requested_p_path:teaserRequests[0]?.p_path ?? null,
+    requested_p_path:teaserRequests.at(-1)?.p_path ?? null,
+    attempted_p_paths:teaserRequests.map(entry=>entry.p_path),
     wordpress_metadata_requests:wordpressRequests.length,
     wordpress_content_field_requests:wordpressContentFieldRequests.length,
     protected_article_requests:protectedRequests.length,
