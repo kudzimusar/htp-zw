@@ -1,0 +1,32 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "HealthTimes"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/tablet-home
+
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- extendedWaitUntil:
+    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/tablet-article
+
+- openLink: "healthtimes://watch"
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- takeScreenshot: ${EVIDENCE_DIR}/tablet-watch
+
+- openLink: "healthtimes://my"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/tablet-my-healthtimes
+
+- openLink: "healthtimes://edition"
+- extendedWaitUntil:
+    visible: "Edition & Preferences"
+    timeout: 20000
+- takeScreenshot: ${EVIDENCE_DIR}/tablet-edition
