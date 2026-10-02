@@ -42,6 +42,7 @@ type PremiumPreviewLedgerEntry = {
   storyId: string;
   scopeId: string;
   startedAt: number;
+  promptRequestedAt?: number;
 };
 
 async function ensurePremiumPreviewScope() {
@@ -151,6 +152,21 @@ export const persistentReaderRepository: ReaderRepository = {
     }
 
     return previewWindow(scopeId,storyId,startedAt,durationSeconds,now);
+  },
+
+  async requestPremiumPreviewPrompt(stableStoryId) {
+    const storyId=stableStoryId.trim();
+    if(!storyId) return false;
+
+    const scopeId=await ensurePremiumPreviewScope();
+    const ledger=await readJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger,{});
+    const ledgerKey=scopeId+"|"+storyId;
+    const existing=ledger[ledgerKey];
+    if(!existing || !Number.isFinite(existing.startedAt) || existing.promptRequestedAt) return false;
+
+    ledger[ledgerKey]={...existing,promptRequestedAt:Date.now()};
+    await writeJson(keys.premiumPreviewLedger,ledger);
+    return true;
   },
 
   async recordReadingHistory(articleId) {
