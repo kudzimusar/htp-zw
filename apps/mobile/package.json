@@ -24,7 +24,9 @@
     "test:migrated-corpus": "node --test tests/migrated-corpus-integration.test.mjs",
     "test:premium-hospaz": "node --test tests/premium-hospaz-convergence.test.mjs",
     "test:phase12-authority": "node --test tests/phase12-authority.test.mjs",
-    "test:ui03": "node --test tests/ui03-commercial-reader.test.mjs tests/ui03-discussion-reader.test.mjs"
+    "test:ui03": "node --test tests/ui03-commercial-reader.test.mjs tests/ui03-discussion-reader.test.mjs",
+    "test:nm05-premium-consumer": "node --test tests/nm05-premium-consumer.test.mjs",
+    "test:nm05-premium-live": "node --test tests/nm05-premium-live.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
