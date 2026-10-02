@@ -123,17 +123,20 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
       teaserRequests.push({url,p_path:payload?.p_path ?? null});
     }
     if(url.includes("/rest/v1/rpc/ag05_public_story_document")) protectedRequests.push(url);
-    if(/\/api\/commerce(?:\?|$)/.test(url)) commerceRequests.push(url);
+    if(/\/api\/commerce(?:\\?|$)/.test(url)) commerceRequests.push(url);
   });
 
   await page.route("https://healthtimes.co.zw/wp-json/wp/v2/posts**",async route=>{
+    if(!metadataAvailable){
+      await route.abort("failed");
+      return;
+    }
     const url=new URL(route.request().url());
     const slug=url.searchParams.get("slug");
     const fields=decodeURIComponent(url.searchParams.get("_fields") ?? "");
     const includesContent=fields.split(",").includes("content");
-
     let payload=[];
-    if(slug===premiumSlug && metadataAvailable && !includesContent){
+    if(slug===premiumSlug && !includesContent){
       payload=[wpPost({
         id:33190,
         slug:premiumSlug,
@@ -142,84 +145,59 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
         excerpt:"Public metadata only."
       })];
     }
-
     await route.fulfill({
       status:200,
       contentType:"application/json",
-      headers:{
-        "access-control-allow-origin":"*",
-        "x-wp-total":String(payload.length),
-        "x-wp-totalpages":payload.length ? "1" : "0"
-      },
+      headers:{"access-control-allow-origin":"*"},
       body:JSON.stringify(payload)
     });
   });
 
-  const liveTeaserResponsePromise=metadataAvailable
-    ? page.waitForResponse(
-        response=>response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document"),
-        {timeout:15000}
-      )
-    : null;
+  const liveTeaserResponsePromise=page.waitForResponse(
+    response=>response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document"),
+    {timeout:15000}
+  );
 
   await page.goto(origin+basePath+"/article/"+premiumArticleId,{waitUntil:"domcontentloaded"});
+  await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({state:"visible",timeout:15000});
 
-  let liveTeaserEvidence=null;
-  if(metadataAvailable){
-    await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({state:"visible",timeout:15000});
-    const teaserResponse=await liveTeaserResponsePromise;
-    const teaserPayload=await teaserResponse.json();
-    const teaserHtml=String(teaserPayload?.premium_teaser_html ?? "").trim();
-    const teaserParagraphs=teaserHtml.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
-    liveTeaserEvidence={
-      source_id:teaserPayload?.source_id===null || teaserPayload?.source_id===undefined
-        ? null
-        : String(teaserPayload.source_id),
-      access_policy:teaserPayload?.access_policy ?? null,
-      body_html_is_null:teaserPayload?.body_html===null,
-      teaser_paragraph_count:teaserParagraphs.length,
-      teaser_length:teaserHtml.length,
-      teaser_sha256:createHash("sha256").update(teaserHtml).digest("hex")
-    };
-    assert.equal(liveTeaserEvidence.source_id,"33190");
-    assert.equal(liveTeaserEvidence.access_policy,"premium_marker_review");
-    assert.equal(liveTeaserEvidence.body_html_is_null,true);
-    assert.equal(liveTeaserEvidence.teaser_paragraph_count,1);
-    assert.equal(teaserRequests.length,1,"Premium flow must issue exactly one bounded teaser lookup");
-    assert.equal(teaserRequests[0].p_path,premiumDatedPath,"teaser RPC must receive resolved WordPress dated path");
+  const teaserResponse=await liveTeaserResponsePromise;
+  const teaserPayload=await teaserResponse.json();
+  const teaserHtml=String(teaserPayload?.premium_teaser_html ?? "").trim();
+  const teaserParagraphs=teaserHtml.match(/<p(?:\\s[^>]*)?>[\\s\\S]*?<\\/p>/gi) ?? [];
+  const liveTeaserEvidence={
+    source_id:teaserPayload?.source_id===null || teaserPayload?.source_id===undefined ? null : String(teaserPayload.source_id),
+    access_policy:teaserPayload?.access_policy ?? null,
+    body_html_is_null:teaserPayload?.body_html===null,
+    teaser_paragraph_count:teaserParagraphs.length,
+    teaser_length:teaserHtml.length,
+    teaser_sha256:createHash("sha256").update(teaserHtml).digest("hex")
+  };
+  assert.equal(liveTeaserEvidence.source_id,"33190");
+  assert.equal(liveTeaserEvidence.access_policy,"premium_marker_review");
+  assert.equal(liveTeaserEvidence.body_html_is_null,true);
+  assert.equal(liveTeaserEvidence.teaser_paragraph_count,1);
+  assert.equal(teaserRequests.length,1,"Premium snapshot fallback must issue exactly one bounded teaser lookup");
+  assert.equal(teaserRequests[0].p_path,premiumDatedPath,"teaser RPC must receive dated snapshot compatibility path");
 
-    const teaserText=page.locator('[data-testid="premium-preview-teaser"]');
-    if(await teaserText.count()){
-      await teaserText.first().waitFor({state:"visible",timeout:5000});
-    }
-    assert.equal(
-      await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).count(),
-      0,
-      "inline paywall must be absent during active preview"
-    );
+  assert.equal(
+    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).count(),
+    0,
+    "inline paywall must be absent during active preview"
+  );
 
-    const beforeExpiryWordPressCount=wordpressRequests.length;
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({
-      state:"visible",
-      timeout:25000
-    });
-    await page.getByTestId("premium-subscription-prompt").waitFor({state:"visible",timeout:5000});
-    await page.getByTestId("premium-prompt-not-now").click();
-    await page.getByTestId("premium-subscription-prompt").waitFor({state:"hidden",timeout:5000});
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({state:"visible"});
+  const beforeExpiryWordPressCount=wordpressRequests.length;
+  await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({state:"visible",timeout:25000});
+  await page.getByTestId("premium-subscription-prompt").waitFor({state:"visible",timeout:5000});
+  await page.getByTestId("premium-prompt-not-now").click();
+  await page.getByTestId("premium-subscription-prompt").waitFor({state:"hidden",timeout:5000});
+  await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({state:"visible"});
 
-    assert.equal(
-      wordpressRequests.length,
-      beforeExpiryWordPressCount,
-      "20-second expiry must not trigger another WordPress request"
-    );
-  }else{
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({
-      state:"visible",
-      timeout:10000
-    });
-    assert.equal(teaserRequests.length,0,"metadata failure must not attempt teaser lookup from slug-only fallback identity");
-  }
+  assert.equal(
+    wordpressRequests.length,
+    beforeExpiryWordPressCount,
+    "20-second expiry must not trigger another WordPress request"
+  );
 
   const wordpressContentFieldRequests=wordpressRequests.filter(rawUrl=>{
     const url=new URL(rawUrl);
