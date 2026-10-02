@@ -191,15 +191,37 @@ jobs:
               const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
               const article=await context.newPage();
               {
-                const {diag,state}=await navigateClean(article,viewport+' ownership-seed','/article/'+articleId,null);
-                const save=article.getByRole('button',{name:'Save article'});
-                await save.waitFor({timeout:30000});
-                await save.click();
-                const offline=article.getByRole('button',{name:'Download article for offline reading'});
-                await offline.waitFor({timeout:30000});
-                await offline.click();
-                await article.waitForTimeout(500);
-                assertClean(viewport+' ownership-seed actions',diag,await inspect(article));
+                const homeSeed=await navigateClean(article,viewport+' ownership-seed home','/','Top Stories');
+                const publicStoryLinks=article.getByRole('link').filter({hasNotText:'PREMIUM'});
+                const candidateCount=await publicStoryLinks.count();
+                let seeded=false;
+                for(let index=0;index<candidateCount && index<30;index++){
+                  if(!article.url().endsWith('/')) {
+                    await article.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+                    await article.getByText('Top Stories',{exact:true}).waitFor({timeout:30000});
+                  }
+                  const candidate=publicStoryLinks.nth(index);
+                  if(!await candidate.isVisible().catch(()=>false)) continue;
+                  await candidate.click();
+                  await article.waitForTimeout(250);
+                  if(!article.url().includes('/article/')) continue;
+
+                  const save=article.getByRole('button',{name:'Save article'});
+                  const offline=article.getByRole('button',{name:'Download article for offline reading'});
+                  if(!await save.isVisible().catch(()=>false) || !await offline.isVisible().catch(()=>false)) continue;
+
+                  await save.click();
+                  await article.getByText('Saved',{exact:true}).waitFor({timeout:5000});
+                  await offline.click();
+                  const available=article.getByText('Available offline',{exact:true});
+                  if(await available.waitFor({timeout:5000}).then(()=>true).catch(()=>false)){
+                    seeded=true;
+                    break;
+                  }
+                }
+                if(!seeded) throw new Error(viewport+' could not seed a source-backed public Home story for Saved/Offline evidence');
+                await article.waitForTimeout(300);
+                assertClean(viewport+' ownership-seed actions',homeSeed.diag,await inspect(article));
               }
 
               const captures=[
