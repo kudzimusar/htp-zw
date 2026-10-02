@@ -22,7 +22,7 @@ test("UI-03 anonymous Premium Reader uses only explicit public teaser authority"
   assert.match(sourceParity,/bodyHtml:accessPolicy==="premium" \? null/);
   assert.match(sourceParity,/premiumTeaserHtml:accessPolicy==="premium"/);
   assert.match(article,/parseArticleContent\(protectedBody \? null : story\.bodyHtml/);
-  assert.match(article,/previewArticle\.premiumTeaserHtml/);
+  assert.match(article,/publicStory\.premiumTeaserHtml/);
   assert.match(article,/premiumTeaserParagraph/);
   assert.match(article,/premiumTeaserBlock/);
   assert.match(article,/previewVisible/);
