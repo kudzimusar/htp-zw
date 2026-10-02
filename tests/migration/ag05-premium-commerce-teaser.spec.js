@@ -87,10 +87,15 @@ test('migration publishes only a bounded teaser projection', async () => {
 
 test('source-parity never fetches complete Premium WordPress content', async () => {
   const source = read('apps/mobile/src/services/source-parity.ts');
-  expect(source).toContain('const includeContent=current.accessPolicy==="public"');
+  const authority = read('apps/mobile/src/services/premium-teaser-authority.ts');
+  expect(source).toContain('getPublicPremiumTeaserAuthority(current.canonicalUrl)');
+  expect(source).toContain('sourceParityPremiumDetailDecision');
+  expect(source).toContain('wpPostQuery({includeContent:detailDecision.includeWordPressContent})');
   expect(source).toContain('bodyHtml:accessPolicy==="premium" ? null');
   expect(source).toContain('premiumTeaserHtml:accessPolicy==="premium" ? (fallback?.premiumTeaserHtml ?? null) : null');
-  expect(source).not.toMatch(/accessPolicy==="premium"[^\n]{0,120}includeContent\s*=\s*true/);
+  expect(authority).toContain('includeWordPressContent:accessPolicy==="public" && !taxonomyUnresolved');
+  expect(authority).toContain('ag05_public_story_teaser_document');
+  expect(authority).not.toContain('content.rendered');
 });
 
 test('migrated Reader consumes teaser-specific authority and keeps body protected', async () => {
