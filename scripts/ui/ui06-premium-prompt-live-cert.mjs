@@ -125,13 +125,14 @@ async function waitForPreview(page){
 async function popupMetrics(page,v){
   const box=await prompt(page).boundingBox();if(!box)block("P1","Premium prompt has no rendered bounds");
   const ov=await overflow(page);if(!ov.pass)block("P2","Premium prompt causes horizontal overflow");
-  const out={box,overflow:ov};
-  if(v.width<834){
-    const bottom=Math.abs((box.y+box.height)-v.height);
+  const actual=await page.evaluate(()=>({width:window.innerWidth,height:window.innerHeight}));
+  const out={box,overflow:ov,actual_viewport:actual};
+  if(actual.width<834){
+    const bottom=Math.abs((box.y+box.height)-actual.height);
     out.mobile_bottom_gap=bottom;
-    if(bottom>8)block("P2","Mobile Premium prompt is not bottom anchored");
+    if(bottom>8)block("P2","Mobile Premium prompt is not bottom anchored; gap="+bottom.toFixed(1)+"px actualHeight="+actual.height);
   }else{
-    out.center_delta_x=Math.abs((box.x+box.width/2)-(v.width/2));
+    out.center_delta_x=Math.abs((box.x+box.width/2)-(actual.width/2));
     if(box.width>620||out.center_delta_x>24)block("P2","Tablet/desktop Premium prompt is not centered/bounded");
   }
   return out;
