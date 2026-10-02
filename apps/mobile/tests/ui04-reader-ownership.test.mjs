@@ -53,6 +53,9 @@ test("Phase 5 Edition keeps one primary edition and progressively discloses sour
   assert.match(edition,/TOPIC_LIMIT=8/);
   assert.match(edition,/services\.taxonomy\.getSnapshot/);
   assert.match(edition,/services\.reader\.getPreferences/);
+  assert.match(edition,/taxonomy\.loading \|\| preferences\.loading/);
+  assert.match(edition,/Loading edition preferences…/);
+  assert.match(edition,/Edition preferences are temporarily unavailable/);
   assert.match(edition,/accessibilityRole="radiogroup"/);
   assert.match(edition,/accessibilityRole="radio"/);
   assert.match(edition,/Show More Countries\/Regions/);
