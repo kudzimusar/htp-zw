@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { basename, join } from "node:path";
+import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { basename, join, relative } from "node:path";
 
 const dir=process.env.EVIDENCE_DIR;
 if(!dir) throw new Error("EVIDENCE_DIR is required");
@@ -30,6 +30,7 @@ const routes={
   "home-dark":"/",
   "article-dark":"/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks",
   "premium-dark":"/article/source-us-embassy-challenges-zimbabwe-rejected-health-mou",
+  "premium-landing-dark":"/premium",
   "watch-dark":"/watch",
   "my-healthtimes-dark":"/my",
   "tablet-home":"/",
@@ -49,17 +50,30 @@ const states={
   "premium-locked-light":"anonymous Premium article locked/paywall",
   "watch-external-youtube":"external source-backed YouTube destination invoked",
   "listen-truthful":"truthful non-playable Listen state",
-  "appearance-dark-selected":"HealthTimes Appearance preference set to Dark"
+  "edition-light":"primary Edition changed to Africa and persisted on device",
+  "appearance-dark-selected":"HealthTimes Appearance preference set to Dark",
+  "premium-landing-dark":"Premium landing rendered with the HealthTimes Dark appearance preference"
 };
 
-const files=readdirSync(dir).filter((name)=>name.endsWith(".png")).sort();
+function walk(root){
+  const result=[];
+  for(const name of readdirSync(root)){
+    const path=join(root,name);
+    if(statSync(path).isDirectory()) result.push(...walk(path));
+    else result.push(path);
+  }
+  return result;
+}
+
+const pngPaths=walk(dir).filter((path)=>path.toLowerCase().endsWith(".png")).sort();
 const errorFile=join(dir,"native-errors.log");
 const nativeErrors=existsSync(errorFile)
   ? readFileSync(errorFile,"utf8").split(/\r?\n/).filter(Boolean).slice(0,200)
   : [];
 
-const screens=files.map((file)=>{
-  const key=basename(file,".png");
+const screens=pngPaths.map((path)=>{
+  const file=relative(dir,path);
+  const key=basename(path,".png");
   const keyboard=key==="search-keyboard"
     ? "CAPTURED — native keyboard/focus evidence"
     : "NOT APPLICABLE";
@@ -71,7 +85,7 @@ const screens=files.map((file)=>{
     key==="offline-persistence" ? "Offline state persisted across route transition" :
     key==="watch-external-youtube" ? "Source-backed Watch destination invoked" :
     key==="edition-light" ? "Primary Edition changed to Africa and preferences persisted on device" :
-    key==="tablet-edition" ? "Edition route rendered for tablet interaction review" :
+    key==="tablet-edition" ? "My HealthTimes navigated into Edition on tablet" :
     key==="my-healthtimes-light"||key==="my-healthtimes-dark"||key==="tablet-my-healthtimes" ? "My HealthTimes navigation surface rendered" :
     "screen resolved and captured";
   return {
@@ -93,6 +107,10 @@ const screens=files.map((file)=>{
   };
 });
 
+if(screens.length===0){
+  throw new Error("No native screenshots were found beneath "+dir);
+}
+
 const manifest={
   phase:"UI-02 Phase 6A Native Cross-Device Realization",
   candidateSha:sha,
@@ -110,6 +128,7 @@ const manifest={
   unavailableMatrixCells:[],
   authorityPreservation:{
     canonicalReader:"apps/mobile",
+    acceptedPhase1To5ProductMutation:false,
     ag05Mutation:false,
     ag06AuthorizationMutation:false,
     premiumEntitlementMutation:false,
