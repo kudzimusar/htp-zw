@@ -11,12 +11,37 @@ const browser=await chromium.launch({headless:true});
 const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
 const page=await context.newPage();
 const requests=[];
-page.on("request",r=>requests.push({url:r.url(),method:r.method(),type:r.resourceType()}));
+page.on("request",r=>{
+  let p_path=null;
+  if(r.url().includes("ag05_public_story_teaser_document")){
+    try{p_path=r.postDataJSON()?.p_path??null;}catch{}
+  }
+  requests.push({url:r.url(),method:r.method(),type:r.resourceType(),p_path});
+});
 
+const premiumSlug="zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
 const rpcPromise=page.waitForResponse(r=>r.url().includes("ag05_public_story_teaser_document"),{timeout:35000}).catch(()=>null);
+const wpMetadataPromise=page.waitForResponse(r=>{
+  try{
+    const u=new URL(r.url());
+    if(u.hostname!=="healthtimes.co.zw"||!u.pathname.includes("/wp-json/wp/v2/posts")) return false;
+    if(u.searchParams.get("slug")!==premiumSlug) return false;
+    const fields=decodeURIComponent(u.searchParams.get("_fields")??"");
+    return !fields.split(",").includes("content");
+  }catch{return false;}
+},{timeout:35000}).catch(()=>null);
 const response=await page.goto(base+route,{waitUntil:"domcontentloaded",timeout:35000});
 await page.waitForFunction(()=>!document.body.innerText.includes("Loading article…"),null,{timeout:35000}).catch(()=>{});
 const rpc=await rpcPromise;
+const wpMetadataResponse=await wpMetadataPromise;
+let wp_metadata=null;
+if(wpMetadataResponse){
+  try{
+    const payload=await wpMetadataResponse.json();
+    const row=Array.isArray(payload)?payload[0]:null;
+    wp_metadata={http_status:wpMetadataResponse.status(),row_count:Array.isArray(payload)?payload.length:0,source_id:row?.id??null,slug:row?.slug??null,link:row?.link??null};
+  }catch(error){wp_metadata={http_status:wpMetadataResponse.status(),parse_error:String(error)};}
+}
 let authority=null;
 if(rpc){
   try{
@@ -25,8 +50,8 @@ if(rpc){
     const html=typeof raw?.premium_teaser_html==="string"?raw.premium_teaser_html:"";
     authority={
       http_status:rpc.status(),
-      response_shape:Array.isArray(payload)?"array":"object",
-      row_count:Array.isArray(payload)?payload.length:1,
+      response_shape:payload===null?"null":Array.isArray(payload)?"array":"object",
+      row_count:payload===null?0:Array.isArray(payload)?payload.length:1,
       source_id:String(raw?.source_id??""),
       access_policy:String(raw?.access_policy??""),
       body_html_null:raw?.body_html===null,
@@ -60,6 +85,9 @@ const result={
   route,
   viewport:{width:390,height:844},
   authority,
+  wp_metadata,
+  teaser_requested_p_path:requests.find(x=>x.url.includes("ag05_public_story_teaser_document"))?.p_path??null,
+  wordpress_requests:requests.filter(x=>x.url.includes("healthtimes.co.zw/wp-json/wp/v2/posts")).map(x=>x.url),
   premium_badge_visible:badge,
   initial_state,
   preview_visible:initial_state==="preview",
