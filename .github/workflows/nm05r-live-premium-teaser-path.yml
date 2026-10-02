@@ -3,7 +3,7 @@ name: NM-05R Premium Teaser Path Resolution
 on:
   push:
     branches:
-      - fix/nm05-live-premium-teaser-path-resolution
+      - fix/nm05r2-premium-teaser-authority-first
   workflow_dispatch:
 
 permissions:
@@ -101,7 +101,9 @@ jobs:
           if(evidence.repaired.wordpress_content_field_requests!==0) throw new Error("Premium WordPress content request detected");
           if(evidence.repaired.protected_article_requests!==0) throw new Error("protected article request detected");
           if(evidence.repaired.automatic_commerce_requests!==0) throw new Error("automatic commerce request detected");
-          if(evidence.metadata_failure.requested_p_path!==null) throw new Error("metadata failure must not attempt teaser lookup");
+          if(evidence.metadata_failure.requested_p_path!==expected) throw new Error("metadata failure must still resolve bounded dated teaser path");
+          if(evidence.metadata_failure.wordpress_content_field_requests!==0) throw new Error("metadata failure exposed WordPress content");
+          if(evidence.metadata_failure.live_teaser?.source_id!=="33190") throw new Error("metadata failure lost bounded teaser authority");
           if(!evidence.public_comparison.public_body_visible) throw new Error("public comparison body unavailable");
           if(evidence.repaired.live_teaser?.source_id!=="33190") throw new Error("live teaser source mismatch");
           if(evidence.repaired.live_teaser?.teaser_paragraph_count!==1) throw new Error("teaser paragraph count mismatch");
@@ -110,7 +112,7 @@ jobs:
             "apps/mobile/dist/nm05r-build-info.json",
             JSON.stringify({
               sha:process.env.GITHUB_SHA,
-              branch:"fix/nm05-live-premium-teaser-path-resolution",
+              branch:"fix/nm05r2-premium-teaser-authority-first",
               pre_remediation_p_path:"/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/",
               post_remediation_p_path:evidence.repaired.requested_p_path,
               pages_deployed:false
