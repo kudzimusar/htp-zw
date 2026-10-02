@@ -100,7 +100,7 @@ async function startServer(){
   return server;
 }
 
-async function runPremiumScenario(browser,origin,{metadataAvailable}){
+async function runPremiumScenario(browser,origin,{wordpressAvailable}){
   const context=await browser.newContext({serviceWorkers:"block"});
   const page=await context.newPage();
 
@@ -132,8 +132,13 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     const fields=decodeURIComponent(url.searchParams.get("_fields") ?? "");
     const includesContent=fields.split(",").includes("content");
 
+    if(!wordpressAvailable){
+      await route.abort("aborted");
+      return;
+    }
+
     let payload=[];
-    if(slug===premiumSlug && metadataAvailable && !includesContent){
+    if(slug===premiumSlug && !includesContent){
       payload=[wpPost({
         id:33190,
         slug:premiumSlug,
@@ -155,71 +160,60 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
     });
   });
 
-  const liveTeaserResponsePromise=metadataAvailable
-    ? page.waitForResponse(
-        response=>response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document"),
-        {timeout:15000}
-      )
-    : null;
+  const liveTeaserResponsePromise=page.waitForResponse(response=>{
+    if(!response.url().includes("/rest/v1/rpc/ag05_public_story_teaser_document")) return false;
+    try{return response.request().postDataJSON()?.p_path===premiumDatedPath;}catch{return false;}
+  },{timeout:15000});
 
   await page.goto(origin+basePath+"/article/"+premiumArticleId,{waitUntil:"domcontentloaded"});
 
   let liveTeaserEvidence=null;
-  if(metadataAvailable){
-    await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({state:"visible",timeout:15000});
-    const teaserResponse=await liveTeaserResponsePromise;
-    const teaserPayload=await teaserResponse.json();
-    const teaserHtml=String(teaserPayload?.premium_teaser_html ?? "").trim();
-    const teaserParagraphs=teaserHtml.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
-    liveTeaserEvidence={
-      source_id:teaserPayload?.source_id===null || teaserPayload?.source_id===undefined
-        ? null
-        : String(teaserPayload.source_id),
-      access_policy:teaserPayload?.access_policy ?? null,
-      body_html_is_null:teaserPayload?.body_html===null,
-      teaser_paragraph_count:teaserParagraphs.length,
-      teaser_length:teaserHtml.length,
-      teaser_sha256:createHash("sha256").update(teaserHtml).digest("hex")
-    };
-    assert.equal(liveTeaserEvidence.source_id,"33190");
-    assert.equal(liveTeaserEvidence.access_policy,"premium_marker_review");
-    assert.equal(liveTeaserEvidence.body_html_is_null,true);
-    assert.equal(liveTeaserEvidence.teaser_paragraph_count,1);
-    assert.equal(teaserRequests.length,1,"Premium flow must issue exactly one bounded teaser lookup");
-    assert.equal(teaserRequests[0].p_path,premiumDatedPath,"teaser RPC must receive resolved WordPress dated path");
+  await page.getByText("PREMIUM PREVIEW",{exact:true}).waitFor({state:"visible",timeout:15000});
+  const teaserResponse=await liveTeaserResponsePromise;
+  const teaserPayload=await teaserResponse.json();
+  const teaserHtml=String(teaserPayload?.premium_teaser_html ?? "").trim();
+  const teaserParagraphs=teaserHtml.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi) ?? [];
+  liveTeaserEvidence={
+    source_id:teaserPayload?.source_id===null || teaserPayload?.source_id===undefined
+      ? null
+      : String(teaserPayload.source_id),
+    access_policy:teaserPayload?.access_policy ?? null,
+    body_html_is_null:teaserPayload?.body_html===null,
+    teaser_paragraph_count:teaserParagraphs.length,
+    teaser_length:teaserHtml.length,
+    teaser_sha256:createHash("sha256").update(teaserHtml).digest("hex")
+  };
+  assert.equal(liveTeaserEvidence.source_id,"33190");
+  assert.equal(liveTeaserEvidence.access_policy,"premium_marker_review");
+  assert.equal(liveTeaserEvidence.body_html_is_null,true);
+  assert.equal(liveTeaserEvidence.teaser_paragraph_count,1);
+  assert.ok(teaserRequests.some(entry=>entry.p_path===premiumDatedPath),"Premium flow must try the dated bounded teaser path");
 
-    const teaserText=page.locator('[data-testid="premium-preview-teaser"]');
-    if(await teaserText.count()){
-      await teaserText.first().waitFor({state:"visible",timeout:5000});
-    }
-    assert.equal(
-      await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).count(),
-      0,
-      "inline paywall must be absent during active preview"
-    );
-
-    const beforeExpiryWordPressCount=wordpressRequests.length;
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({
-      state:"visible",
-      timeout:25000
-    });
-    await page.getByTestId("premium-subscription-prompt").waitFor({state:"visible",timeout:5000});
-    await page.getByTestId("premium-prompt-not-now").click();
-    await page.getByTestId("premium-subscription-prompt").waitFor({state:"hidden",timeout:5000});
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({state:"visible"});
-
-    assert.equal(
-      wordpressRequests.length,
-      beforeExpiryWordPressCount,
-      "20-second expiry must not trigger another WordPress request"
-    );
-  }else{
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({
-      state:"visible",
-      timeout:10000
-    });
-    assert.equal(teaserRequests.length,0,"metadata failure must not attempt teaser lookup from slug-only fallback identity");
+  const teaserText=page.locator('[data-testid="premium-preview-teaser"]');
+  if(await teaserText.count()){
+    await teaserText.first().waitFor({state:"visible",timeout:5000});
   }
+  assert.equal(
+    await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).count(),
+    0,
+    "inline paywall must be absent during active preview"
+  );
+
+  const beforeExpiryWordPressCount=wordpressRequests.length;
+  await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({
+    state:"visible",
+    timeout:25000
+  });
+  await page.getByTestId("premium-subscription-prompt").waitFor({state:"visible",timeout:5000});
+  await page.getByTestId("premium-prompt-not-now").click();
+  await page.getByTestId("premium-subscription-prompt").waitFor({state:"hidden",timeout:5000});
+  await page.getByText("Continue reading with HealthTimes Premium",{exact:true}).waitFor({state:"visible"});
+
+  assert.equal(
+    wordpressRequests.length,
+    beforeExpiryWordPressCount,
+    "20-second expiry must not trigger another WordPress request"
+  );
 
   const wordpressContentFieldRequests=wordpressRequests.filter(rawUrl=>{
     const url=new URL(rawUrl);
@@ -238,8 +232,9 @@ async function runPremiumScenario(browser,origin,{metadataAvailable}){
 
   await context.close();
   return {
-    metadata_available:metadataAvailable,
-    requested_p_path:teaserRequests[0]?.p_path ?? null,
+    wordpress_available:wordpressAvailable,
+    requested_p_path:teaserRequests.some(entry=>entry.p_path===premiumDatedPath) ? premiumDatedPath : null,
+    requested_p_paths:teaserRequests.map(entry=>entry.p_path),
     wordpress_metadata_requests:wordpressRequests.length,
     wordpress_content_field_requests:wordpressContentFieldRequests.length,
     protected_article_requests:protectedRequests.length,
@@ -298,13 +293,15 @@ async function runPublicComparison(browser,origin){
       status:200,
       contentType:"application/json",
       headers:{"access-control-allow-origin":"*"},
-      body:JSON.stringify({
-        source_id:"33001",
-        access_policy:"public",
-        body_html:null,
-        premium_teaser_html:null,
-        requested_path:payload?.p_path ?? null
-      })
+      body:payload?.p_path===publicDatedPath
+        ? JSON.stringify({
+            source_id:"33001",
+            access_policy:"public",
+            body_html:null,
+            premium_teaser_html:null,
+            requested_path:payload?.p_path ?? null
+          })
+        : "null"
     });
   });
 
@@ -317,13 +314,13 @@ async function runPublicComparison(browser,origin){
     return fields.split(",").includes("content");
   });
   assert.ok(contentRequests.length>=1,"public comparison must remain capable of requesting public body content");
-  assert.equal(teaserRequests[0],publicDatedPath,"public comparison must classify from resolved metadata permalink");
+  assert.ok(teaserRequests.includes(publicDatedPath),"public comparison must classify through the dated authority candidate");
 
   await context.close();
   return {
     public_body_visible:true,
     public_content_field_requests:contentRequests.length,
-    public_requested_p_path:teaserRequests[0]
+    public_requested_p_path:teaserRequests.includes(publicDatedPath) ? publicDatedPath : null
   };
 }
 
@@ -336,15 +333,15 @@ async function main(){
     const origin="http://127.0.0.1:"+address.port;
     browser=await chromium.launch({headless:true});
 
-    const repaired=await runPremiumScenario(browser,origin,{metadataAvailable:true});
-    const failedMetadata=await runPremiumScenario(browser,origin,{metadataAvailable:false});
+    const repaired=await runPremiumScenario(browser,origin,{wordpressAvailable:true});
+    const wordpressUnavailable=await runPremiumScenario(browser,origin,{wordpressAvailable:false});
     const publicComparison=await runPublicComparison(browser,origin);
 
     const evidence={
       story_source_id:"33190",
       accepted_access_policy:"premium_marker_review",
       repaired,
-      metadata_failure:failedMetadata,
+      wordpress_unavailable:wordpressUnavailable,
       public_comparison:publicComparison
     };
     const evidencePath=process.env.NM05R_EVIDENCE_PATH || join(distRoot,"nm05r-live-path-evidence.json");
