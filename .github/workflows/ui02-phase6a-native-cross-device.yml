@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feat/ui02-phase6-native-cross-device-certification
-  pull_request:
   workflow_dispatch:
 
 permissions:
