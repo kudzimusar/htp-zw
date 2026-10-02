@@ -18,6 +18,8 @@ test("Phase 5 Saved exposes only persisted Reader ownership states",()=>{
   assert.match(saved,/services\.reader\.getSavedArticleIds/);
   assert.match(saved,/services\.reader\.getDownloadedArticles/);
   assert.match(saved,/services\.reader\.getReadingHistoryIds/);
+  assert.match(saved,/services\.articles\.getById/);
+  assert.doesNotMatch(saved,/services\.articles\.getHome/);
   assert.doesNotMatch(saved,/Reader storage boundary|versioned device storage/);
   assert.doesNotMatch(saved,/"videos"|"audio"/);
 });
