@@ -77,6 +77,17 @@ test("appearance preference is HealthTimes-owned and persistent",()=>{
   assert.ok(persistence.includes("ht:nm04:reader:appearance:v1"));
 });
 
+test("Expo SDK 57 iOS Swift 6.2 build workaround is bounded and reproducible",()=>{
+  const pkg=JSON.parse(read("package.json"));
+  const patch=read("scripts/patch-expo-modules-jsi-runtime-scheduler.mjs");
+  assert.equal(pkg.scripts.postinstall,"node scripts/patch-expo-modules-jsi-runtime-scheduler.mjs");
+  assert.ok(patch.includes('version.startsWith("57.")'));
+  assert.ok(patch.includes('const annotated="SWIFT_RETURNS_RETAINED RuntimeScheduler("'));
+  assert.ok(patch.includes("annotationCount!==2"));
+  assert.ok(patch.includes('replaceAll(annotated,"RuntimeScheduler(")'));
+  assert.equal(patch.includes("SWIFT_SHARED_REFERENCE"),false);
+});
+
 test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
   const androidRunner=readRepo("scripts/native/ui02-phase6a-android-run.sh");
