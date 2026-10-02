@@ -36,7 +36,8 @@ const routes={
   "tablet-article":"/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks",
   "tablet-watch":"/watch",
   "tablet-my-healthtimes":"/my",
-  "tablet-edition":"/edition"
+  "tablet-edition":"/edition",
+  "tablet-home-landscape":"/"
 };
 
 const states={
@@ -69,7 +70,8 @@ const screens=files.map((file)=>{
     key==="saved-persistence" ? "Saved state persisted across route transition" :
     key==="offline-persistence" ? "Offline state persisted across route transition" :
     key==="watch-external-youtube" ? "Source-backed Watch destination invoked" :
-    key==="edition-light"||key==="tablet-edition" ? "Edition route rendered for interaction review" :
+    key==="edition-light" ? "Primary Edition changed to Africa and preferences persisted on device" :
+    key==="tablet-edition" ? "Edition route rendered for tablet interaction review" :
     key==="my-healthtimes-light"||key==="my-healthtimes-dark"||key==="tablet-my-healthtimes" ? "My HealthTimes navigation surface rendered" :
     "screen resolved and captured";
   return {
@@ -78,13 +80,13 @@ const screens=files.map((file)=>{
     deviceClass,
     deviceIdentity:device,
     osVersion,
-    orientation,
+    orientation:key.includes("landscape") ? "landscape" : orientation,
     screen:key,
     route:routes[key] ?? "unknown",
     screenshotFilename:file,
     resolvedState:states[key] ?? "resolved",
     nativeRuntimeErrors:nativeErrors,
-    layoutSafeAreaResult:"NO AUTOMATED OBSTRUCTION DETECTED BY COMPLETED MAESTRO JOURNEY; moderator must visually inspect screenshot/system UI",
+    layoutSafeAreaResult:"CAPTURED — native screenshot and completed journey available for moderator safe-area/system-UI inspection",
     keyboardResult:keyboard,
     appearance,
     testedInteractionResult:interaction
