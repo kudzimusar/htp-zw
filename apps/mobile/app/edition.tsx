@@ -79,6 +79,20 @@ export default function EditionScreen(){
     <Page title="Edition & Preferences">
       <Text style={[styles.lede,{color:palette.inkMuted}]}>Choose one primary edition for Home, then separately follow places and topics you want to see more often.</Text>
 
+      {(taxonomy.loading || preferences.loading) && (
+        <Section>
+          <Text accessibilityLiveRegion="polite" style={[styles.stateText,{color:palette.inkMuted}]}>Loading edition preferences…</Text>
+        </Section>
+      )}
+
+      {!taxonomy.loading && !preferences.loading && (taxonomy.error || preferences.error) && (
+        <Section>
+          <EmptyState title="Edition preferences are temporarily unavailable" message="Countries, regions and topics could not be loaded. Try again shortly." />
+        </Section>
+      )}
+
+      {!taxonomy.loading && !preferences.loading && !taxonomy.error && !preferences.error && (
+        <>
       <View style={[styles.searchWrap,{borderColor:palette.border,backgroundColor:palette.paper}]}>
         <TextInput
           value={query}
@@ -170,6 +184,8 @@ export default function EditionScreen(){
         </Pressable>
         {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
       </Section>
+        </>
+      )}
     </Page>
   );
 }
@@ -193,5 +209,6 @@ const styles=StyleSheet.create({
   noteText:{fontSize:14,lineHeight:21},
   save:{marginTop:spacing.lg,minHeight:52,alignSelf:"stretch",maxWidth:520,justifyContent:"center",alignItems:"center",paddingHorizontal:18,borderRadius:radius.sm},
   saveText:{fontWeight:"900",fontSize:15},
-  status:{fontSize:12,marginTop:spacing.sm}
+  status:{fontSize:12,marginTop:spacing.sm},
+  stateText:{fontSize:14,lineHeight:22}
 });
