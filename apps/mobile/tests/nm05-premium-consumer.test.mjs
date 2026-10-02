@@ -320,17 +320,19 @@ test("repository integration preserves protected-body and platform authority bou
 
   assert.match(sourceParity,/wpPostQuery\(\{includeContent:false\}\)/);
   assert.match(sourceParity,/const metadataPost=metadata\?\.\[0\] \?\? null/);
-  assert.match(sourceParity,/trustedPremiumSourceUrl=metadataPost\?\.link/);
-  assert.match(sourceParity,/getPublicPremiumTeaserAuthority\(trustedPremiumSourceUrl\)/);
+  assert.match(sourceParity,/currentPermalinkCandidate=metadataPost\?\.link/);
+  assert.match(sourceParity,/datedPermalinkCandidate=metadataPost \? legacyDatedPermalinkCandidate\(metadataPost\) : null/);
+  assert.match(sourceParity,/getPublicPremiumTeaserAuthority\(currentPermalinkCandidate\)/);
+  assert.match(sourceParity,/getPublicPremiumTeaserAuthority\(datedPermalinkCandidate\)/);
   assert.match(sourceParity,/if\(!detailDecision\.includeWordPressContent\)\{[\s\S]*return boundedCurrent/);
   assert.match(sourceParity,/wpPostQuery\(\{includeContent:true\}\)/);
   assert.doesNotMatch(sourceParity,/getPublicPremiumTeaserAuthority\(current\.canonicalUrl\)/);
   assert.ok(
     sourceParity.indexOf("wpPostQuery({includeContent:false})") <
-      sourceParity.indexOf("getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)")
+      sourceParity.indexOf("getPublicPremiumTeaserAuthority(currentPermalinkCandidate)")
   );
   assert.ok(
-    sourceParity.indexOf("getPublicPremiumTeaserAuthority(trustedPremiumSourceUrl)") <
+    sourceParity.indexOf("getPublicPremiumTeaserAuthority(datedPermalinkCandidate)") <
       sourceParity.indexOf("wpPostQuery({includeContent:true})")
   );
   assert.match(sourceParity,/bodyHtml:accessPolicy==="premium" \? null/);
