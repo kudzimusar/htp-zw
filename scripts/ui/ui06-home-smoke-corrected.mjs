@@ -1,0 +1,41 @@
+import fs from "node:fs";
+import path from "node:path";
+import { chromium } from "@playwright/test";
+
+const base=(process.env.PUBLIC_URL||"https://kudzimusar.github.io/htp-zw").replace(/\/+$/,"");
+const expected=process.env.TARGET_DEPLOYED_SHA||"73f447552092f884cd48598e18c3d5793cd50759";
+const out=process.env.ARTIFACT_DIR||"artifacts/ui06/home-smoke-corrected";
+fs.mkdirSync(out,{recursive:true});
+
+const infoResponse=await fetch(base+"/build-info.json",{headers:{"cache-control":"no-cache"}});
+if(!infoResponse.ok) throw new Error("build-info HTTP "+infoResponse.status);
+const info=await infoResponse.json();
+if(info.sha!==expected) throw new Error("LIVE DEPLOYMENT CUSTODY CHANGED: expected "+expected+" got "+info.sha);
+
+const browser=await chromium.launch({headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+const page=await context.newPage();
+const pageErrors=[],consoleErrors=[];
+page.on("pageerror",e=>pageErrors.push(e.message||String(e)));
+page.on("console",m=>{if(m.type()==="error")consoleErrors.push(m.text());});
+const response=await page.goto(base+"/",{waitUntil:"domcontentloaded",timeout:35000});
+if(!response||response.status()>=400) throw new Error("Home HTTP/render "+(response?.status()??"none"));
+await page.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout:35000});
+const filters=page.getByLabel("Editorial filters");
+await filters.waitFor({state:"visible",timeout:35000});
+const heroLink=filters.locator("xpath=following::*[@role='link'][1]");
+await heroLink.waitFor({state:"visible",timeout:35000});
+const heroName=((await heroLink.getAttribute("aria-label"))||await heroLink.innerText()).trim();
+const heroBox=await heroLink.boundingBox();
+if(!heroName||!heroBox||heroBox.width<1||heroBox.height<1) throw new Error("Home Hero story link failed readiness");
+const promptVisible=await page.getByTestId("premium-subscription-prompt").isVisible().catch(()=>false);
+if(promptVisible) throw new Error("Premium popup appeared on Home");
+if(pageErrors.length) throw new Error("Home pageerror: "+pageErrors.join(" | "));
+if(consoleErrors.some(x=>/Minified React error #418|React error #418/i.test(x))) throw new Error("Home emitted React #418");
+await page.screenshot({path:path.join(out,"home-desktop.png"),fullPage:true});
+const evidence={wrapper:info.sha,status:response.status(),top_stories:true,editorial_filters:true,hero_ready:true,hero_name:heroName,hero_box:heroBox,premium_popup:false,react_418:false,pageerror_count:pageErrors.length,console_error_count:consoleErrors.length};
+fs.writeFileSync(path.join(out,"evidence.json"),JSON.stringify(evidence,null,2)+"\n");
+fs.writeFileSync(path.join(out,"summary.md"),"# UI-06 Corrected Home Smoke\n\nCORRECTED HOME SMOKE PASS — wrapper "+info.sha+" / Hero story link ready / React #418 absent / Premium popup absent\n");
+await context.close();
+await browser.close();
+console.log(JSON.stringify(evidence));
