@@ -20,11 +20,17 @@ adb reverse tcp:8081 tcp:8081
 METRO_PID=$!
 trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
 
-for i in $(seq 1 90); do
-  if (echo > /dev/tcp/127.0.0.1/8081) 2>/dev/null; then
+for i in $(seq 1 120); do
+  if ! kill -0 "$METRO_PID" 2>/dev/null; then
+    echo "Metro exited before the native evidence journey could start"
+    cat "$EVIDENCE_DIR/metro.log"
+    exit 1
+  fi
+  if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://127.0.0.1:8081/; then
     break
   fi
-  if [[ "$i" == "90" ]]; then
+  if [[ "$i" == "120" ]]; then
+    echo "Metro did not accept HTTP connections on 127.0.0.1:8081"
     cat "$EVIDENCE_DIR/metro.log"
     exit 1
   fi

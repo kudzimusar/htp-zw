@@ -102,9 +102,9 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(workflow.includes('MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"'));
   assert.ok(workflow.includes("scripts/native/ui02-phase6a-android-run.sh"));
   assert.ok(androidRunner.includes("maestro --device emulator-5554 test"));
-  assert.ok(androidRunner.includes("/dev/tcp/127.0.0.1/8081"));
+  assert.ok(androidRunner.includes("curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://127.0.0.1:8081/"));
   assert.ok(androidRunner.includes("EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost"));
-  assert.ok(androidRunner.includes("for i in $(seq 1 90); do"));
+  assert.ok(androidRunner.includes("for i in $(seq 1 120); do"));
   assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
   assert.ok(workflow.includes("ui02-phase6a-native-${{ github.event.pull_request.head.sha || github.sha }}"));
   assert.ok(workflow.includes("ui02-phase6a-native-evidence"));
