@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "HealthTimes Dev",
+    "slug": "healthtimes",
+    "version": "0.1.0",
+    "scheme": "healthtimes",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "zw.co.healthtimes.app.dev"
+    },
+    "android": {
+      "package": "zw.co.healthtimes.app.dev"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "extra": {
+      "environment": "development",
+      "product": "reader"
+    }
+  }
+}

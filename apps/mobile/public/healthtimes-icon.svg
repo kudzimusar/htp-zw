@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="HealthTimes">
+  <rect width="512" height="512" rx="80" fill="#071A2B"/>
+  <path d="M112 128h72v96h144v-96h72v256h-72V288H184v96h-72z" fill="#fff"/>
+  <rect x="224" y="192" width="64" height="160" rx="8" fill="#0A8F8F"/>
+</svg>
