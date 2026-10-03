@@ -338,10 +338,31 @@ async function publicComparison(browser,name,v){
 async function premiumLanding(browser,name,v){
   const c=await browser.newContext({viewport:v,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"premium-landing-"+name);
   try{
-    const status=await open(p,"/premium","Premium landing "+name);await p.getByText("HEALTHTIMES PREMIUM",{exact:true}).waitFor({state:"visible",timeout});await p.waitForFunction(()=>!document.body.innerText.includes("Checking member access…"),null,{timeout});
-    const body=await p.locator("body").innerText();if(body.includes("configuration-required")||/\$\s*\d+|free trial|MOST POPULAR/i.test(body))block("P2","Premium landing exposes engineering/fabricated commerce copy");
-    const stories=await p.getByLabel("Source-backed Premium journalism").getByRole("link").count().catch(()=>0),signIn=await p.getByRole("button",{name:/Sign in/i}).first().isVisible().catch(()=>false),restore=await p.getByRole("button",{name:/Restore/i}).first().isVisible().catch(()=>false);
-    const file=await shot(p,"premium/"+name+".png",{fullPage:true});return{status,viewport:name,...v,premium_story_count:stories,member_sign_in:signIn,restore,price_visible:false,screenshot:file,...assertRuntime("Premium landing "+name,d)};
+    const status=await open(p,"/premium","Premium landing "+name);
+    await p.getByText("HEALTHTIMES PREMIUM",{exact:true}).waitFor({state:"visible",timeout});
+    await p.waitForFunction(()=>!document.body.innerText.includes("Checking member access…"),null,{timeout});
+    await p.waitForFunction(()=>[
+      "Source-backed Premium journalism",
+      "Premium stories unavailable",
+      "Premium stories empty"
+    ].some(label=>document.querySelector('[aria-label="'+label+'"]')),null,{timeout});
+
+    const body=await p.locator("body").innerText();
+    if(body.includes("configuration-required")||/\$\s*\d+|free trial|MOST POPULAR/i.test(body))block("P2","Premium landing exposes engineering/fabricated commerce copy");
+
+    const sourceBacked=await p.getByLabel("Source-backed Premium journalism").isVisible().catch(()=>false);
+    const unavailable=await p.getByLabel("Premium stories unavailable").isVisible().catch(()=>false);
+    const empty=await p.getByLabel("Premium stories empty").isVisible().catch(()=>false);
+    const journalismState=sourceBacked?"source-backed":unavailable?"unavailable":empty?"empty":"unresolved";
+    const stories=sourceBacked
+      ? await p.getByLabel("Source-backed Premium journalism").getByRole("link").count()
+      : 0;
+    if(!sourceBacked || stories<1)block("P2","Premium landing lost source-backed Premium journalism after state resolution: "+journalismState+" / count="+stories);
+
+    const signIn=await p.getByRole("button",{name:/Sign in/i}).first().isVisible().catch(()=>false);
+    const restore=await p.getByRole("button",{name:/Restore/i}).first().isVisible().catch(()=>false);
+    const file=await shot(p,"premium/"+name+".png",{fullPage:true});
+    return{status,viewport:name,...v,premium_journalism_state:journalismState,premium_story_count:stories,member_sign_in:signIn,restore,price_visible:false,screenshot:file,...assertRuntime("Premium landing "+name,d)};
   }finally{await c.close();}
 }
 async function shellSmoke(browser){
