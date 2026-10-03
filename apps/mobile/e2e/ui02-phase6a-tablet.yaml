@@ -45,7 +45,11 @@ appId: zw.co.healthtimes.app.dev
     visible: "My HealthTimes"
     timeout: 20000
 - takeScreenshot: tablet-my-healthtimes
-
+- scrollUntilVisible:
+    element:
+      text: "Countries & Interests"
+    direction: DOWN
+    timeout: 20000
 - tapOn: "Countries & Interests"
 - extendedWaitUntil:
     visible: "Edition & Preferences"

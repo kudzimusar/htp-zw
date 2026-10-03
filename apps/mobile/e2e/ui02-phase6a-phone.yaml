@@ -94,9 +94,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- extendedWaitUntil:
-    visible: "Continue reading with HealthTimes Premium"
+- scrollUntilVisible:
+    element:
+      text: "Continue reading with HealthTimes Premium"
+    direction: DOWN
     timeout: 30000
+- assertVisible: "Continue reading with HealthTimes Premium"
 - assertVisible: "Go Premium"
 - takeScreenshot: premium-locked-light
 
@@ -174,6 +177,11 @@ appId: zw.co.healthtimes.app.dev
     visible: "My HealthTimes"
     timeout: 20000
 - takeScreenshot: my-healthtimes-light
+- scrollUntilVisible:
+    element:
+      text: "Countries & Interests"
+    direction: DOWN
+    timeout: 20000
 - tapOn: "Countries & Interests"
 - extendedWaitUntil:
     visible: "Edition & Preferences"
@@ -254,9 +262,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- extendedWaitUntil:
-    visible: "Continue reading with HealthTimes Premium"
+- scrollUntilVisible:
+    element:
+      text: "Continue reading with HealthTimes Premium"
+    direction: DOWN
     timeout: 30000
+- assertVisible: "Continue reading with HealthTimes Premium"
 - takeScreenshot: premium-dark
 
 - openLink: "healthtimes://premium"
