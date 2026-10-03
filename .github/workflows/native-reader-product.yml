@@ -1,0 +1,139 @@
+name: Native Reader Product Gates
+
+on:
+  push:
+    paths:
+      - "apps/mobile/**"
+      - "api/commerce.js"
+      - "lib/ag05-*.js"
+      - "tests/migration/ag05-premium-commerce-teaser.spec.js"
+      - "supabase/migrations/20261002060846_ag05_premium_teaser_public_projection.sql"
+      - "supabase/migrations/20261002061027_ag05_premium_teaser_helper_privilege_hardening.sql"
+      - "docs/native-mobile/NM-05_GROWTH_ADS_PRIVACY_POLICY.md"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.js"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/native-reader-product.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "api/commerce.js"
+      - "lib/ag05-*.js"
+      - "tests/migration/ag05-premium-commerce-teaser.spec.js"
+      - "supabase/migrations/20261002060846_ag05_premium_teaser_public_projection.sql"
+      - "supabase/migrations/20261002061027_ag05_premium_teaser_helper_privilege_hardening.sql"
+      - "docs/native-mobile/NM-05_GROWTH_ADS_PRIVACY_POLICY.md"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.js"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/native-reader-product.yml"
+  workflow_dispatch:
+
+jobs:
+  reader-product:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Install mobile dependencies
+        run: npm install --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+
+      - id: native_check
+        name: Native check
+        continue-on-error: true
+        run: npm run native:check
+      - id: reader_product
+        name: Reader product
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:reader-product
+      - id: reader_fidelity
+        name: Reader fidelity
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:reader-fidelity
+      - id: source_parity
+        name: Source parity
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:source-parity
+      - id: premium_hospaz
+        name: Premium HOSPAZ
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:premium-hospaz
+      - id: growth_commercial
+        name: Growth commercial
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:growth-commercial
+      - id: ui03
+        name: UI-03
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:ui03
+      - id: nm05_consumer
+        name: NM-05 Premium consumer
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:nm05-premium-consumer
+      - id: nm05_live
+        name: NM-05 Premium live
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:nm05-premium-live
+      - id: ag05_teaser
+        name: AG-05 Premium commerce teaser
+        continue-on-error: true
+        run: npx playwright test tests/migration/ag05-premium-commerce-teaser.spec.js
+      - id: foundation
+        name: Reader foundation
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:foundation
+      - id: content_contracts
+        name: Content contracts
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:content-contracts
+      - id: identity_security
+        name: Identity security
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:identity-security
+      - id: migrated
+        name: Migrated corpus
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:migrated-corpus
+      - id: export_web
+        name: Export Web
+        continue-on-error: true
+        run: npm run native:export:web
+
+      - name: Assert all required and relevant Reader gates passed
+        env:
+          NATIVE_CHECK: ${{ steps.native_check.outcome }}
+          READER_PRODUCT: ${{ steps.reader_product.outcome }}
+          READER_FIDELITY: ${{ steps.reader_fidelity.outcome }}
+          SOURCE_PARITY: ${{ steps.source_parity.outcome }}
+          PREMIUM_HOSPAZ: ${{ steps.premium_hospaz.outcome }}
+          GROWTH_COMMERCIAL: ${{ steps.growth_commercial.outcome }}
+          UI03: ${{ steps.ui03.outcome }}
+          NM05_CONSUMER: ${{ steps.nm05_consumer.outcome }}
+          NM05_LIVE: ${{ steps.nm05_live.outcome }}
+          AG05_TEASER: ${{ steps.ag05_teaser.outcome }}
+          FOUNDATION: ${{ steps.foundation.outcome }}
+          CONTENT_CONTRACTS: ${{ steps.content_contracts.outcome }}
+          IDENTITY_SECURITY: ${{ steps.identity_security.outcome }}
+          MIGRATED: ${{ steps.migrated.outcome }}
+          EXPORT_WEB: ${{ steps.export_web.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          for name in NATIVE_CHECK READER_PRODUCT READER_FIDELITY SOURCE_PARITY PREMIUM_HOSPAZ GROWTH_COMMERCIAL UI03 NM05_CONSUMER NM05_LIVE AG05_TEASER FOUNDATION CONTENT_CONTRACTS IDENTITY_SECURITY MIGRATED EXPORT_WEB; do
+            value="${!name}"
+            printf '%s=%s\n' "$name" "$value"
+            if [[ "$value" != "success" ]]; then failed=1; fi
+          done
+          exit "$failed"
