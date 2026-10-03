@@ -140,3 +140,15 @@ test("Phase 6A evidence is current-attempt scoped and fails closed on native run
   assert.ok(manifest.includes("Actionable native runtime errors detected"));
   assert.ok(manifest.includes("runAttempt"));
 });
+
+
+test("Phase 6A tablet Home portrait evidence is captured only after the resolved landscape Home pass",()=>{
+  const tablet=read("e2e/ui02-phase6a-tablet.yaml");
+  const landscape=tablet.indexOf("- takeScreenshot: tablet-home-landscape");
+  const portraitReset=tablet.indexOf("- setOrientation: PORTRAIT");
+  const portraitCapture=tablet.lastIndexOf("- takeScreenshot: tablet-home");
+  assert.ok(landscape>=0);
+  assert.ok(portraitReset>landscape);
+  assert.ok(portraitCapture>portraitReset);
+  assert.ok(tablet.slice(portraitReset,portraitCapture).includes("- waitForAnimationToEnd"));
+});

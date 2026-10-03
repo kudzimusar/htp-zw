@@ -5,7 +5,6 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 240000
-- takeScreenshot: tablet-home
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
@@ -82,3 +81,8 @@ appId: zw.co.healthtimes.app.dev
     timeout: 240000
 - takeScreenshot: tablet-home-landscape
 - setOrientation: PORTRAIT
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 20000
+- takeScreenshot: tablet-home
