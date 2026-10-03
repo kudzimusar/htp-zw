@@ -124,6 +124,13 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
 });
 
 
+test("native push module initializes only after explicit reader registration request",()=>{
+  const push=read("src/security/push.ts");
+  assert.equal(push.includes('import * as Notifications from "expo-notifications"'),false);
+  assert.ok(push.includes('await import("expo-notifications")'));
+});
+
+
 test("Phase 6A evidence is current-attempt scoped and fails closed on native runtime errors",()=>{
   const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
   const manifest=readRepo("scripts/native/ui02-phase6a-manifest.mjs");
