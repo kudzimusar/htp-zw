@@ -83,8 +83,11 @@ test("Expo SDK 57 iOS Swift 6.2 build workaround is bounded and reproducible",()
   assert.equal(pkg.scripts.postinstall,"node scripts/patch-expo-modules-jsi-runtime-scheduler.mjs");
   assert.ok(patch.includes('version.startsWith("57.")'));
   assert.ok(patch.includes('const annotated="SWIFT_RETURNS_RETAINED RuntimeScheduler("'));
-  assert.ok(patch.includes("annotationCount!==2"));
+  assert.ok(patch.includes("Expected zero or two invalid RuntimeScheduler ownership annotations"));
   assert.ok(patch.includes('replaceAll(annotated,"RuntimeScheduler(")'));
+  assert.ok(patch.includes('const swift6="swiftLanguageModes: [.v6]"'));
+  assert.ok(patch.includes('const swift5="swiftLanguageModes: [.v5]"'));
+  assert.ok(patch.includes("Swift 5 compatibility mode did not apply cleanly"));
   assert.equal(patch.includes("SWIFT_SHARED_REFERENCE"),false);
 });
 
@@ -101,10 +104,12 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(workflow.includes("version[:2] != (26,2)"));
   assert.ok(workflow.includes('MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"'));
   assert.ok(workflow.includes("scripts/native/ui02-phase6a-android-run.sh"));
+  assert.ok(workflow.includes("Build self-contained Android release APK"));
+  assert.ok(workflow.includes("./gradlew assembleRelease --no-daemon"));
+  assert.ok(androidRunner.includes("app/build/outputs/apk/release/app-release.apk"));
   assert.ok(androidRunner.includes("maestro --device emulator-5554 test"));
-  assert.ok(androidRunner.includes("curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://localhost:8081/"));
-  assert.ok(androidRunner.includes("EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost"));
-  assert.ok(androidRunner.includes("for i in $(seq 1 120); do"));
+  assert.equal(androidRunner.includes("expo start"),false);
+  assert.equal(androidRunner.includes("adb reverse"),false);
   assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
   assert.ok(workflow.includes("ui02-phase6a-native-${{ github.event.pull_request.head.ref || github.ref }}"));
   assert.ok(workflow.includes("ui02-phase6a-native-evidence"));

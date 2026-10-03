@@ -10,36 +10,16 @@ EVIDENCE_DIR="ui02-phase6a-native-evidence/android-${DEVICE_CLASS}"
 mkdir -p "$EVIDENCE_DIR"
 adb wait-for-device
 adb shell cmd uimode night no || true
-adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-adb reverse tcp:8081 tcp:8081
+adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
 
-(
-  cd apps/mobile
-  CI=1 EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1
-) &
-METRO_PID=$!
-trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
-
-for i in $(seq 1 120); do
-  if ! kill -0 "$METRO_PID" 2>/dev/null; then
-    echo "Metro exited before the native evidence journey could start"
-    cat "$EVIDENCE_DIR/metro.log"
-    exit 1
-  fi
-  if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://localhost:8081/; then
-    break
-  fi
-  if [[ "$i" == "120" ]]; then
-    echo "Metro did not accept HTTP connections on localhost:8081"
-    cat "$EVIDENCE_DIR/metro.log"
-    exit 1
-  fi
-  sleep 2
-done
-
+# The release evidence binary is self-contained: its JS bundle is embedded at
+# Gradle build time. Do not make native certification depend on a host Metro
+# process or a resized/browser substitute.
 maestro --device emulator-5554 test --test-output-dir "$EVIDENCE_DIR" "$FLOW"
 
-adb logcat -d '*:E' 2>/dev/null   | grep -Ei 'healthtimes|ReactNativeJS|AndroidRuntime'   > "$EVIDENCE_DIR/native-errors.log" || true
+adb logcat -d '*:E' 2>/dev/null \
+  | grep -Ei 'healthtimes|ReactNativeJS|AndroidRuntime' \
+  > "$EVIDENCE_DIR/native-errors.log" || true
 
 DEVICE_NAME="$(adb shell getprop ro.product.model | tr -d '\r')"
 OS_VERSION="$(adb shell getprop ro.build.version.release | tr -d '\r')"

@@ -14,38 +14,52 @@ const headerPath=join(
   "include",
   "RuntimeScheduler.h"
 );
+const swiftPackagePath=join(moduleRoot,"apple","Package.swift");
 
-if(!existsSync(packagePath) || !existsSync(headerPath)){
-  throw new Error("expo-modules-jsi RuntimeScheduler patch target is missing");
+for(const path of [packagePath,headerPath,swiftPackagePath]){
+  if(!existsSync(path)){
+    throw new Error(`expo-modules-jsi compatibility patch target is missing: ${path}`);
+  }
 }
 
 const packageJson=JSON.parse(readFileSync(packagePath,"utf8"));
 if(typeof packageJson.version!=="string" || !packageJson.version.startsWith("57.")){
-  throw new Error(`Refusing RuntimeScheduler workaround outside expo-modules-jsi 57.x (found ${packageJson.version ?? "unknown"})`);
+  throw new Error(`Refusing ExpoModulesJSI compatibility workaround outside 57.x (found ${packageJson.version ?? "unknown"})`);
 }
 
-const source=readFileSync(headerPath,"utf8");
 const annotated="SWIFT_RETURNS_RETAINED RuntimeScheduler(";
-const annotationCount=source.split(annotated).length-1;
-
-if(annotationCount===0){
-  if(!source.includes("RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept") || !source.includes("RuntimeScheduler() {}")){
+let header=readFileSync(headerPath,"utf8");
+const annotationCount=header.split(annotated).length-1;
+if(annotationCount===2){
+  header=header.replaceAll(annotated,"RuntimeScheduler(");
+  writeFileSync(headerPath,header);
+}else if(annotationCount===0){
+  if(!header.includes("RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept") || !header.includes("RuntimeScheduler() {}")){
     throw new Error("RuntimeScheduler constructors do not match the known Expo SDK 57 shape");
   }
-  console.log(`expo-modules-jsi ${packageJson.version}: RuntimeScheduler workaround already unnecessary/applied`);
-  process.exit(0);
+}else{
+  throw new Error(`Expected zero or two invalid RuntimeScheduler ownership annotations; found ${annotationCount}`);
 }
 
-if(annotationCount!==2){
-  throw new Error(`Expected exactly two invalid RuntimeScheduler ownership annotations; found ${annotationCount}`);
+let swiftPackage=readFileSync(swiftPackagePath,"utf8");
+const swift6="swiftLanguageModes: [.v6]";
+const swift5="swiftLanguageModes: [.v5]";
+const swift6Count=swiftPackage.split(swift6).length-1;
+const swift5Count=swiftPackage.split(swift5).length-1;
+if(swift6Count===1 && swift5Count===0){
+  swiftPackage=swiftPackage.replace(swift6,swift5);
+  writeFileSync(swiftPackagePath,swiftPackage);
+}else if(!(swift6Count===0 && swift5Count===1)){
+  throw new Error(`ExpoModulesJSI Swift language mode does not match the bounded workaround shape (v6=${swift6Count}, v5=${swift5Count})`);
 }
 
-const patched=source.replaceAll(annotated,"RuntimeScheduler(");
-writeFileSync(headerPath,patched);
-
-const verified=readFileSync(headerPath,"utf8");
-if(verified.includes(annotated)){
+const verifiedHeader=readFileSync(headerPath,"utf8");
+const verifiedPackage=readFileSync(swiftPackagePath,"utf8");
+if(verifiedHeader.includes(annotated)){
   throw new Error("RuntimeScheduler ownership annotation workaround did not apply cleanly");
 }
+if(!verifiedPackage.includes(swift5) || verifiedPackage.includes(swift6)){
+  throw new Error("ExpoModulesJSI Swift 5 compatibility mode did not apply cleanly");
+}
 
-console.log(`expo-modules-jsi ${packageJson.version}: removed two invalid RuntimeScheduler constructor ownership annotations for Swift 6.2+ compatibility`);
+console.log(`expo-modules-jsi ${packageJson.version}: applied bounded Swift 6.2+ compatibility workaround`);

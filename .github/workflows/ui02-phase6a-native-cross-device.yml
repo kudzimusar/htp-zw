@@ -284,9 +284,9 @@ jobs:
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Build Android debug APK
+      - name: Build self-contained Android release APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Install Maestro
         shell: bash
