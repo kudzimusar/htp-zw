@@ -1,0 +1,45 @@
+name: UI-06 Corrected Home Smoke
+
+on:
+  push:
+    branches:
+      - test/ui06-nm05r3-home-smoke-corrected
+    paths:
+      - '.github/workflows/ui06-home-smoke-corrected.yml'
+      - 'scripts/ui/ui06-home-smoke-corrected.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui06-nm05r3-home-smoke-corrected
+  cancel-in-progress: true
+
+jobs:
+  home-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    env:
+      PUBLIC_URL: https://kudzimusar.github.io/htp-zw
+      TARGET_DEPLOYED_SHA: 73f447552092f884cd48598e18c3d5793cd50759
+      ARTIFACT_DIR: artifacts/ui06/home-smoke-corrected
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install chromium
+      - name: Run corrected Home smoke
+        run: node scripts/ui/ui06-home-smoke-corrected.mjs
+      - name: Upload corrected Home smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-home-smoke-corrected
+          path: artifacts/ui06/home-smoke-corrected
+          if-no-files-found: error
