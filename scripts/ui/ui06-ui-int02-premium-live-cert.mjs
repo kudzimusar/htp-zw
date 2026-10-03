@@ -243,7 +243,6 @@ async function premiumJourney(browser,name,view){
   const d=makeDiag(page,"premium-"+name);
   try{
     await setDark(page);
-    const start=Date.now();
     const response=await page.goto(BASE+PREMIUM_ROUTE+"?ui06="+name+"-"+Date.now(),{waitUntil:"domcontentloaded",timeout:TIMEOUT});
     assert(response&&response.status()<400,"Premium route HTTP failure",{viewport:name,status:response?.status()});
     await waitArticleResolved(page);
@@ -261,6 +260,7 @@ async function premiumJourney(browser,name,view){
     const paywall=page.getByLabel("HealthTimes Premium article paywall");
     assert(!(await paywall.isVisible().catch(()=>false)),"Inline paywall appeared before preview expiry",{viewport:name});
     const countdownText=clean(await previewNotice.innerText());
+    const previewFirstSeen=Date.now();
     const remainingMatch=countdownText.match(/(\d+)\s+seconds remaining/i);
     const initialRemaining=remainingMatch?Number(remainingMatch[1]):null;
     assert(initialRemaining!==null&&initialRemaining>=17&&initialRemaining<=20,"Observed Premium timer does not represent the 20-second window",{viewport:name,countdownText,initialRemaining});
@@ -276,7 +276,7 @@ async function premiumJourney(browser,name,view){
 
     const waitStarted=Date.now();
     await paywall.waitFor({state:"visible",timeout:28000});
-    const observedSeconds=(Date.now()-start)/1000;
+    const observedSeconds=(Date.now()-previewFirstSeen)/1000;
     const transitionWaitSeconds=(Date.now()-waitStarted)/1000;
     assert(observedSeconds>=17&&observedSeconds<=25,"Premium expiry timing is outside bounded 20-second tolerance",{viewport:name,observedSeconds,transitionWaitSeconds});
 
