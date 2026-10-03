@@ -122,3 +122,20 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(read("e2e/ui02-phase6a-tablet.yaml").includes('visible: "Save article"'));
   assert.equal(workflow.includes("playwright"),false);
 });
+
+
+test("native push module initializes only after explicit reader registration request",()=>{
+  const push=read("src/security/push.ts");
+  assert.equal(push.includes('import * as Notifications from "expo-notifications"'),false);
+  assert.ok(push.includes('await import("expo-notifications")'));
+});
+
+test("Phase 6A evidence is current-attempt scoped and fails closed on native runtime errors",()=>{
+  const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
+  const manifest=readRepo("scripts/native/ui02-phase6a-manifest.mjs");
+  assert.ok(workflow.includes('RUN_ATTEMPT: ${{ github.run_attempt }}'));
+  assert.ok(workflow.includes('int(m.get("runAttempt",-1))==current_attempt'));
+  assert.ok(workflow.includes('"runtimeErrorCells":runtime_error_cells'));
+  assert.ok(manifest.includes("Actionable native runtime errors detected"));
+  assert.ok(manifest.includes("runAttempt"));
+});

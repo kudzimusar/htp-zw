@@ -1,5 +1,4 @@
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 export type PushRegistrationResult = {
@@ -29,6 +28,11 @@ export async function requestPushRegistrationBaseline(): Promise<PushRegistratio
   }
 
   try {
+    // Keep ordinary Reader startup independent of native notification
+    // registration state. The native module is loaded only when the reader
+    // explicitly requests push setup.
+    const Notifications = await import("expo-notifications");
+
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
         name: "HealthTimes",

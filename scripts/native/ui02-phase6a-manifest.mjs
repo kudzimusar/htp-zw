@@ -9,6 +9,7 @@ const device=process.env.DEVICE_IDENTITY ?? "";
 const osVersion=process.env.OS_VERSION ?? "";
 const deviceClass=process.env.DEVICE_CLASS ?? "phone";
 const orientation=process.env.ORIENTATION ?? "portrait";
+const runAttempt=Number(process.env.RUN_ATTEMPT ?? "0");
 
 const routes={
   "home-light":"/",
@@ -90,6 +91,9 @@ const errorFile=join(dir,"native-errors.log");
 const nativeErrors=existsSync(errorFile)
   ? readFileSync(errorFile,"utf8").split(/\r?\n/).filter(Boolean).slice(0,200)
   : [];
+if(nativeErrors.length){
+  throw new Error("Actionable native runtime errors detected:\n"+nativeErrors.join("\n"));
+}
 
 const screens=pngPaths.map((path)=>{
   const file=relative(dir,path);
@@ -110,6 +114,7 @@ const screens=pngPaths.map((path)=>{
     "screen resolved and captured";
   return {
     candidateSha:sha,
+    runAttempt,
     platform,
     deviceClass,
     deviceIdentity:device,
@@ -130,6 +135,7 @@ const screens=pngPaths.map((path)=>{
 const manifest={
   phase:"UI-02 Phase 6A Native Cross-Device Realization",
   candidateSha:sha,
+  runAttempt,
   platform,
   deviceClass,
   deviceIdentity:device,

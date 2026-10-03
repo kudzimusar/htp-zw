@@ -18,10 +18,10 @@ adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
 maestro --device emulator-5554 test --test-output-dir "$EVIDENCE_DIR" "$FLOW"
 
 adb logcat -d '*:E' 2>/dev/null \
-  | grep -Ei 'healthtimes|ReactNativeJS|AndroidRuntime' \
+  | grep -Ei 'ReactNativeJS|AndroidRuntime|FATAL EXCEPTION' \
   > "$EVIDENCE_DIR/native-errors.log" || true
 
 DEVICE_NAME="$(adb shell getprop ro.product.model | tr -d '\r')"
 OS_VERSION="$(adb shell getprop ro.build.version.release | tr -d '\r')"
 
-EVIDENCE_DIR="$EVIDENCE_DIR" CANDIDATE_SHA="$CANDIDATE_SHA" NATIVE_PLATFORM="Android" DEVICE_CLASS="$DEVICE_CLASS" DEVICE_IDENTITY="$DEVICE_NAME ($DEVICE_PROFILE)" OS_VERSION="$OS_VERSION" ORIENTATION="portrait" node scripts/native/ui02-phase6a-manifest.mjs
+EVIDENCE_DIR="$EVIDENCE_DIR" CANDIDATE_SHA="$CANDIDATE_SHA" RUN_ATTEMPT="${RUN_ATTEMPT:-0}" NATIVE_PLATFORM="Android" DEVICE_CLASS="$DEVICE_CLASS" DEVICE_IDENTITY="$DEVICE_NAME ($DEVICE_PROFILE)" OS_VERSION="$OS_VERSION" ORIENTATION="portrait" node scripts/native/ui02-phase6a-manifest.mjs
