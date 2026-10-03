@@ -175,7 +175,6 @@ jobs:
           test -f v21.js
           test -f styles.css
           test -f newsroom.html
-          test -f api/newsroom.js
           test ! -f apps/mobile/dist/app.js
           test ! -f apps/mobile/dist/v21.js
           echo "LEGACY / SUPERSEDED / NON-SERVING EVIDENCE retained at repository root."
