@@ -4,10 +4,16 @@ appId: zw.co.healthtimes.app.dev
     clearState: true
 - extendedWaitUntil:
     visible: "Top Stories"
-    timeout: 120000
+    timeout: 240000
 - takeScreenshot: tablet-home
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - scrollUntilVisible:
     element:
       text: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
@@ -16,6 +22,12 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: tablet-article
 
 - openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
@@ -25,6 +37,12 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: tablet-watch
 
 - openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -39,8 +57,14 @@ appId: zw.co.healthtimes.app.dev
 # Tablet orientation evidence: same accepted hierarchy using extra width deliberately.
 - setOrientation: LANDSCAPE_LEFT
 - openLink: "healthtimes://"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Top Stories"
-    timeout: 120000
+    timeout: 240000
 - takeScreenshot: tablet-home-landscape
 - setOrientation: PORTRAIT

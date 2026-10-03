@@ -77,6 +77,19 @@ test("appearance preference is HealthTimes-owned and persistent",()=>{
   assert.ok(persistence.includes("ht:nm04:reader:appearance:v1"));
 });
 
+
+test("Phase 6A native flows handle iOS deep links and deterministic offline evidence",()=>{
+  const phone=read("e2e/ui02-phase6a-phone.yaml");
+  const tablet=read("e2e/ui02-phase6a-tablet.yaml");
+  const count=(source,needle)=>source.split(needle).length-1;
+  const promptGuard='visible: "Open in .*HealthTimes Dev.*"';
+  assert.equal(count(phone,"- openLink:"),count(phone,promptGuard));
+  assert.equal(count(tablet,"- openLink:"),count(tablet,promptGuard));
+  assert.ok(phone.includes('- openLink: "healthtimes://saved?tab=offline"'));
+  assert.equal(phone.includes('- tapOn: "Offline"'),false);
+  assert.ok(tablet.includes("timeout: 240000"));
+});
+
 test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
   const androidRunner=readRepo("scripts/native/ui02-phase6a-android-run.sh");

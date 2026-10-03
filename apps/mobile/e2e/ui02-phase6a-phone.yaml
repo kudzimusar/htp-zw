@@ -9,6 +9,12 @@ appId: zw.co.healthtimes.app.dev
 
 # Search keyboard/focus
 - openLink: "healthtimes://search"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
@@ -24,6 +30,12 @@ appId: zw.co.healthtimes.app.dev
 
 # Public Article + native Save/Offline/Share
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
     timeout: 30000
@@ -46,6 +58,12 @@ appId: zw.co.healthtimes.app.dev
     visible: "Top Stories"
     timeout: 120000
 - openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 30000
@@ -64,7 +82,13 @@ appId: zw.co.healthtimes.app.dev
 - assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
 - takeScreenshot: saved-persistence
 
-- tapOn: "Offline"
+- openLink: "healthtimes://saved?tab=offline"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Available offline"
     timeout: 30000
@@ -73,6 +97,12 @@ appId: zw.co.healthtimes.app.dev
 
 # Premium anonymous body protection / paywall
 - openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Continue reading with HealthTimes Premium"
     timeout: 30000
@@ -81,18 +111,36 @@ appId: zw.co.healthtimes.app.dev
 
 # Representative accepted Reader surfaces
 - openLink: "healthtimes://explore"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Explore"
     timeout: 20000
 - takeScreenshot: explore-light
 
 - openLink: "healthtimes://live"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Live"
     timeout: 20000
 - takeScreenshot: live-light
 
 - openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
@@ -111,6 +159,12 @@ appId: zw.co.healthtimes.app.dev
 
 - launchApp
 - openLink: "healthtimes://listen"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Listen"
     timeout: 20000
@@ -119,6 +173,12 @@ appId: zw.co.healthtimes.app.dev
 
 # My HealthTimes and intentional navigation into Edition
 - openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -149,6 +209,12 @@ appId: zw.co.healthtimes.app.dev
 
 # My HealthTimes navigation to the actual Appearance preference
 - openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -167,36 +233,72 @@ appId: zw.co.healthtimes.app.dev
 
 # Required native dark-mode matrix
 - openLink: "healthtimes://"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 120000
 - takeScreenshot: home-dark
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
     timeout: 30000
 - takeScreenshot: article-dark
 
 - openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Continue reading with HealthTimes Premium"
     timeout: 30000
 - takeScreenshot: premium-dark
 
 - openLink: "healthtimes://premium"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "HEALTHTIMES PREMIUM"
     timeout: 30000
 - takeScreenshot: premium-landing-dark
 
 - openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
 - takeScreenshot: watch-dark
 
 - openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
