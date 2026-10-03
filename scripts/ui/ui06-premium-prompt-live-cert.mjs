@@ -328,7 +328,18 @@ async function shellSmoke(browser){
     const c=await browser.newContext({viewport:views.desktop,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"smoke-"+route);
     try{
       const status=await open(p,route,"Smoke "+route),runtime=counts(d);if(runtime.React_418_count||runtime.pageerror_count)block("P1","Shared-shell smoke failed "+route);
-      if(route==="/"){await p.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout});await imageReady(p,"Home");if(await prompt(p).isVisible().catch(()=>false))block("P1","Premium popup appeared on Home");await shot(p,"home/desktop.png",{fullPage:true});}
+      if(route==="/"){
+        await p.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout});
+        const filters=p.getByLabel("Editorial filters");
+        await filters.waitFor({state:"visible",timeout});
+        const heroLink=filters.locator("xpath=following::*[@role='link'][1]");
+        await heroLink.waitFor({state:"visible",timeout});
+        const heroName=((await heroLink.getAttribute("aria-label"))||await heroLink.innerText()).trim();
+        const heroBox=await heroLink.boundingBox();
+        if(!heroName||!heroBox||heroBox.width<1||heroBox.height<1)block("P1","Home Hero story link failed readiness");
+        if(await prompt(p).isVisible().catch(()=>false))block("P1","Premium popup appeared on Home");
+        await shot(p,"home/desktop.png",{fullPage:true});
+      }
       if(route==="/watch"&&(d.responses.length||d.failed.length))finding("P4","watch-media","Existing Watch media/resource failure remains out of scope",{http_errors:d.responses,failed_requests:d.failed});
       out.push({route,status,...runtime});
     }finally{await c.close();}
