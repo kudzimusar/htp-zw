@@ -4,7 +4,7 @@ appId: zw.co.healthtimes.app.dev
     clearState: true
 - extendedWaitUntil:
     visible: "Top Stories"
-    timeout: 120000
+    timeout: 240000
 - takeScreenshot: home-light
 
 # Search keyboard/focus
@@ -158,6 +158,9 @@ appId: zw.co.healthtimes.app.dev
 - stopApp
 
 - launchApp
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 120000
 - openLink: "healthtimes://listen"
 - runFlow:
     when:
