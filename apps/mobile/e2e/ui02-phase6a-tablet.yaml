@@ -45,12 +45,24 @@ appId: zw.co.healthtimes.app.dev
     visible: "My HealthTimes"
     timeout: 20000
 - takeScreenshot: tablet-my-healthtimes
-- scrollUntilVisible:
-    element:
-      text: "Countries & Interests"
-    direction: DOWN
-    timeout: 20000
-- tapOn: "Countries & Interests"
+# The iOS tablet artifact proves this row is already rendered and fully on-screen.
+# Avoid Maestro's iOS scrollUntilVisible overscroll; retain the proven Android path.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "50%,54%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Countries & Interests"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Countries & Interests"
 - extendedWaitUntil:
     visible: "Edition & Preferences"
     timeout: 20000

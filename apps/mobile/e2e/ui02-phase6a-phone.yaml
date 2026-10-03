@@ -100,6 +100,12 @@ appId: zw.co.healthtimes.app.dev
     direction: DOWN
     timeout: 30000
 - assertVisible: "Continue reading with HealthTimes Premium"
+- scrollUntilVisible:
+    element:
+      text: "Go Premium"
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 20000
 - assertVisible: "Go Premium"
 - takeScreenshot: premium-locked-light
 
