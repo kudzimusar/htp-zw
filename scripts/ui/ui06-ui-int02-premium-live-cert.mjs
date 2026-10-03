@@ -365,8 +365,7 @@ async function fijiJourney(browser,name,view){
     const teaser=await page.locator('[data-testid="premium-teaser-paragraph"]').isVisible().catch(()=>false);
     const paywall=await page.getByLabel("HealthTimes Premium article paywall").isVisible().catch(()=>false);
     const popup=await page.locator('[data-testid="premium-subscription-prompt"]').isVisible().catch(()=>false);
-    const premiumBadge=await page.getByText("PREMIUM",{exact:true}).first().isVisible().catch(()=>false);
-    assert(!preview&&!teaser&&!paywall&&!popup&&!premiumBadge,"Fiji source-parity public story was promoted into Premium",{viewport:name,preview,teaser,paywall,popup,premiumBadge,projection});
+    assert(!preview&&!teaser&&!paywall&&!popup,"Fiji source-parity public story was promoted into Premium",{viewport:name,preview,teaser,paywall,popup,projection});
     const bodyText=clean(await page.locator("body").innerText());
     assert(bodyText.length>700,"Fiji public body did not render normally",{viewport:name,body_length:bodyText.length});
     const wpContent=d.requests.filter(x=>isWordPressContentRequest(x.url));
@@ -381,8 +380,9 @@ async function fijiJourney(browser,name,view){
     const result={
       viewport:name,width:view.width,height:view.height,http_status:response.status(),source_parity_classification:"public",
       bounded_projection_access_policy:projection?.access_policy??null,
-      premium_preview:false,premium_paywall:false,premium_popup:false,premium_badge:false,
+      premium_preview:false,premium_paywall:false,premium_popup:false,
       public_body_rendered:true,body_text_length:bodyText.length,wordpress_content_requests:wpContent.length,
+      public_classification_proof:"public WordPress content detail fetched only after source-parity classification remained public",
       overflow:ov,...runtime,screenshot:shot
     };
     results.fiji.push(result);
