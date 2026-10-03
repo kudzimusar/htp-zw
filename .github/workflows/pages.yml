@@ -30,6 +30,8 @@ concurrency:
 
 jobs:
   build:
+    # Custody lock: live wrapper 98c657... is certified separately; do not redeploy from later branch-head locks.
+    if: github.ref != 'refs/heads/deployment/premium-live-final-convergence-candidate'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
