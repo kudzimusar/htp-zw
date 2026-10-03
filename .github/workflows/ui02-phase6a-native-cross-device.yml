@@ -65,7 +65,7 @@ jobs:
 
   ios-evidence:
     name: iOS ${{ matrix.device_class }} real simulator evidence
-    runs-on: macos-26
+    runs-on: macos-latest
     timeout-minutes: 85
     strategy:
       fail-fast: false
@@ -94,11 +94,10 @@ jobs:
           echo "CHECKED_OUT_SHA=$actual"
           test "$actual" = "$EXPECTED_SHA"
 
-      - name: Pin Xcode 26.2 for Swift 6.2 + Maestro-compatible iOS evidence
+      - name: Record native Apple toolchain
         shell: bash
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
           xcodebuild -version
           swift --version
           xcrun simctl list runtimes
@@ -158,8 +157,6 @@ jobs:
           candidates=[]
           for runtime,devices in data.get("devices",{}).items():
               version=tuple(int(x) for x in re.findall(r"\d+",runtime))
-              if version[:2] != (26,2):
-                  continue
               for device in devices:
                   name=device.get("name","")
                   udid=device.get("udid","")
@@ -181,13 +178,13 @@ jobs:
           xcrun simctl erase "$SIM_UDID"
           xcrun simctl boot "$SIM_UDID"
 
-      - name: Build self-contained iOS Simulator app
+      - name: Build proven Debug iOS Simulator app
         working-directory: apps/mobile/ios
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild             -workspace "$WORKSPACE"             -scheme "$SCHEME"             -configuration Release             -sdk iphonesimulator             -derivedDataPath "$PWD/DerivedData"             CODE_SIGNING_ALLOWED=NO             build
-          APP=$(find DerivedData/Build/Products/Release-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
+          xcodebuild             -workspace "$WORKSPACE"             -scheme "$SCHEME"             -configuration Debug             -sdk iphonesimulator             -derivedDataPath "$PWD/DerivedData"             CODE_SIGNING_ALLOWED=NO             build
+          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
           test -n "$APP"
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
           test "$BUNDLE_ID" = "zw.co.healthtimes.app.dev"
@@ -214,8 +211,32 @@ jobs:
           xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
           xcrun simctl bootstatus "$SIM_UDID" -b
           xcrun simctl ui "$SIM_UDID" appearance light || true
-          xcrun simctl install "$SIM_UDID" "$IOS_APP"
 
+          (
+            cd apps/mobile
+            CI=1 EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1
+          ) &
+          METRO_PID=$!
+          trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 120); do
+            if ! kill -0 "$METRO_PID" 2>/dev/null; then
+              echo "Metro exited before iOS native evidence could start"
+              cat "$EVIDENCE_DIR/metro.log"
+              exit 1
+            fi
+            if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://localhost:8081/; then
+              break
+            fi
+            if [[ "$i" == "120" ]]; then
+              echo "Metro did not accept HTTP connections for iOS native evidence"
+              cat "$EVIDENCE_DIR/metro.log"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          xcrun simctl install "$SIM_UDID" "$IOS_APP"
           maestro --device "$SIM_UDID" test             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"
 
           xcrun simctl spawn "$SIM_UDID" log show --last 30m --style compact             --predicate 'process CONTAINS[c] "HealthTimes"' 2>/dev/null             | grep -Ei 'error|fault|fatal|exception'             > "$EVIDENCE_DIR/native-errors.log" || true
