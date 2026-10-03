@@ -1,4 +1,5 @@
 name: UI-06 Live Premium Prompt Certification
+# NM-05R3 branch-only release certification
 
 on:
   push:
