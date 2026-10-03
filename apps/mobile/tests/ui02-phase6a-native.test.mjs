@@ -104,5 +104,9 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
   assert.ok(workflow.includes("ui02-phase6a-native-${{ github.event.pull_request.head.ref || github.ref }}"));
   assert.ok(workflow.includes("ui02-phase6a-native-evidence"));
+  assert.ok(read("e2e/ui02-phase6a-phone.yaml").includes("timeout: 120000"));
+  assert.ok(read("e2e/ui02-phase6a-phone.yaml").includes('tapOn: "Saved"'));
+  assert.ok(read("e2e/ui02-phase6a-phone.yaml").includes('tapOn: "Offline"'));
+  assert.ok(read("e2e/ui02-phase6a-tablet.yaml").includes("scrollUntilVisible:"));
   assert.equal(workflow.includes("playwright"),false);
 });

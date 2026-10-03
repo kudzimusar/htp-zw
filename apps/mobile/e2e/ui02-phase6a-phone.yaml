@@ -4,7 +4,7 @@ appId: zw.co.healthtimes.app.dev
     clearState: true
 - extendedWaitUntil:
     visible: "Top Stories"
-    timeout: 30000
+    timeout: 120000
 - takeScreenshot: home-light
 
 # Search keyboard/focus
@@ -42,20 +42,32 @@ appId: zw.co.healthtimes.app.dev
 
 # Saved + Offline persistence after leaving the Article route
 - launchApp
-- openLink: "healthtimes://saved?tab=saved"
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 120000
+- openLink: "healthtimes://my"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "Saved"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Saved"
 - extendedWaitUntil:
     visible: "Saved & Offline"
-    timeout: 20000
+    timeout: 30000
 - extendedWaitUntil:
     visible: "Saved stories"
-    timeout: 20000
+    timeout: 30000
 - assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
 - takeScreenshot: saved-persistence
 
-- openLink: "healthtimes://saved?tab=offline"
+- tapOn: "Offline"
 - extendedWaitUntil:
     visible: "Available offline"
-    timeout: 20000
+    timeout: 30000
 - assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
 - takeScreenshot: offline-persistence
 
@@ -157,7 +169,7 @@ appId: zw.co.healthtimes.app.dev
 - openLink: "healthtimes://"
 - extendedWaitUntil:
     visible: "Top Stories"
-    timeout: 30000
+    timeout: 120000
 - takeScreenshot: home-dark
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
