@@ -26,11 +26,11 @@ for i in $(seq 1 120); do
     cat "$EVIDENCE_DIR/metro.log"
     exit 1
   fi
-  if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://127.0.0.1:8081/; then
+  if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://localhost:8081/; then
     break
   fi
   if [[ "$i" == "120" ]]; then
-    echo "Metro did not accept HTTP connections on 127.0.0.1:8081"
+    echo "Metro did not accept HTTP connections on localhost:8081"
     cat "$EVIDENCE_DIR/metro.log"
     exit 1
   fi
