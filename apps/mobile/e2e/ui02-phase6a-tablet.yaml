@@ -14,10 +14,8 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- scrollUntilVisible:
-    element:
-      text: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
-    direction: DOWN
+- extendedWaitUntil:
+    visible: "Save article"
     timeout: 60000
 - takeScreenshot: tablet-article
 

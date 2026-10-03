@@ -57,22 +57,13 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 120000
-- openLink: "healthtimes://my"
+- openLink: "healthtimes://saved?tab=saved"
 - runFlow:
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- extendedWaitUntil:
-    visible: "My HealthTimes"
-    timeout: 30000
-- scrollUntilVisible:
-    element:
-      text: "Saved"
-    direction: DOWN
-    timeout: 30000
-- tapOn: "Saved"
 - extendedWaitUntil:
     visible: "Saved & Offline"
     timeout: 30000
