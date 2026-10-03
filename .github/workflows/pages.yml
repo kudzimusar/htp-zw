@@ -11,7 +11,6 @@ on:
       - deployment/ui03-premium-prompt-candidate
       - deployment/nm05r-premium-teaser-path-candidate
       - deployment/nm05r2-premium-teaser-pages-candidate
-      - deployment/nm05r3-premium-policy-candidate
     paths:
       - 'apps/mobile/**'
       - 'package.json'
@@ -234,7 +233,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate' || github.ref == 'refs/heads/deployment/nm05r3-premium-policy-candidate'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate'
     environment:
       name: github-pages-preview
       url: ${{ steps.deployment.outputs.page_url }}
@@ -248,7 +247,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   verify-native-preview:
-    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate' || github.ref == 'refs/heads/deployment/nm05r3-premium-policy-candidate'
+    if: github.ref == 'refs/heads/feat/native-mobile-nm07-native-certification' || github.ref == 'refs/heads/deployment/ui-phase0-pages-recovery' || github.ref == 'refs/heads/deployment/ui01-screen1-home-candidate' || github.ref == 'refs/heads/deployment/ui03-phase2-commercial-reader-candidate' || github.ref == 'refs/heads/deployment/ui03-premium-prompt-candidate' || github.ref == 'refs/heads/deployment/nm05r-premium-teaser-path-candidate' || github.ref == 'refs/heads/deployment/nm05r2-premium-teaser-pages-candidate'
     runs-on: macos-14
     needs: deploy-native-preview
     steps:
