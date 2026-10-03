@@ -468,6 +468,48 @@ async function finish(){
     ""
   ].join("\n");
   write("summary.md",summary);
+  const receipt={
+    build_info:manifest.build_info,
+    premium:allPremium.map(x=>({
+      viewport:x.viewport,
+      http_status:x.http_status,
+      teaser_paragraph_count:x.teaser_paragraph_count,
+      body_html:x.projection.body_html,
+      projection_access_policy:x.projection.access_policy,
+      initial_remaining:x.timer.initial_remaining,
+      observed_seconds:x.timer.observed_seconds,
+      pre_expiry:x.pre_expiry,
+      post_expiry:x.post_expiry,
+      popup_open_count:x.popup_open_count,
+      dismissal:x.dismissal,
+      dismissal_worked:x.dismissal_worked,
+      inline_paywall_remains:x.inline_paywall_remains,
+      reload:x.reload,
+      network:x.network,
+      dark_mode:x.dark_mode,
+      overflow_pixels:x.overflow.overflow_pixels,
+      prompt:x.prompt,
+      React_418_count:x.React_418_count,
+      pageerror_count:x.pageerror_count
+    })),
+    network_totals:manifest.network_totals,
+    fiji:results.fiji.map(x=>({
+      viewport:x.viewport,
+      http_status:x.http_status,
+      classification:x.source_parity_classification,
+      projection_access_policy:x.bounded_projection_access_policy,
+      premium_preview:x.premium_preview,
+      premium_paywall:x.premium_paywall,
+      premium_popup:x.premium_popup,
+      public_body_rendered:x.public_body_rendered,
+      wordpress_content_requests:x.wordpress_content_requests,
+      React_418_count:x.React_418_count,
+      pageerror_count:x.pageerror_count
+    })),
+    shell:results.shell,
+    findings:manifest.findings
+  };
+  console.log("UI_INT02_EVIDENCE="+JSON.stringify(receipt));
   return manifest;
 }
 async function main(){
