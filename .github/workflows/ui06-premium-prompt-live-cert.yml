@@ -1,9 +1,16 @@
 name: UI-06 Live Premium Prompt Certification
 
 on:
+  push:
+    branches:
+      - test/ui06-nm05r3-premium-live-cert
+    paths:
+      - '.github/workflows/ui06-premium-prompt-live-cert.yml'
+      - 'scripts/ui/ui06-premium-prompt-live-cert.mjs'
+      - 'scripts/ui/ui06-premium-prompt-initial-state.mjs'
   pull_request:
     branches:
-      - deployment/nm05r2-premium-teaser-pages-candidate
+      - deployment/nm05r3-premium-policy-release
     paths:
       - '.github/workflows/ui06-premium-prompt-live-cert.yml'
       - 'scripts/ui/ui06-premium-prompt-live-cert.mjs'
@@ -14,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui06-premium-prompt-live-cert-${{ github.event.pull_request.head.sha }}
+  group: ui06-nm05r3-premium-live-cert
   cancel-in-progress: true
 
 jobs:
@@ -23,8 +30,8 @@ jobs:
     timeout-minutes: 30
     env:
       PUBLIC_URL: https://kudzimusar.github.io/htp-zw
-      TARGET_DEPLOYED_SHA: 7f78776e19ea8a0680f9d88906aa4dd00a6c1385
-      ACCEPTED_EXECUTABLE_SHA: 3d7f59f97f195a304d5ed5571a7e71ec8f91810c
+      TARGET_DEPLOYED_SHA: 73f447552092f884cd48598e18c3d5793cd50759
+      ACCEPTED_EXECUTABLE_SHA: 9a5750c261609f5cfbf577229808841d979fe66f
       ARTIFACT_DIR: artifacts/ui06/premium-prompt-live-cert
 
     steps:
