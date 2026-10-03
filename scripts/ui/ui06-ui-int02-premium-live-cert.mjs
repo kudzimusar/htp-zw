@@ -203,18 +203,28 @@ async function promptSnapshot(page,viewportName){
   assert(await signIn.isVisible(),"Member sign in control missing",{viewportName});
   assert(await notNow.isVisible(),"Not now control missing",{viewportName});
   assert(await heading.isVisible(),"Prompt heading semantics missing",{viewportName});
-  const box=await prompt.boundingBox();
-  assert(box,"Prompt has no rendered bounding box",{viewportName});
+  const geometry=await prompt.evaluate(el=>{
+    const r=el.getBoundingClientRect();
+    return {
+      box:{x:r.x,y:r.y,width:r.width,height:r.height,top:r.top,right:r.right,bottom:r.bottom,left:r.left},
+      innerWidth:window.innerWidth,
+      innerHeight:window.innerHeight,
+      scrollX:window.scrollX,
+      scrollY:window.scrollY,
+      position:getComputedStyle(el).position
+    };
+  });
+  const box=geometry.box;
+  assert(box.width>0&&box.height>0,"Prompt has no rendered bounding box",{viewportName,geometry});
   if(viewportName==="mobile"){
-    assert(Math.abs((box.y+box.height)-844)<35,"Mobile prompt is not bottom-sheet aligned",{box});
-    assert(box.width>=360,"Mobile bottom sheet is unexpectedly narrow",{box});
+    assert(Math.abs(box.bottom-geometry.innerHeight)<35,"Mobile prompt is not bottom-sheet aligned",{geometry});
+    assert(box.width>=360,"Mobile bottom sheet is unexpectedly narrow",{geometry});
   }else{
-    const v=VIEWS[viewportName];
     const centerX=box.x+box.width/2;
     const centerY=box.y+box.height/2;
-    assert(box.width<=610,"Tablet/desktop prompt exceeds centered-card width",{viewportName,box});
-    assert(Math.abs(centerX-v.width/2)<80,"Tablet/desktop prompt is not horizontally centered",{viewportName,box});
-    assert(Math.abs(centerY-v.height/2)<180,"Tablet/desktop prompt is not vertically centered",{viewportName,box});
+    assert(box.width<=610,"Tablet/desktop prompt exceeds centered-card width",{viewportName,geometry});
+    assert(Math.abs(centerX-geometry.innerWidth/2)<80,"Tablet/desktop prompt is not horizontally centered",{viewportName,geometry});
+    assert(Math.abs(centerY-geometry.innerHeight/2)<180,"Tablet/desktop prompt is not vertically centered",{viewportName,geometry});
   }
   await explore.focus();
   const focusExplore=await page.evaluate(()=>document.activeElement?.getAttribute("aria-label")||document.activeElement?.textContent||"");
@@ -222,7 +232,7 @@ async function promptSnapshot(page,viewportName){
   await page.keyboard.press("Tab");
   const afterTab=clean(await page.evaluate(()=>document.activeElement?.getAttribute("aria-label")||document.activeElement?.textContent||""));
   assert(afterTab.length>0,"Keyboard Tab left no active accessible control",{viewportName});
-  return {count,closeCount,box,controls:{explore:true,member_sign_in:true,not_now:true,heading:true},keyboard:{explore_focus:true,after_tab:afterTab}};
+  return {count,closeCount,box,geometry,controls:{explore:true,member_sign_in:true,not_now:true,heading:true},keyboard:{explore_focus:true,after_tab:afterTab}};
 }
 async function dismissPrompt(page,method){
   if(method==="not-now"){
