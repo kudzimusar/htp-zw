@@ -100,13 +100,28 @@ appId: zw.co.healthtimes.app.dev
     direction: DOWN
     timeout: 30000
 - assertVisible: "Continue reading with HealthTimes Premium"
-- scrollUntilVisible:
-    element:
-      text: "Go Premium"
-    direction: DOWN
-    visibilityPercentage: 50
-    timeout: 20000
-- assertVisible: "Go Premium"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Go to HealthTimes Premium"
+          direction: DOWN
+          visibilityPercentage: 20
+          timeout: 30000
+      - assertVisible: "Go to HealthTimes Premium"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Go Premium"
+          direction: DOWN
+          visibilityPercentage: 50
+          timeout: 20000
+      - assertVisible: "Go Premium"
 - takeScreenshot: premium-locked-light
 
 # Representative accepted Reader surfaces
@@ -210,9 +225,13 @@ appId: zw.co.healthtimes.app.dev
     direction: DOWN
     timeout: 20000
 - tapOn: "Save Preferences"
-- extendedWaitUntil:
-    visible: "Preferences saved on this device."
-    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Preferences saved on this device."
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 20000
+- assertVisible: "Preferences saved on this device."
 - takeScreenshot: edition-light
 
 # My HealthTimes navigation to the actual Appearance preference
