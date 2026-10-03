@@ -310,7 +310,11 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- extendedWaitUntil:
-    visible: "My HealthTimes"
+- scrollUntilVisible:
+    element:
+      text: "My HealthTimes"
+    direction: UP
+    visibilityPercentage: 50
     timeout: 20000
+- assertVisible: "My HealthTimes"
 - takeScreenshot: my-healthtimes-dark
