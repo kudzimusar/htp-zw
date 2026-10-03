@@ -104,6 +104,35 @@ async function imageReady(page,label){
   try{await page.waitForFunction(i=>i.complete&&i.naturalWidth>0&&i.naturalHeight>0,h,{timeout});}catch{block("P1",label+" Hero failed readiness");}
   const m=await img.evaluate(i=>{const r=i.getBoundingClientRect();return{url:i.currentSrc||i.src,complete:i.complete,natural_width:i.naturalWidth,natural_height:i.naturalHeight,rendered_width:Math.round(r.width),rendered_height:Math.round(r.height)};});await h.dispose();return m;
 }
+async function homeHeroReady(page){
+  try{
+    await page.waitForFunction(()=>{
+      const images=[...document.querySelectorAll("img")];
+      return images.some(img=>{
+        const r=img.getBoundingClientRect();
+        return Boolean(img.closest('[role="link"]')) &&
+          img.complete && img.naturalWidth>0 && img.naturalHeight>0 &&
+          r.width>=300 && r.height>=150 && r.bottom>0;
+      });
+    },null,{timeout});
+  }catch{
+    block("P1","Home hero media absent or failed readiness after Home resolution");
+  }
+  const metric=await page.evaluate(()=>{
+    const images=[...document.querySelectorAll("img")];
+    const img=images.find(node=>{
+      const r=node.getBoundingClientRect();
+      return Boolean(node.closest('[role="link"]')) &&
+        node.complete && node.naturalWidth>0 && node.naturalHeight>0 &&
+        r.width>=300 && r.height>=150 && r.bottom>0;
+    });
+    if(!img)return null;
+    const r=img.getBoundingClientRect();
+    return{url:img.currentSrc||img.src,complete:img.complete,natural_width:img.naturalWidth,natural_height:img.naturalHeight,rendered_width:Math.round(r.width),rendered_height:Math.round(r.height)};
+  });
+  if(!metric)block("P1","Home hero media handle unavailable");
+  return metric;
+}
 async function selectDark(page){
   await open(page,"/appearance","Appearance");
   const dark=page.getByRole("button",{name:"Dark",exact:true});await dark.waitFor({state:"visible",timeout});await dark.click();await page.waitForTimeout(500);return"dark";
@@ -320,7 +349,7 @@ async function shellSmoke(browser){
     const c=await browser.newContext({viewport:views.desktop,deviceScaleFactor:1}),p=await c.newPage(),d=diag(p,"smoke-"+route);
     try{
       const status=await open(p,route,"Smoke "+route),runtime=counts(d);if(runtime.React_418_count||runtime.pageerror_count)block("P1","Shared-shell smoke failed "+route);
-      if(route==="/"){await p.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout});await imageReady(p,"Home");if(await prompt(p).isVisible().catch(()=>false))block("P1","Premium popup appeared on Home");await shot(p,"home/desktop.png",{fullPage:true});}
+      if(route==="/"){await p.getByText("Top Stories",{exact:true}).waitFor({state:"visible",timeout});await homeHeroReady(p);if(await prompt(p).isVisible().catch(()=>false))block("P1","Premium popup appeared on Home");await shot(p,"home/desktop.png",{fullPage:true});}
       if(route==="/watch"&&(d.responses.length||d.failed.length))finding("P4","watch-media","Existing Watch media/resource failure remains out of scope",{http_errors:d.responses,failed_requests:d.failed});
       out.push({route,status,...runtime});
     }finally{await c.close();}
