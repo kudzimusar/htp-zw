@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   certify-live-premium-prompt:
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     timeout-minutes: 30
     env:
       PUBLIC_URL: https://kudzimusar.github.io/htp-zw
@@ -64,7 +64,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Capture Premium initial-state authority evidence
         env:
