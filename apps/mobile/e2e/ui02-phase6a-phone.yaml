@@ -205,8 +205,8 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
     commands:
-      - assertVisible: "Countries & Interests"
-      - tapOn: "Countries & Interests"
+      - assertVisible: "Countries & Interests.*"
+      - tapOn: "Countries & Interests.*"
 - runFlow:
     when:
       platform: Android
