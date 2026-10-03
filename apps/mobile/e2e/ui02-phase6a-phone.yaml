@@ -255,12 +255,26 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
-- scrollUntilVisible:
-    element:
-      text: "Appearance / Theme"
-    direction: DOWN
-    timeout: 20000
-- tapOn: "Appearance / Theme"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Appearance / Theme.*"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Appearance / Theme.*"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Appearance / Theme"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Appearance / Theme"
 - extendedWaitUntil:
     visible: "Appearance"
     timeout: 20000
