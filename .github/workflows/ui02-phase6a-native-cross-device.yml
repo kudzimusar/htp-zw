@@ -261,7 +261,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui02-phase6a-native-evidence-ios-${{ matrix.device_class }}
+          name: ui02-phase6a-native-evidence-ios-${{ matrix.device_class }}-attempt-${{ github.run_attempt }}
           path: ui02-phase6a-native-evidence/
           if-no-files-found: warn
           retention-days: 30
@@ -354,7 +354,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui02-phase6a-native-evidence-android-${{ matrix.device_class }}
+          name: ui02-phase6a-native-evidence-android-${{ matrix.device_class }}-attempt-${{ github.run_attempt }}
           path: ui02-phase6a-native-evidence/
           if-no-files-found: warn
           retention-days: 30
@@ -386,7 +386,7 @@ jobs:
       - name: Download native matrix artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ui02-phase6a-native-evidence-*
+          pattern: ui02-phase6a-native-evidence-*-attempt-${{ github.run_attempt }}
           path: downloaded
           merge-multiple: false
 
@@ -503,7 +503,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui02-phase6a-native-evidence
+          name: ui02-phase6a-native-evidence-attempt-${{ github.run_attempt }}
           path: ui02-phase6a-native-evidence-final/
           if-no-files-found: error
           retention-days: 30
