@@ -244,9 +244,12 @@ jobs:
             "explore"
             "search"
             "premium"
+            "appearance"
+            "account-access"
             "watch"
             "my"
             "article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+            "article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
           )
           for route in "${routes[@]}"; do
             curl -fsSL --max-time 20 "$base/$route" >/dev/null
