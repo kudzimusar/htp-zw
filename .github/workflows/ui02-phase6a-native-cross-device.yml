@@ -1,0 +1,535 @@
+name: UI-02 Phase 6A Native Cross-Device Evidence
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui02-phase6a-native-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: development
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS: "0"
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+
+jobs:
+  contract-and-regressions:
+    name: Phase 6A contract + frozen Reader regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install canonical Reader
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Run Phase 6A native realization contracts
+        run: node --test apps/mobile/tests/ui02-phase6a-native.test.mjs apps/mobile/tests/ui02-phase6a-native-realization.test.mjs
+
+      - name: Typecheck canonical Reader
+        run: npm --prefix apps/mobile run typecheck
+
+      - name: Re-run accepted Phase 3-5 Reader contracts
+        run: |
+          npm --prefix apps/mobile run test:ui04
+          npm --prefix apps/mobile run test:ui01-phase4
+          npm --prefix apps/mobile run test:ui01-phase3
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:identity-security
+          npm --prefix apps/mobile run test:native-certification
+
+  ios-evidence:
+    name: iOS ${{ matrix.device_class }} real simulator evidence
+    runs-on: macos-latest
+    timeout-minutes: 85
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device_class: phone
+            simulator_prefix: iPhone
+            flow: apps/mobile/e2e/ui02-phase6a-phone.yaml
+          - device_class: tablet
+            simulator_prefix: iPad
+            flow: apps/mobile/e2e/ui02-phase6a-tablet.yaml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Record native Apple toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+          xcrun simctl list runtimes
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install canonical Reader
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Generate iOS native project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: pod install
+
+      - name: Resolve Xcode workspace and scheme
+        working-directory: apps/mobile/ios
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          test -n "$WORKSPACE"
+          WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild -list -json -workspace "$WORKSPACE" > xcode-list.json
+          SCHEME=$(WORKSPACE_NAME="$WORKSPACE_NAME" python3 - <<'PY'
+          import json, os
+          data=json.load(open('xcode-list.json'))
+          schemes=data.get('workspace',{}).get('schemes',[])
+          preferred=os.environ['WORKSPACE_NAME']
+          if preferred in schemes:
+              print(preferred)
+          else:
+              app=[s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))]
+              if not app:
+                  raise SystemExit('No application scheme found: '+','.join(schemes))
+              print(app[0])
+          PY
+          )
+          echo "WORKSPACE=$WORKSPACE" >> "$GITHUB_ENV"
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+
+      - name: Resolve current supported simulator
+        shell: bash
+        env:
+          SIMULATOR_PREFIX: ${{ matrix.simulator_prefix }}
+        run: |
+          set -euo pipefail
+          xcrun simctl shutdown all || true
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json, os, re, subprocess
+          prefix=os.environ["SIMULATOR_PREFIX"]
+          data=json.loads(subprocess.check_output(["xcrun","simctl","list","devices","available","-j"]))
+          candidates=[]
+          for runtime,devices in data.get("devices",{}).items():
+              version=tuple(int(x) for x in re.findall(r"\d+",runtime))
+              for device in devices:
+                  name=device.get("name","")
+                  udid=device.get("udid","")
+                  if name.startswith(prefix) and udid:
+                      candidates.append((version,name,udid,runtime))
+          if not candidates:
+              raise SystemExit("No available simulator matching "+prefix)
+          version,name,udid,runtime=sorted(candidates)[-1]
+          print("SIM_UDID="+udid)
+          print("SIM_NAME="+name)
+          print("SIM_RUNTIME="+runtime.rsplit(".",1)[-1].replace("-",".").replace("iOS.","iOS "))
+          PY
+
+      - name: Reset and start selected iOS simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl shutdown "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl erase "$SIM_UDID"
+          xcrun simctl boot "$SIM_UDID"
+
+      - name: Build proven Debug iOS Simulator app
+        working-directory: apps/mobile/ios
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild             -workspace "$WORKSPACE"             -scheme "$SCHEME"             -configuration Debug             -sdk iphonesimulator             -derivedDataPath "$PWD/DerivedData"             CODE_SIGNING_ALLOWED=NO             build
+          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
+          test -n "$APP"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "zw.co.healthtimes.app.dev"
+          echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
+
+      - name: Install Maestro
+        shell: bash
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Capture native iOS matrix cell
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          DEVICE_CLASS: ${{ matrix.device_class }}
+          FLOW: ${{ matrix.flow }}
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"
+          MAESTRO_CLI_NO_ANALYTICS: "1"
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="ui02-phase6a-native-evidence/ios-$DEVICE_CLASS"
+          mkdir -p "$EVIDENCE_DIR"
+          xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          xcrun simctl ui "$SIM_UDID" appearance light || true
+
+          (
+            cd apps/mobile
+            CI=1 EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1
+          ) &
+          METRO_PID=$!
+          trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 120); do
+            if ! kill -0 "$METRO_PID" 2>/dev/null; then
+              echo "Metro exited before iOS native evidence could start"
+              cat "$EVIDENCE_DIR/metro.log"
+              exit 1
+            fi
+            if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://localhost:8081/; then
+              break
+            fi
+            if [[ "$i" == "120" ]]; then
+              echo "Metro did not accept HTTP connections for iOS native evidence"
+              cat "$EVIDENCE_DIR/metro.log"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          xcrun simctl install "$SIM_UDID" "$IOS_APP"
+          maestro --device "$SIM_UDID" test             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"
+
+          : > "$EVIDENCE_DIR/native-errors.log"
+          grep -E '^ ERROR  ' "$EVIDENCE_DIR/metro.log" >> "$EVIDENCE_DIR/native-errors.log" || true
+          xcrun simctl spawn "$SIM_UDID" log show --last 30m --style compact \
+            --predicate 'process CONTAINS[c] "HealthTimes"' 2>/dev/null \
+            | grep -E '\[com\.facebook\.react\.log:javascript\].*(ERROR|Error|Fatal|Exception)|Unhandled JS Exception|RCTFatal|Terminating app' \
+            >> "$EVIDENCE_DIR/native-errors.log" || true
+
+          EVIDENCE_DIR="$EVIDENCE_DIR" \
+          CANDIDATE_SHA="$CANDIDATE_SHA" \
+          RUN_ATTEMPT="$RUN_ATTEMPT" \
+          NATIVE_PLATFORM="iOS" \
+          DEVICE_CLASS="$DEVICE_CLASS" \
+          DEVICE_IDENTITY="$SIM_NAME ($SIM_UDID)" \
+          OS_VERSION="$SIM_RUNTIME" \
+          ORIENTATION="portrait" \
+          node scripts/native/ui02-phase6a-manifest.mjs
+
+      - name: Upload iOS Phase 6A evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui02-phase6a-native-evidence-ios-${{ matrix.device_class }}-attempt-${{ github.run_attempt }}
+          path: ui02-phase6a-native-evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+  android-evidence:
+    name: Android ${{ matrix.device_class }} real emulator evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device_class: phone
+            profile: pixel_7_pro
+            flow: apps/mobile/e2e/ui02-phase6a-phone.yaml
+          - device_class: tablet
+            profile: pixel_tablet
+            flow: apps/mobile/e2e/ui02-phase6a-tablet.yaml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Install canonical Reader
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Generate Android native project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build self-contained Android release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Install Maestro
+        shell: bash
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Restore Android emulator cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-36-${{ matrix.profile }}-v3
+
+      - name: Run Android native journey with maestro test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.profile }}
+          disable-animations: true
+          enable-hw-keyboard: false
+          disk-size: 6000M
+          heap-size: 1024M
+          script: RUN_ATTEMPT="$RUN_ATTEMPT" bash scripts/native/ui02-phase6a-android-run.sh "${{ matrix.device_class }}" "${{ matrix.profile }}" "${{ matrix.flow }}" "${{ github.event.pull_request.head.sha || github.sha }}"
+
+      - name: Upload Android Phase 6A evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui02-phase6a-native-evidence-android-${{ matrix.device_class }}-attempt-${{ github.run_attempt }}
+          path: ui02-phase6a-native-evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate-evidence:
+    name: aggregate exact-head native evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: always()
+    needs:
+      - contract-and-regressions
+      - ios-evidence
+      - android-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Download native matrix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ui02-phase6a-native-evidence-*-attempt-${{ github.run_attempt }}
+          path: downloaded
+          merge-multiple: false
+
+      - name: Build aggregate matrix manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded ui02-phase6a-native-evidence-final
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil
+          root=pathlib.Path("downloaded")
+          final=pathlib.Path("ui02-phase6a-native-evidence-final")
+          current_attempt=int(os.environ["RUN_ATTEMPT"])
+          manifests=[]
+          valid_roots=set()
+          for p in root.rglob("manifest.json"):
+              try:
+                  m=json.loads(p.read_text())
+              except Exception:
+                  continue
+              if (
+                  m.get("candidateSha")==os.environ["EXPECTED_SHA"]
+                  and int(m.get("runAttempt",-1))==current_attempt
+              ):
+                  manifests.append(m)
+                  valid_roots.add(p.relative_to(root).parts[0])
+
+          expected={
+              ("iOS","phone"):"iOS phone",
+              ("iOS","tablet"):"iPad",
+              ("Android","phone"):"Android phone",
+              ("Android","tablet"):"Android tablet",
+          }
+          counts={}
+          for m in manifests:
+              key=(m.get("platform"),m.get("deviceClass"))
+              counts[key]=counts.get(key,0)+1
+          present=set(counts)
+          unavailable=[
+              label+": NOT CAPTURED / NOT CERTIFIED"
+              for key,label in expected.items()
+              if key not in present
+          ]
+          duplicate_cells=[
+              expected.get(key,str(key))+f": {count} current-attempt manifests"
+              for key,count in counts.items()
+              if count!=1
+          ]
+          runtime_error_cells=[
+              expected.get((m.get("platform"),m.get("deviceClass")),str((m.get("platform"),m.get("deviceClass"))))
+              for m in manifests
+              if int(m.get("nativeRuntimeErrorLineCount",0))!=0
+          ]
+
+          screenshots=[]
+          for artifact_root in sorted(valid_roots):
+              child=root/artifact_root
+              for p in child.rglob("*.png"):
+                  rel=str(p.relative_to(root))
+                  screenshots.append({
+                      "file":rel,
+                      "sha256":hashlib.sha256(p.read_bytes()).hexdigest()
+                  })
+
+          job_results={
+              "contract":"${{ needs.contract-and-regressions.result }}",
+              "ios":"${{ needs.ios-evidence.result }}",
+              "android":"${{ needs.android-evidence.result }}"
+          }
+          ready=(
+              not unavailable
+              and not duplicate_cells
+              and not runtime_error_cells
+              and all(value=="success" for value in job_results.values())
+          )
+
+          aggregate={
+              "phase":"UI-02 Phase 6A Native Cross-Device Realization",
+              "candidateSha":os.environ["EXPECTED_SHA"],
+              "runAttempt":current_attempt,
+              "evidenceSource":"real native iOS Simulator and Android Emulator; no resized-browser substitution",
+              "matrix":manifests,
+              "unavailableMatrixCells":unavailable,
+              "duplicateMatrixCells":duplicate_cells,
+              "runtimeErrorCells":runtime_error_cells,
+              "programmeDisposition":"READY FOR UI MODERATOR REVIEW" if ready else "BLOCKED — REQUIRED NATIVE DEVICE EVIDENCE INCOMPLETE OR INVALID",
+              "screenshots":sorted(screenshots,key=lambda x:x["file"]),
+              "jobResults":job_results,
+              "authorityPreservation":{
+                  "canonicalReader":"apps/mobile",
+                  "acceptedPhase1To5ProductMutation":False,
+                  "ag05Mutation":False,
+                  "ag06AuthorizationMutation":False,
+                  "premiumEntitlementMutation":False,
+                  "advertisingOrHospazAuthorityMutation":False,
+                  "supabaseMigrationOrRlsMutation":False,
+                  "communicationsMutation":False,
+                  "productionMutation":False,
+                  "dnsMutation":False,
+                  "pagesDeploymentCustodyMutation":False
+              }
+          }
+          (final/"manifest.json").write_text(json.dumps(aggregate,indent=2))
+          (final/"matrix-blocked").write_text("0" if ready else "1")
+          for artifact_root in sorted(valid_roots):
+              child=root/artifact_root
+              shutil.copytree(child,final/child.name,dirs_exist_ok=True)
+          PY
+          sha256sum ui02-phase6a-native-evidence-final/manifest.json > ui02-phase6a-native-evidence-final/manifest.sha256
+          cat ui02-phase6a-native-evidence-final/manifest.json
+
+      - name: Upload exact-head aggregate artifact
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui02-phase6a-native-evidence-attempt-${{ github.run_attempt }}
+          path: ui02-phase6a-native-evidence-final/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Record artifact identity
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## UI-02 Phase 6A native evidence"
+            echo ""
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Artifact ID: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- Artifact digest: ${{ steps.upload.outputs.artifact-digest }}"
+            echo "- Artifact URL: ${{ steps.upload.outputs.artifact-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce complete required native matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ui02-phase6a-native-evidence-final/matrix-blocked
+          if [ "$(cat ui02-phase6a-native-evidence-final/matrix-blocked)" != "0" ]; then
+            echo "BLOCKED — REQUIRED NATIVE DEVICE EVIDENCE UNAVAILABLE"
+            exit 1
+          fi
+          test "${{ needs.contract-and-regressions.result }}" = "success"
+          test "${{ needs.ios-evidence.result }}" = "success"
+          test "${{ needs.android-evidence.result }}" = "success"
