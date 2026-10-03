@@ -1,0 +1,74 @@
+name: UI-06 UI-INT-02 Premium Live Certification
+
+on:
+  push:
+    branches:
+      - test/ui06-ui-int02-premium-live-cert
+    paths:
+      - '.github/workflows/ui06-ui-int02-premium-live-cert.yml'
+      - 'scripts/ui/ui06-ui-int02-premium-live-cert.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui06-ui-int02-premium-live-cert-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  certify-live-premium-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PUBLIC_URL: https://kudzimusar.github.io/htp-zw
+      TARGET_DEPLOYED_SHA: 87bebecfa9e224b6356e1509093ba745bb80a883
+      ACCEPTED_EXECUTABLE_SHA: 9afa03a32d7e1187c1a2cc383411bcfed3d3ea2a
+      ARTIFACT_DIR: artifacts/ui06/ui-int02-premium-live-cert
+
+    steps:
+      - name: Check out certification tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact certification tooling SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "CERTIFICATION_TOOLING_SHA=$actual"
+          echo "DEPLOYED_WRAPPER_SHA=$TARGET_DEPLOYED_SHA"
+          echo "ACCEPTED_EXECUTABLE_SHA=$ACCEPTED_EXECUTABLE_SHA"
+          test "$actual" = "$GITHUB_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install certification dependency
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium
+        run: |
+          npx playwright --version
+          npx playwright install --with-deps chromium
+
+      - name: Run live UI-INT-02 Premium journey certification
+        env:
+          CERTIFICATION_TOOLING_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          RUNNER_NAME: ${{ runner.name }}
+        run: node scripts/ui/ui06-ui-int02-premium-live-cert.mjs
+
+      - name: Upload UI-INT-02 live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-ui-int02-premium-live-cert
+          path: artifacts/ui06/ui-int02-premium-live-cert/
+          if-no-files-found: warn
+          retention-days: 30
