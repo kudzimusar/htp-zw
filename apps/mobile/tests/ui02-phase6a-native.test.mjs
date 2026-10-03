@@ -106,7 +106,7 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(androidRunner.includes("EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost"));
   assert.ok(androidRunner.includes("for i in $(seq 1 120); do"));
   assert.ok(androidRunner.includes("ui02-phase6a-manifest.mjs"));
-  assert.ok(workflow.includes("ui02-phase6a-native-${{ github.event.pull_request.head.sha || github.sha }}"));
+  assert.ok(workflow.includes("ui02-phase6a-native-${{ github.event.pull_request.head.ref || github.ref }}"));
   assert.ok(workflow.includes("ui02-phase6a-native-evidence"));
   assert.equal(workflow.includes("playwright"),false);
 });

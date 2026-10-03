@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui02-phase6a-native-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ui02-phase6a-native-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 env:
