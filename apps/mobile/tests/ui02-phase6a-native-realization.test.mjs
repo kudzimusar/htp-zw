@@ -102,7 +102,7 @@ test("Phase 6A tablet flow targets the five tablet-sensitive surfaces",()=>{
   const flow=read("e2e/ui02-phase6a-tablet.yaml");
   for(const expected of [
     "Top Stories",
-    "Zimbabwe Looks to Strengthen Social Contracting",
+    "Save article",
     "Watch",
     "My HealthTimes",
     "Edition & Preferences",
