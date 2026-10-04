@@ -125,6 +125,7 @@ export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const phone = width < breakpoints.tablet;
+  const narrowPhone = width > 0 && width < 360;
   const desktop = width >= breakpoints.desktop;
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
@@ -143,7 +144,7 @@ export function AppHeader() {
   const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
   const actions = (
-    <View style={[styles.headerActions, phone && styles.phoneActions]}>
+    <View style={[styles.headerActions, phone && styles.phoneActions, narrowPhone && styles.narrowActions]}>
       <Pressable
         onPress={() => go("/search")}
         style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
@@ -173,7 +174,7 @@ export function AppHeader() {
 
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
-      <View style={[styles.headerInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+      <View style={[styles.headerInner, narrowPhone && styles.narrowHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
           <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
         </Pressable>
@@ -242,16 +243,42 @@ export function Section({ children }: PropsWithChildren) {
   return <View style={styles.section}>{children}</View>;
 }
 
-export function Chip({ children, active = false, onPress }: PropsWithChildren<{ active?: boolean; onPress?: () => void }>) {
+export function Chip({
+  children,
+  active = false,
+  onPress,
+  role = "button",
+  accessibilityLabel,
+  accessibilityHint,
+  disabled = false
+}: PropsWithChildren<{
+  active?: boolean;
+  onPress?: () => void;
+  role?: "button" | "tab" | "radio" | "checkbox";
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  disabled?: boolean;
+}>) {
   const { palette } = useAppearance();
+  const [focused, setFocused] = useState(false);
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      accessibilityRole={role}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ selected: active, disabled }}
+      disabled={disabled}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       onPress={onPress}
       style={[
         styles.chip,
-        { borderColor: active ? palette.ink : palette.border, backgroundColor: active ? palette.ink : palette.paper }
+        focused && styles.chipFocused,
+        disabled && styles.chipDisabled,
+        {
+          borderColor: focused ? palette.blue : active ? palette.ink : palette.border,
+          backgroundColor: active ? palette.ink : palette.paper
+        }
       ]}
     >
       <Text style={[styles.chipText, { color: active ? palette.paper : palette.ink }]}>{children}</Text>
@@ -273,10 +300,16 @@ export function EmptyState({ title, message, action }: { title: string; message:
 export function LoadingBlock({ label = "Loading HealthTimes…" }: { label?: string }) {
   const { palette } = useAppearance();
   return (
-    <View style={styles.loading} accessibilityLiveRegion="polite">
-      <View style={[styles.skeletonWide, { backgroundColor: palette.paperMuted }]} />
-      <View style={[styles.skeletonMid, { backgroundColor: palette.paperMuted }]} />
-      <Text style={[styles.loadingText, { color: palette.inkMuted }]}>{label}</Text>
+    <View
+      style={styles.loading}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      accessibilityLiveRegion="polite"
+    >
+      <View accessible={false} style={[styles.skeletonWide, { backgroundColor: palette.paperMuted }]} />
+      <View accessible={false} style={[styles.skeletonMid, { backgroundColor: palette.paperMuted }]} />
+      <Text accessible={false} style={[styles.loadingText, { color: palette.inkMuted }]}>{label}</Text>
     </View>
   );
 }
@@ -302,6 +335,8 @@ const styles=StyleSheet.create({
   desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.xs,flexShrink:0},
   phoneActions:{gap:2},
+  narrowHeaderInner:{flexWrap:"wrap",paddingTop:4,paddingBottom:4},
+  narrowActions:{width:"100%",marginLeft:0,justifyContent:"space-between"},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:10,borderWidth:1,borderRadius:radius.sm},
   premiumAction:{borderColor:"transparent"},
   phoneActionButton:{paddingHorizontal:5,borderWidth:0,minWidth:44,alignItems:"center"},
@@ -310,14 +345,16 @@ const styles=StyleSheet.create({
   screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},
-  sectionHeader:{flexDirection:"row",alignItems:"flex-end",justifyContent:"space-between",marginBottom:spacing.lg,gap:spacing.md},
+  sectionHeader:{flexDirection:"row",alignItems:"flex-end",justifyContent:"space-between",flexWrap:"wrap",marginBottom:spacing.lg,gap:spacing.md},
   sectionHeadingCopy:{gap:2,flex:1},
   sectionEyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1.1,textTransform:"uppercase"},
   sectionTitle:{fontSize:23,fontWeight:"900",letterSpacing:-0.4},
   sectionAction:{minHeight:layout.touchMin,justifyContent:"center"},
   sectionActionText:{fontSize:13,fontWeight:"800"},
-  chip:{borderWidth:1,borderRadius:radius.sm,minHeight:layout.touchMin,paddingHorizontal:12,justifyContent:"center"},
-  chipText:{fontSize:13,fontWeight:"700"},
+  chip:{borderWidth:1,borderRadius:radius.sm,minHeight:layout.touchMin,maxWidth:"100%",paddingHorizontal:12,justifyContent:"center"},
+  chipFocused:{borderWidth:2},
+  chipDisabled:{opacity:.55},
+  chipText:{fontSize:13,fontWeight:"700",flexShrink:1},
   empty:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xxl,gap:spacing.sm},
   emptyTitle:{fontSize:20,fontWeight:"900"},
   emptyMessage:{fontSize:15,lineHeight:22,maxWidth:620},
