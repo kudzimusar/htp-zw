@@ -2,6 +2,12 @@ appId: zw.co.healthtimes.app.dev
 ---
 - launchApp:
     clearState: true
+- runFlow:
+    when:
+      platform: Android
+      visible: "System UI isn't responding"
+    commands:
+      - tapOn: "Wait"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 240000
