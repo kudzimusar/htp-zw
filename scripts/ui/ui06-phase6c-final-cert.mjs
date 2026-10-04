@@ -91,6 +91,12 @@ async function anyText(page,values,label){
   if(!matched)fail(label,"no approved resolved state");
   return matched;
 }
+async function bodyText(page,value,label){
+  await page.waitForFunction(needle=>document.body.innerText.includes(needle),value,{timeout:30000});
+  const body=await page.locator("body").innerText();
+  if(!body.includes(value))fail(label||value,"resolved visible text missing");
+  return value;
+}
 async function mediaReady(page,label,kind){
   if(!kind)return null;
   let locator;
@@ -123,7 +129,7 @@ async function capture(browser,spec){
   const page=await context.newPage(),d=diag(page,spec.name);
   try{
     const status=await open(page,spec.route,spec.name);
-    if(spec.waitText)await page.getByText(spec.waitText,{exact:false}).first().waitFor({state:"visible",timeout:30000});
+    if(spec.waitText)await bodyText(page,spec.waitText,spec.name);
     if(spec.waitAny)await anyText(page,spec.waitAny,spec.name);
     await noLoading(page,spec.loading||[]);
     if(spec.after)await spec.after(page);
@@ -172,13 +178,13 @@ try{
     const search=page.getByRole("textbox",{name:"Search HealthTimes"});await search.fill("Zimbabwe");await search.press("Enter");
     await page.getByText("HEALTHTIMES SEARCH",{exact:false}).first().waitFor({timeout:30000});
     await page.goto(base+"/article/"+publicArticleId,{waitUntil:"domcontentloaded"});
-    await page.getByText(publicHeadline,{exact:true}).first().waitFor({timeout:30000});
+    await bodyText(page,publicHeadline,"public Article");
     await page.getByRole("button",{name:"Save article"}).click();await page.getByText("Saved",{exact:true}).waitFor({timeout:10000});
     await page.getByRole("button",{name:/Download article for offline reading|Offline/}).click();await page.getByText("Available offline",{exact:true}).waitFor({timeout:10000});
     await shot(page,"journeys/discovery-article-saved-offline.png");
-    await page.goto(base+"/saved?tab=saved",{waitUntil:"domcontentloaded"});await page.getByText(publicHeadline,{exact:true}).first().waitFor({timeout:30000});
+    await page.goto(base+"/saved?tab=saved",{waitUntil:"domcontentloaded"});await bodyText(page,publicHeadline,"public Article");
     const savedPresent=true;
-    await page.goto(base+"/saved?tab=offline",{waitUntil:"domcontentloaded"});await page.getByText(publicHeadline,{exact:true}).first().waitFor({timeout:30000});
+    await page.goto(base+"/saved?tab=offline",{waitUntil:"domcontentloaded"});await bodyText(page,publicHeadline,"public Article");
     const offlinePresent=true;
     const g=await geometry(page);assertRuntime("journey discovery/offline",d,g);
     manifest.journeys.push({name:"Discovery → Article → Save",result:"PASS",steps:["Home","Explore","Search","source-backed Article","Save"]});
@@ -242,7 +248,7 @@ try{
     for(const [name,route,marker] of [
       ["home","/","Top Stories"],["article","/article/"+publicArticleId,publicHeadline],["premium","/premium","HEALTHTIMES PREMIUM"],["watch","/watch","Watch"],["my","/my","My HealthTimes"]
     ]){
-      const page=await context.newPage(),d=diag(page,"dark-"+name);await open(page,route,"dark "+name);await page.getByText(marker,{exact:false}).first().waitFor({timeout:30000});await noLoading(page,name==="article"?["Loading article…"]:name==="home"?["Loading Home…"]:[]);
+      const page=await context.newPage(),d=diag(page,"dark-"+name);await open(page,route,"dark "+name);await bodyText(page,marker,"dark "+name);await noLoading(page,name==="article"?["Loading article…"]:name==="home"?["Loading Home…"]:[]);
       if(name==="article")await mediaReady(page,"dark Article","article");
       const g=await geometry(page);assertRuntime("dark "+name,d,g);await shot(page,"dark/mobile-"+name+".png");manifest.states.push({state:"dark",surface:name,result:"PASS"});await page.close();
     }
@@ -252,7 +258,7 @@ try{
     const context=await browser.newContext({viewport:viewports.desktop,deviceScaleFactor:1});
     const setup=await context.newPage();await open(setup,"/appearance","desktop Appearance");await setup.getByRole("button",{name:"Dark",exact:true}).click();await setup.close();
     for(const [name,route,marker] of [["home","/","Top Stories"],["premium","/premium","HEALTHTIMES PREMIUM"]]){
-      const page=await context.newPage(),d=diag(page,"dark-desktop-"+name);await open(page,route,"dark desktop "+name);await page.getByText(marker,{exact:false}).first().waitFor({timeout:30000});const g=await geometry(page);assertRuntime("dark desktop "+name,d,g);if(await mobileNavVisible(page))fail("dark desktop "+name,"mobile bottom nav visible","P2");await shot(page,"dark/desktop-"+name+".png");await page.close();
+      const page=await context.newPage(),d=diag(page,"dark-desktop-"+name);await open(page,route,"dark desktop "+name);await bodyText(page,marker,"dark desktop "+name);const g=await geometry(page);assertRuntime("dark desktop "+name,d,g);if(await mobileNavVisible(page))fail("dark desktop "+name,"mobile bottom nav visible","P2");await shot(page,"dark/desktop-"+name+".png");await page.close();
     }await context.close();
   }
 
