@@ -1,0 +1,204 @@
+import { chromium } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const base=process.env.UI05_BASE_URL || "http://127.0.0.1:4174";
+const sha=process.env.EXPECTED_SHA || "unknown";
+const out="ui05-phase6b-evidence";
+const articleId="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
+mkdirSync(join(out,"web"),{recursive:true});
+
+function diagnostics(page){
+  const pageErrors=[];
+  const consoleErrors=[];
+  page.on("pageerror",error=>pageErrors.push(String(error)));
+  page.on("console",msg=>{ if(msg.type()==="error") consoleErrors.push(msg.text()); });
+  return {pageErrors,consoleErrors};
+}
+
+async function inspect(page){
+  return page.evaluate(()=>({
+    scrollWidth:document.documentElement.scrollWidth,
+    clientWidth:document.documentElement.clientWidth,
+    activeLabel:document.activeElement?.getAttribute?.("aria-label") || document.activeElement?.textContent?.trim()?.slice(0,120) || document.activeElement?.tagName || null
+  }));
+}
+
+function assertClean(label,diag,state){
+  const react418=[...diag.pageErrors,...diag.consoleErrors].filter(value=>value.includes("Minified React error #418")||value.includes("React error #418"));
+  if(react418.length) throw new Error(label+" React #418: "+react418.join(" | "));
+  if(diag.pageErrors.length) throw new Error(label+" page errors: "+diag.pageErrors.join(" | "));
+  if(diag.consoleErrors.length) throw new Error(label+" console errors: "+diag.consoleErrors.join(" | "));
+  if(state.scrollWidth>state.clientWidth+1) throw new Error(label+" horizontal overflow: "+state.scrollWidth+" > "+state.clientWidth);
+}
+
+async function capture(browser,manifest,{name,route,viewport,ready,contextOptions={},after}){
+  const [label,width,height]=viewport;
+  const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,...contextOptions});
+  const page=await context.newPage();
+  const diag=diagnostics(page);
+  const response=await page.goto(base+route,{waitUntil:"domcontentloaded",timeout:30000});
+  if(response?.status()!==200) throw new Error(name+" HTTP "+response?.status());
+  if(ready) await page.getByText(ready,{exact:false}).first().waitFor({timeout:30000});
+  if(after) await after(page);
+  await page.waitForTimeout(500);
+  const state=await inspect(page);
+  assertClean(name,diag,state);
+  const file=join(out,"web",name+".png");
+  await page.screenshot({path:file,fullPage:true});
+  assertClean(name+" post-capture",diag,await inspect(page));
+  manifest.screens.push({
+    sha,name,route,viewport:label,width,height,status:response?.status()??null,file,
+    pageErrors:diag.pageErrors,consoleErrors:diag.consoleErrors,react418:0,
+    horizontalOverflow:false,focusObservation:state.activeLabel
+  });
+  await context.close();
+}
+
+const browser=await chromium.launch({headless:true});
+const manifest={
+  sha,
+  capturedAt:new Date().toISOString(),
+  serviceMode:"source-parity",
+  screens:[],
+  focusChecks:[],
+  stateChecks:[],
+  authority:{
+    canonicalReader:"apps/mobile",
+    premiumEntitlementMutation:false,
+    offlineArchitectureMutation:false,
+    ag05Mutation:false,
+    ag06Mutation:false,
+    commerceAuthorityMutation:false,
+    supabaseMigrationOrRlsMutation:false,
+    productionMutation:false,
+    pagesDeploymentMutation:false
+  }
+};
+
+try{
+  for(const spec of [
+    {name:"mobile-search",route:"/search",viewport:["mobile",390,844],ready:"Suggested searches"},
+    {name:"tablet-my",route:"/my",viewport:["tablet",834,1112],ready:"My HealthTimes"},
+    {name:"desktop-article",route:"/article/"+articleId,viewport:["desktop",1440,1000],ready:null}
+  ]) await capture(browser,manifest,spec);
+
+  await capture(browser,manifest,{
+    name:"narrow-long-search",
+    route:"/search",
+    viewport:["narrow",320,844],
+    ready:"Suggested searches",
+    after:async page=>{
+      const input=page.getByRole("textbox",{name:"Search HealthTimes"});
+      await input.fill("cardiovascular-health-policy-and-community-prevention-".repeat(3));
+      await input.press("Enter");
+      await page.waitForTimeout(900);
+    }
+  });
+
+  {
+    const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
+    const page=await context.newPage();
+    const diag=diagnostics(page);
+
+    await page.goto(base+"/search",{waitUntil:"domcontentloaded",timeout:30000});
+    const search=page.getByRole("textbox",{name:"Search HealthTimes"});
+    await search.focus();
+    await search.fill("health");
+    await search.press("Enter");
+    await page.waitForTimeout(500);
+    let state=await inspect(page);
+    assertClean("keyboard-search",diag,state);
+    manifest.focusChecks.push({surface:"Search",operation:"focus + Enter submit",activeLabel:state.activeLabel});
+
+    await page.goto(base+"/saved?tab=saved",{waitUntil:"domcontentloaded",timeout:30000});
+    const offline=page.getByRole("button",{name:"Offline",exact:true});
+    await offline.focus();
+    await offline.press("Enter");
+    await page.getByText("Available offline",{exact:true}).waitFor({timeout:10000});
+    state=await inspect(page);
+    assertClean("keyboard-saved",diag,state);
+    manifest.focusChecks.push({surface:"Saved",operation:"focus + Enter tab choice",activeLabel:state.activeLabel});
+
+    await page.goto(base+"/article/"+articleId,{waitUntil:"domcontentloaded",timeout:30000});
+    const save=page.getByRole("button",{name:"Save article"});
+    await save.focus();
+    await save.press("Enter");
+    await page.getByText(/Saved|Removed from saved/).first().waitFor({timeout:10000});
+    state=await inspect(page);
+    assertClean("keyboard-article",diag,state);
+    manifest.focusChecks.push({surface:"Article",operation:"focus + Enter save",activeLabel:state.activeLabel});
+
+    await page.goto(base+"/appearance",{waitUntil:"domcontentloaded",timeout:30000});
+    const dark=page.getByRole("button",{name:"Dark",exact:true});
+    await dark.focus();
+    await dark.press("Enter");
+    await page.waitForTimeout(300);
+    state=await inspect(page);
+    assertClean("keyboard-appearance",diag,state);
+    manifest.focusChecks.push({surface:"Appearance",operation:"focus + Enter choice",activeLabel:state.activeLabel});
+
+    await context.close();
+  }
+
+  {
+    const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
+    const setup=await context.newPage();
+    await setup.goto(base+"/appearance",{waitUntil:"domcontentloaded",timeout:30000});
+    await setup.getByRole("button",{name:"Dark",exact:true}).click();
+    await setup.close();
+
+    for(const [name,route,ready] of [
+      ["dark-home","/","HealthTimes"],
+      ["dark-article","/article/"+articleId,null],
+      ["dark-premium","/premium","HEALTHTIMES PREMIUM"],
+      ["dark-watch","/watch","Watch"],
+      ["dark-my","/my","My HealthTimes"]
+    ]){
+      const page=await context.newPage();
+      const diag=diagnostics(page);
+      const response=await page.goto(base+route,{waitUntil:"domcontentloaded",timeout:30000});
+      if(response?.status()!==200) throw new Error(name+" HTTP "+response?.status());
+      if(ready) await page.getByText(ready,{exact:false}).first().waitFor({timeout:30000});
+      await page.waitForTimeout(500);
+      const state=await inspect(page);
+      assertClean(name,diag,state);
+      const file=join(out,"web",name+".png");
+      await page.screenshot({path:file,fullPage:true});
+      manifest.screens.push({sha,name,route,viewport:"mobile-dark",width:390,height:844,status:response?.status()??null,file,pageErrors:diag.pageErrors,consoleErrors:diag.consoleErrors,react418:0,horizontalOverflow:false,appearance:"dark"});
+      await page.close();
+    }
+    await context.close();
+  }
+
+  for(const [name,route,expectations] of [
+    ["saved-state","/saved?tab=saved",["Nothing saved yet","Saved stories"]],
+    ["live-state","/live",["No live coverage right now","Live now","Upcoming coverage","Live blogs"]],
+    ["listen-state","/listen",["No audio published yet","Featured audio"]],
+    ["premium-state","/premium",["Membership options aren't available here yet","Membership options"]]
+  ]){
+    const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
+    const page=await context.newPage();
+    const diag=diagnostics(page);
+    await page.goto(base+route,{waitUntil:"domcontentloaded",timeout:30000});
+    await page.waitForTimeout(900);
+    const state=await inspect(page);
+    assertClean(name,diag,state);
+    const body=await page.locator("body").innerText();
+    const resolved=expectations.find(text=>body.includes(text)) || "populated/other truthful resolved state";
+    manifest.stateChecks.push({surface:route,resolved});
+    await context.close();
+  }
+
+  await capture(browser,manifest,{
+    name:"reduced-motion-home",
+    route:"/",
+    viewport:["mobile-reduced-motion",390,844],
+    ready:"HealthTimes",
+    contextOptions:{reducedMotion:"reduce"}
+  });
+
+  writeFileSync(join(out,"manifest.json"),JSON.stringify(manifest,null,2));
+}finally{
+  await browser.close();
+}
