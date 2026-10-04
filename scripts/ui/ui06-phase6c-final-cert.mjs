@@ -216,12 +216,13 @@ try{
   {
     const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1});const page=await context.newPage(),d=diag(page,"journey-media");
     await open(page,"/watch","Watch journey");await bodyText(page,"Featured video","Watch journey");
-    const youtube=page.locator('a[href*="youtube.com"],a[href*="youtu.be"]').first();const href=await youtube.getAttribute("href");
-    if(!href)fail("Watch journey","no source-backed external YouTube destination","P2");
+    const youtube=page.getByRole("link",{name:/^Watch .* on YouTube$/}).first();await youtube.waitFor({state:"visible",timeout:30000});
+    const destinationAction=await youtube.getAttribute("aria-label");
+    if(!destinationAction||!destinationAction.includes("on YouTube"))fail("Watch journey","no verified YouTube interaction contract","P2");
     await page.goto(base+"/listen",{waitUntil:"domcontentloaded"});const listen=await anyText(page,["No audio published yet","Featured audio"],"Listen journey");
     await page.goto(base+"/live",{waitUntil:"domcontentloaded"});const live=await anyText(page,["No live coverage right now","Live now","Upcoming coverage","Live blogs"],"Live journey");
     const g=await geometry(page);assertRuntime("Media journey",d,g);
-    manifest.journeys.push({name:"Media",result:"PASS",watchDestination:href,listenState:listen,liveState:live});
+    manifest.journeys.push({name:"Media",result:"PASS",watchDestinationAction:destinationAction,listenState:listen,liveState:live});
     if(listen==="No audio published yet")manifest.states.push({state:"media unavailable",result:"PASS",evidence:listen});
     await context.close();
   }
