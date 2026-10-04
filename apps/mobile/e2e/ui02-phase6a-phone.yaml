@@ -219,13 +219,33 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
-- assertVisible: "Watch video.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "Watch From Mozambique to Zimbabwe:.*"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "Watch video.*"
 - takeScreenshot: watch-light
 
 # Source-backed external YouTube destination
-- tapOn:
-    text: "Watch video.*"
-    index: 0
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Watch From Mozambique to Zimbabwe:.*"
+          index: 0
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Watch video.*"
+          index: 0
 - takeScreenshot: watch-external-youtube
 - stopApp
 
@@ -300,7 +320,11 @@ appId: zw.co.healthtimes.app.dev
     timeout: 10000
 - tapOn:
     text: "Africa"
-    index: 0
+    below: "Primary Edition"
+- assertVisible:
+    text: "Africa"
+    below: "Primary Edition"
+    selected: true
 - scrollUntilVisible:
     element:
       text: "Save Preferences"
