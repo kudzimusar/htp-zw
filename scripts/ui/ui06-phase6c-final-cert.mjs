@@ -232,11 +232,11 @@ try{
     await open(page,"/my","My HealthTimes personalization");await bodyText(page,"My HealthTimes","My HealthTimes personalization");
     await page.goto(base+"/edition",{waitUntil:"domcontentloaded"});await bodyText(page,"Edition & Preferences","Edition & Preferences");await noLoading(page,["Loading edition preferences…"]);
     const search=page.getByRole("textbox",{name:"Search country or region"});await search.fill("Africa");
-    const africa=page.getByRole("radio",{name:"Africa primary edition"});await africa.waitFor({timeout:15000});await africa.click();
+    const africa=page.getByRole("radio",{name:"Africa primary edition",exact:true});await africa.waitFor({timeout:15000});await africa.click();
     const save=page.getByRole("button",{name:/Save Preferences/i}).first();await save.scrollIntoViewIfNeeded();await save.click();await bodyText(page,"Preferences saved on this device.","Edition save confirmation");
     await page.reload({waitUntil:"domcontentloaded"});await noLoading(page,["Loading edition preferences…"]);
-    const checked=await page.getByRole("radio",{name:"Africa primary edition"}).getAttribute("aria-checked").catch(()=>null);
-    const selected=await page.getByRole("radio",{name:"Africa primary edition"}).getAttribute("aria-selected").catch(()=>null);
+    const checked=await page.getByRole("radio",{name:"Africa primary edition",exact:true}).getAttribute("aria-checked").catch(()=>null);
+    const selected=await page.getByRole("radio",{name:"Africa primary edition",exact:true}).getAttribute("aria-selected").catch(()=>null);
     if(checked!=="true"&&selected!=="true")fail("Edition persistence","Africa primary edition not persisted","P2");
     const g=await geometry(page);assertRuntime("Personalization journey",d,g);
     manifest.journeys.push({name:"Personalization",result:"PASS",steps:["My HealthTimes","Edition & Preferences","Africa selected","saved","persisted"]});
