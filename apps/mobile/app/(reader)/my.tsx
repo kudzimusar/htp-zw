@@ -107,8 +107,9 @@ export default function MyHealthTimesScreen(){
                   if(item.url) return void Linking.openURL(item.url);
                 }}
                 style={[styles.row,{borderBottomColor:palette.border},!item.path&&!item.url&&styles.rowDisabled]}
-                accessibilityRole={item.url ? "link" : item.path ? "button" : undefined}
-                accessibilityState={!item.path&&!item.url ? {disabled:true} : undefined}
+                accessibilityRole={item.url ? "link" : "button"}
+                accessibilityLabel={item.detail ? item.label+". "+item.detail : item.label}
+                accessibilityState={{disabled:!item.path&&!item.url}}
               >
                 <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
                 <View style={styles.rowEnd}>
@@ -164,11 +165,11 @@ const styles=StyleSheet.create({
   premiumTitle:{fontSize:22,fontWeight:"900",color:"#FFFFFF"},
   premiumText:{fontSize:14,lineHeight:21,color:"#C9D5E1",maxWidth:700},
   premiumAction:{fontSize:13,fontWeight:"900",color:"#FFFFFF"},
-  row:{minHeight:58,borderBottomWidth:1,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md},
+  row:{minHeight:58,borderBottomWidth:1,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md,flexWrap:"wrap"},
   rowDisabled:{opacity:.65},
   rowText:{fontSize:16,fontWeight:"700",flex:1},
-  rowEnd:{flexDirection:"row",alignItems:"center",gap:spacing.sm,maxWidth:"52%"},
-  detail:{fontSize:11,textAlign:"right",lineHeight:16},
+  rowEnd:{flexDirection:"row",alignItems:"center",gap:spacing.sm,maxWidth:"52%",minWidth:0,flexShrink:1},
+  detail:{fontSize:11,textAlign:"right",lineHeight:16,flexShrink:1},
   chevron:{fontSize:24},
   signOut:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:16,borderWidth:1,borderRadius:radius.sm},
   signOutText:{fontWeight:"900"},
