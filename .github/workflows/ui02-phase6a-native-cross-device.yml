@@ -239,7 +239,7 @@ jobs:
           maestro --device "$SIM_UDID" test             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"
 
           : > "$EVIDENCE_DIR/native-errors.log"
-          grep -E '^ ERROR  .*[^[:space:]].*
+          grep -E '^ ERROR  [^ ]' "$EVIDENCE_DIR/metro.log" >> "$EVIDENCE_DIR/native-errors.log" || true
           xcrun simctl spawn "$SIM_UDID" log show --last 30m --style compact \
             --predicate 'process CONTAINS[c] "HealthTimes"' 2>/dev/null \
             | grep -E '\[com\.facebook\.react\.log:javascript\].*(ERROR|Error|Fatal|Exception)|Unhandled JS Exception|RCTFatal|Terminating app' \
