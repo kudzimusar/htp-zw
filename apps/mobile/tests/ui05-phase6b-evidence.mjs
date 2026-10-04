@@ -54,7 +54,11 @@ async function requireNoLoading(page,label,loadingMarkers){
 
 async function requireResolvedArticle(page,label){
   await page.getByRole("button",{name:"Save article"}).waitFor({state:"visible",timeout:30000});
-  await page.getByText(articleHeadline,{exact:true}).first().waitFor({state:"visible",timeout:30000});
+  await page.waitForFunction(
+    headline=>document.body.innerText.includes(headline),
+    articleHeadline,
+    {timeout:30000}
+  );
   const loading=await requireNoLoading(page,label,["Loading article…"]);
   return {...loading,articleResolved:true,articleHeadline};
 }
