@@ -247,34 +247,28 @@ export function Chip({
   children,
   active = false,
   onPress,
-  role = "button",
   accessibilityLabel,
-  accessibilityHint,
-  disabled = false
+  accessibilityHint
 }: PropsWithChildren<{
   active?: boolean;
   onPress?: () => void;
-  role?: "button" | "tab" | "radio" | "checkbox";
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  disabled?: boolean;
 }>) {
   const { palette } = useAppearance();
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
-      accessibilityRole={role}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ selected: active, disabled }}
-      disabled={disabled}
+      accessibilityState={{ selected: active }}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
       style={[
         styles.chip,
         focused && styles.chipFocused,
-        disabled && styles.chipDisabled,
         {
           borderColor: focused ? palette.blue : active ? palette.ink : palette.border,
           backgroundColor: active ? palette.ink : palette.paper
@@ -353,7 +347,6 @@ const styles=StyleSheet.create({
   sectionActionText:{fontSize:13,fontWeight:"800"},
   chip:{borderWidth:1,borderRadius:radius.sm,minHeight:layout.touchMin,maxWidth:"100%",paddingHorizontal:12,justifyContent:"center"},
   chipFocused:{borderWidth:2},
-  chipDisabled:{opacity:.55},
   chipText:{fontSize:13,fontWeight:"700",flexShrink:1},
   empty:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xxl,gap:spacing.sm},
   emptyTitle:{fontSize:20,fontWeight:"900"},
