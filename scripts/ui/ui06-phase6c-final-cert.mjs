@@ -202,7 +202,7 @@ try{
     const protectedContentRequests=requests.filter(u=>decodeURIComponent(u).toLowerCase().includes("wp-json/wp/v2")&&decodeURIComponent(u).toLowerCase().includes("content"));
     if(protectedContentRequests.length)fail("Premium security","anonymous browser requested WordPress content field: "+protectedContentRequests.join(" | "),"P0");
     const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
-    if(await offline.count()){await offline.click();await page.getByText(/Offline download isn't available for Premium articles/i).waitFor({timeout:10000});}
+    if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
     const cta=page.getByRole("button",{name:/Go to HealthTimes Premium|Go Premium/}).first();
     await cta.scrollIntoViewIfNeeded();await cta.click();await page.waitForURL(u=>u.pathname.endsWith("/premium")||u.pathname.endsWith("/premium/"),{timeout:15000});
     await bodyText(page,"HEALTHTIMES PREMIUM","Premium landing");
