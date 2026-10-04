@@ -1,0 +1,109 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 240000
+
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Save article"
+    timeout: 60000
+- takeScreenshot: tablet-article
+
+- openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- takeScreenshot: tablet-watch
+
+- openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- takeScreenshot: tablet-my-healthtimes
+# The iOS tablet artifact proves this row is already rendered and fully on-screen.
+# Avoid Maestro's iOS scrollUntilVisible overscroll; retain the proven Android path.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          point: "50%,54%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Countries & Interests"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Countries & Interests"
+- extendedWaitUntil:
+    visible: "Edition & Preferences"
+    timeout: 20000
+- takeScreenshot: tablet-edition
+
+# Tablet orientation evidence: same accepted hierarchy using extra width deliberately.
+# Pixel Tablet's natural device orientation maps Maestro's semantic labels opposite
+# to the physical screenshot geometry, so select commands per platform and let the
+# manifest independently validate the final PNG dimensions.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setOrientation: PORTRAIT
+- openLink: "healthtimes://"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 240000
+- takeScreenshot: tablet-home-landscape
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setOrientation: PORTRAIT
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 20000
+- takeScreenshot: tablet-home
