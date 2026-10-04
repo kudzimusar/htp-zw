@@ -18,7 +18,7 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
-- tapOn: "Search stories, people and topics"
+- tapOn: "Search HealthTimes"
 - inputText: "health"
 - takeScreenshot: search-keyboard
 - hideKeyboard
@@ -218,17 +218,20 @@ appId: zw.co.healthtimes.app.dev
           timeout: 20000
       - tapOn: "Countries & Interests"
 - extendedWaitUntil:
-    visible: "Edition & Preferences"
+    visible: "Select Your Edition"
     timeout: 20000
 
+# Historical Phase-6A label "Edition & Preferences" is superseded by canonical "Select Your Edition".
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
 - hideKeyboard
 - extendedWaitUntil:
-    visible: "Africa primary edition"
+    visible: "Africa"
     timeout: 10000
-- tapOn: "Africa primary edition"
+- tapOn:
+    text: "Africa"
+    index: 0
 - scrollUntilVisible:
     element:
       text: "Save Preferences"

@@ -64,8 +64,9 @@ appId: zw.co.healthtimes.app.dev
           timeout: 20000
       - tapOn: "Countries & Interests"
 - extendedWaitUntil:
-    visible: "Edition & Preferences"
+    visible: "Select Your Edition"
     timeout: 20000
+# Historical Phase-6A label "Edition & Preferences" is superseded by canonical "Select Your Edition".
 - takeScreenshot: tablet-edition
 
 # Tablet orientation evidence: same accepted hierarchy using extra width deliberately.

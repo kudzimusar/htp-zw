@@ -53,14 +53,13 @@ jobs:
       - name: Typecheck canonical Reader
         run: npm --prefix apps/mobile run typecheck
 
-      - name: Re-run accepted Phase 3-5 Reader contracts
+      - name: Re-run canonical Reader regression contracts
         run: |
-          npm --prefix apps/mobile run test:ui04
-          npm --prefix apps/mobile run test:ui01-phase4
-          npm --prefix apps/mobile run test:ui01-phase3
-          npm --prefix apps/mobile run test:ui03
           npm --prefix apps/mobile run test:reader-product
           npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:source-parity
           npm --prefix apps/mobile run test:identity-security
           npm --prefix apps/mobile run test:native-certification
 
