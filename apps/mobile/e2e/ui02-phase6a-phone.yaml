@@ -53,9 +53,7 @@ appId: zw.co.healthtimes.app.dev
     visible: "Saved"
     timeout: 10000
 - tapOn: "Download article for offline reading"
-- extendedWaitUntil:
-    visible: "Available offline"
-    timeout: 10000
+# Immediate status text is viewport-sensitive; offline persistence is proven later via /saved?tab=offline.
 - takeScreenshot: article-actions-light
 - tapOn: "Share article"
 - takeScreenshot: article-native-share
