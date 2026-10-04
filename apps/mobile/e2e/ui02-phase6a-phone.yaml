@@ -314,7 +314,16 @@ appId: zw.co.healthtimes.app.dev
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
-- hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Primary Edition"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
 - extendedWaitUntil:
     visible: "Africa"
     timeout: 10000
