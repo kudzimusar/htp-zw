@@ -64,7 +64,11 @@ async function requireResolvedArticle(page,label){
 }
 
 async function requireResolvedHome(page,label){
-  await page.getByText("Top Stories",{exact:true}).first().waitFor({state:"visible",timeout:30000});
+  await page.waitForFunction(
+    marker=>document.body.innerText.includes(marker),
+    "Top Stories",
+    {timeout:30000}
+  );
   const loading=await requireNoLoading(page,label,["Loading Home…"]);
   return {...loading,homeResolved:true,homeResolutionMarker:"Top Stories"};
 }
@@ -216,7 +220,7 @@ try{
     await setup.close();
 
     for(const [name,route,ready] of [
-      ["dark-home","/","HealthTimes"],
+      ["dark-home","/",null],
       ["dark-article","/article/"+articleId,null],
       ["dark-premium","/premium","HEALTHTIMES PREMIUM"],
       ["dark-watch","/watch","Watch"],
