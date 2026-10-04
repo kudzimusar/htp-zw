@@ -32,7 +32,7 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: search-results
 
 # Public Article + native Save/Offline/Share
-- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- openLink: "healthtimes://article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
 - runFlow:
     when:
       platform: iOS
@@ -46,7 +46,7 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    visible: "Save article"
     timeout: 30000
 - tapOn: "Save article"
 - extendedWaitUntil:
@@ -83,9 +83,9 @@ appId: zw.co.healthtimes.app.dev
     visible: "Saved & Offline"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "Saved stories"
+    visible: "Saved articles"
     timeout: 30000
-- assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+- assertVisible: ".*Fiji.*"
 - takeScreenshot: saved-persistence
 
 - openLink: "healthtimes://saved?tab=offline"
@@ -104,7 +104,7 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Available offline"
     timeout: 30000
-- assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+- assertVisible: ".*Fiji.*"
 - takeScreenshot: offline-persistence
 
 # Premium anonymous body protection / paywall
@@ -367,7 +367,7 @@ appId: zw.co.healthtimes.app.dev
     timeout: 120000
 - takeScreenshot: home-dark
 
-- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- openLink: "healthtimes://article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
 - runFlow:
     when:
       platform: iOS
@@ -381,7 +381,7 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    visible: "Save article"
     timeout: 30000
 - takeScreenshot: article-dark
 
