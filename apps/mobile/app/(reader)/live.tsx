@@ -59,10 +59,10 @@ export default function LiveScreen(){
 
       {hasCoverage ? (
         <>
-          <View style={styles.tabs} accessibilityLabel="Live coverage views">
-            <Chip active={active==="live"} onPress={()=>setActive("live")}>Live Now</Chip>
-            <Chip active={active==="blog"} onPress={()=>setActive("blog")}>Live Blog</Chip>
-            <Chip active={active==="upcoming"} onPress={()=>setActive("upcoming")}>Upcoming</Chip>
+          <View style={styles.tabs} accessibilityRole="tablist" accessibilityLabel="Live coverage views">
+            <Chip role="tab" accessibilityLabel="Live Now" active={active==="live"} onPress={()=>setActive("live")}>Live Now</Chip>
+            <Chip role="tab" accessibilityLabel="Live Blog" active={active==="blog"} onPress={()=>setActive("blog")}>Live Blog</Chip>
+            <Chip role="tab" accessibilityLabel="Upcoming" active={active==="upcoming"} onPress={()=>setActive("upcoming")}>Upcoming</Chip>
           </View>
 
           <Section>
