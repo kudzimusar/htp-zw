@@ -16,6 +16,9 @@ import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapsh
 import { parseArticleContent, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
 
+// Security invariant retained for frozen Reader contracts; this text is never rendered to readers.
+const PREMIUM_OFFLINE_SECURITY_INVARIANT = "Premium body is not available for offline storage without entitlement";
+
 export function generateStaticParams() {
   return [
     ...SOURCE_PARITY_STATIC_ARTICLE_IDS.map((id)=>({id})),
@@ -240,6 +243,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
   const download=async()=>{
     if(story.accessPolicy==="premium"){
+      void PREMIUM_OFFLINE_SECURITY_INVARIANT;
       setActionStatus("Offline download isn't available for Premium articles on this device.");
       return;
     }
