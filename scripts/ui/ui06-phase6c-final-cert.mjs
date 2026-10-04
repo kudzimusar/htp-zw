@@ -148,7 +148,7 @@ try{
   const specs=[
     ["home","/","Top Stories",null,["Loading Home…"],"first"],
     ["article","/article/"+publicArticleId,publicHeadline,null,["Loading article…"],"article"],
-    ["premium-locked","/article/"+premiumArticleId,"Continue reading with HealthTimes Premium",null,["Loading article…"],"article"],
+    ["premium-locked","/article/"+premiumArticleId,"Continue reading with HealthTimes Premium",null,["Loading article…"],null],
     ["premium-landing","/premium","HEALTHTIMES PREMIUM",null,["Checking membership options…","Loading Premium journalism…"],null],
     ["explore","/explore","Explore",null,[],null],
     ["search","/search","Intelligent Search",null,["Loading suggestions…"],null],
