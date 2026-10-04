@@ -24,7 +24,7 @@ appId: zw.co.healthtimes.app.dev
 - hideKeyboard
 - tapOn: "Search"
 - extendedWaitUntil:
-    visible: "HEALTHTIMES SEARCH"
+    visible: "Article results"
     timeout: 20000
 - takeScreenshot: search-results
 
@@ -186,7 +186,7 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Listen"
     timeout: 20000
-- assertVisible: "No audio published yet"
+- assertVisible: "No audio yet"
 - takeScreenshot: listen-truthful
 
 # My HealthTimes and intentional navigation into Edition
