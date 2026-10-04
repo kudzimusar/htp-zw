@@ -15,6 +15,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
@@ -23,11 +29,6 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: search-keyboard
 - hideKeyboard
 - tapOn: "Search"
-- scrollUntilVisible:
-    element:
-      text: "Article results"
-    direction: DOWN
-    timeout: 20000
 - takeScreenshot: search-results
 
 # Public Article + native Save/Offline/Share
@@ -36,6 +37,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -66,6 +73,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Saved & Offline"
     timeout: 30000
@@ -82,6 +95,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Available offline"
     timeout: 30000
@@ -94,6 +113,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - scrollUntilVisible:
@@ -134,6 +159,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Explore"
     timeout: 20000
@@ -146,6 +177,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Live"
     timeout: 20000
@@ -156,6 +193,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -185,6 +228,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Listen"
     timeout: 20000
@@ -197,6 +246,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -257,6 +312,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -295,6 +356,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 120000
@@ -307,6 +374,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
     timeout: 30000
@@ -317,6 +390,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - scrollUntilVisible:
@@ -334,6 +413,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "HEALTHTIMES PREMIUM"
     timeout: 30000
@@ -346,6 +431,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
@@ -356,6 +447,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - scrollUntilVisible:

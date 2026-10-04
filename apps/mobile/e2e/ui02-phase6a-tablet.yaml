@@ -14,6 +14,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Save article"
     timeout: 60000
@@ -24,6 +30,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -39,6 +51,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -76,6 +94,12 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
