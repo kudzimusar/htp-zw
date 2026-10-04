@@ -234,10 +234,12 @@ try{
     const search=page.getByRole("textbox",{name:"Search country or region"});await search.fill("Africa");
     const africa=page.getByRole("radio",{name:"Africa primary edition",exact:true});await africa.waitFor({timeout:15000});await africa.click();
     const save=page.getByRole("button",{name:/Save Preferences/i}).first();await save.scrollIntoViewIfNeeded();await save.click();await bodyText(page,"Preferences saved on this device.","Edition save confirmation");
-    await page.reload({waitUntil:"domcontentloaded"});await noLoading(page,["Loading edition preferences…"]);
-    const checked=await page.getByRole("radio",{name:"Africa primary edition",exact:true}).getAttribute("aria-checked").catch(()=>null);
-    const selected=await page.getByRole("radio",{name:"Africa primary edition",exact:true}).getAttribute("aria-selected").catch(()=>null);
-    if(checked!=="true"&&selected!=="true")fail("Edition persistence","Africa primary edition not persisted","P2");
+    await page.reload({waitUntil:"domcontentloaded"});await bodyText(page,"Edition & Preferences","Edition reload");await noLoading(page,["Loading edition preferences…"]);
+    const persistedAfrica=page.getByRole("radio",{name:"Africa primary edition",exact:true});await persistedAfrica.waitFor({state:"visible",timeout:30000});
+    await page.waitForFunction(()=>{const el=[...document.querySelectorAll('[role="radio"]')].find(node=>node.getAttribute("aria-label")==="Africa primary edition");return Boolean(el&&(el.getAttribute("aria-checked")==="true"||el.getAttribute("aria-selected")==="true"));},null,{timeout:30000}).catch(()=>null);
+    const checked=await persistedAfrica.getAttribute("aria-checked").catch(()=>null);
+    const selected=await persistedAfrica.getAttribute("aria-selected").catch(()=>null);
+    if(checked!=="true"&&selected!=="true")fail("Edition persistence","Africa primary edition not persisted after hydrated preference reload","P2");
     const g=await geometry(page);assertRuntime("Personalization journey",d,g);
     manifest.journeys.push({name:"Personalization",result:"PASS",steps:["My HealthTimes","Edition & Preferences","Africa selected","saved","persisted"]});
     await shot(page,"journeys/edition-persisted.png");await context.close();
