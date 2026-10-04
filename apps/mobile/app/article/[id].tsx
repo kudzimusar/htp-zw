@@ -8,7 +8,7 @@ import { ArticleToolbar } from "../../src/ui/ArticleToolbar";
 import { PremiumPaywall } from "../../src/ui/PremiumPaywall";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
-import { breakpoints, colors, layout, radius, spacing, type } from "../../src/theme/tokens";
+import { breakpoints, layout, radius, spacing, type } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { premiumPreviewConfiguration } from "../../src/growth/config";
