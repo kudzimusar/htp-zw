@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { layout, radius, spacing } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
@@ -11,16 +12,20 @@ type ToolbarActionProps = {
 
 function ToolbarAction({ glyph, label, onPress, selected = false }: ToolbarActionProps) {
   const { palette } = useAppearance();
+  const [focused, setFocused] = useState(false);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       onPress={onPress}
       style={[
         styles.action,
+        focused && styles.actionFocused,
         {
-          borderColor: selected ? palette.blue : palette.border,
+          borderColor: focused || selected ? palette.blue : palette.border,
           backgroundColor: selected ? palette.paperMuted : palette.paper
         }
       ]}
@@ -66,6 +71,7 @@ export function ArticleToolbar({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Download article for offline reading"
+        accessibilityHint="Stores this eligible article on this device for offline reading"
         onPress={onOffline}
         style={styles.offline}
       >
@@ -99,10 +105,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row"
   },
+  actionFocused: { borderWidth: 2 },
   glyph: { fontSize: 16, fontWeight: "900" },
   offline: {
     alignSelf: "flex-end",
-    minHeight: 32,
+    minHeight: layout.touchMin,
     justifyContent: "center",
     paddingHorizontal: spacing.xs
   },
