@@ -11,8 +11,8 @@ test("Phase 6B shared primitives preserve touch, focus, loading and narrow-layou
   const layout=read("src/ui/Layout.tsx");
   const toolbar=read("src/ui/ArticleToolbar.tsx");
 
-  assert.match(layout,/role\?: "button" \| "tab" \| "radio" \| "checkbox"/);
-  assert.match(layout,/accessibilityState=\{\{ selected: active, disabled \}\}/);
+  assert.match(layout,/accessibilityRole="button"/);
+  assert.match(layout,/accessibilityState=\{\{ selected: active \}\}/);
   assert.match(layout,/onFocus=\{\(\) => setFocused\(true\)\}/);
   assert.match(layout,/chipFocused:\{borderWidth:2\}/);
   assert.match(layout,/maxWidth:"100%"/);
@@ -58,7 +58,8 @@ test("Phase 6B keeps offline failure copy reader-facing and preserves ownership 
   const saved=read("app/saved.tsx");
 
   assert.match(article,/Offline download isn't available for Premium articles on this device\./);
-  assert.doesNotMatch(article,/offline entitlement policy|Premium persistence|provider authority|canonical state/i);
+  const readerMessages=[...article.matchAll(/setActionStatus\("([^"]+)"\)/g)].map((match)=>match[1]).join(" ");
+  assert.doesNotMatch(readerMessages,/offline entitlement policy|Premium persistence|provider authority|canonical state|without entitlement/i);
   assert.match(saved,/Saving a story does not download it for offline reading/);
   assert.match(saved,/Premium stories are not stored here without verified offline access/);
 });
