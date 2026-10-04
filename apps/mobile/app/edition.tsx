@@ -116,7 +116,7 @@ export default function EditionScreen(){
                   key={item}
                   testID="primary-edition-option"
                   accessibilityRole="radio"
-                  accessibilityState={{selected}}
+                  accessibilityState={{selected,checked:selected}}
                   accessibilityLabel={item+" primary edition"}
                   onPress={()=>setPrimary(item)}
                   style={[styles.primaryRow,{borderColor:selected?palette.blue:palette.border,backgroundColor:selected?palette.paperMuted:palette.paper}]}
