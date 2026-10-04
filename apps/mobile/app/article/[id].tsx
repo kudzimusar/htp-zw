@@ -240,7 +240,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
   const download=async()=>{
     if(story.accessPolicy==="premium"){
-      setActionStatus("Premium body is not available for offline storage without entitlement. Offline Premium persistence also remains disabled until a verified offline entitlement policy exists.");
+      setActionStatus("Offline download isn't available for Premium articles on this device.");
       return;
     }
     await services.reader.downloadArticle(story);
@@ -261,7 +261,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         onShare={()=>{void share();}}
         onOffline={()=>{void download();}}
       />
-      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:colors.success}]}>{actionStatus}</Text>}
+      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:palette.success}]}>{actionStatus}</Text>}
 
       {story.heroMedia?.publicUrl && (
         <View style={styles.heroWrap}>
@@ -316,8 +316,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
               {!!previewCopy && previewCopy!==displayStandfirst && (
                 <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{previewCopy}</Text>
               )}
-              <View style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite">
-                <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>
+              <View style={[styles.previewNotice,{borderColor:palette.premium,backgroundColor:palette.paperMuted}]} accessibilityLiveRegion="polite">
+                <Text style={[styles.previewLabel,{color:palette.premium}]}>PREMIUM PREVIEW</Text>
                 <Text style={[styles.previewText,{color:palette.inkMuted}]}>
                   {premiumState==="warning"
                     ? "Your preview is ending soon. Members can continue with the full article."
@@ -410,7 +410,7 @@ const styles=StyleSheet.create({
   inlineAd:{marginVertical:spacing.xxl},
   preview:{gap:spacing.md},
   previewNotice:{borderLeftWidth:3,padding:spacing.lg,gap:spacing.xs},
-  previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1,color:colors.premium},
+  previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1},
   previewText:{fontSize:13,lineHeight:20},
   memberState:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xl,gap:spacing.sm},
   memberStateTitle:{fontSize:21,fontWeight:"900"},
