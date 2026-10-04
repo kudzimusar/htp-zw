@@ -172,15 +172,15 @@ try{
   {
     const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1});
     const page=await context.newPage(),d=diag(page,"journey-discovery-offline");
-    await open(page,"/","journey Home");await page.getByText("Top Stories",{exact:true}).waitFor({timeout:30000});
-    await page.goto(base+"/explore",{waitUntil:"domcontentloaded"});await page.getByText("Explore",{exact:true}).first().waitFor({timeout:30000});
+    await open(page,"/","journey Home");await bodyText(page,"Top Stories","journey Home");
+    await page.goto(base+"/explore",{waitUntil:"domcontentloaded"});await bodyText(page,"Explore","journey Explore");
     await page.goto(base+"/search",{waitUntil:"domcontentloaded"});
     const search=page.getByRole("textbox",{name:"Search HealthTimes"});await search.fill("Zimbabwe");await search.press("Enter");
-    await page.getByText("HEALTHTIMES SEARCH",{exact:false}).first().waitFor({timeout:30000});
+    await bodyText(page,"HEALTHTIMES SEARCH","journey Search");
     await page.goto(base+"/article/"+publicArticleId,{waitUntil:"domcontentloaded"});
     await bodyText(page,publicHeadline,"public Article");
-    await page.getByRole("button",{name:"Save article"}).click();await page.getByText("Saved",{exact:true}).waitFor({timeout:10000});
-    await page.getByRole("button",{name:/Download article for offline reading|Offline/}).click();await page.getByText("Available offline",{exact:true}).waitFor({timeout:10000});
+    await page.getByRole("button",{name:"Save article"}).click();await bodyText(page,"Saved","save confirmation");
+    await page.getByRole("button",{name:/Download article for offline reading|Offline/}).click();await bodyText(page,"Available offline","offline confirmation");
     await shot(page,"journeys/discovery-article-saved-offline.png");
     await page.goto(base+"/saved?tab=saved",{waitUntil:"domcontentloaded"});await bodyText(page,publicHeadline,"public Article");
     const savedPresent=true;
@@ -198,14 +198,14 @@ try{
     const page=await context.newPage(),d=diag(page,"journey-premium");
     const requests=[];page.on("request",r=>requests.push(r.url()));
     await open(page,"/article/"+premiumArticleId,"Premium journey");
-    await page.getByText("Continue reading with HealthTimes Premium",{exact:false}).first().waitFor({timeout:30000});
+    await bodyText(page,"Continue reading with HealthTimes Premium","Premium locked boundary");
     const protectedContentRequests=requests.filter(u=>decodeURIComponent(u).toLowerCase().includes("wp-json/wp/v2")&&decodeURIComponent(u).toLowerCase().includes("content"));
     if(protectedContentRequests.length)fail("Premium security","anonymous browser requested WordPress content field: "+protectedContentRequests.join(" | "),"P0");
     const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
     if(await offline.count()){await offline.click();await page.getByText(/Offline download isn't available for Premium articles/i).waitFor({timeout:10000});}
     const cta=page.getByRole("button",{name:/Go to HealthTimes Premium|Go Premium/}).first();
     await cta.scrollIntoViewIfNeeded();await cta.click();await page.waitForURL(u=>u.pathname.endsWith("/premium")||u.pathname.endsWith("/premium/"),{timeout:15000});
-    await page.getByText("HEALTHTIMES PREMIUM",{exact:true}).waitFor({timeout:30000});
+    await bodyText(page,"HEALTHTIMES PREMIUM","Premium landing");
     const g=await geometry(page);assertRuntime("Premium journey",d,g);
     manifest.premiumSecurity={anonymous:true,lockedBoundary:true,protectedContentRequests:0,offlineProtectedBodyPersistence:false,entitlementFabricated:false,result:"PASS"};
     manifest.journeys.push({name:"Premium",result:"PASS",steps:["Premium Article","anonymous locked boundary","Premium CTA","Premium landing"]});
@@ -215,7 +215,7 @@ try{
 
   {
     const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1});const page=await context.newPage(),d=diag(page,"journey-media");
-    await open(page,"/watch","Watch journey");await page.getByText("Featured video",{exact:false}).first().waitFor({timeout:30000});
+    await open(page,"/watch","Watch journey");await bodyText(page,"Featured video","Watch journey");
     const youtube=page.locator('a[href*="youtube.com"],a[href*="youtu.be"]').first();const href=await youtube.getAttribute("href");
     if(!href)fail("Watch journey","no source-backed external YouTube destination","P2");
     await page.goto(base+"/listen",{waitUntil:"domcontentloaded"});const listen=await anyText(page,["No audio published yet","Featured audio"],"Listen journey");
@@ -228,11 +228,11 @@ try{
 
   {
     const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1});const page=await context.newPage(),d=diag(page,"journey-personalization");
-    await open(page,"/my","My HealthTimes personalization");await page.getByText("My HealthTimes",{exact:true}).waitFor({timeout:30000});
-    await page.goto(base+"/edition",{waitUntil:"domcontentloaded"});await page.getByText("Edition & Preferences",{exact:true}).waitFor({timeout:30000});await noLoading(page,["Loading edition preferences…"]);
+    await open(page,"/my","My HealthTimes personalization");await bodyText(page,"My HealthTimes","My HealthTimes personalization");
+    await page.goto(base+"/edition",{waitUntil:"domcontentloaded"});await bodyText(page,"Edition & Preferences","Edition & Preferences");await noLoading(page,["Loading edition preferences…"]);
     const search=page.getByRole("textbox",{name:"Search country or region"});await search.fill("Africa");
     const africa=page.getByRole("radio",{name:"Africa primary edition"});await africa.waitFor({timeout:15000});await africa.click();
-    const save=page.getByRole("button",{name:/Save Preferences/i}).first();await save.scrollIntoViewIfNeeded();await save.click();await page.getByText("Preferences saved on this device.",{exact:true}).waitFor({timeout:10000});
+    const save=page.getByRole("button",{name:/Save Preferences/i}).first();await save.scrollIntoViewIfNeeded();await save.click();await bodyText(page,"Preferences saved on this device.","Edition save confirmation");
     await page.reload({waitUntil:"domcontentloaded"});await noLoading(page,["Loading edition preferences…"]);
     const checked=await page.getByRole("radio",{name:"Africa primary edition"}).getAttribute("aria-checked").catch(()=>null);
     const selected=await page.getByRole("radio",{name:"Africa primary edition"}).getAttribute("aria-selected").catch(()=>null);
@@ -283,9 +283,9 @@ try{
 
   {
     const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1});const page=await context.newPage();
-    await open(page,"/","Studio absence Home");await page.getByText("Top Stories",{exact:true}).waitFor({timeout:30000});
+    await open(page,"/","Studio absence Home");await bodyText(page,"Top Stories","Studio absence Home");
     const homeStudio=await page.getByText("Studio",{exact:true}).count();
-    await page.goto(base+"/my",{waitUntil:"domcontentloaded"});await page.getByText("My HealthTimes",{exact:true}).waitFor({timeout:30000});
+    await page.goto(base+"/my",{waitUntil:"domcontentloaded"});await bodyText(page,"My HealthTimes","Studio absence My HealthTimes");
     const myStudio=await page.getByText("Studio",{exact:true}).count();
     if(homeStudio||myStudio)fail("Studio authority","Studio visible to ordinary Reader","P1");
     manifest.studio={ordinaryReaderStudioAbsent:true,homeStudioCount:homeStudio,myStudioCount:myStudio,result:"PASS"};await context.close();
