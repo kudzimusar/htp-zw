@@ -1,4 +1,4 @@
-name: UI-04 Edition Full Reload Diagnostic
+name: UI-04 Edition Full Reload Persistence
 
 on:
   push:
@@ -21,7 +21,7 @@ env:
 
 jobs:
   diagnose-edition-reload:
-    name: Prove Edition persistence boundary
+    name: Edition full-reload behavioral regression
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -166,26 +166,39 @@ jobs:
               sha:process.env.EXPECTED_SHA,
               storageKey,
               beforeSavePrimaryEdition,
-              beforeSaveAccessibilitySelectedState:beforeSaveSelected,
-              afterSave:{
-                storagePrimaryEdition:afterSaveStorage.primaryEdition,
-                storageRaw:afterSaveStorage.raw,
-                renderedPrimaryEdition:afterSaveRenderedPrimaryEdition,
-                accessibilitySelectedState:afterSaveSelected
-              },
-              afterReload:{
-                storagePrimaryEdition:afterReloadStorage.primaryEdition,
-                storageRaw:afterReloadStorage.raw,
-                repositoryPrimaryEdition:afterReloadRepositoryPrimaryEdition,
-                renderedPrimaryEdition:afterReloadRenderedPrimaryEdition,
-                accessibilitySelectedState:afterReloadAccessibility
-              },
+              afterSaveStoragePrimaryEdition:afterSaveStorage.primaryEdition,
+              afterSaveRenderedPrimaryEdition,
+              afterReloadStoragePrimaryEdition:afterReloadStorage.primaryEdition,
+              afterReloadRepositoryPrimaryEdition,
+              afterReloadRenderedPrimaryEdition,
+              afterReloadAccessibilitySelectedState:afterReloadAccessibility.selectedState,
+              afterReloadAriaChecked:afterReloadAccessibility.ariaChecked,
+              afterReloadAriaSelected:afterReloadAccessibility.ariaSelected,
+              afterSaveAccessibilitySelectedState:afterSaveSelected.selectedState,
               boundary,
               pageErrors,
               consoleErrors,
               react418:[...pageErrors,...consoleErrors].filter(v=>String(v).includes('418')).length,
+              horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth+1),
               screenshot
             };
+            const requiredAfrica=[
+              receipt.afterSaveStoragePrimaryEdition,
+              receipt.afterSaveRenderedPrimaryEdition,
+              receipt.afterReloadStoragePrimaryEdition,
+              receipt.afterReloadRepositoryPrimaryEdition,
+              receipt.afterReloadRenderedPrimaryEdition
+            ];
+            if(requiredAfrica.some(value=>value!=='Africa')){
+              throw new Error('Edition full-reload regression failed: '+JSON.stringify(receipt));
+            }
+            if(receipt.afterReloadAccessibilitySelectedState!==true){
+              throw new Error('Edition radio accessibility selected state did not survive reload: '+JSON.stringify(receipt));
+            }
+            if(receipt.pageErrors.length||receipt.consoleErrors.length||receipt.react418!==0||receipt.horizontalOverflow){
+              throw new Error('Edition reload evidence is not clean: '+JSON.stringify(receipt));
+            }
+            receipt.boundary='PASS';
             fs.writeFileSync('ui04-edition-diagnostic/receipt.json',JSON.stringify(receipt,null,2));
             console.log(JSON.stringify(receipt,null,2));
             await browser.close();
@@ -193,7 +206,7 @@ jobs:
           NODE
       - uses: actions/upload-artifact@v4
         with:
-          name: ui04-edition-full-reload-diagnostic
+          name: ui04-edition-full-reload-persistence
           path: |
             ui04-edition-diagnostic/
             /tmp/ui04-edition-diagnostic.log
