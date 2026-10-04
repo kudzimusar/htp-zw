@@ -95,7 +95,8 @@ test("Phase 6B evidence certifies resolved Article, Home and explicit state outc
 
   const articleContract=evidence.match(/async function requireResolvedArticle[\s\S]*?\n\}/)?.[0] ?? "";
   assert.match(articleContract,/getByRole\("button",\{name:"Save article"\}\)\.waitFor/);
-  assert.match(articleContract,/getByText\(articleHeadline,\{exact:true\}\)\.first\(\)\.waitFor/);
+  assert.match(articleContract,/document\.body\.innerText\.includes\(headline\)/);
+  assert.match(articleContract,/articleHeadline,/);
   assert.match(articleContract,/requireNoLoading\(page,label,\["Loading article…"\]\)/);
   assert.match(articleContract,/articleResolved:true/);
 
