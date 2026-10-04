@@ -22,7 +22,7 @@ appId: zw.co.healthtimes.app.dev
 - inputText: "health"
 - takeScreenshot: search-keyboard
 - hideKeyboard
-- tapOn: "Submit HealthTimes search"
+- tapOn: "Search"
 - extendedWaitUntil:
     visible: "HEALTHTIMES SEARCH"
     timeout: 20000
