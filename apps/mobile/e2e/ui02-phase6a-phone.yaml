@@ -21,6 +21,12 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open"
     commands:
       - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Top Stories"
+    commands:
+      - tapOn: "Search HealthTimes"
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 20000
@@ -213,12 +219,12 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
-- assertVisible: ".*YouTube.*"
+- assertVisible: "Watch video.*"
 - takeScreenshot: watch-light
 
 # Source-backed external YouTube destination
 - tapOn:
-    text: ".*YouTube.*"
+    text: "Watch video.*"
     index: 0
 - takeScreenshot: watch-external-youtube
 - stopApp
