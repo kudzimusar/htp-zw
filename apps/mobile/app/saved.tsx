@@ -77,7 +77,15 @@ export default function SavedScreen(){
 
       <View style={styles.tabs} accessibilityRole="tablist">
         {tabs.map(([key,label])=>(
-          <Chip key={key} active={active===key} onPress={()=>setActive(key)}>{label}</Chip>
+          <Chip
+            key={key}
+            active={active===key}
+            role="tab"
+            accessibilityLabel={label+" library tab"}
+            onPress={()=>setActive(key)}
+          >
+            {label}
+          </Chip>
         ))}
       </View>
 
