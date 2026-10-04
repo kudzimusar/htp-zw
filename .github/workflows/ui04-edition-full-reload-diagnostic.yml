@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/ui04-edition-full-reload-persistence
+  pull_request:
   workflow_dispatch:
 
 permissions:
