@@ -89,7 +89,9 @@ async function capture(browser,manifest,{name,route,viewport,ready,readiness,loa
   if(after) await after(page);
   let readinessObservation={};
   if(expectedState==="resolved"){
-    readinessObservation=readiness ? await readiness(page,name) : await requireNoLoading(page,name,loadingMarkers);
+    const resolution=readiness ? await readiness(page,name) : {};
+    const loading=await requireNoLoading(page,name,loadingMarkers);
+    readinessObservation={...loading,...resolution};
   }else if(expectedState==="loading"){
     if(!loadingMarkers.length) throw new Error(name+" loading-state capture requires loadingMarkers");
     const visible=[];
@@ -239,9 +241,9 @@ try{
   }
 
   for(const [name,route,expectations,loadingMarkers] of [
-    ["saved-state","/saved?tab=saved",["Nothing saved yet","Available offline"],[]],
+    ["saved-state","/saved?tab=saved",["Nothing saved yet","Available offline"],["Loading your library…"]],
     ["live-state","/live",["No live coverage right now","Live now","Upcoming coverage","Live blogs"],["Loading live coverage…"]],
-    ["listen-state","/listen",["No audio published yet","Featured audio"],[]],
+    ["listen-state","/listen",["No audio published yet","Featured audio"],["Loading audio…"]],
     ["premium-state","/premium",["Membership options aren't available here yet","Membership options"],["Checking membership options…","Loading Premium journalism…"]]
   ]){
     const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
