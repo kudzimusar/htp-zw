@@ -23,8 +23,10 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: search-keyboard
 - hideKeyboard
 - tapOn: "Search"
-- extendedWaitUntil:
-    visible: "Article results"
+- scrollUntilVisible:
+    element:
+      text: "Article results"
+    direction: DOWN
     timeout: 20000
 - takeScreenshot: search-results
 
