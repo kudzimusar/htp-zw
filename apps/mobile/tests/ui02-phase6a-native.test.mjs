@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
@@ -151,4 +153,81 @@ test("Phase 6A tablet Home portrait evidence is captured only after the resolved
   assert.ok(portraitReset>landscape);
   assert.ok(portraitCapture>portraitReset);
   assert.ok(tablet.slice(portraitReset,portraitCapture).includes("- waitForAnimationToEnd"));
+});
+
+
+test("Phase 6A Android tablet certification validates physical PNG orientation",()=>{
+  const tablet=read("e2e/ui02-phase6a-tablet.yaml");
+  const manifestSource=readRepo("scripts/native/ui02-phase6a-manifest.mjs");
+  assert.ok(tablet.includes("Pixel Tablet's natural device orientation"));
+  assert.ok(tablet.includes("platform: Android"));
+  assert.ok(manifestSource.includes('platform==="Android" && deviceClass==="tablet"'));
+  assert.ok(manifestSource.includes("readUInt32BE(16)"));
+  assert.ok(manifestSource.includes("readUInt32BE(20)"));
+  assert.ok(manifestSource.includes("ANDROID TABLET PORTRAIT SCREENSHOT IS NOT PHYSICALLY PORTRAIT"));
+  assert.ok(manifestSource.includes("ANDROID TABLET LANDSCAPE SCREENSHOT IS NOT PHYSICALLY LANDSCAPE"));
+  assert.ok(manifestSource.includes("physicalOrientation"));
+  assert.ok(manifestSource.includes("screenshotWidth"));
+  assert.ok(manifestSource.includes("screenshotHeight"));
+
+  const evidenceDir=mkdtempSync(join(tmpdir(),"ui02-phase6a-orientation-"));
+  const manifestPath=join(repoRoot,"scripts/native/ui02-phase6a-manifest.mjs");
+  const tabletScreens=[
+    "tablet-home","tablet-article","tablet-watch","tablet-my-healthtimes","tablet-edition","tablet-home-landscape"
+  ];
+  const writePngStub=(name,width,height)=>{
+    const png=Buffer.alloc(24);
+    Buffer.from([137,80,78,71,13,10,26,10]).copy(png,0);
+    png.writeUInt32BE(13,8);
+    png.write("IHDR",12,"ascii");
+    png.writeUInt32BE(width,16);
+    png.writeUInt32BE(height,20);
+    writeFileSync(join(evidenceDir,name+".png"),png);
+  };
+  const runManifest=()=>spawnSync(process.execPath,[manifestPath],{
+    env:{
+      ...process.env,
+      EVIDENCE_DIR:evidenceDir,
+      CANDIDATE_SHA:"orientation-contract",
+      RUN_ATTEMPT:"1",
+      NATIVE_PLATFORM:"Android",
+      DEVICE_CLASS:"tablet",
+      DEVICE_IDENTITY:"Pixel Tablet contract fixture",
+      OS_VERSION:"test",
+      ORIENTATION:"portrait"
+    },
+    encoding:"utf8"
+  });
+
+  try{
+    for(const screen of tabletScreens) writePngStub(screen,1600,2560);
+    writePngStub("tablet-home-landscape",2560,1600);
+
+    const valid=runManifest();
+    assert.equal(valid.status,0,valid.stderr||valid.stdout);
+    const manifest=JSON.parse(readFileSync(join(evidenceDir,"manifest.json"),"utf8"));
+    const portrait=manifest.screens.find((screen)=>screen.screen==="tablet-home");
+    const landscape=manifest.screens.find((screen)=>screen.screen==="tablet-home-landscape");
+    assert.deepEqual(
+      [portrait.screenshotWidth,portrait.screenshotHeight,portrait.physicalOrientation,portrait.orientation],
+      [1600,2560,"portrait","portrait"]
+    );
+    assert.deepEqual(
+      [landscape.screenshotWidth,landscape.screenshotHeight,landscape.physicalOrientation,landscape.orientation],
+      [2560,1600,"landscape","landscape"]
+    );
+
+    writePngStub("tablet-home",2560,1600);
+    const badPortrait=runManifest();
+    assert.notEqual(badPortrait.status,0);
+    assert.match(badPortrait.stderr+badPortrait.stdout,/ANDROID TABLET PORTRAIT SCREENSHOT IS NOT PHYSICALLY PORTRAIT/);
+
+    writePngStub("tablet-home",1600,2560);
+    writePngStub("tablet-home-landscape",1600,2560);
+    const badLandscape=runManifest();
+    assert.notEqual(badLandscape.status,0);
+    assert.match(badLandscape.stderr+badLandscape.stdout,/ANDROID TABLET LANDSCAPE SCREENSHOT IS NOT PHYSICALLY LANDSCAPE/);
+  } finally {
+    rmSync(evidenceDir,{recursive:true,force:true});
+  }
 });

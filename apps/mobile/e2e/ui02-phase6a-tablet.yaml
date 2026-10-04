@@ -68,7 +68,19 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: tablet-edition
 
 # Tablet orientation evidence: same accepted hierarchy using extra width deliberately.
-- setOrientation: LANDSCAPE_LEFT
+# Pixel Tablet's natural device orientation maps Maestro's semantic labels opposite
+# to the physical screenshot geometry, so select commands per platform and let the
+# manifest independently validate the final PNG dimensions.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setOrientation: PORTRAIT
 - openLink: "healthtimes://"
 - runFlow:
     when:
@@ -80,7 +92,16 @@ appId: zw.co.healthtimes.app.dev
     visible: "Top Stories"
     timeout: 240000
 - takeScreenshot: tablet-home-landscape
-- setOrientation: PORTRAIT
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setOrientation: PORTRAIT
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Top Stories"
