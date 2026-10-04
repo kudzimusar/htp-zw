@@ -99,6 +99,11 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open"
     commands:
       - tapOn: "Open"
+# Canonical Saved currently initializes on Articles even when the historical deep-link query is retained.
+# Select the actual Offline tab explicitly, then keep the strong downloaded-story persistence assertions below.
+- tapOn:
+    text: "Offline"
+    index: 1
 - scrollUntilVisible:
     element:
       text: "Available offline"
