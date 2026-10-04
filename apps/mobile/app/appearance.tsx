@@ -10,13 +10,11 @@ export default function AppearanceScreen() {
     <Page title="Appearance">
       <Section>
         <SectionHeader title="Theme" />
-        <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="HealthTimes appearance">
+        <View style={styles.row}>
           {(["system", "light", "dark"] as const).map((theme) => (
             <Chip
               key={theme}
               active={appearance === theme}
-              role="radio"
-              accessibilityLabel={theme[0]!.toUpperCase() + theme.slice(1)}
               onPress={() => updateAppearance(theme)}
             >
               {theme[0]!.toUpperCase() + theme.slice(1)}
