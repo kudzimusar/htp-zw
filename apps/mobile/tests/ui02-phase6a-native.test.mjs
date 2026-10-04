@@ -147,12 +147,15 @@ test("Phase 6A evidence is current-attempt scoped and fails closed on native run
 test("Phase 6A tablet Home portrait evidence is captured only after the resolved landscape Home pass",()=>{
   const tablet=read("e2e/ui02-phase6a-tablet.yaml");
   const landscape=tablet.indexOf("- takeScreenshot: tablet-home-landscape");
-  const portraitReset=tablet.indexOf("- setOrientation: PORTRAIT");
   const portraitCapture=tablet.lastIndexOf("- takeScreenshot: tablet-home");
   assert.ok(landscape>=0);
-  assert.ok(portraitReset>landscape);
-  assert.ok(portraitCapture>portraitReset);
-  assert.ok(tablet.slice(portraitReset,portraitCapture).includes("- waitForAnimationToEnd"));
+  assert.ok(portraitCapture>landscape);
+  const transition=tablet.slice(landscape,portraitCapture);
+  assert.ok(transition.includes("platform: iOS"));
+  assert.ok(transition.includes("- setOrientation: PORTRAIT"));
+  assert.ok(transition.includes("platform: Android"));
+  assert.ok(transition.includes("- setOrientation: LANDSCAPE_LEFT"));
+  assert.ok(transition.includes("- waitForAnimationToEnd"));
 });
 
 
