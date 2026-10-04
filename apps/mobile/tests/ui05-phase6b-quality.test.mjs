@@ -109,7 +109,8 @@ test("Phase 6B evidence certifies resolved Article, Home and explicit state outc
   assert.match(darkLoop,/name==="dark-home"\s*\?\s*await requireResolvedHome\(page,name\)/);
 
   const homeContract=evidence.match(/async function requireResolvedHome[\s\S]*?\n\}/)?.[0] ?? "";
-  assert.match(homeContract,/getByText\("Top Stories",\{exact:true\}\)\.first\(\)\.waitFor/);
+  assert.match(homeContract,/document\.body\.innerText\.includes\(marker\)/);
+  assert.match(homeContract,/"Top Stories",/);
   assert.match(homeContract,/requireNoLoading\(page,label,\["Loading Home…"\]\)/);
   assert.match(homeContract,/homeResolved:true/);
 
