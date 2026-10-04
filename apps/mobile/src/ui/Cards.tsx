@@ -414,7 +414,8 @@ export function AdSlot({
   );
 }
 export function PremiumBadge() {
-  return <Text style={styles.premiumBadge}>PREMIUM</Text>;
+  const { palette }=useAppearance();
+  return <Text style={[styles.premiumBadge,{color:palette.premium,borderColor:palette.premium}]}>PREMIUM</Text>;
 }
 
 export function Surface({ children }: PropsWithChildren) {
