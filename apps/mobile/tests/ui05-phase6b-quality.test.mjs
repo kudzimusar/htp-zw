@@ -88,3 +88,47 @@ test("Phase 6B evidence fails closed on runtime errors, overflow and exact-head 
   }
   assert.match(evidence,/reducedMotion:"reduce"/);
 });
+
+
+test("Phase 6B evidence certifies resolved Article, Home and explicit state outcomes",()=>{
+  const evidence=read("tests/ui05-phase6b-evidence.mjs");
+
+  const articleContract=evidence.match(/async function requireResolvedArticle[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(articleContract,/getByRole\("button",\{name:"Save article"\}\)\.waitFor/);
+  assert.match(articleContract,/getByText\(articleHeadline,\{exact:true\}\)\.first\(\)\.waitFor/);
+  assert.match(articleContract,/requireNoLoading\(page,label,\["Loading article…"\]\)/);
+  assert.match(articleContract,/articleResolved:true/);
+
+  const desktopArticle=evidence.match(/\{name:"desktop-article"[\s\S]*?\n\s*\}/)?.[0] ?? "";
+  assert.match(desktopArticle,/readiness:requireResolvedArticle/);
+  assert.match(desktopArticle,/loadingMarkers:\["Loading article…"\]/);
+
+  const darkLoop=evidence.match(/for\(const \[name,route,ready\][\s\S]*?await context\.close\(\);\n\s*\}/)?.[0] ?? "";
+  assert.match(darkLoop,/name==="dark-article"\s*\?\s*await requireResolvedArticle\(page,name\)/);
+  assert.match(darkLoop,/name==="dark-home"\s*\?\s*await requireResolvedHome\(page,name\)/);
+
+  const homeContract=evidence.match(/async function requireResolvedHome[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(homeContract,/getByText\("Top Stories",\{exact:true\}\)\.first\(\)\.waitFor/);
+  assert.match(homeContract,/requireNoLoading\(page,label,\["Loading Home…"\]\)/);
+  assert.match(homeContract,/homeResolved:true/);
+
+  const reducedMotion=evidence.match(/name:"reduced-motion-home"[\s\S]*?contextOptions:\{reducedMotion:"reduce"\}[\s\S]*?\n\s*\}\);/)?.[0] ?? "";
+  assert.match(reducedMotion,/readiness:requireResolvedHome/);
+  assert.match(reducedMotion,/loadingMarkers:\["Loading Home…"\]/);
+  assert.doesNotMatch(reducedMotion,/ready:"HealthTimes"/);
+
+  const resolvedCapture=evidence.match(/if\(expectedState==="resolved"\)\{[\s\S]*?\}else if\(expectedState==="loading"\)/)?.[0] ?? "";
+  assert.match(resolvedCapture,/const resolution=readiness \? await readiness\(page,name\) : \{\}/);
+  assert.match(resolvedCapture,/const loading=await requireNoLoading\(page,name,loadingMarkers\)/);
+
+  const stateContract=evidence.match(/async function requireApprovedState[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(stateContract,/allowed\.some\(text=>document\.body\.innerText\.includes\(text\)\)/);
+  assert.match(stateContract,/requireNoLoading\(page,label,loadingMarkers\)/);
+  assert.match(stateContract,/if\(!resolved\) throw new Error/);
+  assert.doesNotMatch(evidence,/populated\/other truthful resolved state/);
+
+  assert.match(evidence,/\["saved-state","\/saved\?tab=saved",\["Nothing saved yet","Available offline"\],\["Loading your library…"\]\]/);
+  assert.match(evidence,/\["live-state","\/live",\["No live coverage right now","Live now","Upcoming coverage","Live blogs"\],\["Loading live coverage…"\]\]/);
+  assert.match(evidence,/\["listen-state","\/listen",\["No audio published yet","Featured audio"\],\["Loading audio…"\]\]/);
+  assert.match(evidence,/\["premium-state","\/premium",\["Membership options aren't available here yet","Membership options"\],\["Checking membership options…","Loading Premium journalism…"\]\]/);
+});
