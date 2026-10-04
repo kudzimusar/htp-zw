@@ -99,8 +99,11 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open"
     commands:
       - tapOn: "Open"
-- extendedWaitUntil:
-    visible: "Available offline"
+- scrollUntilVisible:
+    element:
+      text: "Available offline"
+    direction: DOWN
+    visibilityPercentage: 50
     timeout: 30000
 - assertVisible: ".*Fiji.*"
 - takeScreenshot: offline-persistence
