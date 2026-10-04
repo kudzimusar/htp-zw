@@ -153,7 +153,7 @@ try{
     ["explore","/explore","Explore",null,[],null],
     ["search","/search","Intelligent Search",null,["Loading suggestions…"],null],
     ["live","/live","Live",["No live coverage right now","Live now","Upcoming coverage","Live blogs"],["Loading live coverage…"],null],
-    ["watch","/watch","Watch",["Featured video"],["Loading video…","Loading videos…"],"first"],
+    ["watch","/watch","Watch",["Featured video"],["Loading video…","Loading videos…"],null],
     ["listen","/listen","Listen",["No audio published yet","Featured audio"],["Loading audio…"],null],
     ["saved","/saved?tab=saved","Saved & Offline",["Saved stories","Nothing saved yet"],["Loading your library…"],null],
     ["my","/my","My HealthTimes",null,[],null],
