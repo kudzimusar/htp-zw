@@ -117,6 +117,7 @@ export default function EditionScreen(){
                   testID="primary-edition-option"
                   accessibilityRole="radio"
                   accessibilityState={{selected}}
+                  aria-checked={selected}
                   accessibilityLabel={item+" primary edition"}
                   onPress={()=>setPrimary(item)}
                   style={[styles.primaryRow,{borderColor:selected?palette.blue:palette.border,backgroundColor:selected?palette.paperMuted:palette.paper}]}
