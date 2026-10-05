@@ -1,4 +1,5 @@
 name: UI-04 Edition Full Reload Persistence
+# Exact-head recertification stamp: clean full matrix after transient native reruns.
 
 on:
   push:
