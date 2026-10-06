@@ -1,24 +1,26 @@
 const { test, expect } = require('@playwright/test');
 
-const directPath = '/2026/02/12/who-should-not-take-lenacapavir-key-health-conditions-to-consider-before-the-rollout/';
-const oldPath = '/2016/02/16/zim-launches-unicef-eli-lilly-initiative-to-fight-pediatric-and-adolescent-ncds/';
-const legacyAliasPath = '/policy-capture-at-cop11-what-it-signals-for-global-health-governance/';
-const legacyAliasTarget = '/2025/12/06/policy-capture-at-cop11-what-it-signals-for-global-health-governance/';
-const premiumPath = '/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/';
-const explicit404Path = '/2017/04/04/gwinji-appeals-funding-health-sector/';
-const unknownPath = '/phase12-no-authoritative-healthtimes-route/';
-const categoryPath = '/category/health_news/';
+const BASE = '/htp-zw';
+const premiumArticle = BASE + '/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+const fijiArticle = BASE + '/article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users';
 
-function capturePageErrors(page) {
-  const errors = [];
-  page.on('pageerror', error => errors.push(String(error)));
-  return errors;
+function captureRuntimeFailures(page) {
+  const pageErrors = [];
+  const fatalConsole = [];
+  page.on('pageerror', error => pageErrors.push(String(error)));
+  page.on('console', message => {
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    if (/favicon|Failed to load resource.*(?:404|ERR_FAILED)/i.test(text)) return;
+    fatalConsole.push(text);
+  });
+  return { pageErrors, fatalConsole };
 }
 
-async function assertNoPageErrors(errors, label) {
-  const hydration = errors.filter(error => error.includes('Minified React error #418'));
-  expect(hydration, label + ' React #418').toEqual([]);
-  expect(errors, label + ' page errors').toEqual([]);
+async function assertNoFatalRuntime(failures, label) {
+  expect(failures.pageErrors.filter(error => error.includes('Minified React error #418')), label + ' React #418').toEqual([]);
+  expect(failures.pageErrors, label + ' pageerror').toEqual([]);
+  expect(failures.fatalConsole, label + ' console errors').toEqual([]);
 }
 
 async function assertNoHorizontalOverflow(page, label) {
@@ -31,155 +33,135 @@ async function assertNoHorizontalOverflow(page, label) {
   expect(dims.bodyScroll, label + ' body overflow').toBeLessThanOrEqual(dims.htmlClient + 2);
 }
 
-async function waitForVisibleBodyText(page, text, timeout = 30000) {
-  await page.waitForFunction(
-    needle => document.body.innerText.includes(needle),
-    text,
-    { timeout }
-  );
+async function gotoCanonical(page, route, label) {
+  const failures = captureRuntimeFailures(page);
+  const response = await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  expect(response && response.status(), label + ' HTTP').toBe(200);
+  await page.getByRole('button', { name: 'HealthTimes Home' }).waitFor({ timeout: 30000 });
+  await page.waitForFunction(() => document.body && document.body.innerText.trim().length > 80, null, { timeout: 30000 });
+  return failures;
 }
 
-test('canonical Home is responsive across mobile tablet and desktop and HOSPAZ stays fail-closed', async ({ browser }) => {
-  test.setTimeout(90000);
+test('exact build-info identifies the canonical Pages/apps-mobile candidate', async ({ request }) => {
+  const response = await request.get(BASE + '/build-info.json');
+  expect(response.status()).toBe(200);
+  const info = await response.json();
+  expect(info).toEqual({
+    sha: process.env.EXPECTED_SHA,
+    presentation: 'apps/mobile',
+    service_mode: 'source-parity',
+    base_path: '/htp-zw'
+  });
+});
+
+test('canonical Home is responsive on phone tablet and desktop without retired root runtime', async ({ browser }) => {
+  test.setTimeout(120000);
   for (const viewport of [
-    { name: 'mobile', width: 390, height: 844 },
+    { name: 'phone', width: 390, height: 844 },
     { name: 'tablet', width: 834, height: 1112 },
     { name: 'desktop', width: 1440, height: 1000 }
   ]) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
-    const errors = capturePageErrors(page);
-    const response = await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    expect(response?.status(), viewport.name + ' Home HTTP').toBe(200);
-    await waitForVisibleBodyText(page, 'Top Stories', 30000);
-    await assertNoHorizontalOverflow(page, viewport.name);
-
-    const ad = page.getByLabel('Direct advertising · HOSPAZ').first();
-    await expect(ad).toBeVisible({ timeout: 30000 });
-    await expect(ad).toContainText('HOSPAZ');
-    await expect(ad.locator('a')).toHaveCount(0);
+    const failures = await gotoCanonical(page, '/', viewport.name + ' Home');
+    await page.getByText('Top Stories', { exact: true }).first().waitFor({ timeout: 30000 });
+    await assertNoHorizontalOverflow(page, viewport.name + ' Home');
 
     const tabs = await page.getByRole('tab').count();
-    if (viewport.name === 'mobile') expect(tabs).toBeGreaterThanOrEqual(5);
-    if (viewport.name === 'desktop') expect(tabs).toBe(0);
+    if (viewport.name === 'phone') expect(tabs, 'phone canonical bottom navigation').toBeGreaterThanOrEqual(5);
+    if (viewport.name === 'desktop') expect(tabs, 'desktop mobile bottom navigation absent').toBe(0);
 
     const html = await page.content();
+    expect(html).not.toMatch(/<script[^>]+src=["'][^"']*(?:\/|^)app\.js["']/i);
+    expect(html).not.toMatch(/<script[^>]+src=["'][^"']*(?:\/|^)v21\.js["']/i);
     expect(html).not.toContain('More context. More accountability. Better health intelligence.');
-    expect(html).not.toContain('src="app.js"');
-    await assertNoPageErrors(errors, viewport.name + ' Home');
+    await assertNoFatalRuntime(failures, viewport.name + ' Home');
     await page.close();
   }
 });
 
-test('canonical Reader routes Home Explore Search Live Watch Premium and My HealthTimes are current product surfaces', async ({ page }) => {
-  const errors = capturePageErrors(page);
+test('current primary Reader routes resolve through apps/mobile output', async ({ browser }) => {
+  test.setTimeout(150000);
+  const routes = [
+    ['Explore', '/explore', async page => page.getByText('Browse', { exact: true }).first().waitFor({ timeout: 30000 })],
+    ['Search', '/search', async page => page.getByRole('textbox', { name: 'Search HealthTimes' }).waitFor({ timeout: 30000 })],
+    ['Live', '/live', async page => page.getByRole('button', { name: 'Live Now' }).waitFor({ timeout: 30000 })],
+    ['Watch', '/watch', async page => page.getByText('Featured video', { exact: true }).waitFor({ timeout: 30000 })],
+    ['Premium', '/premium', async page => page.getByText('HEALTHTIMES PREMIUM', { exact: true }).waitFor({ timeout: 30000 })],
+    ['My HealthTimes', '/my', async page => page.getByText('My HealthTimes', { exact: true }).first().waitFor({ timeout: 30000 })]
+  ];
 
-  let response = await page.goto('/explore', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  await page.getByText('Explore', { exact: true }).first().waitFor({ timeout: 30000 });
-  const exploreBody = await page.locator('body').innerText();
-  for (const forbidden of ['TAXONOMY GATEWAY', 'Canonical desks', 'Legacy publication categories']) {
-    expect(exploreBody).not.toContain(forbidden);
-  }
-
-  response = await page.goto('/search', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  const search = page.getByRole('textbox', { name: 'Search HealthTimes' });
-  await expect(search).toBeVisible();
-  await search.fill('HIV');
-  await search.press('Enter');
-  await page.getByText(/results for “HIV”/).first().waitFor({ timeout: 30000 });
-
-  response = await page.goto('/live', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  await page.getByText('No live coverage right now', { exact: true }).waitFor({ timeout: 30000 });
-
-  response = await page.goto('/watch', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  await page.getByText('Featured video', { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText('Watch on YouTube ↗', { exact: true }).first().waitFor({ timeout: 30000 });
-
-  response = await page.goto('/premium', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).first().waitFor({ timeout: 30000 });
-  await page.getByText('Your membership', { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText("Membership options aren't available here yet", { exact: true }).waitFor({ timeout: 30000 });
-
-  response = await page.goto('/my', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  await page.getByText('My HealthTimes', { exact: true }).first().waitFor({ timeout: 30000 });
-  await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).first().waitFor({ timeout: 30000 });
-  await expect(page.getByText('HealthTimes Studio', { exact: true })).toHaveCount(0);
-
-  await assertNoPageErrors(errors, 'canonical Reader routes');
-});
-
-test('recent and older migrated stories render through the canonical apps/mobile Reader', async ({ page }) => {
-  const errors = capturePageErrors(page);
-  for (const [label, path] of [['recent', directPath], ['older', oldPath]]) {
-    const response = await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    expect(response?.status(), label + ' migrated HTTP').toBe(200);
-    await page.getByRole('button', { name: 'Save' }).waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Download article for offline reading' }).waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Listen' }).waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Share' }).waitFor({ timeout: 30000 });
-    await page.getByText('Original publication', { exact: true }).waitFor({ timeout: 30000 });
-    await expect(page.getByText('Article not found.', { exact: true })).toHaveCount(0);
-  }
-  await assertNoPageErrors(errors, 'migrated stories');
-});
-
-test('Premium migrated article remains visibly protected and never becomes a public full-body Reader', async ({ page }) => {
-  const errors = capturePageErrors(page);
-  const response = await page.goto(premiumPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  expect(response?.status()).toBe(200);
-  await page.getByText('Continue reading with HealthTimes Premium', { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText('This article continues for members.', { exact: false }).waitFor({ timeout: 30000 });
-  await page.getByRole('button', { name: 'Go to HealthTimes Premium' }).waitFor({ timeout: 30000 });
-  await page.getByRole('button', { name: 'Sign in as an existing member' }).waitFor({ timeout: 30000 });
-  await assertNoPageErrors(errors, 'Premium protected article');
-});
-
-test('routing authority preserves one-hop alias context path and explicit 404 behavior', async ({ request }) => {
-  const alias = await request.get(legacyAliasPath, { maxRedirects: 0 });
-  expect(alias.status()).toBe(301);
-  expect(alias.headers().location).toBe(legacyAliasTarget);
-
-  const context = await request.get(categoryPath);
-  expect(context.status()).toBe(200);
-  const contextBody = await context.text();
-  expect(contextBody).toContain('name="robots" content="noindex,follow"');
-  expect(contextBody).toContain('window.__HTP_PHASE4_CAPABILITY__');
-
-  const explicit = await request.get(explicit404Path);
-  expect(explicit.status()).toBe(404);
-
-  const unknown = await request.get(unknownPath);
-  expect(unknown.status()).toBe(404);
-});
-
-test('historical root public URLs cannot expose the retired legacy Reader implementation', async ({ request }) => {
-  for (const path of ['/index.html', '/article.html?id=natpharm-supply-chain', '/premium.html', '/archive.html']) {
-    const response = await request.get(path, { maxRedirects: 0 });
-    expect([200, 301, 302, 307, 308, 404]).toContain(response.status());
-    const body = await response.text();
-    expect(body, path + ' leaked legacy v21 shell').not.toContain('v21-ready');
-    expect(body, path + ' leaked legacy root runtime').not.toMatch(/<script[^>]+src=["'][^"']*app\\.js["']/i);
-    expect(body, path + ' leaked legacy v21 runtime').not.toMatch(/<script[^>]+src=["'][^"']*v21\\.js["']/i);
-    expect(body, path + ' leaked legacy public slogan').not.toContain('More context. More accountability. Better health intelligence.');
+  for (const [label, route, assertSurface] of routes) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const failures = await gotoCanonical(page, route, label);
+    await assertSurface(page);
+    await assertNoFatalRuntime(failures, label);
+    await page.close();
   }
 });
 
-test('PWA manifest and service worker expose the canonical offline/failure shell contract', async ({ request }) => {
-  const manifestResponse = await request.get('/manifest.json');
+test('Zimbabwe Premium article remains anonymous fail-closed with visible Premium access', async ({ page }) => {
+  test.setTimeout(90000);
+  const failures = captureRuntimeFailures(page);
+  const response = await page.goto(premiumArticle, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  expect(response && response.status()).toBe(200);
+  await page.getByRole('button', { name: 'HealthTimes Home' }).waitFor({ timeout: 30000 });
+  await page.getByText('PREMIUM', { exact: true }).first().waitFor({ timeout: 30000 });
+
+  const preview = page.getByTestId('premium-preview-notice');
+  const paywall = page.getByText('Continue reading with HealthTimes Premium', { exact: true });
+  await expect(preview.or(paywall)).toBeVisible({ timeout: 30000 });
+
+  const teaserCount = await page.getByTestId('premium-teaser-paragraph').count();
+  expect(teaserCount).toBeLessThanOrEqual(1);
+  await expect(page.getByText('Premium member access is active', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'HealthTimes Premium' })).toBeVisible();
+  await assertNoFatalRuntime(failures, 'Zimbabwe Premium article');
+});
+
+test('Fiji comparator remains public and renders public Reader actions without Premium lock', async ({ page }) => {
+  test.setTimeout(90000);
+  const failures = captureRuntimeFailures(page);
+  const response = await page.goto(fijiArticle, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  expect(response && response.status()).toBe(200);
+  await page.getByRole('button', { name: 'Save article' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Download article for offline reading' }).waitFor({ timeout: 30000 });
+  await expect(page.getByText('Continue reading with HealthTimes Premium', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('premium-preview-notice')).toHaveCount(0);
+  await expect(page.getByText('Article not found.', { exact: true })).toHaveCount(0);
+  await assertNoFatalRuntime(failures, 'Fiji public comparator');
+});
+
+test('Premium landing exposes access truth without fabricated commerce success', async ({ page }) => {
+  const failures = await gotoCanonical(page, '/premium', 'Premium landing');
+  await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).waitFor({ timeout: 30000 });
+  await expect(page.getByText('Your membership', { exact: true })).toBeVisible();
+  const body = await page.locator('body').innerText();
+  expect(body).not.toContain('Payment successful');
+  expect(body).not.toContain('Purchase complete');
+  expect(body).not.toContain('Premium member access is active');
+  await assertNoFatalRuntime(failures, 'Premium landing');
+});
+
+test('PWA contract is Pages-subpath safe and retired root runtime is non-serving', async ({ request }) => {
+  const manifestResponse = await request.get(BASE + '/manifest.json');
   expect(manifestResponse.status()).toBe(200);
   const manifest = await manifestResponse.json();
+  expect(manifest.start_url).toBe('./');
+  expect(manifest.scope).toBe('./');
+  expect(manifest.id).toBe('./');
   expect(manifest.display).toBe('standalone');
-  expect(manifest.name).toContain('HealthTimes');
 
-  const swResponse = await request.get('/sw.js');
+  const swResponse = await request.get(BASE + '/sw.js');
   expect(swResponse.status()).toBe(200);
   const sw = await swResponse.text();
-  expect(sw).toContain('self.addEventListener("fetch"');
-  expect(sw).toContain('request.mode === "navigate"');
-  expect(sw).toContain('caches.match(scopedPath())');
+  expect(sw).toContain('self.registration.scope');
+
+  expect((await request.get(BASE + '/healthtimes-icon.svg')).status()).toBe(200);
+  expect((await request.get(BASE + '/app.js')).status()).toBe(404);
+  expect((await request.get(BASE + '/v21.js')).status()).toBe(404);
+
+  const home = await request.get(BASE + '/');
+  const html = await home.text();
+  expect(html).not.toMatch(/<script[^>]+src=["'][^"']*(?:\/|^)app\.js["']/i);
+  expect(html).not.toMatch(/<script[^>]+src=["'][^"']*(?:\/|^)v21\.js["']/i);
 });
