@@ -28,8 +28,8 @@ export default function EditionScreen(){
   const zones=taxonomy.data?.geographicZones ?? [];
   const editions=zones.filter((zone)=>zone.level==="global" || zone.level==="continent" || zone.level==="region" || zone.level==="country").map((zone)=>zone.name);
   const interestOptions=(taxonomy.data?.topics.length
-    ? taxonomy.data.topics.map((topic)=>topic.name)
-    : taxonomy.data?.editorialDesks.map((desk)=>desk.name)) ?? [];
+    ? taxonomy.data.topics
+    : taxonomy.data?.editorialDesks) ?? [];
   const filteredEditions=useMemo(()=>{
     const term=query.trim().toLowerCase();
     return term ? editions.filter((item)=>item.toLowerCase().includes(term)) : editions;
@@ -73,7 +73,7 @@ export default function EditionScreen(){
       <Section>
         <SectionHeader title="Content preferences" />
         {interestOptions.length ? (
-          <View style={styles.chips}>{interestOptions.map((item)=><Chip key={item} active={selectedTopics.includes(item)} onPress={()=>toggle(item,selectedTopics,setSelectedTopics)}>{item}</Chip>)}</View>
+          <View style={styles.chips}>{interestOptions.map((item)=><Chip key={item.id} active={selectedTopics.includes(item.name)} onPress={()=>toggle(item.name,selectedTopics,setSelectedTopics)}>{item.name}</Chip>)}</View>
         ) : <EmptyState title="No topics available yet" message="HealthTimes topics will appear here as they become available." />}
       </Section>
 

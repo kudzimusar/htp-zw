@@ -1,0 +1,510 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 240000
+- takeScreenshot: home-light
+
+# Search keyboard/focus
+- openLink: "healthtimes://search"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Top Stories"
+    commands:
+      - tapOn: "Search HealthTimes"
+- extendedWaitUntil:
+    visible: "Intelligent Search"
+    timeout: 20000
+- tapOn: "Search HealthTimes"
+- inputText: "health"
+- takeScreenshot: search-keyboard
+- hideKeyboard
+- tapOn: "Search"
+- takeScreenshot: search-results
+
+# Public Article + native Save/Offline/Share
+- openLink: "healthtimes://article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Save article"
+    timeout: 30000
+- tapOn: "Save article"
+- extendedWaitUntil:
+    visible: "Saved"
+    timeout: 10000
+- tapOn: "Download article for offline reading"
+# Immediate status text is viewport-sensitive; offline persistence is proven later via /saved?tab=offline.
+- takeScreenshot: article-actions-light
+- tapOn: "Share article"
+- takeScreenshot: article-native-share
+- stopApp
+
+# Saved + Offline persistence after leaving the Article route
+- launchApp
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 120000
+- openLink: "healthtimes://saved?tab=saved"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Saved & Offline"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Saved articles"
+    timeout: 30000
+- assertVisible: ".*Fiji.*"
+- takeScreenshot: saved-persistence
+
+- openLink: "healthtimes://saved?tab=offline"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+# Canonical Saved currently initializes on Articles even when the historical deep-link query is retained.
+# Select the actual Offline tab explicitly, then keep the strong downloaded-story persistence assertions below.
+- tapOn:
+    text: "Offline"
+    index: 1
+- scrollUntilVisible:
+    element:
+      text: "Available offline"
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- assertVisible: ".*Fiji.*"
+- takeScreenshot: offline-persistence
+
+# Premium anonymous body protection / paywall
+- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- scrollUntilVisible:
+    element:
+      text: "Continue reading with HealthTimes Premium"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Continue reading with HealthTimes Premium"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Go to HealthTimes Premium"
+          direction: DOWN
+          visibilityPercentage: 20
+          timeout: 30000
+      - assertVisible: "Go to HealthTimes Premium"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Go Premium"
+          direction: DOWN
+          visibilityPercentage: 50
+          timeout: 20000
+      - assertVisible: "Go Premium"
+- takeScreenshot: premium-locked-light
+
+# Representative accepted Reader surfaces
+- openLink: "healthtimes://explore"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Explore"
+    timeout: 20000
+- takeScreenshot: explore-light
+
+- openLink: "healthtimes://live"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Live"
+    timeout: 20000
+- takeScreenshot: live-light
+
+- openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "Watch From Mozambique to Zimbabwe:.*"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "Watch video.*"
+- takeScreenshot: watch-light
+
+# Source-backed external YouTube destination
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Watch From Mozambique to Zimbabwe:.*"
+          index: 0
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Watch video.*"
+          index: 0
+- takeScreenshot: watch-external-youtube
+- stopApp
+
+- launchApp
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 120000
+- openLink: "healthtimes://listen"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Listen"
+    timeout: 20000
+- assertVisible: "No audio yet"
+- takeScreenshot: listen-truthful
+
+# My HealthTimes and intentional navigation into Edition
+- openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- takeScreenshot: my-healthtimes-light
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible: "Countries & Interests.*"
+      - tapOn: "Countries & Interests.*"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Countries & Interests"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Countries & Interests"
+- extendedWaitUntil:
+    visible: "Select Your Edition"
+    timeout: 20000
+
+# Historical Phase-6A label "Edition & Preferences" is superseded by canonical "Select Your Edition".
+# Edition interaction and device persistence
+- tapOn: "Search country or region"
+- inputText: "Africa"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Primary Edition"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- extendedWaitUntil:
+    visible: "Africa"
+    timeout: 10000
+- tapOn:
+    text: "Africa"
+    below: "Primary Edition"
+- assertVisible:
+    text: "Africa"
+    below: "Primary Edition"
+    selected: true
+- scrollUntilVisible:
+    element:
+      text: "Save Preferences"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Save Preferences"
+- scrollUntilVisible:
+    element:
+      text: "Preferences saved on this device."
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 20000
+- assertVisible: "Preferences saved on this device."
+- takeScreenshot: edition-light
+
+# My HealthTimes navigation to the actual Appearance preference
+- openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "My HealthTimes"
+    timeout: 20000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Appearance / Theme.*"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Appearance / Theme.*"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Appearance / Theme"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "Appearance / Theme"
+- extendedWaitUntil:
+    visible: "Appearance"
+    timeout: 20000
+- tapOn: "Dark"
+- assertVisible: "Dark"
+- takeScreenshot: appearance-dark-selected
+
+# Required native dark-mode matrix
+- openLink: "healthtimes://"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 120000
+- takeScreenshot: home-dark
+
+- openLink: "healthtimes://article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Save article"
+    timeout: 30000
+- takeScreenshot: article-dark
+
+- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- scrollUntilVisible:
+    element:
+      text: "Continue reading with HealthTimes Premium"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Continue reading with HealthTimes Premium"
+- takeScreenshot: premium-dark
+
+- openLink: "healthtimes://premium"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES PREMIUM"
+    timeout: 30000
+- takeScreenshot: premium-landing-dark
+
+- openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- takeScreenshot: watch-dark
+
+- openLink: "healthtimes://my"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- scrollUntilVisible:
+    element:
+      text: "My HealthTimes"
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 20000
+- assertVisible: "My HealthTimes"
+- takeScreenshot: my-healthtimes-dark
