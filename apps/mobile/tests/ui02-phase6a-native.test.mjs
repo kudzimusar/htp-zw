@@ -234,3 +234,58 @@ test("Phase 6A Android tablet certification validates physical PNG orientation",
     rmSync(evidenceDir,{recursive:true,force:true});
   }
 });
+
+
+test("Phase 6A Android System UI ANR recovery is single in-job and fail-closed",()=>{
+  const runner=readRepo("scripts/native/ui02-phase6a-android-run.sh");
+  const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
+  const phone=read("e2e/ui02-phase6a-phone.yaml");
+
+  for(const marker of [
+    "System UI isn't responding",
+    "android:id/aerr_wait",
+    "com.android.systemui:id/",
+    "dumpsys activity lastanr",
+    "dumpsys SurfaceFlinger --list",
+    "HealthTimes application ANR is not recoverable",
+    "HealthTimes application ANR dialog is not recoverable",
+    "FATAL EXCEPTION",
+    "AndroidRuntime",
+    "ReactNativeJS",
+    "maestro-journey-1",
+    "maestro-journey-2",
+    "first-journey.tar.gz",
+    "infrastructure-recovery.yaml",
+    "recoveryCount:1",
+    'firstJourneyResult:"INTERRUPTED_BY_OS"',
+    'secondJourneyResult:"PASS"',
+    'if [[ "$SECOND_STATUS" -ne 0 ]]',
+    'exit "$SECOND_STATUS"',
+    "no further recovery permitted"
+  ]) assert.ok(runner.includes(marker),marker);
+
+  assert.match(
+    phone,
+    /- launchApp:\n    clearState: true\n- extendedWaitUntil:\n    visible: "Top Stories"\n    timeout: 240000/
+  );
+  assert.equal((phone.match(/visible: "Top Stories"/g)??[]).length,4);
+
+  assert.equal(
+    (runner.match(/run_maestro_journey "\$FIRST_JOURNEY_DIR"/g)??[]).length,
+    1
+  );
+  assert.equal(
+    (runner.match(/run_maestro_journey "\$SECOND_JOURNEY_DIR"/g)??[]).length,
+    1
+  );
+  assert.equal(
+    (workflow.match(/scripts\/native\/ui02-phase6a-android-run\.sh/g)??[]).length,
+    1
+  );
+  assert.equal(runner.includes("gh run rerun"),false);
+  assert.equal(workflow.includes("rerun-failed"),false);
+  assert.ok(runner.includes('grep -Fq "$APP_ID" "$RECOVERY_DIR/lastanr-before-recovery.txt"'));
+  assert.ok(runner.includes('grep -Fq "com.android.systemui" "$RECOVERY_DIR/lastanr-before-recovery.txt"'));
+  assert.ok(runner.includes('grep -Fq "$APP_ID" "$RECOVERY_DIR/surfaceflinger-before-recovery.txt"'));
+  assert.ok(runner.includes('rm -rf "$FIRST_JOURNEY_DIR"'));
+});
