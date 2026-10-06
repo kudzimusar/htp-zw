@@ -19,6 +19,7 @@ Moderator disposition:
 UI-INT-05 ACCEPTED
 UI-02 PHASE 6A ACCEPTED
 FOUR-CELL NATIVE RECERTIFICATION ACCEPTED
+UI-GOV-01R ACCEPTED
 PROGRAMME FREEZE DOCUMENTATION RELEASED
 ```
 
@@ -336,9 +337,9 @@ PR #69 remains accepted but intentionally unmerged. This document records custod
 
 ---
 
-## 14. PR #41 governance custody/status
+## 14. Governance custody reconciliation — PR #41 source / PR #76 accepted clean re-custody
 
-Separate governance custody remains:
+PR #41 remains the historical approved DESIGN.md / wireframe source custody:
 
 ```text
 PR: #41
@@ -346,10 +347,75 @@ title: UI governance: freeze approved wireframe and DESIGN.md v2
 branch: docs/ui-design-governance-v2
 head: dc554c4ce5621ae672f309af27d814d356fe2f89
 state: Draft / Open / Unmerged / Mergeable
-disposition: PRESERVE OPEN / DO NOT MERGE / DO NOT CLOSE / DO NOT MODIFY
+role: HISTORICAL APPROVED GOVERNANCE SOURCE CUSTODY
 ```
 
-PR #41 remains separate historical/governance custody. This programme freeze neither resolves nor mutates it.
+PR #41 remains unmerged. Its approved governance assets were reconstructed byte-identically onto canonical-main lineage; PR #41 itself was not merged, rewritten, or promoted.
+
+Accepted clean governance re-custody:
+
+```text
+PR: #76
+title: UI-GOV-01R: Re-custody approved DESIGN.md and wireframe on canonical main
+branch: docs/ui-gov01-clean-governance-recustody
+base: main
+base SHA: dcfdedcf5dc7f4c0e47dc968e21b63d3d2d6cb95
+accepted exact governance SHA: a416488a8afe572f63e304caa439b1432f07dd72
+state: Draft / Open / Unmerged / Mergeable
+moderator disposition: ACCEPT
+```
+
+Accepted candidate shape:
+
+```text
+1 ahead
+0 behind
+1 commit
+2 changed paths
+```
+
+The two approved governance assets are byte-identical between PR #41 historical source custody and PR #76 accepted clean canonical-main re-custody:
+
+| Governance asset | Accepted blob |
+| --- | --- |
+| `docs/native-mobile/DESIGN.md` | `0e66bdd478c2d245d360cbea327e1a41fdfed4d0` |
+| `docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png` | `5fa5bcc85dfc9b636dfec190d84d94217ffb769f` |
+
+UI-GOV-01R certification receipt:
+
+```text
+pull_request validation:
+run 37413966273
+job 112108371041
+result SUCCESS
+
+checkout used synthetic merge:
+77a5cc1f05dc887ad98ff01495b03507f80e604b
+
+synthetic merge -> accepted candidate compare:
+content delta = 0 files
+
+R1 manual exact-ref certification:
+target = a416488a8afe572f63e304caa439b1432f07dd72
+result = SUCCESS
+mutation = NONE
+```
+
+The exact-ref R1 certification was non-mutating. The successful pull-request validation used GitHub's synthetic merge commit, but independent comparison proves that synthetic-merge content and the accepted candidate have zero file delta.
+
+Authority distinction:
+
+```text
+PR #41 = historical approved governance source custody
+PR #76 = accepted clean canonical-main governance re-custody
+a416488a... = accepted clean governance candidate
+
+ACCEPTED != MERGED
+ACCEPTED != DEPLOYED
+ACCEPTED != CANONICAL MAIN
+```
+
+No merge, deployment, production, Pages, Supabase, payment/provider, or runtime authority is granted by UI-GOV-01R or by this reconciliation.
 
 ---
 
@@ -378,13 +444,20 @@ authority = SEPARATE LANE
 
 This freeze does not modify Supabase, RLS, RPC SQL, publication state, or staging data.
 
-### C. PR #41 governance custody
+### C. Governance custody status
+
+Governance re-custody is now accepted through PR #76 while remaining unmerged:
 
 ```text
-OPEN
-SEPARATE MODERATOR CUSTODY
-NO ACTION IN UI-INT-04R
+PR #41 = historical approved source custody / OPEN / UNMERGED
+PR #76 = accepted clean canonical-main re-custody / Draft / Open / Unmerged
+accepted governance candidate = a416488a8afe572f63e304caa439b1432f07dd72
+UI-GOV-01R disposition = ACCEPT
+merge authority = NO
+deployment authority = NO
 ```
+
+This is no longer an unresolved custody question inside the UI programme freeze. It remains a separate unmerged governance authority boundary.
 
 ---
 
@@ -396,7 +469,11 @@ The following boundaries are frozen:
 Historical PRs are not current serving authority.
 PR #52 is not canonical main.
 PR #69 is accepted but not merged.
+PR #41 remains historical governance source custody and is not merged.
+PR #76 is accepted clean governance re-custody but is not merged.
+The accepted governance candidate a416488a... is not canonical main.
 PR #41 is not implicitly merged or closed by this freeze.
+PR #76 acceptance does not authorize deployment or production mutation.
 The retired root Reader remains retired.
 apps/mobile remains canonical Reader authority.
 UI evidence does not become Supabase/domain authority.
@@ -416,7 +493,7 @@ The HealthTimes UI recovery programme is frozen with canonical main remaining at
 
 The final UI-02 four-cell native matrix is accepted with all required device cells green, exact-head/current-attempt aggregate evidence complete, and zero unavailable, duplicate, or runtime-error cells.
 
-Premium/public behaviour, Fiji public classification, historical PR dispositions, Edition remediation, frozen UI-02 source blobs, PR #41 governance custody, and known separate debts are recorded without changing product or production authority.
+Premium/public behaviour, Fiji public classification, historical PR dispositions, Edition remediation, frozen UI-02 source blobs, PR #41 historical governance source custody, PR #76 accepted clean governance re-custody, and known separate debts are recorded without changing product or production authority.
 
 ```text
 UI-INT-04R PROGRAMME FREEZE:
@@ -425,7 +502,8 @@ ACCEPTED UI-02 INTEGRATION CANDIDATE RECORDED
 FOUR-CELL NATIVE CERTIFICATION RECORDED
 PREMIUM/PUBLIC CONTRACT FROZEN
 HISTORICAL PR CUSTODY FROZEN
-GOVERNANCE CUSTODY PRESERVED
+GOVERNANCE SOURCE CUSTODY PRESERVED
+ACCEPTED CLEAN GOVERNANCE RE-CUSTODY RECORDED
 PRODUCT MUTATION = NO
 PRODUCTION MUTATION = NO
 MERGE AUTHORITY = NO
