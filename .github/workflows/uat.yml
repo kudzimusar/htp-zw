@@ -1,46 +1,193 @@
-name: Chromium UAT
+name: Chromium UAT — Canonical Reader
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: healthtimes-chromium-uat
+  group: healthtimes-canonical-chromium-uat-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
+
+env:
+  APP_ENV: development
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: /htp-zw
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   playwright:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
-      - name: Check out repository
+      - name: Check out exact repository head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+
+      - name: Prove exact checkout SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$CHECKED_OUT_SHA"
+          test "$CHECKED_OUT_SHA" = "$EXPECTED_SHA"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install UAT dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install root and canonical Reader dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Load existing public staging teaser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+
+      - name: Native check
+        run: npm run native:check
+
+      - name: Reader product
+        run: npm --prefix apps/mobile run test:reader-product
+
+      - name: Reader fidelity
+        run: npm --prefix apps/mobile run test:reader-fidelity
+
+      - name: Source parity
+        run: npm --prefix apps/mobile run test:source-parity
+
+      - name: Premium HOSPAZ
+        run: npm --prefix apps/mobile run test:premium-hospaz
+
+      - name: UI-03
+        run: npm --prefix apps/mobile run test:ui03
+
+      - name: NM-05 Premium consumer
+        run: npm --prefix apps/mobile run test:nm05-premium-consumer
+
+      - name: Export canonical apps/mobile PWA for Pages-equivalent UAT
+        env:
+          APP_ENV: development
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          HEALTHTIMES_WEB_BASE_URL: /htp-zw
+        run: npm run native:export:web
+
+      - name: Create and verify exact-candidate build identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f apps/mobile/dist/index.html
+          test -f apps/mobile/dist/manifest.json
+          test -f apps/mobile/dist/sw.js
+          test -f apps/mobile/dist/healthtimes-icon.svg
+          printf '{"sha":"%s","presentation":"apps/mobile","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$EXPECTED_SHA" > apps/mobile/dist/build-info.json
+          node <<'NODE'
+          const fs=require("fs");
+          const path=require("path");
+          const dist="apps/mobile/dist";
+          const info=JSON.parse(fs.readFileSync(path.join(dist,"build-info.json"),"utf8"));
+          if(info.sha!==process.env.EXPECTED_SHA) throw new Error("build-info SHA mismatch: "+JSON.stringify(info));
+          if(info.presentation!=="apps/mobile") throw new Error("build-info presentation mismatch");
+          if(info.service_mode!=="source-parity") throw new Error("build-info service_mode mismatch");
+          if(info.base_path!=="/htp-zw") throw new Error("build-info base_path mismatch");
+          const html=fs.readFileSync(path.join(dist,"index.html"),"utf8");
+          for(const marker of ["/htp-zw/manifest.json","/htp-zw/healthtimes-icon.svg","/htp-zw/sw.js"]){
+            if(!html.includes(marker)) throw new Error("Missing Pages base marker: "+marker);
+          }
+          const manifest=JSON.parse(fs.readFileSync(path.join(dist,"manifest.json"),"utf8"));
+          if(manifest.start_url!=="./"||manifest.scope!=="./"||manifest.id!=="./") throw new Error("PWA manifest is not Pages-subpath safe");
+          const sw=fs.readFileSync(path.join(dist,"sw.js"),"utf8");
+          if(!sw.includes("self.registration.scope")) throw new Error("Service worker is not scope-derived");
+          if(fs.existsSync(path.join(dist,"app.js"))) throw new Error("Legacy root app.js leaked into canonical output");
+          if(fs.existsSync(path.join(dist,"v21.js"))) throw new Error("Legacy root v21.js leaked into canonical output");
+          if(/(?:src|href)=["'][^"']*(?:\/|^)(?:app|v21)\.js["']/i.test(html)) throw new Error("Canonical HTML references retired root runtime");
+          console.log(JSON.stringify(info));
+          NODE
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run HealthTimes client-review UAT
-        run: npm run test:uat
+      - name: Run current canonical Pages UAT against exact bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - >/tmp/current-canonical-pages-uat.log 2>&1 <<'NODE' &
+          const http=require("http");
+          const fs=require("fs");
+          const path=require("path");
+          const {URL}=require("url");
+          const dist=path.resolve("apps/mobile/dist");
+          const base="/htp-zw";
+          const types={
+            ".html":"text/html; charset=utf-8",
+            ".js":"application/javascript; charset=utf-8",
+            ".css":"text/css; charset=utf-8",
+            ".json":"application/json; charset=utf-8",
+            ".svg":"image/svg+xml",
+            ".png":"image/png",
+            ".jpg":"image/jpeg",
+            ".jpeg":"image/jpeg",
+            ".webp":"image/webp",
+            ".ico":"image/x-icon"
+          };
+          function inside(file){const resolved=path.resolve(file);return resolved===dist||resolved.startsWith(dist+path.sep);}
+          function send(res,file,status=200){
+            if(!inside(file)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end("Not found");return;}
+            res.writeHead(status,{"content-type":types[path.extname(file).toLowerCase()]||"application/octet-stream","cache-control":"no-store"});
+            fs.createReadStream(file).pipe(res);
+          }
+          const server=http.createServer((req,res)=>{
+            const pathname=decodeURIComponent(new URL(req.url,"http://127.0.0.1").pathname);
+            if(pathname===base){res.writeHead(308,{location:base+"/"});res.end();return;}
+            if(!pathname.startsWith(base+"/")){res.writeHead(404);res.end("Canonical Reader is served only under "+base);return;}
+            const rel=pathname.slice(base.length+1);
+            if(!rel){send(res,path.join(dist,"index.html"));return;}
+            const direct=path.join(dist,rel);
+            if(inside(direct)&&fs.existsSync(direct)&&fs.statSync(direct).isFile()){send(res,direct);return;}
+            if(path.extname(rel)){res.writeHead(404);res.end("Not found");return;}
+            for(const candidate of [path.join(dist,rel+".html"),path.join(dist,rel,"index.html")]){
+              if(inside(candidate)&&fs.existsSync(candidate)&&fs.statSync(candidate).isFile()){send(res,candidate);return;}
+            }
+            send(res,path.join(dist,"index.html"));
+          });
+          server.listen(4176,"127.0.0.1",()=>console.log("canonical Pages UAT server http://127.0.0.1:4176"+base+"/"));
+          NODE
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:4176/htp-zw/build-info.json" >/dev/null; then break; fi
+            if [[ "$attempt" == "30" ]]; then cat /tmp/current-canonical-pages-uat.log; exit 1; fi
+            sleep 1
+          done
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:4176 EXPECTED_SHA="$EXPECTED_SHA" npm run test:uat
 
-      - name: Upload Playwright report
+      - name: Upload current canonical UAT evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: healthtimes-playwright-report
+          name: current-canonical-pages-uat
           path: |
             playwright-report/
             test-results/
-          if-no-files-found: ignore
-          retention-days: 14
+            apps/mobile/dist/build-info.json
+            /tmp/current-canonical-pages-uat.log
+          if-no-files-found: warn
+          retention-days: 30
