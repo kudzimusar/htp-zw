@@ -1,0 +1,215 @@
+name: UI-04 Edition Full Reload Persistence
+# Exact-head recertification stamp: clean full matrix after transient native reruns.
+
+on:
+  push:
+    branches:
+      - fix/ui04-edition-full-reload-persistence
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  diagnose-edition-reload:
+    name: Edition full-reload behavioral regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact diagnostic checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Build source-parity Web/PWA
+        run: npm run build:phase4:web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Reproduce full-reload boundary
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui04-edition-diagnostic.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "15" ]]; then cat /tmp/ui04-edition-diagnostic.log; exit 1; fi
+            sleep 1
+          done
+          mkdir -p ui04-edition-diagnostic
+          node - <<'NODE'
+          const {chromium}=require('@playwright/test');
+          const fs=require('fs');
+          const path=require('path');
+          const base='http://127.0.0.1:4174';
+          const storageKey='ht:nm04:reader:preferences:v1';
+
+          async function readStored(page){
+            return page.evaluate((key)=>{
+              const raw=localStorage.getItem(key);
+              if(!raw) return {raw:null,primaryEdition:null};
+              try{
+                const parsed=JSON.parse(raw);
+                return {raw,primaryEdition:parsed?.primaryEdition ?? null};
+              }catch{
+                return {raw,primaryEdition:null};
+              }
+            },storageKey);
+          }
+
+          async function waitHydrated(page){
+            const loading=page.getByText('Loading edition preferences…',{exact:true});
+            await loading.waitFor({state:'hidden',timeout:30000}).catch(()=>{});
+            await page.getByRole('radio',{name:'Africa primary edition',exact:true}).waitFor({state:'visible',timeout:30000});
+          }
+
+          async function visualPrimary(page){
+            const marker=page.getByText('SELECTED',{exact:true}).first();
+            await marker.waitFor({state:'visible',timeout:30000});
+            const radio=marker.locator('xpath=ancestor::*[@role="radio"][1]');
+            const label=(await radio.getAttribute('aria-label')) ?? '';
+            return label.replace(/ primary edition$/,'').trim() || null;
+          }
+
+          async function headerRepositoryPrimary(page){
+            const button=page.getByRole('button',{name:/^Edition .*\. Change edition$/}).first();
+            await button.waitFor({state:'visible',timeout:30000});
+            const label=(await button.getAttribute('aria-label')) ?? '';
+            const match=label.match(/^Edition (.+)\. Change edition$/);
+            return match?.[1] ?? null;
+          }
+
+          async function selectedState(page,name){
+            const radio=page.getByRole('radio',{name:name+' primary edition',exact:true});
+            const checked=await radio.getAttribute('aria-checked');
+            const selected=await radio.getAttribute('aria-selected');
+            const aria=checked ?? selected;
+            return {
+              ariaChecked:checked,
+              ariaSelected:selected,
+              selectedState:aria==='true'
+            };
+          }
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext({viewport:{width:1440,height:1000}});
+            const page=await context.newPage();
+            const pageErrors=[];
+            const consoleErrors=[];
+            page.on('pageerror',e=>pageErrors.push(String(e)));
+            page.on('console',m=>{if(m.type()==='error') consoleErrors.push(m.text());});
+
+            const response=await page.goto(base+'/edition',{waitUntil:'domcontentloaded',timeout:30000});
+            if(response?.status()!==200) throw new Error('Edition HTTP '+response?.status());
+            await waitHydrated(page);
+
+            const beforeSavePrimaryEdition=await visualPrimary(page);
+            const africa=page.getByRole('radio',{name:'Africa primary edition',exact:true});
+            await africa.click();
+            const beforeSaveSelected=await selectedState(page,'Africa');
+
+            await page.getByRole('button',{name:'Save Preferences',exact:true}).click();
+            await page.getByText('Preferences saved on this device.',{exact:true}).waitFor({state:'visible',timeout:30000});
+
+            const afterSaveStorage=await readStored(page);
+            const afterSaveRenderedPrimaryEdition=await visualPrimary(page);
+            const afterSaveSelected=await selectedState(page,'Africa');
+
+            await page.reload({waitUntil:'domcontentloaded',timeout:30000});
+            const afterReloadStorage=await readStored(page);
+            await waitHydrated(page);
+            const afterReloadRepositoryPrimaryEdition=await headerRepositoryPrimary(page);
+            const afterReloadRenderedPrimaryEdition=await visualPrimary(page);
+            const afterReloadAccessibility=await selectedState(page,'Africa');
+
+            const screenshot=path.join('ui04-edition-diagnostic','edition-after-reload.png');
+            await page.screenshot({path:screenshot,fullPage:true});
+
+            let boundary='NONE';
+            if(afterSaveStorage.primaryEdition!=='Africa') boundary='A_WRITE_STORAGE_FAILURE';
+            else if(afterReloadStorage.primaryEdition!=='Africa') boundary='B_RELOAD_PERSISTENCE_FAILURE';
+            else if(afterReloadRepositoryPrimaryEdition!=='Africa') boundary='C_REPOSITORY_READ_FAILURE';
+            else if(afterReloadRenderedPrimaryEdition!=='Africa') boundary='D_EDITION_HYDRATION_FAILURE';
+            else if(!afterReloadAccessibility.selectedState) boundary='E_ACCESSIBILITY_SEMANTICS_FAILURE';
+            else boundary='PASS_NO_REPRO';
+
+            const receipt={
+              sha:process.env.EXPECTED_SHA,
+              storageKey,
+              beforeSavePrimaryEdition,
+              afterSaveStoragePrimaryEdition:afterSaveStorage.primaryEdition,
+              afterSaveRenderedPrimaryEdition,
+              afterReloadStoragePrimaryEdition:afterReloadStorage.primaryEdition,
+              afterReloadRepositoryPrimaryEdition,
+              afterReloadRenderedPrimaryEdition,
+              afterReloadAccessibilitySelectedState:afterReloadAccessibility.selectedState,
+              afterReloadAriaChecked:afterReloadAccessibility.ariaChecked,
+              afterReloadAriaSelected:afterReloadAccessibility.ariaSelected,
+              afterSaveAccessibilitySelectedState:afterSaveSelected.selectedState,
+              boundary,
+              pageErrors,
+              consoleErrors,
+              react418:[...pageErrors,...consoleErrors].filter(v=>String(v).includes('418')).length,
+              horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth+1),
+              screenshot
+            };
+            const requiredAfrica=[
+              receipt.afterSaveStoragePrimaryEdition,
+              receipt.afterSaveRenderedPrimaryEdition,
+              receipt.afterReloadStoragePrimaryEdition,
+              receipt.afterReloadRepositoryPrimaryEdition,
+              receipt.afterReloadRenderedPrimaryEdition
+            ];
+            if(requiredAfrica.some(value=>value!=='Africa')){
+              throw new Error('Edition full-reload regression failed: '+JSON.stringify(receipt));
+            }
+            if(receipt.afterReloadAccessibilitySelectedState!==true){
+              throw new Error('Edition radio accessibility selected state did not survive reload: '+JSON.stringify(receipt));
+            }
+            if(receipt.pageErrors.length||receipt.consoleErrors.length||receipt.react418!==0||receipt.horizontalOverflow){
+              throw new Error('Edition reload evidence is not clean: '+JSON.stringify(receipt));
+            }
+            receipt.boundary='PASS';
+            fs.writeFileSync('ui04-edition-diagnostic/receipt.json',JSON.stringify(receipt,null,2));
+            console.log(JSON.stringify(receipt,null,2));
+            await browser.close();
+          })().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui04-edition-full-reload-persistence
+          path: |
+            ui04-edition-diagnostic/
+            /tmp/ui04-edition-diagnostic.log
+          if-no-files-found: error
+          retention-days: 30

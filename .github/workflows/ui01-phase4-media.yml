@@ -1,0 +1,315 @@
+name: UI-01 Phase 4 Media Conformance
+
+on:
+  push:
+    branches:
+      - feat/ui01-phase4-media-conformance
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui01-phase4-media-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  media-web:
+    name: Live + Watch + Listen exact-head evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Run Phase 4 media contract
+        run: node --test apps/mobile/tests/ui01-phase4-media.test.mjs
+      - name: Typecheck canonical Reader
+        run: npm --prefix apps/mobile run typecheck
+      - name: Run bounded Reader regressions
+        run: |
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:ui01-phase3
+          npm --prefix apps/mobile run test:ui03
+      - name: Build exact-head source-parity Web/PWA
+        run: npm run build:phase4:web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture Live Watch Listen responsive evidence
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui01-phase4.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "10" ]]; then cat /tmp/ui01-phase4.log; exit 1; fi
+            sleep 1
+          done
+          mkdir -p ui01-phase4-evidence/web
+          node - <<'NODE'
+          const { chromium }=require('@playwright/test');
+          const fs=require('fs');
+          const path=require('path');
+          const base='http://127.0.0.1:4174';
+          const sha=process.env.EXPECTED_SHA;
+          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const viewports=[
+            ['mobile',390,844],
+            ['tablet',834,1112],
+            ['desktop',1440,1000]
+          ];
+
+          function diagnostics(page){
+            const pageErrors=[];
+            const consoleErrors=[];
+            page.on('pageerror',error=>pageErrors.push(String(error)));
+            page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text());});
+            return {pageErrors,consoleErrors};
+          }
+          async function inspect(page){
+            const metrics=await page.evaluate(()=>({
+              scrollWidth:document.documentElement.scrollWidth,
+              clientWidth:document.documentElement.clientWidth,
+              activeLabel:document.activeElement?.getAttribute?.('aria-label')||document.activeElement?.tagName||null
+            }));
+            return {
+              ...metrics,
+              horizontalOverflow:metrics.scrollWidth>metrics.clientWidth+1,
+              mobileTabCount:await page.getByRole('tab').count()
+            };
+          }
+          function assertClean(label,diag,state){
+            const react418=[...diag.pageErrors,...diag.consoleErrors].filter(x=>x.includes('Minified React error #418')||x.includes('React error #418'));
+            if(react418.length) throw new Error(label+' React #418: '+react418.join(' | '));
+            if(diag.pageErrors.length) throw new Error(label+' page errors: '+diag.pageErrors.join(' | '));
+            if(diag.consoleErrors.length) throw new Error(label+' console errors: '+diag.consoleErrors.join(' | '));
+            if(state.horizontalOverflow) throw new Error(label+' horizontal overflow');
+            if(label.startsWith('desktop')&&state.mobileTabCount!==0) throw new Error(label+' rendered mobile bottom navigation');
+          }
+          function recordBase(name,route,viewport,width,height,file,response,diag,state,extra={}){
+            return {
+              sha,name,route,viewport,width,height,
+              status:response?.status()??null,
+              actualSourceBackedState:extra.actualSourceBackedState??null,
+              file,
+              pageErrors:diag.pageErrors,
+              consoleErrors:diag.consoleErrors,
+              react418:0,
+              horizontalOverflow:state.horizontalOverflow,
+              mobileTabCount:state.mobileTabCount,
+              mediaAvailability:extra.mediaAvailability??null,
+              mediaDestination:extra.mediaDestination??null,
+              playable:extra.playable??false,
+              durationMetadata:extra.durationMetadata??null,
+              updateMetadata:extra.updateMetadata??null,
+              focusObservation:state.activeLabel,
+              ...extra
+            };
+          }
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const manifest={
+              sha,
+              capturedAt:new Date().toISOString(),
+              serviceMode:'source-parity',
+              screens:[],
+              unsupportedStates:[
+                {route:'/live',state:'active Live',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/live',state:'Live Blog',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/live',state:'Upcoming',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/listen',state:'playable audio',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/listen',state:'Podcasts',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/listen',state:'article audio',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/listen',state:'Offline',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/watch',state:'Popular',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/watch',state:'Series',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'},
+                {route:'/watch',state:'Shorts',disposition:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE'}
+              ],
+              regressions:[],
+              authority:{
+                dataServiceMutation:false,
+                mediaProviderMutation:false,
+                premiumSecurityMutation:false,
+                advertisingAuthorityMutation:false,
+                deploymentMutation:false,
+                spotifyAuthorityPresent:false,
+                youtubeDestinationsConsumedFromExistingSource:true
+              }
+            };
+
+            for(const [viewport,width,height] of viewports){
+              {
+                const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+                const diag=diagnostics(page);
+                const response=await page.goto(base+'/live',{waitUntil:'domcontentloaded',timeout:30000});
+                await page.getByText('No live coverage right now',{exact:true}).waitFor({timeout:30000});
+                await page.waitForTimeout(700);
+                const state=await inspect(page);
+                assertClean(viewport+' live',diag,state);
+                const file=path.join('ui01-phase4-evidence/web',viewport+'-live.png');
+                await page.screenshot({path:file,fullPage:true});
+                await page.waitForTimeout(200);
+                assertClean(viewport+' live post-capture',diag,await inspect(page));
+                manifest.screens.push(recordBase('live-empty','/live',viewport,width,height,file,response,diag,state,{
+                  actualSourceBackedState:'truthful empty Live state',
+                  mediaAvailability:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE',
+                  mediaDestination:null,playable:false,updateMetadata:null
+                }));
+                await page.close();
+              }
+
+              {
+                const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+                const diag=diagnostics(page);
+                const response=await page.goto(base+'/watch',{waitUntil:'domcontentloaded',timeout:30000});
+                await page.getByText('Featured video',{exact:true}).waitFor({timeout:30000});
+                await page.getByText('Latest videos',{exact:true}).first().waitFor({timeout:30000});
+                const youtubeLinks=page.getByRole('link',{name:/^Watch .* on YouTube$/});
+                await youtubeLinks.first().waitFor({timeout:30000});
+                const youtubeCount=await youtubeLinks.count();
+                if(youtubeCount<1) throw new Error(viewport+' Watch has no verified YouTube destination');
+                await page.waitForTimeout(700);
+                const state=await inspect(page);
+                assertClean(viewport+' watch',diag,state);
+                const durationMetadata=await page.locator('text=/^\\d+:\\d{2}$/').allTextContents();
+                const file=path.join('ui01-phase4-evidence/web',viewport+'-watch.png');
+                await page.screenshot({path:file,fullPage:true});
+                await page.waitForTimeout(200);
+                assertClean(viewport+' watch post-capture',diag,await inspect(page));
+                manifest.screens.push(recordBase('watch-latest','/watch',viewport,width,height,file,response,diag,state,{
+                  actualSourceBackedState:'featured + latest HealthTimes videos',
+                  mediaAvailability:youtubeCount+' source-backed videos with verified destinations',
+                  mediaDestination:'YouTube',
+                  playable:true,
+                  destinationCount:youtubeCount,
+                  durationMetadata
+                }));
+                await page.close();
+              }
+
+              {
+                const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+                const diag=diagnostics(page);
+                const response=await page.goto(base+'/listen',{waitUntil:'domcontentloaded',timeout:30000});
+                await page.getByText('No audio published yet',{exact:true}).waitFor({timeout:30000});
+                const playControls=await page.getByRole('button',{name:/play/i}).count();
+                if(playControls!==0) throw new Error(viewport+' Listen exposes a play control without playback authority');
+                await page.waitForTimeout(700);
+                const state=await inspect(page);
+                assertClean(viewport+' listen',diag,state);
+                const file=path.join('ui01-phase4-evidence/web',viewport+'-listen.png');
+                await page.screenshot({path:file,fullPage:true});
+                await page.waitForTimeout(200);
+                assertClean(viewport+' listen post-capture',diag,await inspect(page));
+                manifest.screens.push(recordBase('listen-empty','/listen',viewport,width,height,file,response,diag,state,{
+                  actualSourceBackedState:'truthful empty Listen state',
+                  mediaAvailability:'NOT AVAILABLE FROM AUTHORITATIVE SOURCE',
+                  mediaDestination:null,playable:false,durationMetadata:null
+                }));
+                await page.close();
+              }
+            }
+
+            const dark=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+            await dark.goto(base+'/appearance',{waitUntil:'domcontentloaded',timeout:30000});
+            await dark.getByRole('button',{name:'Dark'}).click();
+            for(const [name,route,ready,availability,destination,playable] of [
+              ['dark-watch','/watch','Featured video','source-backed HealthTimes videos','YouTube',true],
+              ['dark-live','/live','No live coverage right now','NOT AVAILABLE FROM AUTHORITATIVE SOURCE',null,false],
+              ['dark-listen','/listen','No audio published yet','NOT AVAILABLE FROM AUTHORITATIVE SOURCE',null,false]
+            ]){
+              const diag=diagnostics(dark);
+              const response=await dark.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
+              await dark.getByText(ready,{exact:true}).first().waitFor({timeout:30000});
+              await dark.waitForTimeout(700);
+              const state=await inspect(dark);
+              assertClean('mobile '+name,diag,state);
+              const file=path.join('ui01-phase4-evidence/web',name+'.png');
+              await dark.screenshot({path:file,fullPage:true});
+              await dark.waitForTimeout(200);
+              assertClean('mobile '+name+' post-capture',diag,await inspect(dark));
+              manifest.screens.push(recordBase(name,route,'mobile-dark',390,844,file,response,diag,state,{
+                actualSourceBackedState:'dark appearance',
+                mediaAvailability:availability,
+                mediaDestination:destination,
+                playable
+              }));
+            }
+            await dark.close();
+
+            const regressionChecks=[
+              ['phase3-regression-explore','/explore','Explore by topic'],
+              ['phase3-regression-search','/search','Suggested searches'],
+              ['phase2-regression-article','/article/'+articleId,null],
+              ['phase2-regression-premium','/premium','HealthTimes Premium']
+            ];
+            for(const [name,route,ready] of regressionChecks){
+              const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+              const diag=diagnostics(page);
+              const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
+              await page.getByLabel('HealthTimes Home').first().waitFor({timeout:30000});
+              if(ready) await page.getByText(ready,{exact:false}).first().waitFor({timeout:30000});
+              if(name==='phase3-regression-search'){
+                const input=page.getByRole('textbox',{name:'Search HealthTimes'});
+                await input.waitFor({timeout:30000});
+                const focused=await input.evaluate(el=>el===document.activeElement);
+                if(!focused) throw new Error('Phase 3 desktop Search focus regressed');
+              }
+              await page.waitForTimeout(900);
+              const state=await inspect(page);
+              assertClean('desktop '+name,diag,state);
+              manifest.regressions.push({
+                sha,name,route,status:response?.status()??null,
+                pageErrors:diag.pageErrors,consoleErrors:diag.consoleErrors,react418:0,
+                horizontalOverflow:state.horizontalOverflow,mobileTabCount:state.mobileTabCount,
+                focusObservation:state.activeLabel
+              });
+              await page.close();
+            }
+
+            fs.writeFileSync('ui01-phase4-evidence/manifest.json',JSON.stringify(manifest,null,2));
+            await browser.close();
+          })().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui01-phase4-media-conformance
+          path: |
+            ui01-phase4-evidence/
+            /tmp/ui01-phase4.log
+          if-no-files-found: error
+          retention-days: 30

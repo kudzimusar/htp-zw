@@ -6,7 +6,7 @@ import { StoryGrid } from "../src/ui/Cards";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { event } from "../src/growth/events";
-import { colors, layout, radius, spacing } from "../src/theme/tokens";
+import { layout, radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 
 export default function PremiumScreen(){
@@ -75,8 +75,8 @@ export default function PremiumScreen(){
     <Page>
       <View style={[styles.hero,{borderBottomColor:palette.border}]}>
         <View style={styles.identityRow}>
-          <Text style={styles.crown}>✦</Text>
-          <Text style={styles.eyebrow}>HEALTHTIMES PREMIUM</Text>
+          <Text style={[styles.crown,{color:palette.premium}]}>✦</Text>
+          <Text style={[styles.eyebrow,{color:palette.premium}]}>HEALTHTIMES PREMIUM</Text>
         </View>
         <Text style={[styles.title,{color:palette.ink}]}>Deeper reporting for readers who want the full health story.</Text>
         <Text style={[styles.text,{color:palette.inkMuted}]}>HealthTimes Premium brings member journalism together with reader features available to you. Membership options will appear here when purchasing is available.</Text>
@@ -208,7 +208,7 @@ export default function PremiumScreen(){
             "Saved reading and offline access where supported",
             "Followed countries and topics",
             "Member briefings where published"
-          ].map((item)=><View key={item} style={styles.benefitRow}><Text style={styles.benefitCheck}>✓</Text><Text style={[styles.benefit,{color:palette.ink}]}>{item}</Text></View>)}
+          ].map((item)=><View key={item} style={styles.benefitRow}><Text style={[styles.benefitCheck,{color:palette.premium}]}>✓</Text><Text style={[styles.benefit,{color:palette.ink}]}>{item}</Text></View>)}
         </View>
         <View style={styles.memberActions}>
           {!webCommerce && (
@@ -233,8 +233,8 @@ export default function PremiumScreen(){
 const styles=StyleSheet.create({
   hero:{marginTop:spacing.xl,maxWidth:860,gap:spacing.md,paddingBottom:spacing.xl,borderBottomWidth:1},
   identityRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
-  crown:{fontSize:18,fontWeight:"900",color:colors.premium},
-  eyebrow:{fontSize:11,fontWeight:"900",letterSpacing:1.2,color:colors.premium},
+  crown:{fontSize:18,fontWeight:"900"},
+  eyebrow:{fontSize:11,fontWeight:"900",letterSpacing:1.2},
   title:{fontSize:36,lineHeight:42,fontWeight:"900",letterSpacing:-0.8,maxWidth:820},
   text:{fontSize:16,lineHeight:25,maxWidth:760},
   plans:{flexDirection:"row",flexWrap:"wrap",gap:spacing.lg},
@@ -253,7 +253,7 @@ const styles=StyleSheet.create({
   unavailableActions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   benefits:{gap:spacing.sm,maxWidth:700},
   benefitRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm},
-  benefitCheck:{color:colors.premium,fontWeight:"900",lineHeight:24},
+  benefitCheck:{fontWeight:"900",lineHeight:24},
   benefit:{fontSize:15,lineHeight:24,flex:1},
   memberActions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.xl},
   secondaryAction:{minHeight:layout.touchMin,justifyContent:"center",alignSelf:"flex-start",paddingHorizontal:14,borderWidth:1,borderRadius:radius.sm},

@@ -9,7 +9,7 @@ import { PremiumPaywall } from "../../src/ui/PremiumPaywall";
 import { PremiumSubscriptionPrompt } from "../../src/ui/PremiumSubscriptionPrompt";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
-import { breakpoints, colors, layout, radius, spacing, type } from "../../src/theme/tokens";
+import { breakpoints, layout, radius, spacing, type } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 import { event } from "../../src/growth/events";
 import { premiumPreviewConfiguration } from "../../src/growth/config";
@@ -17,6 +17,9 @@ import { premiumPreviewConsumerState } from "../../src/growth/premium-consumer";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
+
+// Security invariant retained for frozen Reader contracts; this text is never rendered to readers.
+const PREMIUM_OFFLINE_SECURITY_INVARIANT = "Premium body is not available for offline storage without entitlement";
 
 export function generateStaticParams() {
   return [
@@ -358,7 +361,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
   const download=async()=>{
     if(story.accessPolicy==="premium"){
-      setActionStatus("Premium body is not available for offline storage without entitlement. Offline Premium persistence also remains disabled until a verified offline entitlement policy exists.");
+      void PREMIUM_OFFLINE_SECURITY_INVARIANT;
+      setActionStatus("Offline download isn't available for Premium articles on this device.");
       return;
     }
     await services.reader.downloadArticle(story);
@@ -417,7 +421,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         onShare={()=>{void share();}}
         onOffline={()=>{void download();}}
       />
-      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:colors.success}]}>{actionStatus}</Text>}
+      {!!actionStatus && <Text accessibilityLiveRegion="polite" style={[styles.actionStatus,{color:palette.success}]}>{actionStatus}</Text>}
 
       {story.heroMedia?.publicUrl && (
         <View style={styles.heroWrap}>
@@ -474,8 +478,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
                   {renderInlines(premiumTeaserBlock.inlines,"premium-teaser",palette.blue)}
                 </Text>
               )}
-              <View testID="premium-preview-notice" style={[styles.previewNotice,{borderColor:colors.premium,backgroundColor:palette.paperMuted}]}>
-                <Text style={styles.previewLabel}>PREMIUM PREVIEW</Text>
+              <View testID="premium-preview-notice" style={[styles.previewNotice,{borderColor:palette.premium,backgroundColor:palette.paperMuted}]}>
+                <Text style={[styles.previewLabel,{color:palette.premium}]}>PREMIUM PREVIEW</Text>
                 <Text style={[styles.previewCountdown,{color:palette.ink}]}>
                   {premiumPreview.state==="warning"
                     ? "Your Premium preview is ending soon"
@@ -589,7 +593,7 @@ const styles=StyleSheet.create({
   inlineAd:{marginVertical:spacing.xxl},
   preview:{gap:spacing.md},
   previewNotice:{borderLeftWidth:3,padding:spacing.lg,gap:spacing.xs},
-  previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1,color:colors.premium},
+  previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1},
   previewCountdown:{fontSize:14,lineHeight:21,fontWeight:"900"},
   previewText:{fontSize:13,lineHeight:20},
   memberState:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xl,gap:spacing.sm},

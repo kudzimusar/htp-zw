@@ -1,0 +1,135 @@
+name: UI-06 Phase 6C Final Recertification After Edition Fix
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui06-phase6c-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  final-web-client-uat:
+    name: Exact-head Web/PWA client-UAT
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact Phase 6C candidate
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install exact-head workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Re-establish accepted Reader contracts
+        run: |
+          npm run native:check
+          npm --prefix apps/mobile run test:ui05
+          node --test apps/mobile/tests/ui02-phase6a-native.test.mjs apps/mobile/tests/ui02-phase6a-native-realization.test.mjs
+          npm --prefix apps/mobile run test:ui04
+          npm --prefix apps/mobile run test:ui01-phase4
+          npm --prefix apps/mobile run test:ui01-phase3
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:migrated-corpus
+          npm --prefix apps/mobile run test:premium-hospaz
+          node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
+
+      - name: Build exact-head Web/PWA
+        run: npm run build:phase4:web
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run final Web/PWA client-UAT matrix
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui06-phase6c-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "20" ]]; then
+              cat /tmp/ui06-phase6c-web.log
+              exit 1
+            fi
+            sleep 1
+          done
+          node scripts/ui/ui06-phase6c-final-cert.mjs
+
+      - name: Record exact-head UAT identity
+        if: always()
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p ui06-phase6c-final-evidence
+          {
+            echo "# UI-06 Phase 6C Final Independent Certification"
+            echo
+            echo "- Exact candidate SHA: $EXPECTED_SHA"
+            echo "- Repaired product base: 0fa6985c07846cf4479d7d6a32980244e1859a0a"
+            echo "- Canonical Reader: apps/mobile"
+            echo "- Native matrix authority: UI-02 Phase 6A exact-head real simulator/emulator workflow"
+            echo "- Evidence branch: test/ui06-phase6c-final-recertification-after-edition-fix"
+            echo "- No Reader product, deployment, Supabase, commerce, HOSPAZ, Studio authorization or production mutation"
+          } > ui06-phase6c-final-evidence/run-identity.md
+
+      - name: Upload final Web/PWA evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui06-phase6c-final-web-client-uat
+          path: |
+            ui06-phase6c-final-evidence/
+            /tmp/ui06-phase6c-web.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Surface artifact identity
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## UI-06 Phase 6C Web/PWA artifact"
+            echo ""
+            echo "- Candidate: ${{ github.event.pull_request.head.sha || github.sha }}"
+            echo "- Artifact ID: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- Artifact digest: ${{ steps.upload.outputs.artifact-digest }}"
+            echo "- Artifact URL: ${{ steps.upload.outputs.artifact-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

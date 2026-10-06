@@ -1,0 +1,159 @@
+name: UI-03 Commercial Reader Conformance
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ui03-commercial-reader-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UI03_BASE_SHA: 46f43e6e4f76ddbc0bdf6cf9b3f1f296ce82d4b8
+
+jobs:
+  web-evidence:
+    name: Exact-head Article Premium Advertising evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Run required UI-03 contract matrix
+        run: |
+          set -euo pipefail
+          npm run native:check
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:reader-fidelity
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:nm05-premium-consumer
+          npm --prefix apps/mobile run test:nm05-premium-live
+          node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
+
+      - name: Build source-parity Web PWA
+        env:
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+        run: |
+          set -euo pipefail
+          npm run native:export:web
+          node scripts/web/prepare-phase4-vercel.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture source-parity UI-03 evidence
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui03-source-parity.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "15" ]]; then cat /tmp/ui03-source-parity.log; exit 1; fi
+            sleep 1
+          done
+          node apps/mobile/tests/ui03-commercial-reader-evidence.mjs source-parity
+          kill "$server_pid" 2>/dev/null || true
+          trap - EXIT
+
+      - name: Load existing staging public configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Build staging service candidate for HOSPAZ proof
+        env:
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+        run: |
+          set -euo pipefail
+          rm -rf apps/mobile/.expo apps/mobile/node_modules/.cache
+          npm --prefix apps/mobile run export:web -- --clear
+          node scripts/web/prepare-phase4-vercel.js
+
+      - name: Capture responsive HOSPAZ evidence
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui03-staging.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "15" ]]; then cat /tmp/ui03-staging.log; exit 1; fi
+            sleep 1
+          done
+          node apps/mobile/tests/ui03-commercial-reader-evidence.mjs staging-advertising
+          kill "$server_pid" 2>/dev/null || true
+          trap - EXIT
+
+      - name: Write evidence summary
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          {
+            echo "# UI-03 Commercial Reader Conformance Evidence"
+            echo
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Base SHA: $UI03_BASE_SHA"
+            echo "- Branch: ${{ github.head_ref || github.ref_name }}"
+            echo "- Premium preview authority: frozen owner policy (20 seconds / one teaser paragraph)"
+            echo "- Anonymous Premium source-parity delivery requests metadata only; protected body is neither requested nor rendered."
+            echo "- Real storefront state remains configuration-required with zero offers; reader-facing UI does not expose that engineering string."
+            echo "- Source-parity no-decision advertising collapses without a visual gap."
+            echo "- Staging HOSPAZ remains disclosed and non-clickable because destination authority is unknown."
+            echo "- CONTROLLED FIXTURE — NON-PRODUCTION advertising screenshots: NONE. No Article advertisement was fabricated."
+            echo "- Public Pages deployment: NOT MODIFIED."
+          } > ui03-evidence/summary.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui03-commercial-reader-conformance
+          path: |
+            ui03-evidence/
+            /tmp/ui03-source-parity.log
+            /tmp/ui03-staging.log
+          if-no-files-found: error
+          retention-days: 30

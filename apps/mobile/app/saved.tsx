@@ -1,33 +1,48 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { Chip, EmptyState, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { StoryCard, StoryGrid, StoryList } from "../src/ui/Cards";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
-import { colors, radius, spacing } from "../src/theme/tokens";
+import { colors, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 
-type LibraryTab = "articles" | "videos" | "audio" | "offline" | "history";
+type LibraryTab = "saved" | "offline" | "history";
+
+function readerTab(value:string|string[]|undefined):LibraryTab{
+  const selected=Array.isArray(value) ? value[0] : value;
+  return selected==="offline" || selected==="history" ? selected : "saved";
+}
 
 export default function SavedScreen(){
   const { palette }=useAppearance();
-  const [active,setActive]=useState<LibraryTab>("articles");
+  const params=useLocalSearchParams<{tab?:string|string[]}>();
+  const requestedTab=readerTab(params.tab);
+  const [active,setActive]=useState<LibraryTab>(requestedTab);
   const [refresh,setRefresh]=useState(0);
 
+  useEffect(()=>{
+    setActive(requestedTab);
+  },[requestedTab]);
+
   const library=useAsync(async()=>{
-    const [savedIds,home,downloads,historyIds]=await Promise.all([
+    const [savedIds,downloads,historyIds]=await Promise.all([
       services.reader.getSavedArticleIds(),
-      services.articles.getHome(),
       services.reader.getDownloadedArticles(),
       services.reader.getReadingHistoryIds()
     ]);
 
-    const byId=new Map(home.map((item)=>[item.id,item]));
-    return {
-      saved:home.filter((item)=>savedIds.includes(item.id)),
-      downloads,
-      history:historyIds.map((id)=>byId.get(id)).filter((item): item is NonNullable<typeof item>=>Boolean(item))
+    const resolveArticles=async(ids:string[])=>{
+      const stories=await Promise.all(ids.map((id)=>services.articles.getById(id)));
+      return stories.filter((item): item is NonNullable<typeof item>=>Boolean(item));
     };
+    const [saved,history]=await Promise.all([
+      resolveArticles(savedIds),
+      resolveArticles(historyIds)
+    ]);
+
+    return {saved,downloads,history};
   },[refresh]);
 
   const removeDownload=async(id:string)=>{
@@ -36,48 +51,58 @@ export default function SavedScreen(){
   };
 
   const tabs:[LibraryTab,string][]=[
-    ["articles","Articles"],
-    ["videos","Videos"],
-    ["audio","Audio"],
+    ["saved","Saved"],
     ["offline","Offline"],
     ["history","History"]
   ];
 
   return (
     <Page title="Saved & Offline">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Bookmarks, offline article snapshots and reading history are kept as distinct Reader states so saving a story never silently downloads it.</Text>
+      <Text style={[styles.lede,{color:palette.inkMuted}]}>Saved bookmarks, offline downloads and reading history are separate. Saving a story does not download it for offline reading.</Text>
 
       <View style={styles.summary}>
         <View style={[styles.stat,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.statValue,{color:palette.ink}]}>{library.data?.saved.length ?? 0}</Text>
-          <Text style={[styles.statLabel,{color:palette.inkMuted}]}>Saved articles</Text>
+          <Text style={[styles.statValue,{color:palette.ink}]}>{library.loading ? "—" : library.data?.saved.length ?? 0}</Text>
+          <Text style={[styles.statLabel,{color:palette.inkMuted}]}>Saved</Text>
         </View>
         <View style={[styles.stat,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.statValue,{color:palette.ink}]}>{library.data?.downloads.length ?? 0}</Text>
+          <Text style={[styles.statValue,{color:palette.ink}]}>{library.loading ? "—" : library.data?.downloads.length ?? 0}</Text>
           <Text style={[styles.statLabel,{color:palette.inkMuted}]}>Offline</Text>
         </View>
         <View style={[styles.stat,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-          <Text style={[styles.statValue,{color:palette.ink}]}>{library.data?.history.length ?? 0}</Text>
-          <Text style={[styles.statLabel,{color:palette.inkMuted}]}>Recent reads</Text>
+          <Text style={[styles.statValue,{color:palette.ink}]}>{library.loading ? "—" : library.data?.history.length ?? 0}</Text>
+          <Text style={[styles.statLabel,{color:palette.inkMuted}]}>History</Text>
         </View>
       </View>
 
-      <View style={styles.tabs}>
+      <View style={styles.tabs} accessibilityRole="tablist">
         {tabs.map(([key,label])=>(
           <Chip key={key} active={active===key} onPress={()=>setActive(key)}>{label}</Chip>
         ))}
       </View>
 
-      {active==="articles" && (
+      {library.loading && (
         <Section>
-          <SectionHeader title="Saved articles" eyebrow="BOOKMARKS" />
-          {library.data?.saved.length
-            ? <StoryGrid stories={library.data.saved} />
-            : <EmptyState title="Nothing saved yet" message="Save stories from the Article Reader and they will remain available across app restarts." />}
+          <Text accessibilityLiveRegion="polite" style={[styles.libraryState,{color:palette.inkMuted}]}>Loading your library…</Text>
         </Section>
       )}
 
-      {active==="offline" && (
+      {!library.loading && library.error && (
+        <Section>
+          <EmptyState title="Your library is temporarily unavailable" message="Saved stories, offline downloads and reading history could not be loaded. Try again shortly." />
+        </Section>
+      )}
+
+      {!library.loading && !library.error && active==="saved" && (
+        <Section>
+          <SectionHeader title="Saved stories" eyebrow="BOOKMARKS" />
+          {library.data?.saved.length
+            ? <StoryGrid stories={library.data.saved} />
+            : <EmptyState title="Nothing saved yet" message="Bookmarked stories will appear here. Saving a story does not make it available offline." />}
+        </Section>
+      )}
+
+      {!library.loading && !library.error && active==="offline" && (
         <Section>
           <SectionHeader title="Available offline" eyebrow="DOWNLOADED" />
           {library.data?.downloads.length ? (
@@ -100,38 +125,19 @@ export default function SavedScreen(){
               ))}
             </View>
           ) : (
-            <EmptyState title="No offline articles" message="Use Offline in the Article Reader. Downloaded content is stored separately from bookmarks and is clearly marked here." />
+            <EmptyState title="No offline stories" message="Choose Offline in an eligible article to store it on this device. Premium stories are not stored here without verified offline access." />
           )}
         </Section>
       )}
 
-      {active==="history" && (
+      {!library.loading && !library.error && active==="history" && (
         <Section>
           <SectionHeader title="Reading history" eyebrow="RECENT" />
           {library.data?.history.length
             ? <StoryList stories={library.data.history} />
-            : <EmptyState title="No reading history yet" message="Articles you open are recorded locally in most-recently-read order." />}
+            : <EmptyState title="No reading history yet" message="Stories you open will appear here in recently read order." />}
         </Section>
       )}
-
-      {active==="videos" && (
-        <Section>
-          <EmptyState title="No saved videos yet" message="Saved video will appear here when that feature is available." />
-        </Section>
-      )}
-
-      {active==="audio" && (
-        <Section>
-          <EmptyState title="No saved audio yet" message="Saved audio will appear here when that feature is available." />
-        </Section>
-      )}
-
-      <Section>
-        <View style={[styles.noteBox,{backgroundColor:palette.paperMuted,borderRadius:radius.md}]}>
-          <Text style={[styles.noteTitle,{color:palette.ink}]}>Reader storage boundary</Text>
-          <Text style={[styles.note,{color:palette.inkMuted}]}>Saved IDs, offline article bodies, read position and reading history use versioned device storage shared by native and PWA. Protected Premium bodies are not cached without entitlement.</Text>
-        </View>
-      </Section>
     </Page>
   );
 }
@@ -149,7 +155,5 @@ const styles=StyleSheet.create({
   offlineBadge:{fontSize:10,fontWeight:"900",letterSpacing:1,color:colors.success},
   removeButton:{minHeight:44,justifyContent:"center",paddingHorizontal:10},
   removeText:{fontSize:12,fontWeight:"800"},
-  noteBox:{padding:spacing.lg,gap:spacing.sm},
-  noteTitle:{fontSize:16,fontWeight:"900"},
-  note:{fontSize:13,lineHeight:20}
+  libraryState:{fontSize:14,lineHeight:22}
 });

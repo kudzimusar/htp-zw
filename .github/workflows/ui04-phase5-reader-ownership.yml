@@ -1,0 +1,392 @@
+name: UI-04 Phase 5 Reader Ownership Conformance
+
+on:
+  push:
+    branches:
+      - feat/ui04-phase5-reader-ownership-conformance
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui04-phase5-reader-ownership-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  reader-ownership-web:
+    name: Saved + My HealthTimes + Edition exact-head evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: Run Phase 5 Reader ownership contract
+        run: npm --prefix apps/mobile run test:ui04
+      - name: Typecheck canonical Reader
+        run: npm --prefix apps/mobile run typecheck
+      - name: Run bounded Reader regressions
+        run: |
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:ui01-phase3
+          npm --prefix apps/mobile run test:ui01-phase4
+          npm --prefix apps/mobile run test:ui03
+      - name: Build exact-head source-parity Web/PWA
+        run: npm run build:phase4:web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture Reader ownership responsive/state evidence
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/web/phase4-smoke-server.js >/tmp/ui04-phase5.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "10" ]]; then cat /tmp/ui04-phase5.log; exit 1; fi
+            sleep 1
+          done
+          mkdir -p ui04-phase5-evidence/web
+          node - <<'NODE'
+          const { chromium }=require('@playwright/test');
+          const fs=require('fs');
+          const path=require('path');
+          const base='http://127.0.0.1:4174';
+          const sha=process.env.EXPECTED_SHA;
+          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const viewports=[
+            ['mobile',390,844],
+            ['tablet',834,1112],
+            ['desktop',1440,1000]
+          ];
+
+          function diagnostics(page){
+            const pageErrors=[];
+            const consoleErrors=[];
+            page.on('pageerror',error=>pageErrors.push(String(error)));
+            page.on('console',msg=>{if(msg.type()==='error') consoleErrors.push(msg.text());});
+            return {pageErrors,consoleErrors};
+          }
+
+          async function inspect(page){
+            const metrics=await page.evaluate(()=>({
+              scrollWidth:document.documentElement.scrollWidth,
+              clientWidth:document.documentElement.clientWidth,
+              activeLabel:document.activeElement?.getAttribute?.('aria-label')||document.activeElement?.tagName||null
+            }));
+            return {
+              ...metrics,
+              horizontalOverflow:metrics.scrollWidth>metrics.clientWidth+1,
+              mobileTabCount:await page.getByRole('tab').count()
+            };
+          }
+
+          function assertClean(label,diag,state){
+            const react418=[...diag.pageErrors,...diag.consoleErrors].filter(x=>x.includes('Minified React error #418')||x.includes('React error #418'));
+            if(react418.length) throw new Error(label+' React #418: '+react418.join(' | '));
+            if(diag.pageErrors.length) throw new Error(label+' page errors: '+diag.pageErrors.join(' | '));
+            if(diag.consoleErrors.length) throw new Error(label+' console errors: '+diag.consoleErrors.join(' | '));
+            if(state.horizontalOverflow) throw new Error(label+' horizontal overflow');
+            if(label.startsWith('desktop')&&state.mobileTabCount!==0) throw new Error(label+' rendered mobile bottom navigation');
+          }
+
+          function record(name,route,viewport,width,height,file,response,diag,state,extra={}){
+            return {
+              sha,name,route,viewport,width,height,
+              status:response?.status()??null,
+              file,
+              pageErrors:diag.pageErrors,
+              consoleErrors:diag.consoleErrors,
+              react418:0,
+              horizontalOverflow:state.horizontalOverflow,
+              mobileTabCount:state.mobileTabCount,
+              focusObservation:state.activeLabel,
+              ...extra
+            };
+          }
+
+          async function navigateClean(page,label,route,ready){
+            const diag=diagnostics(page);
+            const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
+            if(response?.status()!==200) throw new Error(label+' HTTP '+response?.status());
+            if(ready) await page.getByText(ready,{exact:false}).first().waitFor({timeout:30000});
+            await page.waitForTimeout(700);
+            const state=await inspect(page);
+            assertClean(label,diag,state);
+            return {diag,response,state};
+          }
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const manifest={
+              sha,
+              capturedAt:new Date().toISOString(),
+              serviceMode:'source-parity',
+              screens:[],
+              regressions:[],
+              authority:{
+                canonicalReader:'apps/mobile',
+                staffVisibilityAuthority:'services.authorization.getSnapshot',
+                premiumEntitlementMutation:false,
+                billingAuthorityMutation:false,
+                ag05Mutation:false,
+                ag06Mutation:false,
+                comMutation:false,
+                supabaseMigrationOrRlsMutation:false,
+                pagesDeploymentMutation:false,
+                productionMutation:false
+              },
+              unsupportedStates:[
+                {surface:'/saved',state:'saved video persistence',disposition:'NOT AVAILABLE FROM READER CAPABILITY'},
+                {surface:'/saved',state:'saved audio persistence',disposition:'NOT AVAILABLE FROM READER CAPABILITY'},
+                {surface:'/my',state:'general Reader Studio visibility',disposition:'HIDDEN WITHOUT SERVER STAFF AUTHORITY'}
+              ]
+            };
+
+            {
+              const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
+              const page=await context.newPage();
+              const {diag,response,state}=await navigateClean(page,'mobile saved-empty','/saved?tab=saved','Nothing saved yet');
+              const file=path.join('ui04-phase5-evidence/web','mobile-saved-empty.png');
+              await page.screenshot({path:file,fullPage:true});
+              assertClean('mobile saved-empty post-capture',diag,await inspect(page));
+              manifest.screens.push(record('saved-empty','/saved?tab=saved','mobile',390,844,file,response,diag,state,{ownershipState:'empty'}));
+              await context.close();
+            }
+
+            for(const [viewport,width,height] of viewports){
+              const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
+              const article=await context.newPage();
+              let seededArticleTitle='';
+              {
+                const seed=await navigateClean(article,viewport+' ownership-seed','/article/'+articleId,null);
+                const save=article.getByRole('button',{name:'Save article'});
+                await save.waitFor({timeout:30000});
+                await save.click();
+                await article.getByText('Saved',{exact:true}).waitFor({timeout:10000});
+                const offline=article.getByRole('button',{name:'Download article for offline reading'});
+                await offline.waitFor({timeout:30000});
+                await offline.click();
+                await article.getByText('Available offline',{exact:true}).waitFor({timeout:10000});
+                seededArticleTitle=await article.evaluate((id)=>{
+                  const raw=localStorage.getItem('ht:nm04:reader:downloads:v1');
+                  const downloads=raw ? JSON.parse(raw) : {};
+                  return String(downloads?.[id]?.title ?? '').trim();
+                },articleId);
+                if(!seededArticleTitle) throw new Error(viewport+' seeded article title was not persisted with the download');
+                await article.evaluate((id)=>{
+                  localStorage.setItem('ht:nm04:reader:history:v1',JSON.stringify([id]));
+                },articleId);
+                const seededHistory=await article.evaluate(()=>localStorage.getItem('ht:nm04:reader:history:v1'));
+                if(seededHistory!==JSON.stringify([articleId])) throw new Error(viewport+' History persistence seed did not settle');
+                await article.waitForTimeout(300);
+                assertClean(viewport+' ownership-seed actions',seed.diag,await inspect(article));
+              }
+
+              const captures=[
+                ['saved-populated','/saved?tab=saved','Saved stories'],
+                ['offline-populated','/saved?tab=offline','Available offline'],
+                ['history-populated','/saved?tab=history',null]
+              ];
+              for(const [name,route,ready] of captures){
+                const page=article;
+                const {diag,response}=await navigateClean(page,viewport+' '+name,route,ready);
+                let state=await inspect(page);
+                let ownershipEvidence={ownershipState:'populated'};
+                if(name==='saved-populated' && await page.getByText('Nothing saved yet',{exact:true}).count()) throw new Error(viewport+' Saved did not populate');
+                if(name==='offline-populated'){
+                  await page.getByText('Remove download',{exact:true}).first().waitFor({timeout:30000});
+                  if(await page.getByText('No offline stories',{exact:true}).count()) throw new Error(viewport+' Offline did not populate');
+                }
+                if(name==='history-populated'){
+                  const loading=page.getByText('Loading your library…',{exact:true});
+                  await loading.waitFor({state:'hidden',timeout:30000}).catch(async()=>{
+                    if(await loading.count()) throw new Error(viewport+' History remained in loading state');
+                  });
+                  await page.getByText('Reading history',{exact:true}).first().waitFor({state:'visible',timeout:30000});
+                  const seededHistoryStory=page.getByText(seededArticleTitle,{exact:true}).first();
+                  await seededHistoryStory.first().waitFor({state:'visible',timeout:30000});
+                  const loadingVisible=await loading.isVisible().catch(()=>false);
+                  const historyEmpty=await page.getByText('No reading history yet',{exact:true}).isVisible().catch(()=>false);
+                  const historyStoryVisible=await seededHistoryStory.first().isVisible().catch(()=>false);
+                  const unresolvedSummaryCount=await page.getByText('—',{exact:true}).count();
+                  if(loadingVisible) throw new Error(viewport+' History loading state still visible');
+                  if(historyEmpty) throw new Error(viewport+' History resolved to empty state');
+                  if(!historyStoryVisible) throw new Error(viewport+' seeded article missing from History');
+                  if(unresolvedSummaryCount!==0) throw new Error(viewport+' ownership summary remained unresolved');
+                  state=await inspect(page);
+                  assertClean(viewport+' history-populated resolved',diag,state);
+                  ownershipEvidence={
+                    ownershipState:'populated',
+                    loadingVisible,
+                    historyEmpty,
+                    historyStoryVisible,
+                    ownershipSummaryResolved:true
+                  };
+                }
+                const file=path.join('ui04-phase5-evidence/web',viewport+'-'+name+'.png');
+                await page.screenshot({path:file,fullPage:true});
+                assertClean(viewport+' '+name+' post-capture',diag,await inspect(page));
+                manifest.screens.push(record(name,route,viewport,width,height,file,response,diag,state,ownershipEvidence));
+              }
+
+              {
+                const page=await context.newPage();
+                const {diag,response,state}=await navigateClean(page,viewport+' my-healthtimes','/my','HEALTHTIMES PREMIUM');
+                await page.waitForTimeout(800);
+                const studioCount=await page.getByText('HealthTimes Studio',{exact:true}).count();
+                if(studioCount!==0) throw new Error(viewport+' general Reader exposed HealthTimes Studio');
+                const file=path.join('ui04-phase5-evidence/web',viewport+'-my-healthtimes.png');
+                await page.screenshot({path:file,fullPage:true});
+                assertClean(viewport+' my-healthtimes post-capture',diag,await inspect(page));
+                manifest.screens.push(record('my-healthtimes','/my',viewport,width,height,file,response,diag,state,{
+                  studioVisible:false,
+                  studioCount,
+                  authorityObservation:'source-parity fixture has no server staff authority'
+                }));
+                await page.close();
+              }
+
+              {
+                const page=await context.newPage();
+                const {diag,response}=await navigateClean(page,viewport+' edition','/edition',null);
+                const primaryOptions=page.locator('[data-testid="primary-edition-option"]');
+                await primaryOptions.first().waitFor({state:'visible',timeout:30000});
+                await page.waitForFunction(
+                  ()=>document.querySelectorAll('[data-testid="primary-edition-option"]').length>=2,
+                  null,
+                  {timeout:30000}
+                );
+                const state=await inspect(page);
+                assertClean(viewport+' edition resolved',diag,state);
+                const optionCount=await primaryOptions.count();
+                const selectedCount=await page.getByText('SELECTED',{exact:true}).count();
+                if(selectedCount!==1) throw new Error(viewport+' Edition must expose exactly one selected primary edition');
+                const more=page.locator('[data-testid="edition-more-locations"]');
+                const progressiveDisclosure=await more.count()>0;
+                if(!progressiveDisclosure) throw new Error(viewport+' Edition did not expose bounded country/region disclosure');
+                const file=path.join('ui04-phase5-evidence/web',viewport+'-edition.png');
+                await page.screenshot({path:file,fullPage:true});
+                assertClean(viewport+' edition post-capture',diag,await inspect(page));
+                manifest.screens.push(record('edition-collapsed','/edition',viewport,width,height,file,response,diag,state,{
+                  primarySelectionRole:'radio',
+                  primaryChoiceCount:optionCount,
+                  selectedPrimaryCount:selectedCount,
+                  progressiveDisclosure
+                }));
+                if(viewport==='mobile'){
+                  if(await more.count()){
+                    await more.click();
+                    await page.getByText('Show Fewer Countries/Regions',{exact:true}).waitFor({timeout:5000});
+                    const expandedState=await inspect(page);
+                    assertClean('mobile edition expanded',diag,expandedState);
+                    const expandedFile=path.join('ui04-phase5-evidence/web','mobile-edition-expanded.png');
+                    await page.screenshot({path:expandedFile,fullPage:true});
+                    manifest.screens.push(record('edition-expanded','/edition','mobile',390,844,expandedFile,response,diag,expandedState,{
+                      primarySelectionRole:'radio',
+                      progressiveDisclosure:true
+                    }));
+                  }
+                }
+                await page.close();
+              }
+              await context.close();
+            }
+
+            {
+              const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
+              const page=await context.newPage();
+              await page.goto(base+'/appearance',{waitUntil:'domcontentloaded',timeout:30000});
+              await page.getByRole('button',{name:'Dark',exact:true}).click();
+              for(const [name,route,ready] of [
+                ['dark-my-healthtimes','/my','HEALTHTIMES PREMIUM'],
+                ['dark-saved','/saved?tab=saved','Nothing saved yet'],
+                ['dark-edition','/edition',null]
+              ]){
+                const result=await navigateClean(page,'mobile '+name,route,ready);
+                const {diag,response}=result;
+                if(name==='dark-edition'){
+                  await page.locator('[data-testid="primary-edition-option"]').first().waitFor({state:'visible',timeout:30000});
+                }
+                const state=await inspect(page);
+                assertClean('mobile '+name+' resolved',diag,state);
+                const studioCount=name==='dark-my-healthtimes' ? await page.getByText('HealthTimes Studio',{exact:true}).count() : null;
+                if(studioCount!==null && studioCount!==0) throw new Error('dark My HealthTimes exposed Studio');
+                const file=path.join('ui04-phase5-evidence/web',name+'.png');
+                await page.screenshot({path:file,fullPage:true});
+                assertClean('mobile '+name+' post-capture',diag,await inspect(page));
+                manifest.screens.push(record(name,route,'mobile-dark',390,844,file,response,diag,state,{
+                  appearance:'dark',
+                  ...(studioCount===null?{}:{studioVisible:false,studioCount})
+                }));
+              }
+              await context.close();
+            }
+
+            const regressionChecks=[
+              ['phase1-regression-home','/','HealthTimes'],
+              ['phase3-regression-explore','/explore','Explore by topic'],
+              ['phase3-regression-search','/search','Suggested searches'],
+              ['phase4-regression-live','/live','No live coverage right now'],
+              ['phase4-regression-watch','/watch','Featured video'],
+              ['phase4-regression-listen','/listen','No audio published yet'],
+              ['ui03-regression-article','/article/'+articleId,null],
+              ['ui03-regression-premium','/premium','HealthTimes Premium']
+            ];
+            for(const [name,route,ready] of regressionChecks){
+              const context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+              const page=await context.newPage();
+              const {diag,response,state}=await navigateClean(page,'desktop '+name,route,ready);
+              manifest.regressions.push({
+                sha,name,route,status:response?.status()??null,
+                pageErrors:diag.pageErrors,consoleErrors:diag.consoleErrors,react418:0,
+                horizontalOverflow:state.horizontalOverflow,mobileTabCount:state.mobileTabCount
+              });
+              await context.close();
+            }
+
+            fs.writeFileSync('ui04-phase5-evidence/manifest.json',JSON.stringify(manifest,null,2));
+            await browser.close();
+          })().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui04-phase5-reader-ownership-conformance
+          path: |
+            ui04-phase5-evidence/
+            /tmp/ui04-phase5.log
+          if-no-files-found: error
+          retention-days: 30
