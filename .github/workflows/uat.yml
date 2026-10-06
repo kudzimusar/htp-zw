@@ -11,14 +11,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: healthtimes-canonical-chromium-uat-\${{ github.event.pull_request.head.sha || github.sha }}
+  group: healthtimes-canonical-chromium-uat-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 env:
   APP_ENV: development
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
   HEALTHTIMES_WEB_BASE_URL: /htp-zw
-  EXPECTED_SHA: \${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   playwright:
@@ -28,7 +28,7 @@ jobs:
       - name: Check out exact repository head
         uses: actions/checkout@v4
         with:
-          ref: \${{ env.EXPECTED_SHA }}
+          ref: ${{ env.EXPECTED_SHA }}
           fetch-depth: 1
 
       - name: Prove exact checkout SHA
@@ -60,7 +60,7 @@ jobs:
           test -n "$key"
           echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
           echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
-          test -z "\${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
+          test -z "${EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL:-}"
 
       - name: Native check
         run: npm run native:check
