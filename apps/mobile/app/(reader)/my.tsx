@@ -49,14 +49,21 @@ export default function MyHealthTimesScreen(){
       {label:"Devices & Sessions",path:"/devices-sessions",detail:"Current device session"},
       {label:"Account deletion status",path:"/devices-sessions",detail:"Server-managed availability"}
     ]},
-    {title:"Help & About",items:[
+    {title:"Help",items:[
       publication.data?.contactUrl
         ? {label:"Help & Support",url:publication.data.contactUrl}
-        : {label:"Help & Support",detail:"Support contact is not available here yet"},
-      {label:"About HealthTimes",path:"/about"},
-      {label:"Authors",path:"/authors"},
-      {label:"Corrections & Editorial Standards",path:"/about",detail:"Editorial standards and contact"}
+        : {label:"Help & Support",detail:"Support contact is not available here yet"}
     ]}
+  ];
+
+  const publicationItems:MenuItem[]=[
+    {label:"About HealthTimes",path:"/about"},
+    {label:"Authors",path:"/authors"},
+    {label:"Corrections & Editorial Standards",path:"/about",detail:"Editorial standards and contact"},
+    ...(publication.data?.sourceLinks ?? []).map((link)=>({
+      label:link.label,
+      url:link.url
+    }))
   ];
 
   const signOut=async()=>{
@@ -122,6 +129,33 @@ export default function MyHealthTimesScreen(){
           </View>
         </Section>
       ))}
+
+      <Section>
+        <SectionHeader title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL" />
+        <View>
+          {publicationItems.map((item)=>(
+            <Pressable
+              key={item.label}
+              disabled={!item.path && !item.url}
+              onPress={()=>{
+                if(item.path) return router.push(item.path as never);
+                if(item.url) return void Linking.openURL(item.url);
+              }}
+              style={[styles.row,{borderBottomColor:palette.border},!item.path&&!item.url&&styles.rowDisabled]}
+              accessibilityRole={item.url ? "link" : "button"}
+              accessibilityLabel={item.detail ? item.label+". "+item.detail : item.label}
+              accessibilityState={{disabled:!item.path&&!item.url}}
+            >
+              <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
+              <View style={styles.rowEnd}>
+                {!!item.detail && <Text style={[styles.detail,{color:palette.inkMuted}]}>{item.detail}</Text>}
+                {!!item.path && <Text style={[styles.chevron,{color:palette.inkMuted}]}>›</Text>}
+                {!!item.url && <Text style={[styles.chevron,{color:palette.inkMuted}]}>↗</Text>}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </Section>
 
       <Section>
         <SectionHeader title="Sign Out" />
