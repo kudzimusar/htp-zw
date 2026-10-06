@@ -1,4 +1,4 @@
-name: UI-06 Phase 6C Final Independent Certification
+name: UI-06 Phase 6C Final Recertification After Edition Fix
 
 on:
   pull_request:
@@ -102,10 +102,10 @@ jobs:
             echo "# UI-06 Phase 6C Final Independent Certification"
             echo
             echo "- Exact candidate SHA: $EXPECTED_SHA"
-            echo "- Accepted base: d101ecb5bf7ea76de447093a140c53a0ebe1cb8c"
+            echo "- Repaired product base: 0fa6985c07846cf4479d7d6a32980244e1859a0a"
             echo "- Canonical Reader: apps/mobile"
             echo "- Native matrix authority: UI-02 Phase 6A exact-head real simulator/emulator workflow"
-            echo "- Evidence branch: test/ui06-phase6c-final-cross-device-certification"
+            echo "- Evidence branch: test/ui06-phase6c-final-recertification-after-edition-fix"
             echo "- No Reader product, deployment, Supabase, commerce, HOSPAZ, Studio authorization or production mutation"
           } > ui06-phase6c-final-evidence/run-identity.md
 
