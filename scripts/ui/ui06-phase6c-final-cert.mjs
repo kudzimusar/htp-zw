@@ -270,15 +270,26 @@ try{
     if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
     const prompt=page.getByTestId("premium-subscription-prompt");
     const promptPrimary=page.getByTestId("premium-prompt-primary");
-    const promptAppeared=await promptPrimary.waitFor({state:"visible",timeout:3000}).then(()=>true).catch(()=>false);
-    if(promptAppeared){
+    const promptHeading=page.getByRole("heading",{name:"Keep reading with HealthTimes Premium",exact:true});
+    const usePromptPrimary=async()=>{
+      await promptPrimary.waitFor({state:"visible",timeout:5000});
       const promptAction=await promptPrimary.getAttribute("aria-label");
       if(promptAction!=="Explore Premium")fail("Premium journey","unexpected Premium prompt action: "+String(promptAction),"P2");
       await promptPrimary.click();
+    };
+    const promptAppeared=await promptPrimary.waitFor({state:"visible",timeout:3000}).then(()=>true).catch(()=>false);
+    if(promptAppeared){
+      await usePromptPrimary();
     }else{
       const cta=page.getByRole("button",{name:/Go to HealthTimes Premium|Go Premium/}).first();
       await cta.scrollIntoViewIfNeeded();
-      await cta.click();
+      try{
+        await cta.click({timeout:5000});
+      }catch(error){
+        const latePrompt=await promptHeading.isVisible().catch(()=>false);
+        if(!latePrompt) throw error;
+        await usePromptPrimary();
+      }
     }
     await page.waitForURL(u=>u.pathname.endsWith("/premium")||u.pathname.endsWith("/premium/"),{timeout:15000});
     await bodyText(page,"HEALTHTIMES PREMIUM","Premium landing");
