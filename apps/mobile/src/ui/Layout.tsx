@@ -264,6 +264,54 @@ export function Section({ children }: PropsWithChildren) {
   return <View style={styles.section}>{children}</View>;
 }
 
+export function EditorialTabs<T extends string>({
+  items,
+  activeKey,
+  onChange,
+  accessibilityLabel = "Home sections"
+}: {
+  items: ReadonlyArray<{ key: T; label: string }>;
+  activeKey: T;
+  onChange: (key: T) => void;
+  accessibilityLabel?: string;
+}) {
+  const { palette } = useAppearance();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      accessibilityLabel={accessibilityLabel}
+      contentContainerStyle={styles.editorialTabs}
+    >
+      {items.map((item) => {
+        const active = item.key === activeKey;
+        return (
+          <Pressable
+            key={item.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={item.label}
+            onPress={() => onChange(item.key)}
+            style={styles.editorialTab}
+          >
+            <Text style={[styles.editorialTabText, { color: active ? palette.ink : palette.inkMuted }]}>
+              {item.label}
+            </Text>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.editorialTabIndicator,
+                { backgroundColor: active ? palette.blue : "transparent" }
+              ]}
+            />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export function Chip({ children, active = false, onPress }: PropsWithChildren<{ active?: boolean; onPress?: () => void }>) {
   const { palette } = useAppearance();
   return (
@@ -335,6 +383,10 @@ const styles=StyleSheet.create({
   sectionTitle:{fontSize:23,fontWeight:"900",letterSpacing:-0.4},
   sectionAction:{minHeight:layout.touchMin,justifyContent:"center"},
   sectionActionText:{fontSize:13,fontWeight:"800"},
+  editorialTabs:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingHorizontal:0},
+  editorialTab:{minHeight:layout.touchMin,justifyContent:"center",position:"relative",paddingTop:2},
+  editorialTabText:{fontSize:13.5,fontWeight:"800",letterSpacing:-0.1},
+  editorialTabIndicator:{position:"absolute",left:0,right:0,bottom:0,height:2,borderRadius:1},
   chip:{borderWidth:1,borderRadius:radius.sm,minHeight:layout.touchMin,paddingHorizontal:12,justifyContent:"center"},
   chipText:{fontSize:13,fontWeight:"700"},
   empty:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xxl,gap:spacing.sm},
