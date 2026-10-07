@@ -144,7 +144,7 @@ export function AppHeader() {
   const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
   const actions = (
-    <View style={[styles.headerActions, phone && styles.phoneActions, narrowPhone && styles.narrowActions]}>
+    <View style={[styles.headerActions, phone && styles.phoneActions]}>
       <Pressable
         onPress={() => go("/search")}
         style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
@@ -174,9 +174,9 @@ export function AppHeader() {
 
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
-      <View style={[styles.headerInner, narrowPhone && styles.narrowHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+      <View style={[styles.headerInner, phone && styles.phoneHeaderInner, narrowPhone && styles.narrowHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
-          <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
+          <Text style={[styles.brand, phone && styles.phoneBrand, narrowPhone && styles.narrowBrand, { color: palette.ink }]}>HealthTimes</Text>
         </Pressable>
 
         <Pressable
@@ -185,8 +185,14 @@ export function AppHeader() {
           accessibilityRole="button"
           accessibilityLabel={"Edition " + edition + ". Change edition"}
         >
-          <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
-          <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
+          {phone ? (
+            <Text numberOfLines={1} style={[styles.phoneEditionValue, { color: palette.blue }]}>{edition}</Text>
+          ) : (
+            <>
+              <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
+              <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
+            </>
+          )}
         </Pressable>
 
         {desktop && (
@@ -317,25 +323,28 @@ const styles=StyleSheet.create({
   environmentText:{color:"#FFFFFF",fontSize:10,fontWeight:"800",textAlign:"center",letterSpacing:0.7},
   header:{borderBottomWidth:1},
   headerInner:{width:"100%",alignSelf:"center",minHeight:58,flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  phoneHeaderInner:{gap:4},
   brandButton:{minHeight:layout.touchMin,justifyContent:"center",flexShrink:0},
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
   phoneBrand:{fontSize:21,letterSpacing:-0.6},
+  narrowBrand:{fontSize:18,letterSpacing:-0.5},
   editionButton:{minHeight:layout.touchMin,maxWidth:122,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.sm,flexShrink:1},
-  phoneEditionButton:{maxWidth:62,paddingLeft:6},
+  phoneEditionButton:{maxWidth:52,paddingHorizontal:2,paddingLeft:2,borderLeftWidth:0,alignItems:"center"},
   editionLabel:{fontSize:8,fontWeight:"900",letterSpacing:.8},
   editionValue:{fontSize:11,fontWeight:"900",marginTop:1},
+  phoneEditionValue:{fontSize:10,fontWeight:"900"},
   desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
   desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
   desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.xs,flexShrink:0},
-  phoneActions:{gap:2},
-  narrowHeaderInner:{flexWrap:"wrap",paddingTop:4,paddingBottom:4},
+  phoneActions:{gap:0},
+  narrowHeaderInner:{flexWrap:"wrap",paddingTop:4,paddingBottom:4,gap:2},
   narrowActions:{width:"100%",marginLeft:0,justifyContent:"space-between"},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:10,borderWidth:1,borderRadius:radius.sm},
   premiumAction:{borderColor:"transparent"},
-  phoneActionButton:{paddingHorizontal:5,borderWidth:0,minWidth:44,alignItems:"center"},
+  phoneActionButton:{paddingHorizontal:4,borderWidth:0,minWidth:44,alignItems:"center"},
   actionText:{fontSize:12,fontWeight:"900"},
-  phoneActionText:{fontSize:10.5},
+  phoneActionText:{fontSize:10},
   screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},
