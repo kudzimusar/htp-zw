@@ -256,8 +256,14 @@ try{
     const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1});
     const page=await context.newPage(),d=diag(page,"journey-premium");
     const requests=[];page.on("request",r=>requests.push(r.url()));
+    await installPremiumTeaserAuthority(page,premiumTeaserAuthority);
     await open(page,"/article/"+premiumArticleId,"Premium journey");
-    await bodyText(page,"Continue reading with HealthTimes Premium","Premium locked boundary");
+    const journeyPreview=page.getByText("PREMIUM PREVIEW",{exact:true}).first();
+    if(await journeyPreview.isVisible().catch(()=>false)){
+      await bodyText(page,"Continue reading with HealthTimes Premium","Premium preview-to-lock boundary",45000);
+    }else{
+      await bodyText(page,"Continue reading with HealthTimes Premium","Premium locked boundary",30000);
+    }
     const protectedContentRequests=requests.filter(u=>decodeURIComponent(u).toLowerCase().includes("wp-json/wp/v2")&&decodeURIComponent(u).toLowerCase().includes("content"));
     if(protectedContentRequests.length)fail("Premium security","anonymous browser requested WordPress content field: "+protectedContentRequests.join(" | "),"P0");
     const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
