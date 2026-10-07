@@ -1,0 +1,209 @@
+name: UI-WF-01A Home Visual Evidence
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-wf01a-home-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  UI_WF01A_BASE_SHA: 46f43e6e4f76ddbc0bdf6cf9b3f1f296ce82d4b8
+
+jobs:
+  home-contract-and-web-evidence:
+    name: UI-WF-01A contract + Web/PWA evidence
+    if: github.event.pull_request.head.ref == 'feat/ui-wf01a-home-shared-shell-foundation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+          test "$(git merge-base "$EXPECTED_SHA" "$UI_WF01A_BASE_SHA")" = "$UI_WF01A_BASE_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install certification and Reader dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Run bounded UI-WF-01A contracts and protected regressions
+        run: |
+          npm --prefix apps/mobile run test:ui-wf01a
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:growth-commercial
+          npm --prefix apps/mobile run test:premium-hospaz
+          npm --prefix apps/mobile run typecheck
+
+      - name: Install Chromium evidence runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Build exact candidate source-parity PWA
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf apps/mobile/dist ui-wf01a-sites
+          APP_ENV=development \
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity \
+          HEALTHTIMES_WEB_BASE_URL=/htp-zw \
+          npm --prefix apps/mobile run export:web
+          mkdir -p ui-wf01a-sites/candidate/htp-zw
+          cp -R apps/mobile/dist/. ui-wf01a-sites/candidate/htp-zw/
+
+      - name: Build exact candidate staging PWA for truthful HOSPAZ evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          rm -rf apps/mobile/dist
+          APP_ENV=staging \
+          EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=staging \
+          EXPO_PUBLIC_SUPABASE_URL="$url" \
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$key" \
+          HEALTHTIMES_WEB_BASE_URL=/htp-zw \
+          npm --prefix apps/mobile run export:web
+          mkdir -p ui-wf01a-sites/candidate-staging/htp-zw
+          cp -R apps/mobile/dist/. ui-wf01a-sites/candidate-staging/htp-zw/
+
+      - name: Build immutable current-main comparison PWA
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/htp-zw-ui-wf01a-current
+          git worktree add --detach /tmp/htp-zw-ui-wf01a-current "$UI_WF01A_BASE_SHA"
+          npm install --prefix /tmp/htp-zw-ui-wf01a-current/apps/mobile --no-audit --no-fund
+          (
+            cd /tmp/htp-zw-ui-wf01a-current
+            APP_ENV=development \
+            EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity \
+            HEALTHTIMES_WEB_BASE_URL=/htp-zw \
+            npm --prefix apps/mobile run export:web
+          )
+          mkdir -p ui-wf01a-sites/current-main/htp-zw
+          cp -R /tmp/htp-zw-ui-wf01a-current/apps/mobile/dist/. ui-wf01a-sites/current-main/htp-zw/
+
+      - name: Assemble reference / current / candidate evidence roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ui-wf01a-evidence/reference ui-wf01a-evidence/web
+          cp docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png ui-wf01a-evidence/reference/HEALTHTIMES_NATIVE_WIREFRAME_V1.png
+          cp docs/native-mobile/UI-WF-00A_HOME_SHARED_SHELL_CONTRACT.md ui-wf01a-evidence/reference/UI-WF-00A_HOME_SHARED_SHELL_CONTRACT.md
+
+      - name: Serve three immutable evidence builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory ui-wf01a-sites/candidate > /tmp/uiwf-candidate.log 2>&1 &
+          echo $! > /tmp/uiwf-candidate.pid
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory ui-wf01a-sites/current-main > /tmp/uiwf-current.log 2>&1 &
+          echo $! > /tmp/uiwf-current.pid
+          python3 -m http.server 4175 --bind 127.0.0.1 --directory ui-wf01a-sites/candidate-staging > /tmp/uiwf-staging.log 2>&1 &
+          echo $! > /tmp/uiwf-staging.pid
+          for url in \
+            http://127.0.0.1:4173/htp-zw/ \
+            http://127.0.0.1:4174/htp-zw/ \
+            http://127.0.0.1:4175/htp-zw/; do
+            for attempt in $(seq 1 30); do
+              if curl -fsS "$url" >/dev/null; then break; fi
+              if [ "$attempt" = 30 ]; then exit 1; fi
+              sleep 1
+            done
+          done
+
+      - name: Capture exact-head Web/PWA evidence
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173/htp-zw
+          UI_WF01A_CANDIDATE_BASE: http://127.0.0.1:4173/htp-zw
+          UI_WF01A_CURRENT_BASE: http://127.0.0.1:4174/htp-zw
+          UI_WF01A_STAGING_BASE: http://127.0.0.1:4175/htp-zw
+          UI_WF01A_EVIDENCE_DIR: ui-wf01a-evidence/web
+        run: npx playwright test tests/ui-wf01a-home-visual.spec.js
+
+      - name: Write exact-head evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require("fs");
+          const crypto=require("crypto");
+          const path=require("path");
+          const root="ui-wf01a-evidence";
+          fs.mkdirSync(root,{recursive:true});
+          const files=[];
+          const walk=(dir)=>{
+            if(!fs.existsSync(dir)) return;
+            for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+              const full=path.join(dir,entry.name);
+              if(entry.isDirectory()) walk(full);
+              else files.push({
+                file:path.relative(root,full),
+                sha256:crypto.createHash("sha256").update(fs.readFileSync(full)).digest("hex")
+              });
+            }
+          };
+          walk(root);
+          const manifest={
+            task:"UI-WF-01A",
+            candidateSha:process.env.EXPECTED_SHA,
+            currentMainSha:process.env.UI_WF01A_BASE_SHA,
+            contractAuthority:"5b4c289146534e0855e8c9b6fddf136a1f3eb5fd",
+            comparison:["REFERENCE WIREFRAME","CURRENT MAIN","UI-WF-01A CANDIDATE"],
+            requiredWebViewports:["390x844","834x1112","1440x1000"],
+            sourceParityStates:["phone-dark","no-Live","unfilled-ad"],
+            stagingState:["truthful HOSPAZ filled-ad"],
+            deploymentPerformed:false,
+            files:files.sort((a,b)=>a.file.localeCompare(b.file))
+          };
+          fs.writeFileSync(path.join(root,"manifest.json"),JSON.stringify(manifest,null,2));
+          NODE
+          sha256sum ui-wf01a-evidence/manifest.json > ui-wf01a-evidence/manifest.sha256
+          cat ui-wf01a-evidence/manifest.json
+
+      - name: Upload UI-WF-01A Web/PWA evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-wf01a-home-web-evidence-attempt-${{ github.run_attempt }}
+          path: |
+            ui-wf01a-evidence/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Record evidence identity
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## UI-WF-01A Home Web/PWA evidence"
+            echo ""
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Current main comparison: $UI_WF01A_BASE_SHA"
+            echo "- Artifact ID: ${{ steps.upload.outputs.artifact-id }}"
+            echo "- Artifact digest: ${{ steps.upload.outputs.artifact-digest }}"
+            echo "- Artifact URL: ${{ steps.upload.outputs.artifact-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
