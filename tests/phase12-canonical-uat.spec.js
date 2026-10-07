@@ -2,7 +2,10 @@ const { test, expect } = require('@playwright/test');
 
 const BASE = '/htp-zw';
 const premiumArticle = BASE + '/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
-const fijiArticle = BASE + '/article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users';
+const publicArticle = BASE + '/article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis';
+const teaserEndpoint = 'https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document';
+const premiumReferencePath = '/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/';
+const publicReferencePath = '/2026/09/18/ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis/';
 
 function captureRuntimeFailures(page) {
   const pageErrors = [];
@@ -21,6 +24,46 @@ async function assertNoFatalRuntime(failures, label) {
   expect(failures.pageErrors.filter(error => error.includes('Minified React error #418')), label + ' React #418').toEqual([]);
   expect(failures.pageErrors, label + ' pageerror').toEqual([]);
   expect(failures.fatalConsole, label + ' console errors').toEqual([]);
+}
+
+async function loadLiveTeaserAuthority(referencePath) {
+  const url = String(process.env.EXPO_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+  const key = String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '');
+  expect(url).toBe('https://gcdohgbmqhqwydgaxrcr.supabase.co');
+  expect(key).toMatch(/^sb_publishable_/);
+  expect(key).not.toMatch(/service_role/i);
+  const response = await fetch(teaserEndpoint, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'x-healthtimes-client': 'ui-rel04-canonical-uat'
+    },
+    body: JSON.stringify({ p_path: referencePath })
+  });
+  expect(response.ok, 'live teaser authority HTTP').toBe(true);
+  const payload = await response.json();
+  expect(payload && typeof payload === 'object').toBeTruthy();
+  expect(payload.body_html).toBeNull();
+  return payload;
+}
+
+async function installValidatedTeaserAuthority(page, referencePath, payload) {
+  await page.route(teaserEndpoint, async route => {
+    let requested = null;
+    try { requested = route.request().postDataJSON()?.p_path || null; } catch {}
+    if (requested !== referencePath) {
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: 'null' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify(payload)
+    });
+  });
 }
 
 async function assertNoHorizontalOverflow(page, label) {
@@ -84,7 +127,7 @@ test('current primary Reader routes resolve through apps/mobile output', async (
   const routes = [
     ['Explore', '/explore', async page => page.getByText('Explore by topic', { exact: true }).first().waitFor({ timeout: 30000 })],
     ['Search', '/search', async page => page.getByRole('textbox', { name: 'Search HealthTimes' }).waitFor({ timeout: 30000 })],
-    ['Live', '/live', async page => page.getByRole('button', { name: 'Live Now' }).waitFor({ timeout: 30000 })],
+    ['Live', '/live', async page => page.getByText('No live coverage right now', { exact: true }).waitFor({ timeout: 30000 })],
     ['Watch', '/watch', async page => page.getByText('Featured video', { exact: true }).waitFor({ timeout: 30000 })],
     ['Premium', '/premium', async page => page.getByText('HEALTHTIMES PREMIUM', { exact: true }).waitFor({ timeout: 30000 })],
     ['My HealthTimes', '/my', async page => page.getByText('My HealthTimes', { exact: true }).first().waitFor({ timeout: 30000 })]
@@ -101,6 +144,10 @@ test('current primary Reader routes resolve through apps/mobile output', async (
 
 test('Zimbabwe Premium article remains anonymous fail-closed with visible Premium access', async ({ page }) => {
   test.setTimeout(90000);
+  const authority = await loadLiveTeaserAuthority(premiumReferencePath);
+  expect(String(authority.source_id)).toBe('33190');
+  expect(authority.access_policy).toBe('premium_marker_review');
+  await installValidatedTeaserAuthority(page, premiumReferencePath, authority);
   const failures = captureRuntimeFailures(page);
   const response = await page.goto(premiumArticle, { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response && response.status()).toBe(200);
@@ -118,17 +165,21 @@ test('Zimbabwe Premium article remains anonymous fail-closed with visible Premiu
   await assertNoFatalRuntime(failures, 'Zimbabwe Premium article');
 });
 
-test('Fiji comparator remains public and renders public Reader actions without Premium lock', async ({ page }) => {
+test('current public comparator renders Reader actions without Premium lock', async ({ page }) => {
   test.setTimeout(90000);
+  const authority = await loadLiveTeaserAuthority(publicReferencePath);
+  expect(String(authority.source_id)).not.toBe('33190');
+  expect(String(authority.access_policy).toLowerCase()).toBe('public');
+  await installValidatedTeaserAuthority(page, publicReferencePath, authority);
   const failures = captureRuntimeFailures(page);
-  const response = await page.goto(fijiArticle, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const response = await page.goto(publicArticle, { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response && response.status()).toBe(200);
   await page.getByRole('button', { name: 'Save article' }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: 'Download article for offline reading' }).waitFor({ timeout: 30000 });
   await expect(page.getByText('Continue reading with HealthTimes Premium', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('premium-preview-notice')).toHaveCount(0);
   await expect(page.getByText('Article not found.', { exact: true })).toHaveCount(0);
-  await assertNoFatalRuntime(failures, 'Fiji public comparator');
+  await assertNoFatalRuntime(failures, 'current public comparator');
 });
 
 test('Premium landing exposes access truth without fabricated commerce success', async ({ page }) => {

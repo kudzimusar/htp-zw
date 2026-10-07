@@ -59,6 +59,17 @@ jobs:
           npm --prefix apps/mobile run test:nm05-premium-live
           node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
 
+      - name: Load existing staging public configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
+          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
+          test -n "$url"
+          test -n "$key"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+
       - name: Build source-parity Web PWA
         env:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
@@ -88,17 +99,6 @@ jobs:
           node apps/mobile/tests/ui03-commercial-reader-evidence.mjs source-parity
           kill "$server_pid" 2>/dev/null || true
           trap - EXIT
-
-      - name: Load existing staging public configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_URL")"
-          key="$(node -p "require('./apps/mobile/eas.json').build.staging.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")"
-          test -n "$url"
-          test -n "$key"
-          echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
-          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
 
       - name: Build staging service candidate for HOSPAZ proof
         env:

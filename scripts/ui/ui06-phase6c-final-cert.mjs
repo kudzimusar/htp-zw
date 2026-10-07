@@ -5,9 +5,9 @@ import path from "node:path";
 const base=process.env.UI06_BASE_URL||"http://127.0.0.1:4174";
 const sha=process.env.EXPECTED_SHA||"unknown";
 const out="ui06-phase6c-final-evidence";
-const publicArticleId="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
-const publicHeadline="Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks";
-const premiumArticleId="source-us-embassy-challenges-zimbabwe-rejected-health-mou";
+const publicArticleId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
+const publicHeadline="Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt";
+const premiumArticleId="source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks";
 const viewports={
   mobile:{width:390,height:844},
   tablet:{width:834,height:1112},

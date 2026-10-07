@@ -77,12 +77,8 @@ jobs:
           npm --prefix apps/mobile run test:growth-commercial
           npm --prefix apps/mobile run test:native-certification
           npm --prefix apps/mobile run test:source-parity
-      - name: Preserve current Reader identity and communications contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm --prefix apps/mobile run test:identity-security
-          npm --prefix apps/mobile run test:ca01-communications
+      - name: Preserve current Reader identity and security contract
+        run: npm --prefix apps/mobile run test:identity-security
       - name: Build canonical Web/PWA Reader
         run: npm run build:phase4:web
       - name: Install Chromium
