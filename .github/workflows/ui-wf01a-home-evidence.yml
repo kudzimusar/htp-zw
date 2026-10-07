@@ -118,11 +118,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m http.server 4173 --bind 127.0.0.1 --directory ui-wf01a-sites/candidate > /tmp/uiwf-candidate.log 2>&1 &
+          node scripts/ui/ui-wf01a-static-server.mjs ui-wf01a-sites/candidate 4173 > /tmp/uiwf-candidate.log 2>&1 &
           echo $! > /tmp/uiwf-candidate.pid
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory ui-wf01a-sites/current-main > /tmp/uiwf-current.log 2>&1 &
+          node scripts/ui/ui-wf01a-static-server.mjs ui-wf01a-sites/current-main 4174 > /tmp/uiwf-current.log 2>&1 &
           echo $! > /tmp/uiwf-current.pid
-          python3 -m http.server 4175 --bind 127.0.0.1 --directory ui-wf01a-sites/candidate-staging > /tmp/uiwf-staging.log 2>&1 &
+          node scripts/ui/ui-wf01a-static-server.mjs ui-wf01a-sites/candidate-staging 4175 > /tmp/uiwf-staging.log 2>&1 &
           echo $! > /tmp/uiwf-staging.pid
           for url in \
             http://127.0.0.1:4173/htp-zw/ \
