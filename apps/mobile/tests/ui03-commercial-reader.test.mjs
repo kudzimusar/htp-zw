@@ -106,7 +106,7 @@ test("UI-03 leaves Home implementation and fixed HOSPAZ placement intact",()=>{
   assert.match(home,/AdSlot placement="hospaz-header-direct"/);
   assert.equal((home.match(/hospaz-header-direct/g)??[]).length,1);
   assert.match(home,/SectionHeader title="Top Stories"/);
-  assert.match(home,/Editorial filters/);
+  assert.match(home,/HealthTimes Home sections/);
 });
 
 

@@ -3,8 +3,19 @@ appId: zw.co.healthtimes.app.dev
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Top Stories"
+    visible: "For You"
     timeout: 240000
+- takeScreenshot: tablet-home
+# UI-WF-01A makes the Hero intentionally dominant; Top Stories remains required
+# in the Home hierarchy but is no longer required above the fold.
+- scrollUntilVisible:
+    element:
+      text: "Top Stories"
+    direction: DOWN
+    speed: 65
+    visibilityPercentage: 20
+    timeout: 30000
+- assertVisible: "Top Stories"
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
@@ -88,9 +99,17 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Top Stories"
+    visible: "For You"
     timeout: 240000
 - takeScreenshot: tablet-home-landscape
+- scrollUntilVisible:
+    element:
+      text: "Top Stories"
+    direction: DOWN
+    speed: 65
+    visibilityPercentage: 20
+    timeout: 30000
+- assertVisible: "Top Stories"
 - runFlow:
     when:
       platform: iOS
@@ -103,6 +122,6 @@ appId: zw.co.healthtimes.app.dev
       - setOrientation: LANDSCAPE_LEFT
 - waitForAnimationToEnd
 - extendedWaitUntil:
-    visible: "Top Stories"
+    visible: "For You"
     timeout: 20000
 - takeScreenshot: tablet-home

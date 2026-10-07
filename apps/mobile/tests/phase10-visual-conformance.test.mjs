@@ -60,13 +60,18 @@ test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
 test("UI-01 Screen 1 shell removes dominant environment chrome and mobile utility cards",()=>{
   assert.doesNotMatch(layout,/\{chrome && <EnvironmentBanner \/>\}/);
   assert.doesNotMatch(layout,/mobileUtilityWrap/);
-  assert.match(layout,/phoneActionButton/);
+  assert.doesNotMatch(layout,/phoneActionButton/);
+  assert.match(layout,/phoneSearchAction/);
+  assert.match(layout,/SymbolView/);
   assert.match(layout,/phoneBrand/);
 });
 
-test("UI-01 Home keeps filters single-row, collapses absent ads, and uses publication language",()=>{
-  assert.match(home,/<ScrollView[\s\S]*horizontal[\s\S]*accessibilityLabel="Editorial filters"/);
-  assert.doesNotMatch(home,/editorialFilters:\{[^}]*flexWrap:"wrap"/);
+test("UI-01 Home keeps editorial tabs single-row, collapses absent ads, and uses publication language",()=>{
+  assert.match(home,/<EditorialTabs/);
+  assert.match(home,/accessibilityLabel="HealthTimes Home sections"/);
+  assert.match(layout,/showsHorizontalScrollIndicator=\{false\}/);
+  assert.match(layout,/contentContainerStyle=\{styles\.editorialTabs\}/);
+  assert.doesNotMatch(home,/<Chip/);
   assert.doesNotMatch(home,/<Section><AdSlot placement="hospaz-header-direct"/);
   assert.doesNotMatch(home,/<Section><AdSlot placement="home_after_live"/);
   assert.doesNotMatch(home,/Premium reporting unavailable in this source window/);
