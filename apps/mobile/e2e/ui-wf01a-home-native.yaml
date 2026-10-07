@@ -1,0 +1,70 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "For You"
+    timeout: 240000
+- assertVisible: "Latest"
+- assertVisible: "Zimbabwe"
+- assertVisible: "World"
+- assertVisible: "Premium"
+- assertVisible: "Search HealthTimes"
+- assertVisible: "Home"
+- assertVisible: "Explore"
+- assertVisible: "Live"
+- assertVisible: "Watch"
+- assertVisible: "My HT"
+- takeScreenshot: home-light
+
+# UI-WF-01A deliberately gives the Hero more first-viewport dominance.
+# Top Stories must still exist in the Home hierarchy below the Hero.
+- scrollUntilVisible:
+    element:
+      text: "Top Stories"
+    direction: DOWN
+    speed: 55
+    visibilityPercentage: 20
+    timeout: 30000
+- assertVisible: "Top Stories"
+- takeScreenshot: home-top-stories
+
+# Prove the actual HealthTimes appearance preference, not device emulation alone.
+- openLink: "healthtimes://appearance"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Appearance"
+    timeout: 30000
+- tapOn: "Dark"
+- assertVisible: "Dark"
+- takeScreenshot: appearance-dark-selected
+
+- openLink: "healthtimes://"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "For You"
+    timeout: 120000
+- assertVisible: "Search HealthTimes"
+- takeScreenshot: home-dark
