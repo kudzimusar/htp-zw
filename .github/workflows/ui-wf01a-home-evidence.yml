@@ -110,6 +110,9 @@ jobs:
           mkdir -p ui-wf01a-evidence/reference ui-wf01a-evidence/web
           cp docs/native-mobile/assets/HEALTHTIMES_NATIVE_WIREFRAME_V1.png ui-wf01a-evidence/reference/HEALTHTIMES_NATIVE_WIREFRAME_V1.png
           cp docs/native-mobile/UI-WF-00A_HOME_SHARED_SHELL_CONTRACT.md ui-wf01a-evidence/reference/UI-WF-00A_HOME_SHARED_SHELL_CONTRACT.md
+          test -f ui-wf01a-sites/candidate/htp-zw/appearance.html
+          mkdir -p ui-wf01a-sites/candidate/htp-zw/appearance
+          cp ui-wf01a-sites/candidate/htp-zw/appearance.html ui-wf01a-sites/candidate/htp-zw/appearance/index.html
 
       - name: Serve three immutable evidence builds
         shell: bash
