@@ -37,7 +37,6 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       accessibilityHint="Opens the full HealthTimes article"
       style={[
         styles.hero,
-        {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
         tablet && styles.heroTablet,
         desktop && styles.heroDesktop
@@ -424,7 +423,7 @@ export function Surface({ children }: PropsWithChildren) {
 }
 
 const styles=StyleSheet.create({
-  hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
+  hero:{paddingBottom:spacing.xl,position:"relative"},
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
@@ -437,7 +436,7 @@ const styles=StyleSheet.create({
   heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
   heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
-  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
+  heroTitleOverlay:{fontSize:31,lineHeight:35,letterSpacing:-0.75},
   heroTitleTablet:{fontSize:30,lineHeight:35},
   heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
