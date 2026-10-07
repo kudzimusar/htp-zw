@@ -1,46 +1,49 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Platform, useWindowDimensions } from "react-native";
 import type { ColorValue } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { breakpoints } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 
 type TabIconKind="home"|"explore"|"live"|"watch"|"profile";
 
 function TabIcon({kind,color,focused}:{kind:TabIconKind;color:ColorValue;focused:boolean}){
-  if(kind==="explore"){
-    return (
-      <View style={[styles.exploreIcon,{borderColor:color}]}>
-        <View style={[styles.exploreDot,{backgroundColor:color}]} />
-      </View>
-    );
-  }
-  if(kind==="live"){
-    return (
-      <View style={[styles.liveRing,{borderColor:color}]}>
-        <View style={[styles.liveDot,{backgroundColor:color}]} />
-      </View>
-    );
-  }
-  if(kind==="watch"){
-    return (
-      <View style={[styles.watchIcon,{borderColor:color}]}>
-        <View style={[styles.watchGlyph,{borderLeftColor:color}]} />
-      </View>
-    );
-  }
-  if(kind==="profile"){
-    return (
-      <View style={styles.profileIcon}>
-        <View style={[styles.profileHead,{borderColor:color,backgroundColor:focused?color:"transparent"}]} />
-        <View style={[styles.profileBody,{borderColor:color}]} />
-      </View>
-    );
-  }
+  const names={
+    home:{
+      ios: focused ? "house.fill" : "house",
+      android:"home",
+      web:"home"
+    },
+    explore:{
+      ios: focused ? "safari.fill" : "safari",
+      android:"explore",
+      web:"explore"
+    },
+    live:{
+      ios:"dot.radiowaves.left.and.right",
+      android:"sensors",
+      web:"sensors"
+    },
+    watch:{
+      ios: focused ? "play.rectangle.fill" : "play.rectangle",
+      android:"smart_display",
+      web:"smart_display"
+    },
+    profile:{
+      ios: focused ? "person.crop.circle.fill" : "person.crop.circle",
+      android:"account_circle",
+      web:"account_circle"
+    }
+  } as const;
+
   return (
-    <View style={[styles.homeIcon,{borderColor:color}]}>
-      <View style={[styles.homeRoof,{borderLeftColor:color,borderTopColor:color}]} />
-    </View>
+    <SymbolView
+      name={names[kind]}
+      tintColor={color}
+      size={23}
+      type={focused ? "hierarchical" : "monochrome"}
+    />
   );
 }
 
@@ -56,11 +59,13 @@ export default function ReaderTabs() {
 
   return (
     <Tabs
+      key={palette.paper + "|" + palette.ink}
       tabBar={desktop ? () => null : undefined}
       screenOptions={{
         headerShown:false,
         tabBarActiveTintColor:palette.blue,
         tabBarInactiveTintColor:palette.inkMuted,
+        tabBarHideOnKeyboard:true,
         tabBarStyle: desktop ? { display:"none" } : {
           minHeight:66,
           borderTopColor:palette.border,
@@ -79,17 +84,3 @@ export default function ReaderTabs() {
     </Tabs>
   );
 }
-
-const styles=StyleSheet.create({
-  homeIcon:{width:18,height:16,borderWidth:2,borderRadius:3,marginTop:5,position:"relative"},
-  homeRoof:{position:"absolute",width:11,height:11,borderLeftWidth:2,borderTopWidth:2,transform:[{rotate:"45deg"}],top:-7,left:2.5,backgroundColor:"transparent"},
-  exploreIcon:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:"center",justifyContent:"center"},
-  exploreDot:{width:5,height:5,borderRadius:3},
-  liveRing:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:"center",justifyContent:"center"},
-  liveDot:{width:7,height:7,borderRadius:4},
-  watchIcon:{width:23,height:17,borderRadius:4,borderWidth:2,alignItems:"center",justifyContent:"center"},
-  watchGlyph:{width:0,height:0,borderTopWidth:4,borderBottomWidth:4,borderLeftWidth:6,borderTopColor:"transparent",borderBottomColor:"transparent",marginLeft:2},
-  profileIcon:{width:22,height:21,alignItems:"center",justifyContent:"flex-end"},
-  profileHead:{position:"absolute",top:0,width:9,height:9,borderRadius:5,borderWidth:2},
-  profileBody:{width:18,height:10,borderTopLeftRadius:9,borderTopRightRadius:9,borderWidth:2,borderBottomWidth:0}
-});
