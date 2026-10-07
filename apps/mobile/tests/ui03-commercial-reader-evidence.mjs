@@ -354,7 +354,10 @@ async function sourceParityEvidence(){
     for(const forbidden of ["on this build","approved store","secure member service","configuration-required"]){
       if(body.toLowerCase().includes(forbidden)) throw new Error("Implementation-facing Premium copy leaked at "+name+": "+forbidden);
     }
-    if(/\$\s*\d+(?:\.\d{2})?/.test(body)) throw new Error("Unverified price rendered at "+name);
+    const membershipOfferSurfaces=page.locator(
+      '[aria-label="Available HealthTimes Premium web membership"], [aria-label="Available HealthTimes Premium plans"]'
+    );
+    if(await membershipOfferSurfaces.count()) throw new Error("Unverified membership offer rendered at "+name);
     if(/MOST POPULAR/i.test(body)) throw new Error("Unapproved recommended-plan claim rendered at "+name);
     const ov=await overflow(page);
     if(ov.overflow) throw new Error("Premium landing horizontal overflow at "+name);

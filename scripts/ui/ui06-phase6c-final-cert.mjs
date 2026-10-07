@@ -268,6 +268,12 @@ try{
     if(protectedContentRequests.length)fail("Premium security","anonymous browser requested WordPress content field: "+protectedContentRequests.join(" | "),"P0");
     const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
     if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
+    const prompt=page.getByTestId("premium-subscription-prompt");
+    if(await prompt.isVisible().catch(()=>false)){
+      const dismiss=page.getByTestId("premium-prompt-not-now");
+      await dismiss.click();
+      await prompt.waitFor({state:"hidden",timeout:5000});
+    }
     const cta=page.getByRole("button",{name:/Go to HealthTimes Premium|Go Premium/}).first();
     await cta.scrollIntoViewIfNeeded();await cta.click();await page.waitForURL(u=>u.pathname.endsWith("/premium")||u.pathname.endsWith("/premium/"),{timeout:15000});
     await bodyText(page,"HEALTHTIMES PREMIUM","Premium landing");
