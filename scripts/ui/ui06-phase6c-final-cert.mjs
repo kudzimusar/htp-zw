@@ -213,9 +213,8 @@ try{
         media,
         before:premium?async page=>installPremiumTeaserAuthority(page,premiumTeaserAuthority):undefined,
         after:premium?async page=>{
-          const preview=page.getByText("PREMIUM PREVIEW",{exact:true});
-          if(await preview.count()){
-            await preview.first().waitFor({state:"visible",timeout:30000});
+          const preview=page.getByText("PREMIUM PREVIEW",{exact:true}).first();
+          if(await preview.isVisible().catch(()=>false)){
             await bodyText(page,"Continue reading with HealthTimes Premium",viewport+" Premium preview-to-lock",45000);
           }else{
             await bodyText(page,"Continue reading with HealthTimes Premium",viewport+" Premium locked",30000);
