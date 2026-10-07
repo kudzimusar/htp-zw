@@ -9,9 +9,19 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Wait"
 - extendedWaitUntil:
-    visible: "Top Stories"
+    visible: "For You"
     timeout: 240000
 - takeScreenshot: tablet-home
+# UI-WF-01A deliberately gives the Hero more first-viewport dominance.
+# Prove Top Stories remains present in the Home hierarchy without requiring it above the fold.
+- scrollUntilVisible:
+    element:
+      text: "Top Stories"
+    direction: DOWN
+    speed: 65
+    visibilityPercentage: 20
+    timeout: 30000
+- assertVisible: "Top Stories"
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
@@ -108,7 +118,15 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Top Stories"
+    visible: "For You"
     timeout: 240000
 - takeScreenshot: tablet-home-landscape
+- scrollUntilVisible:
+    element:
+      text: "Top Stories"
+    direction: DOWN
+    speed: 65
+    visibilityPercentage: 20
+    timeout: 30000
+- assertVisible: "Top Stories"
 - setOrientation: PORTRAIT
