@@ -172,7 +172,10 @@ jobs:
             comparison:["REFERENCE WIREFRAME","CURRENT MAIN","UI-WF-01A CANDIDATE"],
             requiredWebViewports:["390x844","834x1112","1440x1000"],
             sourceParityStates:["phone-dark","no-Live","unfilled-ad"],
-            stagingState:["truthful HOSPAZ filled-ad"],
+            stagingState:fs.existsSync(path.join(root,"web","hospaz-render-state.json"))
+              ? JSON.parse(fs.readFileSync(path.join(root,"web","hospaz-render-state.json"),"utf8")
+                .replace(/^\uFEFF/,""))
+              : {placement:"hospaz-header-direct",renderable:false,evidence:"NOT AVAILABLE — render-state file missing"},
             deploymentPerformed:false,
             files:files.sort((a,b)=>a.file.localeCompare(b.file))
           };
