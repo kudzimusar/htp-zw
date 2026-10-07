@@ -89,6 +89,8 @@ test("Phase 6A native flows handle iOS deep links and deterministic offline evid
   assert.equal(count(tablet,"- openLink:"),count(tablet,promptGuard));
   assert.ok(phone.includes('- openLink: "healthtimes://saved?tab=offline"'));
   assert.equal(phone.includes('- tapOn: "Offline"'),false);
+  assert.match(phone,/platform: iOS[\s\S]*visible: "Top Stories"[\s\S]*tapOn: "Search HealthTimes"/);
+  assert.equal((phone.match(/tapOn: "Search HealthTimes"/g)??[]).length,1);
   assert.ok(tablet.includes("timeout: 240000"));
 });
 

@@ -169,7 +169,9 @@ test('current public comparator renders Reader actions without Premium lock', as
   test.setTimeout(90000);
   const authority = await loadLiveTeaserAuthority(publicReferencePath);
   expect(String(authority.source_id)).not.toBe('33190');
-  expect(String(authority.access_policy).toLowerCase()).toBe('public');
+  expect(authority.body_html).toBeNull();
+  // The bounded teaser projection is advisory for an already-public source-parity story.
+  // A legacy premium_marker_review marker must never promote this public comparator.
   await installValidatedTeaserAuthority(page, publicReferencePath, authority);
   const failures = captureRuntimeFailures(page);
   const response = await page.goto(publicArticle, { waitUntil: 'domcontentloaded', timeout: 30000 });

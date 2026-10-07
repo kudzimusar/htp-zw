@@ -4,6 +4,8 @@ import path from "node:path";
 
 const base=process.env.UI06_BASE_URL||"http://127.0.0.1:4174";
 const sha=process.env.EXPECTED_SHA||"unknown";
+const teaserEndpoint="https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document";
+const premiumReferencePath="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
 const out="ui06-phase6c-final-evidence";
 const publicArticleId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
 const publicHeadline="Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt";
@@ -91,11 +93,48 @@ async function anyText(page,values,label){
   if(!matched)fail(label,"no approved resolved state");
   return matched;
 }
-async function bodyText(page,value,label){
-  await page.waitForFunction(needle=>document.body.innerText.includes(needle),value,{timeout:30000});
+async function bodyText(page,value,label,timeout=30000){
+  await page.waitForFunction(needle=>document.body.innerText.includes(needle),value,{timeout});
   const body=await page.locator("body").innerText();
   if(!body.includes(value))fail(label||value,"resolved visible text missing");
   return value;
+}
+async function loadPremiumTeaserAuthority(){
+  const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL||"").replace(/\/$/,"");
+  const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY||"");
+  if(url!=="https://gcdohgbmqhqwydgaxrcr.supabase.co")fail("Premium authority","unexpected staging URL","P0");
+  if(!/^sb_publishable_/.test(key)||/service_role/i.test(key))fail("Premium authority","publishable credential unavailable","P0");
+  const response=await fetch(teaserEndpoint,{
+    method:"POST",
+    headers:{
+      apikey:key,
+      Accept:"application/json",
+      "Content-Type":"application/json",
+      "x-healthtimes-client":"ui06-phase6c-final-cert"
+    },
+    body:JSON.stringify({p_path:premiumReferencePath})
+  });
+  const payload=await response.json().catch(()=>null);
+  if(!response.ok||!payload)fail("Premium authority","live teaser authority unavailable","P0");
+  if(String(payload.source_id)!=="33190")fail("Premium authority","unexpected source authority","P0");
+  if(payload.access_policy!=="premium_marker_review")fail("Premium authority","unexpected access authority","P0");
+  if(payload.body_html!==null)fail("Premium authority","protected body exposed","P0");
+  const teaser=String(payload.premium_teaser_html??"").trim();
+  const paragraphs=teaser.match(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi)??[];
+  if(paragraphs.length!==1||paragraphs[0].trim()!==teaser)fail("Premium authority","teaser is not exactly one editorial paragraph","P0");
+  return payload;
+}
+async function installPremiumTeaserAuthority(page,payload){
+  await page.route(teaserEndpoint,async route=>{
+    let requested=null;
+    try{requested=route.request().postDataJSON()?.p_path??null;}catch{}
+    await route.fulfill({
+      status:200,
+      contentType:"application/json",
+      headers:{"access-control-allow-origin":"*"},
+      body:requested===premiumReferencePath?JSON.stringify(payload):"null"
+    });
+  });
 }
 async function mediaReady(page,label,kind){
   if(!kind)return null;
@@ -128,6 +167,7 @@ async function capture(browser,spec){
   const v=viewports[spec.viewport],context=await browser.newContext({viewport:v,deviceScaleFactor:1,...(spec.contextOptions||{})});
   const page=await context.newPage(),d=diag(page,spec.name);
   try{
+    if(spec.before)await spec.before(page);
     const status=await open(page,spec.route,spec.name);
     if(spec.waitText)await bodyText(page,spec.waitText,spec.name);
     if(spec.waitAny)await anyText(page,spec.waitAny,spec.name);
@@ -143,12 +183,13 @@ async function capture(browser,spec){
   }finally{await context.close();}
 }
 
+const premiumTeaserAuthority=await loadPremiumTeaserAuthority();
 const browser=await chromium.launch({headless:true});
 try{
   const specs=[
     ["home","/","Top Stories",null,["Loading Home…"],"first"],
     ["article","/article/"+publicArticleId,publicHeadline,null,["Loading article…"],"article"],
-    ["premium-locked","/article/"+premiumArticleId,"Continue reading with HealthTimes Premium",null,["Loading article…"],null],
+    ["premium-locked","/article/"+premiumArticleId,null,["PREMIUM PREVIEW","Continue reading with HealthTimes Premium"],["Loading article…"],null],
     ["premium-landing","/premium","HEALTHTIMES PREMIUM",null,["Checking membership options…","Loading Premium journalism…"],null],
     ["explore","/explore","Explore",null,[],null],
     ["search","/search","Intelligent Search",null,["Loading suggestions…"],null],
@@ -161,7 +202,26 @@ try{
   ];
   for(const viewport of ["mobile","tablet","desktop"]){
     for(const [name,route,waitText,waitAny,loading,media] of specs){
-      await capture(browser,{name:viewport+"-"+name,route,viewport,waitText,waitAny,loading,media});
+      const premium=name==="premium-locked";
+      await capture(browser,{
+        name:viewport+"-"+name,
+        route,
+        viewport,
+        waitText,
+        waitAny,
+        loading,
+        media,
+        before:premium?async page=>installPremiumTeaserAuthority(page,premiumTeaserAuthority):undefined,
+        after:premium?async page=>{
+          const preview=page.getByText("PREMIUM PREVIEW",{exact:true});
+          if(await preview.count()){
+            await preview.first().waitFor({state:"visible",timeout:30000});
+            await bodyText(page,"Continue reading with HealthTimes Premium",viewport+" Premium preview-to-lock",45000);
+          }else{
+            await bodyText(page,"Continue reading with HealthTimes Premium",viewport+" Premium locked",30000);
+          }
+        }:undefined
+      });
     }
   }
 
