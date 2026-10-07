@@ -50,8 +50,7 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
     commands:
-      - tapOn:
-          point: "50%,54%"
+      - tapOn: "Countries & Interests"
 - runFlow:
     when:
       platform: Android
