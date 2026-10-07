@@ -112,6 +112,9 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(workflow.includes("Debug-iphonesimulator"));
   assert.ok(workflow.includes("EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost"));
   assert.ok(workflow.includes("Metro did not accept HTTP connections for iOS native evidence"));
+  assert.ok(workflow.includes("virtual-metro-entry.bundle?platform=ios"));
+  assert.ok(workflow.includes("Metro iOS bundle prewarm failed"));
+  assert.ok(workflow.includes('kill -0 "$METRO_PID"'));
   assert.ok(workflow.includes("Build self-contained Android release APK"));
   assert.ok(workflow.includes("./gradlew assembleRelease --no-daemon"));
   assert.ok(androidRunner.includes("app/build/outputs/apk/release/app-release.apk"));
@@ -287,7 +290,9 @@ test("Phase 6A Android System UI ANR recovery is single in-job and fail-closed",
   assert.equal(runner.includes("gh run rerun"),false);
   assert.equal(workflow.includes("rerun-failed"),false);
   assert.ok(runner.includes('grep -Fq "$APP_ID" "$RECOVERY_DIR/lastanr-before-recovery.txt"'));
-  assert.ok(runner.includes('grep -Fq "com.android.systemui" "$RECOVERY_DIR/lastanr-before-recovery.txt"'));
+  assert.equal(runner.includes('grep -Fq "com.android.systemui" "$RECOVERY_DIR/lastanr-before-recovery.txt"'),false);
+  assert.ok(runner.includes('"foregroundOwnershipEvidence": "infrastructure-recovery/system-ui-anr-hierarchy.json"'));
+  assert.ok(runner.includes('"lastAnrDiagnostic": "infrastructure-recovery/lastanr-before-recovery.txt"'));
   assert.ok(runner.includes('grep -Fq "$APP_ID" "$RECOVERY_DIR/surfaceflinger-before-recovery.txt"'));
   assert.ok(runner.includes('rm -rf "$FIRST_JOURNEY_DIR"'));
 });

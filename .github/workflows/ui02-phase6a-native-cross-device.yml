@@ -237,6 +237,18 @@ jobs:
             sleep 2
           done
 
+          IOS_METRO_BUNDLE_URL='http://localhost:8081/.expo/.virtual-metro-entry.bundle?platform=ios&dev=true&lazy=true&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=zw.co.healthtimes.app.dev'
+          if ! curl --fail --location --max-time 360 --silent --show-error --output /dev/null "$IOS_METRO_BUNDLE_URL"; then
+            echo "Metro iOS bundle prewarm failed"
+            cat "$EVIDENCE_DIR/metro.log"
+            exit 1
+          fi
+          if ! kill -0 "$METRO_PID" 2>/dev/null; then
+            echo "Metro exited after iOS bundle prewarm"
+            cat "$EVIDENCE_DIR/metro.log"
+            exit 1
+          fi
+
           xcrun simctl install "$SIM_UDID" "$IOS_APP"
           maestro --device "$SIM_UDID" test             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"
 

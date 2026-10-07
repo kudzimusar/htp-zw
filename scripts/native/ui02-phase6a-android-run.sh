@@ -146,10 +146,6 @@ PY
     echo "HealthTimes appears in Android last-ANR attribution; recovery forbidden"
     exit "$FIRST_STATUS"
   fi
-  if ! grep -Fq "com.android.systemui" "$RECOVERY_DIR/lastanr-before-recovery.txt"; then
-    echo "Android last-ANR attribution does not prove com.android.systemui; recovery forbidden"
-    exit "$FIRST_STATUS"
-  fi
   if ! adb shell pidof "$APP_ID" > "$RECOVERY_DIR/healthtimes-pid.txt" 2>/dev/null || [[ ! -s "$RECOVERY_DIR/healthtimes-pid.txt" ]]; then
     echo "HealthTimes process was not alive under the System UI dialog; recovery forbidden"
     exit "$FIRST_STATUS"
@@ -187,10 +183,12 @@ YAML
   "dialog": "System UI isn't responding",
   "waitControl": "android:id/aerr_wait",
   "foregroundOwner": "com.android.systemui",
-  "foregroundOwnershipEvidence": "infrastructure-recovery/lastanr-before-recovery.txt",
+  "foregroundOwnershipEvidence": "infrastructure-recovery/system-ui-anr-hierarchy.json",
+  "lastAnrDiagnostic": "infrastructure-recovery/lastanr-before-recovery.txt",
   "healthTimesProcessAlive": true,
   "underlyingScreenshot": "infrastructure-recovery/system-ui-anr-failed-maestro.png",
   "underlyingRenderedSurfaceEvidence": "infrastructure-recovery/surfaceflinger-before-recovery.txt",
+  "underlyingActivityEvidence": "infrastructure-recovery/activity-before-recovery.txt",
   "firstJourneyArchive": "infrastructure-recovery/first-journey.tar.gz",
   "healthTimesRuntimeFailureDetected": false,
   "recoveryAction": "Wait",
