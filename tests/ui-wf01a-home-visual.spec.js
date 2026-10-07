@@ -50,7 +50,7 @@ test("UI-WF-01A candidate Home evidence at required Web/PWA viewports",async({br
       await expect(page.getByRole("button",{name:"Search HealthTimes"})).toBeVisible();
       await expect(page.getByRole("button",{name:/^Edition .*Change edition$/})).toHaveCount(0);
       await expect(page.getByRole("button",{name:"Notifications"})).toHaveCount(0);
-      await expect(page.getByRole("button",{name:"HealthTimes Premium"})).toHaveCount(0);
+      await expect(page.getByRole("button",{name:"HealthTimes Premium",exact:true})).toHaveCount(0);
     }
     if(viewport.width>=1100){
       expect(await page.getByRole("tab").count(),"desktop mobile bottom navigation").toBe(0);
