@@ -284,7 +284,7 @@ test("Phase 6A Android System UI ANR recovery is single in-job and fail-closed",
     phone,
     /- launchApp:\n    clearState: true\n- extendedWaitUntil:\n    visible: "Top Stories"\n    timeout: 240000/
   );
-  assert.equal((phone.match(/visible: "Top Stories"/g)??[]).length,5);
+  assert.equal((phone.match(/visible: "Top Stories"/g)??[]).length,4);
 
   assert.equal(
     (runner.match(/run_maestro_journey "\$FIRST_JOURNEY_DIR"/g)??[]).length,
