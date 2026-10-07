@@ -1,0 +1,129 @@
+name: UI-05 Phase 6B Accessibility States Responsive Quality
+
+on:
+  push:
+    branches:
+      - feat/ui05-phase6b-accessibility-states-responsive-quality
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui05-phase6b-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  UI05_BASE_SHA: 1b67a1cdaa27d18ca7b5ab065889362ab3172aa4
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+
+jobs:
+  phase6b-quality:
+    name: Exact-head accessibility / states / responsive evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Prove exact candidate checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SHA=$EXPECTED_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install workspaces
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Run Phase 6B and inherited exact-head contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run native:check
+          npm --prefix apps/mobile run test:ui05
+          node --test apps/mobile/tests/ui02-phase6a-native.test.mjs apps/mobile/tests/ui02-phase6a-native-realization.test.mjs
+          npm --prefix apps/mobile run test:ui04
+          npm --prefix apps/mobile run test:ui01-phase4
+          npm --prefix apps/mobile run test:ui01-phase3
+          npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:reader-product
+          npm --prefix apps/mobile run test:source-parity
+          npm --prefix apps/mobile run test:migrated-corpus
+          npm --prefix apps/mobile run test:premium-hospaz
+          node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
+
+      - name: Build exact-head source-parity Web/PWA
+        run: npm run build:phase4:web
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture Phase 6B browser evidence
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/ui05-phase6b.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "15" ]]; then
+              cat /tmp/ui05-phase6b.log
+              exit 1
+            fi
+            sleep 1
+          done
+          node apps/mobile/tests/ui05-phase6b-evidence.mjs
+
+      - name: Write Phase 6B evidence summary
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          {
+            echo "# UI-05 Phase 6B Accessibility / States / Responsive Quality"
+            echo
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Accepted base: $UI05_BASE_SHA"
+            echo "- Canonical Reader: apps/mobile"
+            echo "- Source mode: source-parity"
+            echo "- Browser evidence: 390x844, 834x1112, 1440x1000 plus 320x844 narrow stress"
+            echo "- Dark appearance recertified on Home, Article, Premium, Watch and My HealthTimes"
+            echo "- Reduced-motion browser preference exercised"
+            echo "- Evidence fails closed on page errors, console errors, React #418 and document-level horizontal overflow"
+            echo "- Saved bookmark remains distinct from offline download"
+            echo "- Premium protected body persistence policy was not broadened"
+            echo "- No AG-05, AG-06, commerce, COM, Supabase migration/RLS, DNS, Pages deployment or production authority was modified"
+          } > ui05-phase6b-evidence/summary.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui05-phase6b-accessibility-states-responsive-quality
+          path: |
+            ui05-phase6b-evidence/
+            /tmp/ui05-phase6b.log
+          if-no-files-found: error
+          retention-days: 30

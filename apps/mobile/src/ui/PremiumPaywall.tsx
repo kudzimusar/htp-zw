@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, layout, radius, spacing } from "../theme/tokens";
+import { layout, radius, spacing } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
 
 export function PremiumPaywall({
@@ -12,13 +12,13 @@ export function PremiumPaywall({
   const { palette } = useAppearance();
   return (
     <View
-      style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border }]}
+      style={[styles.card, { backgroundColor: palette.paper, borderColor: palette.border, borderTopColor: palette.premium }]}
       accessibilityLiveRegion="polite"
       accessibilityLabel="HealthTimes Premium article paywall"
     >
       <View style={styles.identityRow}>
-        <Text style={styles.mark}>✦</Text>
-        <Text style={styles.identity}>HEALTHTIMES PREMIUM</Text>
+        <Text style={[styles.mark,{color:palette.premium}]}>✦</Text>
+        <Text style={[styles.identity,{color:palette.premium}]}>HEALTHTIMES PREMIUM</Text>
       </View>
       <Text style={[styles.title, { color: palette.ink }]}>Continue reading with HealthTimes Premium</Text>
       <Text style={[styles.body, { color: palette.inkMuted }]}>
@@ -53,7 +53,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderWidth: 1,
     borderTopWidth: 3,
-    borderTopColor: colors.premium,
     borderRadius: radius.md,
     padding: spacing.xl,
     gap: spacing.md
@@ -64,12 +63,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   mark: {
-    color: colors.premium,
     fontSize: 16,
     fontWeight: "900"
   },
   identity: {
-    color: colors.premium,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.2

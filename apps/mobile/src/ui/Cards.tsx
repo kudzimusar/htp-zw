@@ -176,17 +176,112 @@ function verifiedVideoDestination(item:VideoItem){
   const unresolved=(item.sourceProvenance?.exceptions??[]).some((exception)=>exception.classification==="requires-review"&&exception.field==="sourceUrl");
   return unresolved?null:value;
 }
-export function VideoCard({item}:{item:VideoItem}){
-  const{palette}=useAppearance();
+function isYouTubeDestination(value:string|null){
+  return Boolean(value && /^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(value));
+}
+function videoActionLabel(destination:string|null){
+  if(!destination) return "Video unavailable";
+  return isYouTubeDestination(destination) ? "Watch on YouTube ↗" : "Watch video ↗";
+}
+function videoAccessibilityLabel(item:VideoItem,destination:string|null){
+  if(!destination) return item.title+" video unavailable";
+  return isYouTubeDestination(destination) ? "Watch "+item.title+" on YouTube" : "Watch "+item.title;
+}
+function renderableVideoThumbnail(item:VideoItem){
+  const value=item.thumbnail?.publicUrl?.trim() ?? "";
+  if(!value) return null;
+  // The accepted source snapshot records YouTube maxres thumbnail references, but
+  // those provider assets are not guaranteed to exist. Do not create a broken
+  // resource request or derive an unverified replacement thumbnail URL.
+  if(/^https:\/\/img\.youtube\.com\//i.test(value)) return null;
+  return value;
+}
+
+export function FeaturedVideoCard({item}:{item:VideoItem}){
+  const { palette }=useAppearance();
+  const { width }=useWindowDimensions();
+  const [thumbnailFailed,setThumbnailFailed]=useState(false);
+  const desktop=width>=breakpoints.desktop;
   const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
   const destination=verifiedVideoDestination(item);
+  const thumbnailUrl=renderableVideoThumbnail(item);
+  const showThumbnail=Boolean(thumbnailUrl)&&!thumbnailFailed;
   return (
-    <Pressable style={styles.videoCard} disabled={!destination} accessibilityRole={destination?"link":undefined} accessibilityState={{disabled:!destination}} accessibilityLabel={destination?"Watch "+item.title:item.title+" video unavailable"} onPress={destination?()=>{void Linking.openURL(destination);}:undefined}>
-      {item.thumbnail?.publicUrl?<Image source={{uri:item.thumbnail.publicUrl}} style={[styles.videoImage,{backgroundColor:palette.paperMuted}]} accessibilityLabel={item.thumbnail.altText??item.title}/>:<View style={[styles.videoFallback,{backgroundColor:palette.navy}]}><Text style={styles.videoFallbackBrand}>HealthTimes</Text><Text style={styles.videoFallbackLabel}>VIDEO</Text><Text style={styles.videoFallbackNote}>Thumbnail unavailable</Text></View>}
+    <Pressable
+      style={[styles.featuredVideo,desktop&&styles.featuredVideoDesktop,{borderColor:palette.border}]}
+      disabled={!destination}
+      accessibilityRole={destination?"link":undefined}
+      accessibilityState={{disabled:!destination}}
+      accessibilityLabel={videoAccessibilityLabel(item,destination)}
+      accessibilityHint={destination?"Opens the published video destination":undefined}
+      onPress={destination?()=>{void Linking.openURL(destination);}:undefined}
+    >
+      <View style={[styles.featuredVideoMedia,desktop&&styles.featuredVideoMediaDesktop]}>
+        {showThumbnail&&thumbnailUrl ? (
+          <Image
+            source={{uri:thumbnailUrl}}
+            style={[styles.featuredVideoImage,{backgroundColor:palette.paperMuted}]}
+            accessibilityLabel={item.thumbnail?.altText??item.title}
+            onError={()=>setThumbnailFailed(true)}
+          />
+        ) : (
+          <View style={[styles.featuredVideoFallback,{backgroundColor:palette.navy}]}>
+            <Text style={styles.videoFallbackBrand}>HealthTimes</Text>
+            <Text style={styles.videoFallbackLabel}>VIDEO</Text>
+            <Text style={styles.videoFallbackNote}>HealthTimes video</Text>
+          </View>
+        )}
+        {destination&&<View style={styles.featuredPlayBadge}><Text style={styles.featuredPlayText}>▶</Text></View>}
+        {!!duration&&<View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
+      </View>
+      <View style={[styles.featuredVideoBody,desktop&&styles.featuredVideoBodyDesktop]}>
+        <Text style={[styles.kicker,{color:palette.blue}]}>FEATURED VIDEO</Text>
+        <Text style={[styles.featuredVideoTitle,{color:palette.ink}]}>{item.title}</Text>
+        {!!item.publishedAt&&<Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}
+        <Text style={[styles.featuredVideoAction,{color:destination?palette.blue:palette.inkMuted}]}>{videoActionLabel(destination)}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+export function VideoCard({item}:{item:VideoItem}){
+  const{palette}=useAppearance();
+  const [thumbnailFailed,setThumbnailFailed]=useState(false);
+  const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
+  const destination=verifiedVideoDestination(item);
+  const thumbnailUrl=renderableVideoThumbnail(item);
+  const showThumbnail=Boolean(thumbnailUrl)&&!thumbnailFailed;
+  return (
+    <Pressable
+      style={styles.videoCard}
+      disabled={!destination}
+      accessibilityRole={destination?"link":undefined}
+      accessibilityState={{disabled:!destination}}
+      accessibilityLabel={videoAccessibilityLabel(item,destination)}
+      accessibilityHint={destination?"Opens the published video destination":undefined}
+      onPress={destination?()=>{void Linking.openURL(destination);}:undefined}
+    >
+      {showThumbnail&&thumbnailUrl ? (
+        <Image
+          source={{uri:thumbnailUrl}}
+          style={[styles.videoImage,{backgroundColor:palette.paperMuted}]}
+          accessibilityLabel={item.thumbnail?.altText??item.title}
+          onError={()=>setThumbnailFailed(true)}
+        />
+      ) : (
+        <View style={[styles.videoFallback,{backgroundColor:palette.navy}]}>
+          <Text style={styles.videoFallbackBrand}>HealthTimes</Text>
+          <Text style={styles.videoFallbackLabel}>VIDEO</Text>
+          <Text style={styles.videoFallbackNote}>HealthTimes video</Text>
+        </View>
+      )}
       {destination&&<View style={styles.playBadge}><Text style={styles.playText}>▶</Text></View>}
       {!!duration&&<View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View>}
       <Text style={[styles.videoTitle,{color:palette.ink}]}>{item.title}</Text>
-      <View style={styles.videoMetaRow}>{!!item.publishedAt&&<Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}<Text style={[styles.videoAction,{color:destination?palette.blue:palette.inkMuted}]}>{destination?"Watch video ↗":"Video unavailable"}</Text></View>
+      <View style={styles.videoMetaRow}>
+        {!!item.publishedAt&&<Text style={[styles.meta,{color:palette.inkMuted}]}>{formatDate(item.publishedAt)}</Text>}
+        <Text style={[styles.videoAction,{color:destination?palette.blue:palette.inkMuted}]}>{videoActionLabel(destination)}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -195,11 +290,23 @@ export function AudioCard({ item }: { item: AudioItem }) {
   const { palette }=useAppearance();
   const minutes=item.durationSeconds ? Math.round(item.durationSeconds/60) : null;
   return (
-    <View style={[styles.audioCard,{borderBottomColor:palette.border}]}>
-      <View style={[styles.audioButton,{backgroundColor:palette.ink}]}><Text style={[styles.audioButtonText,{color:palette.paper}]}>▶</Text></View>
-      <View style={{flex:1}}>
+    <View
+      style={[styles.audioCard,{borderBottomColor:palette.border}]}
+      accessibilityLabel={item.title+". Audio playback unavailable."}
+    >
+      <View style={[styles.audioTypeBadge,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+        <Text style={[styles.audioTypeText,{color:palette.inkMuted}]}>AUDIO</Text>
+      </View>
+      <View style={styles.audioCopy}>
         <Text style={[styles.audioTitle,{color:palette.ink}]}>{item.title}</Text>
-        <Text style={[styles.meta,{color:palette.inkMuted}]}>{minutes ? minutes + " min" : "Audio"} · {formatDate(item.publishedAt)}</Text>
+        {(minutes||item.publishedAt) ? (
+          <Text style={[styles.meta,{color:palette.inkMuted}]}>
+            {minutes ? minutes+" min" : ""}
+            {minutes&&item.publishedAt ? " · " : ""}
+            {item.publishedAt ? formatDate(item.publishedAt) : ""}
+          </Text>
+        ) : null}
+        <Text style={[styles.audioUnavailable,{color:palette.inkMuted}]}>Playback unavailable</Text>
       </View>
     </View>
   );
@@ -307,7 +414,8 @@ export function AdSlot({
   );
 }
 export function PremiumBadge() {
-  return <Text style={styles.premiumBadge}>PREMIUM</Text>;
+  const { palette }=useAppearance();
+  return <Text style={[styles.premiumBadge,{color:palette.premium,borderColor:palette.premium}]}>PREMIUM</Text>;
 }
 
 export function Surface({ children }: PropsWithChildren) {
@@ -358,6 +466,18 @@ const styles=StyleSheet.create({
   liveBody:{padding:spacing.md,gap:spacing.xs},
   liveBadge:{alignSelf:"flex-start",fontSize:11,fontWeight:"900",color:"#FFFFFF",paddingHorizontal:7,paddingVertical:4,borderRadius:4,letterSpacing:0.8},
   liveTitle:{fontSize:18,lineHeight:23,fontWeight:"900"},
+  featuredVideo:{borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
+  featuredVideoDesktop:{flexDirection:"row",alignItems:"stretch"},
+  featuredVideoMedia:{position:"relative",width:"100%"},
+  featuredVideoMediaDesktop:{width:"62%"},
+  featuredVideoImage:{width:"100%",aspectRatio:16/9},
+  featuredVideoFallback:{width:"100%",aspectRatio:16/9,alignItems:"center",justifyContent:"center",padding:spacing.xl,gap:4},
+  featuredVideoBody:{padding:spacing.xl,gap:spacing.sm,justifyContent:"center"},
+  featuredVideoBodyDesktop:{flex:1},
+  featuredVideoTitle:{fontSize:28,lineHeight:34,fontWeight:"900",letterSpacing:-.5},
+  featuredVideoAction:{fontSize:12,fontWeight:"900",letterSpacing:.4,marginTop:spacing.sm},
+  featuredPlayBadge:{position:"absolute",left:18,top:18,width:56,height:56,borderRadius:28,backgroundColor:"rgba(7,26,43,0.88)",alignItems:"center",justifyContent:"center"},
+  featuredPlayText:{color:"#FFFFFF",fontSize:20},
   videoCard:{gap:spacing.sm,position:"relative"},
   videoImage:{width:"100%",aspectRatio:16/9},
   videoFallback:{width:"100%",aspectRatio:16/9,alignItems:"center",justifyContent:"center",padding:spacing.xl,gap:4},
@@ -372,9 +492,11 @@ const styles=StyleSheet.create({
   videoMetaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   videoAction:{fontSize:10,fontWeight:"900",letterSpacing:.5},
   audioCard:{flexDirection:"row",alignItems:"center",gap:spacing.md,borderBottomWidth:1,paddingVertical:spacing.lg},
-  audioButton:{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center"},
-  audioButtonText:{fontSize:18},
+  audioTypeBadge:{minWidth:52,minHeight:52,borderWidth:1,borderRadius:radius.sm,alignItems:"center",justifyContent:"center",paddingHorizontal:spacing.sm},
+  audioTypeText:{fontSize:9,fontWeight:"900",letterSpacing:1},
+  audioCopy:{flex:1,gap:3},
   audioTitle:{fontSize:17,fontWeight:"900",lineHeight:22},
+  audioUnavailable:{fontSize:10,fontWeight:"800",letterSpacing:.4,textTransform:"uppercase"},
   adSlot:{width:"100%",borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
   adSlotInArticle:{alignSelf:"center",maxWidth:760},
   adSlotMobileRectangle:{maxWidth:360,paddingVertical:spacing.lg},

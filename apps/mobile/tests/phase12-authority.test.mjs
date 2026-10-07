@@ -5,6 +5,7 @@ import path from "node:path";
 
 const mobileRoot = process.cwd();
 const repoRoot = path.resolve(mobileRoot, "../..");
+const readRepo = (relative) => fs.readFileSync(path.join(repoRoot, relative), "utf8");
 
 test("Phase 12 keeps apps/mobile as the universal Reader source", () => {
   for (const relative of [
@@ -22,10 +23,17 @@ test("Phase 12 keeps apps/mobile as the universal Reader source", () => {
     assert.equal(fs.existsSync(path.join(mobileRoot, relative)), true, "missing canonical Reader surface: " + relative);
   }
 
-  const vercel = JSON.parse(fs.readFileSync(path.join(repoRoot, "vercel.json"), "utf8"));
-  assert.equal(vercel.outputDirectory, "apps/mobile/dist");
+  const pages = readRepo(".github/workflows/pages.yml");
+  assert.match(pages, /path: apps\/mobile\/dist/);
+  assert.match(pages, /LEGACY \/ SUPERSEDED \/ NON-SERVING EVIDENCE/);
+  assert.match(pages, /Pages publication input is apps\/mobile\/dist only/);
 
-  const rootPackage = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+  const uat = readRepo(".github/workflows/uat.yml");
+  assert.match(uat, /"presentation":"apps\/mobile"/);
+  assert.match(uat, /Legacy root app\.js leaked into canonical output/);
+  assert.match(uat, /Legacy root v21\.js leaked into canonical output/);
+
+  const rootPackage = JSON.parse(readRepo("package.json"));
   assert.equal(rootPackage.scripts["test:uat"], "playwright test tests/phase12-canonical-uat.spec.js");
 
   for (const legacy of ["index.html","article.html","premium.html","app.js","reader.js","v21.js"]) {
@@ -33,12 +41,12 @@ test("Phase 12 keeps apps/mobile as the universal Reader source", () => {
   }
 });
 
-test("Newsroom remains a distinct protected operational surface", () => {
-  for (const relative of ["newsroom.html","newsroom.js","newsroom.css","api/newsroom.js"]) {
-    assert.equal(fs.existsSync(path.join(repoRoot, relative)), true, "missing protected Newsroom surface: " + relative);
+test("Newsroom remains distinct from the canonical Reader publication source", () => {
+  for (const relative of ["newsroom.html","newsroom.js","newsroom.css"]) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relative)), true, "missing retained Newsroom surface: " + relative);
+    assert.equal(fs.existsSync(path.join(mobileRoot, "public", relative)), false, "Newsroom must not become canonical Reader public authority: " + relative);
   }
-  const prepare = fs.readFileSync(path.join(repoRoot, "scripts/web/prepare-phase4-vercel.js"), "utf8");
-  assert.match(prepare, /newsroom\.html/);
-  assert.match(prepare, /newsroom\.js/);
-  assert.match(prepare, /newsroom\.css/);
+
+  const pages = readRepo(".github/workflows/pages.yml");
+  assert.match(pages, /Pages publication input is apps\/mobile\/dist only/);
 });

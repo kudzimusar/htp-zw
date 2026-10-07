@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
@@ -87,7 +89,20 @@ test("Phase 6A native flows handle iOS deep links and deterministic offline evid
   assert.equal(count(tablet,"- openLink:"),count(tablet,promptGuard));
   assert.ok(phone.includes('- openLink: "healthtimes://saved?tab=offline"'));
   assert.equal(phone.includes('- tapOn: "Offline"'),false);
-  assert.ok(tablet.includes("timeout: 240000"));
+  const searchOpen=phone.indexOf('- openLink: "healthtimes://search"');
+  const searchDestination=phone.indexOf('visible: "Intelligent Search"',searchOpen);
+  assert.ok(searchOpen>=0);
+  assert.ok(searchDestination>searchOpen);
+  const searchTransition=phone.slice(searchOpen,searchDestination);
+  assert.ok(searchTransition.includes(promptGuard));
+  assert.ok(searchTransition.includes('- tapOn: "Open"'));
+  assert.equal(searchTransition.includes('visible: "Top Stories"'),false);
+  assert.equal(searchTransition.includes('tapOn: "Search HealthTimes"'),false);
+  assert.match(
+    phone,
+    /- openLink: "healthtimes:\/\/search"\n- runFlow:\n    when:\n      platform: iOS\n      visible: "Open in \.\*HealthTimes Dev\.\*"\n    commands:\n      - tapOn: "Open"\n- extendedWaitUntil:\n    visible: "Intelligent Search"\n    timeout: 45000/
+  );
+  assert.equal((phone.match(/tapOn: "Search HealthTimes"/g)??[]).length,0);  assert.ok(tablet.includes("timeout: 240000"));
 });
 
 test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
@@ -108,6 +123,9 @@ test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
   assert.ok(workflow.includes("Debug-iphonesimulator"));
   assert.ok(workflow.includes("EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost"));
   assert.ok(workflow.includes("Metro did not accept HTTP connections for iOS native evidence"));
+  assert.ok(workflow.includes("virtual-metro-entry.bundle?platform=ios"));
+  assert.ok(workflow.includes("Metro iOS bundle prewarm failed"));
+  assert.ok(workflow.includes('kill -0 "$METRO_PID"'));
   assert.ok(workflow.includes("Build self-contained Android release APK"));
   assert.ok(workflow.includes("./gradlew assembleRelease --no-daemon"));
   assert.ok(androidRunner.includes("app/build/outputs/apk/release/app-release.apk"));
@@ -139,4 +157,153 @@ test("Phase 6A evidence is current-attempt scoped and fails closed on native run
   assert.ok(workflow.includes('"runtimeErrorCells":runtime_error_cells'));
   assert.ok(manifest.includes("Actionable native runtime errors detected"));
   assert.ok(manifest.includes("runAttempt"));
+});
+
+
+test("Phase 6A tablet Home portrait evidence is captured only after the resolved landscape Home pass",()=>{
+  const tablet=read("e2e/ui02-phase6a-tablet.yaml");
+  const landscape=tablet.indexOf("- takeScreenshot: tablet-home-landscape");
+  const portraitCapture=tablet.lastIndexOf("- takeScreenshot: tablet-home");
+  assert.ok(landscape>=0);
+  assert.ok(portraitCapture>landscape);
+  const transition=tablet.slice(landscape,portraitCapture);
+  assert.ok(transition.includes("platform: iOS"));
+  assert.ok(transition.includes("- setOrientation: PORTRAIT"));
+  assert.ok(transition.includes("platform: Android"));
+  assert.ok(transition.includes("- setOrientation: LANDSCAPE_LEFT"));
+  assert.ok(transition.includes("- waitForAnimationToEnd"));
+});
+
+
+test("Phase 6A Android tablet certification validates physical PNG orientation",()=>{
+  const tablet=read("e2e/ui02-phase6a-tablet.yaml");
+  const manifestSource=readRepo("scripts/native/ui02-phase6a-manifest.mjs");
+  assert.ok(tablet.includes("Pixel Tablet's natural device orientation"));
+  assert.ok(tablet.includes("platform: Android"));
+  assert.ok(manifestSource.includes('platform==="Android" && deviceClass==="tablet"'));
+  assert.ok(manifestSource.includes("readUInt32BE(16)"));
+  assert.ok(manifestSource.includes("readUInt32BE(20)"));
+  assert.ok(manifestSource.includes("ANDROID TABLET PORTRAIT SCREENSHOT IS NOT PHYSICALLY PORTRAIT"));
+  assert.ok(manifestSource.includes("ANDROID TABLET LANDSCAPE SCREENSHOT IS NOT PHYSICALLY LANDSCAPE"));
+  assert.ok(manifestSource.includes("physicalOrientation"));
+  assert.ok(manifestSource.includes("screenshotWidth"));
+  assert.ok(manifestSource.includes("screenshotHeight"));
+
+  const evidenceDir=mkdtempSync(join(tmpdir(),"ui02-phase6a-orientation-"));
+  const manifestPath=join(repoRoot,"scripts/native/ui02-phase6a-manifest.mjs");
+  const tabletScreens=[
+    "tablet-home","tablet-article","tablet-watch","tablet-my-healthtimes","tablet-edition","tablet-home-landscape"
+  ];
+  const writePngStub=(name,width,height)=>{
+    const png=Buffer.alloc(24);
+    Buffer.from([137,80,78,71,13,10,26,10]).copy(png,0);
+    png.writeUInt32BE(13,8);
+    png.write("IHDR",12,"ascii");
+    png.writeUInt32BE(width,16);
+    png.writeUInt32BE(height,20);
+    writeFileSync(join(evidenceDir,name+".png"),png);
+  };
+  const runManifest=()=>spawnSync(process.execPath,[manifestPath],{
+    env:{
+      ...process.env,
+      EVIDENCE_DIR:evidenceDir,
+      CANDIDATE_SHA:"orientation-contract",
+      RUN_ATTEMPT:"1",
+      NATIVE_PLATFORM:"Android",
+      DEVICE_CLASS:"tablet",
+      DEVICE_IDENTITY:"Pixel Tablet contract fixture",
+      OS_VERSION:"test",
+      ORIENTATION:"portrait"
+    },
+    encoding:"utf8"
+  });
+
+  try{
+    for(const screen of tabletScreens) writePngStub(screen,1600,2560);
+    writePngStub("tablet-home-landscape",2560,1600);
+
+    const valid=runManifest();
+    assert.equal(valid.status,0,valid.stderr||valid.stdout);
+    const manifest=JSON.parse(readFileSync(join(evidenceDir,"manifest.json"),"utf8"));
+    const portrait=manifest.screens.find((screen)=>screen.screen==="tablet-home");
+    const landscape=manifest.screens.find((screen)=>screen.screen==="tablet-home-landscape");
+    assert.deepEqual(
+      [portrait.screenshotWidth,portrait.screenshotHeight,portrait.physicalOrientation,portrait.orientation],
+      [1600,2560,"portrait","portrait"]
+    );
+    assert.deepEqual(
+      [landscape.screenshotWidth,landscape.screenshotHeight,landscape.physicalOrientation,landscape.orientation],
+      [2560,1600,"landscape","landscape"]
+    );
+
+    writePngStub("tablet-home",2560,1600);
+    const badPortrait=runManifest();
+    assert.notEqual(badPortrait.status,0);
+    assert.match(badPortrait.stderr+badPortrait.stdout,/ANDROID TABLET PORTRAIT SCREENSHOT IS NOT PHYSICALLY PORTRAIT/);
+
+    writePngStub("tablet-home",1600,2560);
+    writePngStub("tablet-home-landscape",1600,2560);
+    const badLandscape=runManifest();
+    assert.notEqual(badLandscape.status,0);
+    assert.match(badLandscape.stderr+badLandscape.stdout,/ANDROID TABLET LANDSCAPE SCREENSHOT IS NOT PHYSICALLY LANDSCAPE/);
+  } finally {
+    rmSync(evidenceDir,{recursive:true,force:true});
+  }
+});
+
+
+test("Phase 6A Android System UI ANR recovery is single in-job and fail-closed",()=>{
+  const runner=readRepo("scripts/native/ui02-phase6a-android-run.sh");
+  const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
+  const phone=read("e2e/ui02-phase6a-phone.yaml");
+
+  for(const marker of [
+    "System UI isn't responding",
+    "android:id/aerr_wait",
+    "com.android.systemui:id/",
+    "dumpsys activity lastanr",
+    "dumpsys SurfaceFlinger --list",
+    "HealthTimes application ANR is not recoverable",
+    "HealthTimes application ANR dialog is not recoverable",
+    "FATAL EXCEPTION",
+    "AndroidRuntime",
+    "ReactNativeJS",
+    "maestro-journey-1",
+    "maestro-journey-2",
+    "first-journey.tar.gz",
+    "infrastructure-recovery.yaml",
+    "recoveryCount:1",
+    'firstJourneyResult:"INTERRUPTED_BY_OS"',
+    'secondJourneyResult:"PASS"',
+    'if [[ "$SECOND_STATUS" -ne 0 ]]',
+    'exit "$SECOND_STATUS"',
+    "no further recovery permitted"
+  ]) assert.ok(runner.includes(marker),marker);
+
+  assert.match(
+    phone,
+    /- launchApp:\n    clearState: true\n- extendedWaitUntil:\n    visible: "Top Stories"\n    timeout: 240000/
+  );
+  assert.equal((phone.match(/visible: "Top Stories"/g)??[]).length,4);
+
+  assert.equal(
+    (runner.match(/run_maestro_journey "\$FIRST_JOURNEY_DIR"/g)??[]).length,
+    1
+  );
+  assert.equal(
+    (runner.match(/run_maestro_journey "\$SECOND_JOURNEY_DIR"/g)??[]).length,
+    1
+  );
+  assert.equal(
+    (workflow.match(/scripts\/native\/ui02-phase6a-android-run\.sh/g)??[]).length,
+    1
+  );
+  assert.equal(runner.includes("gh run rerun"),false);
+  assert.equal(workflow.includes("rerun-failed"),false);
+  assert.ok(runner.includes('grep -Fq "$APP_ID" "$RECOVERY_DIR/lastanr-before-recovery.txt"'));
+  assert.equal(runner.includes('grep -Fq "com.android.systemui" "$RECOVERY_DIR/lastanr-before-recovery.txt"'),false);
+  assert.ok(runner.includes('"foregroundOwnershipEvidence": "infrastructure-recovery/system-ui-anr-hierarchy.json"'));
+  assert.ok(runner.includes('"lastAnrDiagnostic": "infrastructure-recovery/lastanr-before-recovery.txt"'));
+  assert.ok(runner.includes('grep -Fq "$APP_ID" "$RECOVERY_DIR/surfaceflinger-before-recovery.txt"'));
+  assert.ok(runner.includes('rm -rf "$FIRST_JOURNEY_DIR"'));
 });

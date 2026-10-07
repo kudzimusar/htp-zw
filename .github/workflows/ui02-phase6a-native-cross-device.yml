@@ -53,14 +53,16 @@ jobs:
       - name: Typecheck canonical Reader
         run: npm --prefix apps/mobile run typecheck
 
-      - name: Re-run canonical Reader regression contracts
+      - name: Re-run accepted Phase 3-5 Reader contracts
         run: |
+          npm --prefix apps/mobile run test:ui04
+          npm --prefix apps/mobile run test:ui01-phase4
+          npm --prefix apps/mobile run test:ui01-phase3
+          npm --prefix apps/mobile run test:ui03
           npm --prefix apps/mobile run test:reader-product
           npm --prefix apps/mobile run test:reader-fidelity
-          npm --prefix apps/mobile run test:growth-commercial
-          npm --prefix apps/mobile run test:ui03
-          npm --prefix apps/mobile run test:source-parity
           npm --prefix apps/mobile run test:identity-security
+          npm --prefix apps/mobile run test:native-certification
 
   ios-evidence:
     name: iOS ${{ matrix.device_class }} real simulator evidence
@@ -234,6 +236,18 @@ jobs:
             fi
             sleep 2
           done
+
+          IOS_METRO_BUNDLE_URL='http://localhost:8081/.expo/.virtual-metro-entry.bundle?platform=ios&dev=true&lazy=true&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=zw.co.healthtimes.app.dev'
+          if ! curl --fail --location --max-time 360 --silent --show-error --output /dev/null "$IOS_METRO_BUNDLE_URL"; then
+            echo "Metro iOS bundle prewarm failed"
+            cat "$EVIDENCE_DIR/metro.log"
+            exit 1
+          fi
+          if ! kill -0 "$METRO_PID" 2>/dev/null; then
+            echo "Metro exited after iOS bundle prewarm"
+            cat "$EVIDENCE_DIR/metro.log"
+            exit 1
+          fi
 
           xcrun simctl install "$SIM_UDID" "$IOS_APP"
           maestro --device "$SIM_UDID" test             --test-output-dir "$EVIDENCE_DIR"             "$FLOW"

@@ -15,51 +15,38 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Top Stories"
-    commands:
-      - tapOn: "Search HealthTimes"
 - extendedWaitUntil:
     visible: "Intelligent Search"
-    timeout: 20000
-- tapOn: "Search HealthTimes"
+    timeout: 45000
+- tapOn: "Search stories, people and topics"
 - inputText: "health"
 - takeScreenshot: search-keyboard
 - hideKeyboard
-- tapOn: "Search"
+- tapOn: "Submit HealthTimes search"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES SEARCH"
+    timeout: 20000
 - takeScreenshot: search-results
 
 # Public Article + native Save/Offline/Share
-- openLink: "healthtimes://article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
+- openLink: "healthtimes://article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis"
 - runFlow:
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Save article"
+    visible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
     timeout: 30000
 - tapOn: "Save article"
 - extendedWaitUntil:
     visible: "Saved"
     timeout: 10000
 - tapOn: "Download article for offline reading"
-# Immediate status text is viewport-sensitive; offline persistence is proven later via /saved?tab=offline.
+- extendedWaitUntil:
+    visible: "Available offline"
+    timeout: 10000
 - takeScreenshot: article-actions-light
 - tapOn: "Share article"
 - takeScreenshot: article-native-share
@@ -77,19 +64,13 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Saved & Offline"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "Saved articles"
+    visible: "Saved stories"
     timeout: 30000
-- assertVisible: ".*Fiji.*"
+- assertVisible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
 - takeScreenshot: saved-persistence
 
 - openLink: "healthtimes://saved?tab=offline"
@@ -99,38 +80,18 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
-# Canonical Saved currently initializes on Articles even when the historical deep-link query is retained.
-# Select the actual Offline tab explicitly, then keep the strong downloaded-story persistence assertions below.
-- tapOn:
-    text: "Offline"
-    index: 1
-- scrollUntilVisible:
-    element:
-      text: "Available offline"
-    direction: DOWN
-    visibilityPercentage: 50
+- extendedWaitUntil:
+    visible: "Available offline"
     timeout: 30000
-- assertVisible: ".*Fiji.*"
+- assertVisible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
 - takeScreenshot: offline-persistence
 
 # Premium anonymous body protection / paywall
-- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - scrollUntilVisible:
@@ -171,12 +132,6 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Explore"
     timeout: 20000
@@ -187,12 +142,6 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -207,45 +156,19 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - assertVisible: "Watch From Mozambique to Zimbabwe:.*"
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - assertVisible: "Watch video.*"
+- assertVisible: ".*YouTube.*"
 - takeScreenshot: watch-light
 
 # Source-backed external YouTube destination
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn:
-          text: "Watch From Mozambique to Zimbabwe:.*"
-          index: 0
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - tapOn:
-          text: "Watch video.*"
-          index: 0
+- tapOn:
+    text: ".*YouTube.*"
+    index: 0
 - takeScreenshot: watch-external-youtube
 - stopApp
 
@@ -260,16 +183,10 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Listen"
     timeout: 20000
-- assertVisible: "No audio yet"
+- assertVisible: "No audio published yet"
 - takeScreenshot: listen-truthful
 
 # My HealthTimes and intentional navigation into Edition
@@ -278,12 +195,6 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -307,33 +218,17 @@ appId: zw.co.healthtimes.app.dev
           timeout: 20000
       - tapOn: "Countries & Interests"
 - extendedWaitUntil:
-    visible: "Select Your Edition"
+    visible: "Edition & Preferences"
     timeout: 20000
 
-# Historical Phase-6A label "Edition & Preferences" is superseded by canonical "Select Your Edition".
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn: "Primary Edition"
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - hideKeyboard
+- hideKeyboard
 - extendedWaitUntil:
-    visible: "Africa"
+    visible: "Africa primary edition"
     timeout: 10000
-- tapOn:
-    text: "Africa"
-    below: "Primary Edition"
-- assertVisible:
-    text: "Africa"
-    below: "Primary Edition"
-    selected: true
+- tapOn: "Africa primary edition"
 - scrollUntilVisible:
     element:
       text: "Save Preferences"
@@ -355,12 +250,6 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -401,46 +290,28 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 120000
 - takeScreenshot: home-dark
 
-- openLink: "healthtimes://article/source-fiji-hiv-emergency-epidemic-spreads-beyond-drug-users"
+- openLink: "healthtimes://article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis"
 - runFlow:
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Save article"
+    visible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
     timeout: 30000
 - takeScreenshot: article-dark
 
-- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - scrollUntilVisible:
@@ -458,12 +329,6 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "HEALTHTIMES PREMIUM"
     timeout: 30000
@@ -476,12 +341,6 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Featured video"
     timeout: 30000
@@ -492,12 +351,6 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - scrollUntilVisible:

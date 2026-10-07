@@ -14,6 +14,8 @@ type Palette = {
   navy: string;
   blue: string;
   live: string;
+  premium: string;
+  success: string;
 };
 
 type AppearanceContextValue = {
@@ -60,7 +62,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
             border: "#2A3C4F",
             navy: "#050F19",
             blue: "#6DA9FF",
-            live: "#FF6B6B"
+            live: "#FF6B6B",
+            premium: "#E6C16A",
+            success: "#63C58E"
           }
         : {
             paper: colors.paper,
@@ -70,7 +74,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
             border: colors.border,
             navy: colors.navy,
             blue: colors.blue,
-            live: colors.live
+            live: colors.live,
+            premium: colors.premium,
+            success: colors.success
           },
     [resolvedDark]
   );

@@ -2,28 +2,15 @@ appId: zw.co.healthtimes.app.dev
 ---
 - launchApp:
     clearState: true
-- runFlow:
-    when:
-      platform: Android
-      visible: "System UI isn't responding"
-    commands:
-      - tapOn: "Wait"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 240000
-- takeScreenshot: tablet-home
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -36,12 +23,6 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
-    commands:
-      - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
@@ -59,12 +40,6 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -75,7 +50,7 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
     commands:
-      - tapOn: "Countries & Interests.*"
+      - tapOn: "Countries & Interests"
 - runFlow:
     when:
       platform: Android
@@ -87,13 +62,24 @@ appId: zw.co.healthtimes.app.dev
           timeout: 20000
       - tapOn: "Countries & Interests"
 - extendedWaitUntil:
-    visible: "Select Your Edition"
+    visible: "Edition & Preferences"
     timeout: 20000
-# Historical Phase-6A label "Edition & Preferences" is superseded by canonical "Select Your Edition".
 - takeScreenshot: tablet-edition
 
 # Tablet orientation evidence: same accepted hierarchy using extra width deliberately.
-- setOrientation: LANDSCAPE_LEFT
+# Pixel Tablet's natural device orientation maps Maestro's semantic labels opposite
+# to the physical screenshot geometry, so select commands per platform and let the
+# manifest independently validate the final PNG dimensions.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setOrientation: PORTRAIT
 - openLink: "healthtimes://"
 - runFlow:
     when:
@@ -101,14 +87,22 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 240000
 - takeScreenshot: tablet-home-landscape
-- setOrientation: PORTRAIT
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setOrientation: PORTRAIT
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 20000
+- takeScreenshot: tablet-home

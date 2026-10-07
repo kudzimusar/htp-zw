@@ -87,6 +87,33 @@ const missingScreens=requiredScreens.filter((key)=>!capturedKeys.has(key));
 if(missingScreens.length){
   throw new Error("Required native screenshots missing: "+missingScreens.join(", "));
 }
+
+function readPngDimensions(path){
+  const png=readFileSync(path);
+  const signature=Buffer.from([137,80,78,71,13,10,26,10]);
+  if(png.length<24 || !png.subarray(0,8).equals(signature) || png.subarray(12,16).toString("ascii")!=="IHDR"){
+    throw new Error("Invalid PNG evidence file: "+relative(dir,path));
+  }
+  return {width:png.readUInt32BE(16),height:png.readUInt32BE(20)};
+}
+
+const screenshotPathByKey=new Map(pngPaths.map((path)=>[basename(path,".png"),path]));
+const screenshotGeometryByKey=new Map();
+if(platform==="Android" && deviceClass==="tablet"){
+  for(const [key,expected] of [["tablet-home","portrait"],["tablet-home-landscape","landscape"]]){
+    const path=screenshotPathByKey.get(key);
+    const {width,height}=readPngDimensions(path);
+    const physicalOrientation=height>width ? "portrait" : width>height ? "landscape" : "square";
+    screenshotGeometryByKey.set(key,{width,height,physicalOrientation});
+    if(expected==="portrait" && physicalOrientation!=="portrait"){
+      throw new Error(`ANDROID TABLET PORTRAIT SCREENSHOT IS NOT PHYSICALLY PORTRAIT: ${key}.png is ${width}x${height}`);
+    }
+    if(expected==="landscape" && physicalOrientation!=="landscape"){
+      throw new Error(`ANDROID TABLET LANDSCAPE SCREENSHOT IS NOT PHYSICALLY LANDSCAPE: ${key}.png is ${width}x${height}`);
+    }
+  }
+}
+
 const errorFile=join(dir,"native-errors.log");
 const nativeErrors=existsSync(errorFile)
   ? readFileSync(errorFile,"utf8").split(/\r?\n/).filter(Boolean).slice(0,200)
@@ -98,6 +125,7 @@ if(nativeErrors.length){
 const screens=pngPaths.map((path)=>{
   const file=relative(dir,path);
   const key=basename(path,".png");
+  const geometry=screenshotGeometryByKey.get(key) ?? null;
   const keyboard=key==="search-keyboard"
     ? "CAPTURED — native keyboard/focus evidence"
     : "NOT APPLICABLE";
@@ -120,6 +148,9 @@ const screens=pngPaths.map((path)=>{
     deviceIdentity:device,
     osVersion,
     orientation:key.includes("landscape") ? "landscape" : orientation,
+    physicalOrientation:geometry?.physicalOrientation ?? null,
+    screenshotWidth:geometry?.width ?? null,
+    screenshotHeight:geometry?.height ?? null,
     screen:key,
     route:routes[key] ?? "unknown",
     screenshotFilename:file,
