@@ -338,7 +338,10 @@ appId: zw.co.healthtimes.app.dev
     element:
       text: "Save Preferences"
     direction: DOWN
-    timeout: 20000
+    speed: 75
+    visibilityPercentage: 20
+    timeout: 45000
+    centerElement: true
 - tapOn: "Save Preferences"
 - scrollUntilVisible:
     element:
