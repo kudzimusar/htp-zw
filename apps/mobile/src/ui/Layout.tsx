@@ -3,6 +3,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SymbolView } from "expo-symbols";
 import { breakpoints, layout, radius, spacing, type } from "../theme/tokens";
 import { environmentSummary } from "../platform/config";
 import { useAppearance } from "../theme/AppearanceProvider";
@@ -66,7 +67,7 @@ export function Page({
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.paper }]} edges={["top", "left", "right"]}>
+    <SafeAreaView key={palette.paper + "|" + palette.ink} style={[styles.safe, { backgroundColor: palette.paper }]} edges={["top", "left", "right"]}>
       {scroll ? (
         <ScrollView
           ref={scrollRef}
@@ -100,11 +101,22 @@ export function ContentWidth({
   children,
   bottomInset = 64
 }: PropsWithChildren<{bottomInset?:number}>) {
+  const { palette } = useAppearance();
   const width = useHydratedWindowWidth();
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
   return (
-    <View style={[styles.content, { maxWidth: layout.contentMax, paddingHorizontal: horizontal, paddingBottom: bottomInset }]}>
+    <View
+      style={[
+        styles.content,
+        {
+          maxWidth: layout.contentMax,
+          paddingHorizontal: horizontal,
+          paddingBottom: bottomInset,
+          backgroundColor: palette.paper
+        }
+      ]}
+    >
       {children}
     </View>
   );
@@ -142,34 +154,53 @@ export function AppHeader() {
 
   const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
-  const actions = (
-    <View style={[styles.headerActions, phone && styles.phoneActions]}>
+  const phoneSearchAction = phone ? (
+    <Pressable
+      onPress={() => go("/search")}
+      style={({ pressed }) => [
+        styles.searchIconButton,
+        { backgroundColor: pressed ? palette.paperMuted : "transparent" }
+      ]}
+      accessibilityLabel="Search HealthTimes"
+      accessibilityRole="button"
+      accessibilityHint="Opens HealthTimes search"
+    >
+      <SymbolView
+        name={{ ios: "magnifyingglass", android: "search", web: "search" }}
+        tintColor={palette.ink}
+        size={22}
+      />
+    </Pressable>
+  ) : null;
+
+  const utilityActions = !phone ? (
+    <View style={styles.headerActions}>
       <Pressable
         onPress={() => go("/search")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, { borderColor: palette.border }]}
         accessibilityLabel="Search HealthTimes"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Search</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/notifications")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, { borderColor: palette.border }]}
         accessibilityLabel="Notifications"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Alerts</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/premium")}
-        style={[styles.actionButton, styles.premiumAction, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, styles.premiumAction, { borderColor: palette.border }]}
         accessibilityLabel="HealthTimes Premium"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.blue }]}>Premium</Text>
+        <Text style={[styles.actionText, { color: palette.blue }]}>Premium</Text>
       </Pressable>
     </View>
-  );
+  ) : null;
 
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
@@ -178,15 +209,17 @@ export function AppHeader() {
           <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
         </Pressable>
 
-        <Pressable
-          onPress={() => go("/edition")}
-          style={[styles.editionButton, phone && styles.phoneEditionButton, { borderColor: palette.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={"Edition " + edition + ". Change edition"}
-        >
-          <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
-          <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
-        </Pressable>
+        {!phone && (
+          <Pressable
+            onPress={() => go("/edition")}
+            style={[styles.editionButton, { borderColor: palette.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={"Edition " + edition + ". Change edition"}
+          >
+            <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
+            <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
+          </Pressable>
+        )}
 
         {desktop && (
           <View style={styles.desktopNav}>
@@ -205,7 +238,7 @@ export function AppHeader() {
           </View>
         )}
 
-        {actions}
+        {phone ? phoneSearchAction : utilityActions}
       </View>
     </View>
   );
@@ -240,6 +273,54 @@ export function SectionHeader({
 
 export function Section({ children }: PropsWithChildren) {
   return <View style={styles.section}>{children}</View>;
+}
+
+export function EditorialTabs<T extends string>({
+  items,
+  activeKey,
+  onChange,
+  accessibilityLabel = "Home sections"
+}: {
+  items: ReadonlyArray<{ key: T; label: string }>;
+  activeKey: T;
+  onChange: (key: T) => void;
+  accessibilityLabel?: string;
+}) {
+  const { palette } = useAppearance();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      accessibilityLabel={accessibilityLabel}
+      contentContainerStyle={styles.editorialTabs}
+    >
+      {items.map((item) => {
+        const active = item.key === activeKey;
+        return (
+          <Pressable
+            key={item.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={item.label}
+            onPress={() => onChange(item.key)}
+            style={styles.editorialTab}
+          >
+            <Text style={[styles.editorialTabText, { color: active ? palette.ink : palette.inkMuted }]}>
+              {item.label}
+            </Text>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.editorialTabIndicator,
+                { backgroundColor: active ? palette.blue : "transparent" }
+              ]}
+            />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
 }
 
 export function Chip({ children, active = false, onPress }: PropsWithChildren<{ active?: boolean; onPress?: () => void }>) {
@@ -294,19 +375,16 @@ const styles=StyleSheet.create({
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
   phoneBrand:{fontSize:21,letterSpacing:-0.6},
   editionButton:{minHeight:layout.touchMin,maxWidth:122,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.sm,flexShrink:1},
-  phoneEditionButton:{maxWidth:62,paddingLeft:6},
   editionLabel:{fontSize:8,fontWeight:"900",letterSpacing:.8},
   editionValue:{fontSize:11,fontWeight:"900",marginTop:1},
   desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
   desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
   desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.xs,flexShrink:0},
-  phoneActions:{gap:2},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:10,borderWidth:1,borderRadius:radius.sm},
   premiumAction:{borderColor:"transparent"},
-  phoneActionButton:{paddingHorizontal:5,borderWidth:0,minWidth:44,alignItems:"center"},
   actionText:{fontSize:12,fontWeight:"900"},
-  phoneActionText:{fontSize:10.5},
+  searchIconButton:{marginLeft:"auto",width:layout.touchMin,height:layout.touchMin,alignItems:"center",justifyContent:"center",borderRadius:radius.sm},
   screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},
@@ -316,6 +394,10 @@ const styles=StyleSheet.create({
   sectionTitle:{fontSize:23,fontWeight:"900",letterSpacing:-0.4},
   sectionAction:{minHeight:layout.touchMin,justifyContent:"center"},
   sectionActionText:{fontSize:13,fontWeight:"800"},
+  editorialTabs:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingHorizontal:0},
+  editorialTab:{minHeight:layout.touchMin,justifyContent:"center",position:"relative",paddingTop:2},
+  editorialTabText:{fontSize:13.5,fontWeight:"800",letterSpacing:-0.1},
+  editorialTabIndicator:{position:"absolute",left:0,right:0,bottom:0,height:2,borderRadius:1},
   chip:{borderWidth:1,borderRadius:radius.sm,minHeight:layout.touchMin,paddingHorizontal:12,justifyContent:"center"},
   chipText:{fontSize:13,fontWeight:"700"},
   empty:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.xxl,gap:spacing.sm},

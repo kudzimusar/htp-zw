@@ -99,13 +99,17 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   const search = read("app/search.tsx");
   const article = read("app/article/[id].tsx");
 
-  assert.match(layout, /EDITION/);
-  assert.match(layout, /My HealthTimes/);
+  assert.match(layout, /phoneSearchAction/);
+  assert.match(layout, /Search HealthTimes/);
   assert.match(layout, /breakpoints\.desktop/);
   assert.match(cards, /export function StoryList/);
   assert.match(cards, /heroDesktop/);
-  assert.match(home, /Editorial filters/);
-  assert.doesNotMatch(home, /zone\.slug === "zimbabwe"/i, "Home must not permanently hard-code Zimbabwe as the active edition");
+  assert.match(home, /HealthTimes Home sections/);
+  for (const label of ["For You","Latest","Zimbabwe","World","Premium"]) {
+    assert.ok(home.includes('label:"' + label + '"'), "missing accepted Home tab: " + label);
+  }
+  assert.equal(home.includes('label:"Health"'), false);
+  assert.equal(home.includes('key:"edition"'), false);
   assert.match(explore, /services\.taxonomy\.getSnapshot/);
   assert.match(explore, /Editorial desks/);
   assert.match(explore, /Topics & categories/);
@@ -162,14 +166,19 @@ test("responsive Reader shell keeps mobile native and desktop editorial navigati
   for (const kind of ["home","explore","live","watch","profile"]) {
     assert.ok(tabs.includes('icon("' + kind + '")'), "missing bottom-tab icon: " + kind);
   }
+  assert.ok(tabs.includes('from "expo-symbols"'));
+  assert.ok(tabs.includes("SymbolView"));
+  for (const legacyShape of ["homeRoof","exploreDot","liveRing","watchGlyph","profileHead"]) {
+    assert.equal(tabs.includes(legacyShape), false, "legacy hand-built icon shape remains: " + legacyShape);
+  }
   assert.ok(tabs.includes("tabBarActiveTintColor:palette.blue"));
   assert.ok(tabs.includes("tabBarInactiveTintColor:palette.inkMuted"));
+  assert.ok(tabs.includes('tabBar={desktop ? () => null : undefined}'));
   assert.ok(layout.includes("phone = width < breakpoints.tablet"));
-  assert.ok(!layout.includes("mobileUtilityWrap"));
-  assert.ok(layout.includes("phoneActions"));
+  assert.ok(layout.includes("phoneSearchAction"));
+  assert.ok(layout.includes("SymbolView"));
   assert.ok(layout.includes("Search HealthTimes"));
-  assert.ok(layout.includes("Notifications"));
-  assert.ok(layout.includes("Change edition"));
+  assert.ok(layout.includes("{!phone && ("));
   assert.ok(layout.includes("mobileTabsVisible ? 96 : 64"));
 });
 
@@ -177,14 +186,15 @@ test("responsive Reader shell keeps mobile native and desktop editorial navigati
 test("Home editorial filters are functional and default country preferences stay global-neutral", () => {
   const home = read("app/(reader)/index.tsx");
   const persistence = read("src/services/reader-persistence.ts");
-  assert.ok(home.includes('type HomeFilter="for-you"|"latest"|"edition"|"world"|"health"'));
-  assert.ok(home.includes("setActiveFilter(item.key)"));
+  assert.ok(home.includes('type HomeFilter="for-you"|"latest"|"zimbabwe"|"world"|"premium"'));
+  assert.ok(home.includes("onChange={setActiveFilter}"));
   assert.ok(home.includes("matchesPreferences"));
   assert.ok(home.includes('activeFilter==="latest"'));
-  assert.ok(home.includes('activeFilter==="edition"'));
+  assert.ok(home.includes('activeFilter==="zimbabwe"'));
   assert.ok(home.includes('activeFilter==="world"'));
-  assert.ok(home.includes('activeFilter==="health"'));
+  assert.ok(home.includes('activeFilter==="premium"'));
   assert.ok(home.includes('live.data?.length'));
+  assert.ok(home.includes('story.accessPolicy==="premium"'));
   assert.ok(persistence.includes("followedCountries: []"));
   assert.equal(persistence.includes('followedCountries: ["Zimbabwe"]'), false);
 });
