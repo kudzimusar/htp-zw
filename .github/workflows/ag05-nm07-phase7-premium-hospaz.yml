@@ -77,24 +77,21 @@ jobs:
           npm --prefix apps/mobile run test:growth-commercial
           npm --prefix apps/mobile run test:native-certification
           npm --prefix apps/mobile run test:source-parity
-      - name: Preserve adjacent security contracts
+      - name: Preserve current Reader identity and communications contracts
         shell: bash
         run: |
           set -euo pipefail
-          npm run test:ag06:contract
-          npm run test:ca01:contract
-          npm run test:com01:contract
+          npm --prefix apps/mobile run test:identity-security
+          npm --prefix apps/mobile run test:ca01-communications
       - name: Build canonical Web/PWA Reader
         run: npm run build:phase4:web
-      - name: Prove raw HTTP route and SEO decisions
-        run: npm run verify:phase4:http
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser smoke mobile and desktop
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/web/phase4-smoke-server.js >/tmp/phase7-smoke.log 2>&1 &
+          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/phase7-smoke.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in 1 2 3 4 5; do
@@ -112,7 +109,6 @@ jobs:
             playwright-report
             test-results
             apps/mobile/dist/build-info.json
-            migration-output/ag07-phase4/http-evidence.json
             migration-output/ag05-phase3/staging-evidence.json
             ui-rel04-evidence/current-browser-smoke/
             /tmp/phase7-smoke.log

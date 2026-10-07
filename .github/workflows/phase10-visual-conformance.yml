@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p phase10-evidence/after/web
-          node scripts/web/phase4-smoke-server.js >/tmp/phase10-after-source-parity.log 2>&1 &
+          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/phase10-after-source-parity.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 10); do
@@ -146,7 +146,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p phase10-evidence/after/staging
-          node scripts/web/phase4-smoke-server.js >/tmp/phase10-after-staging.log 2>&1 &
+          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/phase10-after-staging.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 10); do

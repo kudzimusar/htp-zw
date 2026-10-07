@@ -70,7 +70,7 @@ jobs:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          node scripts/web/phase4-smoke-server.js >/tmp/ui01-phase3.log 2>&1 &
+          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/ui01-phase3.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 10); do
