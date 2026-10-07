@@ -269,8 +269,9 @@ try{
     const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
     if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
     const prompt=page.getByTestId("premium-subscription-prompt");
-    if(await prompt.isVisible().catch(()=>false)){
-      const dismiss=page.getByTestId("premium-prompt-not-now");
+    const dismiss=page.getByTestId("premium-prompt-not-now");
+    const promptAppeared=await dismiss.waitFor({state:"visible",timeout:3000}).then(()=>true).catch(()=>false);
+    if(promptAppeared){
       await dismiss.click();
       await prompt.waitFor({state:"hidden",timeout:5000});
     }
