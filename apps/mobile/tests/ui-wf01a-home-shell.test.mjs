@@ -41,7 +41,8 @@ test("UI-WF-01A Home editorial navigation is text-first rather than Chip based",
   const layout=read("src/ui/Layout.tsx");
   assert.ok(home.includes("<EditorialTabs"));
   assert.equal(home.includes("<Chip"),false);
-  assert.ok(layout.includes('accessibilityRole="tab"'));
+  assert.ok(layout.includes('accessibilityRole="button"'));
+  assert.ok(layout.includes('accessibilityState={{ selected: active }}'));
   assert.ok(layout.includes("editorialTabIndicator"));
   assert.ok(layout.includes("height:2"));
 });
