@@ -229,11 +229,20 @@ appId: zw.co.healthtimes.app.dev
     visible: "Africa primary edition"
     timeout: 10000
 - tapOn: "Africa primary edition"
-- scrollUntilVisible:
-    element:
-      text: "Save Preferences"
-    direction: DOWN
-    timeout: 20000
+# UI-WF-01A-R1: keep the real Save action and persistence assertion,
+# but use a bounded swipe loop because compact-phone Maestro can miss the
+# lower content region even though the control remains reachable.
+- repeat:
+    times: 20
+    while:
+      notVisible: "Save Preferences"
+    commands:
+      - swipe:
+          start: 50%, 82%
+          end: 50%, 28%
+          duration: 650
+          waitToSettleTimeoutMs: 500
+- assertVisible: "Save Preferences"
 - tapOn: "Save Preferences"
 - scrollUntilVisible:
     element:
