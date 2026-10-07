@@ -82,7 +82,7 @@ test('canonical Home is responsive on phone tablet and desktop without retired r
 test('current primary Reader routes resolve through apps/mobile output', async ({ browser }) => {
   test.setTimeout(150000);
   const routes = [
-    ['Explore', '/explore', async page => page.getByText('Browse', { exact: true }).first().waitFor({ timeout: 30000 })],
+    ['Explore', '/explore', async page => page.getByText('Explore by topic', { exact: true }).first().waitFor({ timeout: 30000 })],
     ['Search', '/search', async page => page.getByRole('textbox', { name: 'Search HealthTimes' }).waitFor({ timeout: 30000 })],
     ['Live', '/live', async page => page.getByRole('button', { name: 'Live Now' }).waitFor({ timeout: 30000 })],
     ['Watch', '/watch', async page => page.getByText('Featured video', { exact: true }).waitFor({ timeout: 30000 })],

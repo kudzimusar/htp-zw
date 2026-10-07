@@ -32,20 +32,10 @@ if (!sw.includes('self.registration.scope')) {
   throw new Error('Service worker must derive its active scope.');
 }
 
-const protectedFiles = [
-  'newsroom.html',
-  'newsroom.js',
-  'newsroom.css',
-  'styles.css',
-  'favicon.svg',
-  'site.webmanifest',
-  'robots.txt'
-];
-
-for (const relative of protectedFiles) {
-  const source = path.join(root, relative);
-  if (!fs.existsSync(source)) throw new Error('Required protected/operational file missing: ' + relative);
-  fs.copyFileSync(source, path.join(dist, relative));
+for (const retired of ['app.js','v21.js','reader.js']) {
+  if (fs.existsSync(path.join(dist, retired))) {
+    throw new Error('Retired root runtime leaked into canonical apps/mobile export: ' + retired);
+  }
 }
 
 const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local';
@@ -57,4 +47,4 @@ fs.writeFileSync(path.join(dist, 'build-info.json'), JSON.stringify({
   serviceMode: process.env.EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE || 'source-parity'
 }, null, 2) + '\n');
 
-console.log('Phase 4 universal Reader export prepared for Vercel root origin.');
+console.log('Canonical apps/mobile root-origin evidence export prepared without legacy operational-file recustody.');

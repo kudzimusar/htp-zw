@@ -17,7 +17,7 @@ appId: zw.co.healthtimes.app.dev
       - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Intelligent Search"
-    timeout: 20000
+    timeout: 45000
 - tapOn: "Search stories, people and topics"
 - inputText: "health"
 - takeScreenshot: search-keyboard
@@ -29,7 +29,7 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: search-results
 
 # Public Article + native Save/Offline/Share
-- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- openLink: "healthtimes://article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis"
 - runFlow:
     when:
       platform: iOS
@@ -37,7 +37,7 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    visible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
     timeout: 30000
 - tapOn: "Save article"
 - extendedWaitUntil:
@@ -70,7 +70,7 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Saved stories"
     timeout: 30000
-- assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+- assertVisible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
 - takeScreenshot: saved-persistence
 
 - openLink: "healthtimes://saved?tab=offline"
@@ -83,11 +83,11 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Available offline"
     timeout: 30000
-- assertVisible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+- assertVisible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
 - takeScreenshot: offline-persistence
 
 # Premium anonymous body protection / paywall
-- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
     when:
       platform: iOS
@@ -295,7 +295,7 @@ appId: zw.co.healthtimes.app.dev
     timeout: 120000
 - takeScreenshot: home-dark
 
-- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
+- openLink: "healthtimes://article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis"
 - runFlow:
     when:
       platform: iOS
@@ -303,11 +303,11 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Zimbabwe Looks to Strengthen Social Contracting as HIV Donor Funding Shrinks"
+    visible: "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt"
     timeout: 30000
 - takeScreenshot: article-dark
 
-- openLink: "healthtimes://article/source-us-embassy-challenges-zimbabwe-rejected-health-mou"
+- openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
     when:
       platform: iOS

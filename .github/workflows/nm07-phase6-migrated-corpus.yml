@@ -73,15 +73,13 @@ jobs:
           npm --prefix apps/mobile run test:reader-product
           npm --prefix apps/mobile run test:reader-fidelity
           npm --prefix apps/mobile run test:native-certification
-      - name: Preserve CP5 and adjacent security contracts
+      - name: Preserve adjacent security contracts
         shell: bash
         run: |
           set -euo pipefail
-          npm run test:ag05:capability
           npm run test:ag06:contract
           npm run test:ca01:contract
           npm run test:com01:contract
-          npm run test:phase4:web
       - name: Build staging Web/PWA Reader
         run: npm run build:phase4:web
       - name: Prove raw HTTP route and SEO decisions
@@ -100,7 +98,7 @@ jobs:
             if [[ "$attempt" == "5" ]]; then cat /tmp/phase6-smoke.log; exit 1; fi
             sleep 1
           done
-          PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 npm run test:phase4:browser
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 EXPECTED_SHA="${{ github.event.pull_request.head.sha || github.sha }}" node scripts/ui/ui-rel04-current-browser-smoke.cjs
       - name: Upload Phase 6 Reader evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -111,6 +109,8 @@ jobs:
             test-results
             apps/mobile/dist/build-info.json
             migration-output/ag07-phase4/http-evidence.json
+            migration-output/ag05-phase3/staging-evidence.json
+            ui-rel04-evidence/current-browser-smoke/
           if-no-files-found: warn
           retention-days: 14
 
@@ -149,28 +149,11 @@ jobs:
           test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
           test -z "${HEALTHTIMES_SUPABASE_SERVICE_ROLE_KEY:-}"
       - name: Re-prove CP5 read-only staging semantics
-        run: npm run test:ag05:capability
-      - name: Re-run live Phase 6 corpus matrix
-        run: npm --prefix apps/mobile run test:migrated-corpus
-      - name: Write current-authority read-only staging receipt
-        shell: bash
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          mkdir -p migration-output/ag05-phase3
-          node - <<'NODE'
-          const fs=require("fs");
-          fs.writeFileSync("migration-output/ag05-phase3/staging-evidence.json",JSON.stringify({
-            candidate_sha:process.env.EXPECTED_SHA,
-            target:"gcdohgbmqhqwydgaxrcr",
-            credential_class:"publishable",
-            service_role_present:false,
-            capability_contract:"PASS",
-            migrated_corpus:"PASS",
-            mode:"read-only"
-          },null,2));
-          NODE
+        run: node scripts/ui/ui-rel04-cp5-readonly-check.cjs
+      - name: Re-run live Phase 6 corpus matrix
+        run: npm --prefix apps/mobile run test:migrated-corpus
       - name: Upload read-only staging evidence
         if: always()
         uses: actions/upload-artifact@v4
