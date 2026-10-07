@@ -67,7 +67,7 @@ export function Page({
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.paper }]} edges={["top", "left", "right"]}>
+    <SafeAreaView key={palette.paper + "|" + palette.ink} style={[styles.safe, { backgroundColor: palette.paper }]} edges={["top", "left", "right"]}>
       {scroll ? (
         <ScrollView
           ref={scrollRef}
@@ -101,11 +101,22 @@ export function ContentWidth({
   children,
   bottomInset = 64
 }: PropsWithChildren<{bottomInset?:number}>) {
+  const { palette } = useAppearance();
   const width = useHydratedWindowWidth();
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
   return (
-    <View style={[styles.content, { maxWidth: layout.contentMax, paddingHorizontal: horizontal, paddingBottom: bottomInset }]}>
+    <View
+      style={[
+        styles.content,
+        {
+          maxWidth: layout.contentMax,
+          paddingHorizontal: horizontal,
+          paddingBottom: bottomInset,
+          backgroundColor: palette.paper
+        }
+      ]}
+    >
       {children}
     </View>
   );
