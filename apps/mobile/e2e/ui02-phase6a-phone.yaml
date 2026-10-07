@@ -334,14 +334,19 @@ appId: zw.co.healthtimes.app.dev
     text: "Africa"
     below: "Primary Edition"
     selected: true
-- scrollUntilVisible:
-    element:
-      text: "Save Preferences"
-    direction: DOWN
-    speed: 75
-    visibilityPercentage: 20
-    timeout: 45000
-    centerElement: true
+# Maestro scrollUntilVisible can miss the lower content region on compact phones.
+# Keep the strong Save + persistence proof, but use a bounded custom swipe loop.
+- repeat:
+    times: 20
+    while:
+      notVisible: "Save Preferences"
+    commands:
+      - swipe:
+          start: 50%, 82%
+          end: 50%, 28%
+          duration: 650
+          waitToSettleTimeoutMs: 500
+- assertVisible: "Save Preferences"
 - tapOn: "Save Preferences"
 - scrollUntilVisible:
     element:
