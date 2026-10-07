@@ -59,6 +59,7 @@ export default function ReaderTabs() {
 
   return (
     <Tabs
+      key={palette.paper + "|" + palette.ink}
       tabBar={desktop ? () => null : undefined}
       screenOptions={{
         headerShown:false,
