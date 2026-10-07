@@ -580,6 +580,20 @@ UI-WF-00A does not add a package dependency.
 | Most Read | no ranking query authority | none | unavailable | zero space | AnalyticsService is track-only |
 | Edition section | reader preferences + geography-filtered Home stories | primaryEdition, geography | available | truthful edition-empty state | current feed may not contain enough edition-specific stories |
 
+### Live staging verification (2026-10-07)
+
+Read-only verification against the connected HealthTimes Staging database confirms the service/data findings above:
+
+- \`ag05_public_feed_rows(100)\` returned 100 source-backed feed rows; all 100 carried \`published_at\`.
+- The latest returned rows included real HealthTimes canonical URLs, authors and publication timestamps. This proves the Home feed authority is populated independently of the empty canonical \`stories\` publication table.
+- A real returned Zimbabwe story was resolved through \`ag05_public_story_teaser_document(...)\` and exposed title, author, publication timestamp, canonical URL, featured media/alt text and Premium-marker state. Its protected \`body_html\` was null while \`premium_teaser_html\` was present. The migrated-corpus mapper fails non-\`public\` access markers closed to Reader \`accessPolicy="premium"\` and records unresolved markers as requiring review.
+- \`ag05_hospaz_direct_ad_preview()\` returned the current HOSPAZ capability with placement key \`hospaz-header-direct\` and current creative provenance. Destination URL, schedule and placement conditions were still \`UNKNOWN\`; destination URL was null. This confirms the existing fail-closed commercial behavior and proves that UI-WF work must not invent those fields.
+- \`analytics_daily_metrics\` exists but currently contains 0 rows. No article-level ranking dataset was present to support a truthful Most Read module.
+- No public base table with a live/stream/video naming pattern was present, consistent with the current migrated/source-parity Reader Live service returning no Live items.
+- The public \`stories\` table currently has 0 rows with \`status='published'\`; the accepted Reader Home path instead consumes the AG-05 public migrated-corpus RPC projection. UI-WF must therefore preserve that source path rather than infer that an empty \`stories\` table means Home is empty.
+
+These checks are investigation evidence only. They do not mutate Supabase and do not authorize a data-model change.
+
 ---
 
 ## 22. Loading / empty / partial / error / offline states
