@@ -288,7 +288,7 @@ export function EditorialTabs<T extends string>({
         return (
           <Pressable
             key={item.key}
-            accessibilityRole="tab"
+            accessibilityRole="button"
             accessibilityState={{ selected: active }}
             accessibilityLabel={item.label}
             onPress={() => onChange(item.key)}
