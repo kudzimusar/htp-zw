@@ -15,11 +15,6 @@ appId: zw.co.healthtimes.app.dev
       visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
-      - runFlow:
-          when:
-            visible: "Top Stories"
-          commands:
-            - tapOn: "Search HealthTimes"
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 45000

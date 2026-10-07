@@ -89,9 +89,20 @@ test("Phase 6A native flows handle iOS deep links and deterministic offline evid
   assert.equal(count(tablet,"- openLink:"),count(tablet,promptGuard));
   assert.ok(phone.includes('- openLink: "healthtimes://saved?tab=offline"'));
   assert.equal(phone.includes('- tapOn: "Offline"'),false);
-  assert.match(phone,/platform: iOS[\s\S]*visible: "Top Stories"[\s\S]*tapOn: "Search HealthTimes"/);
-  assert.equal((phone.match(/tapOn: "Search HealthTimes"/g)??[]).length,1);
-  assert.ok(tablet.includes("timeout: 240000"));
+  const searchOpen=phone.indexOf('- openLink: "healthtimes://search"');
+  const searchDestination=phone.indexOf('visible: "Intelligent Search"',searchOpen);
+  assert.ok(searchOpen>=0);
+  assert.ok(searchDestination>searchOpen);
+  const searchTransition=phone.slice(searchOpen,searchDestination);
+  assert.ok(searchTransition.includes(promptGuard));
+  assert.ok(searchTransition.includes('- tapOn: "Open"'));
+  assert.equal(searchTransition.includes('visible: "Top Stories"'),false);
+  assert.equal(searchTransition.includes('tapOn: "Search HealthTimes"'),false);
+  assert.match(
+    phone,
+    /- openLink: "healthtimes:\/\/search"\n- runFlow:\n    when:\n      platform: iOS\n      visible: "Open in \.\*HealthTimes Dev\.\*"\n    commands:\n      - tapOn: "Open"\n- extendedWaitUntil:\n    visible: "Intelligent Search"\n    timeout: 45000/
+  );
+  assert.equal((phone.match(/tapOn: "Search HealthTimes"/g)??[]).length,0);  assert.ok(tablet.includes("timeout: 240000"));
 });
 
 test("Phase 6A workflow is exact-head and real native-device oriented",()=>{
