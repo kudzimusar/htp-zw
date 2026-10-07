@@ -17,7 +17,7 @@ env:
 jobs:
   home-contract-and-web-evidence:
     name: UI-WF-01A contract + Web/PWA evidence
-    if: github.event.pull_request.head.ref == 'feat/ui-wf01a-home-shared-shell-foundation'
+    if: github.event.pull_request.head.ref == 'feat/ui-wf01a-current-main-home-shared-shell'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
