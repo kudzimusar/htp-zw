@@ -44,7 +44,7 @@ test("UI-WF-01A candidate Home evidence at required Web/PWA viewports",async({br
     const page=await browser.newPage({viewport:{width:viewport.width,height:viewport.height},colorScheme:"light"});
     await ready(page,candidate,"candidate "+viewport.name);
     for(const tab of ["For You","Latest","Zimbabwe","World","Premium"]){
-      await expect(page.getByRole("tab",{name:tab})).toBeVisible();
+      await expect(page.getByRole("button",{name:tab,exact:true})).toBeVisible();
     }
     if(viewport.width<768){
       await expect(page.getByRole("button",{name:"Search HealthTimes"})).toBeVisible();
