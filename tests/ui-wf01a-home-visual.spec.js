@@ -74,14 +74,23 @@ test("current canonical main comparison captures use the same required viewports
 
 test("candidate HealthTimes Dark mode and truthful empty commercial/live states",async({browser})=>{
   const dark=await browser.newPage({viewport:{width:390,height:844},colorScheme:"light"});
-  const appearanceResponse=await dark.goto(candidate.replace(/\/$/,"")+"/appearance",{waitUntil:"domcontentloaded",timeout:60000});
+  const appearanceResponse=await dark.goto(candidate.replace(/\/$/,"")+"/appearance.html",{waitUntil:"domcontentloaded",timeout:60000});
   expect(appearanceResponse && appearanceResponse.status(),"candidate appearance HTTP").toBe(200);
   await dark.getByText("Appearance",{exact:true}).first().waitFor({timeout:30000});
   await dark.getByRole("button",{name:"Dark",exact:true}).click();
   await dark.getByRole("button",{name:"HealthTimes Home"}).click();
   await dark.getByText("Top Stories",{exact:true}).first().waitFor({timeout:60000});
   await dark.waitForTimeout(750);
-  const darkSurface=await dark.locator("body").evaluate((node)=>getComputedStyle(node).backgroundColor);
+  const darkSurface=await dark.getByRole("button",{name:"HealthTimes Home"}).evaluate((node)=>{
+    let current=node;
+    while(current){
+      const background=getComputedStyle(current).backgroundColor;
+      if(background && background!=="rgba(0, 0, 0, 0)" && background!=="transparent") return background;
+      current=current.parentElement;
+    }
+    return "";
+  });
+  expect(darkSurface,"HealthTimes Dark surface").toBe("rgb(11, 22, 34)");
   await dark.screenshot({path:path.join(evidenceDir,"candidate-home-phone-dark.png"),fullPage:false});
   fs.writeFileSync(path.join(evidenceDir,"dark-render-state.json"),JSON.stringify({surface:darkSurface,mode:"HealthTimes Dark preference"},null,2));
   await dark.close();
