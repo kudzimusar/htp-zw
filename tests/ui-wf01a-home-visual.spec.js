@@ -74,7 +74,7 @@ test("current canonical main comparison captures use the same required viewports
 
 test("candidate HealthTimes Dark mode and truthful empty commercial/live states",async({browser})=>{
   const dark=await browser.newPage({viewport:{width:390,height:844},colorScheme:"light"});
-  const appearanceResponse=await dark.goto(candidate.replace(/\/$/,"")+"/appearance.html",{waitUntil:"domcontentloaded",timeout:60000});
+  const appearanceResponse=await dark.goto(candidate.replace(/\/$/,"")+"/appearance/",{waitUntil:"domcontentloaded",timeout:60000});
   expect(appearanceResponse && appearanceResponse.status(),"candidate appearance HTTP").toBe(200);
   await dark.getByText("Appearance",{exact:true}).first().waitFor({timeout:30000});
   await dark.getByRole("button",{name:"Dark",exact:true}).click();
