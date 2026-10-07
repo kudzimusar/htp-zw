@@ -274,6 +274,7 @@ try{
     if(promptAppeared){
       await dismiss.click();
       await prompt.waitFor({state:"hidden",timeout:5000});
+      await page.getByRole("heading",{name:"Keep reading with HealthTimes Premium",exact:true}).waitFor({state:"hidden",timeout:5000});
     }
     const cta=page.getByRole("button",{name:/Go to HealthTimes Premium|Go Premium/}).first();
     await cta.scrollIntoViewIfNeeded();await cta.click();await page.waitForURL(u=>u.pathname.endsWith("/premium")||u.pathname.endsWith("/premium/"),{timeout:15000});
