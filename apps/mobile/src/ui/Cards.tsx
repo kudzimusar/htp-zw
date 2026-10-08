@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
-import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
+import { breakpoints, radius, spacing, type } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
@@ -27,8 +27,12 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
   const phone=width < breakpoints.tablet;
   const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
-  const [mediaFailed,setMediaFailed]=useState(false);
-  const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{
+    setMediaState(mediaUrl ? "loading" : "failed");
+  },[mediaUrl]);
+  const hasMedia=Boolean(mediaUrl) && mediaState==="ready";
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -37,25 +41,28 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       accessibilityHint="Opens the full HealthTimes article"
       style={[
         styles.hero,
-        {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
         tablet && styles.heroTablet,
         desktop && styles.heroDesktop
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {hasMedia && story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
-          onError={()=>setMediaFailed(true)}
-          style={[
+          testID="home-hero-media"
+          source={{ uri: mediaUrl }}
+          resizeMode="cover"
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready" ? [
             styles.heroImage,
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
             desktop && styles.heroImageDesktop
-          ]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+          ] : styles.heroImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={[
@@ -92,6 +99,11 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
 export function StoryCard({ story, compact = false }: { story: ArticleSummary; compact?: boolean }) {
   const router=useRouter();
   const { palette }=useAppearance();
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{
+    setMediaState(mediaUrl ? "loading" : "failed");
+  },[mediaUrl]);
   return (
     <Pressable
       accessibilityRole="link"
@@ -100,11 +112,18 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
       style={[styles.storyCard,{borderBottomColor:palette.border}, compact && styles.storyCompact]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
-          style={[styles.storyImage,{backgroundColor:palette.paperMuted}, compact && styles.storyImageCompact]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+          testID={mediaState==="ready" ? "story-card-media" : undefined}
+          source={{ uri: mediaUrl }}
+          resizeMode="cover"
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready"
+            ? [styles.storyImage,{backgroundColor:palette.paperMuted}, compact && styles.storyImageCompact]
+            : styles.storyImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={styles.storyBody}>
@@ -424,10 +443,11 @@ export function Surface({ children }: PropsWithChildren) {
 }
 
 const styles=StyleSheet.create({
-  hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
+  hero:{paddingBottom:spacing.xl,position:"relative"},
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
+  heroImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
   heroImageTablet:{width:"56%",aspectRatio:4/3},
@@ -437,7 +457,7 @@ const styles=StyleSheet.create({
   heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
   heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
-  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
+  heroTitleOverlay:{fontSize:31,lineHeight:35,letterSpacing:-0.75},
   heroTitleTablet:{fontSize:30,lineHeight:35},
   heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
@@ -446,6 +466,7 @@ const styles=StyleSheet.create({
   meta:{fontSize:type.meta},
   storyCard:{borderBottomWidth:1,paddingBottom:spacing.lg,gap:spacing.md},
   storyCompact:{flexDirection:"row",alignItems:"flex-start"},
+  storyImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   storyImage:{width:"100%",aspectRatio:16/9},
   storyImageCompact:{width:112,height:78,aspectRatio:undefined},
   storyBody:{gap:spacing.xs,flex:1},
@@ -508,6 +529,6 @@ const styles=StyleSheet.create({
   adCreativePressable:{width:"100%"},
   adCreative:{width:"100%"},
   adNoDestination:{fontSize:11,lineHeight:16,textAlign:"center",maxWidth:620,fontStyle:"italic"},
-  premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,color:colors.premium,borderWidth:1,borderColor:colors.premium,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
+  premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,borderWidth:1,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
   surface:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg}
 });

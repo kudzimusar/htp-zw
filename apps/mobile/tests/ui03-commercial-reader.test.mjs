@@ -101,12 +101,16 @@ test("UI-03 responsive advertising preserves service and destination authority",
   assert.match(cards,/ADVERTISEMENT/);
 });
 
-test("UI-03 leaves Home implementation and fixed HOSPAZ placement intact",()=>{
+test("UI-03 preserves fixed HOSPAZ authority while allowing the accepted UI-WF Home composition",()=>{
   const home=read("app/(reader)/index.tsx");
   assert.match(home,/AdSlot placement="hospaz-header-direct"/);
   assert.equal((home.match(/hospaz-header-direct/g)??[]).length,1);
   assert.match(home,/SectionHeader title="Top Stories"/);
-  assert.match(home,/Editorial filters/);
+  assert.match(home,/accessibilityLabel="HealthTimes Home sections"/);
+  for(const label of ["For You","Latest","Zimbabwe","World","Premium"]){
+    assert.ok(home.includes('label:"'+label+'"'),"missing accepted UI-WF Home tab: "+label);
+  }
+  assert.equal(home.includes("EDITOR'S DESK"),false);
 });
 
 

@@ -60,13 +60,17 @@ test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
 test("UI-01 Screen 1 shell removes dominant environment chrome and mobile utility cards",()=>{
   assert.doesNotMatch(layout,/\{chrome && <EnvironmentBanner \/>\}/);
   assert.doesNotMatch(layout,/mobileUtilityWrap/);
-  assert.match(layout,/phoneActionButton/);
+  assert.match(layout,/const phoneSearchAction = phone \? \(/);
+  assert.match(layout,/accessibilityLabel="Search HealthTimes"/);
+  assert.match(layout,/searchIconButton:\{marginLeft:"auto",width:layout\.touchMin,height:layout\.touchMin/);
   assert.match(layout,/phoneBrand/);
+  assert.doesNotMatch(layout,/phoneActionButton/);
 });
 
-test("UI-01 Home keeps filters single-row, collapses absent ads, and uses publication language",()=>{
-  assert.match(home,/<ScrollView[\s\S]*horizontal[\s\S]*accessibilityLabel="Editorial filters"/);
-  assert.doesNotMatch(home,/editorialFilters:\{[^}]*flexWrap:"wrap"/);
+test("UI-01 Home keeps editorial tabs single-row, collapses absent ads, and uses publication language",()=>{
+  assert.match(home,/<EditorialTabs/);
+  assert.match(home,/accessibilityLabel="HealthTimes Home sections"/);
+  assert.doesNotMatch(home,/<Chip/);
   assert.doesNotMatch(home,/<Section><AdSlot placement="hospaz-header-direct"/);
   assert.doesNotMatch(home,/<Section><AdSlot placement="home_after_live"/);
   assert.doesNotMatch(home,/Premium reporting unavailable in this source window/);
@@ -74,7 +78,10 @@ test("UI-01 Home keeps filters single-row, collapses absent ads, and uses public
   assert.doesNotMatch(home,/Most Read \/ Trending/);
   assert.match(cards,/heroBodyOverlay/);
   assert.match(cards,/useHydratedCardWidth/);
-  assert.match(cards,/onError=\{\(\)=>setMediaFailed\(true\)\}/);
+  assert.match(cards,/const \[mediaState,setMediaState\]=useState/);
+  assert.match(cards,/onLoad=\{\(\)=>setMediaState\("ready"\)\}/);
+  assert.match(cards,/onError=\{\(\)=>setMediaState\("failed"\)\}/);
+  assert.match(cards,/heroImageProbe:\{position:"absolute",width:1,height:1,opacity:0\}/);
 });
 
 test("Phase 10 public Article Reader hides migration-internal taxonomy labels",()=>{
