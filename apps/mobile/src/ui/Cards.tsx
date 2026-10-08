@@ -99,6 +99,11 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
 export function StoryCard({ story, compact = false }: { story: ArticleSummary; compact?: boolean }) {
   const router=useRouter();
   const { palette }=useAppearance();
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{
+    setMediaState(mediaUrl ? "loading" : "failed");
+  },[mediaUrl]);
   return (
     <Pressable
       accessibilityRole="link"
@@ -107,11 +112,18 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
       style={[styles.storyCard,{borderBottomColor:palette.border}, compact && styles.storyCompact]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
-          style={[styles.storyImage,{backgroundColor:palette.paperMuted}, compact && styles.storyImageCompact]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+          testID={mediaState==="ready" ? "story-card-media" : undefined}
+          source={{ uri: mediaUrl }}
+          resizeMode="cover"
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready"
+            ? [styles.storyImage,{backgroundColor:palette.paperMuted}, compact && styles.storyImageCompact]
+            : styles.storyImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={styles.storyBody}>
@@ -454,6 +466,7 @@ const styles=StyleSheet.create({
   meta:{fontSize:type.meta},
   storyCard:{borderBottomWidth:1,paddingBottom:spacing.lg,gap:spacing.md},
   storyCompact:{flexDirection:"row",alignItems:"flex-start"},
+  storyImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   storyImage:{width:"100%",aspectRatio:16/9},
   storyImageCompact:{width:112,height:78,aspectRatio:undefined},
   storyBody:{gap:spacing.xs,flex:1},
