@@ -152,6 +152,60 @@ export function StoryList({ stories }: { stories: ArticleSummary[] }) {
   );
 }
 
+function TopStoryRow({ story }: { story: ArticleSummary }) {
+  const router=useRouter();
+  const { palette }=useAppearance();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={story.title}
+      accessibilityHint="Opens the full HealthTimes article"
+      style={[styles.topStoryRow,{borderBottomColor:palette.border}]}
+      onPress={() => router.push(("/article/" + story.id) as never)}
+    >
+      <View style={styles.topStoryCopy}>
+        <View style={styles.metaRow}>
+          <Text style={[styles.topStoryKicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
+          {story.accessPolicy === "premium" && <PremiumBadge />}
+        </View>
+        <Text numberOfLines={3} style={[styles.topStoryTitle,{color:palette.ink}]}>{story.title}</Text>
+        <Text style={[styles.topStoryMeta,{color:palette.inkMuted}]}>
+          {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
+        </Text>
+      </View>
+      {story.heroMedia?.publicUrl ? (
+        <Image
+          source={{uri:story.heroMedia.publicUrl}}
+          style={[styles.topStoryImage,{backgroundColor:palette.paperMuted}]}
+          accessibilityLabel={story.heroMedia.altText ?? story.title}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+export function TopStoriesList({ stories }: { stories: ArticleSummary[] }) {
+  const width=useHydratedCardWidth();
+  const tablet=width >= breakpoints.tablet;
+  const desktop=width >= breakpoints.desktop;
+  return (
+    <View style={[styles.topStoriesList,tablet && styles.topStoriesListWide]}>
+      {stories.map((story)=>(
+        <View
+          key={story.id}
+          style={[
+            styles.topStoryCell,
+            tablet && styles.topStoryCellTablet,
+            desktop && styles.topStoryCellDesktop
+          ]}
+        >
+          <TopStoryRow story={story} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function LiveRail({ items }: { items: LiveItem[] }) {
   const { palette }=useAppearance();
   return (
@@ -426,20 +480,20 @@ export function Surface({ children }: PropsWithChildren) {
 const styles=StyleSheet.create({
   hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
-  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
-  heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
+  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.sm,minHeight:360},
+  heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xxl,paddingTop:spacing.md,minHeight:430},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
-  heroImageTablet:{width:"56%",aspectRatio:4/3},
-  heroImageDesktop:{width:"59%",aspectRatio:16/10},
+  heroImageTablet:{width:"58%",aspectRatio:4/3},
+  heroImageDesktop:{width:"64%",aspectRatio:16/10},
   heroBody:{paddingTop:spacing.lg,gap:spacing.sm},
-  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.76)"},
-  heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
-  heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
+  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.78)"},
+  heroBodyTablet:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.md},
+  heroBodyDesktop:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.xl},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
-  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
-  heroTitleTablet:{fontSize:30,lineHeight:35},
-  heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
+  heroTitleOverlay:{fontSize:30,lineHeight:34,letterSpacing:-0.7},
+  heroTitleTablet:{fontSize:32,lineHeight:37},
+  heroTitleDesktop:{fontSize:44,lineHeight:49,letterSpacing:-1.1},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
   metaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   kicker:{fontSize:type.label,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
@@ -460,6 +514,17 @@ const styles=StyleSheet.create({
   storyListDesktop:{flexDirection:"row",flexWrap:"wrap",columnGap:spacing.xl},
   storyListItem:{width:"100%"},
   storyListItemDesktop:{width:"48.8%"},
+  topStoriesList:{width:"100%",gap:spacing.md},
+  topStoriesListWide:{flexDirection:"row",flexWrap:"wrap",columnGap:spacing.xl,rowGap:spacing.md},
+  topStoryCell:{width:"100%"},
+  topStoryCellTablet:{width:"48%"},
+  topStoryCellDesktop:{width:"48.8%"},
+  topStoryRow:{minHeight:96,flexDirection:"row",alignItems:"flex-start",gap:spacing.md,borderBottomWidth:1,paddingBottom:spacing.md},
+  topStoryCopy:{flex:1,gap:4,minWidth:0},
+  topStoryKicker:{fontSize:9,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.75},
+  topStoryTitle:{fontSize:17,lineHeight:22,fontWeight:"900",letterSpacing:-0.15},
+  topStoryMeta:{fontSize:10,lineHeight:14},
+  topStoryImage:{width:104,height:72},
   rail:{gap:spacing.md,paddingRight:spacing.lg},
   liveCard:{width:300,borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
   liveImage:{width:"100%",height:148},
