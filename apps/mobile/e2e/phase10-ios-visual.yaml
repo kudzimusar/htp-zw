@@ -1,0 +1,57 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+
+# HOME — prove real Reader identity before capture.
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 240000
+- assertVisible: "For You"
+- assertVisible: "Latest"
+- assertVisible: "Zimbabwe"
+- assertVisible: "World"
+- assertVisible: "Premium"
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: "A required entitlement isn't present"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- takeScreenshot: home
+
+# PREMIUM — resolve the iOS deep-link confirmation before certifying the destination.
+- openLink: "healthtimes://premium"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES PREMIUM"
+    timeout: 45000
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: "A required entitlement isn't present"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- takeScreenshot: premium
+
+# WATCH — require the real Watch surface and source-backed featured-video anchor.
+- openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 45000
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 45000
+- assertVisible: ".*YouTube.*"
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: "A required entitlement isn't present"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- takeScreenshot: watch
