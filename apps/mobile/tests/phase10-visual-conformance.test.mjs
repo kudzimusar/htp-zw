@@ -78,7 +78,10 @@ test("UI-01 Home keeps editorial tabs single-row, collapses absent ads, and uses
   assert.doesNotMatch(home,/Most Read \/ Trending/);
   assert.match(cards,/heroBodyOverlay/);
   assert.match(cards,/useHydratedCardWidth/);
-  assert.match(cards,/onError=\{\(\)=>setMediaFailed\(true\)\}/);
+  assert.match(cards,/const \[mediaState,setMediaState\]=useState/);
+  assert.match(cards,/onLoad=\{\(\)=>setMediaState\("ready"\)\}/);
+  assert.match(cards,/onError=\{\(\)=>setMediaState\("failed"\)\}/);
+  assert.match(cards,/heroImageProbe:\{position:"absolute",width:1,height:1,opacity:0\}/);
 });
 
 test("Phase 10 public Article Reader hides migration-internal taxonomy labels",()=>{
