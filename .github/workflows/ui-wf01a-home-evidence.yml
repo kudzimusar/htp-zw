@@ -13,6 +13,8 @@ concurrency:
 env:
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   UI_WF01A_BASE_SHA: 6994aa18d37e2189dbc1d3f8efc76a638ee0971c
+  UI_WF01A_PRODUCT_SOURCE_SHA: 4b97d624c5bd381fdc747c5b6d605af0370fad6a
+  UI_WF01A_STALE_EVIDENCE_SOURCE_SHA: 16f6d5976f891fd30939923f2787b8517e802e80
 
 jobs:
   home-contract-and-web-evidence:
@@ -171,6 +173,8 @@ jobs:
             task:"UI-WF-01A-R1",
             candidateSha:process.env.EXPECTED_SHA,
             currentMainSha:process.env.UI_WF01A_BASE_SHA,
+            productSourceSha:process.env.UI_WF01A_PRODUCT_SOURCE_SHA,
+            staleEvidenceSourceSha:process.env.UI_WF01A_STALE_EVIDENCE_SOURCE_SHA,
             contractAuthority:"5b4c289146534e0855e8c9b6fddf136a1f3eb5fd",
             comparison:["REFERENCE WIREFRAME","CURRENT MAIN","UI-WF-01A CANDIDATE"],
             requiredWebViewports:["390x844","834x1112","1440x1000"],
