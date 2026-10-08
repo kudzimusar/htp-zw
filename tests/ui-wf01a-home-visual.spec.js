@@ -32,6 +32,27 @@ async function assertNoOverflow(page,label){
   expect(dims.bodyScroll,label+" body overflow").toBeLessThanOrEqual(dims.htmlClient+2);
 }
 
+async function assertNoBlankHeroMedia(page,label){
+  const media=page.getByTestId("home-hero-media");
+  if(await media.count()===0) return;
+  const state=await media.first().evaluate((node)=>{
+    const rect=node.getBoundingClientRect();
+    const image=node;
+    return {
+      width:Math.round(rect.width),
+      height:Math.round(rect.height),
+      naturalWidth:Number(image.naturalWidth||0),
+      naturalHeight:Number(image.naturalHeight||0),
+      opacity:getComputedStyle(node).opacity
+    };
+  });
+  const reservesHeroSpace=state.width>20 && state.height>20 && state.opacity!=="0";
+  if(reservesHeroSpace){
+    expect(state.naturalWidth,label+" visible Hero media natural width").toBeGreaterThan(0);
+    expect(state.naturalHeight,label+" visible Hero media natural height").toBeGreaterThan(0);
+  }
+}
+
 const viewports=[
   {name:"390x844",width:390,height:844},
   {name:"834x1112",width:834,height:1112},
@@ -56,6 +77,7 @@ test("UI-WF-01A candidate Home evidence at required Web/PWA viewports",async({br
       expect(await page.getByRole("tab").count(),"desktop mobile bottom navigation").toBe(0);
     }
     await assertNoOverflow(page,"candidate "+viewport.name);
+    await assertNoBlankHeroMedia(page,"candidate "+viewport.name);
     await page.screenshot({path:path.join(evidenceDir,"candidate-home-"+viewport.name+".png"),fullPage:false});
     await page.close();
   }
