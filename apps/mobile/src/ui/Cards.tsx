@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { AdPlacementKey, ArticleSummary, AudioItem, LiveItem, VideoItem } from "../domain/models";
-import { breakpoints, colors, radius, spacing, type } from "../theme/tokens";
+import { breakpoints, radius, spacing, type } from "../theme/tokens";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
@@ -37,7 +37,6 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       accessibilityHint="Opens the full HealthTimes article"
       style={[
         styles.hero,
-        {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
         tablet && styles.heroTablet,
         desktop && styles.heroDesktop
@@ -424,7 +423,7 @@ export function Surface({ children }: PropsWithChildren) {
 }
 
 const styles=StyleSheet.create({
-  hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
+  hero:{paddingBottom:spacing.xl,position:"relative"},
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
@@ -437,7 +436,7 @@ const styles=StyleSheet.create({
   heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
   heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
-  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
+  heroTitleOverlay:{fontSize:31,lineHeight:35,letterSpacing:-0.75},
   heroTitleTablet:{fontSize:30,lineHeight:35},
   heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
@@ -508,6 +507,6 @@ const styles=StyleSheet.create({
   adCreativePressable:{width:"100%"},
   adCreative:{width:"100%"},
   adNoDestination:{fontSize:11,lineHeight:16,textAlign:"center",maxWidth:620,fontStyle:"italic"},
-  premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,color:colors.premium,borderWidth:1,borderColor:colors.premium,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
+  premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,borderWidth:1,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
   surface:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg}
 });
