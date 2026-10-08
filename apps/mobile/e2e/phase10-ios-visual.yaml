@@ -16,14 +16,34 @@ appId: zw.co.healthtimes.app.dev
 - assertNotVisible: "KeyChainException"
 - assertNotVisible: "A required entitlement isn't present"
 - assertNotVisible: "Open in .*HealthTimes.*"
+
+# Prime iOS custom-scheme trust on Home before certifying routed screenshots.
+# First-use confirmation can leave Maestro's accessibility snapshot stale for
+# the destination immediately after the system sheet is dismissed.
+- openLink: "healthtimes://"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 45000
+- assertVisible: "For You"
+- assertVisible: "Premium"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: "A required entitlement isn't present"
 - takeScreenshot: home
 
-# PREMIUM — resolve the iOS deep-link confirmation before certifying the destination.
+# PREMIUM — the trust prompt has already been resolved on Home.
 - openLink: "healthtimes://premium"
 - runFlow:
     when:
       platform: iOS
-      visible: "Open in .*HealthTimes.*"
+      visible: "Open in .*HealthTimes Dev.*"
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
