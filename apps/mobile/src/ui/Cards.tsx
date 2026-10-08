@@ -27,8 +27,12 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
   const phone=width < breakpoints.tablet;
   const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
-  const [mediaFailed,setMediaFailed]=useState(false);
-  const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{
+    setMediaState(mediaUrl ? "loading" : "failed");
+  },[mediaUrl]);
+  const hasMedia=Boolean(mediaUrl) && mediaState==="ready";
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -43,19 +47,22 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {hasMedia && story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
+          testID="home-hero-media"
+          source={{ uri: mediaUrl }}
           resizeMode="cover"
-          onError={()=>setMediaFailed(true)}
-          style={[
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready" ? [
             styles.heroImage,
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
             desktop && styles.heroImageDesktop
-          ]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+          ] : styles.heroImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={[
@@ -428,6 +435,7 @@ const styles=StyleSheet.create({
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
+  heroImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
   heroImageTablet:{width:"56%",aspectRatio:4/3},
