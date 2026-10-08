@@ -104,5 +104,7 @@ test("UI-WF-01A keeps first-viewport Hero source-backed and visually dominant",(
   assert.ok(cards.includes("heroImagePhone:{aspectRatio:4/3}"));
   assert.ok(cards.includes("heroTitleOverlay:{fontSize:31"));
   assert.ok(cards.includes("story.title"));
+  assert.ok(cards.includes('testID={mediaState==="ready" ? "story-card-media" : undefined}'));
+  assert.ok(cards.includes('storyImageProbe:{position:"absolute",width:1,height:1,opacity:0}'));
   assert.equal(/unsplash|placeholder\.com|picsum/i.test(cards),false);
 });
