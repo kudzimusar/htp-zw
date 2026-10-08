@@ -46,6 +46,7 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       {hasMedia && story.heroMedia?.publicUrl ? (
         <Image
           source={{ uri: story.heroMedia.publicUrl }}
+          resizeMode="cover"
           onError={()=>setMediaFailed(true)}
           style={[
             styles.heroImage,
