@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
-import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
-import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
+import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
+import { EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
@@ -193,9 +193,26 @@ export default function HomeScreen() {
         contentContainerStyle={styles.editorialFilters}
         accessibilityLabel="Editorial filters"
       >
-        {filters.map((item)=>(
-          <Chip key={item.key} active={activeFilter===item.key} onPress={()=>setActiveFilter(item.key)}>{item.label}</Chip>
-        ))}
+        {filters.map((item)=>{
+          const active=activeFilter===item.key;
+          return (
+            <Pressable
+              key={item.key}
+              accessibilityRole="button"
+              accessibilityLabel={item.label+" Home filter"}
+              accessibilityState={{selected:active}}
+              onPress={()=>setActiveFilter(item.key)}
+              style={[
+                styles.editorialFilter,
+                {borderBottomColor:active?palette.blue:"transparent"}
+              ]}
+            >
+              <Text style={[styles.editorialFilterText,{color:active?palette.ink:palette.inkMuted}]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       {hero ? <HeroStory story={hero} /> : null}
@@ -209,14 +226,14 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <AdSlot placement="home_after_live" />
-
       <View style={styles.prioritySection}>
         <SectionHeader title="Top Stories" eyebrow="EDITOR'S DESK" action="Explore" onAction={() => router.push("/explore" as never)} />
         {topStories.length
-          ? <StoryList stories={topStories} />
+          ? <TopStoriesList stories={topStories} />
           : <EmptyState title="More reporting is on the way" message="Choose another front-page filter or explore more HealthTimes coverage." />}
       </View>
+
+      <AdSlot placement="home_after_live" />
 
       <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
       <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
@@ -286,8 +303,10 @@ export default function HomeScreen() {
 
 const styles=StyleSheet.create({
   editorialFilterRail:{marginHorizontal:-spacing.sm},
-  editorialFilters:{paddingVertical:spacing.md,paddingHorizontal:spacing.sm,flexDirection:"row",gap:spacing.sm},
-  prioritySection:{marginTop:spacing.xl},
+  editorialFilters:{paddingVertical:spacing.sm,paddingHorizontal:spacing.sm,flexDirection:"row",gap:spacing.lg,alignItems:"center"},
+  editorialFilter:{minHeight:44,justifyContent:"center",paddingHorizontal:2,borderBottomWidth:2},
+  editorialFilterText:{fontSize:12,fontWeight:"900",letterSpacing:.15},
+  prioritySection:{marginTop:spacing.lg},
   premiumLink:{minHeight:44,textAlignVertical:"center",fontSize:13,fontWeight:"900",paddingVertical:12},
   previewNotice:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.md,paddingHorizontal:spacing.lg,marginBottom:spacing.xl,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.2},
