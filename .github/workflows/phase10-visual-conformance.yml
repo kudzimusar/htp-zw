@@ -234,35 +234,52 @@ jobs:
   candidate-ios:
     name: Candidate iOS Simulator screenshots
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 85
     env:
-      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging
+      APP_ENV: development
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+      EXPO_PUBLIC_HEALTHTIMES_PREMIUM_PREVIEW_SECONDS: "0"
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
+
       - name: Prove exact candidate checkout
         shell: bash
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
           echo "EXPECTED_SHA=$EXPECTED_SHA"
           echo "CHECKED_OUT_SHA=$actual"
           test "$actual" = "$EXPECTED_SHA"
+
+      - name: Record native Apple toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+          xcrun simctl list runtimes
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix apps/mobile --no-audit --no-fund
-      - name: Generate staging iOS project
+
+      - name: Install canonical Reader
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Generate iOS native project
         working-directory: apps/mobile
         run: npx expo prebuild --platform ios --clean --no-install
+
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
         run: pod install
-      - name: Build simulator app
+
+      - name: Resolve Xcode workspace and scheme
         working-directory: apps/mobile/ios
         shell: bash
         run: |
@@ -276,40 +293,213 @@ jobs:
           data=json.load(open('xcode-list.json'))
           schemes=data.get('workspace',{}).get('schemes',[])
           preferred=os.environ['WORKSPACE_NAME']
-          print(preferred if preferred in schemes else [s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))][0])
+          if preferred in schemes:
+              print(preferred)
+          else:
+              app=[s for s in schemes if not s.startswith(('EX','Pods-','React','ExpoModules','RN'))]
+              if not app:
+                  raise SystemExit('No application scheme found: '+','.join(schemes))
+              print(app[0])
           PY
           )
-          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -derivedDataPath "$PWD/DerivedData" CODE_SIGNING_ALLOWED=NO build
-          APP=$(find DerivedData/Build/Products/Release-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
-          test -n "$APP"
-          echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
-      - name: Capture iOS Reader
+          echo "WORKSPACE=$WORKSPACE" >> "$GITHUB_ENV"
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+
+      - name: Resolve current supported iPhone simulator
         shell: bash
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p phase10-evidence/after/ios
-          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for runtime,items in d.items() for x in items if x.get("isAvailable") and x["name"].startswith("iPhone")))')
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" "$IOS_APP"
-          xcrun simctl launch "$UDID" zw.co.healthtimes.app.staging
-          sleep 20
-          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/home.png
-          xcrun simctl openurl "$UDID" "healthtimes://premium" || true
-          sleep 4
-          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/premium.png
-          xcrun simctl openurl "$UDID" "healthtimes://watch" || true
-          sleep 4
-          xcrun simctl io "$UDID" screenshot phase10-evidence/after/ios/watch.png
-          printf '{"sha":"%s","udid":"%s","capturedAt":"%s"}\n' "$EXPECTED_SHA" "$UDID" "$(date -u +%FT%TZ)" > phase10-evidence/after/ios/manifest.json
-      - uses: actions/upload-artifact@v4
+          xcrun simctl shutdown all || true
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json, re, subprocess
+          data=json.loads(subprocess.check_output(["xcrun","simctl","list","devices","available","-j"]))
+          candidates=[]
+          for runtime,devices in data.get("devices",{}).items():
+              version=tuple(int(x) for x in re.findall(r"\d+",runtime))
+              for device in devices:
+                  name=device.get("name","")
+                  udid=device.get("udid","")
+                  if name.startswith("iPhone") and udid:
+                      candidates.append((version,name,udid,runtime))
+          if not candidates:
+              raise SystemExit("No available iPhone simulator")
+          version,name,udid,runtime=sorted(candidates)[-1]
+          print("SIM_UDID="+udid)
+          print("SIM_NAME="+name)
+          print("SIM_RUNTIME="+runtime.rsplit(".",1)[-1].replace("-",".").replace("iOS.","iOS "))
+          PY
+
+      - name: Reset and start selected iOS simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl shutdown "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl erase "$SIM_UDID"
+          xcrun simctl boot "$SIM_UDID"
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          xcrun simctl ui "$SIM_UDID" appearance light || true
+
+      - name: Build proven Debug iOS Simulator app
+        working-directory: apps/mobile/ios
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath "$PWD/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          APP=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 2 -type d -name '*.app' -print -quit)
+          test -n "$APP"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "zw.co.healthtimes.app.dev"
+          echo "IOS_APP=$PWD/$APP" >> "$GITHUB_ENV"
+          echo "IOS_BUNDLE_ID=$BUNDLE_ID" >> "$GITHUB_ENV"
+
+      - name: Install Maestro
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Capture and certify iOS Reader screens
+        shell: bash
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "240000"
+          MAESTRO_CLI_NO_ANALYTICS: "1"
+        run: |
+          set -euo pipefail
+          EVIDENCE_DIR="phase10-evidence/after/ios"
+          MAESTRO_DIR="$EVIDENCE_DIR/maestro"
+          mkdir -p "$MAESTRO_DIR"
+
+          (
+            cd apps/mobile
+            CI=1 EXPO_UNSTABLE_HEADLESS=1 EXPO_NO_DEV_MENU=1 npx expo start --localhost > "../../$EVIDENCE_DIR/metro.log" 2>&1
+          ) &
+          METRO_PID=$!
+          trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 120); do
+            if ! kill -0 "$METRO_PID" 2>/dev/null; then
+              echo "Metro exited before Phase-10 iOS certification could start"
+              cat "$EVIDENCE_DIR/metro.log"
+              exit 1
+            fi
+            if curl --connect-timeout 1 --max-time 2 -sS -o /dev/null http://localhost:8081/; then
+              break
+            fi
+            if [[ "$i" == "120" ]]; then
+              echo "Metro did not accept HTTP connections for Phase-10 iOS certification"
+              cat "$EVIDENCE_DIR/metro.log"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          IOS_METRO_BUNDLE_URL='http://localhost:8081/.expo/.virtual-metro-entry.bundle?platform=ios&dev=true&lazy=true&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=zw.co.healthtimes.app.dev'
+          curl --fail --location --max-time 360 --silent --show-error --output /dev/null "$IOS_METRO_BUNDLE_URL"
+
+          xcrun simctl install "$SIM_UDID" "$IOS_APP"
+          maestro --device "$SIM_UDID" test \
+            --test-output-dir "$MAESTRO_DIR" \
+            apps/mobile/e2e/phase10-ios-visual.yaml
+
+          for screen in home premium watch; do
+            source_file=$(find "$MAESTRO_DIR" -type f -name "$screen.png" -print -quit)
+            if [[ -z "$source_file" ]]; then
+              echo "Required certified screenshot missing: $screen.png"
+              find "$MAESTRO_DIR" -maxdepth 6 -type f -print || true
+              exit 1
+            fi
+            cp "$source_file" "$EVIDENCE_DIR/$screen.png"
+            test -s "$EVIDENCE_DIR/$screen.png"
+          done
+
+          : > "$EVIDENCE_DIR/native-errors.log"
+          grep -E '^ ERROR  ' "$EVIDENCE_DIR/metro.log" >> "$EVIDENCE_DIR/native-errors.log" || true
+          xcrun simctl spawn "$SIM_UDID" log show --last 30m --style compact \
+            --predicate 'process CONTAINS[c] "HealthTimes"' 2>/dev/null \
+            | grep -E '\[com\.facebook\.react\.log:javascript\].*(ERROR|Error|Fatal|Exception)|Unhandled JS Exception|RCTFatal|Terminating app|FunctionCallException|KeyChainException|SecureStore' \
+            >> "$EVIDENCE_DIR/native-errors.log" || true
+
+          if [[ -s "$EVIDENCE_DIR/native-errors.log" ]]; then
+            echo "Fatal/native Reader errors detected during certified Phase-10 iOS capture"
+            cat "$EVIDENCE_DIR/native-errors.log"
+            exit 1
+          fi
+
+          EVIDENCE_DIR="$EVIDENCE_DIR" node <<'NODE'
+          const fs=require("fs");
+          const crypto=require("crypto");
+          const path=require("path");
+          const dir=process.env.EVIDENCE_DIR;
+          const screens=[
+            {file:"home.png",anchor:"Top Stories + For You / Latest / Zimbabwe / World / Premium"},
+            {file:"premium.png",anchor:"HEALTHTIMES PREMIUM"},
+            {file:"watch.png",anchor:"Watch + Featured video + YouTube"}
+          ].map((screen)=>{
+            const full=path.join(dir,screen.file);
+            if(!fs.existsSync(full)||fs.statSync(full).size===0) throw new Error("Missing screenshot "+screen.file);
+            return {
+              ...screen,
+              sha256:crypto.createHash("sha256").update(fs.readFileSync(full)).digest("hex"),
+              semanticValidation:"Maestro PASS before capture",
+              fatalErrorUIAbsent:true,
+              openPromptAbsent:true
+            };
+          });
+          const manifest={
+            sha:process.env.EXPECTED_SHA,
+            candidateSha:process.env.EXPECTED_SHA,
+            runAttempt:Number(process.env.RUN_ATTEMPT),
+            capturedAt:new Date().toISOString(),
+            platform:"iOS",
+            methodology:"UI-02-converged Debug simulator + Metro + Maestro semantic assertions",
+            bundleId:process.env.IOS_BUNDLE_ID,
+            device:process.env.SIM_NAME,
+            udid:process.env.SIM_UDID,
+            runtime:process.env.SIM_RUNTIME,
+            screens,
+            nativeRuntimeErrorLineCount:0,
+            productMutation:false
+          };
+          fs.writeFileSync(path.join(dir,"manifest.json"),JSON.stringify(manifest,null,2));
+          NODE
+
+          manifest_sha=$(node -p "require('./$EVIDENCE_DIR/manifest.json').candidateSha")
+          test "$manifest_sha" = "$EXPECTED_SHA"
+          test "$(node -p "require('./$EVIDENCE_DIR/manifest.json').screens.length")" = "3"
+
+          kill "$METRO_PID" 2>/dev/null || true
+          trap - EXIT
+
+      - name: Upload iOS Phase-10 evidence
+        id: upload-ios
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: phase10-candidate-ios-screenshots
           path: phase10-evidence/after/ios/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
+
+      - name: Record iOS evidence identity
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Phase-10 iOS visual evidence"
+            echo ""
+            echo "- Candidate SHA: $EXPECTED_SHA"
+            echo "- Artifact ID: ${{ steps.upload-ios.outputs.artifact-id }}"
+            echo "- Artifact digest: ${{ steps.upload-ios.outputs.artifact-digest }}"
+            echo "- Artifact URL: ${{ steps.upload-ios.outputs.artifact-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   candidate-android:
     name: Candidate Android emulator screenshots
