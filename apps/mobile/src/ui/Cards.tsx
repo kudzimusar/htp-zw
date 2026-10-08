@@ -13,20 +13,30 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function useHydratedCardWidth() {
-  const { width }=useWindowDimensions();
+function useHydratedCardDimensions() {
+  const { width,height }=useWindowDimensions();
   const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
   useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
-  return responsiveReady ? width : 0;
+  return responsiveReady ? {width,height} : {width:0,height:0};
+}
+
+function useHydratedCardWidth() {
+  return useHydratedCardDimensions().width;
 }
 
 export function HeroStory({ story }: { story: ArticleSummary }) {
   const router=useRouter();
   const { palette }=useAppearance();
-  const width=useHydratedCardWidth();
+  const { width,height }=useHydratedCardDimensions();
   const phone=width < breakpoints.tablet;
   const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
+  const shortTabletLandscape=
+    width >= breakpoints.tablet &&
+    width <= 1200 &&
+    height > 0 &&
+    width > height &&
+    height <= 820;
   const [mediaFailed,setMediaFailed]=useState(false);
   const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
   const imageHeadline=phone && hasMedia;
@@ -40,7 +50,8 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
         tablet && styles.heroTablet,
-        desktop && styles.heroDesktop
+        desktop && styles.heroDesktop,
+        shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
@@ -53,7 +64,8 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
-            desktop && styles.heroImageDesktop
+            desktop && styles.heroImageDesktop,
+            shortTabletLandscape && styles.heroImageShortTabletLandscape
           ]}
           accessibilityLabel={story.heroMedia.altText ?? story.title}
         />
@@ -62,7 +74,8 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         styles.heroBody,
         imageHeadline && styles.heroBodyOverlay,
         tablet && styles.heroBodyTablet,
-        desktop && styles.heroBodyDesktop
+        desktop && styles.heroBodyDesktop,
+        shortTabletLandscape && styles.heroBodyShortTabletLandscape
       ]}>
         <View style={styles.metaRow}>
           <Text style={[styles.kicker,{color:imageHeadline?"#D9F5F3":palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
@@ -75,12 +88,23 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
             {color:imageHeadline?"#FFFFFF":palette.ink},
             imageHeadline && styles.heroTitleOverlay,
             tablet && styles.heroTitleTablet,
-            desktop && styles.heroTitleDesktop
+            desktop && styles.heroTitleDesktop,
+            shortTabletLandscape && styles.heroTitleShortTabletLandscape
           ]}
         >
           {story.title}
         </Text>
-        {!imageHeadline && !!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
+        {!imageHeadline && !!story.standfirst && (
+          <Text
+            style={[
+              styles.standfirst,
+              {color:palette.inkMuted},
+              shortTabletLandscape && styles.standfirstShortTabletLandscape
+            ]}
+          >
+            {story.standfirst}
+          </Text>
+        )}
         <Text style={[styles.meta,{color:imageHeadline?"#E7EDF3":palette.inkMuted}]}>
           {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
         </Text>
@@ -482,19 +506,24 @@ const styles=StyleSheet.create({
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.sm,minHeight:360},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xxl,paddingTop:spacing.md,minHeight:430},
+  heroShortTabletLandscape:{minHeight:0,gap:spacing.lg,paddingTop:0,paddingBottom:spacing.lg},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
   heroImageTablet:{width:"58%",aspectRatio:4/3},
   heroImageDesktop:{width:"64%",aspectRatio:16/10},
+  heroImageShortTabletLandscape:{width:"55%",aspectRatio:16/9},
   heroBody:{paddingTop:spacing.lg,gap:spacing.sm},
   heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.78)"},
   heroBodyTablet:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.md},
   heroBodyDesktop:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.xl},
+  heroBodyShortTabletLandscape:{paddingTop:spacing.sm,paddingRight:spacing.sm,gap:spacing.xs},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
   heroTitleOverlay:{fontSize:30,lineHeight:34,letterSpacing:-0.7},
   heroTitleTablet:{fontSize:32,lineHeight:37},
   heroTitleDesktop:{fontSize:44,lineHeight:49,letterSpacing:-1.1},
+  heroTitleShortTabletLandscape:{fontSize:30,lineHeight:34,letterSpacing:-0.6},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
+  standfirstShortTabletLandscape:{fontSize:15,lineHeight:20},
   metaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   kicker:{fontSize:type.label,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
   meta:{fontSize:type.meta},
