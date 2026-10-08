@@ -97,6 +97,7 @@ test("UI-WF-01A removes false curation and reduces generic Home containers",()=>
 test("UI-WF-01A keeps first-viewport Hero source-backed and visually dominant",()=>{
   const cards=read("src/ui/Cards.tsx");
   assert.ok(cards.includes("story.heroMedia?.publicUrl"));
+  assert.ok(cards.includes('resizeMode="cover"'));
   assert.ok(cards.includes("heroImagePhone:{aspectRatio:4/3}"));
   assert.ok(cards.includes("heroTitleOverlay:{fontSize:31"));
   assert.ok(cards.includes("story.title"));
