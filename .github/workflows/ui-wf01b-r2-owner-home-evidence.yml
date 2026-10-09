@@ -81,6 +81,7 @@ jobs:
           done
       - name: Capture Owner Checkpoint evidence
         env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173/htp-zw
           UI_WF01B_CANDIDATE_BASE: http://127.0.0.1:4173/htp-zw
           UI_WF01B_CURRENT_BASE: http://127.0.0.1:4174/htp-zw
           UI_WF01B_EVIDENCE_DIR: ui-wf01b-evidence/web
