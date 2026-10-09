@@ -3,6 +3,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SymbolView } from "expo-symbols";
 import { breakpoints, layout, radius, spacing, type } from "../theme/tokens";
 import { environmentSummary } from "../platform/config";
 import { useAppearance } from "../theme/AppearanceProvider";
@@ -125,7 +126,6 @@ export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const phone = width < breakpoints.tablet;
-  const narrowPhone = width > 0 && width < 360;
   const desktop = width >= breakpoints.desktop;
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
@@ -143,57 +143,72 @@ export function AppHeader() {
 
   const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
-  const actions = (
-    <View style={[styles.headerActions, phone && styles.phoneActions]}>
+  const phoneSearchAction = phone ? (
+    <Pressable
+      onPress={() => go("/search")}
+      style={({ pressed }) => [
+        styles.searchIconButton,
+        { backgroundColor: pressed ? palette.paperMuted : "transparent" }
+      ]}
+      accessibilityLabel="Search HealthTimes"
+      accessibilityRole="button"
+      accessibilityHint="Opens HealthTimes search"
+    >
+      <SymbolView
+        name={{ ios: "magnifyingglass", android: "search", web: "search" }}
+        tintColor={palette.ink}
+        size={22}
+      />
+    </Pressable>
+  ) : null;
+
+  const utilityActions = !phone ? (
+    <View style={styles.headerActions}>
       <Pressable
         onPress={() => go("/search")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, { borderColor: palette.border }]}
         accessibilityLabel="Search HealthTimes"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Search</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/notifications")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, { borderColor: palette.border }]}
         accessibilityLabel="Notifications"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Alerts</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/premium")}
-        style={[styles.actionButton, styles.premiumAction, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, styles.premiumAction, { borderColor: palette.border }]}
         accessibilityLabel="HealthTimes Premium"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.blue }]}>Premium</Text>
+        <Text style={[styles.actionText, { color: palette.blue }]}>Premium</Text>
       </Pressable>
     </View>
-  );
+  ) : null;
 
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
-      <View style={[styles.headerInner, phone && styles.phoneHeaderInner, narrowPhone && styles.narrowHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+      <View style={[styles.headerInner, phone && styles.phoneHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
-          <Text style={[styles.brand, phone && styles.phoneBrand, narrowPhone && styles.narrowBrand, { color: palette.ink }]}>HealthTimes</Text>
+          <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
         </Pressable>
 
-        <Pressable
-          onPress={() => go("/edition")}
-          style={[styles.editionButton, phone && styles.phoneEditionButton, { borderColor: palette.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={"Edition " + edition + ". Change edition"}
-        >
-          {phone ? (
-            <Text numberOfLines={1} style={[styles.phoneEditionValue, { color: palette.blue }]}>{edition}</Text>
-          ) : (
-            <>
-              <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
-              <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
-            </>
-          )}
-        </Pressable>
+        {!phone && (
+          <Pressable
+            onPress={() => go("/edition")}
+            style={[styles.editionButton, { borderColor: palette.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={"Edition " + edition + ". Change edition"}
+          >
+            <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
+            <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
+          </Pressable>
+        )}
 
         {desktop && (
           <View style={styles.desktopNav}>
@@ -212,7 +227,7 @@ export function AppHeader() {
           </View>
         )}
 
-        {actions}
+        {phone ? phoneSearchAction : utilityActions}
       </View>
     </View>
   );
@@ -327,24 +342,17 @@ const styles=StyleSheet.create({
   brandButton:{minHeight:layout.touchMin,justifyContent:"center",flexShrink:0},
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
   phoneBrand:{fontSize:21,letterSpacing:-0.6},
-  narrowBrand:{fontSize:18,letterSpacing:-0.5},
   editionButton:{minHeight:layout.touchMin,maxWidth:122,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.sm,flexShrink:1},
-  phoneEditionButton:{maxWidth:52,paddingHorizontal:2,paddingLeft:2,borderLeftWidth:0,alignItems:"center"},
   editionLabel:{fontSize:8,fontWeight:"900",letterSpacing:.8},
   editionValue:{fontSize:11,fontWeight:"900",marginTop:1},
-  phoneEditionValue:{fontSize:10,fontWeight:"900"},
   desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
   desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
   desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.xs,flexShrink:0},
-  phoneActions:{gap:0},
-  narrowHeaderInner:{flexWrap:"wrap",paddingTop:4,paddingBottom:4,gap:2},
-  narrowActions:{width:"100%",marginLeft:0,justifyContent:"space-between"},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:10,borderWidth:1,borderRadius:radius.sm},
   premiumAction:{borderColor:"transparent"},
-  phoneActionButton:{paddingHorizontal:4,borderWidth:0,minWidth:44,alignItems:"center"},
   actionText:{fontSize:12,fontWeight:"900"},
-  phoneActionText:{fontSize:10},
+  searchIconButton:{marginLeft:"auto",width:layout.touchMin,height:layout.touchMin,alignItems:"center",justifyContent:"center",borderRadius:radius.sm},
   screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},

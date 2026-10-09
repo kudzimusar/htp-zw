@@ -9,7 +9,7 @@ import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
 
-type HomeFilter="for-you"|"latest"|"edition"|"world"|"health";
+type HomeFilter="for-you"|"latest"|"zimbabwe"|"world"|"premium";
 
 function publishedTime(story:ArticleSummary){
   return story.publishedAt ? new Date(story.publishedAt).getTime() : 0;
@@ -40,9 +40,16 @@ function matchesPreferences(story:ArticleSummary,preferences:EditionPreference){
   );
 }
 
-function isHealthStory(story:ArticleSummary){
-  const section=story.primarySection?.name.toLowerCase() ?? "";
-  return section.includes("health") || story.topics.some((topic)=>topic.name.toLowerCase().includes("health"));
+function isZimbabweStory(story:ArticleSummary){
+  return story.geography.some((zone)=>
+    normalized(zone.name)==="zimbabwe" || normalized(zone.slug)==="zimbabwe"
+  );
+}
+
+function isWorldStory(story:ArticleSummary){
+  return story.geography.some((zone)=>
+    normalized(zone.name)==="global" || normalized(zone.slug)==="global"
+  );
 }
 
 function uniqueStories(stories:ArticleSummary[]){
@@ -117,27 +124,26 @@ export default function HomeScreen() {
   const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
   const edition=preferenceState.primaryEdition?.trim() || "Global";
   const editionStories=edition.toLowerCase()==="global"
-    ? source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
+    ? source.filter(isWorldStory)
     : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
+  const zimbabweStories=source.filter(isZimbabweStory);
+  const worldStories=source.filter(isWorldStory);
+  const premiumStories=source.filter((story)=>story.accessPolicy==="premium");
 
   const filteredStories=(()=>{
     if(activeFilter==="latest") return source;
-    if(activeFilter==="edition") return editionStories.length ? editionStories : source;
-    if(activeFilter==="world"){
-      const matches=source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"));
-      return matches.length ? matches : source;
-    }
-    if(activeFilter==="health"){
-      const matches=source.filter(isHealthStory);
-      return matches.length ? matches : source;
-    }
+    if(activeFilter==="zimbabwe") return zimbabweStories;
+    if(activeFilter==="world") return worldStories;
+    if(activeFilter==="premium") return premiumStories;
     const matches=source.filter((item)=>matchesPreferences(item,preferenceState));
     return matches.length ? matches : source;
   })();
 
   const [hero,...filteredRemainder]=filteredStories;
   const topStories=filteredRemainder.slice(0,6);
-  const latest=source.filter((story)=>story.id!==hero?.id).slice(0,6);
+  const immediateIds=new Set<string>(topStories.map((story)=>story.id));
+  if(hero) immediateIds.add(hero.id);
+  const latest=source.filter((story)=>!immediateIds.has(story.id)).slice(0,6);
   const features=source.filter((story)=>hasSourceTerm(story,"Features"));
   const research=source.filter((story)=>
     story.primarySection?.slug==="research" ||
@@ -156,7 +162,7 @@ export default function HomeScreen() {
     story.primarySection?.slug==="public-health" &&
     !hasSourceTerm(story,"Features","Health Financing","HIV/AIDS")
   );
-  const premium=source.filter((story)=>story.accessPolicy==="premium");
+  const premium=premiumStories;
   const featuredVideos=video.data?.slice(0,4) ?? [];
   const liveItems=live.data?.length ? live.data.filter((item)=>item.status==="live") : [];
   const opportunityLinks=(publication.data?.sourceLinks ?? []).filter((link)=>
@@ -179,9 +185,9 @@ export default function HomeScreen() {
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},
     {key:"latest",label:"Latest"},
-    {key:"edition",label:edition},
+    {key:"zimbabwe",label:"Zimbabwe"},
     {key:"world",label:"World"},
-    {key:"health",label:"Health"}
+    {key:"premium",label:"Premium"}
   ];
 
   return (
@@ -215,7 +221,25 @@ export default function HomeScreen() {
         })}
       </ScrollView>
 
-      {hero ? <HeroStory story={hero} /> : null}
+      {hero ? <HeroStory story={hero} /> : (
+        <EmptyState
+          title={activeFilter==="premium" ? "HealthTimes Premium" : "No stories in this Home view"}
+          message={
+            activeFilter==="premium"
+              ? "Source-backed Premium journalism will appear here when member stories are available."
+              : activeFilter==="zimbabwe"
+                ? "No source-backed Zimbabwe stories are available in this Home feed right now."
+                : activeFilter==="world"
+                  ? "No source-backed World stories are available in this Home feed right now."
+                  : "No source-backed stories are available for this Home view right now."
+          }
+          action={activeFilter==="premium" ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Explore HealthTimes Premium" onPress={() => router.push("/premium" as never)}>
+              <Text style={[styles.premiumLink,{color:palette.blue}]}>Explore Premium →</Text>
+            </Pressable>
+          ) : undefined}
+        />
+      )}
 
       <AdSlot placement="hospaz-header-direct" sensitiveHealthContext />
 
@@ -227,7 +251,7 @@ export default function HomeScreen() {
       )}
 
       <View style={styles.prioritySection}>
-        <SectionHeader title="Top Stories" eyebrow="EDITOR'S DESK" action="Explore" onAction={() => router.push("/explore" as never)} />
+        <SectionHeader title="Top Stories" action="Explore" onAction={() => router.push("/explore" as never)} />
         {topStories.length
           ? <TopStoriesList stories={topStories} />
           : <EmptyState title="More reporting is on the way" message="Choose another front-page filter or explore more HealthTimes coverage." />}

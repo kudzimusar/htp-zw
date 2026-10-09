@@ -37,8 +37,10 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
     height > 0 &&
     width > height &&
     height <= 820;
-  const [mediaFailed,setMediaFailed]=useState(false);
-  const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{ setMediaState(mediaUrl ? "loading" : "failed"); },[mediaUrl]);
+  const hasMedia=Boolean(mediaUrl) && mediaState==="ready";
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -49,33 +51,37 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         styles.hero,
         {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
-        tablet && styles.heroTablet,
-        desktop && styles.heroDesktop,
-        shortTabletLandscape && styles.heroShortTabletLandscape
+        hasMedia && tablet && styles.heroTablet,
+        hasMedia && desktop && styles.heroDesktop,
+        hasMedia && shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {hasMedia && story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
-          onError={()=>setMediaFailed(true)}
-          style={[
+          testID={mediaState==="ready" ? "home-hero-media" : undefined}
+          source={{ uri: mediaUrl }}
+          resizeMode="cover"
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready" ? [
             styles.heroImage,
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
             desktop && styles.heroImageDesktop,
             shortTabletLandscape && styles.heroImageShortTabletLandscape
-          ]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+          ] : styles.heroImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={[
         styles.heroBody,
         imageHeadline && styles.heroBodyOverlay,
-        tablet && styles.heroBodyTablet,
-        desktop && styles.heroBodyDesktop,
-        shortTabletLandscape && styles.heroBodyShortTabletLandscape
+        hasMedia && tablet && styles.heroBodyTablet,
+        hasMedia && desktop && styles.heroBodyDesktop,
+        hasMedia && shortTabletLandscape && styles.heroBodyShortTabletLandscape
       ]}>
         <View style={styles.metaRow}>
           <Text style={[styles.kicker,{color:imageHeadline?"#D9F5F3":palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
@@ -87,21 +93,19 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
             styles.heroTitle,
             {color:imageHeadline?"#FFFFFF":palette.ink},
             imageHeadline && styles.heroTitleOverlay,
-            tablet && styles.heroTitleTablet,
-            desktop && styles.heroTitleDesktop,
-            shortTabletLandscape && styles.heroTitleShortTabletLandscape
+            hasMedia && tablet && styles.heroTitleTablet,
+            hasMedia && desktop && styles.heroTitleDesktop,
+            hasMedia && shortTabletLandscape && styles.heroTitleShortTabletLandscape
           ]}
         >
           {story.title}
         </Text>
         {!imageHeadline && !!story.standfirst && (
-          <Text
-            style={[
-              styles.standfirst,
-              {color:palette.inkMuted},
-              shortTabletLandscape && styles.standfirstShortTabletLandscape
-            ]}
-          >
+          <Text style={[
+            styles.standfirst,
+            {color:palette.inkMuted},
+            hasMedia && shortTabletLandscape && styles.standfirstShortTabletLandscape
+          ]}>
             {story.standfirst}
           </Text>
         )}
@@ -507,6 +511,7 @@ const styles=StyleSheet.create({
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.sm,minHeight:360},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xxl,paddingTop:spacing.md,minHeight:430},
   heroShortTabletLandscape:{minHeight:0,gap:spacing.lg,paddingTop:0,paddingBottom:spacing.lg},
+  heroImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
   heroImageTablet:{width:"58%",aspectRatio:4/3},
