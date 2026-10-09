@@ -13,22 +13,34 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function useHydratedCardWidth() {
-  const { width }=useWindowDimensions();
+function useHydratedCardDimensions() {
+  const { width,height }=useWindowDimensions();
   const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
   useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
-  return responsiveReady ? width : 0;
+  return responsiveReady ? {width,height} : {width:0,height:0};
+}
+
+function useHydratedCardWidth() {
+  return useHydratedCardDimensions().width;
 }
 
 export function HeroStory({ story }: { story: ArticleSummary }) {
   const router=useRouter();
   const { palette }=useAppearance();
-  const width=useHydratedCardWidth();
+  const { width,height }=useHydratedCardDimensions();
   const phone=width < breakpoints.tablet;
   const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
-  const [mediaFailed,setMediaFailed]=useState(false);
-  const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
+  const shortTabletLandscape=
+    width >= breakpoints.tablet &&
+    width <= 1200 &&
+    height > 0 &&
+    width > height &&
+    height <= 820;
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{ setMediaState(mediaUrl ? "loading" : "failed"); },[mediaUrl]);
+  const hasMedia=Boolean(mediaUrl) && mediaState==="ready";
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -39,30 +51,37 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         styles.hero,
         {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
-        tablet && styles.heroTablet,
-        desktop && styles.heroDesktop
+        hasMedia && tablet && styles.heroTablet,
+        hasMedia && desktop && styles.heroDesktop,
+        hasMedia && shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {hasMedia && story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
-          onError={()=>setMediaFailed(true)}
-          style={[
+          testID={mediaState==="ready" ? "home-hero-media" : undefined}
+          source={{ uri: mediaUrl }}
+          resizeMode="cover"
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready" ? [
             styles.heroImage,
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
-            desktop && styles.heroImageDesktop
-          ]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+            desktop && styles.heroImageDesktop,
+            shortTabletLandscape && styles.heroImageShortTabletLandscape
+          ] : styles.heroImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={[
         styles.heroBody,
         imageHeadline && styles.heroBodyOverlay,
-        tablet && styles.heroBodyTablet,
-        desktop && styles.heroBodyDesktop
+        hasMedia && tablet && styles.heroBodyTablet,
+        hasMedia && desktop && styles.heroBodyDesktop,
+        hasMedia && shortTabletLandscape && styles.heroBodyShortTabletLandscape
       ]}>
         <View style={styles.metaRow}>
           <Text style={[styles.kicker,{color:imageHeadline?"#D9F5F3":palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
@@ -74,13 +93,22 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
             styles.heroTitle,
             {color:imageHeadline?"#FFFFFF":palette.ink},
             imageHeadline && styles.heroTitleOverlay,
-            tablet && styles.heroTitleTablet,
-            desktop && styles.heroTitleDesktop
+            hasMedia && tablet && styles.heroTitleTablet,
+            hasMedia && desktop && styles.heroTitleDesktop,
+            hasMedia && shortTabletLandscape && styles.heroTitleShortTabletLandscape
           ]}
         >
           {story.title}
         </Text>
-        {!imageHeadline && !!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
+        {!imageHeadline && !!story.standfirst && (
+          <Text style={[
+            styles.standfirst,
+            {color:palette.inkMuted},
+            hasMedia && shortTabletLandscape && styles.standfirstShortTabletLandscape
+          ]}>
+            {story.standfirst}
+          </Text>
+        )}
         <Text style={[styles.meta,{color:imageHeadline?"#E7EDF3":palette.inkMuted}]}>
           {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
         </Text>
@@ -146,6 +174,60 @@ export function StoryList({ stories }: { stories: ArticleSummary[] }) {
       {stories.map((story)=>(
         <View key={story.id} style={desktop ? styles.storyListItemDesktop : styles.storyListItem}>
           <StoryCard story={story} compact />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function TopStoryRow({ story }: { story: ArticleSummary }) {
+  const router=useRouter();
+  const { palette }=useAppearance();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={story.title}
+      accessibilityHint="Opens the full HealthTimes article"
+      style={[styles.topStoryRow,{borderBottomColor:palette.border}]}
+      onPress={() => router.push(("/article/" + story.id) as never)}
+    >
+      <View style={styles.topStoryCopy}>
+        <View style={styles.metaRow}>
+          <Text style={[styles.topStoryKicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
+          {story.accessPolicy === "premium" && <PremiumBadge />}
+        </View>
+        <Text numberOfLines={3} style={[styles.topStoryTitle,{color:palette.ink}]}>{story.title}</Text>
+        <Text style={[styles.topStoryMeta,{color:palette.inkMuted}]}>
+          {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
+        </Text>
+      </View>
+      {story.heroMedia?.publicUrl ? (
+        <Image
+          source={{uri:story.heroMedia.publicUrl}}
+          style={[styles.topStoryImage,{backgroundColor:palette.paperMuted}]}
+          accessibilityLabel={story.heroMedia.altText ?? story.title}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+export function TopStoriesList({ stories }: { stories: ArticleSummary[] }) {
+  const width=useHydratedCardWidth();
+  const tablet=width >= breakpoints.tablet;
+  const desktop=width >= breakpoints.desktop;
+  return (
+    <View style={[styles.topStoriesList,tablet && styles.topStoriesListWide]}>
+      {stories.map((story)=>(
+        <View
+          key={story.id}
+          style={[
+            styles.topStoryCell,
+            tablet && styles.topStoryCellTablet,
+            desktop && styles.topStoryCellDesktop
+          ]}
+        >
+          <TopStoryRow story={story} />
         </View>
       ))}
     </View>
@@ -426,21 +508,27 @@ export function Surface({ children }: PropsWithChildren) {
 const styles=StyleSheet.create({
   hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
-  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
-  heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
+  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.sm,minHeight:360},
+  heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xxl,paddingTop:spacing.md,minHeight:430},
+  heroShortTabletLandscape:{minHeight:0,gap:spacing.lg,paddingTop:0,paddingBottom:spacing.lg},
+  heroImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
-  heroImageTablet:{width:"56%",aspectRatio:4/3},
-  heroImageDesktop:{width:"59%",aspectRatio:16/10},
+  heroImageTablet:{width:"58%",aspectRatio:4/3},
+  heroImageDesktop:{width:"64%",aspectRatio:16/10},
+  heroImageShortTabletLandscape:{width:"55%",aspectRatio:16/9},
   heroBody:{paddingTop:spacing.lg,gap:spacing.sm},
-  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.76)"},
-  heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
-  heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
+  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.78)"},
+  heroBodyTablet:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.md},
+  heroBodyDesktop:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.xl},
+  heroBodyShortTabletLandscape:{paddingTop:spacing.sm,paddingRight:spacing.sm,gap:spacing.xs},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
-  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
-  heroTitleTablet:{fontSize:30,lineHeight:35},
-  heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
+  heroTitleOverlay:{fontSize:30,lineHeight:34,letterSpacing:-0.7},
+  heroTitleTablet:{fontSize:32,lineHeight:37},
+  heroTitleDesktop:{fontSize:44,lineHeight:49,letterSpacing:-1.1},
+  heroTitleShortTabletLandscape:{fontSize:30,lineHeight:34,letterSpacing:-0.6},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
+  standfirstShortTabletLandscape:{fontSize:15,lineHeight:20},
   metaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   kicker:{fontSize:type.label,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
   meta:{fontSize:type.meta},
@@ -460,6 +548,17 @@ const styles=StyleSheet.create({
   storyListDesktop:{flexDirection:"row",flexWrap:"wrap",columnGap:spacing.xl},
   storyListItem:{width:"100%"},
   storyListItemDesktop:{width:"48.8%"},
+  topStoriesList:{width:"100%",gap:spacing.md},
+  topStoriesListWide:{flexDirection:"row",flexWrap:"wrap",columnGap:spacing.xl,rowGap:spacing.md},
+  topStoryCell:{width:"100%"},
+  topStoryCellTablet:{width:"48%"},
+  topStoryCellDesktop:{width:"48.8%"},
+  topStoryRow:{minHeight:96,flexDirection:"row",alignItems:"flex-start",gap:spacing.md,borderBottomWidth:1,paddingBottom:spacing.md},
+  topStoryCopy:{flex:1,gap:4,minWidth:0},
+  topStoryKicker:{fontSize:9,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.75},
+  topStoryTitle:{fontSize:17,lineHeight:22,fontWeight:"900",letterSpacing:-0.15},
+  topStoryMeta:{fontSize:10,lineHeight:14},
+  topStoryImage:{width:104,height:72},
   rail:{gap:spacing.md,paddingRight:spacing.lg},
   liveCard:{width:300,borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
   liveImage:{width:"100%",height:148},
