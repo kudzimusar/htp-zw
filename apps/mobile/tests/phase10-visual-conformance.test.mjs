@@ -60,7 +60,8 @@ test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
 test("UI-01 Screen 1 shell removes dominant environment chrome and mobile utility cards",()=>{
   assert.doesNotMatch(layout,/\{chrome && <EnvironmentBanner \/>\}/);
   assert.doesNotMatch(layout,/mobileUtilityWrap/);
-  assert.match(layout,/phoneActionButton/);
+  assert.match(layout,/phoneSearchAction/);
+  assert.match(layout,/searchIconButton/);
   assert.match(layout,/phoneBrand/);
 });
 
@@ -74,7 +75,8 @@ test("UI-01 Home keeps filters single-row, collapses absent ads, and uses public
   assert.doesNotMatch(home,/Most Read \/ Trending/);
   assert.match(cards,/heroBodyOverlay/);
   assert.match(cards,/useHydratedCardWidth/);
-  assert.match(cards,/onError=\{\(\)=>setMediaFailed\(true\)\}/);
+  assert.match(cards,/onError=\{\(\)=>setMediaState\("failed"\)\}/);
+  assert.match(cards,/heroImageProbe/);
 });
 
 test("Phase 10 public Article Reader hides migration-internal taxonomy labels",()=>{
