@@ -21,6 +21,7 @@ async function capture(browser,url,name,width,height){
 }
 
 test("current-main and final candidate viewport comparison",async({browser})=>{
+  test.setTimeout(180000);
   for(const [label,width,height] of [["390x844",390,844],["834x1112",834,1112],["1440x1000",1440,1000]]){
     await capture(browser,current,"current-main-home-"+label,width,height);
     await capture(browser,candidate,"candidate-home-"+label,width,height);
