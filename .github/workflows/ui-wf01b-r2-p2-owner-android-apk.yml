@@ -1,0 +1,280 @@
+name: UI-WF-01B-R2-P2 Owner Native Android APK
+
+on:
+  push:
+    branches:
+      - feat/ui-wf01a-compact-reader-shell
+    paths:
+      - '.github/workflows/ui-wf01b-r2-p2-owner-android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_SHA: c4937d61c518aa28248e2ca534c86b75112fbe7a
+  APP_ENV: development
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  EXPECTED_PACKAGE: zw.co.healthtimes.app.dev
+  EXPECTED_DISPLAY_NAME: HealthTimes Dev
+
+jobs:
+  owner-native-android-apk:
+    name: Exact-product owner Android APK + native smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+
+    steps:
+      - name: Check out frozen certified product authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          fetch-depth: 1
+
+      - name: Prove exact product checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "PRODUCT_SHA=$PRODUCT_SHA"
+          echo "CHECKED_OUT_SHA=$actual"
+          echo "WORKFLOW_HEAD=${{ github.sha }}"
+          test "$actual" = "$PRODUCT_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Install canonical apps/mobile workspace
+        run: npm install --prefix apps/mobile --no-audit --no-fund
+
+      - name: Prove canonical Expo / React Native source custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const pkg=require('./apps/mobile/package.json');
+          if(pkg.main!=='expo-router/entry') throw new Error('Canonical mobile entry is not expo-router/entry');
+          if(pkg.dependencies?.['react-native-webview']) throw new Error('react-native-webview must not be the canonical Reader renderer');
+          if(!pkg.dependencies?.expo || !pkg.dependencies?.['expo-router'] || !pkg.dependencies?.['react-native']){
+            throw new Error('Expo / Expo Router / React Native dependency authority is incomplete');
+          }
+          NODE
+          if grep -RInE 'kudzimusar\.github\.io/htp-zw|react-native-webview|<WebView|TrustedWebActivity|Bubblewrap|com\.getcapacitor'             apps/mobile/app apps/mobile/src apps/mobile/app.config.ts apps/mobile/package.json; then
+            echo "Legacy web-wrapper authority leaked into canonical apps/mobile source"
+            exit 1
+          fi
+
+      - name: Generate Android native project from apps/mobile
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Prove generated app is React Native, not TWA or Capacitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_activity="$(find apps/mobile/android/app/src/main/java -type f -name 'MainActivity.kt' -print -quit)"
+          main_application="$(find apps/mobile/android/app/src/main/java -type f -name 'MainApplication.kt' -print -quit)"
+          test -n "$main_activity"
+          test -n "$main_application"
+          grep -Fq 'ReactActivity' "$main_activity"
+          grep -Eq 'ReactNativeHost|DefaultReactNativeHost' "$main_application"
+          if grep -RInE 'TrustedWebActivity|LauncherActivity|BridgeActivity|com\.getcapacitor|kudzimusar\.github\.io/htp-zw|android\.webkit\.WebView'             apps/mobile/android/app/src/main; then
+            echo "Generated Android primary app contains forbidden wrapper authority"
+            exit 1
+          fi
+          mkdir -p owner-apk-evidence/generated-native
+          cp "$main_activity" owner-apk-evidence/generated-native/MainActivity.kt
+          cp "$main_application" owner-apk-evidence/generated-native/MainApplication.kt
+          cp apps/mobile/android/app/src/main/AndroidManifest.xml owner-apk-evidence/generated-native/AndroidManifest.xml
+
+      - name: Build self-contained release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Prove APK package, label, SHA and wrapper absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          mkdir -p owner-apk-evidence
+          "$AAPT" dump badging "$APK" > owner-apk-evidence/apk-badging.txt
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > owner-apk-evidence/apk-manifest.txt
+
+          package_id="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" owner-apk-evidence/apk-badging.txt | head -1)"
+          display_name="$(sed -n "s/^application-label:'\([^']*\)'.*/\1/p" owner-apk-evidence/apk-badging.txt | head -1)"
+          test "$package_id" = "$EXPECTED_PACKAGE"
+          test "$display_name" = "$EXPECTED_DISPLAY_NAME"
+
+          apk_sha="$(sha256sum "$APK" | awk '{print $1}')"
+          echo "$apk_sha  app-release.apk" > owner-apk-evidence/app-release.apk.sha256
+
+          rm -rf /tmp/healthtimes-apk-unpack
+          mkdir -p /tmp/healthtimes-apk-unpack
+          unzip -qq "$APK" -d /tmp/healthtimes-apk-unpack
+          if grep -aRIlF 'kudzimusar.github.io/htp-zw' /tmp/healthtimes-apk-unpack; then
+            echo "Remote legacy GitHub Pages URL found inside owner APK"
+            exit 1
+          fi
+          if grep -Eq 'TrustedWebActivity|com\.getcapacitor\.BridgeActivity' owner-apk-evidence/apk-manifest.txt; then
+            echo "TWA / Capacitor launcher found in owner APK manifest"
+            exit 1
+          fi
+
+          APK_SHA="$apk_sha" PACKAGE_ID="$package_id" DISPLAY_NAME="$display_name"           WORKFLOW_HEAD="${{ github.sha }}" python3 - <<'PY'
+          import json, os
+          receipt={
+            "task":"UI-WF-01B-R2-P2",
+            "productAuthority":os.environ["PRODUCT_SHA"],
+            "workflowHead":os.environ["WORKFLOW_HEAD"],
+            "checkoutSha":os.environ["PRODUCT_SHA"],
+            "source":"apps/mobile",
+            "technology":["Expo","React Native","Expo Router"],
+            "appEnvironment":os.environ["APP_ENV"],
+            "serviceMode":os.environ["EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE"],
+            "packageId":os.environ["PACKAGE_ID"],
+            "displayName":os.environ["DISPLAY_NAME"],
+            "apkFilename":"app-release.apk",
+            "apkSha256":os.environ["APK_SHA"],
+            "primaryRendering":"React Native",
+            "twa":False,
+            "capacitor":False,
+            "remotePrimaryWebView":False
+          }
+          open("owner-apk-evidence/custody.json","w").write(json.dumps(receipt,indent=2)+"\n")
+          PY
+
+      - name: Create bounded owner native smoke flow
+        shell: bash
+        run: |
+          cat > /tmp/ui-wf-p2-owner-smoke.yaml <<'YAML'
+          appId: zw.co.healthtimes.app.dev
+          ---
+          - launchApp:
+              clearState: true
+          - extendedWaitUntil:
+              visible: "Top Stories"
+              timeout: 240000
+          - assertVisible: "HealthTimes"
+          - assertVisible: "For You"
+          - assertVisible: "Latest"
+          - assertVisible: "Zimbabwe"
+          - assertVisible: "World"
+          - assertVisible: "Premium"
+          - assertVisible: "Home"
+          - assertVisible: "Explore"
+          - assertVisible: "Live"
+          - assertVisible: "Watch"
+          - assertVisible: "My HT"
+          - takeScreenshot: owner-home
+
+          - tapOn: "Search"
+          - extendedWaitUntil:
+              visible: "Intelligent Search"
+              timeout: 30000
+          - takeScreenshot: owner-search
+
+          - openLink: "healthtimes://"
+          - extendedWaitUntil:
+              visible: "Top Stories"
+              timeout: 120000
+          - tapOn: "Watch"
+          - extendedWaitUntil:
+              visible: "Featured video"
+              timeout: 30000
+          - takeScreenshot: owner-watch
+
+          - tapOn: "My HT"
+          - extendedWaitUntil:
+              visible: "My HealthTimes"
+              timeout: 30000
+          - takeScreenshot: owner-my-healthtimes
+          YAML
+
+      - name: Install Maestro
+        shell: bash
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run owner APK on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          disable-animations: true
+          enable-hw-keyboard: false
+          disk-size: 6000M
+          heap-size: 1024M
+          script: |
+            set -euo pipefail
+            APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+            adb install -r "$APK"
+            adb logcat -c || true
+            mkdir -p owner-apk-evidence/maestro
+            maestro --device emulator-5554 test --test-output-dir owner-apk-evidence/maestro /tmp/ui-wf-p2-owner-smoke.yaml
+            adb shell dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp' > owner-apk-evidence/final-focus.txt || true
+            cat owner-apk-evidence/final-focus.txt
+            grep -Fq "$EXPECTED_PACKAGE" owner-apk-evidence/final-focus.txt
+            if grep -Ei 'com\.android\.chrome|org\.chromium|customtab' owner-apk-evidence/final-focus.txt; then
+              echo "Browser / Custom Tab owns the primary Reader focus"
+              exit 1
+            fi
+            adb logcat -d '*:E' 2>/dev/null | grep -Ei 'ReactNativeJS|AndroidRuntime|FATAL EXCEPTION' > owner-apk-evidence/native-errors.log || true
+            if grep -Ei 'ReactNativeJS.*(ERROR|Error|Exception)|FATAL EXCEPTION' owner-apk-evidence/native-errors.log; then
+              echo "Fatal native Reader error found in owner smoke"
+              cat owner-apk-evidence/native-errors.log
+              exit 1
+            fi
+
+      - name: Finalize owner receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f owner-apk-evidence/custody.json
+          test -f owner-apk-evidence/final-focus.txt
+          test -d owner-apk-evidence/maestro
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk owner-apk-evidence/app-release.apk
+          python3 - <<'PY'
+          import json
+          p="owner-apk-evidence/custody.json"
+          data=json.load(open(p))
+          data["deviceSmoke"]={
+            "platform":"Android emulator",
+            "profile":"pixel_7_pro",
+            "apiLevel":36,
+            "home":True,
+            "search":True,
+            "watch":True,
+            "myHealthTimes":True,
+            "browserPrimaryFocus":False,
+            "result":"PASS"
+          }
+          open(p,"w").write(json.dumps(data,indent=2)+"\n")
+          PY
+          cat owner-apk-evidence/custody.json
+
+      - name: Upload owner-installable native Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthtimes-owner-native-android-c4937d61
+          path: owner-apk-evidence/
+          if-no-files-found: error
+          retention-days: 30
