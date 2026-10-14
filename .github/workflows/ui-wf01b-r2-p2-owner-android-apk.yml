@@ -215,7 +215,8 @@ jobs:
           adb logcat -c || true
           mkdir -p owner-apk-evidence/maestro
           maestro --device emulator-5554 test --test-output-dir owner-apk-evidence/maestro /tmp/ui-wf-p2-owner-smoke.yaml
-          adb shell dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp' > owner-apk-evidence/final-focus.txt || true
+          adb shell dumpsys activity activities > owner-apk-evidence/activity-state.txt
+          grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' owner-apk-evidence/activity-state.txt > owner-apk-evidence/final-focus.txt || true
           cat owner-apk-evidence/final-focus.txt
           grep -Fq "$EXPECTED_PACKAGE" owner-apk-evidence/final-focus.txt
           if grep -Ei 'com\.android\.chrome|org\.chromium|customtab' owner-apk-evidence/final-focus.txt; then
