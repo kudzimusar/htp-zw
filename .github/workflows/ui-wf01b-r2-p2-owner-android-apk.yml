@@ -207,6 +207,30 @@ jobs:
           - takeScreenshot: owner-my-healthtimes
           YAML
 
+          cat > /tmp/ui-wf-p2-owner-smoke.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          adb install -r "$APK"
+          adb logcat -c || true
+          mkdir -p owner-apk-evidence/maestro
+          maestro --device emulator-5554 test --test-output-dir owner-apk-evidence/maestro /tmp/ui-wf-p2-owner-smoke.yaml
+          adb shell dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp' > owner-apk-evidence/final-focus.txt || true
+          cat owner-apk-evidence/final-focus.txt
+          grep -Fq "$EXPECTED_PACKAGE" owner-apk-evidence/final-focus.txt
+          if grep -Ei 'com\.android\.chrome|org\.chromium|customtab' owner-apk-evidence/final-focus.txt; then
+            echo "Browser / Custom Tab owns the primary Reader focus"
+            exit 1
+          fi
+          adb logcat -d '*:E' 2>/dev/null | grep -Ei 'ReactNativeJS|AndroidRuntime|FATAL EXCEPTION' > owner-apk-evidence/native-errors.log || true
+          if grep -Ei 'ReactNativeJS.*(ERROR|Error|Exception)|FATAL EXCEPTION' owner-apk-evidence/native-errors.log; then
+            echo "Fatal native Reader error found in owner smoke"
+            cat owner-apk-evidence/native-errors.log
+            exit 1
+          fi
+          BASH
+          chmod +x /tmp/ui-wf-p2-owner-smoke.sh
+
       - name: Install Maestro
         shell: bash
         run: |
@@ -224,26 +248,7 @@ jobs:
           enable-hw-keyboard: false
           disk-size: 6000M
           heap-size: 1024M
-          script: |
-            set -eu
-            APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
-            adb install -r "$APK"
-            adb logcat -c || true
-            mkdir -p owner-apk-evidence/maestro
-            maestro --device emulator-5554 test --test-output-dir owner-apk-evidence/maestro /tmp/ui-wf-p2-owner-smoke.yaml
-            adb shell dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp' > owner-apk-evidence/final-focus.txt || true
-            cat owner-apk-evidence/final-focus.txt
-            grep -Fq "$EXPECTED_PACKAGE" owner-apk-evidence/final-focus.txt
-            if grep -Ei 'com\.android\.chrome|org\.chromium|customtab' owner-apk-evidence/final-focus.txt; then
-              echo "Browser / Custom Tab owns the primary Reader focus"
-              exit 1
-            fi
-            adb logcat -d '*:E' 2>/dev/null | grep -Ei 'ReactNativeJS|AndroidRuntime|FATAL EXCEPTION' > owner-apk-evidence/native-errors.log || true
-            if grep -Ei 'ReactNativeJS.*(ERROR|Error|Exception)|FATAL EXCEPTION' owner-apk-evidence/native-errors.log; then
-              echo "Fatal native Reader error found in owner smoke"
-              cat owner-apk-evidence/native-errors.log
-              exit 1
-            fi
+          script: bash /tmp/ui-wf-p2-owner-smoke.sh
 
       - name: Finalize owner receipt
         shell: bash
