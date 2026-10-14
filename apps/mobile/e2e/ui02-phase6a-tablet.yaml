@@ -6,6 +6,24 @@ appId: zw.co.healthtimes.app.dev
     visible: "Top Stories"
     timeout: 240000
 
+# iOS first-use custom-scheme trust can dismiss the system sheet without
+# settling the requested deep link. Prime the scheme on Home before the
+# real Article route so the Save assertion still proves the actual toolbar.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: "healthtimes://"
+      - runFlow:
+          when:
+            visible: "Open in .*HealthTimes Dev.*"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Top Stories"
+          timeout: 45000
+      - assertNotVisible: "Open in .*HealthTimes Dev.*"
+
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
     when:
