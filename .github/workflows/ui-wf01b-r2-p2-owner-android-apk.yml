@@ -225,7 +225,7 @@ jobs:
           disk-size: 6000M
           heap-size: 1024M
           script: |
-            set -euo pipefail
+            set -eu
             APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
             adb install -r "$APK"
             adb logcat -c || true
