@@ -90,7 +90,8 @@ jobs:
           test -n "$main_activity"
           test -n "$main_application"
           grep -Fq 'ReactActivity' "$main_activity"
-          grep -Eq 'ReactNativeHost|DefaultReactNativeHost' "$main_application"
+          grep -Fq 'ReactApplication' "$main_application"
+          grep -Eq 'ReactHost|DefaultReactHost|ReactNativeHost|DefaultReactNativeHost' "$main_application"
           if grep -RInE 'TrustedWebActivity|LauncherActivity|BridgeActivity|com\.getcapacitor|kudzimusar\.github\.io/htp-zw|android\.webkit\.WebView'             apps/mobile/android/app/src/main; then
             echo "Generated Android primary app contains forbidden wrapper authority"
             exit 1
