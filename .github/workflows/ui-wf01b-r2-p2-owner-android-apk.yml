@@ -184,7 +184,7 @@ jobs:
           - assertVisible: "My HT"
           - takeScreenshot: owner-home
 
-          - tapOn: "Search"
+          - tapOn: "Search HealthTimes"
           - extendedWaitUntil:
               visible: "Intelligent Search"
               timeout: 30000
