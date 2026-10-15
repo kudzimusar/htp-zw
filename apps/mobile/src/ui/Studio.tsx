@@ -12,6 +12,7 @@ const modules=[
   ["Inbox","/studio/inbox"],
   ["Assignments","/studio/assignments"],
   ["Stories","/studio/stories"],
+  ["Review Queue","/studio/review-queue"],
   ["Create / Edit","/studio/create-edit"],
   ["Live Desk","/studio/live-desk"],
   ["Video Desk","/studio/video-desk"],

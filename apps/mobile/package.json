@@ -31,7 +31,8 @@
     "test:ui01-phase4": "node --test tests/ui01-phase4-media.test.mjs",
     "test:ui04": "node --test tests/ui04-reader-ownership.test.mjs",
     "test:ui05": "node --test tests/ui05-phase6b-quality.test.mjs",
-    "test:ht-nr02": "node --test tests/ht-nr02-story-workspace.test.mjs"
+    "test:ht-nr02": "node --test tests/ht-nr02-story-workspace.test.mjs",
+    "test:ht-nr02b": "node --test tests/ht-nr02b-review-queue.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
