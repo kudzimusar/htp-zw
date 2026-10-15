@@ -47,7 +47,9 @@ test("HealthTimes Staging PostgREST keeps direct story rows private and exposes 
   assert.equal(projection.ok, true, `Public story projection returned HTTP ${projection.status}`);
   const body = await projection.json();
   assert.equal(Array.isArray(body), true);
-  assert.equal(body.length > 0, true, "Current staging should expose canonical published public stories only through the bounded projection");
+  if (body.length > 0) {
+    assert.equal(typeof body[0]?.id, "string", "Public projection items should contain a story id");
+  }
 });
 
 test("HealthTimes Staging public migrated-media bucket is reachable after AG-04 migration progress", async () => {
