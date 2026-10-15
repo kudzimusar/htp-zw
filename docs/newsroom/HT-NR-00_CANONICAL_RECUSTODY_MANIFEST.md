@@ -1,7 +1,7 @@
 # HT-NR-00 — CANONICAL NEWSROOM SERVER-AUTHORITY RECUSTODY MANIFEST
 
 **Programme:** `HT-NR — HealthTimes Newsroom OS`  
-**Phase:** `HT-NR-00C`  
+**Phase:** `HT-NR-00C-R1`  
 **Role:** Newsroom Canonical Recustody / Convergence Specialist  
 **Status:** `AUTHORITATIVE_CONVERGENCE_SPECIFICATION`  
 **Target Execution Phase:** `HT-NR-01`
@@ -22,7 +22,8 @@
 - **Historical Cumulative Server Source Branch:** `feat/ag06-native-public-context-inline-media`
 - **Historical Cumulative Server Source Commit SHA:** `755b7ba7aedaff0d3997a9f540572665c218d7e7`
 - **Runtime Authority SHA (PR #40 Runtime Commit):** `ed5e38a4201029c342617aa43f1dbd62161f5b97` (commit `755b7ba7` is exactly one documentation-only commit ahead of `ed5e38a4`).
-- **Source Character:** The cumulative snapshot encompassing the Newsroom Server Authority: the first 60 live database migrations, the complete Newsroom serverless API (`api/newsroom.js`), the Communications API (`api/communications.js`), the Public context projection API (`api/public.js`), Discussion moderation API (`api/discussion.js`), Edge Functions, and accompanying contract test suites. It serves strictly as a **server-source reference**, not a branch to be merged.
+- **NR-00C Remote Branch Head:** `146e3f0c1abfe90332aaf8f837c6404afafe79f0`
+- **Source Character:** The cumulative snapshot encompassing the Newsroom Server Authority: the first 60 live database migrations, the complete Newsroom serverless API (`api/newsroom.js`), the Communications API (`api/communications.js`), the Public context projection API (`api/public.js`), and accompanying local contract test suites. It serves strictly as a **server-source reference**, not a branch to be merged.
 
 ---
 
@@ -79,7 +80,7 @@ The HealthTimes live Staging database (`gcdohgbmqhqwydgaxrcr`) contains exactly 
 | 40 | `20260922070256` | `20260922070256_ca01_realtime_event_emission.sql` | CA-01 / Realtime Triggers | PR #40 (`755b7ba7`) | `d5a3e0a7cbffd3c9719cc21a1f372939ad60435b` | No | Yes | `RECOVER_EXACT` | Full replay | `20260922065811` | Checkout historical blob |
 | 41 | `20260922094527` | `20260922094527_com01_communications_domain.sql` | COM-01 / Audience Campaigns | PR #40 (`755b7ba7`) | `a94b093e2ee17fcd690461bd3e631ce60f2e9582` | No | Yes | `RECOVER_EXACT` | Full replay | `20260922070256` | Checkout historical blob |
 | 42 | `20260922095013` | `20260922095013_com01_private_attachments.sql` | COM-01 / Private Attachments | PR #40 (`755b7ba7`) | `2f5e5ab5f954724149e9f7fe2aa3d928bd4cf65f` | No | Yes | `RECOVER_EXACT` | Full replay | `20260922094527` | Checkout historical blob |
-| 43 | `20260922100851` | `20260922100851_com01_campaign_and_escalation_authority.sql` | COM-01 / Escalation Authority | PR #40 (`755b7ba7`) | `1a15e6d890aa39fa2188fb939c9cba7d9bbf6327` | No | Yes | `LEDGER_ONLY` | Clean-replay only (No Staging replay) | `20260922095013` | Checkout historical reconstructed blob |
+| 43 | `20260922100851` | `20260922100851_com01_campaign_and_escalation_authority.sql` | COM-01 / Escalation Authority | PR #40 (`755b7ba7`) | `1a15e6d890aa39fa2188fb939c9cba7d9bbf6327` | No | Yes | `RECOVER_EXACT` (Qualifier: `RECONSTRUCTED_EFFECT_AUTHORITY`) | Fresh-database replay only (Never replay on Staging) | `20260922095013` | Checkout historical reconstructed blob |
 | 44 | `20260924072830` | `20260924072830_ag06_story_media_request_changes.sql` | AG-06 / Media & Review Workflow | PR #40 (`755b7ba7`) | `837e6a6fb60a24ef4ab072c839893d1344928ca8` | No | Yes | `RECOVER_EXACT` | Full replay | `20260922100851` | Checkout historical blob |
 | 45 | `20260924073135` | `20260924073135_ag06_media_listing_performance.sql` | AG-06 / Media Query Perf | PR #40 (`755b7ba7`) | `4bc581702431d7f24a6e0664e528e9c38e277e28` | No | Yes | `RECOVER_EXACT` | Full replay | `20260924072830` | Checkout historical blob |
 | 46 | `20260924073537` | `20260924073537_ag06_media_storage_policy_helper.sql` | AG-06 / Storage Security | PR #40 (`755b7ba7`) | `9e2356e0a0b3ea0a0fc2dd060152c06009944dd6` | No | Yes | `RECOVER_EXACT` | Full replay | `20260924073135` | Checkout historical blob |
@@ -104,8 +105,6 @@ The HealthTimes live Staging database (`gcdohgbmqhqwydgaxrcr`) contains exactly 
 
 ## 4. API RECUSTODY MANIFEST
 
-Five server API routes govern the HealthTimes backend architecture.
-
 ### 4.1 `api/newsroom.js`
 - **Classification:** `RECOVER_EXACT`
 - **Source SHA:** `755b7ba7aedaff0d3997a9f540572665c218d7e7` (blob `f3520094832ad255d4e5a325430b2e51296af64f`, 1100 lines)
@@ -118,7 +117,7 @@ Five server API routes govern the HealthTimes backend architecture.
   - `NEWSROOM_SIGNING_SECRET` (optional HMAC fallback)
 - **Database / RPC Dependencies:** Calls stored procedures `ag06_newsroom_story_create`, `ag06_newsroom_story_update`, `ag06_newsroom_story_submit`, `ag06_newsroom_request_changes`, `ag06_newsroom_story_publish`, `ag06_newsroom_media_upload`, `ag06_newsroom_audit_log`.
 - **Conflicts with Main:** None. File does not exist on `main`.
-- **Certification Test:** `npm run test:ag06:contract` and `npm run test:ag06:live`.
+- **Certification Test:** `npm run test:ag06:contract`.
 
 ### 4.2 `api/communications.js`
 - **Classification:** `RECOVER_EXACT`
@@ -131,27 +130,31 @@ Five server API routes govern the HealthTimes backend architecture.
   - `COMMUNICATIONS_SECRET`
 - **Database / RPC Dependencies:** Calls `ca01_send_internal_message`, `ca01_escalate_notification`, tables `communication_messages`, `communication_channels`, `communication_threads`.
 - **Conflicts with Main:** None. File does not exist on `main`.
-- **Certification Test:** `npm run test:ca01:contract` and `npm run test:ca01:live`.
+- **Certification Test:** `npm run test:ca01:contract` and `npm run test:com01:contract`.
 
 ### 4.3 `api/public.js`
 - **Classification:** `RECOVER_EXACT`
 - **Source SHA:** `755b7ba7aedaff0d3997a9f540572665c218d7e7` (blob `2354d14094aafb0ab92429caa87bd31e00871127`, 418 lines)
-- **Role & Capabilities:** Public edge routing and projection handler. Serves `/api/public/story/:slug`, `/api/public/edition`, and `/api/public/sitemap.xml`.
-- **Dependencies:** Requires `./lib/ag05-capability.js` (present on `main`!) and Node built-in `crypto`.
+- **Scope & Role:** Public projection handler for reader surfaces. Serves public story projection, context projection, RSS/Atom feed, sitemap XML, path resolution, and HOSPAZ direct-ad preview. (It is strictly a public reader projection handler, **not** an editorial Edition API).
+- **Dependencies:** Requires `./lib/ag05-capability.js` (present on canonical `main`!) and Node built-in `crypto`.
 - **Environment Variables:**
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
-- **Database / RPC Dependencies:** Calls stored procedures `ag05_resolve_context_route`, `ag05_sitemap_xml_data`, `ag06_get_public_story_by_slug`.
+- **Database / RPC Dependencies:** Calls stored procedures:
+  - `ag05_hospaz_direct_ad_preview`
+  - `ag05_public_context_document`
+  - `ag05_public_feed_rows`
+  - `ag05_public_sitemap_xml`
+  - `ag05_public_story_document`
+  - `ag05_resolve_public_path`
 - **Conflicts with Main:** None. File does not exist on `main`.
 - **Certification Test:** `npm run test:ag05:capability`.
 
 ### 4.4 `api/discussion.js`
-- **Classification:** `RECOVER_EXACT`
-- **Source SHA:** `755b7ba7aedaff0d3997a9f540572665c218d7e7` (blob `385897f3293740394baeb16df724ae6097da1dae`, 312 lines)
-- **Role & Capabilities:** Reader comments and discussion moderation proxy. Enforces IP rate limiting and moderation state.
-- **Dependencies:** Node built-in `crypto`.
-- **Conflicts with Main:** None. File does not exist on `main`.
-- **Certification Test:** `npm run test:ca01:contract`.
+- **Classification:** `HISTORICAL_EVIDENCE_ONLY`
+- **Historical Source Blob:** `385897f3293740394baeb16df724ae6097da1dae` (312 lines)
+- **Re-evaluation Finding:** Inspection of canonical destination `apps/mobile/src/services/communications.ts` proves that current reader and studio discussion calls Supabase RPCs directly (`reader_register_comment_profile`, `reader_comment_eligibility`, `reader_public_story_comments`, `reader_submit_story_comment`). There is **no canonical consumer** requiring an HTTP `/api/discussion` endpoint.
+- **HT-NR-01 Action:** **EXCLUDED from HT-NR-01 mutation set.** Preserved as historical evidence only.
 
 ### 4.5 `api/commerce.js`
 - **Classification:** `KEEP_MAIN`
@@ -163,21 +166,19 @@ Five server API routes govern the HealthTimes backend architecture.
 
 ## 5. SUPPORTING-FILE DEPENDENCY CLOSURE
 
-The following supporting files are required to complete the server execution and test harness closure:
-
 | File Path | Git Blob SHA | Source Authority | Classification | Description & Rationale |
 |---|---|---|---|---|
 | `supabase/migration-lineage/healthtimes-staging-adoption.json` | `dff360eaf3c001db25d23fbe5a5e604db2d17f70` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Authoritative 60-migration adoption ledger mapping live Staging timestamps to local schema. |
-| `scripts/ag06/newsroom-test-server.js` | `6ecbd47456c7eadc24ba43cbf497ca225060e6b2` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Standalone Node HTTP server wrapping `api/newsroom.js` for Playwright contract tests without requiring Vercel CLI. |
-| `scripts/ca01/communications-test-server.js` | `fdf32c0c8419b613c851822859fed0df994b4c5b` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Standalone Node HTTP server wrapping `api/communications.js` and `api/discussion.js` for contract test runs. |
-| `scripts/ag06/provision-staging-signups.mjs` | `3926dfefed99659a3fb3622296624a119c44a5a2` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Staging user verification and setup utility script. |
-| `supabase/functions/ag06-certification-provision/index.ts` | `d9500337779a505933a3d69942701d331c99dd62` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Supabase Edge Function for GitHub OIDC ephemeral test token generation. |
-| `supabase/functions/ca01-certification-provision/index.ts` | `3a3ed38a2ed7e4025dcbf43b0fb53e6878a3ba57` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Supabase Edge Function for CA-01 test user provisioning in CI. |
-| `supabase/functions/com01-certification-provision/index.ts` | `8ec49e3e44bc18263b41a47f36fdf9c6035bbdce` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Supabase Edge Function for COM-01 test user provisioning in CI. |
-| `newsroom.html` | `bfa6f333678077b9d7a224a9e52e46049f7e4f9b` | PR #40 (`755b7ba7`) | `RECOVER_WITH_ADAPTATION` | Full Newsroom HTML containing media modals, review queue cards, campaign modal, staff roster. |
-| `newsroom.js` | `bf02b6be00f3451ec9482fe0fe168fa74e50882e` | PR #40 (`755b7ba7`) | `RECOVER_WITH_ADAPTATION` | Newsroom web client connecting to `/api/newsroom` and `/api/communications` (919 lines). |
-| `newsroom.css` | `54c598d1a1b15104ca820e1a3dc8f6452f10b5c9` | PR #40 (`755b7ba7`) | `RECOVER_WITH_ADAPTATION` | Newsroom UI styling sheet. |
-| `vercel.json` | Custom Adapted | HT-NR-00C Design | `RECOVER_WITH_ADAPTATION` | Routing configuration adapted to mount `/api/*` handlers and newsroom security headers while removing obsolete SSR rewrites. |
+| `scripts/ag06/newsroom-test-server.js` | `6ecbd47456c7eadc24ba43cbf497ca225060e6b2` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Standalone local Node HTTP server wrapping `api/newsroom.js` for Playwright contract tests. Operates on local port 4173; does not contact Staging. |
+| `scripts/ca01/communications-test-server.js` | `fdf32c0c8419b613c851822859fed0df994b4c5b` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | Standalone local Node HTTP server wrapping `api/communications.js` for local contract test runs. Operates on local port 4173; does not contact Staging. |
+| `scripts/ag06/provision-staging-signups.mjs` | `3926dfefed99659a3fb3622296624a119c44a5a2` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Staging-mutating script. **EXCLUDED from HT-NR-01 runtime recustody.** |
+| `supabase/functions/ag06-certification-provision/index.ts` | `d9500337779a505933a3d69942701d331c99dd62` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Ephemeral test provisioning function. **EXCLUDED from HT-NR-01 runtime recustody.** |
+| `supabase/functions/ca01-certification-provision/index.ts` | `3a3ed38a2ed7e4025dcbf43b0fb53e6878a3ba57` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Ephemeral test provisioning function. **EXCLUDED from HT-NR-01 runtime recustody.** |
+| `supabase/functions/com01-certification-provision/index.ts` | `8ec49e3e44bc18263b41a47f36fdf9c6035bbdce` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Ephemeral test provisioning function. **EXCLUDED from HT-NR-01 runtime recustody.** |
+| `newsroom.html` | `39e551fbfa5c317ad4ea96f13b6324fa43c683b5` | `main` (`6994aa18`) | `KEEP_MAIN` | Legacy prototype on `main` preserved as-is. Historical PR #40 version (`bfa6f333`) is `HISTORICAL_EVIDENCE_ONLY`. **EXCLUDED from HT-NR-01.** |
+| `newsroom.js` | `bc111e14be2dcddb0bcf4753ba758da43577d2a5` | `main` (`6994aa18`) | `KEEP_MAIN` | Legacy prototype on `main` preserved as-is. Historical PR #40 version (`bf02b6be`) is `HISTORICAL_EVIDENCE_ONLY`. **EXCLUDED from HT-NR-01.** |
+| `newsroom.css` | `a65a4c58f000b21a00a2ee3da580b0bb11ba6fe9` | `main` (`6994aa18`) | `KEEP_MAIN` | Legacy prototype on `main` preserved as-is. Historical PR #40 version (`54c598d1`) is `HISTORICAL_EVIDENCE_ONLY`. **EXCLUDED from HT-NR-01.** |
+| `vercel.json` | None on `main` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Serving configuration from PR #40 is historical evidence. **EXCLUDED from HT-NR-01.** Serving authority is not altered during kernel recustody. |
 
 ---
 
@@ -188,6 +189,7 @@ The following directories and files on `main` represent post-PR#40 accepted arch
 1. **Mobile Application & Mobile Workspace:**
    - `apps/mobile/**` (All React Native / Expo screens, components, services, and native assets).
    - Specifically: `apps/mobile/app/**`, `apps/mobile/src/ui/**`, `apps/mobile/src/services/**`, `apps/mobile/src/security/**`.
+   - **Canonical Future Newsroom UI:** Lives at `apps/mobile/app/studio/**` and its supporting components. It must never be regressed or replaced by historical web prototypes.
 2. **Premium Hospaz & Monetization:**
    - `api/commerce.js`
    - `lib/ag05-premium-commerce.js`
@@ -197,7 +199,9 @@ The following directories and files on `main` represent post-PR#40 accepted arch
    - `supabase/migrations/20261002061027_ag05_premium_teaser_helper_privilege_hardening.sql`
 3. **Reader Web UI & Navigation:**
    - Reader UI components and web pages generated for static distribution.
-4. **Root Package Configuration:**
+4. **Legacy Newsroom Web Prototype:**
+   - `newsroom.html`, `newsroom.js`, `newsroom.css` on `main` remain untouched as reference prototypes.
+5. **Root Package Configuration:**
    - `package.json` (Scripts and devDependencies on `main` already define all necessary ag06/ca01/com01 contract commands).
 
 ---
@@ -206,104 +210,45 @@ The following directories and files on `main` represent post-PR#40 accepted arch
 
 - **Classification:** `REGENERATE`
 - **Target File:** `apps/mobile/src/generated/database.types.ts`
-- **Forensic Finding:**
-  - The file currently checked into canonical `main` (`1e526d725b65bb93287cb1e70b6d82e9c4732a35`) is byte-identical to the one in PR #40.
-  - Live introspection of Staging project `gcdohgbmqhqwydgaxrcr` reveals 3 added table projections from migrations 61 & 62 (`premium_teaser_projections`, etc.).
-  - Testing live type generation against Staging yields a schema that passes `npm --prefix apps/mobile run typecheck` with **0 errors**.
-- **HT-NR-01 Action:**
-  - Regenerate canonical TypeScript definitions directly from live Staging:
-    ```bash
-    supabase gen types typescript --project-id gcdohgbmqhqwydgaxrcr > apps/mobile/src/generated/database.types.ts
-    ```
-  - Verify mobile types immediately with `npm --prefix apps/mobile run typecheck`.
+- **Generation Source:** Live read-only Staging database (`gcdohgbmqhqwydgaxrcr`).
+- **Safety Policy:**
+  - Database introspection is strictly read-only; **zero database mutation occurs**.
+  - Type regeneration must only take place during `HT-NR-01` execution if that phase remains authorized to do so.
+  - Testing against `apps/mobile`: `npm --prefix apps/mobile run typecheck` passes with **0 errors**.
+  - No change made in `HT-NR-00C-R1`.
 
 ---
 
 ## 8. TEST RECUSTODY MANIFEST
 
-The following Playwright test suites verify server RBAC, RLS policies, communications workflows, and API contracts:
-
-| Test File Path | Git Blob SHA | Classification | Associated Target API | Run Command |
-|---|---|---|---|---|
-| `tests/ag06-security-contract.spec.js` | `bbf4cea369b0a410335c71c8aa88b3605f0f345b` | `RECOVER_EXACT` | `/api/newsroom` (Local Server) | `npm run test:ag06:contract` |
-| `tests/ag06-live-security.spec.js` | `bbb8f501ad77535a49c98210fdb9e54a2c5d2476` | `RECOVER_EXACT` | `/api/newsroom` (Staging Environment) | `npm run test:ag06:live` |
-| `tests/ca01-contract.spec.js` | `5f1c1be3c5685020fd58a39136a74b7672252d52` | `RECOVER_EXACT` | `/api/communications` & `/api/discussion` | `npm run test:ca01:contract` |
-| `tests/ca01-live-security.spec.js` | `92edc922fb204b8c16f979ccc388d8f36064cced` | `RECOVER_EXACT` | `/api/communications` (Staging) | `npm run test:ca01:live` |
-| `tests/com01-contract.spec.js` | `6e3d08b6977b40cf5589d9276aa9d80feeff36c0` | `RECOVER_EXACT` | `/api/communications` (Campaigns/Escalation) | `npm run test:com01:contract` |
-| `tests/newsroom-os.spec.js` | `df77c283aa31f3b59376b1e34fe32908546da479` | `RECOVER_WITH_ADAPTATION` | Newsroom OS UI & Server Integration | `playwright test tests/newsroom-os.spec.js` |
+| Test File Path | Git Blob SHA | Source Authority | Classification | Associated Target API | Run Command |
+|---|---|---|---|---|---|
+| `tests/ag06-security-contract.spec.js` | `bbf4cea369b0a410335c71c8aa88b3605f0f345b` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | `/api/newsroom` (Local Server) | `npm run test:ag06:contract` |
+| `tests/ca01-contract.spec.js` | `5f1c1be3c5685020fd58a39136a74b7672252d52` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | `/api/communications` (Local Server) | `npm run test:ca01:contract` |
+| `tests/com01-contract.spec.js` | `6e3d08b6977b40cf5589d9276aa9d80feeff36c0` | PR #40 (`755b7ba7`) | `RECOVER_EXACT` | `/api/communications` (Local Server) | `npm run test:com01:contract` |
+| `tests/ag06-live-security.spec.js` | `bbb8f501ad77535a49c98210fdb9e54a2c5d2476` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Mutates live staging; **EXCLUDED from HT-NR-01**. | N/A |
+| `tests/ca01-live-security.spec.js` | `92edc922fb204b8c16f979ccc388d8f36064cced` | PR #40 (`755b7ba7`) | `HISTORICAL_EVIDENCE_ONLY` | Mutates live staging; **EXCLUDED from HT-NR-01**. | N/A |
+| `tests/newsroom-os.spec.js` | `75a2eb43d587b1952257b186cd0b18d6a8d44f58` | `main` (`6994aa18`) | `KEEP_MAIN` | Legacy prototype test on `main` preserved as-is. | `npm test` |
 
 ---
 
 ## 9. CONFIGURATION / RUNTIME DEPENDENCIES
 
 ### 9.1 `vercel.json`
-Historical `vercel.json` in PR #40 redirected all non-static paths to legacy SSR handler `api/web.js` (`/:path* -> /api/web?path=/:path*`). Because `api/web.js` is superseded, `vercel.json` must be adapted for HT-NR-01 as follows:
-
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "npm install --no-audit --no-fund && npm install --prefix apps/mobile --no-audit --no-fund",
-  "outputDirectory": "apps/mobile/dist",
-  "functions": {
-    "api/newsroom.js": { "maxDuration": 30 },
-    "api/communications.js": { "maxDuration": 30 },
-    "api/public.js": { "maxDuration": 15 },
-    "api/discussion.js": { "maxDuration": 15 },
-    "api/commerce.js": { "maxDuration": 30 }
-  },
-  "headers": [
-    {
-      "source": "/newsroom.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, private" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; font-src 'self' data:" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "X-Frame-Options", "value": "DENY" }
-      ]
-    },
-    {
-      "source": "/api/newsroom",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, private" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" }
-      ]
-    },
-    {
-      "source": "/api/communications",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, private" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" }
-      ]
-    }
-  ],
-  "rewrites": [
-    { "source": "/sitemap.xml", "destination": "/api/public?kind=sitemap" },
-    { "source": "/feed", "destination": "/api/public?kind=feed" }
-  ]
-}
-```
+`vercel.json` does not exist on `main`. In PR #40 it routed all paths to obsolete Phase 4 SSR shell `api/web.js`. Kernel recustody in HT-NR-01 does **not** alter deployment or serving infrastructure. `vercel.json` is classified as `HISTORICAL_EVIDENCE_ONLY` and is **excluded from HT-NR-01**.
 
 ### 9.2 `package.json`
-`package.json` on `main` is authoritative and already defines all necessary scripts (`test:ag06:contract`, `test:ag06:live`, `test:ca01:contract`, `test:ca01:live`, `test:com01:contract`, `native:check`). No changes required.
+`package.json` on `main` is authoritative and already defines all necessary scripts (`test:ag06:contract`, `test:ca01:contract`, `test:com01:contract`, `native:check`). No changes required (`KEEP_MAIN`).
 
 ---
 
-## 10. KNOWN CONFLICTS AND LEDGER MARKERS
+## 10. KNOWN CONFLICTS, LEDGER MARKERS & FROM-ZERO REPLAY STATUS
 
-### 10.1 Special COM-01 Migration (`20260922100851`)
-- **Nature:** The historical migration file was reconstructed in AG-04 Phase 5 from live Staging schema effects because the original authoring branch commit was lost.
-- **Classification:** `LEDGER_ONLY`.
-- **Replay Policy:**
-  - On live Staging: **DO NOT REPLAY**. It is already recorded and its tables (`communication_notification_escalations`, columns on `audience_campaigns`) are live and operational.
-  - In Clean Database Replay: Reconstructs schema cleanly without errors.
-- **Prerequisite Dependencies:** `audience_campaigns`, `communication_channels`, `newsroom_notifications`, `staff_profiles`.
+### 10.1 Reconstructed COM-01 Migration (`20260922100851`)
+- **Classification:** `RECOVER_EXACT` with qualifier:
+  > `RECONSTRUCTED_EFFECT_AUTHORITY — repository blob is the canonical reconstructed source, not the byte-for-byte original historical SQL.`
+- **Source Blob:** `1a15e6d890aa39fa2188fb939c9cba7d9bbf6327`
+- **Replay Semantics:** Never replay against live Staging `gcdohgbmqhqwydgaxrcr` (it is already recorded in the staging ledger). It is part of the canonical clean-database sequence.
 
 ### 10.2 Transient / Adoption Markers (The 7 No-Op Migrations)
 Seven migration identities in Staging ledger share git blob `a960626806c8ac5b10fcfa7cf77bff2944d552f0` containing `select 1;`:
@@ -315,43 +260,111 @@ Seven migration identities in Staging ledger share git blob `a960626806c8ac5b10f
 6. `20260922061142_ca01_attachment_access_hardening.sql`
 7. `20260922065811_ca01_fk_index_hardening.sql`
 
-These are strictly ledger adoption markers. They must be checked out byte-for-byte to satisfy `supabase db status` ledger verification, but execute zero DDL/DML.
+Classification: `LEDGER_ONLY`. They must be checked out byte-for-byte to satisfy `supabase db status` ledger verification, but execute zero DDL/DML.
+
+### 10.3 From-Zero Disposable Database Replay Status
+- **Status:** `BLOCKED — DISPOSABLE REPLAY NOT AVAILABLE`
+- **Gate Disposition:** `CONFLICT_REQUIRES_MODERATOR`
+- **Forensic Evidence:**
+  - Docker daemon is not running on the local host (`failed to connect to the docker API at unix:///Users/shadreckmusarurwa/.docker/run/docker.sock: connect: no such file or directory`).
+  - `supabase start` and `supabase db reset --local` cannot execute without Docker.
+  - Plain local PostgreSQL 16 on `/tmp:5432` lacks the prerequisite Supabase platform schemas (`auth.users`, `storage.buckets`, `storage.objects`) and RBAC roles (`anon`, `authenticated`, `service_role`).
+  - No disposable database replay can be executed without either starting Docker or pointing to a live project (which is strictly prohibited for Staging and Production).
+  - Clean replay is therefore **unproven locally** and blocked pending moderator resolution.
 
 ---
 
 ## 11. EXACT PROPOSED HT-NR-01 MUTATION SET
 
-When HT-NR-01 executes, it will apply exactly the following additions and modifications:
+When HT-NR-01 executes, it will apply additions and modifications strictly to the following **70 files**:
 
 ```
+# Server APIs (3 files)
 A  api/communications.js
-A  api/discussion.js
 A  api/newsroom.js
 A  api/public.js
-M  apps/mobile/src/generated/database.types.ts
-M  newsroom.css
-M  newsroom.html
-M  newsroom.js
-A  scripts/ag06/newsroom-test-server.js
-A  scripts/ag06/provision-staging-signups.mjs
-A  scripts/ca01/communications-test-server.js
-A  supabase/functions/ag06-certification-provision/index.ts
-A  supabase/functions/ca01-certification-provision/index.ts
-A  supabase/functions/com01-certification-provision/index.ts
+
+# Database Migrations (60 files)
+A  supabase/migrations/20260909000100_content_core.sql
+A  supabase/migrations/20260909000200_taxonomy_and_geo.sql
+A  supabase/migrations/20260909000300_redirects_and_seo.sql
+A  supabase/migrations/20260909000400_analytics_and_ads.sql
+A  supabase/migrations/20260909000500_migration_runs_and_checkpoints.sql
+A  supabase/migrations/20260916030642_ag02_staging_security_baseline.sql
+A  supabase/migrations/20260921232347_ag05_seo_analytics_monetization_continuity.sql
+A  supabase/migrations/20260922003145_ag05_rehearsal_runtime_closure.sql
+A  supabase/migrations/20260922003554_ag05_sitemap_xml_rpc.sql
+A  supabase/migrations/20260922003722_ag05_url_resolution_ledger.sql
+A  supabase/migrations/20260922004651_ag05_link_ledger_evidence.sql
+A  supabase/migrations/20260922005024_ag05_materialize_link_audit.sql
+A  supabase/migrations/20260922020254_ag06_newsroom_auth_rbac.sql
+A  supabase/migrations/20260922021319_ag06_staging_http_cert_helper.sql
+A  supabase/migrations/20260922021408_ag06_staging_http_cert_helper_cleanup.sql
+A  supabase/migrations/20260922021521_ag06_security_advisor_hardening.sql
+A  supabase/migrations/20260922023605_ag06_staging_confirm_reporter_probe_35679759314.sql
+A  supabase/migrations/20260922030247_ag05_context_routes.sql
+A  supabase/migrations/20260922030729_ag05_preserve_direct_handoff_case.sql
+A  supabase/migrations/20260922031250_ag06_newsroom_story_listing_perf.sql
+A  supabase/migrations/20260922032244_ag06_story_rls_performance.sql
+A  supabase/migrations/20260922033138_ag06_certification_cleanup_35683173735_v2.sql
+A  supabase/migrations/20260922033157_ag06_auth_delete_revocation.sql
+A  supabase/migrations/20260922033542_ag06_auth_delete_guard.sql
+A  supabase/migrations/20260922035013_ag05_normalize_preserve_strategy.sql
+A  supabase/migrations/20260922035050_ag06_cleanup_failed_certification_users.sql
+A  supabase/migrations/20260922035335_ag05_nested_category_context.sql
+A  supabase/migrations/20260922040649_ag05_rehearsal_readiness_guard.sql
+A  supabase/migrations/20260922054411_ca01_internal_schema_capabilities.sql
+A  supabase/migrations/20260922054415_ca01_inbox_story_discussion.sql
+A  supabase/migrations/20260922054420_ca01_desks_threads_announcements.sql
+A  supabase/migrations/20260922054424_ca01_communication_storage.sql
+A  supabase/migrations/20260922054428_ca01_reader_discussion_moderation.sql
+A  supabase/migrations/20260922054449_ca01_realtime_authorization.sql
+A  supabase/migrations/20260922055517_ca01_attachment_access_hardening.sql
+A  supabase/migrations/20260922061142_ca01_attachment_access_hardening.sql
+A  supabase/migrations/20260922061238_ca01_desk_member_rls_recursion_fix.sql
+A  supabase/migrations/20260922065253_ca01_fk_index_hardening.sql
+A  supabase/migrations/20260922065811_ca01_fk_index_hardening.sql
+A  supabase/migrations/20260922070256_ca01_realtime_event_emission.sql
+A  supabase/migrations/20260922094527_com01_communications_domain.sql
+A  supabase/migrations/20260922095013_com01_private_attachments.sql
+A  supabase/migrations/20260922100851_com01_campaign_and_escalation_authority.sql
+A  supabase/migrations/20260924072830_ag06_story_media_request_changes.sql
+A  supabase/migrations/20260924073135_ag06_media_listing_performance.sql
+A  supabase/migrations/20260924073537_ag06_media_storage_policy_helper.sql
+A  supabase/migrations/20260924074219_ag06_media_storage_read_helper.sql
+A  supabase/migrations/20260924103201_ag06_cms_public_media_promotion.sql
+A  supabase/migrations/20260924105815_ag06_native_reader_release_marker.sql
+A  supabase/migrations/20260925230247_ag06_public_story_release_boundary_hardening.sql
+A  supabase/migrations/20260927040923_ag06_certification_active_binding_cleanup.sql
+A  supabase/migrations/20260927091500_ag06_canonical_author_section_authority.sql
+A  supabase/migrations/20260927093000_ag06_native_public_context.sql
+A  supabase/migrations/20260927094500_ag06_inline_body_binding.sql
+A  supabase/migrations/20260927101500_ag06_public_inline_media_promotion.sql
+A  supabase/migrations/20260927110000_ag06_inline_public_storage_authority.sql
+A  supabase/migrations/20260927113000_ag06_certification_author_binding_cleanup.sql
+A  supabase/migrations/20260927120000_ag06_certification_cleanup_service_role_claim.sql
+A  supabase/migrations/20260927121500_ag06_audit_feed_performance.sql
+A  supabase/migrations/20260927123000_ag06_certification_active_binding_cleanup.sql
+
+# Migration Lineage Manifest (1 file)
 A  supabase/migration-lineage/healthtimes-staging-adoption.json
-A  supabase/migrations/20260909000100_content_core.sql ... 20260927123000_ag06_certification_active_binding_cleanup.sql (60 files)
-A  tests/ag06-live-security.spec.js
+
+# Local Test Server Harnesses (2 files)
+A  scripts/ag06/newsroom-test-server.js
+A  scripts/ca01/communications-test-server.js
+
+# Standalone Local Contract Test Suites (3 files)
 A  tests/ag06-security-contract.spec.js
 A  tests/ca01-contract.spec.js
-A  tests/ca01-live-security.spec.js
 A  tests/com01-contract.spec.js
-M  tests/newsroom-os.spec.js
-A  vercel.json
+
+# Generated TypeScript Schema (1 file)
+M  apps/mobile/src/generated/database.types.ts
 ```
 
 ---
 
-## 12. EXACT PROPOSED HT-NR-01 CERTIFICATION COMMANDS (GATES 1–10)
+## 12. EXACT PROPOSED HT-NR-01 CERTIFICATION COMMANDS (GATES 1–9)
 
 ```bash
 # Gate 1: Baseline Verification
@@ -362,36 +375,48 @@ npm --prefix apps/mobile run typecheck
 git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- supabase/migrations/
 git checkout 6994aa18d37e2189dbc1d3f8efc76a638ee0971c -- supabase/migrations/20261002060846_ag05_premium_teaser_public_projection.sql
 git checkout 6994aa18d37e2189dbc1d3f8efc76a638ee0971c -- supabase/migrations/20261002061027_ag05_premium_teaser_helper_privilege_hardening.sql
-ls -1 supabase/migrations/*.sql | wc -l # Expect 62
+ls -1 supabase/migrations/*.sql | wc -l # Must equal exactly 62
 
-# Gate 3: API Recustody Verification
-git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- api/newsroom.js api/communications.js api/public.js api/discussion.js
-node -e "require('./api/newsroom.js'); require('./api/communications.js'); require('./api/public.js'); require('./api/discussion.js');"
+# Gate 3: Lineage Manifest Recustody
+git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- supabase/migration-lineage/healthtimes-staging-adoption.json
 
-# Gate 4: Supporting Files Recustody
-git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- supabase/migration-lineage/ scripts/ag06/ scripts/ca01/ supabase/functions/
+# Gate 4: API Recustody & Syntax Smoke Check
+git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- api/newsroom.js api/communications.js api/public.js
+node -e "require('./api/newsroom.js'); require('./api/communications.js'); require('./api/public.js'); console.log('APIs syntax OK');"
 
-# Gate 5: Regenerated Types Verification
-supabase gen types typescript --project-id gcdohgbmqhqwydgaxrcr > apps/mobile/src/generated/database.types.ts
-npm --prefix apps/mobile run typecheck
+# Gate 5: Local Test Harness & Contract Suite Recustody
+git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- scripts/ag06/newsroom-test-server.js scripts/ca01/communications-test-server.js
+git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- tests/ag06-security-contract.spec.js tests/ca01-contract.spec.js tests/com01-contract.spec.js
 
-# Gate 6: Test Suite Recustody
-git checkout 755b7ba7aedaff0d3997a9f540572665c218d7e7 -- tests/ag06-security-contract.spec.js tests/ag06-live-security.spec.js tests/ca01-contract.spec.js tests/ca01-live-security.spec.js tests/com01-contract.spec.js tests/newsroom-os.spec.js
-
-# Gate 7: Contract Certification
+# Gate 6: Local Contract Suite Certification
 npm run test:ag06:contract
 npm run test:ca01:contract
 npm run test:com01:contract
+
+# Gate 7: Generated Types Verification
+supabase gen types typescript --project-id gcdohgbmqhqwydgaxrcr > apps/mobile/src/generated/database.types.ts
+npm --prefix apps/mobile run typecheck
 
 # Gate 8: Mobile Quality Safety Gate
 npm --prefix apps/mobile run lint
 npm --prefix apps/mobile run typecheck
 
-# Gate 9: Live Staging Read-Only Verification
-# Confirm healthy status and 62 matching migrations via Supabase CLI / API
+# Gate 9: Live Staging Read-Only Verification (Zero Mutations)
+# Verify project gcdohgbmqhqwydgaxrcr status is ACTIVE_HEALTHY and matches 62 migration ledger.
 
 # Gate 10: Commit and Push
-git add api/ supabase/ scripts/ tests/ vercel.json newsroom.html newsroom.js newsroom.css apps/mobile/src/generated/database.types.ts
+git add \
+  api/communications.js \
+  api/newsroom.js \
+  api/public.js \
+  apps/mobile/src/generated/database.types.ts \
+  scripts/ag06/newsroom-test-server.js \
+  scripts/ca01/communications-test-server.js \
+  supabase/migration-lineage/healthtimes-staging-adoption.json \
+  supabase/migrations/ \
+  tests/ag06-security-contract.spec.js \
+  tests/ca01-contract.spec.js \
+  tests/com01-contract.spec.js
 git commit -m "feat(newsroom): canonical server-authority recustody (HT-NR-01)"
 ```
 
@@ -399,10 +424,14 @@ git commit -m "feat(newsroom): canonical server-authority recustody (HT-NR-01)"
 
 ## 13. EXPLICIT FILES THAT MUST NOT BE RECOVERED
 
-1. `api/web.js`: Obsolete Phase 4 SSR server shell. Superseded by static and mobile application distribution.
-2. Historical Reader UI files in PR #40 root (`index.html`, `article.html`, `section.html`, `author.html`, `category.html`, `search.html`, `explore.html`, etc.): Replaced by current canonical mobile and web reader architecture.
-3. Obsolete Phase 4 / Phase 11 build scripts: `scripts/web/build-phase11-vercel.js`, `scripts/web/prepare-phase4-vercel.js`, `scripts/web/phase4-smoke-server.js`.
-4. Stale documentation commits from PR #40 that precede the accepted Hospaz/Mobile baseline.
+1. `newsroom.html`, `newsroom.js`, `newsroom.css`: Legacy web prototype. Canonical future Newsroom UI is `apps/mobile/app/studio/**`.
+2. `vercel.json`: Deployment/serving configuration; not part of kernel source recustody.
+3. `api/discussion.js`: Redundant endpoint; mobile communications calls Supabase RPCs directly.
+4. `api/web.js`: Obsolete Phase 4 SSR shell.
+5. `scripts/ag06/provision-staging-signups.mjs`: Staging-mutating script.
+6. `supabase/functions/**` (`ag06-certification-provision`, `ca01-certification-provision`, `com01-certification-provision`): Ephemeral test-provisioning edge functions.
+7. `tests/ag06-live-security.spec.js` and `tests/ca01-live-security.spec.js`: Staging-mutating test suites.
+8. Historical Reader UI files in PR #40 root (`index.html`, `article.html`, `category.html`, etc.).
 
 ---
 
@@ -414,6 +443,7 @@ HT-NR-01 execution must halt immediately if:
 3. Any DDL or DML write operation is executed against Staging project `gcdohgbmqhqwydgaxrcr`.
 4. Any historical commit is merged directly into `main` rather than selective blob recustody.
 5. Contract tests fail against local mock/test servers.
+6. An unproven claim of clean from-zero database replay is made without a running disposable database instance.
 
 ---
-**AUTHORIZATION:** This manifest is complete, deterministic, and ready for mechanical execution in `HT-NR-01`.
+**AUTHORIZATION:** This manifest is complete, deterministic, and safe for execution in `HT-NR-01` upon moderator resolution of from-zero replay testing.
