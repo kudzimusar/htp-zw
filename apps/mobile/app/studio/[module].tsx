@@ -14,6 +14,8 @@ import {
   StudioStoryDiscussionPanel,
   StudioThreadPanel
 } from "../../src/ui/StudioCommunications";
+import { StudioStories } from "../../src/ui/StudioStories";
+import { StudioStoryWorkspace } from "../../src/ui/StudioStoryWorkspace";
 
 export function generateStaticParams() {
   return [
@@ -36,8 +38,8 @@ const owners:Record<string,ModuleConfig>={
   "desks":{title:"Desks",owner:"CA-01 / AG-06",capability:null,description:"Private specialist coordination uses Newsroom desk membership and server-enforced thread access.",readiness:["Desk membership is server-owned","Thread access enforced below UI","Presence not used for authority"]},
   "breaking":{title:"Breaking",owner:"CA-01 / AG-06",capability:null,description:"Temporary breaking rooms use bounded membership, durable messages and restrained Presence.",readiness:["Breaking-room contract defined","Durable messages authoritative","Presence is non-authoritative"]},
   "moderation":{title:"Moderation",owner:"CA-01 / AG-06",capability:"comment.moderate",description:"Verified-reader comments remain a separate security domain with human moderation and restriction history.",readiness:["Reader and staff comments remain separate","Canonical story UUID required","Health misinformation requires human review"]},
-  "stories":{title:"Stories",owner:"AG-06",capability:"story.edit_own",description:"Assignments, drafts, revisions, review and publication must use server-backed capability checks.",readiness:["Draft/review layout ready","Publication authority server-only","Audit trail pending AG-06"]},
-  "create-edit":{title:"Create / Edit",owner:"AG-06",capability:"story.create",description:"The story editor is a server-authorized workflow. Draft persistence, revisions, review transitions and publish authority remain backend-owned.",readiness:["Editor shell ready","Draft API pending","Publish action remains gated"]},
+  "stories":{title:"Stories",owner:"HT-NR-02A",capability:"story.edit_own",description:"Server-backed Newsroom stories, drafts, review states, access policies and editorial lifecycle.",readiness:["Server-backed listing active","Filtered by status, desk and policy","Gated 'New Story' creation"]},
+  "create-edit":{title:"Story Workspace",owner:"HT-NR-02A",capability:"story.create",description:"Professional editorial workspace with writing, reporting, canonical metadata, review workflow, history and autosave.",readiness:["Optimistic concurrency with lock_version","Debounced autosave (~10s)","Canonical public author and section authority","Review records and revision restoration"]},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",capability:"story.publish",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows.",readiness:["Live Reader surface ready","Source data pending AG-04","Publish authority pending AG-06"]},
   "video-desk":{title:"Video Desk",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Video metadata, media and publishing remain backend-owned.",readiness:["Watch surface ready","Video metadata pending AG-04","Publishing authority pending AG-06"]},
   "media":{title:"Media Library",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Migrated media, captions, credits, alt text and provenance come from staging Storage and media_assets.",readiness:["Media component language ready","Authoritative assets pending AG-04","Privileged writes pending AG-06"]},
@@ -65,10 +67,13 @@ export default function StudioModule(){
 
   const content=(
     <>
-      <StudioPlaceholder owner={config.owner} description={config.description} />
+      {String(module)!=="stories" && String(module)!=="create-edit" && (
+        <StudioPlaceholder owner={config.owner} description={config.description} />
+      )}
       {String(module)==="inbox" && <StudioInboxPanel />}
       {String(module)==="assignments" && (assignmentId ? <StudioAssignmentDiscussionPanel assignmentId={String(assignmentId)} /> : <StudioAssignmentsPanel />)}
-      {String(module)==="stories" && storyId && <StudioStoryDiscussionPanel storyId={String(storyId)} />}
+      {String(module)==="stories" && <StudioStories />}
+      {String(module)==="create-edit" && <StudioStoryWorkspace storyId={storyId ? String(storyId) : undefined} />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}
