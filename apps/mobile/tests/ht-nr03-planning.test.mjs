@@ -74,11 +74,91 @@ const {
   canCreateAssignment,
   canProgressAssignment,
   getNextAssignmentStatus,
+  getAssignmentProgressActionLabel,
+  resolvePlanningAuthorityMode,
   getAssignmentDeadlineUrgency,
   ASSIGNMENT_STATUS_SEQUENCE,
   compareAssignmentsUrgency,
   StudioPlanningBoard
 } = planningModule;
+
+const commsUiModule = loadTs("src/ui/StudioCommunications.tsx", {
+  mocks: {
+    react: {
+      useState: (init) => [typeof init === "function" ? init() : init, () => {}],
+      useEffect: () => {}
+    },
+    "react-native": {
+      Pressable: "Pressable",
+      StyleSheet: { create: (s) => s },
+      Text: "Text",
+      TextInput: "TextInput",
+      View: "View"
+    },
+    "expo-router": {
+      useRouter: () => ({ push: () => {} })
+    },
+    "../services": {
+      services: {
+        newsroomCommunication: {
+          listAssignments: async () => [],
+          progressAssignment: async () => "Accepted"
+        },
+        authorization: {
+          getSnapshot: async () => ({ status: "authorized", capabilities: [], source: "server" })
+        }
+      }
+    },
+    "../hooks/useAsync": {
+      useAsync: () => ({ data: [], loading: false, error: null })
+    },
+    "../security/capabilities": {
+      hasServerCapability: (snapshot, cap) => {
+        return (
+          snapshot?.status === "authorized" &&
+          snapshot?.source === "server" &&
+          Array.isArray(snapshot?.capabilities) &&
+          snapshot.capabilities.includes(cap)
+        );
+      }
+    },
+    "react/jsx-runtime": {
+      jsx: (type, props) => ({ type, props }),
+      jsxs: (type, props) => ({ type, props })
+    }
+  }
+});
+
+function collectTexts(node, out = []) {
+  if (node == null || typeof node === "boolean") return out;
+  if (typeof node === "string" || typeof node === "number") {
+    out.push(String(node));
+    return out;
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) collectTexts(child, out);
+    return out;
+  }
+  if (typeof node === "object" && node.props) {
+    collectTexts(node.props.children, out);
+  }
+  return out;
+}
+
+function findPressables(node, out = []) {
+  if (!node || typeof node !== "object") return out;
+  if (Array.isArray(node)) {
+    for (const child of node) findPressables(child, out);
+    return out;
+  }
+  if (node.type === "Pressable") {
+    out.push(node);
+  }
+  if (node.props && node.props.children) {
+    findPressables(node.props.children, out);
+  }
+  return out;
+}
 
 test("HT-NR-03A: Planning Board authority gate strictly requires assignment.manage capability", () => {
   // Non-authorized statuses must fail closed
@@ -193,6 +273,24 @@ test("HT-NR-03A: Canonical assignment status progression sequence and terminal C
   assert.equal(getNextAssignmentStatus("Unknown"), null);
 });
 
+test("HT-NR-03A-R1: Canonical assignment progression action labels match exact stage transitions", () => {
+  assert.equal(getAssignmentProgressActionLabel("Assigned"), "Accept Assignment");
+  assert.equal(getAssignmentProgressActionLabel("Accepted"), "Start Reporting");
+  assert.equal(getAssignmentProgressActionLabel("Reporting"), "Start Drafting");
+  assert.equal(getAssignmentProgressActionLabel("Drafting"), "Submit Assignment");
+  assert.equal(getAssignmentProgressActionLabel("Submitted"), "Mark Complete");
+  assert.equal(getAssignmentProgressActionLabel("Complete"), null);
+  assert.equal(getAssignmentProgressActionLabel("Unknown"), null);
+
+  // StudioCommunications exports identical progression helpers
+  assert.equal(commsUiModule.getAssignmentProgressActionLabel("Assigned"), "Accept Assignment");
+  assert.equal(commsUiModule.getAssignmentProgressActionLabel("Accepted"), "Start Reporting");
+  assert.equal(commsUiModule.getAssignmentProgressActionLabel("Reporting"), "Start Drafting");
+  assert.equal(commsUiModule.getAssignmentProgressActionLabel("Drafting"), "Submit Assignment");
+  assert.equal(commsUiModule.getAssignmentProgressActionLabel("Submitted"), "Mark Complete");
+  assert.equal(commsUiModule.getAssignmentProgressActionLabel("Complete"), null);
+});
+
 test("HT-NR-03A: Progression authority checks actor identity against reporterStaffId or assignment.manage", () => {
   const assignment = {
     id: "a1111111-1111-1111-1111-111111111111",
@@ -264,6 +362,412 @@ test("HT-NR-03A: Progression authority checks actor identity against reporterSta
     ),
     false
   );
+});
+
+test("HT-NR-03A-R1: Reporter self-progression in StudioAssignmentsPanel (My Assignments) executes progressAssignment and refreshes listAssignments", async () => {
+  const commsPanelSource = read("src/ui/StudioCommunications.tsx");
+
+  // Never performs direct story_assignments updates
+  assert.equal(commsPanelSource.includes('from("story_assignments").update'), false);
+  assert.match(commsPanelSource, /services\.authorization\.getSnapshot\(\)/);
+  assert.match(commsPanelSource, /services\.newsroomCommunication\.progressAssignment\(item\.id\)/);
+
+  const ownAssignment = {
+    id: "11111111-2222-3333-4444-555555555555",
+    title: "District Hospital Solar Backup Report",
+    reporterStaffId: "rep-self-1111",
+    assignedEditorStaffId: null,
+    desk: "Health Policy",
+    deadlineAt: "2026-10-20T12:00:00Z",
+    priority: "High",
+    notes: "Verify generator logs",
+    status: "Assigned",
+    assignedBy: "mgr-1",
+    updatedAt: "2026-10-16T08:00:00Z"
+  };
+
+  const otherReporterAssignment = {
+    ...ownAssignment,
+    id: "22222222-2222-3333-4444-555555555555",
+    title: "Other Reporter Assignment",
+    reporterStaffId: "rep-other-9999",
+    status: "Reporting"
+  };
+
+  const completedOwnAssignment = {
+    ...ownAssignment,
+    id: "33333333-2222-3333-4444-555555555555",
+    title: "Completed Reporter Assignment",
+    status: "Complete"
+  };
+
+  let progressedAssignmentId = null;
+  let listAssignmentsCalls = 0;
+  let refreshCount = 0;
+
+  const reporterSnapshot = {
+    status: "authorized",
+    staffProfileId: "rep-self-1111",
+    capabilities: ["story.create", "story.edit_own"], // No assignment.manage
+    source: "server"
+  };
+
+  const runtimeCommsModule = loadTs("src/ui/StudioCommunications.tsx", {
+    mocks: {
+      react: {
+        useState: (init) => {
+          const val = typeof init === "function" ? init() : init;
+          return [
+            val,
+            (next) => {
+              if (typeof next === "function") {
+                refreshCount = next(refreshCount);
+              }
+            }
+          ];
+        },
+        useEffect: () => {}
+      },
+      "react-native": {
+        Pressable: "Pressable",
+        StyleSheet: { create: (s) => s },
+        Text: "Text",
+        TextInput: "TextInput",
+        View: "View"
+      },
+      "expo-router": {
+        useRouter: () => ({ push: () => {} })
+      },
+      "../services": {
+        services: {
+          newsroomCommunication: {
+            listAssignments: async () => {
+              listAssignmentsCalls += 1;
+              return [ownAssignment, otherReporterAssignment, completedOwnAssignment];
+            },
+            progressAssignment: async (id) => {
+              progressedAssignmentId = id;
+              return "Accepted";
+            }
+          },
+          authorization: {
+            getSnapshot: async () => reporterSnapshot
+          }
+        }
+      },
+      "../hooks/useAsync": {
+        useAsync: (fn) => {
+          // Evaluate distinguishably based on function string
+          const fnStr = fn.toString();
+          if (fnStr.includes("getSnapshot")) {
+            return { data: reporterSnapshot, loading: false, error: null };
+          }
+          if (fnStr.includes("listAssignments")) {
+            listAssignmentsCalls += 1;
+            return {
+              data: [ownAssignment, otherReporterAssignment, completedOwnAssignment],
+              loading: false,
+              error: null
+            };
+          }
+          return { data: [], loading: false, error: null };
+        }
+      },
+      "../security/capabilities": {
+        hasServerCapability: (snapshot, cap) =>
+          snapshot?.status === "authorized" &&
+          snapshot?.source === "server" &&
+          Array.isArray(snapshot?.capabilities) &&
+          snapshot.capabilities.includes(cap)
+      },
+      "react/jsx-runtime": {
+        jsx: (type, props) => ({ type, props }),
+        jsxs: (type, props) => ({ type, props })
+      }
+    }
+  });
+
+  const tree = runtimeCommsModule.StudioAssignmentsPanel();
+  const texts = collectTexts(tree).join(" | ");
+
+  // 1. Assigned reporter sees progression label for their own Assigned item
+  assert.ok(
+    texts.includes("Accept Assignment → Accepted"),
+    "Assigned reporter must see 'Accept Assignment → Accepted' on their own Assigned assignment"
+  );
+
+  // 2. Unrelated reporter's assignment in Reporting does NOT render 'Start Drafting → Drafting'
+  assert.ok(
+    !texts.includes("Start Drafting → Drafting"),
+    "Reporter without assignment.manage must not see progression control on another reporter's assignment"
+  );
+
+  // 3. Completed assignment shows no progression control
+  const pressables = findPressables(tree);
+  const advanceButtons = pressables.filter((p) =>
+    collectTexts(p).join("").includes("Accept Assignment → Accepted")
+  );
+  assert.equal(advanceButtons.length, 1, "Only the reporter's own active assignment must render an advance button");
+
+  // 4. Triggering onPress invokes services.newsroomCommunication.progressAssignment(assignment.id) and increments refresh
+  await advanceButtons[0].props.onPress();
+  assert.equal(progressedAssignmentId, ownAssignment.id);
+  assert.equal(refreshCount, 1, "Progressing an assignment must trigger listAssignments refresh");
+  assert.ok(listAssignmentsCalls >= 1);
+});
+
+test("HT-NR-03A-R1: Three distinct authority modes in StudioPlanningBoard (manager, create-only, unauthorized)", () => {
+  // Unauthorized cases
+  assert.equal(resolvePlanningAuthorityMode(null), "unauthorized");
+  assert.equal(resolvePlanningAuthorityMode(undefined), "unauthorized");
+  assert.equal(
+    resolvePlanningAuthorityMode({
+      status: "authorized",
+      capabilities: ["story.create", "story.edit_own"],
+      source: "server"
+    }),
+    "unauthorized"
+  );
+  assert.equal(
+    resolvePlanningAuthorityMode({
+      status: "authorized",
+      capabilities: ["assignment.create"],
+      source: "none"
+    }),
+    "unauthorized"
+  );
+
+  // Create-only mode: has assignment.create without assignment.manage
+  assert.equal(
+    resolvePlanningAuthorityMode({
+      status: "authorized",
+      capabilities: ["assignment.create"],
+      source: "server"
+    }),
+    "create-only"
+  );
+
+  // Manager mode: has assignment.manage (with or without assignment.create)
+  assert.equal(
+    resolvePlanningAuthorityMode({
+      status: "authorized",
+      capabilities: ["assignment.manage"],
+      source: "server"
+    }),
+    "manager"
+  );
+  assert.equal(
+    resolvePlanningAuthorityMode({
+      status: "authorized",
+      capabilities: ["assignment.create", "assignment.manage"],
+      source: "server"
+    }),
+    "manager"
+  );
+});
+
+test("HT-NR-03A-R1: Create-only mode renders bounded creation workspace, never fetches listAssignments or listStories, and enforces staff directory truth", async () => {
+  let listAssignmentsCalled = false;
+  let listStoriesCalled = false;
+  let listAssignmentStaffCalled = false;
+  let createdPayload = null;
+
+  const createOnlySnapshot = {
+    status: "authorized",
+    staffProfileId: "desk-creator-1",
+    capabilities: ["assignment.create"],
+    source: "server"
+  };
+
+  async function renderCreateOnlyBoard(staffRows, prefillState = {}) {
+    listAssignmentsCalled = false;
+    listStoriesCalled = false;
+    listAssignmentStaffCalled = false;
+    createdPayload = null;
+
+    const states = [];
+    let stateIdx = 0;
+    let effectRan = false;
+
+    const boardMod = loadTs("src/ui/StudioPlanningBoard.tsx", {
+      mocks: {
+        react: {
+          useState: (init) => {
+            const idx = stateIdx++;
+            if (!(idx in states)) {
+              states[idx] = typeof init === "function" ? init() : init;
+            }
+            const setState = (val) => {
+              states[idx] = typeof val === "function" ? val(states[idx]) : val;
+            };
+            return [states[idx], setState];
+          },
+          useMemo: (fn) => fn(),
+          useRef: (init) => ({ current: init }),
+          useEffect: (fn) => {
+            if (!effectRan) {
+              effectRan = true;
+              fn();
+            }
+          }
+        },
+        "react-native": {
+          Pressable: "Pressable",
+          ScrollView: "ScrollView",
+          StyleSheet: { create: (s) => s },
+          Text: "Text",
+          TextInput: "TextInput",
+          View: "View",
+          useWindowDimensions: () => ({ width: 1024, height: 768 })
+        },
+        "expo-router": {
+          useRouter: () => ({ push: () => {} })
+        },
+        "../services": {
+          services: {
+            newsroomCommunication: {
+              listAssignments: async () => {
+                listAssignmentsCalled = true;
+                return [];
+              },
+              listAssignmentStaff: async () => {
+                listAssignmentStaffCalled = true;
+                return staffRows;
+              },
+              createAssignment: async (input) => {
+                createdPayload = input;
+                return "created-assignment-id";
+              },
+              progressAssignment: async () => "Accepted"
+            },
+            newsroomStories: {
+              listStories: async () => {
+                listStoriesCalled = true;
+                return [];
+              }
+            },
+            authorization: {
+              getSnapshot: async () => createOnlySnapshot
+            }
+          }
+        },
+        "../hooks/useAsync": {
+          useAsync: () => ({ data: createOnlySnapshot, loading: false, error: null })
+        },
+        "../security/capabilities": {
+          hasServerCapability: (snapshot, cap) =>
+            snapshot?.status === "authorized" &&
+            snapshot?.source === "server" &&
+            Array.isArray(snapshot?.capabilities) &&
+            snapshot.capabilities.includes(cap)
+        },
+        "react/jsx-runtime": {
+          jsx: (type, props) => ({ type, props }),
+          jsxs: (type, props) => ({ type, props })
+        }
+      }
+    });
+
+    // Initial render triggers useEffect -> listAssignmentStaff()
+    stateIdx = 0;
+    boardMod.StudioPlanningBoard();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Re-render after async staff directory resolves
+    stateIdx = 0;
+    let tree = boardMod.StudioPlanningBoard();
+
+    if (prefillState.title || prefillState.reporterDisplayName) {
+      // Find title TextInput and trigger onChangeText
+      function findInputs(node, out = []) {
+        if (!node || typeof node !== "object") return out;
+        if (Array.isArray(node)) {
+          for (const c of node) findInputs(c, out);
+          return out;
+        }
+        if (node.type === "TextInput") out.push(node);
+        if (node.props && node.props.children) findInputs(node.props.children, out);
+        return out;
+      }
+      if (prefillState.title) {
+        const inputs = findInputs(tree);
+        const titleInput = inputs.find((i) =>
+          String(i.props.placeholder || "").includes("Investigation")
+        );
+        titleInput.props.onChangeText(prefillState.title);
+      }
+      if (prefillState.reporterDisplayName) {
+        const pills = findPressables(tree).filter((p) =>
+          collectTexts(p).join("").includes(prefillState.reporterDisplayName)
+        );
+        pills[0].props.onPress();
+      }
+      stateIdx = 0;
+      tree = boardMod.StudioPlanningBoard();
+    }
+
+    return { tree, texts: collectTexts(tree).join(" | "), states };
+  }
+
+  // Case 1: Empty staff directory -> fail-closed message and disabled Save Assignment
+  const emptyResult = await renderCreateOnlyBoard([]);
+
+  assert.equal(listAssignmentStaffCalled, true, "create-only mode must call listAssignmentStaff()");
+  assert.equal(listAssignmentsCalled, false, "create-only mode must NOT call listAssignments()");
+  assert.equal(listStoriesCalled, false, "create-only mode must NOT call listStories(200)");
+
+  assert.ok(emptyResult.texts.includes("Assignment Creation"), "create-only mode must render Assignment Creation header");
+  assert.ok(emptyResult.texts.includes("Create Story Assignment"), "create-only mode must render Create Story Assignment panel");
+  assert.ok(emptyResult.texts.includes("Go to My Assignments →"), "create-only mode must include handoff to My Assignments");
+  assert.ok(
+    emptyResult.texts.includes("Canonical staff directory authority is required before a reporter can be assigned."),
+    "Must display exact canonical staff directory authority message when staff list is empty"
+  );
+
+  // Verify NO board metrics, filters, or story linking selector in create-only mode
+  assert.ok(!emptyResult.texts.includes("Total Assignments"), "create-only mode must NOT render board metrics");
+  assert.ok(!emptyResult.texts.includes("Reset All Filters"), "create-only mode must NOT render manager filters");
+  assert.ok(!emptyResult.texts.includes("Associate with Existing Story (Optional)"), "create-only mode must NOT expose story linking selector");
+
+  const emptySubmitButtons = findPressables(emptyResult.tree).filter((p) =>
+    collectTexts(p).join("").includes("Save Assignment")
+  );
+  assert.equal(emptySubmitButtons.length, 1);
+  assert.equal(emptySubmitButtons[0].props.disabled, true, "Save Assignment button must be disabled when staffList is empty");
+
+  // Case 2: Populated staff directory -> can submit createAssignment via canonical RPC service
+  const staffMember = {
+    id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    displayName: "Tendai Moyo",
+    desk: "Public Health",
+    roleSlug: "reporter"
+  };
+  const populatedResult = await renderCreateOnlyBoard([staffMember], {
+    title: "Maternal Health Supply Chain Audit",
+    reporterDisplayName: staffMember.displayName
+  });
+
+  assert.equal(listAssignmentsCalled, false, "create-only mode must still NOT call listAssignments()");
+  assert.equal(listStoriesCalled, false, "create-only mode must still NOT call listStories(200)");
+  assert.ok(!populatedResult.texts.includes("Associate with Existing Story (Optional)"), "create-only mode must NOT expose story linking selector even when staff is loaded");
+
+  const activeSubmitButtons = findPressables(populatedResult.tree).filter((p) =>
+    collectTexts(p).join("").includes("Save Assignment")
+  );
+  assert.equal(activeSubmitButtons.length, 1);
+  assert.equal(activeSubmitButtons[0].props.disabled, false);
+
+  await activeSubmitButtons[0].props.onPress();
+  assert.deepEqual(createdPayload, {
+    title: "Maternal Health Supply Chain Audit",
+    reporterStaffId: staffMember.id,
+    assignedEditorStaffId: null,
+    desk: null,
+    priority: "Normal",
+    deadlineAt: null,
+    notes: null,
+    storyId: null
+  });
 });
 
 test("HT-NR-03A: Deadline urgency calculations exclude Complete assignments from Overdue and Imminent", () => {
@@ -425,7 +929,7 @@ test("HT-NR-03A: Staff identity truth resolves only valid staff and defaults to 
 
   // Disables form submission when no active staff profiles exist
   assert.match(boardSource, /staffList\.length === 0/);
-  assert.match(boardSource, /No Active Staff Profiles/);
+  assert.match(boardSource, /Canonical staff directory authority is required before a reporter can be assigned\./);
 });
 
 test("HT-NR-03A: Domain separation ensures assignment progress is distinct from story workflow", () => {

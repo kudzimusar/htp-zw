@@ -15,55 +15,62 @@ import {
   hasServerCapability,
   type AuthorizationSnapshot
 } from "../security/capabilities";
-import type {
-  NewsroomAssignment,
-  NewsroomPlanningStaff,
-  NewsroomStory,
-  CreateAssignmentInput
+import {
+  ASSIGNMENT_STATUS_SEQUENCE,
+  getNextAssignmentStatus,
+  getAssignmentProgressActionLabel,
+  type AssignmentStatus,
+  type NewsroomAssignment,
+  type NewsroomPlanningStaff,
+  type NewsroomStory,
+  type CreateAssignmentInput
 } from "../domain/models";
 import { colors, radius, spacing, breakpoints } from "../theme/tokens";
 
-export const ASSIGNMENT_STATUS_SEQUENCE = [
-  "Assigned",
-  "Accepted",
-  "Reporting",
-  "Drafting",
-  "Submitted",
-  "Complete"
-] as const;
+export {
+  ASSIGNMENT_STATUS_SEQUENCE,
+  getNextAssignmentStatus,
+  getAssignmentProgressActionLabel,
+  type AssignmentStatus
+};
 
-export type AssignmentStatus = (typeof ASSIGNMENT_STATUS_SEQUENCE)[number];
+export type PlanningAuthorityMode = "manager" | "create-only" | "unauthorized";
+
+export function resolvePlanningAuthorityMode(
+  snapshot: AuthorizationSnapshot | null | undefined
+): PlanningAuthorityMode {
+  if (!snapshot || snapshot.status !== "authorized" || snapshot.source !== "server") {
+    return "unauthorized";
+  }
+  if (hasServerCapability(snapshot, "assignment.manage")) {
+    return "manager";
+  }
+  if (hasServerCapability(snapshot, "assignment.create")) {
+    return "create-only";
+  }
+  return "unauthorized";
+}
 
 export function hasPlanningAuthority(
   snapshot: AuthorizationSnapshot | null | undefined
 ): boolean {
-  if (!snapshot) return false;
-  if (snapshot.status !== "authorized" || snapshot.source !== "server") {
-    return false;
-  }
-  return hasServerCapability(snapshot, "assignment.manage");
+  return resolvePlanningAuthorityMode(snapshot) === "manager";
 }
 
 export function canCreateAssignment(
   snapshot: AuthorizationSnapshot | null | undefined
 ): boolean {
-  if (!snapshot || snapshot.status !== "authorized" || snapshot.source !== "server") {
-    return false;
-  }
-  return (
-    hasServerCapability(snapshot, "assignment.create") ||
-    hasServerCapability(snapshot, "assignment.manage")
-  );
+  return resolvePlanningAuthorityMode(snapshot) !== "unauthorized";
 }
 
 export function canProgressAssignment(
   snapshot: AuthorizationSnapshot | null | undefined,
-  assignment: NewsroomAssignment
+  assignment: Pick<NewsroomAssignment, "status" | "reporterStaffId">
 ): boolean {
   if (!snapshot || snapshot.status !== "authorized" || snapshot.source !== "server") {
     return false;
   }
-  if (assignment.status === "Complete") {
+  if (assignment.status === "Complete" || !getNextAssignmentStatus(assignment.status)) {
     return false;
   }
   const isManager = hasServerCapability(snapshot, "assignment.manage");
@@ -71,23 +78,6 @@ export function canProgressAssignment(
     snapshot.staffProfileId && snapshot.staffProfileId === assignment.reporterStaffId
   );
   return isManager || isReporter;
-}
-
-export function getNextAssignmentStatus(currentStatus: string): string | null {
-  switch (currentStatus) {
-    case "Assigned":
-      return "Accepted";
-    case "Accepted":
-      return "Reporting";
-    case "Reporting":
-      return "Drafting";
-    case "Drafting":
-      return "Submitted";
-    case "Submitted":
-      return "Complete";
-    default:
-      return null;
-  }
 }
 
 export function getAssignmentDeadlineUrgency(
@@ -291,10 +281,16 @@ export function StudioPlanningBoard() {
     [refreshKey]
   );
   const authSnapshot = authAsync.data;
-  const isAuthorized = hasPlanningAuthority(authSnapshot);
+  const authorityMode = resolvePlanningAuthorityMode(authSnapshot);
+  const isManager = authorityMode === "manager";
+  const isCreateOnly = authorityMode === "create-only";
+  const isAuthorized = isManager;
   const canCreate = canCreateAssignment(authSnapshot);
 
-  // Conditional workload retrieval: only fetch when planning authority is proven
+  // Conditional workload retrieval:
+  // - "unauthorized": fetches nothing
+  // - "create-only": fetches only RLS-protected staff profiles (listAssignmentStaff)
+  // - "manager": fetches full planning workload (listAssignments, listAssignmentStaff, listStories)
   const [assignmentsState, setAssignmentsState] = useState<{
     data: NewsroomAssignment[] | null;
     loading: boolean;
@@ -326,7 +322,7 @@ export function StudioPlanningBoard() {
   });
 
   useEffect(() => {
-    if (!isAuthorized) {
+    if (authorityMode === "unauthorized") {
       setAssignmentsState({ data: null, loading: false, error: null });
       setStaffState({ data: null, loading: false, error: null });
       setStoriesState({ data: null, loading: false, error: null });
@@ -334,8 +330,33 @@ export function StudioPlanningBoard() {
     }
 
     let active = true;
-    setAssignmentsState((prev) => ({ ...prev, loading: true, error: null }));
+
+    // Both manager and create-only modes load RLS-protected staff directory
     setStaffState((prev) => ({ ...prev, loading: true, error: null }));
+    services.newsroomCommunication
+      .listAssignmentStaff()
+      .then((staff) => {
+        if (active) setStaffState({ data: staff, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (active)
+          setStaffState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+      });
+
+    if (authorityMode === "create-only") {
+      setAssignmentsState({ data: null, loading: false, error: null });
+      setStoriesState({ data: null, loading: false, error: null });
+      return () => {
+        active = false;
+      };
+    }
+
+    // Manager mode only: fetch full planning workload and story list
+    setAssignmentsState((prev) => ({ ...prev, loading: true, error: null }));
     setStoriesState((prev) => ({ ...prev, loading: true, error: null }));
 
     services.newsroomCommunication
@@ -346,20 +367,6 @@ export function StudioPlanningBoard() {
       .catch((err) => {
         if (active)
           setAssignmentsState({
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err))
-          });
-      });
-
-    services.newsroomCommunication
-      .listAssignmentStaff()
-      .then((staff) => {
-        if (active) setStaffState({ data: staff, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (active)
-          setStaffState({
             data: null,
             loading: false,
             error: err instanceof Error ? err : new Error(String(err))
@@ -383,7 +390,7 @@ export function StudioPlanningBoard() {
     return () => {
       active = false;
     };
-  }, [isAuthorized, refreshKey]);
+  }, [authorityMode, refreshKey]);
 
   const rawAssignments = assignmentsState.data ?? [];
   const staffList = staffState.data ?? [];
@@ -599,7 +606,7 @@ export function StudioPlanningBoard() {
         priority: newPriority,
         deadlineAt: newDeadlineAt.trim() || null,
         notes: newNotes.trim() || null,
-        storyId: newStoryId.trim() || null
+        storyId: isManager && newStoryId.trim() ? newStoryId.trim() : null
       };
 
       await services.newsroomCommunication.createAssignment(payload);
@@ -613,8 +620,10 @@ export function StudioPlanningBoard() {
       setNewDeadlineAt("");
       setNewNotes("");
       setNewStoryId("");
-      setIsCreateOpen(false);
-      setRefreshKey((k) => k + 1);
+      if (isManager) {
+        setIsCreateOpen(false);
+        setRefreshKey((k) => k + 1);
+      }
     } catch (err: any) {
       setFormError(err?.message || "Failed to create assignment.");
     } finally {
@@ -648,6 +657,255 @@ export function StudioPlanningBoard() {
       params: { module: "assignments", assignmentId }
     });
   };
+
+  const renderCreateAssignmentPanel = (options: {
+    allowStoryLink: boolean;
+    allowCancel: boolean;
+  }) => (
+    <View style={styles.createPanel}>
+      <Text style={styles.createPanelTitle}>Create Story Assignment</Text>
+      <Text style={styles.createPanelSub}>
+        Assignments record authoritative reporting briefs and associate reporters with editorial desks.
+      </Text>
+
+      {formError && (
+        <View style={styles.formErrorBox}>
+          <Text style={styles.formErrorText}>{formError}</Text>
+        </View>
+      )}
+
+      {staffState.loading ? (
+        <View style={styles.stateContainer}>
+          <Text style={styles.loadingText}>Loading canonical staff directory from server…</Text>
+        </View>
+      ) : staffState.error ? (
+        <View style={styles.formErrorBox}>
+          <Text style={styles.formErrorText}>{staffState.error.message}</Text>
+          <Pressable style={[styles.retryBtn, { marginTop: spacing.xs }]} onPress={() => setRefreshKey((k) => k + 1)}>
+            <Text style={styles.retryBtnText}>Retry Staff Directory</Text>
+          </Pressable>
+        </View>
+      ) : staffList.length === 0 ? (
+        <View style={styles.formGrid}>
+          <View style={styles.staffEmptyNotice}>
+            <Text style={styles.staffEmptyNoticeTitle}>No Active Staff Profiles</Text>
+            <Text style={styles.staffEmptyNoticeText}>
+              Canonical staff directory authority is required before a reporter can be assigned. No active staff profiles are currently returned by the server. In accordance with HealthTimes server policy, assignments require a valid server reporter UUID and cannot be assigned to fictional identities.
+            </Text>
+          </View>
+          <View style={styles.formActionsRow}>
+            {options.allowCancel && (
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => setIsCreateOpen(false)}
+                disabled={formSubmitting}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={[styles.submitBtn, styles.submitBtnDisabled]}
+              disabled={true}
+            >
+              <Text style={styles.submitBtnText}>Save Assignment</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.formGrid}>
+          {/* Title */}
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Assignment Title *</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="e.g. Investigation into Cholera Outbreak Response"
+              placeholderTextColor="#94A3B8"
+              value={newTitle}
+              onChangeText={setNewTitle}
+              editable={!formSubmitting}
+            />
+          </View>
+
+          {/* Reporter Staff Selector */}
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Assigned Reporter * (Active Staff)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
+              {staffList.map((staff) => {
+                const isSelected = newReporterStaffId === staff.id;
+                return (
+                  <Pressable
+                    key={staff.id}
+                    style={[styles.staffSelectPill, isSelected && styles.staffSelectPillActive]}
+                    onPress={() => setNewReporterStaffId(staff.id)}
+                    disabled={formSubmitting}
+                  >
+                    <Text style={[styles.staffSelectPillText, isSelected && styles.staffSelectPillTextActive]}>
+                      {staff.displayName} {staff.desk ? `(${staff.desk})` : ""}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            {!newReporterStaffId && (
+              <Text style={styles.fieldHint}>Select an active reporter profile above.</Text>
+            )}
+          </View>
+
+          {/* Assigned Editor Staff Selector */}
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Assigned Editor (Optional)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
+              <Pressable
+                style={[styles.staffSelectPill, !newAssignedEditorStaffId && styles.staffSelectPillActive]}
+                onPress={() => setNewAssignedEditorStaffId("")}
+                disabled={formSubmitting}
+              >
+                <Text style={[styles.staffSelectPillText, !newAssignedEditorStaffId && styles.staffSelectPillTextActive]}>
+                  None
+                </Text>
+              </Pressable>
+              {staffList.map((staff) => {
+                const isSelected = newAssignedEditorStaffId === staff.id;
+                return (
+                  <Pressable
+                    key={staff.id}
+                    style={[styles.staffSelectPill, isSelected && styles.staffSelectPillActive]}
+                    onPress={() => setNewAssignedEditorStaffId(staff.id)}
+                    disabled={formSubmitting}
+                  >
+                    <Text style={[styles.staffSelectPillText, isSelected && styles.staffSelectPillTextActive]}>
+                      {staff.displayName}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={styles.formRow}>
+            {/* Desk */}
+            <View style={[styles.formField, { flex: 1 }]}>
+              <Text style={styles.formLabel}>Desk</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. Investigations, Public Health"
+                placeholderTextColor="#94A3B8"
+                value={newDesk}
+                onChangeText={setNewDesk}
+                editable={!formSubmitting}
+              />
+            </View>
+
+            {/* Priority */}
+            <View style={[styles.formField, { flex: 1 }]}>
+              <Text style={styles.formLabel}>Priority</Text>
+              <View style={styles.segmentedRow}>
+                {["Normal", "High", "Urgent"].map((prio) => {
+                  const isSel = newPriority === prio;
+                  return (
+                    <Pressable
+                      key={prio}
+                      style={[styles.segmentBtn, isSel && styles.segmentBtnActive]}
+                      onPress={() => setNewPriority(prio)}
+                      disabled={formSubmitting}
+                    >
+                      <Text style={[styles.segmentBtnText, isSel && styles.segmentBtnTextActive]}>
+                        {prio}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+          {/* Deadline */}
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Deadline (ISO Timestamp, optional)</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="e.g. 2026-10-20T18:00:00Z"
+              placeholderTextColor="#94A3B8"
+              value={newDeadlineAt}
+              onChangeText={setNewDeadlineAt}
+              editable={!formSubmitting}
+            />
+          </View>
+
+          {/* Linked Story (Manager mode only) */}
+          {options.allowStoryLink && storiesList.length > 0 && (
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Associate with Existing Story (Optional)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
+                <Pressable
+                  style={[styles.staffSelectPill, !newStoryId && styles.staffSelectPillActive]}
+                  onPress={() => setNewStoryId("")}
+                  disabled={formSubmitting}
+                >
+                  <Text style={[styles.staffSelectPillText, !newStoryId && styles.staffSelectPillTextActive]}>
+                    None (Unlinked)
+                  </Text>
+                </Pressable>
+                {storiesList.map((story) => {
+                  const isSelected = newStoryId === story.id;
+                  return (
+                    <Pressable
+                      key={story.id}
+                      style={[styles.staffSelectPill, isSelected && styles.staffSelectPillActive]}
+                      onPress={() => setNewStoryId(story.id)}
+                      disabled={formSubmitting}
+                    >
+                      <Text style={[styles.staffSelectPillText, isSelected && styles.staffSelectPillTextActive]}>
+                        {story.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Notes */}
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>Assignment Notes & Briefing (Optional)</Text>
+            <TextInput
+              style={[styles.formInput, styles.formTextArea]}
+              placeholder="Editorial angle, target sources, reporting instructions…"
+              placeholderTextColor="#94A3B8"
+              value={newNotes}
+              onChangeText={setNewNotes}
+              multiline
+              numberOfLines={3}
+              editable={!formSubmitting}
+            />
+          </View>
+
+          {/* Form Action Buttons */}
+          <View style={styles.formActionsRow}>
+            {options.allowCancel && (
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => setIsCreateOpen(false)}
+                disabled={formSubmitting}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={[styles.submitBtn, (!newTitle.trim() || !newReporterStaffId.trim() || formSubmitting) && styles.submitBtnDisabled]}
+              onPress={handleCreateAssignment}
+              disabled={!newTitle.trim() || !newReporterStaffId.trim() || formSubmitting}
+            >
+              <Text style={styles.submitBtnText}>
+                {formSubmitting ? "Creating…" : "Save Assignment"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </View>
+  );
 
   // Fail-closed authorization views
   if (authAsync.loading) {
@@ -702,7 +960,8 @@ export function StudioPlanningBoard() {
     );
   }
 
-  if (!isAuthorized) {
+  // Mode C — Neither assignment.manage nor assignment.create
+  if (authorityMode === "unauthorized") {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -723,7 +982,7 @@ export function StudioPlanningBoard() {
         <View style={styles.stateContainer}>
           <Text style={styles.unauthorizedTitle}>Planning Authority Required</Text>
           <Text style={styles.unauthorizedText}>
-            Newsroom Planning / News Budget requires assignment management authority (assignment.manage capability). Your account does not hold this capability. Individual reporters can view their personal assigned tasks in My Assignments.
+            Newsroom Planning / News Budget requires assignment management or creation authority (assignment.manage or assignment.create capability). Your account does not hold these capabilities. Individual reporters can view and progress their personal assigned tasks in My Assignments.
           </Text>
           <Pressable
             style={styles.actionLinkBtn}
@@ -736,6 +995,57 @@ export function StudioPlanningBoard() {
     );
   }
 
+  // Mode B — Create-only staff (assignment.create without assignment.manage)
+  if (isCreateOnly) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            <View>
+              <View style={styles.headerTagRow}>
+                <View style={styles.livePulseDot} />
+                <Text style={styles.headerSub}>HealthTimes Newsroom OS</Text>
+              </View>
+              <Text style={styles.title}>Assignment Creation</Text>
+            </View>
+
+            <View style={styles.headerActions}>
+              <Pressable
+                style={styles.refreshBtn}
+                onPress={() => setRefreshKey((k) => k + 1)}
+              >
+                <Text style={styles.refreshBtnText}>↻ Refresh Staff</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.secondaryActionBtn}
+                onPress={() => router.push({ pathname: "/studio/[module]", params: { module: "assignments" } })}
+              >
+                <Text style={styles.secondaryActionBtnText}>Go to My Assignments →</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Text style={styles.description}>
+            Bounded assignment creation workspace (assignment.create authority). Full News Budget metrics, triage filters and all-assignment board require assignment.manage.
+          </Text>
+        </View>
+
+        {formSuccess && (
+          <View style={styles.bannerSuccess}>
+            <Text style={styles.bannerSuccessText}>{formSuccess}</Text>
+            <Pressable onPress={() => setFormSuccess(null)}>
+              <Text style={styles.bannerDismissText}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {renderCreateAssignmentPanel({ allowStoryLink: false, allowCancel: false })}
+      </View>
+    );
+  }
+
+  // Mode A — Manager (assignment.manage)
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -837,219 +1147,7 @@ export function StudioPlanningBoard() {
       )}
 
       {/* Collapsible Create Assignment Form */}
-      {isCreateOpen && (
-        <View style={styles.createPanel}>
-          <Text style={styles.createPanelTitle}>Create Story Assignment</Text>
-          <Text style={styles.createPanelSub}>
-            Assignments record authoritative reporting briefs and associate reporters with editorial desks.
-          </Text>
-
-          {formError && (
-            <View style={styles.formErrorBox}>
-              <Text style={styles.formErrorText}>{formError}</Text>
-            </View>
-          )}
-
-          {staffList.length === 0 ? (
-            <View style={styles.staffEmptyNotice}>
-              <Text style={styles.staffEmptyNoticeTitle}>No Active Staff Profiles</Text>
-              <Text style={styles.staffEmptyNoticeText}>
-                No active staff profiles are currently returned by the server. In accordance with HealthTimes server policy, assignments require a valid server reporter UUID and cannot be assigned to fictional identities.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.formGrid}>
-              {/* Title */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Assignment Title *</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. Investigation into Cholera Outbreak Response"
-                  placeholderTextColor="#94A3B8"
-                  value={newTitle}
-                  onChangeText={setNewTitle}
-                  editable={!formSubmitting}
-                />
-              </View>
-
-              {/* Reporter Staff Selector */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Assigned Reporter * (Active Staff)</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
-                  {staffList.map((staff) => {
-                    const isSelected = newReporterStaffId === staff.id;
-                    return (
-                      <Pressable
-                        key={staff.id}
-                        style={[styles.staffSelectPill, isSelected && styles.staffSelectPillActive]}
-                        onPress={() => setNewReporterStaffId(staff.id)}
-                        disabled={formSubmitting}
-                      >
-                        <Text style={[styles.staffSelectPillText, isSelected && styles.staffSelectPillTextActive]}>
-                          {staff.displayName} {staff.desk ? `(${staff.desk})` : ""}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-                {!newReporterStaffId && (
-                  <Text style={styles.fieldHint}>Select an active reporter profile above.</Text>
-                )}
-              </View>
-
-              {/* Assigned Editor Staff Selector */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Assigned Editor (Optional)</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
-                  <Pressable
-                    style={[styles.staffSelectPill, !newAssignedEditorStaffId && styles.staffSelectPillActive]}
-                    onPress={() => setNewAssignedEditorStaffId("")}
-                    disabled={formSubmitting}
-                  >
-                    <Text style={[styles.staffSelectPillText, !newAssignedEditorStaffId && styles.staffSelectPillTextActive]}>
-                      None
-                    </Text>
-                  </Pressable>
-                  {staffList.map((staff) => {
-                    const isSelected = newAssignedEditorStaffId === staff.id;
-                    return (
-                      <Pressable
-                        key={staff.id}
-                        style={[styles.staffSelectPill, isSelected && styles.staffSelectPillActive]}
-                        onPress={() => setNewAssignedEditorStaffId(staff.id)}
-                        disabled={formSubmitting}
-                      >
-                        <Text style={[styles.staffSelectPillText, isSelected && styles.staffSelectPillTextActive]}>
-                          {staff.displayName}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-              <View style={styles.formRow}>
-                {/* Desk */}
-                <View style={[styles.formField, { flex: 1 }]}>
-                  <Text style={styles.formLabel}>Desk</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="e.g. Investigations, Public Health"
-                    placeholderTextColor="#94A3B8"
-                    value={newDesk}
-                    onChangeText={setNewDesk}
-                    editable={!formSubmitting}
-                  />
-                </View>
-
-                {/* Priority */}
-                <View style={[styles.formField, { flex: 1 }]}>
-                  <Text style={styles.formLabel}>Priority</Text>
-                  <View style={styles.segmentedRow}>
-                    {["Normal", "High", "Urgent"].map((prio) => {
-                      const isSel = newPriority === prio;
-                      return (
-                        <Pressable
-                          key={prio}
-                          style={[styles.segmentBtn, isSel && styles.segmentBtnActive]}
-                          onPress={() => setNewPriority(prio)}
-                          disabled={formSubmitting}
-                        >
-                          <Text style={[styles.segmentBtnText, isSel && styles.segmentBtnTextActive]}>
-                            {prio}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-
-              {/* Deadline */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Deadline (ISO Timestamp, optional)</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. 2026-10-20T18:00:00Z"
-                  placeholderTextColor="#94A3B8"
-                  value={newDeadlineAt}
-                  onChangeText={setNewDeadlineAt}
-                  editable={!formSubmitting}
-                />
-              </View>
-
-              {/* Linked Story */}
-              {storiesList.length > 0 && (
-                <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Associate with Existing Story (Optional)</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerScroll}>
-                    <Pressable
-                      style={[styles.staffSelectPill, !newStoryId && styles.staffSelectPillActive]}
-                      onPress={() => setNewStoryId("")}
-                      disabled={formSubmitting}
-                    >
-                      <Text style={[styles.staffSelectPillText, !newStoryId && styles.staffSelectPillTextActive]}>
-                        None (Unlinked)
-                      </Text>
-                    </Pressable>
-                    {storiesList.map((story) => {
-                      const isSelected = newStoryId === story.id;
-                      return (
-                        <Pressable
-                          key={story.id}
-                          style={[styles.staffSelectPill, isSelected && styles.staffSelectPillActive]}
-                          onPress={() => setNewStoryId(story.id)}
-                          disabled={formSubmitting}
-                        >
-                          <Text style={[styles.staffSelectPillText, isSelected && styles.staffSelectPillTextActive]}>
-                            {story.title}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Notes */}
-              <View style={styles.formField}>
-                <Text style={styles.formLabel}>Assignment Notes & Briefing (Optional)</Text>
-                <TextInput
-                  style={[styles.formInput, styles.formTextArea]}
-                  placeholder="Editorial angle, target sources, reporting instructions…"
-                  placeholderTextColor="#94A3B8"
-                  value={newNotes}
-                  onChangeText={setNewNotes}
-                  multiline
-                  numberOfLines={3}
-                  editable={!formSubmitting}
-                />
-              </View>
-
-              {/* Form Action Buttons */}
-              <View style={styles.formActionsRow}>
-                <Pressable
-                  style={styles.cancelBtn}
-                  onPress={() => setIsCreateOpen(false)}
-                  disabled={formSubmitting}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.submitBtn, (!newTitle.trim() || !newReporterStaffId.trim() || formSubmitting) && styles.submitBtnDisabled]}
-                  onPress={handleCreateAssignment}
-                  disabled={!newTitle.trim() || !newReporterStaffId.trim() || formSubmitting}
-                >
-                  <Text style={styles.submitBtnText}>
-                    {formSubmitting ? "Creating…" : "Save Assignment"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
+      {isCreateOpen && renderCreateAssignmentPanel({ allowStoryLink: true, allowCancel: true })}
 
       {/* Filter Bar */}
       <View style={styles.filterSection}>
@@ -1270,6 +1368,7 @@ export function StudioPlanningBoard() {
             const linkedStory = item.storyId ? storiesMap[item.storyId] : null;
             const canProgress = canProgressAssignment(authSnapshot, item);
             const nextStatus = getNextAssignmentStatus(item.status);
+            const actionLabel = getAssignmentProgressActionLabel(item.status);
             const isProgressing = progressingId === item.id;
 
             return (
@@ -1361,14 +1460,14 @@ export function StudioPlanningBoard() {
                 {/* Card Actions */}
                 <View style={styles.cardActionsRow}>
                   {/* Progression Button */}
-                  {canProgress && nextStatus && (
+                  {canProgress && nextStatus && actionLabel && (
                     <Pressable
                       style={[styles.progressBtn, isProgressing && styles.progressBtnDisabled]}
                       onPress={() => handleProgressAssignment(item)}
                       disabled={isProgressing}
                     >
                       <Text style={styles.progressBtnText}>
-                        {isProgressing ? "Advancing…" : `Advance to ${nextStatus} →`}
+                        {isProgressing ? "Advancing…" : `${actionLabel} → ${nextStatus}`}
                       </Text>
                     </Pressable>
                   )}
