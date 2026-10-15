@@ -2,9 +2,10 @@
 
 **Programme:** `HT-NR — HealthTimes Newsroom OS`  
 **Execution Phase:** `HT-NR-01`  
-**Remediation Phase:** `HT-NR-00C-R1`  
+**Certification Phase:** `HT-NR-00C-R2`  
 **Role:** Newsroom Kernel Convergence Specialist  
 **Governing Manifest:** `docs/newsroom/HT-NR-00_CANONICAL_RECUSTODY_MANIFEST.md`  
+**From-Zero Replay Authority:** Certified in `docs/newsroom/HT-NR-00C_R2_DISPOSABLE_REPLAY_EVIDENCE.md` (Run ID `38665442217`)  
 **Source Authority:** `755b7ba7aedaff0d3997a9f540572665c218d7e7` (PR #40 cumulative head)  
 **Destination Authority:** `6994aa18d37e2189dbc1d3f8efc76a638ee0971c` (canonical `main`)  
 **Target Staging Database:** `gcdohgbmqhqwydgaxrcr` (`ACTIVE_HEALTHY`)
@@ -14,6 +15,8 @@
 ## 1. OBJECTIVE & EXECUTION MANDATE
 
 This document is the **deterministic, mechanical execution recipe** for phase `HT-NR-01`.
+The from-zero database replay prerequisite has been **proven and certified** via remote ephemeral containerized replay (HT-NR-00C-R2, Run ID `38665442217`).
+
 The specialist executing `HT-NR-01` must follow this plan sequentially from Gate 1 to Gate 10.
 - **Do not merge PR #40.**
 - **Do not rebase PR #40 onto `main`.**

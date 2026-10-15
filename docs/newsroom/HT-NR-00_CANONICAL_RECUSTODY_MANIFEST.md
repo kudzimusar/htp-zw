@@ -263,14 +263,19 @@ Seven migration identities in Staging ledger share git blob `a960626806c8ac5b10f
 Classification: `LEDGER_ONLY`. They must be checked out byte-for-byte to satisfy `supabase db status` ledger verification, but execute zero DDL/DML.
 
 ### 10.3 From-Zero Disposable Database Replay Status
-- **Status:** `BLOCKED — DISPOSABLE REPLAY NOT AVAILABLE`
-- **Gate Disposition:** `CONFLICT_REQUIRES_MODERATOR`
-- **Forensic Evidence:**
-  - Docker daemon is not running on the local host (`failed to connect to the docker API at unix:///Users/shadreckmusarurwa/.docker/run/docker.sock: connect: no such file or directory`).
-  - `supabase start` and `supabase db reset --local` cannot execute without Docker.
-  - Plain local PostgreSQL 16 on `/tmp:5432` lacks the prerequisite Supabase platform schemas (`auth.users`, `storage.buckets`, `storage.objects`) and RBAC roles (`anon`, `authenticated`, `service_role`).
-  - No disposable database replay can be executed without either starting Docker or pointing to a live project (which is strictly prohibited for Staging and Production).
-  - Clean replay is therefore **unproven locally** and blocked pending moderator resolution.
+- **Status:** `PASS — REMOTE DISPOSABLE 62-MIGRATION REPLAY PROVEN`
+- **Gate Disposition:** `CERTIFIED_FOR_HT_NR_01`
+- **Certification Authority:** Ephemeral GitHub Actions runner execution on branch `evidence/ht-nr00c-r2-disposable-replay` (Workflow `.github/workflows/ht-nr00c-r2-disposable-replay.yml`, Run ID `38665442217`, Job ID `116196220620`).
+- **Forensic Evidence & Results:**
+  - Pinned Supabase CLI `2.121.0` executed `supabase db reset --no-seed` against a fresh containerized Supabase instance with active Docker daemon.
+  - Successfully materialized and applied all 62 migrations (60 from PR #40 + 2 from canonical `main`).
+  - Schema migrations ledger verified: exactly 62 applied rows from `20260909000100` to `20261002061027`.
+  - Seven adoption markers (`a9606268...`) preserved byte-for-byte with zero DDL/DML.
+  - COM-01 reconstructed migration (`1a15e6d8...`) proved 100% replay-safe from zero with all dependent tables and columns created cleanly.
+  - All 27 required Newsroom/Communications RPC functions and 19 core tables verified in database catalogs.
+  - 168 public RLS policies verified across all domain entities.
+  - Zero connection to HealthTimes Staging or Production; primary Mobile worktree remained completely frozen.
+  - Complete evidence artifact stored in `docs/newsroom/HT-NR-00C_R2_DISPOSABLE_REPLAY_EVIDENCE.md` and GitHub artifact `ht-nr00c-r2-disposable-replay`.
 
 ---
 
@@ -446,4 +451,4 @@ HT-NR-01 execution must halt immediately if:
 6. An unproven claim of clean from-zero database replay is made without a running disposable database instance.
 
 ---
-**AUTHORIZATION:** This manifest is complete, deterministic, and safe for execution in `HT-NR-01` upon moderator resolution of from-zero replay testing.
+**AUTHORIZATION:** This manifest is complete, deterministic, and fully certified for mechanical execution in `HT-NR-01`. All prerequisites including from-zero database replay have been proven.
