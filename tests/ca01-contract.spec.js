@@ -18,16 +18,19 @@ test.describe('CA-01 implementation contract',()=>{
     expect(reader).not.toMatch(/alter table public\.story_internal_comments[\s\S]*story_comments/i);
   });
 
-  test('canonical CA-01 capability vocabulary is singular',()=>{
+  test('canonical CA-01 capability vocabulary is singular and client does not synthesize authority',()=>{
     const internal=read('supabase/migrations/20260922054411_ca01_internal_schema_capabilities.sql');
     for(const capability of [
       'communication.desk.manage','communication.breaking.manage','communication.announce',
       'comment.configure','comment.moderate','comment.restrict','comment.audit'
     ]) expect(internal).toContain(capability);
-    const runtime=read('newsroom.js');
-    expect(runtime).not.toContain('security.sessions.view');
-    expect(runtime).not.toContain('security.sessions.revoke');
-    expect(runtime).not.toContain('security.audit.view');
+
+    const commService = read('apps/mobile/src/services/communications.ts');
+    expect(commService).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+    expect(commService).not.toContain("status: 'authorized'");
+    expect(commService).not.toContain('capabilities:');
+    expect(commService).toContain('ensureNewsroomSession');
+    expect(commService).toContain('Server-authorized Newsroom session required.');
   });
 
   test('reader comment writes are authenticated RPC-only and public projection is minimized',()=>{
@@ -69,18 +72,28 @@ test.describe('CA-01 implementation contract',()=>{
 
   test('Newsroom Inbox uses durable server rows, not fixture notifications',()=>{
     const api=read('api/newsroom.js');
-    const client=read('newsroom.js');
+    const client=read('apps/mobile/src/services/communications.ts');
     expect(api).toContain("rpc('newsroom_list_inbox'");
     expect(api).toContain("rpc('newsroom_inbox_summary'");
-    expect(client).toContain("data.notifications||[]");
-    expect(client).not.toContain('Story submitted for review</strong><p>Community Prevention Follow-up');
+    expect(client).toContain("rpc<any[]>(\"newsroom_list_inbox\"");
+    expect(client).toContain("rpc<Record<string,unknown>>(\"newsroom_inbox_summary\"");
+    expect(client).toContain("newsroom_mark_notification_read");
+    expect(client).toContain("newsroom_ack_notification");
+    expect(client).toContain("newsroom_archive_notification");
+    expect(client).not.toContain('Story submitted for review');
   });
 
-  test('reader discussion API fails closed without an authenticated reader token',()=>{
-    const discussion=read('api/discussion.js');
-    expect(discussion).toContain("Authenticated reader session required.");
-    expect(discussion).toContain("Canonical storyId is required.");
-    expect(discussion).toContain("reader_submit_story_comment");
-    expect(discussion).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+  test('reader discussion authority is certified through canonical mobile communications service',()=>{
+    const client=read('apps/mobile/src/services/communications.ts');
+    expect(client).toContain('canonicalStoryPattern');
+    expect(client).toContain('requireCanonicalStoryId');
+    expect(client).toContain('reader_register_comment_profile');
+    expect(client).toContain('reader_comment_eligibility');
+    expect(client).toContain('reader_public_story_comments');
+    expect(client).toContain('reader_submit_story_comment');
+    expect(client).toContain('reader_edit_story_comment');
+    expect(client).toContain('reader_withdraw_story_comment');
+    expect(client).toContain('reader_report_story_comment');
+    expect(client).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   });
 });
