@@ -39,6 +39,8 @@ import type {
   NewsroomStoryCorrection,
   CreateStoryInput,
   SaveStoryPatch,
+  CreateAssignmentInput,
+  NewsroomPlanningStaff,
   ReaderCommentModerationItem,
   PublicationProfile,
   PremiumStoreState,
@@ -171,6 +173,9 @@ export interface NewsroomCommunicationService {
   archive(notificationId: string): Promise<void>;
 
   listAssignments(): Promise<NewsroomAssignment[]>;
+  createAssignment(input: CreateAssignmentInput): Promise<string>;
+  progressAssignment(assignmentId: string): Promise<string>;
+  listAssignmentStaff(): Promise<NewsroomPlanningStaff[]>;
   listStoryDiscussion(storyId: string): Promise<NewsroomInternalComment[]>;
   addStoryComment(storyId: string, body: string, parentCommentId?: string | null, mentionStaffIds?: string[]): Promise<string>;
   editStoryComment(commentId: string, body: string, mentionStaffIds?: string[] | null): Promise<void>;

@@ -12,12 +12,15 @@ import type {
   NewsroomMessage,
   NewsroomAnnouncement,
   NewsroomAssignment,
+  CreateAssignmentInput,
+  NewsroomPlanningStaff,
   ReaderCommentEligibility,
   ReaderCommentModerationItem,
   ReaderStoryComment
 } from "../domain/models";
 import { getStagingSupabaseClient } from "../platform/supabase";
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const canonicalStoryPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function requireCanonicalStoryId(value:string|null){
@@ -187,6 +190,73 @@ export const stagingNewsroomCommunicationService:NewsroomCommunicationService={
       status:String(row.status ?? "Assigned"),
       assignedBy:String(row.assigned_by),
       updatedAt:String(row.updated_at ?? "")
+    }));
+  },
+
+  async createAssignment(input: CreateAssignmentInput){
+    await ensureNewsroomSession();
+    if (!input.title || !input.title.trim()) {
+      throw new Error("Assignment title is required.");
+    }
+    if (!input.reporterStaffId || !uuidPattern.test(input.reporterStaffId)) {
+      throw new Error("Valid reporter staff ID is required.");
+    }
+    const payload: Record<string, unknown> = {
+      title: input.title.trim(),
+      reporter_staff_id: input.reporterStaffId
+    };
+    if (input.assignedEditorStaffId) {
+      if (!uuidPattern.test(input.assignedEditorStaffId)) {
+        throw new Error("Assigned editor staff ID must be a valid UUID.");
+      }
+      payload.assigned_editor_staff_id = input.assignedEditorStaffId;
+    }
+    if (input.desk && input.desk.trim()) {
+      payload.desk = input.desk.trim();
+    }
+    if (input.deadlineAt && input.deadlineAt.trim()) {
+      payload.deadline_at = input.deadlineAt.trim();
+    }
+    if (input.priority && input.priority.trim()) {
+      payload.priority = input.priority.trim();
+    }
+    if (input.notes && input.notes.trim()) {
+      payload.notes = input.notes.trim();
+    }
+    if (input.storyId) {
+      if (!uuidPattern.test(input.storyId)) {
+        throw new Error("Story ID must be a valid UUID.");
+      }
+      payload.story_id = input.storyId;
+    }
+    const id = await rpc<string>("newsroom_create_assignment", { p_payload: payload });
+    return String(id);
+  },
+
+  async progressAssignment(assignmentId: string){
+    await ensureNewsroomSession();
+    if (!assignmentId || !uuidPattern.test(assignmentId)) {
+      throw new Error("Valid assignment ID is required to progress.");
+    }
+    const nextStatus = await rpc<string>("newsroom_progress_assignment", { p_assignment_id: assignmentId });
+    return String(nextStatus);
+  },
+
+  async listAssignmentStaff(){
+    await ensureNewsroomSession();
+    const rows = await selectRows<any>("staff_profiles", builder =>
+      builder
+        .neq("status", "revoked")
+        .is("revoked_at", null)
+        .order("display_name", { ascending: true })
+    );
+    return rows.map((row): NewsroomPlanningStaff => ({
+      id: String(row.id),
+      displayName: String(row.display_name ?? "Unknown Staff"),
+      email: row.email ? String(row.email) : null,
+      desk: row.desk ? String(row.desk) : null,
+      status: String(row.status ?? "active"),
+      revokedAt: row.revoked_at ? String(row.revoked_at) : null
     }));
   },
 

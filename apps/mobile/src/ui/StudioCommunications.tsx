@@ -4,6 +4,39 @@ import { useRouter } from "expo-router";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { colors, radius, spacing } from "../theme/tokens";
+import {
+  hasServerCapability,
+  type AuthorizationSnapshot
+} from "../security/capabilities";
+import {
+  ASSIGNMENT_STATUS_SEQUENCE,
+  getNextAssignmentStatus,
+  getAssignmentProgressActionLabel,
+  type NewsroomAssignment
+} from "../domain/models";
+
+export {
+  ASSIGNMENT_STATUS_SEQUENCE,
+  getNextAssignmentStatus,
+  getAssignmentProgressActionLabel
+};
+
+export function canProgressAssignment(
+  snapshot: AuthorizationSnapshot | null | undefined,
+  assignment: Pick<NewsroomAssignment, "status" | "reporterStaffId">
+): boolean {
+  if (!snapshot || snapshot.status !== "authorized" || snapshot.source !== "server") {
+    return false;
+  }
+  if (assignment.status === "Complete" || !getNextAssignmentStatus(assignment.status)) {
+    return false;
+  }
+  const isManager = hasServerCapability(snapshot, "assignment.manage");
+  const isReporter = Boolean(
+    snapshot.staffProfileId && snapshot.staffProfileId === assignment.reporterStaffId
+  );
+  return isManager || isReporter;
+}
 
 function LoadingOrError({loading,error}:{loading:boolean;error?:Error|null}){
   if(loading) return <Text style={styles.muted}>Loading server-authorized communications…</Text>;
@@ -13,24 +46,81 @@ function LoadingOrError({loading,error}:{loading:boolean;error?:Error|null}){
 
 export function StudioAssignmentsPanel(){
   const router=useRouter();
-  const assignments=useAsync(()=>services.newsroomCommunication.listAssignments(),[]);
+  const [refresh,setRefresh]=useState(0);
+  const [progressingId,setProgressingId]=useState<string|null>(null);
+  const [progressError,setProgressError]=useState<string|null>(null);
+  const [progressConfirmation,setProgressConfirmation]=useState<string|null>(null);
+  const authorization=useAsync(()=>services.authorization.getSnapshot(),[refresh]);
+  const assignments=useAsync(()=>services.newsroomCommunication.listAssignments(),[refresh]);
+  const authSnapshot=authorization.data;
+
+  const advance=async(item:NewsroomAssignment)=>{
+    if(!canProgressAssignment(authSnapshot,item)) return;
+    const nextStatus=getNextAssignmentStatus(item.status);
+    if(!nextStatus) return;
+    try{
+      setProgressingId(item.id);
+      setProgressError(null);
+      setProgressConfirmation(null);
+      const serverNext=await services.newsroomCommunication.progressAssignment(item.id);
+      setProgressConfirmation(`Assignment advanced to ${serverNext}.`);
+      setRefresh(value=>value+1);
+    }catch(error){
+      setProgressError(error instanceof Error?error.message:"Assignment status could not be progressed.");
+    }finally{
+      setProgressingId(null);
+    }
+  };
+
   return (
     <View style={styles.stack}>
-      <LoadingOrError loading={assignments.loading} error={assignments.error}/>
-      {(assignments.data??[]).map(item=>(
-        <Pressable
-          key={item.id}
-          style={styles.card}
-          onPress={()=>router.push({pathname:"/studio/assignments",params:{assignmentId:item.id}} as never)}
-        >
-          <View style={styles.row}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
+      <LoadingOrError loading={assignments.loading||authorization.loading} error={assignments.error||authorization.error}/>
+      {!!progressError&&<Text style={styles.error}>{progressError}</Text>}
+      {!!progressConfirmation&&<Text style={styles.meta}>{progressConfirmation}</Text>}
+      {(assignments.data??[]).map(item=>{
+        const canAdvance=canProgressAssignment(authSnapshot,item);
+        const actionLabel=getAssignmentProgressActionLabel(item.status);
+        const nextStatus=getNextAssignmentStatus(item.status);
+        const isAdvancing=progressingId===item.id;
+        return (
+          <View key={item.id} style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
+            {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
+            {!!item.notes&&<Text style={styles.muted}>{item.notes}</Text>}
+            <View style={styles.actions}>
+              {canAdvance&&actionLabel&&nextStatus&&(
+                <Pressable
+                  style={styles.primary}
+                  onPress={()=>void advance(item)}
+                  disabled={isAdvancing}
+                >
+                  <Text style={styles.primaryText}>
+                    {isAdvancing?"Advancing…":`${actionLabel} → ${nextStatus}`}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={styles.secondary}
+                onPress={()=>router.push({pathname:"/studio/assignments",params:{assignmentId:item.id}} as never)}
+              >
+                <Text style={styles.secondaryText}>Open Discussion</Text>
+              </Pressable>
+              {!!item.storyId&&(
+                <Pressable
+                  style={styles.secondary}
+                  onPress={()=>router.push({pathname:"/studio/[module]",params:{module:"create-edit",storyId:item.storyId}} as never)}
+                >
+                  <Text style={styles.secondaryText}>Open Story</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
-          <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
-          {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
-        </Pressable>
-      ))}
+        );
+      })}
       {!assignments.loading&&!(assignments.data??[]).length&&<Text style={styles.muted}>No assignments are available to this authorized session.</Text>}
     </View>
   );

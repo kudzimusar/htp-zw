@@ -633,3 +633,68 @@ export type SaveStoryPatch = {
   ad_setting?: string;
   adSetting?: string;
 };
+
+export type CreateAssignmentInput = {
+  title: string;
+  reporterStaffId: string;
+  assignedEditorStaffId?: string | null;
+  desk?: string | null;
+  deadlineAt?: string | null;
+  priority?: string;
+  notes?: string | null;
+  storyId?: string | null;
+};
+
+export type NewsroomPlanningStaff = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  desk: string | null;
+  status: string;
+  revokedAt: string | null;
+};
+
+export const ASSIGNMENT_STATUS_SEQUENCE = [
+  "Assigned",
+  "Accepted",
+  "Reporting",
+  "Drafting",
+  "Submitted",
+  "Complete"
+] as const;
+
+export type AssignmentStatus = (typeof ASSIGNMENT_STATUS_SEQUENCE)[number];
+
+export function getNextAssignmentStatus(currentStatus: string): AssignmentStatus | null {
+  switch (currentStatus) {
+    case "Assigned":
+      return "Accepted";
+    case "Accepted":
+      return "Reporting";
+    case "Reporting":
+      return "Drafting";
+    case "Drafting":
+      return "Submitted";
+    case "Submitted":
+      return "Complete";
+    default:
+      return null;
+  }
+}
+
+export function getAssignmentProgressActionLabel(currentStatus: string): string | null {
+  switch (currentStatus) {
+    case "Assigned":
+      return "Accept Assignment";
+    case "Accepted":
+      return "Start Reporting";
+    case "Reporting":
+      return "Start Drafting";
+    case "Drafting":
+      return "Submit Assignment";
+    case "Submitted":
+      return "Mark Complete";
+    default:
+      return null;
+  }
+}
