@@ -75,7 +75,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   // Modal / Prompt states
   const [promptAction, setPromptAction] = useState<"requestChanges" | "correction" | "recordReview" | null>(null);
   const [promptReason, setPromptReason] = useState("");
-  const [reviewType, setReviewType] = useState("fact_check");
+  const [reviewType, setReviewType] = useState("");
   const [reviewOutcome, setReviewOutcome] = useState<"completed" | "approved" | "changes_requested">("completed");
   const [reviewNotes, setReviewNotes] = useState("");
   const [confirmRestoreRev, setConfirmRestoreRev] = useState<NewsroomStoryRevision | null>(null);
@@ -116,6 +116,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const canRequestChanges = canEditAll || canFactCheck || canHealthReview || canCopyEdit || canPublish;
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRevisionRef = useRef(0);
 
   // Load auxiliary data
   useEffect(() => {
@@ -161,6 +162,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       setSeoTitle(data.seoTitle ?? "");
       setSeoDescription(data.seoDescription ?? "");
       setScheduledAt(data.scheduledAt ?? "");
+      dirtyRevisionRef.current = 0;
       setIsDirty(false);
       setSaveStatus("saved");
       refreshHistory(id);
@@ -192,6 +194,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     if (storyId) {
       void loadStory(storyId);
     } else {
+      dirtyRevisionRef.current = 0;
       setIsDirty(false);
       setSaveStatus("idle");
     }
@@ -252,6 +255,8 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     if (!storyId || isReadOnly) return false;
 
     const isAuto = reason.toLowerCase() === "autosave";
+    const savingRevision = dirtyRevisionRef.current;
+
     setSaveStatus(isAuto ? "autosaving" : "saving");
     setStatusMessage(isAuto ? "Autosaving…" : "Saving changes…");
 
@@ -264,16 +269,45 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
         reason
       );
       setExpectedVersion(newVersion);
-      setIsDirty(false);
-      setSaveStatus("saved");
-      setStatusMessage(isAuto ? "Autosaved." : "Changes saved.");
+
       if (story) {
         setStory({
           ...story,
-          ...patch,
+          title,
+          slug: slug || story.slug,
+          standfirst: standfirst || null,
+          bodyHtml: body || null,
+          desk: desk || null,
+          topic: topic || null,
+          country: country || null,
+          region: region || null,
+          sourceNotes: sourceNotes || null,
+          internalNotes: internalNotes || null,
+          deadlineAt: deadlineAt || null,
+          authorId: canEditAll ? (authorId || null) : story.authorId,
+          primarySectionId: primarySectionId || null,
+          accessPolicy: canManagePremium ? accessPolicy : story.accessPolicy,
+          distribution: canManageDistribution
+            ? { ...(story.distribution ?? {}), public_reader: distributionPublicReader }
+            : story.distribution,
+          adSetting: canManageAdSetting ? adSetting : story.adSetting,
+          seoTitle: seoTitle || null,
+          seoDescription: seoDescription || null,
+          scheduledAt: canSchedule ? (scheduledAt || null) : story.scheduledAt,
           lockVersion: newVersion
-        } as NewsroomStory);
+        });
       }
+
+      if (dirtyRevisionRef.current === savingRevision) {
+        setIsDirty(false);
+        setSaveStatus("saved");
+        setStatusMessage(isAuto ? "Autosaved." : "Changes saved.");
+      } else {
+        setIsDirty(true);
+        setSaveStatus("idle");
+        setStatusMessage("Earlier changes saved; newer edits pending.");
+      }
+
       void refreshHistory(storyId);
       return true;
     } catch (err: any) {
@@ -322,6 +356,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
         const newId = await services.newsroomStories.createStory(createInput);
         setStoryId(newId);
+        dirtyRevisionRef.current = 0;
         setIsDirty(false);
         setSaveStatus("saved");
         setStatusMessage("Story created.");
@@ -390,6 +425,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
   const markDirty = () => {
     if (isReadOnly) return;
+    dirtyRevisionRef.current += 1;
     setIsDirty(true);
     if (saveStatus === "saved") {
       setSaveStatus("idle");
@@ -402,8 +438,15 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const canEnableComments = isPublished && isPublicStory;
 
   const handleSetCommentPolicy = async (nextPolicy: "disabled" | "read_only" | "open") => {
-    if (!storyId || !canConfigureComments) return;
-    if (nextPolicy !== "disabled" && !canEnableComments) return;
+    if (!storyId || !canConfigureComments || isReadOnly) return;
+    if (isDirty || saveStatus === "saving" || saveStatus === "autosaving" || saveStatus === "conflict") {
+      setStatusMessage("Save pending story changes before changing reader comment policy.");
+      return;
+    }
+    if (nextPolicy !== "disabled" && !canEnableComments) {
+      setStatusMessage("Comments can only be enabled on published public stories.");
+      return;
+    }
     setLoading(true);
     try {
       const updated = await services.newsroomStories.setCommentPolicy(storyId, nextPolicy);
@@ -422,6 +465,13 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   // Workflow transition
   const handleTransition = async (nextStatus: string, reason?: string) => {
     if (!storyId) return;
+    if (nextStatus === "Scheduled") {
+      const validSchedule = scheduledAt.trim() !== "" && !Number.isNaN(Date.parse(scheduledAt));
+      if (!validSchedule) {
+        setStatusMessage("A valid publication date and time is required to schedule publication.");
+        return;
+      }
+    }
     if (isDirty) {
       setStatusMessage("Saving unsaved edits before transition…");
       const saved = await saveStoryInternal("Manual save");
@@ -503,9 +553,21 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     return list;
   }, [canFactCheck, canHealthReview, canCopyEdit, canEditAll]);
 
+  const handleOpenRecordReview = () => {
+    const first = availableReviewTypes[0];
+    if (!first) return;
+    setReviewType(first.type);
+    setPromptAction("recordReview");
+  };
+
   // Record review execution
   const executeRecordReview = async () => {
     if (!storyId || availableReviewTypes.length === 0) return;
+    const isAuthorizedType = availableReviewTypes.some((item) => item.type === reviewType);
+    if (!isAuthorizedType) {
+      setStatusMessage("Unauthorized review type. Please select an authorized review category.");
+      return;
+    }
     if (isDirty) {
       setStatusMessage("Saving unsaved edits before recording review…");
       const saved = await saveStoryInternal("Manual save");
@@ -563,16 +625,17 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     if (["Editor review", "Ready"].includes(cur)) {
       opts.push({ label: "Mark as Ready", status: "Ready", allowed: canEditAll });
     }
+    const hasValidSchedule = scheduledAt.trim() !== "" && !Number.isNaN(Date.parse(scheduledAt));
     if (["Ready", "Scheduled"].includes(cur)) {
       opts.push({ label: "Publish Now", status: "Published", allowed: canPublish });
-      opts.push({ label: "Schedule Publication", status: "Scheduled", allowed: canPublish });
+      opts.push({ label: "Schedule Publication", status: "Scheduled", allowed: canPublish && hasValidSchedule });
     }
     if (cur !== "Published") {
       opts.push({ label: "Archive Story", status: "Archived", allowed: canEditAll });
     }
 
     return opts;
-  }, [currentWorkflowStatus, canSubmit, canEditStory, canFactCheck, canHealthReview, canCopyEdit, canEditAll, canPublish]);
+  }, [currentWorkflowStatus, canSubmit, canEditStory, canFactCheck, canHealthReview, canCopyEdit, canEditAll, canPublish, scheduledAt]);
 
   // Fail-closed gate for new story creation without story.create capability
   if (!storyId && auth && !canCreate) {
@@ -1044,13 +1107,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
                 {availableReviewTypes.length > 0 && (
                   <Pressable
                     style={styles.recordReviewBtn}
-                    onPress={() => {
-                      const first = availableReviewTypes[0];
-                      if (first) {
-                        setReviewType(first.type);
-                      }
-                      setPromptAction("recordReview");
-                    }}
+                    onPress={handleOpenRecordReview}
                   >
                     <Text style={styles.recordReviewBtnText}>Record Review Entry</Text>
                   </Pressable>
@@ -1253,6 +1310,11 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
                 </View>
               ) : (
                 <>
+                  {isDirty && (
+                    <Text style={styles.warningText}>
+                      Save pending story changes before changing reader comment policy.
+                    </Text>
+                  )}
                   {!canEnableComments && (
                     <Text style={styles.fieldNote}>
                       Discussion can only be enabled (&apos;read_only&apos; or &apos;open&apos;) on published public stories. Non-published and Premium stories remain disabled.
@@ -1265,7 +1327,14 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
                       ["open", "Open Comments", canEnableComments]
                     ] as const).map(([pol, label, eligible]) => {
                       const selected = commentPolicy === pol;
-                      const allowed = canConfigureComments && eligible && !isReadOnly;
+                      const allowed =
+                        canConfigureComments &&
+                        eligible &&
+                        !isReadOnly &&
+                        !isDirty &&
+                        saveStatus !== "saving" &&
+                        saveStatus !== "autosaving" &&
+                        saveStatus !== "conflict";
                       return (
                         <Pressable
                           key={pol}

@@ -241,6 +241,128 @@ test("HT-NR-02: Excerpt is read-only pending server mutation contract", () => {
   assert.equal(workspace.includes("onChangeText={(text) => setExcerpt(text)}"), false);
 });
 
+test("HT-NR-02-R2: Review selection initializes from authorized types and fails closed on unauthorized types", () => {
+  const workspace = read("src/ui/StudioStoryWorkspace.tsx");
+
+  // Default reviewType is not hardcoded to an arbitrary category
+  assert.ok(workspace.includes('const [reviewType, setReviewType] = useState("");'));
+
+  // Opening review initializes from availableReviewTypes[0]
+  assert.ok(workspace.includes("const handleOpenRecordReview = () => {"));
+  assert.ok(workspace.includes("const first = availableReviewTypes[0];"));
+  assert.ok(workspace.includes("if (!first) return;"));
+  assert.ok(workspace.includes("setReviewType(first.type);"));
+  assert.ok(workspace.includes('setPromptAction("recordReview");'));
+
+  // executeRecordReview validates reviewType belongs to availableReviewTypes
+  assert.ok(workspace.includes("const isAuthorizedType = availableReviewTypes.some((item) => item.type === reviewType);"));
+  assert.ok(workspace.includes('if (!isAuthorizedType) {'));
+  assert.ok(workspace.includes('setStatusMessage("Unauthorized review type. Please select an authorized review category.");'));
+  assert.ok(workspace.includes("return;"));
+
+  // Action button wired to handleOpenRecordReview
+  assert.ok(workspace.includes("onPress={handleOpenRecordReview}"));
+});
+
+test("HT-NR-02-R2: Post-save domain state performs explicit camelCase mapping and preserves server authorities", () => {
+  const workspace = read("src/ui/StudioStoryWorkspace.tsx");
+
+  // Does not blindly spread SaveStoryPatch into NewsroomStory
+  assert.equal(workspace.includes("...patch"), false);
+
+  // Synchronizes all fields written by buildPatch with explicit camelCase domain properties
+  assert.ok(workspace.includes("title,"));
+  assert.ok(workspace.includes("slug: slug || story.slug,"));
+  assert.ok(workspace.includes("standfirst: standfirst || null,"));
+  assert.ok(workspace.includes("bodyHtml: body || null,"));
+  assert.ok(workspace.includes("desk: desk || null,"));
+  assert.ok(workspace.includes("topic: topic || null,"));
+  assert.ok(workspace.includes("country: country || null,"));
+  assert.ok(workspace.includes("region: region || null,"));
+  assert.ok(workspace.includes("sourceNotes: sourceNotes || null,"));
+  assert.ok(workspace.includes("internalNotes: internalNotes || null,"));
+  assert.ok(workspace.includes("deadlineAt: deadlineAt || null,"));
+  assert.ok(workspace.includes("authorId: canEditAll ? (authorId || null) : story.authorId,"));
+  assert.ok(workspace.includes("primarySectionId: primarySectionId || null,"));
+  assert.ok(workspace.includes("accessPolicy: canManagePremium ? accessPolicy : story.accessPolicy,"));
+  assert.ok(workspace.includes("distribution: canManageDistribution"));
+  assert.ok(workspace.includes("adSetting: canManageAdSetting ? adSetting : story.adSetting,"));
+  assert.ok(workspace.includes("seoTitle: seoTitle || null,"));
+  assert.ok(workspace.includes("seoDescription: seoDescription || null,"));
+  assert.ok(workspace.includes("scheduledAt: canSchedule ? (scheduledAt || null) : story.scheduledAt,"));
+  assert.ok(workspace.includes("lockVersion: newVersion"));
+
+  // Preserves workflow, status, and commentPolicy without overriding from ordinary story save
+  assert.equal(workspace.includes("workflowStatus: patch"), false);
+  assert.equal(workspace.includes("status: patch"), false);
+  assert.equal(workspace.includes("commentPolicy: patch"), false);
+});
+
+test("HT-NR-02-R2: Monotonic save-generation tracking protects concurrent in-flight edits", () => {
+  const workspace = read("src/ui/StudioStoryWorkspace.tsx");
+
+  // Generation reference exists
+  assert.ok(workspace.includes("const dirtyRevisionRef = useRef(0);"));
+
+  // markDirty increments generation
+  assert.ok(workspace.includes("dirtyRevisionRef.current += 1;"));
+
+  // Save captures saving revision
+  assert.ok(workspace.includes("const savingRevision = dirtyRevisionRef.current;"));
+
+  // Server ack clears dirty only if no newer edits occurred
+  assert.ok(workspace.includes("if (dirtyRevisionRef.current === savingRevision) {"));
+  assert.ok(workspace.includes("setIsDirty(false);"));
+  assert.ok(workspace.includes('setSaveStatus("saved");'));
+  assert.ok(workspace.includes('setStatusMessage(isAuto ? "Autosaved." : "Changes saved.");'));
+  assert.ok(workspace.includes("} else {"));
+  assert.ok(workspace.includes("setIsDirty(true);"));
+  assert.ok(workspace.includes('setSaveStatus("idle");'));
+  assert.ok(workspace.includes('setStatusMessage("Earlier changes saved; newer edits pending.");'));
+});
+
+test("HT-NR-02-R2: Comment policy is disabled while unsaved story changes are pending", () => {
+  const workspace = read("src/ui/StudioStoryWorkspace.tsx");
+
+  // Handler blocks when isDirty or save in progress
+  assert.ok(workspace.includes('if (isDirty || saveStatus === "saving" || saveStatus === "autosaving" || saveStatus === "conflict") {'));
+  assert.ok(workspace.includes('setStatusMessage("Save pending story changes before changing reader comment policy.");'));
+
+  // UI renders warning message when changes are pending
+  assert.ok(workspace.includes("{isDirty && ("));
+  assert.ok(workspace.includes("Save pending story changes before changing reader comment policy."));
+
+  // UI choice chips are disabled when isDirty
+  assert.ok(workspace.includes("!isDirty &&"));
+  assert.ok(workspace.includes('saveStatus !== "saving" &&'));
+  assert.ok(workspace.includes('saveStatus !== "autosaving" &&'));
+  assert.ok(workspace.includes('saveStatus !== "conflict"'));
+});
+
+test("HT-NR-02-R2: Schedule Publication requires valid parseable timestamp and saves dirty schedule before transition", () => {
+  const workspace = read("src/ui/StudioStoryWorkspace.tsx");
+
+  // transitionOptions requires valid parseable date
+  assert.ok(workspace.includes('const hasValidSchedule = scheduledAt.trim() !== "" && !Number.isNaN(Date.parse(scheduledAt));'));
+  assert.ok(workspace.includes('opts.push({ label: "Schedule Publication", status: "Scheduled", allowed: canPublish && hasValidSchedule });'));
+
+  // Publish Now remains separate and independent
+  assert.ok(workspace.includes('opts.push({ label: "Publish Now", status: "Published", allowed: canPublish });'));
+
+  // handleTransition validates scheduledAt when transitioning to Scheduled
+  assert.ok(workspace.includes('if (nextStatus === "Scheduled") {'));
+  assert.ok(workspace.includes('const validSchedule = scheduledAt.trim() !== "" && !Number.isNaN(Date.parse(scheduledAt));'));
+  assert.ok(workspace.includes('if (!validSchedule) {'));
+  assert.ok(workspace.includes('setStatusMessage("A valid publication date and time is required to schedule publication.");'));
+  assert.ok(workspace.includes("return;"));
+
+  // handleTransition saves dirty schedule changes before invoking transition
+  assert.ok(workspace.includes('if (isDirty) {'));
+  assert.ok(workspace.includes('setStatusMessage("Saving unsaved edits before transition…");'));
+  assert.ok(workspace.includes('const saved = await saveStoryInternal("Manual save");'));
+  assert.ok(workspace.includes('if (!saved) return;'));
+});
+
 test("HT-NR-02: Behavioral lifecycle state machine verifies concurrency and workflow guarantees", async () => {
   let lockVersion = 1;
   let workflowStatus = "Draft";
