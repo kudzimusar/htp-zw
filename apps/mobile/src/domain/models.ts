@@ -633,3 +633,24 @@ export type SaveStoryPatch = {
   ad_setting?: string;
   adSetting?: string;
 };
+
+export type CreateAssignmentInput = {
+  title: string;
+  reporterStaffId: string;
+  assignedEditorStaffId?: string | null;
+  desk?: string | null;
+  deadlineAt?: string | null;
+  priority?: string;
+  notes?: string | null;
+  storyId?: string | null;
+};
+
+export type NewsroomPlanningStaff = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  desk: string | null;
+  status: string;
+  revokedAt: string | null;
+};
+
