@@ -11,6 +11,7 @@ import type {
   LiveService,
   NotificationService,
   NewsroomCommunicationService,
+  NewsroomStoryService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -18,7 +19,9 @@ import type {
   SocialAttributionService,
   VideoService
 } from "../domain/contracts";
-import type { SearchQuery } from "../domain/models";
+import type {
+  SearchQuery
+} from "../domain/models";
 import { articles, audioItems, liveItems, notifications, videos } from "../fixtures/content";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import { persistentReaderRepository } from "./reader-persistence";
@@ -271,6 +274,56 @@ const socialService: SocialAttributionService = {
   }
 };
 
+const FAIL_CLOSED_NEWSROOM_MESSAGE = "Server-authorized Newsroom story authority is unavailable in fixture mode.";
+
+export const fixtureNewsroomStoryService: NewsroomStoryService = {
+  async listStories() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async getStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async createStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async saveStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async setCommentPolicy() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async transitionStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async listAuthors() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async listSections() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async listRevisions() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async listAutosave() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async listReviews() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async listCorrections() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async restoreRevision() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async recordReview() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async requestChanges() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   search: searchService,
@@ -290,6 +343,7 @@ export const fixtureServices: HealthTimesServices = {
   readerDiscussion: readerDiscussionService,
   newsroomCommunication: newsroomCommunicationService,
   commentModeration: commentModerationService,
+  newsroomStories: fixtureNewsroomStoryService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

@@ -30,6 +30,15 @@ import type {
   NewsroomMessage,
   NewsroomAnnouncement,
   NewsroomAssignment,
+  NewsroomStory,
+  NewsroomPublicAuthor,
+  NewsroomSection,
+  NewsroomStoryRevision,
+  NewsroomStoryAutosave,
+  NewsroomStoryReview,
+  NewsroomStoryCorrection,
+  CreateStoryInput,
+  SaveStoryPatch,
   ReaderCommentModerationItem,
   PublicationProfile,
   PremiumStoreState,
@@ -199,6 +208,24 @@ export interface PlatformService {
   checkConnectivity(): Promise<PlatformConnectivityReport>;
 }
 
+export interface NewsroomStoryService {
+  listStories(limit?: number): Promise<NewsroomStory[]>;
+  getStory(storyId: string): Promise<NewsroomStory | null>;
+  createStory(input: CreateStoryInput): Promise<string>;
+  saveStory(storyId: string, expectedVersion: number, patch: SaveStoryPatch, reason?: string): Promise<number>;
+  transitionStory(storyId: string, nextStatus: string, reason?: string): Promise<string>;
+  listAuthors(): Promise<NewsroomPublicAuthor[]>;
+  listSections(): Promise<NewsroomSection[]>;
+  listRevisions(storyId: string): Promise<NewsroomStoryRevision[]>;
+  listAutosave(storyId: string): Promise<NewsroomStoryAutosave | null>;
+  listReviews(storyId: string): Promise<NewsroomStoryReview[]>;
+  listCorrections(storyId: string): Promise<NewsroomStoryCorrection[]>;
+  restoreRevision(storyId: string, revisionId: string, expectedVersion: number): Promise<number>;
+  recordReview(storyId: string, reviewType: string, status: string, notes?: string | null): Promise<string>;
+  requestChanges(storyId: string, reason: string): Promise<Record<string, unknown>>;
+  setCommentPolicy(storyId: string, policy: "disabled" | "read_only" | "open"): Promise<string>;
+}
+
 export interface SocialAttributionService {
   buildCanonicalShareUrl(article: ArticleSummary): Promise<string>;
   buildAttributedShareUrl(
@@ -226,6 +253,7 @@ export interface HealthTimesServices {
   readerDiscussion: ReaderDiscussionService;
   newsroomCommunication: NewsroomCommunicationService;
   commentModeration: CommentModerationService;
+  newsroomStories: NewsroomStoryService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

@@ -462,3 +462,174 @@ export type NewsroomAssignment = {
   assignedBy: string;
   updatedAt: string;
 };
+
+export type NewsroomStory = {
+  id: string;
+  title: string;
+  slug: string;
+  standfirst: string | null;
+  excerpt: string | null;
+  bodyHtml: string | null;
+  bodyJson: Record<string, unknown> | null;
+  status: string;
+  workflowStatus: string | null;
+  accessPolicy: "public" | "premium" | string;
+  authorId: string | null;
+  primarySectionId: string | null;
+  publishedAt: string | null;
+  scheduledAt: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  canonicalUrl: string | null;
+  ownerStaffId: string | null;
+  assignedEditorStaffId: string | null;
+  factCheckerStaffId: string | null;
+  healthReviewerStaffId: string | null;
+  copyEditorStaffId: string | null;
+  desk: string | null;
+  topic: string | null;
+  country: string | null;
+  region: string | null;
+  sourceNotes: string | null;
+  internalNotes: string | null;
+  deadlineAt: string | null;
+  distribution: { public_reader?: boolean; [key: string]: unknown };
+  adSetting: string;
+  commentPolicy: "disabled" | "read_only" | "open" | string;
+  lockVersion: number;
+  lastSavedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  modifiedAt: string | null;
+};
+
+export type NewsroomPublicAuthor = {
+  id: string;
+  displayName: string;
+  slug: string;
+  bio: string | null;
+  provenance?: string;
+  wordpressSourceId?: string;
+};
+
+export type NewsroomSection = {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  provenance?: string;
+  wordpressSourceId?: string;
+};
+
+export type NewsroomStoryRevision = {
+  id: string;
+  storyId: string;
+  revisionNumber: number;
+  title: string | null;
+  bodyHtml: string | null;
+  bodyJson?: Record<string, unknown> | null;
+  changeSummary: string | null;
+  editorId: string | null;
+  createdAt: string;
+};
+
+export type NewsroomStoryAutosave = {
+  storyId: string;
+  title: string | null;
+  standfirst: string | null;
+  bodyHtml: string | null;
+  lockVersion: number;
+  savedBy: string;
+  savedAt: string;
+};
+
+export type NewsroomStoryReview = {
+  id: string;
+  storyId: string;
+  reviewType: string;
+  status: string;
+  notes: string | null;
+  assignedTo: string | null;
+  createdBy: string | null;
+  completedBy: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  updatedAt?: string;
+};
+
+export type NewsroomStoryCorrection = {
+  id: string;
+  storyId: string;
+  reason: string;
+  changedBy: string;
+  changedAt: string;
+  previousRevisionId: string | null;
+  newRevisionId: string | null;
+};
+
+export type CreateStoryInput = {
+  title: string;
+  slug?: string | null;
+  standfirst?: string | null;
+  body?: string | null;
+  bodyHtml?: string | null;
+  body_html?: string | null;
+  desk?: string | null;
+  topic?: string | null;
+  country?: string | null;
+  region?: string | null;
+  sources?: string | null;
+  sourceNotes?: string | null;
+  notes?: string | null;
+  internalNotes?: string | null;
+  deadline_at?: string | null;
+  deadlineAt?: string | null;
+  seo_title?: string | null;
+  seoTitle?: string | null;
+  seo_description?: string | null;
+  seoDescription?: string | null;
+  author_id?: string | null;
+  authorId?: string | null;
+  primary_section_id?: string | null;
+  primarySectionId?: string | null;
+};
+
+export type SaveStoryPatch = {
+  title?: string;
+  slug?: string;
+  standfirst?: string | null;
+  body?: string | null;
+  bodyHtml?: string | null;
+  body_html?: string | null;
+  sources?: string | null;
+  sourceNotes?: string | null;
+  notes?: string | null;
+  internalNotes?: string | null;
+  owner_staff_id?: string | null;
+  ownerStaffId?: string | null;
+  assigned_editor_staff_id?: string | null;
+  assignedEditorStaffId?: string | null;
+  fact_checker_staff_id?: string | null;
+  factCheckerStaffId?: string | null;
+  author_id?: string | null;
+  authorId?: string | null;
+  primary_section_id?: string | null;
+  primarySectionId?: string | null;
+  desk?: string | null;
+  topic?: string | null;
+  country?: string | null;
+  region?: string | null;
+  access_policy?: "public" | "premium" | string;
+  accessPolicy?: "public" | "premium" | string;
+  deadline_at?: string | null;
+  deadlineAt?: string | null;
+  seo_title?: string | null;
+  seoTitle?: string | null;
+  seo_description?: string | null;
+  seoDescription?: string | null;
+  scheduled_at?: string | null;
+  scheduledAt?: string | null;
+  distribution?: Record<string, unknown>;
+  ad_setting?: string;
+  adSetting?: string;
+};
