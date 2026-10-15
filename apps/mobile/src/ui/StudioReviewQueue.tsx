@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Pressable,
   ScrollView,
@@ -11,7 +11,11 @@ import {
 import { useRouter } from "expo-router";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
-import { hasServerCapability } from "../security/capabilities";
+import {
+  hasServerCapability,
+  type AuthorizationSnapshot,
+  type HealthTimesCapability
+} from "../security/capabilities";
 import type { NewsroomPublicAuthor, NewsroomStory } from "../domain/models";
 import { colors, radius, spacing, breakpoints } from "../theme/tokens";
 import { resolveWorkflowStatus } from "./StudioStories";
@@ -26,6 +30,28 @@ export const REVIEW_WORKFLOW_STATES = [
 ] as const;
 
 export type ReviewWorkflowState = (typeof REVIEW_WORKFLOW_STATES)[number];
+
+export const REVIEW_QUEUE_CAPABILITIES = [
+  "story.fact_check",
+  "story.health_review",
+  "story.copy_edit",
+  "story.edit_all",
+  "story.publish"
+] as const;
+
+export type ReviewQueueCapability = (typeof REVIEW_QUEUE_CAPABILITIES)[number];
+
+export function hasReviewQueueAuthority(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  if (snapshot.status !== "authorized" || snapshot.source !== "server") {
+    return false;
+  }
+  return REVIEW_QUEUE_CAPABILITIES.some((cap) =>
+    hasServerCapability(snapshot, cap)
+  );
+}
 
 export type SortMode = "priority" | "deadline" | "recent" | "stage";
 
@@ -296,31 +322,89 @@ export function StudioReviewQueue() {
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("priority");
 
-  const storiesAsync = useAsync(
-    () => services.newsroomStories.listStories(200),
-    [refreshKey]
-  );
-
-  const authorsAsync = useAsync(
-    () => services.newsroomStories.listAuthors(),
-    []
-  );
-
+  // Server authorization snapshot
   const authAsync = useAsync(
     () => services.authorization.getSnapshot(),
-    []
+    [refreshKey]
   );
+  const authSnapshot = authAsync.data;
+  const isAuthorized = hasReviewQueueAuthority(authSnapshot);
 
-  const authors = authorsAsync.data ?? [];
+  // Conditional workload retrieval: only fetch when review authority is proven
+  const [storiesState, setStoriesState] = useState<{
+    data: NewsroomStory[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  const [authorsState, setAuthorsState] = useState<{
+    data: NewsroomPublicAuthor[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  useEffect(() => {
+    if (!isAuthorized) {
+      setStoriesState({ data: null, loading: false, error: null });
+      setAuthorsState({ data: null, loading: false, error: null });
+      return;
+    }
+
+    let active = true;
+    setStoriesState((prev) => ({ ...prev, loading: true, error: null }));
+    setAuthorsState((prev) => ({ ...prev, loading: true, error: null }));
+
+    services.newsroomStories.listStories(200)
+      .then((stories) => {
+        if (active) setStoriesState({ data: stories, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (active)
+          setStoriesState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+      });
+
+    services.newsroomStories.listAuthors()
+      .then((authors) => {
+        if (active) setAuthorsState({ data: authors, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (active)
+          setAuthorsState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthorized, refreshKey]);
+
+  const authors = authorsState.data ?? [];
   const authorsMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const author of authors) {
-      map[author.id] = author.displayName;
+      if (author.id && author.displayName) {
+        map[author.id] = author.displayName;
+      }
     }
     return map;
   }, [authors]);
 
-  const rawStories = storiesAsync.data ?? [];
+  const rawStories = storiesState.data ?? [];
 
   // Canonical stories in review states
   const reviewStories = useMemo(() => {
@@ -338,17 +422,20 @@ export function StudioReviewQueue() {
     return ["All", ...Array.from(set).sort()];
   }, [reviewStories]);
 
-  // Dynamic authors available across queue
+  // Dynamic authors available across queue (canonical named authors only, never invented identities)
   const availableAuthors = useMemo(() => {
     const set = new Set<string>();
     for (const story of reviewStories) {
       if (story.authorId && story.authorId.trim()) {
-        set.add(story.authorId.trim());
+        // Only include if canonically resolved in authorsMap
+        if (authorsMap[story.authorId.trim()]) {
+          set.add(story.authorId.trim());
+        }
       }
     }
     const list = Array.from(set).map((id) => ({
       id,
-      name: authorsMap[id] ?? `Reporter ${id.slice(0, 8)}`
+      name: authorsMap[id]!
     }));
     return [{ id: "All", name: "All Reporters" }, ...list.sort((a, b) => a.name.localeCompare(b.name))];
   }, [reviewStories, authorsMap]);
@@ -422,6 +509,97 @@ export function StudioReviewQueue() {
       params: { module: "stories" }
     });
   };
+
+  // Fail-closed authorization states
+  if (authAsync.loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.loadingText}>Verifying editorial review authority with server…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (authAsync.error || authSnapshot?.status === "server-policy-unavailable") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.errorTitle}>Server Policy Unavailable</Text>
+          <Text style={styles.errorText}>
+            Unable to verify staff authorization policy from server. Review Queue access is fail-closed.
+          </Text>
+          <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
+            <Text style={styles.retryBtnText}>Retry Authorization Check</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (authSnapshot?.status === "anonymous") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Authentication Required</Text>
+          <Text style={styles.unauthorizedText}>
+            You must be signed in with an authorized Newsroom staff session to access the Editorial Review Queue.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (authSnapshot?.status === "authenticated-no-staff-authority") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Staff Authority Required</Text>
+          <Text style={styles.unauthorizedText}>
+            Your account is authenticated but does not hold staff authority in HealthTimes Newsroom OS.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            <View>
+              <View style={styles.headerTagRow}>
+                <View style={styles.livePulseDot} />
+                <Text style={styles.headerSub}>HealthTimes Newsroom OS</Text>
+              </View>
+              <Text style={styles.title}>Editorial Review Queue</Text>
+            </View>
+
+            <View style={styles.headerActions}>
+              <Pressable style={styles.switchViewBtn} onPress={handleSwitchToStories}>
+                <Text style={styles.switchViewBtnText}>All Stories →</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Text style={styles.description}>
+            Daily operational triage desk for editor signoffs, fact checking, health/science verification and deadline management.
+          </Text>
+        </View>
+
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Review Queue Authority Required</Text>
+          <Text style={styles.unauthorizedText}>
+            Your current Newsroom session does not have editorial review authority. Review Queue access requires at least one of the following capabilities: Fact Check (story.fact_check), Health/Science Review (story.health_review), Copy Edit (story.copy_edit), Edit All (story.edit_all), or Publish (story.publish).
+          </Text>
+          <Pressable style={styles.actionLinkBtn} onPress={handleSwitchToStories}>
+            <Text style={styles.actionLinkBtnText}>Return to Stories Workspace →</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -636,23 +814,23 @@ export function StudioReviewQueue() {
       </View>
 
       {/* Content States */}
-      {storiesAsync.loading && (
+      {storiesState.loading && (
         <View style={styles.stateContainer}>
           <Text style={styles.loadingText}>Loading Newsroom Review Queue from server…</Text>
         </View>
       )}
 
-      {storiesAsync.error && (
+      {storiesState.error && (
         <View style={styles.stateContainer}>
           <Text style={styles.errorTitle}>Failed to Load Review Queue</Text>
-          <Text style={styles.errorText}>{storiesAsync.error.message}</Text>
+          <Text style={styles.errorText}>{storiesState.error.message}</Text>
           <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
             <Text style={styles.retryBtnText}>Retry Connection</Text>
           </Pressable>
         </View>
       )}
 
-      {!storiesAsync.loading && !storiesAsync.error && reviewStories.length === 0 && (
+      {!storiesState.loading && !storiesState.error && reviewStories.length === 0 && (
         <View style={styles.stateContainer}>
           <Text style={styles.emptyTitle}>Review Queue Clear</Text>
           <Text style={styles.emptyText}>
@@ -664,7 +842,7 @@ export function StudioReviewQueue() {
         </View>
       )}
 
-      {!storiesAsync.loading && !storiesAsync.error && reviewStories.length > 0 && sortedStories.length === 0 && (
+      {!storiesState.loading && !storiesState.error && reviewStories.length > 0 && sortedStories.length === 0 && (
         <View style={styles.stateContainer}>
           <Text style={styles.emptyTitle}>No Stories Match Active Filters</Text>
           <Text style={styles.emptyText}>
@@ -677,7 +855,7 @@ export function StudioReviewQueue() {
       )}
 
       {/* Queue Stories List */}
-      {!storiesAsync.loading && !storiesAsync.error && sortedStories.length > 0 && (
+      {!storiesState.loading && !storiesState.error && sortedStories.length > 0 && (
         <View style={styles.queueList}>
           <View style={styles.queueCountHeader}>
             <Text style={styles.queueCountText}>
@@ -690,7 +868,7 @@ export function StudioReviewQueue() {
             const status = resolveWorkflowStatus(story);
             const badge = stageBadgeColor(status);
             const urgency = getDeadlineUrgency(story.deadlineAt);
-            const authorName = story.authorId ? authorsMap[story.authorId] : null;
+            const authorName = story.authorId ? (authorsMap[story.authorId] ?? "Author unavailable") : null;
 
             return (
               <Pressable
@@ -1159,6 +1337,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.blue
+  },
+  unauthorizedTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  unauthorizedText: {
+    fontSize: 14,
+    color: colors.inkMuted,
+    textAlign: "center",
+    maxWidth: 520,
+    lineHeight: 20
   },
   queueList: {
     gap: spacing.md

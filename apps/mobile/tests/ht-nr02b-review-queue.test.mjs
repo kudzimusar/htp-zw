@@ -48,7 +48,14 @@ const reviewQueueModule = loadTs("src/ui/StudioReviewQueue.tsx", {
       useAsync: () => ({ data: [], loading: false, error: null })
     },
     "../security/capabilities": {
-      hasServerCapability: () => true
+      hasServerCapability: (snapshot, cap) => {
+        return (
+          snapshot?.status === "authorized" &&
+          snapshot?.source === "server" &&
+          Array.isArray(snapshot?.capabilities) &&
+          snapshot.capabilities.includes(cap)
+        );
+      }
     },
     "react/jsx-runtime": {
       jsx: () => null,
@@ -72,6 +79,8 @@ const reviewQueueModule = loadTs("src/ui/StudioReviewQueue.tsx", {
 const {
   isReviewWorkflowStatus,
   REVIEW_WORKFLOW_STATES,
+  REVIEW_QUEUE_CAPABILITIES,
+  hasReviewQueueAuthority,
   getDeadlineUrgency,
   sortReviewQueue,
   filterReviewQueue,
@@ -312,8 +321,8 @@ test("HT-NR-02B: Review Queue UI derives from canonical server stories without f
   assert.ok(component.includes("services.newsroomStories.listAuthors()"));
   assert.ok(component.includes("services.authorization.getSnapshot()"));
 
-  // Derives queue directly from storiesAsync data
-  assert.ok(component.includes("const rawStories = storiesAsync.data ?? [];"));
+  // Derives queue directly from storiesState data
+  assert.ok(component.includes("const rawStories = storiesState.data ?? [];"));
   assert.ok(component.includes("rawStories.filter((s) => isReviewWorkflowStatus(resolveWorkflowStatus(s)))"));
 
   // Zero fake story fixtures or hardcoded queue items
@@ -383,4 +392,205 @@ test("HT-NR-02B: Stage badge color mapping distinguishes all review stages", () 
     assert.ok(badge.text);
     assert.ok(badge.border);
   }
+});
+
+test("HT-NR-02B-R1: Authorization snapshot strictly gates Review Queue access by review capability catalogue", () => {
+  // Accepted review capabilities catalogue
+  assert.deepEqual([...REVIEW_QUEUE_CAPABILITIES], [
+    "story.fact_check",
+    "story.health_review",
+    "story.copy_edit",
+    "story.edit_all",
+    "story.publish"
+  ]);
+
+  const baseAuthorized = {
+    status: "authorized",
+    staffProfileId: "staff-1",
+    source: "server",
+    reason: "Certified staff session."
+  };
+
+  // 1. authorized snapshot with story.fact_check admits Review Queue
+  assert.equal(
+    hasReviewQueueAuthority({ ...baseAuthorized, capabilities: ["story.fact_check"] }),
+    true
+  );
+
+  // 2. authorized snapshot with story.health_review admits
+  assert.equal(
+    hasReviewQueueAuthority({ ...baseAuthorized, capabilities: ["story.health_review"] }),
+    true
+  );
+
+  // 3. authorized snapshot with story.copy_edit admits
+  assert.equal(
+    hasReviewQueueAuthority({ ...baseAuthorized, capabilities: ["story.copy_edit"] }),
+    true
+  );
+
+  // 4. authorized snapshot with story.edit_all admits
+  assert.equal(
+    hasReviewQueueAuthority({ ...baseAuthorized, capabilities: ["story.edit_all"] }),
+    true
+  );
+
+  // 5. authorized snapshot with story.publish admits
+  assert.equal(
+    hasReviewQueueAuthority({ ...baseAuthorized, capabilities: ["story.publish"] }),
+    true
+  );
+
+  // 6. Reporter-style snapshot with only story.edit_own / story.submit denies
+  assert.equal(
+    hasReviewQueueAuthority({
+      ...baseAuthorized,
+      capabilities: ["story.create", "story.edit_own", "story.submit"]
+    }),
+    false
+  );
+
+  // 7. empty capability set denies
+  assert.equal(
+    hasReviewQueueAuthority({ ...baseAuthorized, capabilities: [] }),
+    false
+  );
+
+  // 8. authenticated-no-staff-authority denies
+  assert.equal(
+    hasReviewQueueAuthority({
+      status: "authenticated-no-staff-authority",
+      staffProfileId: null,
+      capabilities: [],
+      source: "none",
+      reason: "Reader account."
+    }),
+    false
+  );
+
+  // 9. server-policy-unavailable denies
+  assert.equal(
+    hasReviewQueueAuthority({
+      status: "server-policy-unavailable",
+      staffProfileId: null,
+      capabilities: ["story.publish"],
+      source: "none",
+      reason: "Network failure."
+    }),
+    false
+  );
+
+  // 10. anonymous denies
+  assert.equal(
+    hasReviewQueueAuthority({
+      status: "anonymous",
+      staffProfileId: null,
+      capabilities: [],
+      source: "none",
+      reason: "No session."
+    }),
+    false
+  );
+  assert.equal(hasReviewQueueAuthority(null), false);
+  assert.equal(hasReviewQueueAuthority(undefined), false);
+
+  // 11. navigation alone does not grant review authority
+  // Review Queue itself inspects server-issued capabilities; navigation or URL access
+  // without a review capability snapshot is fail-closed.
+  const component = read("src/ui/StudioReviewQueue.tsx");
+  assert.ok(component.includes("const isAuthorized = hasReviewQueueAuthority(authSnapshot);"));
+  assert.ok(component.includes("if (!isAuthorized)"));
+  assert.ok(component.includes("Review Queue Authority Required"));
+});
+
+test("HT-NR-02B-R1: Workload retrieval is conditional on review authority and unauthorized states fail closed", () => {
+  const component = read("src/ui/StudioReviewQueue.tsx");
+
+  // Conditional data fetching: listStories and listAuthors are called ONLY when isAuthorized is true
+  assert.ok(component.includes("if (!isAuthorized)"));
+  assert.ok(component.includes("setStoriesState({ data: null, loading: false, error: null });"));
+  assert.ok(component.includes("setAuthorsState({ data: null, loading: false, error: null });"));
+
+  // Canonical listStories and listAuthors are executed only inside the authorized effect
+  const effectBlock = component.slice(
+    component.indexOf("useEffect(() => {"),
+    component.indexOf("}, [isAuthorized, refreshKey]);")
+  );
+  assert.ok(effectBlock.includes("if (!isAuthorized)"));
+  assert.ok(effectBlock.includes("services.newsroomStories.listStories(200)"));
+  assert.ok(effectBlock.includes("services.newsroomStories.listAuthors()"));
+
+  // Unauthorized state renders professional non-error message without operational metrics or cards
+  assert.ok(component.includes("Review Queue Authority Required"));
+  assert.ok(component.includes("Your current Newsroom session does not have editorial review authority."));
+  assert.ok(component.includes("Return to Stories Workspace →"));
+
+  // Fail-closed authorization screens do not expose operational triage counters or story cards
+  const unauthJsxStart = component.indexOf("Review Queue Authority Required");
+  const unauthJsxEnd = component.indexOf("</View>\n    );", unauthJsxStart);
+  const unauthJsx = component.slice(unauthJsxStart, unauthJsxEnd);
+  assert.equal(unauthJsx.includes("metricsBar"), false);
+  assert.equal(unauthJsx.includes("summaryCounts"), false);
+  assert.equal(unauthJsx.includes("storyCard"), false);
+  assert.equal(unauthJsx.includes("queueList"), false);
+  assert.equal(unauthJsx.includes("searchInput"), false);
+});
+
+test("HT-NR-02B-R1: Author identity truth enforces canonical listAuthors and forbids invented Reporter names", () => {
+  const component = read("src/ui/StudioReviewQueue.tsx");
+
+  // Zero invented reporter identities: "Reporter ${id...}" is strictly forbidden
+  assert.equal(component.includes("Reporter ${"), false);
+  assert.equal(component.includes("Reporter ${id"), false);
+
+  // Unresolved authors render neutral truthful "Author unavailable"
+  assert.ok(component.includes('authorsMap[story.authorId] ?? "Author unavailable"'));
+
+  // availableAuthors includes canonical named authors only (filtering out unresolved IDs)
+  assert.ok(component.includes("if (authorsMap[story.authorId.trim()])"));
+  assert.ok(component.includes("name: authorsMap[id]!"));
+
+  // Filter testing: verify unresolved author ID is not fabricated
+  const baseTime = Date.parse("2026-10-15T12:00:00Z");
+  const authorsMap = {
+    "auth-resolved-1": "Dr. Kudzi Musarurwa"
+  };
+
+  const storiesWithMixedAuthors = [
+    {
+      id: "s-resolved",
+      title: "Clean Water Infrastructure Report",
+      workflowStatus: "Submitted",
+      authorId: "auth-resolved-1",
+      deadlineAt: null
+    },
+    {
+      id: "s-unresolved",
+      title: "Regional Clinic Supply Chain",
+      workflowStatus: "Fact check",
+      authorId: "auth-unresolved-uuid-9999",
+      deadlineAt: null
+    }
+  ];
+
+  // Unresolved story remains in the queue
+  const queue = filterReviewQueue(storiesWithMixedAuthors, { authorsMap, now: baseTime });
+  assert.equal(queue.length, 2);
+
+  // Searching by an invented name like "Reporter auth-unres" returns 0 results
+  const fakeSearch = filterReviewQueue(storiesWithMixedAuthors, {
+    searchQuery: "Reporter auth-unres",
+    authorsMap,
+    now: baseTime
+  });
+  assert.equal(fakeSearch.length, 0);
+
+  // Searching by canonical author name matches only the resolved story
+  const resolvedSearch = filterReviewQueue(storiesWithMixedAuthors, {
+    searchQuery: "Kudzi",
+    authorsMap,
+    now: baseTime
+  });
+  assert.equal(resolvedSearch.length, 1);
+  assert.equal(resolvedSearch[0].id, "s-resolved");
 });
