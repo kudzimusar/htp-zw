@@ -360,7 +360,7 @@ test("HT-NR-02-R2: Schedule Publication requires valid parseable timestamp and s
   assert.ok(workspace.includes('if (isDirty) {'));
   assert.ok(workspace.includes('setStatusMessage("Saving unsaved edits before transition…");'));
   assert.ok(workspace.includes('const saved = await saveStoryInternal("Manual save");'));
-  assert.ok(workspace.includes('if (!saved) return;'));
+  assert.ok(workspace.includes('if (!saved)'));
 });
 
 test("HT-NR-02: Behavioral lifecycle state machine verifies concurrency and workflow guarantees", async () => {
@@ -424,4 +424,83 @@ test("HT-NR-02: Behavioral lifecycle state machine verifies concurrency and work
   // 6. Restore revision 1 with expectedVersion 3
   const v4 = restoreRevision(1, 3);
   assert.equal(v4, 4);
+
+  // 7. Save generation race simulation (HT-NR-02A-R3):
+  // User starts save at dirty revision 1:
+  let dirtyRevision = 1;
+  const savingRevision = dirtyRevision;
+  // While saveStory is in flight, user makes another edit:
+  dirtyRevision += 1; // now 2
+  // Server returns new lockVersion
+  const v5 = saveStory(v4, { title: "Draft v1" }, "Manual save");
+  assert.equal(v5, 5);
+  // Compare captured vs current dirtyRevision:
+  const currentGenerationPersisted = dirtyRevision === savingRevision;
+  assert.equal(currentGenerationPersisted, false);
+  // Stale save leaves isDirty=true:
+  let isDirty = !currentGenerationPersisted;
+  assert.equal(isDirty, true);
+  // Formal action check blocks transition on stale save:
+  function attemptTransition(nextStatus) {
+    if (isDirty) {
+      if (!currentGenerationPersisted) {
+        return { success: false, reason: "Newer edits appeared while saving" };
+      }
+    }
+    return { success: true, status: transitionStory(nextStatus) };
+  }
+  const result1 = attemptTransition("Scheduled");
+  assert.equal(result1.success, false);
+  assert.equal(workflowStatus, "Submitted"); // remains unmodified!
+
+  // Now next save persists generation 2 using new lock version v5:
+  const nextSavingRevision = dirtyRevision; // 2
+  const v6 = saveStory(v5, { title: "Draft v2" }, "Manual save");
+  assert.equal(v6, 6);
+  const nextGenerationPersisted = dirtyRevision === nextSavingRevision;
+  assert.equal(nextGenerationPersisted, true);
+  isDirty = !nextGenerationPersisted;
+  assert.equal(isDirty, false);
+
+  // Transition now succeeds:
+  const result2 = attemptTransition("Scheduled");
+  assert.equal(result2.success, true);
+  assert.equal(workflowStatus, "Scheduled");
+});
+
+test("HT-NR-02-R3: Formal-action save-generation race closure ensures stale saves abort actions", () => {
+  const workspace = read("src/ui/StudioStoryWorkspace.tsx");
+
+  // 1. save captures savingRevision
+  assert.ok(workspace.includes("const savingRevision = dirtyRevisionRef.current;"));
+
+  // 2. code compares current dirty revision against captured revision
+  assert.ok(workspace.includes("const currentGenerationPersisted = dirtyRevisionRef.current === savingRevision;"));
+  assert.ok(workspace.includes("if (dirtyRevisionRef.current === savingRevision) {"));
+
+  // 3. stale-generation acknowledgement leaves isDirty=true and sets idle autosave-capable status
+  assert.ok(workspace.includes("setIsDirty(true);"));
+  assert.ok(workspace.includes('setSaveStatus("idle");'));
+  assert.ok(workspace.includes('setStatusMessage("Earlier changes saved; newer edits pending.");'));
+
+  // 4. stale-generation acknowledgement updates the new server lock version
+  assert.ok(workspace.includes("setExpectedVersion(newVersion);"));
+
+  // 5. stale-generation acknowledgement returns failure/not-safe-for-action (false)
+  assert.ok(workspace.includes("return false;"));
+
+  // 6. handleTransition aborts on that result and guides user
+  assert.ok(workspace.includes('setStatusMessage("Newer edits appeared while saving. Save the latest changes before changing workflow state.");'));
+
+  // 7. executeRequestChanges aborts on stale save and guides user
+  assert.ok(workspace.includes('setStatusMessage("Newer edits appeared while saving. Save the latest changes before requesting changes.");'));
+
+  // 8. executeRecordReview aborts on stale save and guides user
+  assert.ok(workspace.includes('setStatusMessage("Newer edits appeared while saving. Save the latest changes before recording review.");'));
+
+  // 9. Scheduled / Published and Submit cannot transition while dirty or stale save
+  assert.ok(workspace.includes('if (nextStatus === "Scheduled") {'));
+  assert.ok(workspace.includes('const hasValidSchedule = scheduledAt.trim() !== "" && !Number.isNaN(Date.parse(scheduledAt));'));
+  assert.ok(workspace.includes('opts.push({ label: "Schedule Publication", status: "Scheduled", allowed: canPublish && hasValidSchedule });'));
+  assert.ok(workspace.includes('opts.push({ label: "Publish Now", status: "Published", allowed: canPublish });'));
 });

@@ -117,6 +117,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRevisionRef = useRef(0);
+  const lastSaveHadNewerEditsRef = useRef(false);
 
   // Load auxiliary data
   useEffect(() => {
@@ -298,19 +299,24 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
         });
       }
 
+      const currentGenerationPersisted = dirtyRevisionRef.current === savingRevision;
+      lastSaveHadNewerEditsRef.current = !currentGenerationPersisted;
+
       if (dirtyRevisionRef.current === savingRevision) {
         setIsDirty(false);
         setSaveStatus("saved");
         setStatusMessage(isAuto ? "Autosaved." : "Changes saved.");
+        void refreshHistory(storyId);
+        return true;
       } else {
         setIsDirty(true);
         setSaveStatus("idle");
         setStatusMessage("Earlier changes saved; newer edits pending.");
+        void refreshHistory(storyId);
+        return false;
       }
-
-      void refreshHistory(storyId);
-      return true;
     } catch (err: any) {
+      lastSaveHadNewerEditsRef.current = false;
       if (err.message && err.message.includes("VERSION_CONFLICT")) {
         setSaveStatus("conflict");
         setStatusMessage(
@@ -475,7 +481,12 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     if (isDirty) {
       setStatusMessage("Saving unsaved edits before transition…");
       const saved = await saveStoryInternal("Manual save");
-      if (!saved) return;
+      if (!saved) {
+        if (lastSaveHadNewerEditsRef.current) {
+          setStatusMessage("Newer edits appeared while saving. Save the latest changes before changing workflow state.");
+        }
+        return;
+      }
     }
     setLoading(true);
     setStatusMessage(`Transitioning story to ${nextStatus}…`);
@@ -527,7 +538,12 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     if (isDirty) {
       setStatusMessage("Saving unsaved edits before requesting changes…");
       const saved = await saveStoryInternal("Manual save");
-      if (!saved) return;
+      if (!saved) {
+        if (lastSaveHadNewerEditsRef.current) {
+          setStatusMessage("Newer edits appeared while saving. Save the latest changes before requesting changes.");
+        }
+        return;
+      }
     }
     setLoading(true);
     try {
@@ -571,7 +587,12 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     if (isDirty) {
       setStatusMessage("Saving unsaved edits before recording review…");
       const saved = await saveStoryInternal("Manual save");
-      if (!saved) return;
+      if (!saved) {
+        if (lastSaveHadNewerEditsRef.current) {
+          setStatusMessage("Newer edits appeared while saving. Save the latest changes before recording review.");
+        }
+        return;
+      }
     }
     setLoading(true);
     try {
