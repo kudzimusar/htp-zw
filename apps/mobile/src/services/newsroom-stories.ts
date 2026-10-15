@@ -121,9 +121,13 @@ export const stagingNewsroomStoryService: NewsroomStoryService = {
       deadline_at: input.deadline_at ?? input.deadlineAt ?? null,
       seo_title: input.seo_title ?? input.seoTitle ?? null,
       seo_description: input.seo_description ?? input.seoDescription ?? null,
-      author_id: input.author_id ?? input.authorId ?? null,
       primary_section_id: input.primary_section_id ?? input.primarySectionId ?? null
     };
+
+    const explicitAuthor = input.author_id ?? input.authorId;
+    if (explicitAuthor && explicitAuthor.trim()) {
+      payload.author_id = explicitAuthor.trim();
+    }
 
     const storyId = await rpc<string>("newsroom_create_story", { p_story: payload });
     return String(storyId);
@@ -192,15 +196,17 @@ export const stagingNewsroomStoryService: NewsroomStoryService = {
       p_reason: reason
     });
 
-    const commentPolicy = patch.commentPolicy ?? patch.comment_policy;
-    if (commentPolicy !== undefined && commentPolicy !== null) {
-      await rpc("newsroom_set_story_comment_policy", {
-        p_story_id: storyId,
-        p_policy: commentPolicy
-      });
-    }
-
     return Number(newVersion);
+  },
+
+  async setCommentPolicy(storyId: string, policy: "disabled" | "read_only" | "open") {
+    requireCanonicalId(storyId, "story");
+    await ensureNewsroomSession();
+    const result = await rpc<string>("newsroom_set_story_comment_policy", {
+      p_story_id: storyId,
+      p_policy: policy
+    });
+    return String(result);
   },
 
   async transitionStory(storyId: string, nextStatus: string, reason?: string) {

@@ -24,6 +24,27 @@ const WORKFLOW_STATUSES = [
 
 const ACCESS_POLICIES = ["All", "public", "premium"] as const;
 
+export function resolveWorkflowStatus(story: { workflowStatus?: string | null; status?: string | null }): string {
+  const ws = (story.workflowStatus ?? "").toLowerCase().trim();
+  if (ws === "publish" || ws === "published") {
+    return "Published";
+  }
+  if (story.workflowStatus && story.workflowStatus.trim()) {
+    return story.workflowStatus.trim();
+  }
+  const lowerStatus = (story.status ?? "").toLowerCase().trim();
+  if (lowerStatus === "publish" || lowerStatus === "published") {
+    return "Published";
+  }
+  if (lowerStatus === "draft") {
+    return "Draft";
+  }
+  if (lowerStatus) {
+    return lowerStatus.charAt(0).toUpperCase() + lowerStatus.slice(1);
+  }
+  return "Draft";
+}
+
 function statusBadgeStyle(status: string | null) {
   switch (status) {
     case "Published":
@@ -50,6 +71,7 @@ export function StudioStories() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [policyFilter, setPolicyFilter] = useState<string>("All");
+  const [deskFilter, setDeskFilter] = useState<string>("All");
 
   const storiesAsync = useAsync(
     () => services.newsroomStories.listStories(200),
@@ -67,10 +89,20 @@ export function StudioStories() {
 
   const stories = storiesAsync.data ?? [];
 
+  const availableDesks = useMemo(() => {
+    const set = new Set<string>();
+    for (const story of stories) {
+      if (story.desk && story.desk.trim()) {
+        set.add(story.desk.trim());
+      }
+    }
+    return ["All", ...Array.from(set).sort()];
+  }, [stories]);
+
   const filteredStories = useMemo(() => {
     return stories.filter((story) => {
       if (statusFilter !== "All") {
-        const curStatus = story.workflowStatus ?? (story.status === "published" ? "Published" : "Draft");
+        const curStatus = resolveWorkflowStatus(story);
         if (curStatus.toLowerCase() !== statusFilter.toLowerCase()) {
           return false;
         }
@@ -78,6 +110,12 @@ export function StudioStories() {
 
       if (policyFilter !== "All") {
         if (story.accessPolicy.toLowerCase() !== policyFilter.toLowerCase()) {
+          return false;
+        }
+      }
+
+      if (deskFilter !== "All") {
+        if ((story.desk ?? "").trim().toLowerCase() !== deskFilter.toLowerCase()) {
           return false;
         }
       }
@@ -95,7 +133,7 @@ export function StudioStories() {
 
       return true;
     });
-  }, [stories, statusFilter, policyFilter, searchQuery]);
+  }, [stories, statusFilter, policyFilter, deskFilter, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -157,6 +195,30 @@ export function StudioStories() {
             );
           })}
         </ScrollView>
+
+        {availableDesks.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterPills}
+          >
+            <Text style={[styles.filterLabel, { alignSelf: "center", marginRight: spacing.xs }]}>Desk:</Text>
+            {availableDesks.map((d) => {
+              const active = deskFilter === d;
+              return (
+                <Pressable
+                  key={d}
+                  style={[styles.subPill, active && styles.subPillActive]}
+                  onPress={() => setDeskFilter(d)}
+                >
+                  <Text style={[styles.subPillText, active && styles.subPillTextActive]}>
+                    {d}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={styles.secondaryFilterRow}>
           <Text style={styles.filterLabel}>Access:</Text>
@@ -223,7 +285,8 @@ export function StudioStories() {
       {!storiesAsync.loading && !storiesAsync.error && filteredStories.length > 0 && (
         <View style={styles.storyList}>
           {filteredStories.map((story) => {
-            const statusStyle = statusBadgeStyle(story.workflowStatus);
+            const curStatus = resolveWorkflowStatus(story);
+            const statusStyle = statusBadgeStyle(curStatus);
             return (
               <Pressable
                 key={story.id}
@@ -250,7 +313,7 @@ export function StudioStories() {
                           { color: statusStyle.text }
                         ]}
                       >
-                        {story.workflowStatus ?? story.status.toUpperCase()}
+                        {curStatus}
                       </Text>
                     </View>
 

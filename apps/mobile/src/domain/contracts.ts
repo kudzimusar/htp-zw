@@ -223,6 +223,7 @@ export interface NewsroomStoryService {
   restoreRevision(storyId: string, revisionId: string, expectedVersion: number): Promise<number>;
   recordReview(storyId: string, reviewType: string, status: string, notes?: string | null): Promise<string>;
   requestChanges(storyId: string, reason: string): Promise<Record<string, unknown>>;
+  setCommentPolicy(storyId: string, policy: "disabled" | "read_only" | "open"): Promise<string>;
 }
 
 export interface SocialAttributionService {

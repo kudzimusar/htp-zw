@@ -592,11 +592,6 @@ export type CreateStoryInput = {
   authorId?: string | null;
   primary_section_id?: string | null;
   primarySectionId?: string | null;
-  access_policy?: string | null;
-  accessPolicy?: string | null;
-  comment_policy?: string | null;
-  commentPolicy?: string | null;
-  distribution?: Record<string, unknown> | null;
 };
 
 export type SaveStoryPatch = {
@@ -624,8 +619,8 @@ export type SaveStoryPatch = {
   topic?: string | null;
   country?: string | null;
   region?: string | null;
-  access_policy?: string;
-  accessPolicy?: string;
+  access_policy?: "public" | "premium" | string;
+  accessPolicy?: "public" | "premium" | string;
   deadline_at?: string | null;
   deadlineAt?: string | null;
   seo_title?: string | null;
@@ -637,6 +632,4 @@ export type SaveStoryPatch = {
   distribution?: Record<string, unknown>;
   ad_setting?: string;
   adSetting?: string;
-  comment_policy?: string;
-  commentPolicy?: string;
 };

@@ -20,15 +20,6 @@ import type {
   VideoService
 } from "../domain/contracts";
 import type {
-  CreateStoryInput,
-  NewsroomPublicAuthor,
-  NewsroomSection,
-  NewsroomStory,
-  NewsroomStoryAutosave,
-  NewsroomStoryCorrection,
-  NewsroomStoryReview,
-  NewsroomStoryRevision,
-  SaveStoryPatch,
   SearchQuery
 } from "../domain/models";
 import { articles, audioItems, liveItems, notifications, videos } from "../fixtures/content";
@@ -283,326 +274,53 @@ const socialService: SocialAttributionService = {
   }
 };
 
-const fixtureAuthors: NewsroomPublicAuthor[] = [
-  {
-    id: "a0000000-0000-4000-8000-000000000001",
-    displayName: "Staff Reporter",
-    slug: "staff-reporter",
-    bio: "HealthTimes medical journalism desk",
-    provenance: "fixture"
-  },
-  {
-    id: "a0000000-0000-4000-8000-000000000002",
-    displayName: "Dr. Rutendo Shumba",
-    slug: "dr-rutendo-shumba",
-    bio: "Senior Health & Science Correspondent",
-    provenance: "fixture"
-  }
-];
-
-const fixtureSections: NewsroomSection[] = [
-  {
-    id: "s0000000-0000-4000-8000-000000000001",
-    name: "Health Policy",
-    slug: "health-policy",
-    parentId: null,
-    provenance: "fixture"
-  },
-  {
-    id: "s0000000-0000-4000-8000-000000000002",
-    name: "Clinical Medicine",
-    slug: "clinical-medicine",
-    parentId: null,
-    provenance: "fixture"
-  },
-  {
-    id: "s0000000-0000-4000-8000-000000000003",
-    name: "Community Health",
-    slug: "community-health",
-    parentId: null,
-    provenance: "fixture"
-  }
-];
-
-let fixtureStories: NewsroomStory[] = [
-  {
-    id: "d0000000-0000-4000-8000-000000000001",
-    title: "National Cholera Surveillance and Oral Rehydration Centers Expanded",
-    slug: "national-cholera-surveillance-expanded",
-    standfirst: "Rapid intervention teams deploy across metropolitan districts.",
-    excerpt: "Health authorities report stabilization across high-density suburbs.",
-    bodyHtml: "<p>Health authorities have deployed rapid intervention teams to scale oral rehydration points.</p>",
-    bodyJson: null,
-    status: "draft",
-    workflowStatus: "Draft",
-    accessPolicy: "public",
-    authorId: "a0000000-0000-4000-8000-000000000001",
-    primarySectionId: "s0000000-0000-4000-8000-000000000001",
-    publishedAt: null,
-    scheduledAt: null,
-    seoTitle: "Cholera Response - HealthTimes",
-    seoDescription: "Rapid response teams expand treatment units.",
-    canonicalUrl: null,
-    ownerStaffId: "u0000000-0000-4000-8000-000000000001",
-    assignedEditorStaffId: null,
-    factCheckerStaffId: null,
-    healthReviewerStaffId: null,
-    copyEditorStaffId: null,
-    desk: "National",
-    topic: "Infectious Disease",
-    country: "Zimbabwe",
-    region: "Harare",
-    sourceNotes: "Ministry of Health situation report #44",
-    internalNotes: "Prioritize cold-chain verification",
-    deadlineAt: null,
-    distribution: { public_reader: true },
-    adSetting: "Standard",
-    commentPolicy: "open",
-    lockVersion: 1,
-    lastSavedBy: "u0000000-0000-4000-8000-000000000001",
-    createdAt: "2026-09-20T08:00:00Z",
-    updatedAt: "2026-09-20T08:00:00Z",
-    modifiedAt: null
-  }
-];
-
-let fixtureRevisions: Record<string, NewsroomStoryRevision[]> = {
-  "d0000000-0000-4000-8000-000000000001": [
-    {
-      id: "r0000000-0000-4000-8000-000000000001",
-      storyId: "d0000000-0000-4000-8000-000000000001",
-      revisionNumber: 1,
-      title: "National Cholera Surveillance and Oral Rehydration Centers Expanded",
-      bodyHtml: "<p>Health authorities have deployed rapid intervention teams to scale oral rehydration points.</p>",
-      bodyJson: null,
-      changeSummary: "Story created",
-      editorId: "u0000000-0000-4000-8000-000000000001",
-      createdAt: "2026-09-20T08:00:00Z"
-    }
-  ]
-};
-
-let fixtureAutosaves: Record<string, NewsroomStoryAutosave | null> = {};
-let fixtureReviews: Record<string, NewsroomStoryReview[]> = {};
-let fixtureCorrections: Record<string, NewsroomStoryCorrection[]> = {};
+const FAIL_CLOSED_NEWSROOM_MESSAGE = "Server-authorized Newsroom story authority is unavailable in fixture mode.";
 
 export const fixtureNewsroomStoryService: NewsroomStoryService = {
-  async listStories(limit = 200) {
-    return fixtureStories.slice(0, limit);
+  async listStories() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async getStory(storyId: string) {
-    return fixtureStories.find((s) => s.id === storyId) ?? null;
+  async getStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async createStory(input: CreateStoryInput) {
-    const id = `d0000000-0000-4000-8000-${String(fixtureStories.length + 1).padStart(12, "0")}`;
-    const slug = input.slug || `draft-${Math.random().toString(36).slice(2, 10)}`;
-    const newStory: NewsroomStory = {
-      id,
-      title: input.title || "Untitled story",
-      slug,
-      standfirst: input.standfirst ?? null,
-      excerpt: null,
-      bodyHtml: input.bodyHtml ?? input.body_html ?? input.body ?? null,
-      bodyJson: null,
-      status: "draft",
-      workflowStatus: "Draft",
-      accessPolicy: input.accessPolicy ?? input.access_policy ?? "public",
-      authorId: input.authorId ?? input.author_id ?? "a0000000-0000-4000-8000-000000000001",
-      primarySectionId: input.primarySectionId ?? input.primary_section_id ?? null,
-      publishedAt: null,
-      scheduledAt: null,
-      seoTitle: input.seoTitle ?? input.seo_title ?? null,
-      seoDescription: input.seoDescription ?? input.seo_description ?? null,
-      canonicalUrl: null,
-      ownerStaffId: "u0000000-0000-4000-8000-000000000001",
-      assignedEditorStaffId: null,
-      factCheckerStaffId: null,
-      healthReviewerStaffId: null,
-      copyEditorStaffId: null,
-      desk: input.desk ?? null,
-      topic: input.topic ?? null,
-      country: input.country ?? null,
-      region: input.region ?? null,
-      sourceNotes: input.sourceNotes ?? input.sources ?? null,
-      internalNotes: input.internalNotes ?? input.notes ?? null,
-      deadlineAt: input.deadlineAt ?? input.deadline_at ?? null,
-      distribution: { public_reader: true },
-      adSetting: "Standard",
-      commentPolicy: (input.commentPolicy ?? input.comment_policy ?? "open") as any,
-      lockVersion: 1,
-      lastSavedBy: "u0000000-0000-4000-8000-000000000001",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      modifiedAt: null
-    };
-    fixtureStories.unshift(newStory);
-    fixtureRevisions[id] = [
-      {
-        id: `r0000000-0000-4000-8000-${String(Date.now()).slice(-12)}`,
-        storyId: id,
-        revisionNumber: 1,
-        title: newStory.title,
-        bodyHtml: newStory.bodyHtml,
-        bodyJson: null,
-        changeSummary: "Story created",
-        editorId: "u0000000-0000-4000-8000-000000000001",
-        createdAt: new Date().toISOString()
-      }
-    ];
-    return id;
+  async createStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async saveStory(storyId: string, expectedVersion: number, patch: SaveStoryPatch, reason = "Autosave") {
-    const story = fixtureStories.find((s) => s.id === storyId);
-    if (!story) throw new Error("Story not found");
-    if (story.lockVersion !== expectedVersion) {
-      throw new Error("VERSION_CONFLICT");
-    }
-    const newVersion = story.lockVersion + 1;
-    story.lockVersion = newVersion;
-    if (patch.title !== undefined) story.title = patch.title;
-    if (patch.slug !== undefined) story.slug = patch.slug;
-    if (patch.standfirst !== undefined) story.standfirst = patch.standfirst;
-    if (patch.body !== undefined || patch.bodyHtml !== undefined || patch.body_html !== undefined) {
-      story.bodyHtml = patch.body ?? patch.bodyHtml ?? patch.body_html ?? null;
-    }
-    if (patch.sources !== undefined || patch.sourceNotes !== undefined) {
-      story.sourceNotes = patch.sources ?? patch.sourceNotes ?? null;
-    }
-    if (patch.notes !== undefined || patch.internalNotes !== undefined) {
-      story.internalNotes = patch.notes ?? patch.internalNotes ?? null;
-    }
-    if (patch.authorId !== undefined || patch.author_id !== undefined) {
-      story.authorId = patch.authorId ?? patch.author_id ?? null;
-    }
-    if (patch.primarySectionId !== undefined || patch.primary_section_id !== undefined) {
-      story.primarySectionId = patch.primarySectionId ?? patch.primary_section_id ?? null;
-    }
-    if (patch.desk !== undefined) story.desk = patch.desk ?? null;
-    if (patch.topic !== undefined) story.topic = patch.topic ?? null;
-    if (patch.country !== undefined) story.country = patch.country ?? null;
-    if (patch.region !== undefined) story.region = patch.region ?? null;
-    if (patch.accessPolicy !== undefined || patch.access_policy !== undefined) {
-      story.accessPolicy = (patch.accessPolicy ?? patch.access_policy) as any;
-    }
-    if (patch.commentPolicy !== undefined || patch.comment_policy !== undefined) {
-      story.commentPolicy = (patch.commentPolicy ?? patch.comment_policy) as any;
-    }
-    if (patch.deadlineAt !== undefined || patch.deadline_at !== undefined) {
-      story.deadlineAt = patch.deadlineAt ?? patch.deadline_at ?? null;
-    }
-    if (patch.seoTitle !== undefined || patch.seo_title !== undefined) {
-      story.seoTitle = patch.seoTitle ?? patch.seo_title ?? null;
-    }
-    if (patch.seoDescription !== undefined || patch.seo_description !== undefined) {
-      story.seoDescription = patch.seoDescription ?? patch.seo_description ?? null;
-    }
-    story.updatedAt = new Date().toISOString();
-
-    if (reason.toLowerCase() === "autosave") {
-      fixtureAutosaves[storyId] = {
-        storyId,
-        title: story.title,
-        standfirst: story.standfirst,
-        bodyHtml: story.bodyHtml,
-        lockVersion: newVersion,
-        savedBy: "u0000000-0000-4000-8000-000000000001",
-        savedAt: new Date().toISOString()
-      };
-    } else {
-      delete fixtureAutosaves[storyId];
-      const revs = fixtureRevisions[storyId] || [];
-      revs.unshift({
-        id: `r0000000-0000-4000-8000-${String(Date.now()).slice(-12)}`,
-        storyId,
-        revisionNumber: revs.length + 1,
-        title: story.title,
-        bodyHtml: story.bodyHtml,
-        bodyJson: null,
-        changeSummary: reason,
-        editorId: "u0000000-0000-4000-8000-000000000001",
-        createdAt: new Date().toISOString()
-      });
-      fixtureRevisions[storyId] = revs;
-    }
-
-    return newVersion;
+  async saveStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async transitionStory(storyId: string, nextStatus: string, reason?: string) {
-    const story = fixtureStories.find((s) => s.id === storyId);
-    if (!story) throw new Error("Story not found");
-    story.workflowStatus = nextStatus;
-    if (nextStatus === "Published") {
-      story.publishedAt = new Date().toISOString();
-      story.status = "published";
-    }
-    if (nextStatus === "Updated / Corrected" && reason) {
-      const corrs = fixtureCorrections[storyId] || [];
-      corrs.unshift({
-        id: `c0000000-0000-4000-8000-${String(Date.now()).slice(-12)}`,
-        storyId,
-        reason,
-        changedBy: "u0000000-0000-4000-8000-000000000001",
-        changedAt: new Date().toISOString(),
-        previousRevisionId: null,
-        newRevisionId: null
-      });
-      fixtureCorrections[storyId] = corrs;
-    }
-    return nextStatus;
+  async setCommentPolicy() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
+  },
+  async transitionStory() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
   async listAuthors() {
-    return fixtureAuthors;
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
   async listSections() {
-    return fixtureSections;
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async listRevisions(storyId: string) {
-    return fixtureRevisions[storyId] ?? [];
+  async listRevisions() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async listAutosave(storyId: string) {
-    return fixtureAutosaves[storyId] ?? null;
+  async listAutosave() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async listReviews(storyId: string) {
-    return fixtureReviews[storyId] ?? [];
+  async listReviews() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async listCorrections(storyId: string) {
-    return fixtureCorrections[storyId] ?? [];
+  async listCorrections() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async restoreRevision(storyId: string, revisionId: string, expectedVersion: number) {
-    const story = fixtureStories.find((s) => s.id === storyId);
-    if (!story) throw new Error("Story not found");
-    if (story.lockVersion !== expectedVersion) throw new Error("VERSION_CONFLICT");
-    const rev = (fixtureRevisions[storyId] ?? []).find((r) => r.id === revisionId);
-    if (!rev) throw new Error("Revision not found");
-    story.title = rev.title || story.title;
-    story.bodyHtml = rev.bodyHtml;
-    story.lockVersion += 1;
-    story.updatedAt = new Date().toISOString();
-    return story.lockVersion;
+  async restoreRevision() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async recordReview(storyId: string, reviewType: string, status: string, notes?: string | null) {
-    const id = `rev00000-0000-4000-8000-${String(Date.now()).slice(-12)}`;
-    const revs = fixtureReviews[storyId] || [];
-    revs.unshift({
-      id,
-      storyId,
-      reviewType,
-      status,
-      notes: notes ?? null,
-      assignedTo: null,
-      createdBy: "u0000000-0000-4000-8000-000000000001",
-      completedBy: "u0000000-0000-4000-8000-000000000001",
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString()
-    });
-    fixtureReviews[storyId] = revs;
-    return id;
+  async recordReview() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   },
-  async requestChanges(storyId: string, reason: string) {
-    const story = fixtureStories.find((s) => s.id === storyId);
-    if (!story) throw new Error("Story not found");
-    story.workflowStatus = "Draft";
-    return { ok: true, reason };
+  async requestChanges() {
+    throw new Error(FAIL_CLOSED_NEWSROOM_MESSAGE);
   }
 };
 

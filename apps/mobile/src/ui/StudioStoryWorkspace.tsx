@@ -12,6 +12,7 @@ import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { hasServerCapability, type HealthTimesCapability } from "../security/capabilities";
 import type {
+  CreateStoryInput,
   NewsroomPublicAuthor,
   NewsroomSection,
   NewsroomStory,
@@ -30,6 +31,8 @@ type Props = {
   storyId?: string;
 };
 
+const REVIEW_STATUSES = ["completed", "approved", "changes_requested"] as const;
+
 export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const router = useRouter();
   const [storyId, setStoryId] = useState<string | null>(propStoryId ?? null);
@@ -43,7 +46,6 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [standfirst, setStandfirst] = useState("");
-  const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
   const [desk, setDesk] = useState("");
   const [topic, setTopic] = useState("");
@@ -55,8 +57,8 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const [authorId, setAuthorId] = useState<string>("");
   const [primarySectionId, setPrimarySectionId] = useState<string>("");
   const [accessPolicy, setAccessPolicy] = useState<string>("public");
-  const [commentPolicy, setCommentPolicy] = useState<string>("open");
-  const [distributionPublicReader, setDistributionPublicReader] = useState<boolean>(true);
+  const [commentPolicy, setCommentPolicy] = useState<string>("disabled");
+  const [distributionPublicReader, setDistributionPublicReader] = useState<boolean>(false);
   const [adSetting, setAdSetting] = useState<string>("Standard");
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
@@ -74,8 +76,9 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const [promptAction, setPromptAction] = useState<"requestChanges" | "correction" | "recordReview" | null>(null);
   const [promptReason, setPromptReason] = useState("");
   const [reviewType, setReviewType] = useState("fact_check");
-  const [reviewOutcome, setReviewOutcome] = useState("passed");
+  const [reviewOutcome, setReviewOutcome] = useState<"completed" | "approved" | "changes_requested">("completed");
   const [reviewNotes, setReviewNotes] = useState("");
+  const [confirmRestoreRev, setConfirmRestoreRev] = useState<NewsroomStoryRevision | null>(null);
 
   // History states
   const [revisions, setRevisions] = useState<NewsroomStoryRevision[]>([]);
@@ -93,7 +96,12 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const hasCap = (cap: HealthTimesCapability) =>
     auth ? hasServerCapability(auth, cap) : false;
 
-  const canEditStory = hasCap("story.edit_all") || hasCap("story.edit_own");
+  const canCreate = hasCap("story.create");
+  const canEditOwn = hasCap("story.edit_own");
+  const canEditAll = hasCap("story.edit_all");
+  const canEditStory = canEditAll || canEditOwn;
+  const isReadOnly = Boolean(storyId && !canEditStory);
+
   const canPublish = hasCap("story.publish");
   const canSubmit = hasCap("story.submit");
   const canFactCheck = hasCap("story.fact_check");
@@ -102,6 +110,10 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const canCorrect = hasCap("story.correct");
   const canManagePremium = hasCap("premium.assign") || hasCap("premium.manage");
   const canManageDistribution = hasCap("distribution.manage") || hasCap("story.edit_all");
+  const canManageAdSetting = hasCap("story.edit_all");
+  const canSchedule = hasCap("story.publish");
+  const canConfigureComments = hasCap("comment.configure");
+  const canRequestChanges = canEditAll || canFactCheck || canHealthReview || canCopyEdit || canPublish;
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,7 +144,6 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       setTitle(data.title);
       setSlug(data.slug);
       setStandfirst(data.standfirst ?? "");
-      setExcerpt(data.excerpt ?? "");
       setBody(data.bodyHtml ?? "");
       setDesk(data.desk ?? "");
       setTopic(data.topic ?? "");
@@ -144,7 +155,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       setAuthorId(data.authorId ?? "");
       setPrimarySectionId(data.primarySectionId ?? "");
       setAccessPolicy(data.accessPolicy ?? "public");
-      setCommentPolicy(data.commentPolicy ?? "open");
+      setCommentPolicy(data.commentPolicy ?? "disabled");
       setDistributionPublicReader(Boolean(data.distribution?.public_reader));
       setAdSetting(data.adSetting ?? "Standard");
       setSeoTitle(data.seoTitle ?? "");
@@ -186,9 +197,9 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     }
   }, [storyId]);
 
-  // Build patch
+  // Build patch for existing story saves
   const buildPatch = (): SaveStoryPatch => {
-    return {
+    const p: SaveStoryPatch = {
       title,
       slug: slug || undefined,
       standfirst: standfirst || null,
@@ -200,63 +211,46 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       sources: sourceNotes || null,
       notes: internalNotes || null,
       deadline_at: deadlineAt || null,
-      author_id: authorId || null,
       primary_section_id: primarySectionId || null,
-      access_policy: accessPolicy,
-      comment_policy: commentPolicy,
-      distribution: { public_reader: distributionPublicReader },
-      ad_setting: adSetting,
       seo_title: seoTitle || null,
-      seo_description: seoDescription || null,
-      scheduled_at: scheduledAt || null
+      seo_description: seoDescription || null
     };
+
+    if (canEditAll) {
+      p.author_id = authorId || null;
+    }
+
+    if (canManagePremium) {
+      p.access_policy = accessPolicy;
+    }
+
+    if (canManageDistribution) {
+      p.distribution = {
+        ...(story?.distribution ?? {}),
+        public_reader: distributionPublicReader
+      };
+    }
+
+    if (canManageAdSetting) {
+      p.ad_setting = adSetting;
+    }
+
+    if (canSchedule) {
+      p.scheduled_at = scheduledAt || null;
+    }
+
+    return p;
   };
 
-  // Perform Save
-  const handleSave = async (reason = "Manual save") => {
+  // Perform Save internally (returns true on success)
+  const saveStoryInternal = async (reason = "Manual save"): Promise<boolean> => {
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
 
-    if (!storyId) {
-      // Create new story flow
-      setSaveStatus("saving");
-      setStatusMessage("Creating new story on server…");
-      try {
-        const newId = await services.newsroomStories.createStory({
-          title: title || "Untitled story",
-          slug: slug || null,
-          standfirst: standfirst || null,
-          body: body || null,
-          desk: desk || null,
-          topic: topic || null,
-          country: country || null,
-          region: region || null,
-          sources: sourceNotes || null,
-          notes: internalNotes || null,
-          deadline_at: deadlineAt || null,
-          author_id: authorId || null,
-          primary_section_id: primarySectionId || null,
-          access_policy: accessPolicy,
-          comment_policy: commentPolicy,
-          seo_title: seoTitle || null,
-          seo_description: seoDescription || null
-        });
-        setStoryId(newId);
-        setIsDirty(false);
-        setSaveStatus("saved");
-        setStatusMessage("Story created.");
-        router.setParams({ storyId: newId });
-        await loadStory(newId);
-      } catch (err: any) {
-        setSaveStatus("error");
-        setStatusMessage(err.message || "Failed to create story.");
-      }
-      return;
-    }
+    if (!storyId || isReadOnly) return false;
 
-    // Existing story save
     const isAuto = reason.toLowerCase() === "autosave";
     setSaveStatus(isAuto ? "autosaving" : "saving");
     setStatusMessage(isAuto ? "Autosaving…" : "Saving changes…");
@@ -281,22 +275,78 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
         } as NewsroomStory);
       }
       void refreshHistory(storyId);
+      return true;
     } catch (err: any) {
       if (err.message && err.message.includes("VERSION_CONFLICT")) {
         setSaveStatus("conflict");
         setStatusMessage(
-          "VERSION CONFLICT: Another staff member or session updated this story. Please reload to inspect server content."
+          `VERSION CONFLICT: Another staff member or session updated this story (expected v${expectedVersion}). Please reload to inspect server content.`
         );
       } else {
         setSaveStatus("error");
         setStatusMessage(err.message || "Save failed.");
       }
+      return false;
     }
+  };
+
+  // User-invoked Save / Create handler
+  const handleSave = async (reason = "Manual save") => {
+    if (!storyId) {
+      if (!canCreate) {
+        setStatusMessage("Creation authority required: story.create.");
+        return;
+      }
+      setSaveStatus("saving");
+      setStatusMessage("Creating new story on server…");
+      try {
+        const createInput: CreateStoryInput = {
+          title: title || "Untitled story",
+          slug: slug || null,
+          standfirst: standfirst || null,
+          body: body || null,
+          desk: desk || null,
+          topic: topic || null,
+          country: country || null,
+          region: region || null,
+          sources: sourceNotes || null,
+          notes: internalNotes || null,
+          deadline_at: deadlineAt || null,
+          primary_section_id: primarySectionId || null,
+          seo_title: seoTitle || null,
+          seo_description: seoDescription || null
+        };
+        if (canEditAll && authorId && authorId.trim()) {
+          createInput.author_id = authorId.trim();
+        }
+
+        const newId = await services.newsroomStories.createStory(createInput);
+        setStoryId(newId);
+        setIsDirty(false);
+        setSaveStatus("saved");
+        setStatusMessage("Story created.");
+        router.setParams({ storyId: newId });
+        await loadStory(newId);
+      } catch (err: any) {
+        setSaveStatus("error");
+        setStatusMessage(err.message || "Failed to create story.");
+      }
+      return;
+    }
+
+    await saveStoryInternal(reason);
   };
 
   // Debounced Autosave (~10 seconds)
   useEffect(() => {
-    if (!isDirty || !storyId || saveStatus === "saving" || saveStatus === "conflict") {
+    if (
+      !isDirty ||
+      !storyId ||
+      isReadOnly ||
+      saveStatus === "saving" ||
+      saveStatus === "autosaving" ||
+      saveStatus === "conflict"
+    ) {
       return;
     }
 
@@ -305,7 +355,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     }
 
     autosaveTimerRef.current = setTimeout(() => {
-      void handleSave("Autosave");
+      void saveStoryInternal("Autosave");
     }, 10000);
 
     return () => {
@@ -316,6 +366,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   }, [
     isDirty,
     storyId,
+    isReadOnly,
     title,
     slug,
     standfirst,
@@ -330,7 +381,6 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     authorId,
     primarySectionId,
     accessPolicy,
-    commentPolicy,
     distributionPublicReader,
     adSetting,
     seoTitle,
@@ -339,15 +389,44 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   ]);
 
   const markDirty = () => {
+    if (isReadOnly) return;
     setIsDirty(true);
     if (saveStatus === "saved") {
       setSaveStatus("idle");
     }
   };
 
+  // Dedicated Comment Policy Handler
+  const isPublished = (story?.status ?? "").toLowerCase() === "publish" || (story?.status ?? "").toLowerCase() === "published";
+  const isPublicStory = (story?.accessPolicy ?? "").toLowerCase() === "public";
+  const canEnableComments = isPublished && isPublicStory;
+
+  const handleSetCommentPolicy = async (nextPolicy: "disabled" | "read_only" | "open") => {
+    if (!storyId || !canConfigureComments) return;
+    if (nextPolicy !== "disabled" && !canEnableComments) return;
+    setLoading(true);
+    try {
+      const updated = await services.newsroomStories.setCommentPolicy(storyId, nextPolicy);
+      setCommentPolicy(updated);
+      if (story) {
+        setStory({ ...story, commentPolicy: updated });
+      }
+      setStatusMessage(`Comment policy set to ${updated}.`);
+    } catch (err: any) {
+      setStatusMessage(err.message || "Failed to update comment policy.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Workflow transition
   const handleTransition = async (nextStatus: string, reason?: string) => {
     if (!storyId) return;
+    if (isDirty) {
+      setStatusMessage("Saving unsaved edits before transition…");
+      const saved = await saveStoryInternal("Manual save");
+      if (!saved) return;
+    }
     setLoading(true);
     setStatusMessage(`Transitioning story to ${nextStatus}…`);
     try {
@@ -361,19 +440,24 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     }
   };
 
-  // Restore Revision
-  const handleRestoreRevision = async (rev: NewsroomStoryRevision) => {
-    if (!storyId) return;
+  // Restore Revision Execution
+  const executeRestoreRevision = async () => {
+    if (!storyId || !confirmRestoreRev) return;
+    if (isDirty) {
+      setStatusMessage("Unsaved edits exist. Save or reload before restoring a revision.");
+      return;
+    }
     setLoading(true);
-    setStatusMessage(`Restoring revision #${rev.revisionNumber}…`);
+    setStatusMessage(`Restoring revision #${confirmRestoreRev.revisionNumber}…`);
     try {
       const newVersion = await services.newsroomStories.restoreRevision(
         storyId,
-        rev.id,
+        confirmRestoreRev.id,
         expectedVersion
       );
       setExpectedVersion(newVersion);
-      setStatusMessage(`Revision #${rev.revisionNumber} restored.`);
+      setConfirmRestoreRev(null);
+      setStatusMessage(`Revision #${confirmRestoreRev.revisionNumber} restored.`);
       await loadStory(storyId);
     } catch (err: any) {
       if (err.message && err.message.includes("VERSION_CONFLICT")) {
@@ -389,7 +473,12 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
   // Request changes execution
   const executeRequestChanges = async () => {
-    if (!storyId || !promptReason.trim()) return;
+    if (!storyId || !promptReason.trim() || !canRequestChanges) return;
+    if (isDirty) {
+      setStatusMessage("Saving unsaved edits before requesting changes…");
+      const saved = await saveStoryInternal("Manual save");
+      if (!saved) return;
+    }
     setLoading(true);
     try {
       await services.newsroomStories.requestChanges(storyId, promptReason.trim());
@@ -404,9 +493,24 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
     }
   };
 
+  // Available review types based on server capabilities
+  const availableReviewTypes = useMemo(() => {
+    const list: Array<{ type: string; label: string; cap: HealthTimesCapability }> = [];
+    if (canFactCheck) list.push({ type: "fact_check", label: "Fact Check", cap: "story.fact_check" });
+    if (canHealthReview) list.push({ type: "health_review", label: "Health / Science Review", cap: "story.health_review" });
+    if (canCopyEdit) list.push({ type: "copy_edit", label: "Copy Edit", cap: "story.copy_edit" });
+    if (canEditAll) list.push({ type: "editor_review", label: "Editor Review", cap: "story.edit_all" });
+    return list;
+  }, [canFactCheck, canHealthReview, canCopyEdit, canEditAll]);
+
   // Record review execution
   const executeRecordReview = async () => {
-    if (!storyId) return;
+    if (!storyId || availableReviewTypes.length === 0) return;
+    if (isDirty) {
+      setStatusMessage("Saving unsaved edits before recording review…");
+      const saved = await saveStoryInternal("Manual save");
+      if (!saved) return;
+    }
     setLoading(true);
     try {
       await services.newsroomStories.recordReview(
@@ -438,37 +542,55 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
   // Allowed transitions calculation
   const transitionOptions = useMemo(() => {
-    const opts: Array<{ label: string; status: string; capability: HealthTimesCapability }> = [];
+    const opts: Array<{ label: string; status: string; allowed: boolean }> = [];
     const cur = currentWorkflowStatus;
 
     if (["Pitch", "Approved", "Assigned", "Reporting", "Draft"].includes(cur)) {
-      opts.push({ label: "Submit for Review", status: "Submitted", capability: "story.submit" });
+      opts.push({ label: "Submit for Review", status: "Submitted", allowed: canSubmit && canEditStory });
     }
     if (["Submitted", "Fact check"].includes(cur)) {
-      opts.push({ label: "Send to Fact Check", status: "Fact check", capability: "story.fact_check" });
+      opts.push({ label: "Send to Fact Check", status: "Fact check", allowed: canFactCheck });
     }
     if (["Fact check", "Health / Science review"].includes(cur)) {
-      opts.push({ label: "Send to Health Review", status: "Health / Science review", capability: "story.health_review" });
+      opts.push({ label: "Send to Health Review", status: "Health / Science review", allowed: canHealthReview });
     }
     if (["Health / Science review", "Copy edit"].includes(cur)) {
-      opts.push({ label: "Send to Copy Edit", status: "Copy edit", capability: "story.copy_edit" });
+      opts.push({ label: "Send to Copy Edit", status: "Copy edit", allowed: canCopyEdit });
     }
     if (["Copy edit", "Editor review"].includes(cur)) {
-      opts.push({ label: "Send to Editor Review", status: "Editor review", capability: "story.edit_all" });
+      opts.push({ label: "Send to Editor Review", status: "Editor review", allowed: canEditAll || canCopyEdit });
     }
     if (["Editor review", "Ready"].includes(cur)) {
-      opts.push({ label: "Mark as Ready", status: "Ready", capability: "story.edit_all" });
+      opts.push({ label: "Mark as Ready", status: "Ready", allowed: canEditAll });
     }
     if (["Ready", "Scheduled"].includes(cur)) {
-      opts.push({ label: "Publish Now", status: "Published", capability: "story.publish" });
-      opts.push({ label: "Schedule Publication", status: "Scheduled", capability: "story.publish" });
+      opts.push({ label: "Publish Now", status: "Published", allowed: canPublish });
+      opts.push({ label: "Schedule Publication", status: "Scheduled", allowed: canPublish });
     }
     if (cur !== "Published") {
-      opts.push({ label: "Archive Story", status: "Archived", capability: "story.edit_all" });
+      opts.push({ label: "Archive Story", status: "Archived", allowed: canEditAll });
     }
 
     return opts;
-  }, [currentWorkflowStatus]);
+  }, [currentWorkflowStatus, canSubmit, canEditStory, canFactCheck, canHealthReview, canCopyEdit, canEditAll, canPublish]);
+
+  // Fail-closed gate for new story creation without story.create capability
+  if (!storyId && auth && !canCreate) {
+    return (
+      <View style={styles.permissionBox}>
+        <Text style={styles.permissionTitle}>Creation Authority Required</Text>
+        <Text style={styles.permissionText}>
+          You do not have server authorization to create newsroom stories. Required capability: story.create.
+        </Text>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.push("/studio/stories" as never)}
+        >
+          <Text style={styles.backButtonText}>← Return to Stories</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -509,29 +631,41 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             {saveStatus === "idle" && (isDirty ? "Unsaved changes" : "Draft ready")}
           </Text>
 
-          {saveStatus === "conflict" ? (
-            <Pressable
-              style={styles.conflictReloadButton}
-              onPress={() => storyId && void loadStory(storyId)}
-            >
-              <Text style={styles.conflictReloadButtonText}>Reload Latest Content</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              style={[
-                styles.saveButton,
-                (!canEditStory && !!storyId) && styles.disabledButton
-              ]}
-              onPress={() => void handleSave("Manual save")}
-              disabled={(!canEditStory && !!storyId) || loading}
-            >
-              <Text style={styles.saveButtonText}>
-                {storyId ? "Save Story" : "Create Story"}
-              </Text>
-            </Pressable>
+          {!isReadOnly && (
+            saveStatus === "conflict" ? (
+              <Pressable
+                style={styles.conflictReloadButton}
+                onPress={() => storyId && void loadStory(storyId)}
+              >
+                <Text style={styles.conflictReloadButtonText}>Reload Latest Content</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[
+                  styles.saveButton,
+                  loading && styles.disabledButton
+                ]}
+                onPress={() => void handleSave("Manual save")}
+                disabled={loading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {storyId ? "Save Story" : "Create Story"}
+                </Text>
+              </Pressable>
+            )
           )}
         </View>
       </View>
+
+      {/* Read-Only Mode Banner */}
+      {isReadOnly && (
+        <View style={styles.readOnlyBanner}>
+          <Text style={styles.readOnlyBannerTitle}>Read-Only Access</Text>
+          <Text style={styles.readOnlyBannerText}>
+            You are viewing this story with newsroom read permissions. Editing requires story.edit_own or story.edit_all capability.
+          </Text>
+        </View>
+      )}
 
       {/* Prominent Conflict / Status Banner */}
       {saveStatus === "conflict" && (
@@ -589,6 +723,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={styles.headlineInput}
               value={title}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setTitle(text);
                 markDirty();
@@ -603,6 +738,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={styles.input}
               value={slug}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setSlug(text);
                 markDirty();
@@ -618,6 +754,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={[styles.input, styles.textareaSm]}
               value={standfirst}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setStandfirst(text);
                 markDirty();
@@ -638,6 +775,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={[styles.input, styles.textareaBody]}
               value={body}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setBody(text);
                 markDirty();
@@ -649,20 +787,18 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             />
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Excerpt / Teaser</Text>
-            <TextInput
-              style={[styles.input, styles.textareaSm]}
-              value={excerpt}
-              onChangeText={(text) => {
-                setExcerpt(text);
-                markDirty();
-              }}
-              placeholder="Short excerpt for feeds and teasers…"
-              placeholderTextColor={colors.inkMuted}
-              multiline
-            />
-          </View>
+          {/* Excerpt: Read-only server field to prevent silent data loss */}
+          {story?.excerpt ? (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Server Excerpt (Read-only)</Text>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyFieldText}>{story.excerpt}</Text>
+              </View>
+              <Text style={styles.fieldNote}>
+                Excerpt mutation is deferred; current certified save/create RPC contract does not support excerpt mutation.
+              </Text>
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -675,6 +811,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={styles.input}
                 value={desk}
+                editable={!isReadOnly}
                 onChangeText={(text) => {
                   setDesk(text);
                   markDirty();
@@ -689,6 +826,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={styles.input}
                 value={topic}
+                editable={!isReadOnly}
                 onChangeText={(text) => {
                   setTopic(text);
                   markDirty();
@@ -705,6 +843,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={styles.input}
                 value={country}
+                editable={!isReadOnly}
                 onChangeText={(text) => {
                   setCountry(text);
                   markDirty();
@@ -719,6 +858,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={styles.input}
                 value={region}
+                editable={!isReadOnly}
                 onChangeText={(text) => {
                   setRegion(text);
                   markDirty();
@@ -734,6 +874,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={styles.input}
               value={deadlineAt}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setDeadlineAt(text);
                 markDirty();
@@ -748,6 +889,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={[styles.input, styles.textareaMd]}
               value={sourceNotes}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setSourceNotes(text);
                 markDirty();
@@ -763,6 +905,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <TextInput
               style={[styles.input, styles.textareaMd]}
               value={internalNotes}
+              editable={!isReadOnly}
               onChangeText={(text) => {
                 setInternalNotes(text);
                 markDirty();
@@ -787,25 +930,48 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Canonical Public Author (Byline)</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceChips}>
-                {authors.map((auth) => {
-                  const selected = authorId === auth.id;
-                  return (
-                    <Pressable
-                      key={auth.id}
-                      style={[styles.choiceChip, selected && styles.choiceChipSelected]}
-                      onPress={() => {
-                        setAuthorId(auth.id);
-                        markDirty();
-                      }}
-                    >
-                      <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
-                        {auth.displayName} ({auth.slug})
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              {!storyId && !canEditAll ? (
+                <View style={styles.noticeBox}>
+                  <Text style={styles.noticeBoxText}>
+                    Your canonical server-linked byline will be applied automatically upon creation.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {storyId && !canEditAll && (
+                    <Text style={styles.fieldNote}>
+                      Reassigning canonical public author requires story.edit_all capability.
+                    </Text>
+                  )}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceChips}>
+                    {authors.map((authItem) => {
+                      const selected = authorId === authItem.id;
+                      const allowed = !isReadOnly && canEditAll;
+                      return (
+                        <Pressable
+                          key={authItem.id}
+                          style={[
+                            styles.choiceChip,
+                            selected && styles.choiceChipSelected,
+                            !allowed && styles.disabledButton
+                          ]}
+                          onPress={() => {
+                            if (allowed) {
+                              setAuthorId(authItem.id);
+                              markDirty();
+                            }
+                          }}
+                          disabled={!allowed}
+                        >
+                          <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
+                            {authItem.displayName} ({authItem.slug})
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -813,14 +979,22 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceChips}>
                 {sections.map((sec) => {
                   const selected = primarySectionId === sec.id;
+                  const allowed = !isReadOnly;
                   return (
                     <Pressable
                       key={sec.id}
-                      style={[styles.choiceChip, selected && styles.choiceChipSelected]}
+                      style={[
+                        styles.choiceChip,
+                        selected && styles.choiceChipSelected,
+                        !allowed && styles.disabledButton
+                      ]}
                       onPress={() => {
-                        setPrimarySectionId(sec.id);
-                        markDirty();
+                        if (allowed) {
+                          setPrimarySectionId(sec.id);
+                          markDirty();
+                        }
                       }}
+                      disabled={!allowed}
                     >
                       <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
                         {sec.name}
@@ -842,39 +1016,45 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               </Text>
 
               <View style={styles.actionButtonsRow}>
-                {transitionOptions.map((opt) => {
-                  const allowed = hasCap(opt.capability);
-                  return (
-                    <Pressable
-                      key={opt.status}
-                      style={[styles.transitionBtn, !allowed && styles.disabledButton]}
-                      onPress={() => void handleTransition(opt.status)}
-                      disabled={!allowed || loading}
-                    >
-                      <Text style={styles.transitionBtnText}>{opt.label}</Text>
-                    </Pressable>
-                  );
-                })}
+                {transitionOptions.map((opt) => (
+                  <Pressable
+                    key={opt.status}
+                    style={[styles.transitionBtn, !opt.allowed && styles.disabledButton]}
+                    onPress={() => void handleTransition(opt.status)}
+                    disabled={!opt.allowed || loading}
+                  >
+                    <Text style={styles.transitionBtnText}>{opt.label}</Text>
+                  </Pressable>
+                ))}
 
                 {/* Request Changes Action */}
-                {["Submitted", "Fact check", "Health / Science review", "Copy edit", "Editor review"].includes(
-                  currentWorkflowStatus
-                ) && (
-                  <Pressable
-                    style={styles.requestChangesBtn}
-                    onPress={() => setPromptAction("requestChanges")}
-                  >
-                    <Text style={styles.requestChangesBtnText}>Request Changes</Text>
-                  </Pressable>
-                )}
+                {canRequestChanges &&
+                  ["Submitted", "Fact check", "Health / Science review", "Copy edit", "Editor review", "Ready"].includes(
+                    currentWorkflowStatus
+                  ) && (
+                    <Pressable
+                      style={styles.requestChangesBtn}
+                      onPress={() => setPromptAction("requestChanges")}
+                    >
+                      <Text style={styles.requestChangesBtnText}>Request Changes</Text>
+                    </Pressable>
+                  )}
 
                 {/* Record Review Action */}
-                <Pressable
-                  style={styles.recordReviewBtn}
-                  onPress={() => setPromptAction("recordReview")}
-                >
-                  <Text style={styles.recordReviewBtnText}>Record Review Entry</Text>
-                </Pressable>
+                {availableReviewTypes.length > 0 && (
+                  <Pressable
+                    style={styles.recordReviewBtn}
+                    onPress={() => {
+                      const first = availableReviewTypes[0];
+                      if (first) {
+                        setReviewType(first.type);
+                      }
+                      setPromptAction("recordReview");
+                    }}
+                  >
+                    <Text style={styles.recordReviewBtnText}>Record Review Entry</Text>
+                  </Pressable>
+                )}
 
                 {/* Correction Action */}
                 {currentWorkflowStatus === "Published" && canCorrect && (
@@ -926,19 +1106,14 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
                   <Text style={styles.promptTitle}>Record Formal Review Entry</Text>
                   <Text style={styles.fieldLabel}>Review Type</Text>
                   <View style={styles.choiceChips}>
-                    {([
-                      ["fact_check", "Fact Check", "story.fact_check"],
-                      ["health_review", "Health / Science Review", "story.health_review"],
-                      ["copy_edit", "Copy Edit", "story.copy_edit"],
-                      ["editor_review", "Editor Review", "story.edit_all"]
-                    ] as const).map(([type, label, cap]) => (
+                    {availableReviewTypes.map((rt) => (
                       <Pressable
-                        key={type}
-                        style={[styles.choiceChip, reviewType === type && styles.choiceChipSelected]}
-                        onPress={() => setReviewType(type)}
+                        key={rt.type}
+                        style={[styles.choiceChip, reviewType === rt.type && styles.choiceChipSelected]}
+                        onPress={() => setReviewType(rt.type)}
                       >
-                        <Text style={[styles.choiceChipText, reviewType === type && styles.choiceChipTextSelected]}>
-                          {label}
+                        <Text style={[styles.choiceChipText, reviewType === rt.type && styles.choiceChipTextSelected]}>
+                          {rt.label}
                         </Text>
                       </Pressable>
                     ))}
@@ -946,14 +1121,14 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
                   <Text style={styles.fieldLabel}>Review Status</Text>
                   <View style={styles.choiceChips}>
-                    {["passed", "flagged", "rejected"].map((outcome) => (
+                    {REVIEW_STATUSES.map((outcome) => (
                       <Pressable
                         key={outcome}
                         style={[styles.choiceChip, reviewOutcome === outcome && styles.choiceChipSelected]}
                         onPress={() => setReviewOutcome(outcome)}
                       >
                         <Text style={[styles.choiceChipText, reviewOutcome === outcome && styles.choiceChipTextSelected]}>
-                          {outcome.toUpperCase()}
+                          {outcome.replace("_", " ").toUpperCase()}
                         </Text>
                       </Pressable>
                     ))}
@@ -1026,6 +1201,14 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       {/* TAB 4: Publication & Commercial */}
       {activeTab === "publication" && (
         <View style={styles.tabContent}>
+          {!storyId && (
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeBoxText}>
+                Publication, commercial, and scheduling controls will become active after the draft is created on the server.
+              </Text>
+            </View>
+          )}
+
           <View style={styles.cardSection}>
             <Text style={styles.sectionHeader}>Access & Commercial Policies</Text>
 
@@ -1034,21 +1217,22 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <View style={styles.choiceChips}>
                 {["public", "premium"].map((pol) => {
                   const selected = accessPolicy === pol;
+                  const allowed = Boolean(storyId && !isReadOnly && canManagePremium);
                   return (
                     <Pressable
                       key={pol}
                       style={[
                         styles.choiceChip,
                         selected && styles.choiceChipSelected,
-                        !canManagePremium && styles.disabledButton
+                        !allowed && styles.disabledButton
                       ]}
                       onPress={() => {
-                        if (canManagePremium) {
+                        if (allowed) {
                           setAccessPolicy(pol);
                           markDirty();
                         }
                       }}
-                      disabled={!canManagePremium}
+                      disabled={!allowed}
                     >
                       <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
                         {pol.toUpperCase()} {pol === "premium" ? "(Subscriber Only)" : "(Free Reader)"}
@@ -1061,51 +1245,74 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Reader Comment Policy</Text>
-              <View style={styles.choiceChips}>
-                {([
-                  ["open", "Open Comments"],
-                  ["read_only", "Read Only"],
-                  ["disabled", "Disabled"]
-                ] as const).map(([pol, label]) => {
-                  const selected = commentPolicy === pol;
-                  return (
-                    <Pressable
-                      key={pol}
-                      style={[styles.choiceChip, selected && styles.choiceChipSelected]}
-                      onPress={() => {
-                        setCommentPolicy(pol);
-                        markDirty();
-                      }}
-                    >
-                      <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {!storyId ? (
+                <View style={styles.noticeBox}>
+                  <Text style={styles.noticeBoxText}>
+                    Default comment policy (disabled) will be assigned on draft creation.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {!canEnableComments && (
+                    <Text style={styles.fieldNote}>
+                      Discussion can only be enabled (&apos;read_only&apos; or &apos;open&apos;) on published public stories. Non-published and Premium stories remain disabled.
+                    </Text>
+                  )}
+                  <View style={styles.choiceChips}>
+                    {([
+                      ["disabled", "Disabled", true],
+                      ["read_only", "Read Only", canEnableComments],
+                      ["open", "Open Comments", canEnableComments]
+                    ] as const).map(([pol, label, eligible]) => {
+                      const selected = commentPolicy === pol;
+                      const allowed = canConfigureComments && eligible && !isReadOnly;
+                      return (
+                        <Pressable
+                          key={pol}
+                          style={[
+                            styles.choiceChip,
+                            selected && styles.choiceChipSelected,
+                            !allowed && styles.disabledButton
+                          ]}
+                          onPress={() => void handleSetCommentPolicy(pol)}
+                          disabled={!allowed || loading}
+                        >
+                          <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
             </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Public Reader Distribution</Text>
-              <Pressable
-                style={[
-                  styles.choiceChip,
-                  distributionPublicReader && styles.choiceChipSelected,
-                  !canManageDistribution && styles.disabledButton
-                ]}
-                onPress={() => {
-                  if (canManageDistribution) {
-                    setDistributionPublicReader(!distributionPublicReader);
-                    markDirty();
-                  }
-                }}
-                disabled={!canManageDistribution}
-              >
-                <Text style={[styles.choiceChipText, distributionPublicReader && styles.choiceChipTextSelected]}>
-                  {distributionPublicReader ? "✓ Included in Public Reader App" : "Excluded from Reader App"}
-                </Text>
-              </Pressable>
+              {(() => {
+                const allowed = Boolean(storyId && !isReadOnly && canManageDistribution);
+                return (
+                  <Pressable
+                    style={[
+                      styles.choiceChip,
+                      distributionPublicReader && styles.choiceChipSelected,
+                      !allowed && styles.disabledButton
+                    ]}
+                    onPress={() => {
+                      if (allowed) {
+                        setDistributionPublicReader(!distributionPublicReader);
+                        markDirty();
+                      }
+                    }}
+                    disabled={!allowed}
+                  >
+                    <Text style={[styles.choiceChipText, distributionPublicReader && styles.choiceChipTextSelected]}>
+                      {distributionPublicReader ? "✓ Included in Public Reader App" : "Excluded from Reader App"}
+                    </Text>
+                  </Pressable>
+                );
+              })()}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -1113,14 +1320,22 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <View style={styles.choiceChips}>
                 {["Standard", "Sensitive_NoAds", "Sponsor"].map((tier) => {
                   const selected = adSetting === tier;
+                  const allowed = Boolean(storyId && !isReadOnly && canManageAdSetting);
                   return (
                     <Pressable
                       key={tier}
-                      style={[styles.choiceChip, selected && styles.choiceChipSelected]}
+                      style={[
+                        styles.choiceChip,
+                        selected && styles.choiceChipSelected,
+                        !allowed && styles.disabledButton
+                      ]}
                       onPress={() => {
-                        setAdSetting(tier);
-                        markDirty();
+                        if (allowed) {
+                          setAdSetting(tier);
+                          markDirty();
+                        }
                       }}
+                      disabled={!allowed}
                     >
                       <Text style={[styles.choiceChipText, selected && styles.choiceChipTextSelected]}>
                         {tier}
@@ -1140,6 +1355,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={styles.input}
                 value={seoTitle}
+                editable={!isReadOnly}
                 onChangeText={(text) => {
                   setSeoTitle(text);
                   markDirty();
@@ -1154,6 +1370,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={[styles.input, styles.textareaSm]}
                 value={seoDescription}
+                editable={!isReadOnly}
                 onChangeText={(text) => {
                   setSeoDescription(text);
                   markDirty();
@@ -1169,6 +1386,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               <TextInput
                 style={styles.input}
                 value={scheduledAt}
+                editable={Boolean(storyId && !isReadOnly && canSchedule)}
                 onChangeText={(text) => {
                   setScheduledAt(text);
                   markDirty();
@@ -1232,9 +1450,9 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
                     Title: {rev.title ?? "Untitled"}
                   </Text>
                   <Pressable
-                    style={styles.restoreBtn}
-                    onPress={() => void handleRestoreRevision(rev)}
-                    disabled={loading || !canEditStory}
+                    style={[styles.restoreBtn, (loading || isReadOnly) && styles.disabledButton]}
+                    onPress={() => setConfirmRestoreRev(rev)}
+                    disabled={loading || isReadOnly}
                   >
                     <Text style={styles.restoreBtnText}>Restore this revision</Text>
                   </Pressable>
@@ -1242,6 +1460,42 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
               ))
             )}
           </View>
+
+          {/* Revision Restore Confirmation Prompt */}
+          {confirmRestoreRev && (
+            <View style={styles.promptBox}>
+              <Text style={styles.promptTitle}>
+                Confirm Restore: Revision #{confirmRestoreRev.revisionNumber}
+              </Text>
+              <Text style={styles.promptDesc}>
+                Created on {new Date(confirmRestoreRev.createdAt).toLocaleString()}. Expected lock version: v{expectedVersion}.
+              </Text>
+              {isDirty ? (
+                <Text style={styles.warningText}>
+                  ⚠️ You have unsaved edits in the editor. Please save or reload before restoring this revision to prevent accidental data loss.
+                </Text>
+              ) : (
+                <Text style={styles.fieldNote}>
+                  Restoring will update the server story title and body to this milestone revision and increment the lock version.
+                </Text>
+              )}
+              <View style={styles.promptActions}>
+                <Pressable
+                  style={[styles.promptSubmitBtn, isDirty && styles.disabledButton]}
+                  onPress={() => void executeRestoreRevision()}
+                  disabled={isDirty || loading}
+                >
+                  <Text style={styles.promptSubmitBtnText}>Confirm Restore</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.promptCancelBtn}
+                  onPress={() => setConfirmRestoreRev(null)}
+                >
+                  <Text style={styles.promptCancelBtnText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {/* Reviews list */}
           <View style={styles.cardSection}>
@@ -1302,6 +1556,60 @@ const styles = StyleSheet.create({
   container: {
     marginTop: spacing.xl,
     gap: spacing.lg
+  },
+  permissionBox: {
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.xxl,
+    alignItems: "center",
+    gap: spacing.md,
+    marginTop: spacing.xl
+  },
+  permissionTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  permissionText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.inkMuted,
+    textAlign: "center",
+    maxWidth: 400
+  },
+  backButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: colors.paperMuted,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  backButtonText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.blue
+  },
+  readOnlyBanner: {
+    backgroundColor: "#F4F5F7",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 4
+  },
+  readOnlyBannerTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  readOnlyBannerText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.inkMuted
   },
   workspaceHeader: {
     backgroundColor: colors.paper,
@@ -1505,6 +1813,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 13,
     color: colors.ink
+  },
+  readOnlyField: {
+    minHeight: 40,
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: "center"
+  },
+  readOnlyFieldText: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    fontStyle: "italic"
+  },
+  fieldNote: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  noticeBox: {
+    backgroundColor: "#EEF5FF",
+    borderWidth: 1,
+    borderColor: "#B8D5FA",
+    borderRadius: radius.sm,
+    padding: spacing.md
+  },
+  noticeBoxText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.blue,
+    fontWeight: "600"
+  },
+  warningText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.warning,
+    fontWeight: "700"
   },
   textareaSm: {
     minHeight: 70,
