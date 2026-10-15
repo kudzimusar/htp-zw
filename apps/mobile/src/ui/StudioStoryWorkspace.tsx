@@ -103,7 +103,7 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   const canManagePremium = hasCap("premium.assign") || hasCap("premium.manage");
   const canManageDistribution = hasCap("distribution.manage") || hasCap("story.edit_all");
 
-  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load auxiliary data
   useEffect(() => {
@@ -558,14 +558,14 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
 
       {/* Tab Navigation */}
       <View style={styles.tabBar}>
-        {[
+        {([
           ["writing", "Writing"],
           ["reporting", "Reporting & Desk"],
           ["editorial", "Editorial & Review"],
           ["publication", "Publication & SEO"],
           ["history", "History & Revisions"],
           ["discussion", "Internal Notes & Desk"]
-        ].map(([id, label]) => {
+        ] as const).map(([id, label]) => {
           const active = activeTab === id;
           return (
             <Pressable
@@ -926,12 +926,12 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
                   <Text style={styles.promptTitle}>Record Formal Review Entry</Text>
                   <Text style={styles.fieldLabel}>Review Type</Text>
                   <View style={styles.choiceChips}>
-                    {[
+                    {([
                       ["fact_check", "Fact Check", "story.fact_check"],
                       ["health_review", "Health / Science Review", "story.health_review"],
                       ["copy_edit", "Copy Edit", "story.copy_edit"],
                       ["editor_review", "Editor Review", "story.edit_all"]
-                    ].map(([type, label, cap]) => (
+                    ] as const).map(([type, label, cap]) => (
                       <Pressable
                         key={type}
                         style={[styles.choiceChip, reviewType === type && styles.choiceChipSelected]}
@@ -1062,11 +1062,11 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Reader Comment Policy</Text>
               <View style={styles.choiceChips}>
-                {[
+                {([
                   ["open", "Open Comments"],
                   ["read_only", "Read Only"],
                   ["disabled", "Disabled"]
-                ].map(([pol, label]) => {
+                ] as const).map(([pol, label]) => {
                   const selected = commentPolicy === pol;
                   return (
                     <Pressable
