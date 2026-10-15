@@ -147,6 +147,13 @@ export function StudioStories() {
         </View>
         <View style={styles.headerActions}>
           <Pressable
+            style={styles.reviewQueueButton}
+            onPress={() => router.push("/studio/review-queue" as never)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.reviewQueueButtonText}>Review Queue →</Text>
+          </Pressable>
+          <Pressable
             style={styles.refreshButton}
             onPress={() => setRefreshKey((k) => k + 1)}
             accessibilityRole="button"
@@ -709,5 +716,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.live,
     marginLeft: "auto"
+  },
+  reviewQueueButton: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 40,
+    justifyContent: "center"
+  },
+  reviewQueueButtonText: {
+    color: colors.ink,
+    fontWeight: "700",
+    fontSize: 13
   }
 });

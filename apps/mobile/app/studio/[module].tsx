@@ -16,10 +16,11 @@ import {
 } from "../../src/ui/StudioCommunications";
 import { StudioStories } from "../../src/ui/StudioStories";
 import { StudioStoryWorkspace } from "../../src/ui/StudioStoryWorkspace";
+import { StudioReviewQueue } from "../../src/ui/StudioReviewQueue";
 
 export function generateStaticParams() {
   return [
-    "inbox", "assignments", "stories", "create-edit", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
+    "inbox", "assignments", "stories", "create-edit", "review-queue", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
@@ -41,6 +42,7 @@ const owners:Record<string,ModuleConfig>={
   "stories":{title:"Stories",owner:"HT-NR-02A",capability:null,description:"Server-backed Newsroom stories, drafts, review states, access policies and editorial lifecycle.",readiness:["Server-backed listing active","Filtered by status, desk and policy","Gated 'New Story' creation"]},
   // In-workspace capability checks: capability:"story.create"
   "create-edit":{title:"Story Workspace",owner:"HT-NR-02A",capability:null,description:"Professional editorial workspace with writing, reporting, canonical metadata, review workflow, history and autosave.",readiness:["Route entry uses StudioAuthorityGate; creation gated inside workspace","Optimistic concurrency with lock_version","Debounced autosave (~10s)","Canonical public author and section authority","Review records and revision restoration"]},
+  "review-queue":{title:"Review Queue",owner:"HT-NR-02B",capability:null,description:"Operational editorial review queue and triage desk derived from canonical server story workflow data.",readiness:["Queue derived from canonical server stories","Operational triage filtering: workflow state, desk, reporter, overdue, deadline","Deterministic priority ordering: overdue, imminent deadline, review state urgency","Canonical workspace handoff to StudioStoryWorkspace","Fail-closed empty, unauthorized and error states"]},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",capability:"story.publish",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows.",readiness:["Live Reader surface ready","Source data pending AG-04","Publish authority pending AG-06"]},
   "video-desk":{title:"Video Desk",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Video metadata, media and publishing remain backend-owned.",readiness:["Watch surface ready","Video metadata pending AG-04","Publishing authority pending AG-06"]},
   "media":{title:"Media Library",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Migrated media, captions, credits, alt text and provenance come from staging Storage and media_assets.",readiness:["Media component language ready","Authoritative assets pending AG-04","Privileged writes pending AG-06"]},
@@ -68,13 +70,14 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
       {String(module)==="assignments" && (assignmentId ? <StudioAssignmentDiscussionPanel assignmentId={String(assignmentId)} /> : <StudioAssignmentsPanel />)}
       {String(module)==="stories" && <StudioStories />}
       {String(module)==="create-edit" && <StudioStoryWorkspace storyId={storyId ? String(storyId) : undefined} />}
+      {String(module)==="review-queue" && <StudioReviewQueue />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}
