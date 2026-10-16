@@ -1279,7 +1279,7 @@ export type NewsroomMediaAssetTypeGroup =
 export type NewsroomMediaUsage = {
   storyId: string;
   usageType: string;
-  sourceContext: string | null;
+  sourceContext: Record<string, unknown> | null;
 };
 
 export type NewsroomMediaAsset = {

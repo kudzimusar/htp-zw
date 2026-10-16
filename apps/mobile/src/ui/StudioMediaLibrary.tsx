@@ -46,6 +46,32 @@ export function formatByteSize(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+export function formatMediaUsageSourceContext(
+  context: Record<string, unknown> | null | undefined
+): string | null {
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return null;
+  }
+  const keys = Object.keys(context).sort();
+  if (keys.length === 0) return null;
+
+  const parts = keys.map((key) => {
+    const val = context[key];
+    const valStr =
+      val !== null && typeof val === "object"
+        ? JSON.stringify(val)
+        : String(val);
+    return `${key}: ${valStr}`;
+  });
+
+  const joined = parts.join(", ");
+  const MAX_LEN = 120;
+  if (joined.length > MAX_LEN) {
+    return joined.slice(0, MAX_LEN) + "…";
+  }
+  return joined;
+}
+
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "Unknown date";
   try {
@@ -779,8 +805,10 @@ export function StudioMediaLibraryView({
                           <View style={styles.usageTypeBadge}>
                             <Text style={styles.usageTypeBadgeText}>{u.usageType}</Text>
                           </View>
-                          {u.sourceContext ? (
-                            <Text style={styles.usageContextText}>{u.sourceContext}</Text>
+                          {formatMediaUsageSourceContext(u.sourceContext) ? (
+                            <Text style={styles.usageContextText}>
+                              {formatMediaUsageSourceContext(u.sourceContext)}
+                            </Text>
                           ) : null}
                         </View>
                         <Text style={styles.usageStoryId} numberOfLines={1}>

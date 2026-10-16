@@ -960,12 +960,17 @@ export function buildPreviewMediaAssets(): NewsroomMediaAsset[] {
         {
           storyId: "00000000-0000-4000-8000-000000001001",
           usageType: "featured",
-          sourceContext: "Harare Clinics Double Down on Pediatric Cholera Prevention Protocols"
+          sourceContext: {
+            preview_placement_slot: "hero_lead",
+            editorial_notes: "catchment_drive"
+          }
         },
         {
           storyId: "00000000-0000-4000-8000-000000001002",
           usageType: "inline",
-          sourceContext: "Primary Healthcare Facilities Scale Water Quality Surveillance"
+          sourceContext: {
+            preview_placement_slot: "inline_callout"
+          }
         }
       ],
       typeGroup: "Images",
@@ -995,7 +1000,9 @@ export function buildPreviewMediaAssets(): NewsroomMediaAsset[] {
         {
           storyId: "00000000-0000-4000-8000-000000001002",
           usageType: "featured",
-          sourceContext: "Primary Healthcare Facilities Scale Water Quality Surveillance"
+          sourceContext: {
+            preview_placement_slot: "infographic_callout"
+          }
         }
       ],
       typeGroup: "Images",
@@ -1049,7 +1056,9 @@ export function buildPreviewMediaAssets(): NewsroomMediaAsset[] {
         {
           storyId: "00000000-0000-4000-8000-000000001001",
           usageType: "attachment",
-          sourceContext: "Harare Clinics Double Down on Pediatric Cholera Prevention Protocols"
+          sourceContext: {
+            preview_attachment_kind: "video_briefing"
+          }
         }
       ],
       typeGroup: "Video",
