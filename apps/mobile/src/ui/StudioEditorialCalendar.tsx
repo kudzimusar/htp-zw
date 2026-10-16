@@ -659,12 +659,38 @@ function getUrgencyBadgeInfo(item: NewsroomCalendarItem) {
   return { label: "UPCOMING", bg: "#F8FAFC", text: "#334155", border: "#E2E8F0" };
 }
 
-export function StudioEditorialCalendar() {
-  const router = useRouter();
+export type StudioEditorialCalendarViewProps = {
+  storiesData: NewsroomStory[] | null;
+  storiesError?: Error | null;
+  assignmentsData: NewsroomAssignment[] | null;
+  assignmentsError?: Error | null;
+  isWorkloadLoading?: boolean;
+  canOpenPlanning: boolean;
+  onRefresh: () => void;
+  onOpenStory: (storyId: string) => void;
+  onOpenAssignment: (assignmentId: string) => void;
+  onOpenPlanning: () => void;
+  onOpenMyAssignments: () => void;
+  onOpenStories: () => void;
+};
+
+export function StudioEditorialCalendarView({
+  storiesData,
+  storiesError = null,
+  assignmentsData,
+  assignmentsError = null,
+  isWorkloadLoading = false,
+  canOpenPlanning,
+  onRefresh,
+  onOpenStory: handleOpenStory,
+  onOpenAssignment: handleOpenAssignment,
+  onOpenPlanning: handleOpenPlanning,
+  onOpenMyAssignments: handleOpenMyAssignments,
+  onOpenStories: handleOpenStories
+}: StudioEditorialCalendarViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
 
-  const [refreshKey, setRefreshKey] = useState(0);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("agenda");
   const [eventKindFilter, setEventKindFilter] = useState<string>("All");
   const [deskFilter, setDeskFilter] = useState<string>("All");
@@ -672,82 +698,8 @@ export function StudioEditorialCalendar() {
   const [horizonFilter, setHorizonFilter] = useState<CalendarHorizonFilter>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // 1. Server authorization check
-  const authAsync = useAsync(() => services.authorization.getSnapshot(), [refreshKey]);
-  const authSnapshot = authAsync.data;
-  const isAuthorized = hasEditorialCalendarAuthority(authSnapshot);
-  const canOpenPlanning = hasPlanningHandoffAuthority(authSnapshot);
-
-  // 2. Conditional canonical source states (zero workload fetch before staff authorization)
-  const [storiesState, setStoriesState] = useState<{
-    data: NewsroomStory[] | null;
-    loading: boolean;
-    error: Error | null;
-  }>({
-    data: null,
-    loading: false,
-    error: null
-  });
-
-  const [assignmentsState, setAssignmentsState] = useState<{
-    data: NewsroomAssignment[] | null;
-    loading: boolean;
-    error: Error | null;
-  }>({
-    data: null,
-    loading: false,
-    error: null
-  });
-
-  useEffect(() => {
-    if (!isAuthorized) {
-      setStoriesState({ data: null, loading: false, error: null });
-      setAssignmentsState({ data: null, loading: false, error: null });
-      return;
-    }
-
-    let active = true;
-    setStoriesState((prev) => ({ ...prev, loading: true, error: null }));
-    setAssignmentsState((prev) => ({ ...prev, loading: true, error: null }));
-
-    services.newsroomStories
-      .listStories(200)
-      .then((stories) => {
-        if (active) {
-          setStoriesState({ data: stories, loading: false, error: null });
-        }
-      })
-      .catch((err) => {
-        if (active) {
-          setStoriesState({
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err))
-          });
-        }
-      });
-
-    services.newsroomCommunication
-      .listAssignments()
-      .then((assignments) => {
-        if (active) {
-          setAssignmentsState({ data: assignments, loading: false, error: null });
-        }
-      })
-      .catch((err) => {
-        if (active) {
-          setAssignmentsState({
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err))
-          });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isAuthorized, refreshKey]);
+  const storiesState = { data: storiesData, error: storiesError };
+  const assignmentsState = { data: assignmentsData, error: assignmentsError };
 
   const nowMs = Date.now();
 
@@ -849,104 +801,6 @@ export function StudioEditorialCalendar() {
     ];
     return groups.filter((group) => group.items.length > 0);
   }, [filteredItems]);
-
-  // Handoff navigation handlers
-  const handleOpenStory = (storyId: string) => {
-    if (!storyId || !UUID_PATTERN.test(storyId)) return;
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "create-edit", storyId }
-    } as never);
-  };
-
-  const handleOpenAssignment = (assignmentId: string) => {
-    if (!assignmentId || !UUID_PATTERN.test(assignmentId)) return;
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "assignments", assignmentId }
-    } as never);
-  };
-
-  const handleOpenMyAssignments = () => {
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "assignments" }
-    } as never);
-  };
-
-  const handleOpenPlanning = () => {
-    if (!canOpenPlanning) return;
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "planning" }
-    } as never);
-  };
-
-  const handleOpenStories = () => {
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "stories" }
-    } as never);
-  };
-
-  // Fail-closed authorization views
-  if (authAsync.loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.loadingText}>Verifying Newsroom staff authority with server…</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (authAsync.error || authSnapshot?.status === "server-policy-unavailable") {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.errorTitle}>Server Policy Unavailable</Text>
-          <Text style={styles.errorText}>
-            Unable to verify Newsroom staff authorization from the server. Editorial Calendar access is fail-closed.
-          </Text>
-          <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
-            <Text style={styles.retryBtnText}>Retry Authorization Check</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  if (authSnapshot?.status === "anonymous") {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.unauthorizedTitle}>Authentication Required</Text>
-          <Text style={styles.unauthorizedText}>
-            You must be signed in with a server-authorized Newsroom staff session to access the Editorial Calendar.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (authSnapshot?.status === "authenticated-no-staff-authority" || !isAuthorized) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.unauthorizedTitle}>Newsroom Staff Authority Required</Text>
-          <Text style={styles.unauthorizedText}>
-            Your session does not hold server-verified Newsroom staff authority. Editorial Calendar workload is restricted to authorized Newsroom staff.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  const isWorkloadLoading =
-    storiesState.loading ||
-    assignmentsState.loading ||
-    (storiesState.data === null && !storiesState.error) ||
-    (assignmentsState.data === null && !assignmentsState.error);
 
   const bothSourcesFailed = Boolean(storiesState.error && assignmentsState.error);
   const hasPartialSourceError = Boolean(
@@ -1068,7 +922,7 @@ export function StudioEditorialCalendar() {
           <View style={styles.headerActions}>
             <Pressable
               style={styles.refreshBtn}
-              onPress={() => setRefreshKey((k) => k + 1)}
+              onPress={onRefresh}
             >
               <Text style={styles.refreshBtnText}>↻ Refresh Agenda</Text>
             </Pressable>
@@ -1116,7 +970,7 @@ export function StudioEditorialCalendar() {
               Assignment source error: {assignmentsState.error.message}
             </Text>
           )}
-          <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
+          <Pressable style={styles.retryBtn} onPress={onRefresh}>
             <Text style={styles.retryBtnText}>Retry Agenda Sources</Text>
           </Pressable>
         </View>
@@ -1140,7 +994,7 @@ export function StudioEditorialCalendar() {
                   </Text>
                 )}
               </View>
-              <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
+              <Pressable style={styles.retryBtn} onPress={onRefresh}>
                 <Text style={styles.retryBtnText}>Retry</Text>
               </Pressable>
             </View>
@@ -1471,6 +1325,200 @@ export function StudioEditorialCalendar() {
       )}
     </View>
   );
+}
+
+export function StudioEditorialCalendar() {
+  const router = useRouter();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // 1. Server authorization check
+  const authAsync = useAsync(() => services.authorization.getSnapshot(), [refreshKey]);
+  const authSnapshot = authAsync.data;
+  const isAuthorized = hasEditorialCalendarAuthority(authSnapshot);
+  const canOpenPlanning = hasPlanningHandoffAuthority(authSnapshot);
+
+  // 2. Conditional canonical source states (zero workload fetch before staff authorization)
+  const [storiesState, setStoriesState] = useState<{
+    data: NewsroomStory[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  const [assignmentsState, setAssignmentsState] = useState<{
+    data: NewsroomAssignment[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  useEffect(() => {
+    if (!isAuthorized) {
+      setStoriesState({ data: null, loading: false, error: null });
+      setAssignmentsState({ data: null, loading: false, error: null });
+      return;
+    }
+
+    let active = true;
+    setStoriesState((prev) => ({ ...prev, loading: true, error: null }));
+    setAssignmentsState((prev) => ({ ...prev, loading: true, error: null }));
+
+    services.newsroomStories
+      .listStories(200)
+      .then((stories) => {
+        if (active) {
+          setStoriesState({ data: stories, loading: false, error: null });
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setStoriesState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+        }
+      });
+
+    services.newsroomCommunication
+      .listAssignments()
+      .then((assignments) => {
+        if (active) {
+          setAssignmentsState({ data: assignments, loading: false, error: null });
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setAssignmentsState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthorized, refreshKey]);
+
+  const handleOpenStory = (storyId: string) => {
+    if (!storyId || !UUID_PATTERN.test(storyId)) return;
+    router.push({
+      pathname: "/studio/[module]",
+      params: { module: "create-edit", storyId }
+    } as never);
+  };
+
+  const handleOpenAssignment = (assignmentId: string) => {
+    if (!assignmentId || !UUID_PATTERN.test(assignmentId)) return;
+    router.push({
+      pathname: "/studio/[module]",
+      params: { module: "assignments", assignmentId }
+    } as never);
+  };
+
+  const handleOpenMyAssignments = () => {
+    router.push({
+      pathname: "/studio/[module]",
+      params: { module: "assignments" }
+    } as never);
+  };
+
+  const handleOpenPlanning = () => {
+    if (!canOpenPlanning) return;
+    router.push({
+      pathname: "/studio/[module]",
+      params: { module: "planning" }
+    } as never);
+  };
+
+  const handleOpenStories = () => {
+    router.push({
+      pathname: "/studio/[module]",
+      params: { module: "stories" }
+    } as never);
+  };
+
+  // Fail-closed authorization views
+  if (authAsync.loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.loadingText}>Verifying Newsroom staff authority with server…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (authAsync.error || authSnapshot?.status === "server-policy-unavailable") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.errorTitle}>Server Policy Unavailable</Text>
+          <Text style={styles.errorText}>
+            Unable to verify Newsroom staff authorization from the server. Editorial Calendar access is fail-closed.
+          </Text>
+          <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
+            <Text style={styles.retryBtnText}>Retry Authorization Check</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (authSnapshot?.status === "anonymous") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Authentication Required</Text>
+          <Text style={styles.unauthorizedText}>
+            You must be signed in with a server-authorized Newsroom staff session to access the Editorial Calendar.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (authSnapshot?.status === "authenticated-no-staff-authority" || !isAuthorized) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Newsroom Staff Authority Required</Text>
+          <Text style={styles.unauthorizedText}>
+            Your session does not hold server-verified Newsroom staff authority. Editorial Calendar workload is restricted to authorized Newsroom staff.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const isWorkloadLoading =
+    storiesState.loading ||
+    assignmentsState.loading ||
+    (storiesState.data === null && !storiesState.error) ||
+    (assignmentsState.data === null && !assignmentsState.error);
+
+  return StudioEditorialCalendarView({
+    storiesData: storiesState.data,
+    storiesError: storiesState.error,
+    assignmentsData: assignmentsState.data,
+    assignmentsError: assignmentsState.error,
+    isWorkloadLoading,
+    canOpenPlanning,
+    onRefresh: () => setRefreshKey((k) => k + 1),
+    onOpenStory: handleOpenStory,
+    onOpenAssignment: handleOpenAssignment,
+    onOpenPlanning: handleOpenPlanning,
+    onOpenMyAssignments: handleOpenMyAssignments,
+    onOpenStories: handleOpenStories
+  });
 }
 
 const styles = StyleSheet.create({

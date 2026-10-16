@@ -239,13 +239,51 @@ function getPriorityBadgeStyle(priority: string) {
   return { bg: "#F8FAFC", text: "#64748B", border: "#E2E8F0" };
 }
 
-export function StudioPlanningBoard() {
-  const router = useRouter();
+export type StudioPlanningBoardViewProps = {
+  authorityMode: "manager" | "create-only" | "unauthorized";
+  canCreate: boolean;
+  assignmentsData: NewsroomAssignment[] | null;
+  assignmentsLoading?: boolean;
+  assignmentsError?: Error | null;
+  staffData: NewsroomPlanningStaff[] | null;
+  staffLoading?: boolean;
+  staffError?: Error | null;
+  storiesData: NewsroomStory[] | null;
+  canProgressAssignmentItem: (item: NewsroomAssignment) => boolean;
+  onRefresh: () => void;
+  onCreateAssignment: (payload: CreateAssignmentInput) => Promise<string | void>;
+  onProgressAssignment: (assignment: NewsroomAssignment) => Promise<void>;
+  onOpenStoryWorkspace: (storyId: string) => void;
+  onOpenDiscussion: (assignmentId: string) => void;
+  onOpenMyAssignments: () => void;
+};
+
+export function StudioPlanningBoardView({
+  authorityMode,
+  canCreate,
+  assignmentsData,
+  assignmentsLoading = false,
+  assignmentsError = null,
+  staffData,
+  staffLoading = false,
+  staffError = null,
+  storiesData,
+  canProgressAssignmentItem,
+  onRefresh,
+  onCreateAssignment,
+  onProgressAssignment,
+  onOpenStoryWorkspace: handleOpenStoryWorkspace,
+  onOpenDiscussion: handleOpenDiscussion,
+  onOpenMyAssignments
+}: StudioPlanningBoardViewProps) {
   const { width } = useWindowDimensions();
   const isTablet = width >= breakpoints.tablet && width < breakpoints.desktop;
   const isDesktop = width >= breakpoints.desktop;
+  void isTablet;
+  void isDesktop;
 
-  const [refreshKey, setRefreshKey] = useState(0);
+  const isManager = authorityMode === "manager";
+  const isCreateOnly = authorityMode === "create-only";
 
   // Filters & Sorting
   const [statusFilter, setStatusFilter] = useState<string>("Active");
@@ -275,122 +313,19 @@ export function StudioPlanningBoard() {
   const [progressingId, setProgressingId] = useState<string | null>(null);
   const [progressError, setProgressError] = useState<string | null>(null);
 
-  // Server authorization snapshot
-  const authAsync = useAsync(
-    () => services.authorization.getSnapshot(),
-    [refreshKey]
-  );
-  const authSnapshot = authAsync.data;
-  const authorityMode = resolvePlanningAuthorityMode(authSnapshot);
-  const isManager = authorityMode === "manager";
-  const isCreateOnly = authorityMode === "create-only";
-  const isAuthorized = isManager;
-  const canCreate = canCreateAssignment(authSnapshot);
-
-  // Conditional workload retrieval:
-  // - "unauthorized": fetches nothing
-  // - "create-only": fetches only RLS-protected staff profiles (listAssignmentStaff)
-  // - "manager": fetches full planning workload (listAssignments, listAssignmentStaff, listStories)
-  const [assignmentsState, setAssignmentsState] = useState<{
-    data: NewsroomAssignment[] | null;
-    loading: boolean;
-    error: Error | null;
-  }>({
-    data: null,
-    loading: false,
-    error: null
-  });
-
-  const [staffState, setStaffState] = useState<{
-    data: NewsroomPlanningStaff[] | null;
-    loading: boolean;
-    error: Error | null;
-  }>({
-    data: null,
-    loading: false,
-    error: null
-  });
-
-  const [storiesState, setStoriesState] = useState<{
-    data: NewsroomStory[] | null;
-    loading: boolean;
-    error: Error | null;
-  }>({
-    data: null,
-    loading: false,
-    error: null
-  });
-
-  useEffect(() => {
-    if (authorityMode === "unauthorized") {
-      setAssignmentsState({ data: null, loading: false, error: null });
-      setStaffState({ data: null, loading: false, error: null });
-      setStoriesState({ data: null, loading: false, error: null });
-      return;
-    }
-
-    let active = true;
-
-    // Both manager and create-only modes load RLS-protected staff directory
-    setStaffState((prev) => ({ ...prev, loading: true, error: null }));
-    services.newsroomCommunication
-      .listAssignmentStaff()
-      .then((staff) => {
-        if (active) setStaffState({ data: staff, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (active)
-          setStaffState({
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err))
-          });
-      });
-
-    if (authorityMode === "create-only") {
-      setAssignmentsState({ data: null, loading: false, error: null });
-      setStoriesState({ data: null, loading: false, error: null });
-      return () => {
-        active = false;
-      };
-    }
-
-    // Manager mode only: fetch full planning workload and story list
-    setAssignmentsState((prev) => ({ ...prev, loading: true, error: null }));
-    setStoriesState((prev) => ({ ...prev, loading: true, error: null }));
-
-    services.newsroomCommunication
-      .listAssignments()
-      .then((assignments) => {
-        if (active) setAssignmentsState({ data: assignments, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (active)
-          setAssignmentsState({
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err))
-          });
-      });
-
-    services.newsroomStories
-      .listStories(200)
-      .then((stories) => {
-        if (active) setStoriesState({ data: stories, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (active)
-          setStoriesState({
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err))
-          });
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [authorityMode, refreshKey]);
+  const assignmentsState = {
+    data: assignmentsData,
+    loading: assignmentsLoading,
+    error: assignmentsError
+  };
+  const staffState = {
+    data: staffData,
+    loading: staffLoading,
+    error: staffError
+  };
+  const storiesState = {
+    data: storiesData
+  };
 
   const rawAssignments = assignmentsState.data ?? [];
   const staffList = staffState.data ?? [];
@@ -609,9 +544,9 @@ export function StudioPlanningBoard() {
         storyId: isManager && newStoryId.trim() ? newStoryId.trim() : null
       };
 
-      await services.newsroomCommunication.createAssignment(payload);
+      const msg = await onCreateAssignment(payload);
 
-      setFormSuccess("Assignment created successfully.");
+      setFormSuccess(typeof msg === "string" && msg ? msg : "Assignment created successfully.");
       setNewTitle("");
       setNewReporterStaffId("");
       setNewAssignedEditorStaffId("");
@@ -622,7 +557,7 @@ export function StudioPlanningBoard() {
       setNewStoryId("");
       if (isManager) {
         setIsCreateOpen(false);
-        setRefreshKey((k) => k + 1);
+        onRefresh();
       }
     } catch (err: any) {
       setFormError(err?.message || "Failed to create assignment.");
@@ -635,27 +570,13 @@ export function StudioPlanningBoard() {
     try {
       setProgressingId(assignment.id);
       setProgressError(null);
-      await services.newsroomCommunication.progressAssignment(assignment.id);
-      setRefreshKey((k) => k + 1);
+      await onProgressAssignment(assignment);
+      onRefresh();
     } catch (err: any) {
       setProgressError(err?.message || "Failed to progress assignment status.");
     } finally {
       setProgressingId(null);
     }
-  };
-
-  const handleOpenStoryWorkspace = (storyId: string) => {
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "create-edit", storyId }
-    });
-  };
-
-  const handleOpenDiscussion = (assignmentId: string) => {
-    router.push({
-      pathname: "/studio/[module]",
-      params: { module: "assignments", assignmentId }
-    });
   };
 
   const renderCreateAssignmentPanel = (options: {
@@ -681,7 +602,7 @@ export function StudioPlanningBoard() {
       ) : staffState.error ? (
         <View style={styles.formErrorBox}>
           <Text style={styles.formErrorText}>{staffState.error.message}</Text>
-          <Pressable style={[styles.retryBtn, { marginTop: spacing.xs }]} onPress={() => setRefreshKey((k) => k + 1)}>
+          <Pressable style={[styles.retryBtn, { marginTop: spacing.xs }]} onPress={onRefresh}>
             <Text style={styles.retryBtnText}>Retry Staff Directory</Text>
           </Pressable>
         </View>
@@ -907,59 +828,6 @@ export function StudioPlanningBoard() {
     </View>
   );
 
-  // Fail-closed authorization views
-  if (authAsync.loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.loadingText}>Verifying assignment planning authority with server…</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (authAsync.error || authSnapshot?.status === "server-policy-unavailable") {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.errorTitle}>Server Policy Unavailable</Text>
-          <Text style={styles.errorText}>
-            Unable to verify staff authorization policy from server. Planning board access is fail-closed.
-          </Text>
-          <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
-            <Text style={styles.retryBtnText}>Retry Authorization Check</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  if (authSnapshot?.status === "anonymous") {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.unauthorizedTitle}>Authentication Required</Text>
-          <Text style={styles.unauthorizedText}>
-            You must be signed in with an authorized Newsroom staff session to access the News Budget / Planning Board.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (authSnapshot?.status === "authenticated-no-staff-authority") {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateContainer}>
-          <Text style={styles.unauthorizedTitle}>Staff Authority Required</Text>
-          <Text style={styles.unauthorizedText}>
-            Your account is authenticated as a reader and lacks Newsroom staff authorization.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
   // Mode C — Neither assignment.manage nor assignment.create
   if (authorityMode === "unauthorized") {
     return (
@@ -986,7 +854,7 @@ export function StudioPlanningBoard() {
           </Text>
           <Pressable
             style={styles.actionLinkBtn}
-            onPress={() => router.push({ pathname: "/studio/[module]", params: { module: "assignments" } })}
+            onPress={onOpenMyAssignments}
           >
             <Text style={styles.actionLinkBtnText}>Go to My Assignments →</Text>
           </Pressable>
@@ -1012,14 +880,14 @@ export function StudioPlanningBoard() {
             <View style={styles.headerActions}>
               <Pressable
                 style={styles.refreshBtn}
-                onPress={() => setRefreshKey((k) => k + 1)}
+                onPress={onRefresh}
               >
                 <Text style={styles.refreshBtnText}>↻ Refresh Staff</Text>
               </Pressable>
 
               <Pressable
                 style={styles.secondaryActionBtn}
-                onPress={() => router.push({ pathname: "/studio/[module]", params: { module: "assignments" } })}
+                onPress={onOpenMyAssignments}
               >
                 <Text style={styles.secondaryActionBtnText}>Go to My Assignments →</Text>
               </Pressable>
@@ -1062,7 +930,7 @@ export function StudioPlanningBoard() {
           <View style={styles.headerActions}>
             <Pressable
               style={styles.refreshBtn}
-              onPress={() => setRefreshKey((k) => k + 1)}
+              onPress={onRefresh}
             >
               <Text style={styles.refreshBtnText}>↻ Refresh</Text>
             </Pressable>
@@ -1316,7 +1184,7 @@ export function StudioPlanningBoard() {
           <View style={styles.stateContainer}>
             <Text style={styles.errorTitle}>Error Loading Assignments</Text>
             <Text style={styles.errorText}>{assignmentsState.error.message}</Text>
-            <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
+            <Pressable style={styles.retryBtn} onPress={onRefresh}>
               <Text style={styles.retryBtnText}>Retry</Text>
             </Pressable>
           </View>
@@ -1366,7 +1234,7 @@ export function StudioPlanningBoard() {
               ? staffMap[item.assignedEditorStaffId]?.displayName ?? "Staff unavailable"
               : null;
             const linkedStory = item.storyId ? storiesMap[item.storyId] : null;
-            const canProgress = canProgressAssignment(authSnapshot, item);
+            const canProgress = canProgressAssignmentItem(item);
             const nextStatus = getNextAssignmentStatus(item.status);
             const actionLabel = getAssignmentProgressActionLabel(item.status);
             const isProgressing = progressingId === item.id;
@@ -1497,6 +1365,210 @@ export function StudioPlanningBoard() {
       </View>
     </View>
   );
+}
+
+export function StudioPlanningBoard() {
+  const router = useRouter();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Server authorization snapshot
+  const authAsync = useAsync(
+    () => services.authorization.getSnapshot(),
+    [refreshKey]
+  );
+  const authSnapshot = authAsync.data;
+  const authorityMode = resolvePlanningAuthorityMode(authSnapshot);
+  const canCreate = canCreateAssignment(authSnapshot);
+
+  // Conditional workload retrieval:
+  // - "unauthorized": fetches nothing
+  // - "create-only": fetches only RLS-protected staff profiles (listAssignmentStaff)
+  // - "manager": fetches full planning workload (listAssignments, listAssignmentStaff, listStories)
+  const [assignmentsState, setAssignmentsState] = useState<{
+    data: NewsroomAssignment[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  const [staffState, setStaffState] = useState<{
+    data: NewsroomPlanningStaff[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  const [storiesState, setStoriesState] = useState<{
+    data: NewsroomStory[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
+    data: null,
+    loading: false,
+    error: null
+  });
+
+  useEffect(() => {
+    if (authorityMode === "unauthorized") {
+      setAssignmentsState({ data: null, loading: false, error: null });
+      setStaffState({ data: null, loading: false, error: null });
+      setStoriesState({ data: null, loading: false, error: null });
+      return;
+    }
+
+    let active = true;
+
+    // Both manager and create-only modes load RLS-protected staff directory
+    setStaffState((prev) => ({ ...prev, loading: true, error: null }));
+    services.newsroomCommunication
+      .listAssignmentStaff()
+      .then((staff) => {
+        if (active) setStaffState({ data: staff, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (active)
+          setStaffState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+      });
+
+    if (authorityMode === "create-only") {
+      setAssignmentsState({ data: null, loading: false, error: null });
+      setStoriesState({ data: null, loading: false, error: null });
+      return () => {
+        active = false;
+      };
+    }
+
+    // Manager mode only: fetch full planning workload and story list
+    setAssignmentsState((prev) => ({ ...prev, loading: true, error: null }));
+    setStoriesState((prev) => ({ ...prev, loading: true, error: null }));
+
+    services.newsroomCommunication
+      .listAssignments()
+      .then((assignments) => {
+        if (active) setAssignmentsState({ data: assignments, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (active)
+          setAssignmentsState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+      });
+
+    services.newsroomStories
+      .listStories(200)
+      .then((stories) => {
+        if (active) setStoriesState({ data: stories, loading: false, error: null });
+      })
+      .catch((err) => {
+        if (active)
+          setStoriesState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error(String(err))
+          });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authorityMode, refreshKey]);
+
+  // Fail-closed authorization views
+  if (authAsync.loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.loadingText}>Verifying assignment planning authority with server…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (authAsync.error || authSnapshot?.status === "server-policy-unavailable") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.errorTitle}>Server Policy Unavailable</Text>
+          <Text style={styles.errorText}>
+            Unable to verify staff authorization policy from server. Planning board access is fail-closed.
+          </Text>
+          <Pressable style={styles.retryBtn} onPress={() => setRefreshKey((k) => k + 1)}>
+            <Text style={styles.retryBtnText}>Retry Authorization Check</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (authSnapshot?.status === "anonymous") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Authentication Required</Text>
+          <Text style={styles.unauthorizedText}>
+            You must be signed in with an authorized Newsroom staff session to access the News Budget / Planning Board.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (authSnapshot?.status === "authenticated-no-staff-authority") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateContainer}>
+          <Text style={styles.unauthorizedTitle}>Staff Authority Required</Text>
+          <Text style={styles.unauthorizedText}>
+            Your account is authenticated as a reader and lacks Newsroom staff authorization.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return StudioPlanningBoardView({
+    authorityMode,
+    canCreate,
+    assignmentsData: assignmentsState.data,
+    assignmentsLoading: assignmentsState.loading,
+    assignmentsError: assignmentsState.error,
+    staffData: staffState.data,
+    staffLoading: staffState.loading,
+    staffError: staffState.error,
+    storiesData: storiesState.data,
+    canProgressAssignmentItem: (item) => canProgressAssignment(authSnapshot, item),
+    onRefresh: () => setRefreshKey((k) => k + 1),
+    onCreateAssignment: async (payload) => {
+      await services.newsroomCommunication.createAssignment(payload);
+    },
+    onProgressAssignment: async (assignment) => {
+      await services.newsroomCommunication.progressAssignment(assignment.id);
+    },
+    onOpenStoryWorkspace: (storyId) =>
+      router.push({
+        pathname: "/studio/[module]",
+        params: { module: "create-edit", storyId }
+      }),
+    onOpenDiscussion: (assignmentId) =>
+      router.push({
+        pathname: "/studio/[module]",
+        params: { module: "assignments", assignmentId }
+      }),
+    onOpenMyAssignments: () =>
+      router.push({ pathname: "/studio/[module]", params: { module: "assignments" } })
+  });
 }
 
 const styles = StyleSheet.create({
