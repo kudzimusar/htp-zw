@@ -57,7 +57,11 @@ import type {
   StoryMediaUploadContext,
   StoryMediaPromotionItem,
   StoryMediaStageResult,
-  StoryMediaUsageType
+  StoryMediaUsageType,
+  NewsroomVideo,
+  NewsroomVideoCreateInput,
+  NewsroomVideoPatch,
+  NewsroomVideoListOptions
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -278,6 +282,13 @@ export interface NewsroomMediaService {
   clearStagedPromotion(storyId: string, mediaId: string): Promise<void>;
 }
 
+export interface NewsroomVideoService {
+  listVideos(options?: NewsroomVideoListOptions): Promise<NewsroomVideo[]>;
+  createVideo(input: NewsroomVideoCreateInput): Promise<string>;
+  saveVideo(videoId: string, expectedVersion: number, patch: NewsroomVideoPatch): Promise<number>;
+  setReady(videoId: string, expectedVersion: number, ready: boolean): Promise<number>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -300,6 +311,7 @@ export interface HealthTimesServices {
   commentModeration: CommentModerationService;
   newsroomStories: NewsroomStoryService;
   newsroomMedia: NewsroomMediaService;
+  newsroomVideo: NewsroomVideoService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

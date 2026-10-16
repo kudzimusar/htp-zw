@@ -21,6 +21,7 @@ import { StudioPlanningBoard } from "../../src/ui/StudioPlanningBoard";
 import { StudioEditorialCalendar } from "../../src/ui/StudioEditorialCalendar";
 import { StudioHomepage } from "../../src/ui/StudioHomepage";
 import { StudioMediaLibrary } from "../../src/ui/StudioMediaLibrary";
+import { StudioVideoDesk } from "../../src/ui/StudioVideoDesk";
 
 export function generateStaticParams() {
   return [
@@ -51,7 +52,7 @@ const owners:Record<string,ModuleConfig>={
   "review-queue":{title:"Review Queue",owner:"HT-NR-02B",capability:null,description:"Operational editorial review queue and triage desk derived from canonical server story workflow data.",readiness:["Queue derived from canonical server stories","Operational triage filtering: workflow state, desk, reporter, overdue, deadline","Deterministic priority ordering: overdue, imminent deadline, review state urgency","Canonical workspace handoff to StudioStoryWorkspace","Fail-closed empty, unauthorized and error states"]},
   "homepage":{title:"Homepage",owner:"HT-NR-04A",capability:"distribution.manage" as const,description:"Editorial homepage presentation control-plane for Hero, Top Stories, and Curated Sections backed by canonical story distribution metadata.",readiness:["Canonical stories.distribution.homepage metadata authority","Strict distribution.manage capability enforcement","Hero (max 1) and Top Stories (ranks 1-6) curation","Manual curated sections: features, public-health, research, health-business, hiv-aids, global-health, premium, further-coverage","Preserves unknown distribution keys and optimistic lock_version concurrency"]},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",capability:"story.publish",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows.",readiness:["Live Reader surface ready","Source data pending AG-04","Publish authority pending AG-06"]},
-  "video-desk":{title:"Video Desk",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Video metadata, media and publishing remain backend-owned.",readiness:["Watch surface ready","Video metadata pending AG-04","Publishing authority pending AG-06"]},
+  "video-desk":{title:"Video Desk",owner:"HT-NR-05C-A",capability:"media.manage" as const,description:"Canonical video desk registry, editorial metadata and readiness operations backed by server video RPCs.",readiness:["Canonical newsroom_videos authority","Strict media.manage capability enforcement","Optimistic concurrency via lock_version","Draft and Ready editorial lifecycle","Related story association and verified destination metadata"]},
   "media":{title:"Media Library",owner:"HT-NR-05A",capability:"media.manage" as const,description:"Canonical media library and metadata operations backed by server media RPCs (newsroom_list_media, newsroom_get_media_preview, newsroom_update_story_media_metadata).",readiness:["Canonical newsroom_list_media authority","Strict media.manage capability enforcement","Authoritative metadata updates via newsroom_update_story_media_metadata","Full mime type classification & storage custody transparency","Safe preview isolation & deep story usage handoff"]},
   "advertising":{title:"Advertising Manager",owner:"AG-05 + AG-06",capability:"ads.view",description:"Campaigns, creatives, placements and approval capabilities stay separate from editorial authority.",readiness:["Reader placements declared","Native provider IDs not certified","Campaign authority pending AG-06"]},
   "premium":{title:"Premium",owner:"AG-05 + AG-06",capability:"premium.manage",description:"Commercial configuration and subscriber entitlements are server enforced; no client-side authority.",readiness:["Store UI fail-closed","Verified native products pending AG-05","Entitlement authority pending AG-06"]},
@@ -77,7 +78,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -89,6 +90,7 @@ export default function StudioModule(){
       {String(module)==="review-queue" && <StudioReviewQueue />}
       {String(module)==="homepage" && <StudioHomepage />}
       {String(module)==="media" && <StudioMediaLibrary />}
+      {String(module)==="video-desk" && <StudioVideoDesk />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}

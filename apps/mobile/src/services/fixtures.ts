@@ -13,6 +13,7 @@ import type {
   NewsroomCommunicationService,
   NewsroomStoryService,
   NewsroomMediaService,
+  NewsroomVideoService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -369,6 +370,24 @@ export const fixtureNewsroomMediaService: NewsroomMediaService = {
   }
 };
 
+const FAIL_CLOSED_VIDEO_MESSAGE =
+  "Fixture video service mutations remain locked in non-production fixture mode.";
+
+export const fixtureNewsroomVideoService: NewsroomVideoService = {
+  async listVideos() {
+    return [];
+  },
+  async createVideo() {
+    throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
+  },
+  async saveVideo() {
+    throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
+  },
+  async setReady() {
+    throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -395,6 +414,7 @@ export const fixtureServices: HealthTimesServices = {
   commentModeration: commentModerationService,
   newsroomStories: fixtureNewsroomStoryService,
   newsroomMedia: fixtureNewsroomMediaService,
+  newsroomVideo: fixtureNewsroomVideoService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

@@ -10,6 +10,7 @@ import type {
   NewsroomStoryCorrection,
   NewsroomStoryReview,
   NewsroomStoryRevision,
+  NewsroomVideo,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -31,6 +32,7 @@ export type OwnerPreviewModuleKey =
   | "calendar"
   | "homepage"
   | "media"
+  | "video-desk"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -54,6 +56,7 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "calendar", label: "Calendar", path: "/owner-preview/studio/calendar" },
   { key: "homepage", label: "Homepage", path: "/owner-preview/studio/homepage" },
   { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
+  { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -1131,4 +1134,70 @@ export function buildPreviewPromotionPlan(storyId: string): StoryMediaPromotionI
     }
   ];
 }
+
+export function buildPreviewVideos(): NewsroomVideo[] {
+  return [
+    {
+      id: "c1000000-0000-4000-a000-000000000001",
+      title: "Clinical Trial Insights: Maternal Care Advances in Mashonaland Central",
+      sourceUrl: "https://video.healthtimes.co.zw/interviews/maternal-care-mashonaland-2026.mp4",
+      thumbnailUrl: "https://cdn.healthtimes.co.zw/media/samples/maternal-interview-thumb.jpg",
+      durationSeconds: 745,
+      relatedStoryId: "00000000-0000-4000-8000-000000000001",
+      sourceProvenance: "direct HealthTimes field production (Harare Desk)",
+      status: "draft",
+      lockVersion: 1,
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-15T09:00:00.000Z",
+      updatedAt: "2026-10-15T10:30:00.000Z"
+    },
+    {
+      id: "c1000000-0000-4000-a000-000000000002",
+      title: "Explainer: Understanding Seasonal Typhoid Transmission Dynamics",
+      sourceUrl: "https://destination.healthtimes.co.zw/explainers/typhoid-transmission-dynamics.mp4",
+      thumbnailUrl: "https://cdn.healthtimes.co.zw/media/samples/typhoid-explainer-thumb.jpg",
+      durationSeconds: 312,
+      relatedStoryId: "00000000-0000-4000-8000-000000000002",
+      sourceProvenance: "HealthTimes multimedia explainer desk",
+      status: "ready",
+      lockVersion: 2,
+      createdByStaffId: "00000000-0000-4000-8000-000000000020",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000020",
+      createdAt: "2026-10-14T14:00:00.000Z",
+      updatedAt: "2026-10-16T08:15:00.000Z"
+    },
+    {
+      id: "c1000000-0000-4000-a000-000000000003",
+      title: "Press Briefing: Regional Cholera Containment Strategy Announcement",
+      sourceUrl: "https://briefings.healthtimes.co.zw/feeds/regional-cholera-briefing.mp4",
+      thumbnailUrl: null,
+      durationSeconds: null,
+      relatedStoryId: null,
+      sourceProvenance: "external verified health ministry press pool destination",
+      status: "draft",
+      lockVersion: 1,
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-16T11:00:00.000Z",
+      updatedAt: "2026-10-16T11:00:00.000Z"
+    },
+    {
+      id: "c1000000-0000-4000-a000-000000000004",
+      title: "Laboratory Walkthrough: National Reference Genomics Sequencing",
+      sourceUrl: "https://labs.healthtimes.co.zw/tours/reference-genomics-walkthrough.mp4",
+      thumbnailUrl: "https://cdn.healthtimes.co.zw/media/samples/lab-walkthrough-thumb.jpg",
+      durationSeconds: 490,
+      relatedStoryId: "00000000-0000-4000-8000-000000000003",
+      sourceProvenance: "direct HealthTimes laboratory reporting",
+      status: "ready",
+      lockVersion: 4,
+      createdByStaffId: "00000000-0000-4000-8000-000000000030",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000030",
+      createdAt: "2026-10-13T10:00:00.000Z",
+      updatedAt: "2026-10-15T16:20:00.000Z"
+    }
+  ];
+}
+
 
