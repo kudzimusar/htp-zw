@@ -18,6 +18,7 @@ import { getStagingSupabaseClient } from "../platform/supabase";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import { sourceParityServices } from "./source-parity";
 import { publicVideoService } from "./public-video";
+import { publicLiveService } from "./public-live";
 import {
   directDecisionFromHospazCapability,
   projectCp5HospazCapability,
@@ -397,6 +398,7 @@ const publicationRepository: PublicationRepository = {
 export const migratedCorpusServices = {
   ...sourceParityServices,
   video: publicVideoService,
+  live: publicLiveService,
   articles: articleRepository,
   presentation: publicPresentationService,
   search: searchService,

@@ -61,7 +61,11 @@ import type {
   NewsroomVideo,
   NewsroomVideoCreateInput,
   NewsroomVideoPatch,
-  NewsroomVideoListOptions
+  NewsroomVideoListOptions,
+  NewsroomLiveCoverage,
+  NewsroomLiveCoverageCreateInput,
+  NewsroomLiveCoveragePatch,
+  NewsroomLiveCoverageListOptions
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -292,6 +296,14 @@ export interface NewsroomVideoService {
   setFeatured(videoId: string, expectedVersion: number, featured: boolean): Promise<number>;
 }
 
+export interface NewsroomLiveCoverageService {
+  listCoverage(options?: NewsroomLiveCoverageListOptions): Promise<NewsroomLiveCoverage[]>;
+  createCoverage(input: NewsroomLiveCoverageCreateInput): Promise<string>;
+  saveCoverage(id: string, expectedVersion: number, patch: NewsroomLiveCoveragePatch): Promise<number>;
+  startCoverage(id: string, expectedVersion: number): Promise<number>;
+  endCoverage(id: string, expectedVersion: number): Promise<number>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -315,6 +327,7 @@ export interface HealthTimesServices {
   newsroomStories: NewsroomStoryService;
   newsroomMedia: NewsroomMediaService;
   newsroomVideo: NewsroomVideoService;
+  newsroomLive: NewsroomLiveCoverageService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

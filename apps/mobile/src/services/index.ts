@@ -9,6 +9,7 @@ import { stagingCommentModerationService, stagingNewsroomCommunicationService, s
 import { stagingNewsroomStoryService } from "./newsroom-stories";
 import { stagingNewsroomMediaService } from "./newsroom-media";
 import { stagingNewsroomVideoService } from "./newsroom-video";
+import { stagingNewsroomLiveCoverageService } from "./newsroom-live";
 
 export const serviceMode = editorialDataMode;
 
@@ -38,6 +39,7 @@ function buildServices(): HealthTimesServices {
       newsroomStories: stagingNewsroomStoryService,
       newsroomMedia: stagingNewsroomMediaService,
       newsroomVideo: stagingNewsroomVideoService,
+      newsroomLive: stagingNewsroomLiveCoverageService,
       platform: stagingPlatformService
     };
   }

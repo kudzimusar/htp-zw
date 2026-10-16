@@ -69,7 +69,8 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "calendar",
     "homepage",
     "media",
-    "video-desk"
+    "video-desk",
+    "live-desk"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -77,7 +78,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 10);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 11);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -89,6 +90,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "/owner-preview/studio/homepage",
     "/owner-preview/studio/media",
     "/owner-preview/studio/video-desk",
+    "/owner-preview/studio/live-desk",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -297,14 +299,14 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Homepage",
     "Media Library",
     "Video Desk",
+    "Live Desk",
     "Story Workspace"
   ]);
 
   for (const unfinished of [
     "Advertising",
     "Analytics",
-    "Subscribers",
-    "Live Desk"
+    "Subscribers"
   ]) {
     assert.equal(
       navLabels.includes(unfinished),

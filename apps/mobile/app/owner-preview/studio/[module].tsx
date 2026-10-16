@@ -11,7 +11,8 @@ export function generateStaticParams() {
     "calendar",
     "homepage",
     "media",
-    "video-desk"
+    "video-desk",
+    "live-desk"
   ].map((module) => ({ module }));
 }
 
