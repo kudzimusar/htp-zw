@@ -7,6 +7,7 @@ import { stagingAuthService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
 import { stagingNewsroomStoryService } from "./newsroom-stories";
+import { stagingNewsroomMediaService } from "./newsroom-media";
 
 export const serviceMode = editorialDataMode;
 
@@ -34,6 +35,7 @@ function buildServices(): HealthTimesServices {
       newsroomCommunication: stagingNewsroomCommunicationService,
       commentModeration: stagingCommentModerationService,
       newsroomStories: stagingNewsroomStoryService,
+      newsroomMedia: stagingNewsroomMediaService,
       platform: stagingPlatformService
     };
   }

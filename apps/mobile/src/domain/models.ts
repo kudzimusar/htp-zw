@@ -1256,4 +1256,120 @@ export type PublicHomepagePresentation = {
   editionPlacement: HomepagePlacement | null;
 };
 
+// ---------------------------------------------------------------------------
+// HT-NR-05A: Newsroom Media Library & Metadata Operations Models
+// ---------------------------------------------------------------------------
+
+export type NewsroomMediaAssetStatus =
+  | "pending"
+  | "missing_from_uploads_archive"
+  | "upload_pending"
+  | "private_ready"
+  | "public_staged"
+  | "published"
+  | (string & {});
+
+export type NewsroomMediaAssetTypeGroup =
+  | "Images"
+  | "Video"
+  | "Audio"
+  | "Documents"
+  | "Other";
+
+export type NewsroomMediaUsage = {
+  storyId: string;
+  usageType: string;
+  sourceContext: Record<string, unknown> | null;
+};
+
+export type NewsroomMediaAsset = {
+  id: string;
+  sourceUrl: string | null;
+  storageBucket: string | null;
+  storageKey: string | null;
+  publicUrl: string | null;
+  checksum: string | null;
+  mimeType: string;
+  filename: string;
+  altText: string | null;
+  caption: string | null;
+  credit: string | null;
+  width: number | null;
+  height: number | null;
+  status: string;
+  byteSize: number | null;
+  sourceProvenance: string | null;
+  uploadedByStaffId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  usage: NewsroomMediaUsage[];
+  typeGroup?: NewsroomMediaAssetTypeGroup;
+  storageCustodyCategory?: "public" | "migrated" | "private" | "unknown";
+};
+
+export type NewsroomMediaPreview = {
+  mediaId: string;
+  storageBucket: string | null;
+  storageKey: string | null;
+  mimeType: string;
+  filename: string;
+  status: string;
+  publicUrl: string | null;
+};
+
+export type NewsroomMediaMetadataPatch = {
+  altText?: string | null;
+  caption?: string | null;
+  credit?: string | null;
+  sourceProvenance?: string | null;
+};
+
+export function classifyMediaMimeType(
+  mimeType: string | null | undefined
+): NewsroomMediaAssetTypeGroup {
+  if (!mimeType) return "Other";
+  const lower = mimeType.trim().toLowerCase();
+  if (lower.startsWith("image/")) return "Images";
+  if (lower.startsWith("video/")) return "Video";
+  if (lower.startsWith("audio/")) return "Audio";
+  if (
+    lower === "application/pdf" ||
+    lower.includes("wordprocessingml") ||
+    lower.includes("presentationml") ||
+    lower.includes("spreadsheetml") ||
+    lower.includes("msword") ||
+    lower.includes("ms-powerpoint") ||
+    lower.includes("ms-excel")
+  ) {
+    return "Documents";
+  }
+  return "Other";
+}
+
+export function deriveStorageCustodyCategory(
+  asset: Pick<NewsroomMediaAsset, "publicUrl" | "storageBucket" | "sourceUrl">
+): "public" | "migrated" | "private" | "unknown" {
+  if (asset.publicUrl) return "public";
+  if (asset.sourceUrl) return "migrated";
+  if (asset.storageBucket === "newsroom-public") return "public";
+  if (asset.storageBucket === "newsroom-private") return "private";
+  return "unknown";
+}
+
+export function validateMediaMetadataPatch(
+  asset: Pick<NewsroomMediaAsset, "mimeType" | "altText">,
+  patch: NewsroomMediaMetadataPatch
+): { valid: boolean; error?: string } {
+  if (asset.mimeType.toLowerCase().startsWith("image/")) {
+    const nextAlt = patch.altText !== undefined ? patch.altText : asset.altText;
+    if (!nextAlt || nextAlt.trim().length < 2) {
+      return {
+        valid: false,
+        error: "Image alt text is required for accessibility (minimum 2 characters)."
+      };
+    }
+  }
+  return { valid: true };
+}
+
 

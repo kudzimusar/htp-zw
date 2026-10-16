@@ -48,7 +48,10 @@ import type {
   SearchQuery,
   SearchResult,
   VideoItem,
-  PublicHomepagePresentation
+  PublicHomepagePresentation,
+  NewsroomMediaAsset,
+  NewsroomMediaPreview,
+  NewsroomMediaMetadataPatch
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -244,6 +247,12 @@ export interface PresentationRepository {
   getPublicHomepagePresentations(editionSlug?: string | null): Promise<PublicHomepagePresentation[]>;
 }
 
+export interface NewsroomMediaService {
+  listMedia(search?: string | null, limit?: number): Promise<NewsroomMediaAsset[]>;
+  getMediaPreview(mediaId: string): Promise<NewsroomMediaPreview>;
+  updateMediaMetadata(mediaId: string, patch: NewsroomMediaMetadataPatch): Promise<void>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -265,6 +274,7 @@ export interface HealthTimesServices {
   newsroomCommunication: NewsroomCommunicationService;
   commentModeration: CommentModerationService;
   newsroomStories: NewsroomStoryService;
+  newsroomMedia: NewsroomMediaService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

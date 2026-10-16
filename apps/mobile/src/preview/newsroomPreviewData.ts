@@ -1,6 +1,7 @@
 import { appEnvironment, type AppEnvironment } from "../platform/config";
 import type {
   NewsroomAssignment,
+  NewsroomMediaAsset,
   NewsroomPlanningStaff,
   NewsroomPublicAuthor,
   NewsroomSection,
@@ -28,6 +29,7 @@ export type OwnerPreviewModuleKey =
   | "assignments"
   | "calendar"
   | "homepage"
+  | "media"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -50,6 +52,7 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   },
   { key: "calendar", label: "Calendar", path: "/owner-preview/studio/calendar" },
   { key: "homepage", label: "Homepage", path: "/owner-preview/studio/homepage" },
+  { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -930,3 +933,161 @@ export const PREVIEW_STORY_DISCUSSION: PreviewDiscussionMessage[] = [
     resolved: false
   }
 ];
+
+export function buildPreviewMediaAssets(): NewsroomMediaAsset[] {
+  return [
+    {
+      id: "00000000-0000-4000-8000-000000007001",
+      sourceUrl: null,
+      storageBucket: "media",
+      storageKey: "2026/10/clinical-ward-vaccination.jpg",
+      publicUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+      checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      mimeType: "image/jpeg",
+      filename: "clinical-ward-vaccination.jpg",
+      altText: "Harare Central Hospital maternal clinic nurses reviewing child immunization registry cards",
+      caption: "Maternal clinic nurses review pediatric immunization schedules during the October catchment drive.",
+      credit: "HealthTimes Staff / Tafadzwa Moyo",
+      width: 1920,
+      height: 1080,
+      status: "published",
+      byteSize: 2458900,
+      sourceProvenance: "uploads/2026/10/clinical-ward-vaccination.jpg",
+      uploadedByStaffId: "00000000-0000-4000-8000-000000000001",
+      createdAt: "2026-10-14T09:15:00.000Z",
+      updatedAt: "2026-10-15T11:30:00.000Z",
+      usage: [
+        {
+          storyId: "00000000-0000-4000-8000-000000001001",
+          usageType: "featured",
+          sourceContext: {
+            preview_placement_slot: "hero_lead",
+            editorial_notes: "catchment_drive"
+          }
+        },
+        {
+          storyId: "00000000-0000-4000-8000-000000001002",
+          usageType: "inline",
+          sourceContext: {
+            preview_placement_slot: "inline_callout"
+          }
+        }
+      ],
+      typeGroup: "Images",
+      storageCustodyCategory: "public"
+    },
+    {
+      id: "00000000-0000-4000-8000-000000007002",
+      sourceUrl: null,
+      storageBucket: "media",
+      storageKey: "2026/10/water-purification-infographic.png",
+      publicUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80",
+      checksum: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      mimeType: "image/png",
+      filename: "water-purification-infographic.png",
+      altText: "Diagram outlining four-step community water treatment for borehole purification",
+      caption: "Step-by-step chlorine dosage and boiling guide for peri-urban household boreholes.",
+      credit: "Ministry of Health and Child Care / Visual Unit",
+      width: 1200,
+      height: 800,
+      status: "pending",
+      byteSize: 1245000,
+      sourceProvenance: "uploads/2026/10/water-purification-infographic.png",
+      uploadedByStaffId: "00000000-0000-4000-8000-000000000002",
+      createdAt: "2026-10-15T14:20:00.000Z",
+      updatedAt: "2026-10-15T14:20:00.000Z",
+      usage: [
+        {
+          storyId: "00000000-0000-4000-8000-000000001002",
+          usageType: "featured",
+          sourceContext: {
+            preview_placement_slot: "infographic_callout"
+          }
+        }
+      ],
+      typeGroup: "Images",
+      storageCustodyCategory: "public"
+    },
+    {
+      id: "00000000-0000-4000-8000-000000007003",
+      sourceUrl: null,
+      storageBucket: "media",
+      storageKey: "2026/10/epidemiology-monthly-bulletin.pdf",
+      publicUrl: null,
+      checksum: "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+      mimeType: "application/pdf",
+      filename: "epidemiology-monthly-bulletin.pdf",
+      altText: null,
+      caption: "National Epidemiological Bulletin — Epidemiological Week 41 Official Tables",
+      credit: "Department of Epidemiology & Disease Control",
+      width: null,
+      height: null,
+      status: "private_ready",
+      byteSize: 5410200,
+      sourceProvenance: "uploads/2026/10/epidemiology-monthly-bulletin.pdf",
+      uploadedByStaffId: "00000000-0000-4000-8000-000000000001",
+      createdAt: "2026-10-13T16:00:00.000Z",
+      updatedAt: "2026-10-13T16:00:00.000Z",
+      usage: [],
+      typeGroup: "Documents",
+      storageCustodyCategory: "private"
+    },
+    {
+      id: "00000000-0000-4000-8000-000000007004",
+      sourceUrl: null,
+      storageBucket: "media",
+      storageKey: "2026/10/minister-briefing-cholera-response.mp4",
+      publicUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      checksum: "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      mimeType: "video/mp4",
+      filename: "minister-briefing-cholera-response.mp4",
+      altText: null,
+      caption: "Ministerial briefing on emergency pharmaceutical procurement and provincial dispatch timelines.",
+      credit: "HealthTimes Broadcast / Kudzai Zvobgo",
+      width: 1920,
+      height: 1080,
+      status: "published",
+      byteSize: 48900000,
+      sourceProvenance: "uploads/2026/10/minister-briefing-cholera-response.mp4",
+      uploadedByStaffId: "00000000-0000-4000-8000-000000000003",
+      createdAt: "2026-10-16T08:00:00.000Z",
+      updatedAt: "2026-10-16T08:15:00.000Z",
+      usage: [
+        {
+          storyId: "00000000-0000-4000-8000-000000001001",
+          usageType: "attachment",
+          sourceContext: {
+            preview_attachment_kind: "video_briefing"
+          }
+        }
+      ],
+      typeGroup: "Video",
+      storageCustodyCategory: "public"
+    },
+    {
+      id: "00000000-0000-4000-8000-000000007005",
+      sourceUrl: null,
+      storageBucket: "media",
+      storageKey: "2026/10/radio-dispatch-dr-shumba-interview.mp3",
+      publicUrl: null,
+      checksum: "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      mimeType: "audio/mpeg",
+      filename: "radio-dispatch-dr-shumba-interview.mp3",
+      altText: null,
+      caption: "Audio interview with Dr. Shumba regarding oral vaccine supply chain cold storage resilience.",
+      credit: "HealthTimes Audio Service",
+      width: null,
+      height: null,
+      status: "missing_from_uploads_archive",
+      byteSize: 8900400,
+      sourceProvenance: "uploads/2026/10/radio-dispatch-dr-shumba-interview.mp3",
+      uploadedByStaffId: "00000000-0000-4000-8000-000000000002",
+      createdAt: "2026-10-12T11:00:00.000Z",
+      updatedAt: "2026-10-12T11:00:00.000Z",
+      usage: [],
+      typeGroup: "Audio",
+      storageCustodyCategory: "unknown"
+    }
+  ];
+}
+

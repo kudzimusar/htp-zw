@@ -12,6 +12,7 @@ import type {
   NotificationService,
   NewsroomCommunicationService,
   NewsroomStoryService,
+  NewsroomMediaService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -327,6 +328,18 @@ export const fixtureNewsroomStoryService: NewsroomStoryService = {
   }
 };
 
+const fixtureNewsroomMediaService: NewsroomMediaService = {
+  async listMedia() {
+    return [];
+  },
+  async getMediaPreview() {
+    throw new Error("Server-authorized Newsroom media operations are unavailable in fixture mode.");
+  },
+  async updateMediaMetadata() {
+    throw new Error("Server-authorized Newsroom media operations are unavailable in fixture mode.");
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -352,6 +365,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomCommunication: newsroomCommunicationService,
   commentModeration: commentModerationService,
   newsroomStories: fixtureNewsroomStoryService,
+  newsroomMedia: fixtureNewsroomMediaService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

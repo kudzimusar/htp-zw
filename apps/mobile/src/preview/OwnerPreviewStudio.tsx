@@ -17,6 +17,8 @@ import {
   parseHomepagePlacement,
   type CuratedHomepageSectionKey,
   type NewsroomAssignment,
+  type NewsroomMediaAsset,
+  type NewsroomMediaMetadataPatch,
   type NewsroomStory
 } from "../domain/models";
 
@@ -39,6 +41,7 @@ import {
   StudioEditorialCalendarView
 } from "../ui/StudioEditorialCalendar";
 import { StudioHomepageView } from "../ui/StudioHomepage";
+import { StudioMediaLibraryView } from "../ui/StudioMediaLibrary";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -47,6 +50,7 @@ import {
   PREVIEW_PUBLIC_AUTHORS,
   PREVIEW_STAFF_DIRECTORY,
   buildPreviewAssignments,
+  buildPreviewMediaAssets,
   buildPreviewStories,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
@@ -975,6 +979,69 @@ export function OwnerPreviewHomepageView() {
   );
 }
 
+function OwnerPreviewMediaLibraryView() {
+  const router = useRouter();
+  const [assets, setAssets] = useState<NewsroomMediaAsset[]>(() => buildPreviewMediaAssets());
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string>(
+    "Preview state: Sample media inventory loaded. Local edits only."
+  );
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSaveMetadata = async (
+    assetId: string,
+    patch: NewsroomMediaMetadataPatch
+  ) => {
+    setSavingId(assetId);
+    setSaveSuccess(false);
+
+    setAssets((prev) =>
+      prev.map((item) => {
+        if (item.id === assetId) {
+          return {
+            ...item,
+            altText: patch.altText !== undefined ? patch.altText : item.altText,
+            caption: patch.caption !== undefined ? patch.caption : item.caption,
+            credit: patch.credit !== undefined ? patch.credit : item.credit,
+            sourceProvenance:
+              patch.sourceProvenance !== undefined
+                ? patch.sourceProvenance
+                : (item as any).sourceProvenance,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return item;
+      })
+    );
+
+    setSavingId(null);
+    setSaveSuccess(true);
+    setNotice("Preview state only: Simulated metadata update saved in local preview memory.");
+  };
+
+  return (
+    <View style={styles.sectionStack} testID="owner-preview-media-view">
+      <View style={styles.previewNoticeBanner} testID="preview-media-notice">
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioMediaLibraryView
+        assets={assets}
+        loading={false}
+        error={null}
+        selectedAssetId={selectedAssetId}
+        onSelectAsset={(asset) => setSelectedAssetId(asset ? asset.id : null)}
+        onSaveMetadata={handleSaveMetadata}
+        savingId={savingId}
+        saveError={null}
+        saveSuccess={saveSuccess}
+        isOwnerPreview={true}
+        watermarkBanner="OWNER VISUAL PREVIEW · SAMPLE MEDIA ASSETS · WRITES DISABLED"
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -1051,6 +1118,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Editorial curation control plane for the HealthTimes reader home, including Hero (max 1), Top Stories (ranks 1-6), and thematic sections."
         >
           <OwnerPreviewHomepageView />
+        </OwnerPreviewShell>
+      );
+    case "media":
+      return (
+        <OwnerPreviewShell
+          activeKey="media"
+          title="Media Library (Owner Visual Preview)"
+          subtitle="Visual inspection of migrated media assets, technical metadata, safe preview sandboxing, and story usage handoffs."
+        >
+          <OwnerPreviewMediaLibraryView />
         </OwnerPreviewShell>
       );
     default:
