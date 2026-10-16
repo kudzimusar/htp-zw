@@ -9,6 +9,7 @@ const actions=[
   ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"],
   ["Assignments","assignments","Authoritative assignments with typed coordination discussions"],
   ["Planning / News Budget","planning","Operational editorial planning, news budget and assignment management"],
+  ["Editorial Calendar","calendar","Chronological editorial agenda for story deadlines, scheduled publications and assignments"],
   ["Stories","stories","Draft, review, assignment and publication workflows"],
   ["Review Queue","review-queue","Operational editorial review, triage and deadline prioritization"],
   ["Create / Edit","create-edit","Server-authorized story creation and editing"],

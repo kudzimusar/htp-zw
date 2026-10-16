@@ -18,10 +18,11 @@ import { StudioStories } from "../../src/ui/StudioStories";
 import { StudioStoryWorkspace } from "../../src/ui/StudioStoryWorkspace";
 import { StudioReviewQueue } from "../../src/ui/StudioReviewQueue";
 import { StudioPlanningBoard } from "../../src/ui/StudioPlanningBoard";
+import { StudioEditorialCalendar } from "../../src/ui/StudioEditorialCalendar";
 
 export function generateStaticParams() {
   return [
-    "inbox", "assignments", "planning", "stories", "create-edit", "review-queue", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
+    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
@@ -38,6 +39,7 @@ const owners:Record<string,ModuleConfig>={
   "inbox":{title:"Inbox",owner:"CA-01 / AG-06",capability:null,description:"Durable assignments, mentions, reviews, urgent work and announcements. Access requires a server-authorized Newsroom session.",readiness:["Inbox RPC contract defined","No local role authority","Realtime remains event transport only"]},
   "assignments":{title:"Assignments",owner:"CA-01 / AG-06",capability:null,description:"Authoritative story assignments remain in story_assignments; discussion uses a typed assignment thread only.",readiness:["Assignment state remains specialized","Discussion does not duplicate assignment state","RLS scopes each staff session"]},
   "planning":{title:"News Budget / Planning",owner:"HT-NR-03A",capability:null,description:"Operational editorial planning, news budget and assignment management backed by canonical story assignments.",readiness:["Canonical story_assignments authority","Strict assignment.manage capability enforcement","Authoritative server progression (Assigned -> Complete)","Zero fabricated reporters or assignments","Deep workspace handoff to StudioStoryWorkspace"]},
+  "calendar":{title:"Editorial Calendar",owner:"HT-NR-03B",capability:null,description:"Read-only editorial calendar and agenda derived from canonical story deadlines, scheduled publications, and server-scoped assignment deadlines.",readiness:["Derived from canonical stories.deadline_at, stories.scheduled_at, and story_assignments.deadline_at","Server-scoped via newsroom_list_stories and assignment RLS","Agenda and 7-day Week views with deterministic urgency","Zero fabricated generic events or historical publication noise","Deep handoffs to Story Workspace, Assignments, and Planning"]},
   "desks":{title:"Desks",owner:"CA-01 / AG-06",capability:null,description:"Private specialist coordination uses Newsroom desk membership and server-enforced thread access.",readiness:["Desk membership is server-owned","Thread access enforced below UI","Presence not used for authority"]},
   "breaking":{title:"Breaking",owner:"CA-01 / AG-06",capability:null,description:"Temporary breaking rooms use bounded membership, durable messages and restrained Presence.",readiness:["Breaking-room contract defined","Durable messages authoritative","Presence is non-authoritative"]},
   "moderation":{title:"Moderation",owner:"CA-01 / AG-06",capability:"comment.moderate",description:"Verified-reader comments remain a separate security domain with human moderation and restriction history.",readiness:["Reader and staff comments remain separate","Canonical story UUID required","Health misinformation requires human review"]},
@@ -72,12 +74,13 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
       {String(module)==="assignments" && (assignmentId ? <StudioAssignmentDiscussionPanel assignmentId={String(assignmentId)} /> : <StudioAssignmentsPanel />)}
       {String(module)==="planning" && <StudioPlanningBoard />}
+      {String(module)==="calendar" && <StudioEditorialCalendar />}
       {String(module)==="stories" && <StudioStories />}
       {String(module)==="create-edit" && <StudioStoryWorkspace storyId={storyId ? String(storyId) : undefined} />}
       {String(module)==="review-queue" && <StudioReviewQueue />}
