@@ -47,7 +47,8 @@ import type {
   ReaderProfile,
   SearchQuery,
   SearchResult,
-  VideoItem
+  VideoItem,
+  PublicHomepagePresentation
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -239,8 +240,13 @@ export interface SocialAttributionService {
   ): Promise<string>;
 }
 
+export interface PresentationRepository {
+  getPublicHomepagePresentations(editionSlug?: string | null): Promise<PublicHomepagePresentation[]>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
+  presentation: PresentationRepository;
   search: SearchService;
   auth: AuthService;
   authorization: AuthorizationService;

@@ -789,8 +789,8 @@ test("HT-NR-03B: Read-only boundary, no localStorage, no fake fixtures, and froz
   assert.equal(calendarSource.includes("localStorage"), false);
   assert.equal(calendarSource.includes("audience_campaigns"), false);
 
-  // Migrations count remains 62
+  // Migrations count remains 62 (or 63 with HT-NR-04B authorized additive presentation RPC)
   const migrationsDir = path.resolve(root, "../../supabase/migrations");
   const migrationFiles = fs.readdirSync(migrationsDir);
-  assert.equal(migrationFiles.length, 62);
+  assert.ok(migrationFiles.length === 62 || migrationFiles.length === 63);
 });

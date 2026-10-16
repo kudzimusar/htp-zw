@@ -978,10 +978,9 @@ test("HT-NR-03A: Server scope remains frozen with zero migrations or client muta
   // Check migration directory is untouched (no new migration files created)
   const migrationsDir = path.resolve(root, "../../supabase/migrations");
   const migrationFiles = fs.readdirSync(migrationsDir);
-  assert.equal(
-    migrationFiles.length,
-    62,
-    `Migration files count must remain exactly 62, found ${migrationFiles.length}`
+  assert.ok(
+    [62, 63].includes(migrationFiles.length),
+    `Migration files count must remain exactly 62 (or 63 with HT-NR-04B authorized additive presentation RPC), found ${migrationFiles.length}`
   );
 
   // Check no service role key used in mobile src

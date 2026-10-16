@@ -994,3 +994,266 @@ export function deriveHomepageCurationState(
   };
 }
 
+export function validateEditionSlug(slug: unknown): string | null {
+  if (typeof slug !== "string") return null;
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized || normalized.length > 64) return null;
+  if (normalized === "global") return null;
+  if (!/^[a-z0-9-]+$/.test(normalized)) return null;
+  return normalized;
+}
+
+export function parseHomepageEditionPlacement(
+  input: unknown
+): HomepagePlacement | null {
+  return parseHomepagePlacement(input);
+}
+
+export function mergeHomepageEditionDistribution(
+  currentDistribution: Record<string, unknown> | null | undefined,
+  editionSlug: string,
+  placement: HomepagePlacement | null
+): Record<string, unknown> {
+  const validSlug = validateEditionSlug(editionSlug);
+  const next = { ...(currentDistribution || {}) };
+  if (!validSlug) {
+    return next;
+  }
+
+  const existingEditions =
+    next.homepage_editions &&
+    typeof next.homepage_editions === "object" &&
+    !Array.isArray(next.homepage_editions)
+      ? { ...(next.homepage_editions as Record<string, unknown>) }
+      : {};
+
+  if (!placement) {
+    delete existingEditions[validSlug];
+  } else {
+    existingEditions[validSlug] = {
+      section: placement.section,
+      rank: placement.rank,
+      active: placement.active
+    };
+  }
+
+  if (Object.keys(existingEditions).length > 0) {
+    next.homepage_editions = existingEditions;
+  } else {
+    delete next.homepage_editions;
+  }
+
+  return next;
+}
+
+export type EditionHomepageCurationState = HomepageCurationState & {
+  editionSlug: string;
+  isSlotInherited: (section: CuratedHomepageSectionKey, rank?: number) => boolean;
+  hasEditionOverride: (section: CuratedHomepageSectionKey, rank?: number) => boolean;
+  editionOverridesCount: number;
+};
+
+export function deriveEditionHomepageCurationState(
+  stories: NewsroomStory[],
+  editionSlug: string
+): EditionHomepageCurationState {
+  const globalState = deriveHomepageCurationState(stories);
+  const validSlug = validateEditionSlug(editionSlug);
+
+  if (!validSlug) {
+    return {
+      ...globalState,
+      editionSlug: "",
+      isSlotInherited: () => false,
+      hasEditionOverride: () => false,
+      editionOverridesCount: 0
+    };
+  }
+
+  const eligibleStories = (Array.isArray(stories) ? stories : []).filter(isStoryPublishable);
+
+  // Collect edition-specific placements
+  const editionHeroCandidates: NewsroomStory[] = [];
+  const editionTopStoryCandidates: NewsroomStory[] = [];
+  const editionSectionCandidates: Record<string, NewsroomStory[]> = {};
+
+  for (const story of eligibleStories) {
+    const rawEditions = story.distribution?.homepage_editions;
+    if (!rawEditions || typeof rawEditions !== "object" || Array.isArray(rawEditions)) continue;
+    const rawPlacement = (rawEditions as Record<string, unknown>)[validSlug];
+    const placement = parseHomepagePlacement(rawPlacement);
+    if (!placement || !placement.active) continue;
+
+    if (placement.section === "hero") {
+      editionHeroCandidates.push(story);
+    } else if (placement.section === "top-stories") {
+      editionTopStoryCandidates.push(story);
+    } else if (CURATED_HOMEPAGE_SECTIONS.includes(placement.section)) {
+      const list = editionSectionCandidates[placement.section] ?? [];
+      list.push(story);
+      editionSectionCandidates[placement.section] = list;
+    }
+  }
+
+  const overridesMap = new Set<string>(); // section:rank
+
+  // Resolve Hero
+  let hero: NewsroomStory | null = null;
+  if (editionHeroCandidates.length > 0) {
+    editionHeroCandidates.sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.modifiedAt || 0).getTime();
+      const timeB = new Date(b.updatedAt || b.modifiedAt || 0).getTime();
+      if (timeB !== timeA) return timeB - timeA;
+      return a.id.localeCompare(b.id);
+    });
+    hero = editionHeroCandidates[0] ?? null;
+    overridesMap.add("hero:1");
+  } else {
+    hero = globalState.hero;
+  }
+
+  // Resolve Top Stories (ranks 1..6)
+  const editionTopByRank = new Map<number, NewsroomStory>();
+  for (const story of editionTopStoryCandidates) {
+    const rawEditions = story.distribution?.homepage_editions as Record<string, unknown>;
+    const placement = parseHomepagePlacement(rawEditions[validSlug])!;
+    const existing = editionTopByRank.get(placement.rank);
+    if (!existing) {
+      editionTopByRank.set(placement.rank, story);
+    } else {
+      const timeExisting = new Date(existing.updatedAt || existing.modifiedAt || 0).getTime();
+      const timeStory = new Date(story.updatedAt || story.modifiedAt || 0).getTime();
+      if (timeStory > timeExisting || (timeStory === timeExisting && story.id < existing.id)) {
+        editionTopByRank.set(placement.rank, story);
+      }
+    }
+  }
+
+  // Combine edition Top Stories with Global inheritance by rank
+  const finalTopByRank = new Map<number, NewsroomStory>();
+  for (let rank = 1; rank <= 6; rank++) {
+    if (editionTopByRank.has(rank)) {
+      finalTopByRank.set(rank, editionTopByRank.get(rank)!);
+      overridesMap.add(`top-stories:${rank}`);
+    } else {
+      const globalStory = globalState.topStories.find((s) => {
+        const p = parseHomepagePlacement(s.distribution?.homepage);
+        return p?.rank === rank;
+      });
+      if (globalStory) {
+        finalTopByRank.set(rank, globalStory);
+      }
+    }
+  }
+
+  const topStories = Array.from(finalTopByRank.entries())
+    .sort(([rankA], [rankB]) => rankA - rankB)
+    .map(([, story]) => story);
+
+  // Resolve Curated Thematic Sections
+  const sections: Record<CuratedHomepageSectionKey, NewsroomStory[]> = {
+    ...globalState.sections,
+    hero: hero ? [hero] : [],
+    "top-stories": topStories
+  };
+
+  for (const sectionKey of CURATED_HOMEPAGE_SECTIONS) {
+    if (sectionKey === "hero" || sectionKey === "top-stories") continue;
+    const list = editionSectionCandidates[sectionKey] || [];
+    const editionSectionByRank = new Map<number, NewsroomStory>();
+    for (const story of list) {
+      const rawEditions = story.distribution?.homepage_editions as Record<string, unknown>;
+      const placement = parseHomepagePlacement(rawEditions[validSlug])!;
+      const existing = editionSectionByRank.get(placement.rank);
+      if (!existing) {
+        editionSectionByRank.set(placement.rank, story);
+      } else {
+        const timeExisting = new Date(existing.updatedAt || existing.modifiedAt || 0).getTime();
+        const timeStory = new Date(story.updatedAt || story.modifiedAt || 0).getTime();
+        if (timeStory > timeExisting || (timeStory === timeExisting && story.id < existing.id)) {
+          editionSectionByRank.set(placement.rank, story);
+        }
+      }
+    }
+
+    const finalSectionByRank = new Map<number, NewsroomStory>();
+    for (let rank = 1; rank <= 6; rank++) {
+      if (editionSectionByRank.has(rank)) {
+        finalSectionByRank.set(rank, editionSectionByRank.get(rank)!);
+        overridesMap.add(`${sectionKey}:${rank}`);
+      } else {
+        const globalStory = (globalState.sections[sectionKey] || []).find((s) => {
+          const p = parseHomepagePlacement(s.distribution?.homepage);
+          return p?.rank === rank;
+        });
+        if (globalStory) {
+          finalSectionByRank.set(rank, globalStory);
+        }
+      }
+    }
+
+    sections[sectionKey] = Array.from(finalSectionByRank.entries())
+      .sort(([rankA], [rankB]) => rankA - rankB)
+      .map(([, story]) => story);
+  }
+
+  const hasEditionOverride = (section: CuratedHomepageSectionKey, rank = 1): boolean => {
+    return overridesMap.has(`${section}:${rank}`);
+  };
+
+  const isSlotInherited = (section: CuratedHomepageSectionKey, rank = 1): boolean => {
+    if (section === "hero") {
+      return Boolean(hero && !hasEditionOverride("hero", 1));
+    }
+    if (section === "top-stories") {
+      const storyInSlot = finalTopByRank.get(rank);
+      return Boolean(storyInSlot && !hasEditionOverride("top-stories", rank));
+    }
+    const sectionStories = sections[section] || [];
+    const storyInSlot = sectionStories.find((s) => {
+      const p = parseHomepagePlacement(s.distribution?.homepage);
+      return p?.rank === rank;
+    });
+    return Boolean(storyInSlot && !hasEditionOverride(section, rank));
+  };
+
+  return {
+    hero,
+    topStories,
+    sections,
+    editionSlug: validSlug,
+    isSlotInherited,
+    hasEditionOverride,
+    editionOverridesCount: overridesMap.size
+  };
+}
+
+export type PublicHomepagePresentationRow = {
+  story_id: string;
+  slug: string;
+  title: string;
+  standfirst: string | null;
+  excerpt: string | null;
+  access_policy: string;
+  published_at: string | null;
+  modified_at: string | null;
+  canonical_url: string | null;
+  author_name: string | null;
+  author_slug: string | null;
+  section_name: string | null;
+  section_slug: string | null;
+  hero_public_url: string | null;
+  hero_alt_text: string | null;
+  hero_caption: string | null;
+  hero_credit: string | null;
+  global_placement: Record<string, unknown> | null;
+  edition_placement: Record<string, unknown> | null;
+};
+
+export type PublicHomepagePresentation = {
+  article: ArticleSummary;
+  globalPlacement: HomepagePlacement | null;
+  editionPlacement: HomepagePlacement | null;
+};
+
+

@@ -15,11 +15,15 @@ import { hasServerCapability } from "../security/capabilities";
 import {
   CURATED_HOMEPAGE_SECTIONS,
   deriveHomepageCurationState,
+  deriveEditionHomepageCurationState,
   isStoryPublishable,
   mergeHomepageDistribution,
+  mergeHomepageEditionDistribution,
   parseHomepagePlacement,
+  validateEditionSlug,
   type CuratedHomepageSectionKey,
   type HomepageCurationState,
+  type EditionHomepageCurationState,
   type HomepagePlacement,
   type NewsroomStory
 } from "../domain/models";
@@ -75,7 +79,7 @@ export type ConfirmationState = {
 
 export type StudioHomepageViewProps = {
   stories: NewsroomStory[];
-  curationState: HomepageCurationState;
+  curationState: HomepageCurationState | EditionHomepageCurationState;
   loading: boolean;
   error: Error | null;
   savingId: string | null;
@@ -92,6 +96,11 @@ export type StudioHomepageViewProps = {
   onRemovePlacement: (storyId: string) => void | Promise<void>;
   onOpenStoryWorkspace?: (storyId: string) => void;
   topSlot?: React.ReactNode;
+  presentationScope?: "global" | "edition";
+  onScopeChange?: (scope: "global" | "edition") => void;
+  selectedEditionSlug?: string;
+  onEditionSlugChange?: (slug: string) => void;
+  deliveryConnected?: boolean;
 };
 
 export function StudioHomepageView({
@@ -108,10 +117,41 @@ export function StudioHomepageView({
   onAssignPlacement,
   onRemovePlacement,
   onOpenStoryWorkspace,
-  topSlot
+  topSlot,
+  presentationScope,
+  onScopeChange,
+  selectedEditionSlug,
+  onEditionSlugChange,
+  deliveryConnected = false
 }: StudioHomepageViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
+
+  // Scope state
+  const [internalScope, setInternalScope] = useState<"global" | "edition">(
+    presentationScope || "global"
+  );
+  const [internalEditionSlug, setInternalEditionSlug] = useState<string>(
+    selectedEditionSlug || "zimbabwe"
+  );
+
+  const currentScope = presentationScope !== undefined ? presentationScope : internalScope;
+  const currentEditionSlug = selectedEditionSlug !== undefined ? selectedEditionSlug : internalEditionSlug;
+
+  const handleScopeChange = (newScope: "global" | "edition") => {
+    setInternalScope(newScope);
+    onScopeChange?.(newScope);
+  };
+
+  const handleEditionChange = (newSlug: string) => {
+    setInternalEditionSlug(newSlug);
+    onEditionSlugChange?.(newSlug);
+  };
+
+  const isEditionMode = currentScope === "edition";
+  const editionState = isEditionMode
+    ? ("isSlotInherited" in curationState ? (curationState as EditionHomepageCurationState) : null)
+    : null;
 
   // Search and candidate filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -173,9 +213,12 @@ export function StudioHomepageView({
     if (!target) return;
 
     if (curationState.hero && curationState.hero.id !== targetStoryId) {
+      const modeLabel = isEditionMode
+        ? `the active ${currentEditionSlug.toUpperCase()} Edition Hero`
+        : "the active homepage Hero";
       setPendingConfirmation({
-        title: "Replace Active Hero?",
-        message: `Story "${curationState.hero.title}" is currently the active homepage Hero. It will be replaced by "${target.title}". The previous Hero will be unassigned. Proceed?`,
+        title: isEditionMode ? "Replace Edition Hero?" : "Replace Active Hero?",
+        message: `Story "${curationState.hero.title}" is currently ${modeLabel}. It will be replaced by "${target.title}". Proceed?`,
         onConfirm: async () => {
           setPendingConfirmation(null);
           await onSetHero(targetStoryId);
@@ -189,14 +232,25 @@ export function StudioHomepageView({
   // Handle hero removal confirmation
   const initiateRemoveHero = () => {
     if (!curationState.hero) return;
-    setPendingConfirmation({
-      title: "Remove Active Hero?",
-      message: `Are you sure you want to remove "${curationState.hero.title}" from Hero placement? The homepage will fall back to source-driven ranking.`,
-      onConfirm: async () => {
-        setPendingConfirmation(null);
-        await onRemoveHero();
-      }
-    });
+    if (isEditionMode) {
+      setPendingConfirmation({
+        title: "Remove Edition Hero Override?",
+        message: `Are you sure you want to remove the edition override for "${curationState.hero.title}"? The ${currentEditionSlug.toUpperCase()} Edition will inherit the Global Homepage Hero.`,
+        onConfirm: async () => {
+          setPendingConfirmation(null);
+          await onRemoveHero();
+        }
+      });
+    } else {
+      setPendingConfirmation({
+        title: "Remove Active Hero?",
+        message: `Are you sure you want to remove "${curationState.hero.title}" from Hero placement? The homepage will fall back to source-driven ranking.`,
+        onConfirm: async () => {
+          setPendingConfirmation(null);
+          await onRemoveHero();
+        }
+      });
+    }
   };
 
   // Handle slot assignment with displacement confirmation
@@ -212,21 +266,32 @@ export function StudioHomepageView({
     if (section === "hero") {
       existingInSlot = curationState.hero || undefined;
     } else if (section === "top-stories") {
-      existingInSlot = curationState.topStories.find((s) => {
-        const p = parseHomepagePlacement(s.distribution?.homepage);
-        return p?.rank === rank;
-      });
+      if (isEditionMode) {
+        existingInSlot = curationState.topStories[rank - 1];
+      } else {
+        existingInSlot = curationState.topStories.find((s) => {
+          const p = parseHomepagePlacement(s.distribution?.homepage);
+          return p?.rank === rank;
+        });
+      }
     } else {
-      existingInSlot = (curationState.sections[section] || []).find((s) => {
-        const p = parseHomepagePlacement(s.distribution?.homepage);
-        return p?.rank === rank;
-      });
+      if (isEditionMode) {
+        existingInSlot = (curationState.sections[section] || [])[rank - 1];
+      } else {
+        existingInSlot = (curationState.sections[section] || []).find((s) => {
+          const p = parseHomepagePlacement(s.distribution?.homepage);
+          return p?.rank === rank;
+        });
+      }
     }
 
     if (existingInSlot && existingInSlot.id !== targetStoryId) {
+      const isInherited = editionState?.isSlotInherited(section, rank);
       setPendingConfirmation({
-        title: `Displace Rank ${rank} Story?`,
-        message: `Slot #${rank} in ${formatSectionTitle(section)} is currently assigned to "${existingInSlot.title}". It will be displaced by "${target.title}". Proceed?`,
+        title: isInherited ? `Override Slot #${rank}?` : `Displace Rank ${rank} Story?`,
+        message: isInherited
+          ? `Slot #${rank} in ${formatSectionTitle(section)} currently inherits "${existingInSlot.title}" from Global. Assigning "${target.title}" will create an Edition Override for this slot. Proceed?`
+          : `Slot #${rank} in ${formatSectionTitle(section)} is currently assigned to "${existingInSlot.title}". It will be displaced by "${target.title}". Proceed?`,
         onConfirm: async () => {
           setPendingConfirmation(null);
           setTargetSlot(null);
@@ -281,11 +346,99 @@ export function StudioHomepageView({
         </Text>
       </View>
 
+      {/* Scope Selector: Global Homepage vs Edition */}
+      <View style={styles.scopeBar} testID="homepage-scope-bar">
+        <View style={styles.scopeTabs}>
+          <Pressable
+            style={[
+              styles.scopeTab,
+              currentScope === "global" && styles.scopeTabActive
+            ]}
+            onPress={() => handleScopeChange("global")}
+            accessibilityRole="tab"
+            accessibilityLabel="Global Homepage Curation"
+          >
+            <Text
+              style={[
+                styles.scopeTabText,
+                currentScope === "global" && styles.scopeTabTextActive
+              ]}
+            >
+              Global Homepage
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.scopeTab,
+              currentScope === "edition" && styles.scopeTabActive
+            ]}
+            onPress={() => handleScopeChange("edition")}
+            accessibilityRole="tab"
+            accessibilityLabel="Edition Curation"
+          >
+            <Text
+              style={[
+                styles.scopeTabText,
+                currentScope === "edition" && styles.scopeTabTextActive
+              ]}
+            >
+              Edition Curation
+            </Text>
+          </Pressable>
+        </View>
+
+        {currentScope === "edition" && (
+          <View style={styles.editionSelectorRow} testID="edition-selector-row">
+            <Text style={styles.editionSelectorLabel}>Selected Edition:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.editionChips}
+            >
+              {[
+                { slug: "zimbabwe", label: "Zimbabwe" },
+                { slug: "africa", label: "Africa" },
+                { slug: "global-health", label: "Global Health" },
+                { slug: "south-africa", label: "South Africa" }
+              ].map((ed) => (
+                <Pressable
+                  key={ed.slug}
+                  style={[
+                    styles.editionChip,
+                    currentEditionSlug === ed.slug && styles.editionChipActive
+                  ]}
+                  onPress={() => handleEditionChange(ed.slug)}
+                >
+                  <Text
+                    style={[
+                      styles.editionChipText,
+                      currentEditionSlug === ed.slug && styles.editionChipTextActive
+                    ]}
+                  >
+                    {ed.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+
       {/* Editorial Delivery Information Notice */}
       <View style={styles.deliveryNoticeBanner} testID="homepage-delivery-notice">
-        <Text style={styles.deliveryNoticeText}>
-          Homepage placements are stored as canonical Newsroom presentation metadata. Public Reader consumption will activate after the certified presentation delivery contract is connected.
-        </Text>
+        {deliveryConnected ? (
+          <View style={styles.deliveryConnectedRow}>
+            <View style={styles.connectedDot} />
+            <Text style={styles.deliveryNoticeConnectedText}>
+              Public presentation delivery connected: Homepage placements are served via certified presentation contract.
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.deliveryNoticeText}>
+            Homepage placements are stored as canonical Newsroom presentation metadata. Public Reader consumption will activate after the certified presentation delivery contract is connected.
+          </Text>
+        )}
       </View>
 
       {/* Notifications */}
@@ -360,7 +513,11 @@ export function StudioHomepageView({
                   onPress={initiateRemoveHero}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.removeBtnText}>Remove Hero</Text>
+                  <Text style={styles.removeBtnText}>
+                    {isEditionMode && editionState?.hasEditionOverride("hero", 1)
+                      ? "Remove Edition Override"
+                      : "Remove Hero"}
+                  </Text>
                 </Pressable>
               )}
             </View>
@@ -368,6 +525,16 @@ export function StudioHomepageView({
             {curationState.hero ? (
               <View style={styles.storyCard}>
                 <View style={styles.cardTopRow}>
+                  {isEditionMode && editionState?.hasEditionOverride("hero", 1) && (
+                    <View style={styles.overrideBadge} testID="hero-edition-override-badge">
+                      <Text style={styles.overrideBadgeText}>EDITION OVERRIDE</Text>
+                    </View>
+                  )}
+                  {isEditionMode && editionState?.isSlotInherited("hero", 1) && (
+                    <View style={styles.inheritedBadge} testID="hero-inherited-badge">
+                      <Text style={styles.inheritedBadgeText}>INHERITED FROM GLOBAL</Text>
+                    </View>
+                  )}
                   <View style={styles.heroBadge}>
                     <Text style={styles.heroBadgeText}>ACTIVE HERO · RANK 1</Text>
                   </View>
@@ -396,6 +563,14 @@ export function StudioHomepageView({
                   <Text style={styles.cardMeta}>
                     Status: {curationState.hero.workflowStatus}
                   </Text>
+                  {isEditionMode && editionState?.isSlotInherited("hero", 1) && (
+                    <Pressable
+                      style={styles.slotChangeBtn}
+                      onPress={() => setTargetSlot({ section: "hero", rank: 1 })}
+                    >
+                      <Text style={styles.slotChangeBtnText}>Override Hero</Text>
+                    </Pressable>
+                  )}
                   {onOpenStoryWorkspace && (
                     <Pressable
                       style={styles.openLink}
@@ -442,10 +617,17 @@ export function StudioHomepageView({
 
             <View style={styles.slotsList}>
               {[1, 2, 3, 4, 5, 6].map((rank) => {
-                const story = curationState.topStories.find((s) => {
-                  const p = parseHomepagePlacement(s.distribution?.homepage);
-                  return p?.rank === rank;
-                });
+                let story: NewsroomStory | undefined;
+                if (isEditionMode) {
+                  story = curationState.topStories[rank - 1];
+                } else {
+                  story = curationState.topStories.find((s) => {
+                    const p = parseHomepagePlacement(s.distribution?.homepage);
+                    return p?.rank === rank;
+                  });
+                }
+                const hasOverride = editionState?.hasEditionOverride("top-stories", rank);
+                const isInherited = editionState?.isSlotInherited("top-stories", rank);
 
                 return (
                   <View key={`top-${rank}`} style={styles.slotRow}>
@@ -456,9 +638,23 @@ export function StudioHomepageView({
                     {story ? (
                       <View style={styles.slotContent}>
                         <View style={styles.slotStoryHeader}>
-                          <Text style={styles.slotStoryTitle} numberOfLines={1}>
-                            {story.title}
-                          </Text>
+                          <View style={{ flex: 1, gap: 4 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              {hasOverride && (
+                                <View style={styles.overrideBadge} testID={`top-override-badge-${rank}`}>
+                                  <Text style={styles.overrideBadgeText}>EDITION OVERRIDE</Text>
+                                </View>
+                              )}
+                              {isInherited && (
+                                <View style={styles.inheritedBadge} testID={`top-inherited-badge-${rank}`}>
+                                  <Text style={styles.inheritedBadgeText}>INHERITED FROM GLOBAL</Text>
+                                </View>
+                              )}
+                              <Text style={styles.slotStoryTitle} numberOfLines={1}>
+                                {story.title}
+                              </Text>
+                            </View>
+                          </View>
                           <View style={styles.slotActions}>
                             <Pressable
                               style={styles.slotChangeBtn}
@@ -470,15 +666,17 @@ export function StudioHomepageView({
                               }
                             >
                               <Text style={styles.slotChangeBtnText}>
-                                Replace
+                                {isInherited ? "Override" : "Replace"}
                               </Text>
                             </Pressable>
-                            <Pressable
-                              style={styles.slotRemoveBtn}
-                              onPress={() => onRemovePlacement(story.id)}
-                            >
-                              <Text style={styles.slotRemoveBtnText}>✕</Text>
-                            </Pressable>
+                            {(!isEditionMode || hasOverride) && (
+                              <Pressable
+                                style={styles.slotRemoveBtn}
+                                onPress={() => onRemovePlacement(story.id)}
+                              >
+                                <Text style={styles.slotRemoveBtnText}>✕</Text>
+                              </Pressable>
+                            )}
                           </View>
                         </View>
                         <Text style={styles.slotMeta}>
@@ -564,12 +762,19 @@ export function StudioHomepageView({
             {/* Active section slots */}
             <View style={styles.slotsList}>
               {[1, 2, 3, 4, 5, 6].map((rank) => {
-                const story = (
-                  curationState.sections[activeCuratedTab] || []
-                ).find((s) => {
-                  const p = parseHomepagePlacement(s.distribution?.homepage);
-                  return p?.rank === rank;
-                });
+                let story: NewsroomStory | undefined;
+                if (isEditionMode) {
+                  story = (curationState.sections[activeCuratedTab] || [])[rank - 1];
+                } else {
+                  story = (
+                    curationState.sections[activeCuratedTab] || []
+                  ).find((s) => {
+                    const p = parseHomepagePlacement(s.distribution?.homepage);
+                    return p?.rank === rank;
+                  });
+                }
+                const hasOverride = editionState?.hasEditionOverride(activeCuratedTab, rank);
+                const isInherited = editionState?.isSlotInherited(activeCuratedTab, rank);
 
                 return (
                   <View
@@ -583,9 +788,23 @@ export function StudioHomepageView({
                     {story ? (
                       <View style={styles.slotContent}>
                         <View style={styles.slotStoryHeader}>
-                          <Text style={styles.slotStoryTitle} numberOfLines={1}>
-                            {story.title}
-                          </Text>
+                          <View style={{ flex: 1, gap: 4 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              {hasOverride && (
+                                <View style={styles.overrideBadge} testID={`section-override-badge-${rank}`}>
+                                  <Text style={styles.overrideBadgeText}>EDITION OVERRIDE</Text>
+                                </View>
+                              )}
+                              {isInherited && (
+                                <View style={styles.inheritedBadge} testID={`section-inherited-badge-${rank}`}>
+                                  <Text style={styles.inheritedBadgeText}>INHERITED FROM GLOBAL</Text>
+                                </View>
+                              )}
+                              <Text style={styles.slotStoryTitle} numberOfLines={1}>
+                                {story.title}
+                              </Text>
+                            </View>
+                          </View>
                           <View style={styles.slotActions}>
                             <Pressable
                               style={styles.slotChangeBtn}
@@ -597,15 +816,17 @@ export function StudioHomepageView({
                               }
                             >
                               <Text style={styles.slotChangeBtnText}>
-                                Replace
+                                {isInherited ? "Override" : "Replace"}
                               </Text>
                             </Pressable>
-                            <Pressable
-                              style={styles.slotRemoveBtn}
-                              onPress={() => onRemovePlacement(story.id)}
-                            >
-                              <Text style={styles.slotRemoveBtnText}>✕</Text>
-                            </Pressable>
+                            {(!isEditionMode || hasOverride) && (
+                              <Pressable
+                                style={styles.slotRemoveBtn}
+                                onPress={() => onRemovePlacement(story.id)}
+                              >
+                                <Text style={styles.slotRemoveBtnText}>✕</Text>
+                              </Pressable>
+                            )}
                           </View>
                         </View>
                         <Text style={styles.slotMeta}>
@@ -874,6 +1095,8 @@ export function StudioHomepage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
+  const [presentationScope, setPresentationScope] = useState<"global" | "edition">("global");
+  const [selectedEditionSlug, setSelectedEditionSlug] = useState<string>("zimbabwe");
 
   // Authority snapshot
   const authAsync = useAsync(
@@ -890,10 +1113,12 @@ export function StudioHomepage() {
   }, [isAuthorized, refreshKey]);
 
   const stories = Array.isArray(storiesAsync.data) ? storiesAsync.data : [];
-  const curationState = useMemo(
-    () => deriveHomepageCurationState(stories),
-    [stories]
-  );
+  const curationState = useMemo(() => {
+    if (presentationScope === "edition") {
+      return deriveEditionHomepageCurationState(stories, selectedEditionSlug);
+    }
+    return deriveHomepageCurationState(stories);
+  }, [stories, presentationScope, selectedEditionSlug]);
 
   // Set hero with confirmation and compensating rollback
   const handleSetHero = async (storyId: string) => {
@@ -906,91 +1131,168 @@ export function StudioHomepage() {
       setConflictError(null);
       setActionMessage(null);
 
-      // Check if previous hero existed and needs displacement
-      const displacedStory =
-        curationState.hero && curationState.hero.id !== storyId
-          ? curationState.hero
-          : null;
-
-      let displacedOriginalDistribution: Record<string, unknown> | null = null;
-      let displacedNewLockVersion: number | null = null;
-
-      if (displacedStory) {
-        // Step A: Capture displaced story's original distribution and lockVersion
-        displacedOriginalDistribution = displacedStory.distribution
-          ? JSON.parse(JSON.stringify(displacedStory.distribution))
-          : {};
-        const displacedDist = mergeHomepageDistribution(
-          displacedStory.distribution,
-          null
-        );
-
-        // Step B: Save displaced story removal, capturing the new lockVersion returned by saveStory
-        displacedNewLockVersion = await services.newsroomStories.saveStory(
-          displacedStory.id,
-          displacedStory.lockVersion,
-          { distribution: displacedDist },
-          "Homepage hero replaced"
-        );
-        serverMutationOccurred = true;
-      }
-
-      // Step C: Attempt target placement save
-      const targetNextDist = mergeHomepageDistribution(target.distribution, {
-        section: "hero",
-        rank: 1,
-        active: true
-      });
-
-      try {
-        await services.newsroomStories.saveStory(
-          target.id,
-          target.lockVersion,
-          { distribution: targetNextDist },
-          "Homepage hero assigned"
-        );
-        serverMutationOccurred = true;
-
-        // Step D (Target Success):
-        setActionMessage(`Active Hero set to "${target.title}".`);
-      } catch (targetErr: unknown) {
-        // Step E (Target Failure): If displaced story was removed, attempt compensating rollback
-        if (
-          displacedStory &&
-          displacedNewLockVersion !== null &&
-          displacedOriginalDistribution !== null
-        ) {
-          try {
-            await services.newsroomStories.saveStory(
-              displacedStory.id,
-              displacedNewLockVersion,
-              { distribution: displacedOriginalDistribution },
-              "Homepage replacement rollback"
-            );
-            const msg =
-              targetErr instanceof Error ? targetErr.message : String(targetErr);
-            if (
-              msg.includes("VERSION_CONFLICT") ||
-              msg.includes("version conflict")
-            ) {
-              setConflictError(
-                `Version Conflict: Story "${target.title}" was modified concurrently by another editor. Previous Hero was restored.`
-              );
-            } else {
-              setConflictError(
-                `Failed to save Hero placement: ${msg}. Previous Hero was restored.`
-              );
-            }
-            return;
-          } catch (rollbackErr: unknown) {
-            // Rollback failed -> reconciliation error
-            setConflictError(
-              "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
-            );
-            return;
-          }
+      if (presentationScope === "edition") {
+        const validEdition = validateEditionSlug(selectedEditionSlug);
+        if (!validEdition) {
+          throw new Error(`Invalid edition slug: ${selectedEditionSlug}`);
         }
-        throw targetErr;
+
+        const displacedStory = stories.find((s) => {
+          if (s.id === storyId) return false;
+          const edDist = (s.distribution?.homepage_editions as Record<string, unknown> | undefined)?.[validEdition];
+          const p = parseHomepagePlacement(edDist);
+          return p?.section === "hero" && p?.active;
+        }) ?? null;
+
+        let displacedOriginalDistribution: Record<string, unknown> | null = null;
+        let displacedNewLockVersion: number | null = null;
+
+        if (displacedStory) {
+          displacedOriginalDistribution = displacedStory.distribution
+            ? JSON.parse(JSON.stringify(displacedStory.distribution))
+            : {};
+          const displacedDist = mergeHomepageEditionDistribution(
+            displacedStory.distribution,
+            validEdition,
+            null
+          );
+
+          displacedNewLockVersion = await services.newsroomStories.saveStory(
+            displacedStory.id,
+            displacedStory.lockVersion,
+            { distribution: displacedDist },
+            `Homepage edition hero displaced [${validEdition}]`
+          );
+          serverMutationOccurred = true;
+        }
+
+        const targetNextDist = mergeHomepageEditionDistribution(
+          target.distribution,
+          validEdition,
+          { section: "hero", rank: 1, active: true }
+        );
+
+        try {
+          await services.newsroomStories.saveStory(
+            target.id,
+            target.lockVersion,
+            { distribution: targetNextDist },
+            `Homepage edition hero assigned [${validEdition}]`
+          );
+          serverMutationOccurred = true;
+          setActionMessage(`Active ${validEdition.toUpperCase()} Edition Hero set to "${target.title}".`);
+        } catch (targetErr: unknown) {
+          if (
+            displacedStory &&
+            displacedNewLockVersion !== null &&
+            displacedOriginalDistribution !== null
+          ) {
+            try {
+              await services.newsroomStories.saveStory(
+                displacedStory.id,
+                displacedNewLockVersion,
+                { distribution: displacedOriginalDistribution },
+                "Homepage replacement rollback"
+              );
+              const msg = targetErr instanceof Error ? targetErr.message : String(targetErr);
+              if (msg.includes("VERSION_CONFLICT") || msg.includes("version conflict")) {
+                setConflictError(
+                  `Version Conflict: Story "${target.title}" was modified concurrently by another editor. Previous Edition Hero was restored.`
+                );
+              } else {
+                setConflictError(
+                  `Failed to save Edition Hero placement: ${msg}. Previous Edition Hero was restored.`
+                );
+              }
+              return;
+            } catch {
+              setConflictError(
+                "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+              );
+              return;
+            }
+          }
+          throw targetErr;
+        }
+      } else {
+        const displacedStory =
+          curationState.hero && curationState.hero.id !== storyId
+            ? curationState.hero
+            : null;
+
+        let displacedOriginalDistribution: Record<string, unknown> | null = null;
+        let displacedNewLockVersion: number | null = null;
+
+        if (displacedStory) {
+          displacedOriginalDistribution = displacedStory.distribution
+            ? JSON.parse(JSON.stringify(displacedStory.distribution))
+            : {};
+          const displacedDist = mergeHomepageDistribution(
+            displacedStory.distribution,
+            null
+          );
+
+          displacedNewLockVersion = await services.newsroomStories.saveStory(
+            displacedStory.id,
+            displacedStory.lockVersion,
+            { distribution: displacedDist },
+            "Homepage hero replaced"
+          );
+          serverMutationOccurred = true;
+        }
+
+        const targetNextDist = mergeHomepageDistribution(target.distribution, {
+          section: "hero",
+          rank: 1,
+          active: true
+        });
+
+        try {
+          await services.newsroomStories.saveStory(
+            target.id,
+            target.lockVersion,
+            { distribution: targetNextDist },
+            "Homepage hero assigned"
+          );
+          serverMutationOccurred = true;
+          setActionMessage(`Active Hero set to "${target.title}".`);
+        } catch (targetErr: unknown) {
+          if (
+            displacedStory &&
+            displacedNewLockVersion !== null &&
+            displacedOriginalDistribution !== null
+          ) {
+            try {
+              await services.newsroomStories.saveStory(
+                displacedStory.id,
+                displacedNewLockVersion,
+                { distribution: displacedOriginalDistribution },
+                "Homepage replacement rollback"
+              );
+              const msg =
+                targetErr instanceof Error ? targetErr.message : String(targetErr);
+              if (
+                msg.includes("VERSION_CONFLICT") ||
+                msg.includes("version conflict")
+              ) {
+                setConflictError(
+                  `Version Conflict: Story "${target.title}" was modified concurrently by another editor. Previous Hero was restored.`
+                );
+              } else {
+                setConflictError(
+                  `Failed to save Hero placement: ${msg}. Previous Hero was restored.`
+                );
+              }
+              return;
+            } catch {
+              setConflictError(
+                "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+              );
+              return;
+            }
+          }
+          throw targetErr;
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1014,24 +1316,53 @@ export function StudioHomepage() {
 
   // Remove hero
   const handleRemoveHero = async () => {
-    if (!curationState.hero) return;
-    const hero = curationState.hero;
     let serverMutationOccurred = false;
     try {
-      setSavingId(hero.id);
-      setConflictError(null);
-      setActionMessage(null);
+      if (presentationScope === "edition") {
+        const validEdition = validateEditionSlug(selectedEditionSlug);
+        if (!validEdition) return;
 
-      const nextDist = mergeHomepageDistribution(hero.distribution, null);
-      await services.newsroomStories.saveStory(
-        hero.id,
-        hero.lockVersion,
-        { distribution: nextDist },
-        "Homepage hero removed"
-      );
-      serverMutationOccurred = true;
+        const overrideStory = stories.find((s) => {
+          const edDist = (s.distribution?.homepage_editions as Record<string, unknown> | undefined)?.[validEdition];
+          const p = parseHomepagePlacement(edDist);
+          return p?.section === "hero" && p?.active;
+        });
+        if (!overrideStory) return;
 
-      setActionMessage("Active Hero unassigned. Falling back to source-driven lead.");
+        setSavingId(overrideStory.id);
+        setConflictError(null);
+        setActionMessage(null);
+
+        const nextDist = mergeHomepageEditionDistribution(
+          overrideStory.distribution,
+          validEdition,
+          null
+        );
+        await services.newsroomStories.saveStory(
+          overrideStory.id,
+          overrideStory.lockVersion,
+          { distribution: nextDist },
+          `Homepage edition hero override removed [${validEdition}]`
+        );
+        serverMutationOccurred = true;
+        setActionMessage(`Edition Hero override removed for ${validEdition.toUpperCase()}. Slot now inherits Global Hero.`);
+      } else {
+        if (!curationState.hero) return;
+        const hero = curationState.hero;
+        setSavingId(hero.id);
+        setConflictError(null);
+        setActionMessage(null);
+
+        const nextDist = mergeHomepageDistribution(hero.distribution, null);
+        await services.newsroomStories.saveStory(
+          hero.id,
+          hero.lockVersion,
+          { distribution: nextDist },
+          "Homepage hero removed"
+        );
+        serverMutationOccurred = true;
+        setActionMessage("Active Hero unassigned. Falling back to source-driven lead.");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setConflictError(`Failed to remove Hero: ${msg}`);
@@ -1058,105 +1389,182 @@ export function StudioHomepage() {
       setConflictError(null);
       setActionMessage(null);
 
-      // Check if another story currently occupies this slot
-      let existingStory: NewsroomStory | undefined;
-      if (section === "hero") {
-        existingStory = curationState.hero || undefined;
-      } else if (section === "top-stories") {
-        existingStory = curationState.topStories.find((s) => {
-          const p = parseHomepagePlacement(s.distribution?.homepage);
-          return p?.rank === rank;
-        });
-      } else {
-        existingStory = (curationState.sections[section] || []).find((s) => {
-          const p = parseHomepagePlacement(s.distribution?.homepage);
-          return p?.rank === rank;
-        });
-      }
+      if (presentationScope === "edition") {
+        const validEdition = validateEditionSlug(selectedEditionSlug);
+        if (!validEdition) return;
 
-      const displacedStory =
-        existingStory && existingStory.id !== storyId ? existingStory : null;
-      let displacedOriginalDistribution: Record<string, unknown> | null = null;
-      let displacedNewLockVersion: number | null = null;
+        const displacedStory = stories.find((s) => {
+          if (s.id === storyId) return false;
+          const edDist = (s.distribution?.homepage_editions as Record<string, unknown> | undefined)?.[validEdition];
+          const p = parseHomepagePlacement(edDist);
+          return p?.section === section && p?.rank === rank && p?.active;
+        }) ?? null;
 
-      if (displacedStory) {
-        // Step A: Capture displaced story's original distribution and lockVersion
-        displacedOriginalDistribution = displacedStory.distribution
-          ? JSON.parse(JSON.stringify(displacedStory.distribution))
-          : {};
-        const displacedDist = mergeHomepageDistribution(
-          displacedStory.distribution,
-          null
-        );
+        let displacedOriginalDistribution: Record<string, unknown> | null = null;
+        let displacedNewLockVersion: number | null = null;
 
-        // Step B: Save displaced story removal, capturing the new lockVersion returned by saveStory
-        displacedNewLockVersion = await services.newsroomStories.saveStory(
-          displacedStory.id,
-          displacedStory.lockVersion,
-          { distribution: displacedDist },
-          "Homepage curation updated - displaced"
-        );
-        serverMutationOccurred = true;
-      }
+        if (displacedStory) {
+          displacedOriginalDistribution = displacedStory.distribution
+            ? JSON.parse(JSON.stringify(displacedStory.distribution))
+            : {};
+          const displacedDist = mergeHomepageEditionDistribution(
+            displacedStory.distribution,
+            validEdition,
+            null
+          );
 
-      // Step C: Attempt target placement save
-      const targetNextDist = mergeHomepageDistribution(target.distribution, {
-        section,
-        rank,
-        active: true
-      });
-
-      try {
-        await services.newsroomStories.saveStory(
-          target.id,
-          target.lockVersion,
-          { distribution: targetNextDist },
-          "Homepage curation updated"
-        );
-        serverMutationOccurred = true;
-
-        // Step D (Target Success):
-        setActionMessage(
-          `Assigned "${target.title}" to ${formatSectionTitle(section)} #${rank}.`
-        );
-      } catch (targetErr: unknown) {
-        // Step E (Target Failure): If displaced story was removed, attempt compensating rollback
-        if (
-          displacedStory &&
-          displacedNewLockVersion !== null &&
-          displacedOriginalDistribution !== null
-        ) {
-          try {
-            await services.newsroomStories.saveStory(
-              displacedStory.id,
-              displacedNewLockVersion,
-              { distribution: displacedOriginalDistribution },
-              "Homepage replacement rollback"
-            );
-            const msg =
-              targetErr instanceof Error ? targetErr.message : String(targetErr);
-            if (
-              msg.includes("VERSION_CONFLICT") ||
-              msg.includes("version conflict")
-            ) {
-              setConflictError(
-                `Version Conflict: Story "${target.title}" was modified concurrently. Displaced story was restored.`
-              );
-            } else {
-              setConflictError(
-                `Failed to assign placement: ${msg}. Displaced story was restored.`
-              );
-            }
-            return;
-          } catch (rollbackErr: unknown) {
-            // Rollback failed -> reconciliation error
-            setConflictError(
-              "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
-            );
-            return;
-          }
+          displacedNewLockVersion = await services.newsroomStories.saveStory(
+            displacedStory.id,
+            displacedStory.lockVersion,
+            { distribution: displacedDist },
+            "Homepage curation updated - displaced"
+          );
+          serverMutationOccurred = true;
         }
-        throw targetErr;
+
+        const targetNextDist = mergeHomepageEditionDistribution(
+          target.distribution,
+          validEdition,
+          { section, rank, active: true }
+        );
+
+        try {
+          await services.newsroomStories.saveStory(
+            target.id,
+            target.lockVersion,
+            { distribution: targetNextDist },
+            "Homepage curation updated"
+          );
+          serverMutationOccurred = true;
+          setActionMessage(
+            `Assigned "${target.title}" to ${formatSectionTitle(section)} #${rank} [${validEdition.toUpperCase()}].`
+          );
+        } catch (targetErr: unknown) {
+          if (
+            displacedStory &&
+            displacedNewLockVersion !== null &&
+            displacedOriginalDistribution !== null
+          ) {
+            try {
+              await services.newsroomStories.saveStory(
+                displacedStory.id,
+                displacedNewLockVersion,
+                { distribution: displacedOriginalDistribution },
+                "Homepage replacement rollback"
+              );
+              const msg = targetErr instanceof Error ? targetErr.message : String(targetErr);
+              if (msg.includes("VERSION_CONFLICT") || msg.includes("version conflict")) {
+                setConflictError(
+                  `Version Conflict: Story "${target.title}" was modified concurrently. Displaced story was restored.`
+                );
+              } else {
+                setConflictError(
+                  `Failed to assign placement: ${msg}. Displaced story was restored.`
+                );
+              }
+              return;
+            } catch {
+              setConflictError(
+                "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+              );
+              return;
+            }
+          }
+          throw targetErr;
+        }
+      } else {
+        let existingStory: NewsroomStory | undefined;
+        if (section === "hero") {
+          existingStory = curationState.hero || undefined;
+        } else if (section === "top-stories") {
+          existingStory = curationState.topStories.find((s) => {
+            const p = parseHomepagePlacement(s.distribution?.homepage);
+            return p?.rank === rank;
+          });
+        } else {
+          existingStory = (curationState.sections[section] || []).find((s) => {
+            const p = parseHomepagePlacement(s.distribution?.homepage);
+            return p?.rank === rank;
+          });
+        }
+
+        const displacedStory =
+          existingStory && existingStory.id !== storyId ? existingStory : null;
+        let displacedOriginalDistribution: Record<string, unknown> | null = null;
+        let displacedNewLockVersion: number | null = null;
+
+        if (displacedStory) {
+          displacedOriginalDistribution = displacedStory.distribution
+            ? JSON.parse(JSON.stringify(displacedStory.distribution))
+            : {};
+          const displacedDist = mergeHomepageDistribution(
+            displacedStory.distribution,
+            null
+          );
+
+          displacedNewLockVersion = await services.newsroomStories.saveStory(
+            displacedStory.id,
+            displacedStory.lockVersion,
+            { distribution: displacedDist },
+            "Homepage curation updated - displaced"
+          );
+          serverMutationOccurred = true;
+        }
+
+        const targetNextDist = mergeHomepageDistribution(target.distribution, {
+          section,
+          rank,
+          active: true
+        });
+
+        try {
+          await services.newsroomStories.saveStory(
+            target.id,
+            target.lockVersion,
+            { distribution: targetNextDist },
+            "Homepage curation updated"
+          );
+          serverMutationOccurred = true;
+          setActionMessage(
+            `Assigned "${target.title}" to ${formatSectionTitle(section)} #${rank}.`
+          );
+        } catch (targetErr: unknown) {
+          if (
+            displacedStory &&
+            displacedNewLockVersion !== null &&
+            displacedOriginalDistribution !== null
+          ) {
+            try {
+              await services.newsroomStories.saveStory(
+                displacedStory.id,
+                displacedNewLockVersion,
+                { distribution: displacedOriginalDistribution },
+                "Homepage replacement rollback"
+              );
+              const msg =
+                targetErr instanceof Error ? targetErr.message : String(targetErr);
+              if (
+                msg.includes("VERSION_CONFLICT") ||
+                msg.includes("version conflict")
+              ) {
+                setConflictError(
+                  `Version Conflict: Story "${target.title}" was modified concurrently. Displaced story was restored.`
+                );
+              } else {
+                setConflictError(
+                  `Failed to assign placement: ${msg}. Displaced story was restored.`
+                );
+              }
+              return;
+            } catch {
+              setConflictError(
+                "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+              );
+              return;
+            }
+          }
+          throw targetErr;
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1189,16 +1597,30 @@ export function StudioHomepage() {
       setConflictError(null);
       setActionMessage(null);
 
-      const nextDist = mergeHomepageDistribution(target.distribution, null);
-      await services.newsroomStories.saveStory(
-        target.id,
-        target.lockVersion,
-        { distribution: nextDist },
-        "Homepage curation updated - removed"
-      );
-      serverMutationOccurred = true;
+      if (presentationScope === "edition") {
+        const validEdition = validateEditionSlug(selectedEditionSlug);
+        if (!validEdition) return;
 
-      setActionMessage(`Removed "${target.title}" from homepage curation.`);
+        const nextDist = mergeHomepageEditionDistribution(target.distribution, validEdition, null);
+        await services.newsroomStories.saveStory(
+          target.id,
+          target.lockVersion,
+          { distribution: nextDist },
+          `Homepage edition override removed [${validEdition}]`
+        );
+        serverMutationOccurred = true;
+        setActionMessage(`Edition override removed for "${target.title}". Slot will now inherit Global placement if defined.`);
+      } else {
+        const nextDist = mergeHomepageDistribution(target.distribution, null);
+        await services.newsroomStories.saveStory(
+          target.id,
+          target.lockVersion,
+          { distribution: nextDist },
+          "Homepage curation updated - removed"
+        );
+        serverMutationOccurred = true;
+        setActionMessage(`Removed "${target.title}" from homepage curation.`);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setConflictError(`Failed to remove placement: ${msg}`);
@@ -1280,6 +1702,11 @@ export function StudioHomepage() {
       onRemoveHero={handleRemoveHero}
       onAssignPlacement={handleAssignPlacement}
       onRemovePlacement={handleRemovePlacement}
+      presentationScope={presentationScope}
+      onScopeChange={setPresentationScope}
+      selectedEditionSlug={selectedEditionSlug}
+      onEditionSlugChange={setSelectedEditionSlug}
+      deliveryConnected={true}
       onOpenStoryWorkspace={(storyId) =>
         router.push({
           pathname: "/studio/[module]",
@@ -2056,5 +2483,122 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: "#FFFFFF"
+  },
+  scopeBar: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.md
+  },
+  scopeTabs: {
+    flexDirection: "row",
+    gap: spacing.sm
+  },
+  scopeTab: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.paperMuted
+  },
+  scopeTabActive: {
+    borderColor: colors.blue,
+    backgroundColor: colors.blue
+  },
+  scopeTabText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  scopeTabTextActive: {
+    color: "#FFFFFF"
+  },
+  editionSelectorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  editionSelectorLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.inkMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5
+  },
+  editionChips: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    alignItems: "center"
+  },
+  editionChip: {
+    paddingVertical: 4,
+    paddingHorizontal: spacing.md,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#FFFFFF"
+  },
+  editionChipActive: {
+    borderColor: colors.ink,
+    backgroundColor: colors.ink
+  },
+  editionChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  editionChipTextActive: {
+    color: "#FFFFFF"
+  },
+  overrideBadge: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2
+  },
+  overrideBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#92400E",
+    letterSpacing: 0.5
+  },
+  inheritedBadge: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#93C5FD",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2
+  },
+  inheritedBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1E40AF",
+    letterSpacing: 0.5
+  },
+  deliveryConnectedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  connectedDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#059669"
+  },
+  deliveryNoticeConnectedText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#065F46",
+    fontWeight: "700"
   }
 });

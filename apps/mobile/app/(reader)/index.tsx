@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
+import type {
+  ArticleSummary,
+  CuratedHomepageSectionKey,
+  EditionPreference,
+  PublicationLink,
+  PublicHomepagePresentation
+} from "../../src/domain/models";
+import { validateEditionSlug } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
 import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
@@ -17,6 +24,10 @@ function publishedTime(story:ArticleSummary){
 
 function normalized(value:string){
   return value.trim().toLowerCase();
+}
+
+function storyIdentity(story: ArticleSummary): string {
+  return story.canonicalStoryId || story.slug || story.id;
 }
 
 function sourceTerms(story:ArticleSummary){
@@ -48,10 +59,62 @@ function isHealthStory(story:ArticleSummary){
 function uniqueStories(stories:ArticleSummary[]){
   const seen=new Set<string>();
   return stories.filter((story)=>{
-    if(seen.has(story.id)) return false;
-    seen.add(story.id);
+    const id = storyIdentity(story);
+    if(seen.has(id)) return false;
+    seen.add(id);
     return true;
   });
+}
+
+function overlayCuratedSection(
+  sectionKey: CuratedHomepageSectionKey,
+  naturalList: ArticleSummary[],
+  presentations: PublicHomepagePresentation[],
+  excludedIdentities: Set<string>
+): ArticleSummary[] {
+  if (!presentations.length) return naturalList;
+
+  const curatedByRank = new Map<number, ArticleSummary>();
+  for (let rank = 1; rank <= 6; rank++) {
+    const editionItem = presentations.find(
+      (p) => p.editionPlacement?.section === sectionKey && p.editionPlacement.rank === rank && p.editionPlacement.active
+    );
+    if (editionItem) {
+      curatedByRank.set(rank, editionItem.article);
+    } else {
+      const globalItem = presentations.find(
+        (p) => p.globalPlacement?.section === sectionKey && p.globalPlacement.rank === rank && p.globalPlacement.active
+      );
+      if (globalItem) {
+        curatedByRank.set(rank, globalItem.article);
+      }
+    }
+  }
+
+  if (curatedByRank.size === 0) return naturalList;
+
+  const result: ArticleSummary[] = [];
+  const localSeen = new Set<string>();
+
+  const sortedRanks = Array.from(curatedByRank.keys()).sort((a, b) => a - b);
+  for (const rank of sortedRanks) {
+    const item = curatedByRank.get(rank)!;
+    const id = storyIdentity(item);
+    if (!excludedIdentities.has(id) && !localSeen.has(id)) {
+      result.push(item);
+      localSeen.add(id);
+    }
+  }
+
+  for (const item of naturalList) {
+    const id = storyIdentity(item);
+    if (!excludedIdentities.has(id) && !localSeen.has(id)) {
+      result.push(item);
+      localSeen.add(id);
+    }
+  }
+
+  return result;
 }
 
 function EditorialSection({
@@ -108,14 +171,36 @@ export default function HomeScreen() {
   const video=useAsync(() => services.video.list(), []);
   const publication=useAsync(()=>services.publication.getProfile(),[]);
   const preferences=useAsync(() => services.reader.getPreferences(), []);
+  const taxonomy=useAsync(() => services.taxonomy.getSnapshot(), []);
+
+  const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
+  const edition=preferenceState.primaryEdition?.trim() || "Global";
+
+  const resolvedEditionSlug = (() => {
+    if (!edition || edition.toLowerCase() === "global") return null;
+    const zones = taxonomy.data?.geographicZones ?? [];
+    const match = zones.find(
+      (z) => z.name.toLowerCase() === edition.toLowerCase() || z.slug.toLowerCase() === edition.toLowerCase()
+    );
+    if (match) return match.slug;
+    const sanitized = edition.toLowerCase().replace(/\s+/g, "-");
+    return validateEditionSlug(sanitized) ? sanitized : null;
+  })();
+
+  const presentationState = useAsync(async () => {
+    try {
+      return await services.presentation.getPublicHomepagePresentations(resolvedEditionSlug);
+    } catch {
+      return [];
+    }
+  }, [resolvedEditionSlug]);
+  const presentations = presentationState.data ?? [];
 
   if (home.loading) return <Page><LoadingBlock label="Loading Home…" /></Page>;
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
   if (!home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
 
   const source=[...home.data].sort((a,b)=>publishedTime(b)-publishedTime(a));
-  const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
-  const edition=preferenceState.primaryEdition?.trim() || "Global";
   const editionStories=edition.toLowerCase()==="global"
     ? source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
     : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
@@ -135,46 +220,113 @@ export default function HomeScreen() {
     return matches.length ? matches : source;
   })();
 
-  const [hero,...filteredRemainder]=filteredStories;
-  const topStories=filteredRemainder.slice(0,6);
-  const latest=source.filter((story)=>story.id!==hero?.id).slice(0,6);
-  const features=source.filter((story)=>hasSourceTerm(story,"Features"));
-  const research=source.filter((story)=>
-    story.primarySection?.slug==="research" ||
-    hasSourceTerm(story,"Research & Findings","Reseach Findings","Academic & Research")
+  const [naturalHero, ...filteredRemainder] = filteredStories;
+  let hero = naturalHero;
+  let topStories = filteredRemainder.slice(0, 6);
+
+  if (activeFilter === "for-you" || activeFilter === "edition") {
+    const editionHero = presentations.find(
+      (p) => p.editionPlacement?.section === "hero" && p.editionPlacement.active
+    );
+    const globalHero = presentations.find(
+      (p) => p.globalPlacement?.section === "hero" && p.globalPlacement.active
+    );
+    const curatedHero = editionHero?.article ?? globalHero?.article ?? null;
+
+    if (curatedHero) {
+      hero = curatedHero;
+    }
+
+    const curatedTopByRank = new Map<number, ArticleSummary>();
+    for (let rank = 1; rank <= 6; rank++) {
+      const editionItem = presentations.find(
+        (p) => p.editionPlacement?.section === "top-stories" && p.editionPlacement.rank === rank && p.editionPlacement.active
+      );
+      if (editionItem) {
+        curatedTopByRank.set(rank, editionItem.article);
+      } else {
+        const globalItem = presentations.find(
+          (p) => p.globalPlacement?.section === "top-stories" && p.globalPlacement.rank === rank && p.globalPlacement.active
+        );
+        if (globalItem) {
+          curatedTopByRank.set(rank, globalItem.article);
+        }
+      }
+    }
+
+    if (curatedHero || curatedTopByRank.size > 0) {
+      const placedIds = new Set<string>();
+      if (hero) placedIds.add(storyIdentity(hero));
+
+      const effectiveTop: ArticleSummary[] = [];
+      let remIdx = 0;
+      for (let rank = 1; rank <= 6; rank++) {
+        if (curatedTopByRank.has(rank)) {
+          const curated = curatedTopByRank.get(rank)!;
+          const cid = storyIdentity(curated);
+          if (!placedIds.has(cid)) {
+            effectiveTop.push(curated);
+            placedIds.add(cid);
+            continue;
+          }
+        }
+        while (remIdx < filteredStories.length) {
+          const candidate = filteredStories[remIdx++];
+          if (!candidate) continue;
+          const candidateId = storyIdentity(candidate);
+          if (!placedIds.has(candidateId)) {
+            effectiveTop.push(candidate);
+            placedIds.add(candidateId);
+            break;
+          }
+        }
+      }
+      topStories = effectiveTop;
+    }
+  }
+
+  const excludedFromSections = new Set<string>();
+  if (hero) excludedFromSections.add(storyIdentity(hero));
+  for (const s of topStories) excludedFromSections.add(storyIdentity(s));
+
+  const latest = source.filter((story) => storyIdentity(story) !== (hero ? storyIdentity(hero) : "")).slice(0, 6);
+  const features = overlayCuratedSection("features", source.filter((story) => hasSourceTerm(story, "Features")), presentations, excludedFromSections);
+  const research = overlayCuratedSection("research", source.filter((story) =>
+    story.primarySection?.slug === "research" ||
+    hasSourceTerm(story, "Research & Findings", "Reseach Findings", "Academic & Research")
+  ), presentations, excludedFromSections);
+  const financing = overlayCuratedSection("health-business", source.filter((story) =>
+    story.primarySection?.slug === "health-business" ||
+    hasSourceTerm(story, "Health Financing")
+  ), presentations, excludedFromSections);
+  const hiv = overlayCuratedSection("hiv-aids", source.filter((story) => hasSourceTerm(story, "HIV/AIDS")), presentations, excludedFromSections);
+  const globalHealth = overlayCuratedSection("global-health", source.filter((story) =>
+    story.primarySection?.slug === "global-health" ||
+    story.geography.some((zone) => zone.slug === "global")
+  ), presentations, excludedFromSections);
+  const publicHealth = overlayCuratedSection("public-health", source.filter((story) =>
+    story.primarySection?.slug === "public-health" &&
+    !hasSourceTerm(story, "Features", "Health Financing", "HIV/AIDS")
+  ), presentations, excludedFromSections);
+  const premium = source.filter((story)=>story.accessPolicy==="premium");
+  const featuredVideos = video.data?.slice(0, 4) ?? [];
+  const liveItems = live.data?.length ? live.data.filter((item) => item.status === "live") : [];
+  const opportunityLinks = (publication.data?.sourceLinks ?? []).filter((link) =>
+    ["jobs", "fellowships-grants", "training-courses", "academic-research", "baraza-e-paper"].includes(link.key)
   );
-  const financing=source.filter((story)=>
-    story.primarySection?.slug==="health-business" ||
-    hasSourceTerm(story,"Health Financing")
-  );
-  const hiv=source.filter((story)=>hasSourceTerm(story,"HIV/AIDS"));
-  const globalHealth=source.filter((story)=>
-    story.primarySection?.slug==="global-health" ||
-    story.geography.some((zone)=>zone.slug==="global")
-  );
-  const publicHealth=source.filter((story)=>
-    story.primarySection?.slug==="public-health" &&
-    !hasSourceTerm(story,"Features","Health Financing","HIV/AIDS")
-  );
-  const premium=source.filter((story)=>story.accessPolicy==="premium");
-  const featuredVideos=video.data?.slice(0,4) ?? [];
-  const liveItems=live.data?.length ? live.data.filter((item)=>item.status==="live") : [];
-  const opportunityLinks=(publication.data?.sourceLinks ?? []).filter((link)=>
-    ["jobs","fellowships-grants","training-courses","academic-research","baraza-e-paper"].includes(link.key)
-  );
-  const usedIds=new Set(uniqueStories([
-    ...(hero?[hero]:[]),
+  const usedIds = new Set(uniqueStories([
+    ...(hero ? [hero] : []),
     ...topStories,
-    ...latest.slice(0,3),
-    ...features.slice(0,3),
-    ...publicHealth.slice(0,3),
-    ...research.slice(0,3),
-    ...financing.slice(0,3),
-    ...hiv.slice(0,3),
-    ...globalHealth.slice(0,3),
-    ...premium.slice(0,3)
-  ]).map((story)=>story.id));
-  const furtherCoverage=source.filter((story)=>!usedIds.has(story.id)).slice(0,6);
+    ...latest.slice(0, 3),
+    ...features.slice(0, 3),
+    ...publicHealth.slice(0, 3),
+    ...research.slice(0, 3),
+    ...financing.slice(0, 3),
+    ...hiv.slice(0, 3),
+    ...globalHealth.slice(0, 3),
+    ...premium.slice(0, 3)
+  ]).map(storyIdentity));
+  const furtherCoverage = source.filter((story) => !usedIds.has(storyIdentity(story))).slice(0, 6);
 
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},

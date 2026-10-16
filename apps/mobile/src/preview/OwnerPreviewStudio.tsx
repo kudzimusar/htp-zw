@@ -11,7 +11,9 @@ import { useRouter } from "expo-router";
 
 import {
   deriveHomepageCurationState,
+  deriveEditionHomepageCurationState,
   mergeHomepageDistribution,
+  mergeHomepageEditionDistribution,
   parseHomepagePlacement,
   type CuratedHomepageSectionKey,
   type NewsroomAssignment,
@@ -744,13 +746,49 @@ export function OwnerPreviewCalendarView() {
 export function OwnerPreviewHomepageView() {
   const router = useRouter();
   const [stories, setStories] = useState<NewsroomStory[]>(() => buildPreviewStories());
+  const [presentationScope, setPresentationScope] = useState<"global" | "edition">("global");
+  const [selectedEditionSlug, setSelectedEditionSlug] = useState<string>("zimbabwe");
   const [notice, setNotice] = useState<string>(
     "Preview state only — not saved. Shared presentation view StudioHomepageView rendered with sample data (writes disabled)."
   );
 
-  const curationState = useMemo(() => deriveHomepageCurationState(stories), [stories]);
+  const curationState = useMemo(() => {
+    if (presentationScope === "edition") {
+      return deriveEditionHomepageCurationState(stories, selectedEditionSlug);
+    }
+    return deriveHomepageCurationState(stories);
+  }, [stories, presentationScope, selectedEditionSlug]);
 
   const handleSetHero = (storyId: string) => {
+    if (presentationScope === "edition") {
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id === storyId) {
+            const nextDist = mergeHomepageEditionDistribution(
+              s.distribution as Record<string, unknown> | null,
+              selectedEditionSlug,
+              { section: "hero", rank: 1, active: true }
+            );
+            return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+          }
+          const edDist = (s.distribution as { editions?: Record<string, { homepage?: unknown }> } | null)
+            ?.editions?.[selectedEditionSlug]?.homepage;
+          const currentP = parseHomepagePlacement(edDist);
+          if (currentP?.section === "hero") {
+            const nextDist = mergeHomepageEditionDistribution(
+              s.distribution as Record<string, unknown> | null,
+              selectedEditionSlug,
+              null
+            );
+            return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+          }
+          return s;
+        })
+      );
+      setNotice(`Preview state only: Simulated setting story as Hero override for ${selectedEditionSlug} edition.`);
+      return;
+    }
+
     setStories((prev) =>
       prev.map((s) => {
         if (s.id === storyId) {
@@ -775,6 +813,27 @@ export function OwnerPreviewHomepageView() {
   };
 
   const handleRemoveHero = () => {
+    if (presentationScope === "edition") {
+      setStories((prev) =>
+        prev.map((s) => {
+          const edDist = (s.distribution as { editions?: Record<string, { homepage?: unknown }> } | null)
+            ?.editions?.[selectedEditionSlug]?.homepage;
+          const currentP = parseHomepagePlacement(edDist);
+          if (currentP?.section === "hero") {
+            const nextDist = mergeHomepageEditionDistribution(
+              s.distribution as Record<string, unknown> | null,
+              selectedEditionSlug,
+              null
+            );
+            return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+          }
+          return s;
+        })
+      );
+      setNotice(`Preview state only: Simulated removing Hero override for ${selectedEditionSlug} edition.`);
+      return;
+    }
+
     setStories((prev) =>
       prev.map((s) => {
         const currentP = parseHomepagePlacement(s.distribution?.homepage);
@@ -796,6 +855,35 @@ export function OwnerPreviewHomepageView() {
     rank: number,
     storyId: string
   ) => {
+    if (presentationScope === "edition") {
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id === storyId) {
+            const nextDist = mergeHomepageEditionDistribution(
+              s.distribution as Record<string, unknown> | null,
+              selectedEditionSlug,
+              { section, rank, active: true }
+            );
+            return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+          }
+          const edDist = (s.distribution as { editions?: Record<string, { homepage?: unknown }> } | null)
+            ?.editions?.[selectedEditionSlug]?.homepage;
+          const currentP = parseHomepagePlacement(edDist);
+          if (currentP?.section === section && currentP?.rank === rank) {
+            const nextDist = mergeHomepageEditionDistribution(
+              s.distribution as Record<string, unknown> | null,
+              selectedEditionSlug,
+              null
+            );
+            return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+          }
+          return s;
+        })
+      );
+      setNotice(`Preview state only: Simulated placing story in ${section} (rank ${rank}) for ${selectedEditionSlug} edition.`);
+      return;
+    }
+
     setStories((prev) =>
       prev.map((s) => {
         if (s.id === storyId) {
@@ -820,6 +908,24 @@ export function OwnerPreviewHomepageView() {
   };
 
   const handleRemovePlacement = (storyId: string) => {
+    if (presentationScope === "edition") {
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id === storyId) {
+            const nextDist = mergeHomepageEditionDistribution(
+              s.distribution as Record<string, unknown> | null,
+              selectedEditionSlug,
+              null
+            );
+            return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+          }
+          return s;
+        })
+      );
+      setNotice(`Preview state only: Simulated removing story from ${selectedEditionSlug} edition placement.`);
+      return;
+    }
+
     setStories((prev) =>
       prev.map((s) => {
         if (s.id === storyId) {
@@ -853,6 +959,11 @@ export function OwnerPreviewHomepageView() {
         onRemoveHero={handleRemoveHero}
         onAssignPlacement={handleAssignPlacement}
         onRemovePlacement={handleRemovePlacement}
+        presentationScope={presentationScope}
+        onScopeChange={setPresentationScope}
+        selectedEditionSlug={selectedEditionSlug}
+        onEditionSlugChange={setSelectedEditionSlug}
+        deliveryConnected={true}
         onOpenStoryWorkspace={(storyId: string) =>
           router.push({
             pathname: "/owner-preview/studio/create-edit",

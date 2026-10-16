@@ -329,6 +329,11 @@ export const fixtureNewsroomStoryService: NewsroomStoryService = {
 
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
+  presentation: {
+    async getPublicHomepagePresentations() {
+      return [];
+    }
+  },
   search: searchService,
   auth: authService,
   authorization: authorizationService,

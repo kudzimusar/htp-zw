@@ -637,6 +637,61 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
       createdAt: t.past4dIso,
       updatedAt: t.past3dIso,
       modifiedAt: t.past3dIso
+    },
+    {
+      id: "00000000-0000-4000-8000-000000001010",
+      title: "PREVIEW — Zimbabwe national immunisation supply chain audit",
+      slug: "preview-zimbabwe-immunisation-supply-chain-audit",
+      standfirst:
+        "Sample edition-specific published investigative report on cold-chain resilience across rural provincial depots.",
+      excerpt:
+        "Preview excerpt: Cold-chain uptime maintained at 98.4% across 10 provincial hubs.",
+      bodyHtml:
+        "<p><strong>PREVIEW SAMPLE COPY.</strong> Published report showcasing Zimbabwe Edition Hero override.</p>",
+      bodyJson: null,
+      status: "publish",
+      workflowStatus: "Published",
+      accessPolicy: "public",
+      authorId: "00000000-0000-4000-8000-000000000301",
+      primarySectionId: "00000000-0000-4000-8000-000000000401",
+      publishedAt: t.past3dIso,
+      scheduledAt: null,
+      seoTitle: "PREVIEW — Zimbabwe Immunisation Supply Chain Audit",
+      seoDescription:
+        "Sample Published story with Zimbabwe Edition Hero override.",
+      canonicalUrl:
+        "https://healthtimes.co.zw/preview/zimbabwe-immunisation-supply-chain",
+      ownerStaffId: "00000000-0000-4000-8000-000000000101",
+      assignedEditorStaffId: "00000000-0000-4000-8000-000000000201",
+      factCheckerStaffId: "00000000-0000-4000-8000-000000000202",
+      healthReviewerStaffId: "00000000-0000-4000-8000-000000000203",
+      copyEditorStaffId: "00000000-0000-4000-8000-000000000204",
+      desk: "Investigations",
+      topic: "Supply Chain",
+      country: "Zimbabwe",
+      region: "Harare",
+      sourceNotes:
+        "PREVIEW SOURCE NOTES: Provincial vaccine logistics audit.",
+      internalNotes:
+        "PREVIEW INTERNAL NOTE: Configured with Zimbabwe Edition Hero override.",
+      deadlineAt: t.past3dIso,
+      distribution: {
+        public_reader: true,
+        homepage_editions: {
+          zimbabwe: {
+            section: "hero",
+            rank: 1,
+            active: true
+          }
+        }
+      },
+      adSetting: "Standard",
+      commentPolicy: "open",
+      lockVersion: 3,
+      lastSavedBy: "00000000-0000-4000-8000-000000000201",
+      createdAt: t.past3dIso,
+      updatedAt: t.past3dIso,
+      modifiedAt: t.past3dIso
     }
   ];
 }
