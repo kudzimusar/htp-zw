@@ -90,21 +90,40 @@ const uiModule = loadTs("src/ui/StudioVideoDesk.tsx", {
 });
 const { hasVideoDeskAuthority, formatDurationSeconds, StudioVideoDeskView, StudioVideoDesk } = uiModule;
 
+let mockRpcHandler = null;
+const videoServiceModule = loadTs("src/services/newsroom-video.ts", {
+  mocks: {
+    "../platform/supabase": {
+      getStagingSupabaseClient: () => ({
+        rpc: (fn, args) => {
+          if (mockRpcHandler) return mockRpcHandler(fn, args);
+          return Promise.resolve({ data: null, error: null });
+        }
+      })
+    }
+  }
+});
+const { mapNewsroomVideoRow, stagingNewsroomVideoService } = videoServiceModule;
+
 // =============================================================================
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =============================================================================
 
-test("HT-NR-05C Invariant: Migration count is exactly 66", () => {
+test("HT-NR-05C-A-R1 Invariant: Migration count is exactly 67", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    66,
-    `Migration count must be exactly 66 (65 prior + 05C video desk foundation). Found ${files.length}.`
+    67,
+    `Migration count must be exactly 67 (65 prior + 05C video desk foundation + 05C-A-R1 video url safety). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261016210000_ht_nr05c_video_desk_foundation.sql"),
     "Migration directory must contain 20261016210000_ht_nr05c_video_desk_foundation.sql"
+  );
+  assert.ok(
+    files.includes("20261016220000_ht_nr05ca_r1_video_url_safety.sql"),
+    "Migration directory must contain 20261016220000_ht_nr05ca_r1_video_url_safety.sql"
   );
 });
 
@@ -262,20 +281,30 @@ test("HT-NR-05C Section 40: Studio module route gates video-desk with media.mana
 // 3. VALIDATION & DOMAIN CONTRACTS (Section 41)
 // =============================================================================
 
-test("HT-NR-05C Section 41: validateVideoHttpsUrl enforces HTTPS scheme and rejects non-HTTPS protocols", () => {
-  // Valid HTTPS URLs
-  assert.strictEqual(validateVideoHttpsUrl("https://example.com/video.mp4"), true);
-  assert.strictEqual(validateVideoHttpsUrl("https://cdn.healthtimes.co.zw/hls/live.m3u8"), true);
+test("HT-NR-05C-A-R1 Defect C: validateVideoHttpsUrl enforces public DNS boundary parity", () => {
+  // Required Canonical Test Matrix:
+  // Valid Public HTTPS URLs
+  assert.strictEqual(validateVideoHttpsUrl("https://youtube.com?v=abc"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://www.youtube.com/watch?v=123"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://youtu.be/xyz"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://player.vimeo.com/video/456"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://cdn.healthtimes.co.zw/media/v.mp4"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://sub.domain.example.com:8443/stream.m3u8#t=10"), true);
   assert.strictEqual(validateVideoHttpsUrl("HTTPS://EXAMPLE.COM/STREAM"), true);
 
-  // Non-HTTPS schemes fail closed
-  assert.strictEqual(validateVideoHttpsUrl("http://example.com/video.mp4"), false);
-  assert.strictEqual(validateVideoHttpsUrl("ftp://files.example.com/video.mp4"), false);
+  // Invalid / Insecure / Non-public URLs fail closed
+  assert.strictEqual(validateVideoHttpsUrl("http://example.com"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://localhost/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://localhost:8080/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://127.0.0.1/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://192.168.1.1/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://[::1]/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://singlelabel/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://user:pass@domain.com/video"), false);
   assert.strictEqual(validateVideoHttpsUrl("javascript:alert(1)"), false);
+  assert.strictEqual(validateVideoHttpsUrl("ftp://files.example.com/video.mp4"), false);
   assert.strictEqual(validateVideoHttpsUrl("data:video/mp4;base64,..."), false);
   assert.strictEqual(validateVideoHttpsUrl("file:///etc/passwd"), false);
-
-  // Invalid / relative URLs fail closed
   assert.strictEqual(validateVideoHttpsUrl("/relative/path/video.mp4"), false);
   assert.strictEqual(validateVideoHttpsUrl("not-a-url"), false);
   assert.strictEqual(validateVideoHttpsUrl(""), false);
@@ -648,5 +677,282 @@ test("HT-NR-05C Staging Read-Only: newsroom_list_videos RPC fails closed for ano
   assert.ok(
     !response.ok,
     `newsroom_list_videos must fail closed for anonymous requests, returned status ${response.status}`
+  );
+});
+
+// =============================================================================
+// 10. HT-NR-05C-A-R1 REMEDIATION SUITES (DEFECTS A, B, B2)
+// =============================================================================
+
+test("HT-NR-05C-A-R1 Defect A: mapNewsroomVideoRow maps valid row with exact types", () => {
+  const validRow = {
+    id: "a0000000-0000-4000-8000-000000000001",
+    title: "MOHCC Briefing on Cholera Containment",
+    source_url: "https://youtube.com/watch?v=cholera2026",
+    thumbnail_url: "https://cdn.healthtimes.co.zw/thumbs/cholera.jpg",
+    duration_seconds: 420,
+    related_story_id: "b0000000-0000-4000-8000-000000000002",
+    source_provenance: "HealthTimes Studio broadcast capture",
+    status: "ready",
+    lock_version: 3,
+    created_at: "2026-10-16T12:00:00.000Z",
+    updated_at: "2026-10-16T12:30:00.000Z",
+    created_by: "c0000000-0000-4000-8000-000000000003",
+    updated_by: "c0000000-0000-4000-8000-000000000003"
+  };
+
+  const mapped = mapNewsroomVideoRow(validRow);
+  assert.ok(mapped !== null, "Valid row must map successfully");
+  assert.strictEqual(mapped.id, validRow.id);
+  assert.strictEqual(mapped.title, validRow.title);
+  assert.strictEqual(mapped.sourceUrl, validRow.source_url);
+  assert.strictEqual(mapped.thumbnailUrl, validRow.thumbnail_url);
+  assert.strictEqual(mapped.durationSeconds, 420);
+  assert.strictEqual(mapped.relatedStoryId, validRow.related_story_id);
+  assert.strictEqual(mapped.sourceProvenance, validRow.source_provenance);
+  assert.strictEqual(mapped.status, "ready");
+  assert.strictEqual(mapped.lockVersion, 3);
+  assert.strictEqual(mapped.createdAt, validRow.created_at);
+  assert.strictEqual(mapped.updatedAt, validRow.updated_at);
+  assert.strictEqual(mapped.createdByStaffId, validRow.created_by);
+  assert.strictEqual(mapped.updatedByStaffId, validRow.updated_by);
+});
+
+test("HT-NR-05C-A-R1 Defect A: mapNewsroomVideoRow rejects malformed rows and never fabricates defaults", () => {
+  const baseValid = {
+    id: "a0000000-0000-4000-8000-000000000001",
+    title: "Valid Video",
+    source_url: "https://example.com/stream.mp4",
+    thumbnail_url: null,
+    duration_seconds: null,
+    related_story_id: null,
+    source_provenance: "Field reporter",
+    status: "draft",
+    lock_version: 1,
+    created_at: "2026-10-16T10:00:00.000Z",
+    updated_at: "2026-10-16T10:00:00.000Z",
+    created_by: "c0000000-0000-4000-8000-000000000003",
+    updated_by: "c0000000-0000-4000-8000-000000000003"
+  };
+
+  // Null or non-object row returns null
+  assert.strictEqual(mapNewsroomVideoRow(null), null);
+  assert.strictEqual(mapNewsroomVideoRow(undefined), null);
+  assert.strictEqual(mapNewsroomVideoRow("bad"), null);
+
+  // Malformed ID (not UUID) returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, id: "123" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, id: null }), null);
+
+  // Malformed title (empty) returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, title: "" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, title: "   " }), null);
+
+  // Malformed source_url returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, source_url: "http://insecure.com" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, source_url: "https://localhost/vid" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, source_url: "https://192.168.1.1/vid" }), null);
+
+  // Malformed thumbnail_url returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, thumbnail_url: "http://thumb.jpg" }), null);
+
+  // Malformed duration returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, duration_seconds: -1 }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, duration_seconds: 12.3 }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, duration_seconds: "120" }), null);
+
+  // Malformed related_story_id returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, related_story_id: "not-a-uuid" }), null);
+
+  // Malformed provenance returns null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, source_provenance: "" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, source_provenance: "   " }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, source_provenance: null }), null);
+
+  // Unknown status must return null (NEVER fallback to draft)
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, status: "archived" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, status: "pending" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, status: "published" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, status: null }), null);
+
+  // Invalid lock_version must return null (NEVER fallback to 1)
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, lock_version: 0 }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, lock_version: -1 }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, lock_version: "1" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, lock_version: null }), null);
+
+  // Invalid timestamps must return null (NEVER fallback to current timestamp)
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, created_at: "not-a-date" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, created_at: null }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, updated_at: "invalid" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, updated_at: null }), null);
+
+  // Missing or malformed audit columns (created_by, updated_by) must return null
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, created_by: "not-uuid" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, created_by: null }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, updated_by: "not-uuid" }), null);
+  assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, updated_by: null }), null);
+});
+
+test("HT-NR-05C-A-R1 Defect A: Mutation responses strictly validate returned identifiers and lock versions", async () => {
+  // Test createVideo strict UUID check
+  mockRpcHandler = async (fn, args) => {
+    if (fn === "newsroom_create_video") {
+      return { data: "00000000-0000-4000-8000-000000000099", error: null };
+    }
+  };
+  const createdId = await stagingNewsroomVideoService.createVideo({
+    title: "Valid Title",
+    sourceUrl: "https://example.com/v.mp4",
+    sourceProvenance: "Archive"
+  });
+  assert.strictEqual(createdId, "00000000-0000-4000-8000-000000000099");
+
+  // createVideo rejects non-UUID response
+  mockRpcHandler = async () => ({ data: "not-a-uuid", error: null });
+  await assert.rejects(
+    async () =>
+      stagingNewsroomVideoService.createVideo({
+        title: "Test",
+        sourceUrl: "https://example.com/v.mp4",
+        sourceProvenance: "Archive"
+      }),
+    /canonical UUID/
+  );
+
+  mockRpcHandler = async () => ({ data: null, error: null });
+  await assert.rejects(
+    async () =>
+      stagingNewsroomVideoService.createVideo({
+        title: "Test",
+        sourceUrl: "https://example.com/v.mp4",
+        sourceProvenance: "Archive"
+      }),
+    /canonical UUID/
+  );
+
+  // Test saveVideo strict lock version check
+  mockRpcHandler = async (fn, args) => ({ data: 3, error: null });
+  const savedVersion = await stagingNewsroomVideoService.saveVideo(
+    "00000000-0000-4000-8000-000000000099",
+    2,
+    { title: "Updated Title" }
+  );
+  assert.strictEqual(savedVersion, 3);
+
+  // saveVideo rejects non-incremented version
+  mockRpcHandler = async () => ({ data: 2, error: null });
+  await assert.rejects(
+    async () =>
+      stagingNewsroomVideoService.saveVideo(
+        "00000000-0000-4000-8000-000000000099",
+        2,
+        { title: "Updated" }
+      ),
+    /strictly greater than expected version/
+  );
+
+  mockRpcHandler = async () => ({ data: "invalid", error: null });
+  await assert.rejects(
+    async () =>
+      stagingNewsroomVideoService.saveVideo(
+        "00000000-0000-4000-8000-000000000099",
+        2,
+        { title: "Updated" }
+      ),
+    /strictly greater than expected version/
+  );
+
+  // Test setReady strict lock version check
+  mockRpcHandler = async () => ({ data: 4, error: null });
+  const readyVersion = await stagingNewsroomVideoService.setReady(
+    "00000000-0000-4000-8000-000000000099",
+    3,
+    true
+  );
+  assert.strictEqual(readyVersion, 4);
+
+  // setReady rejects non-incremented or malformed version
+  mockRpcHandler = async () => ({ data: 3, error: null });
+  await assert.rejects(
+    async () =>
+      stagingNewsroomVideoService.setReady(
+        "00000000-0000-4000-8000-000000000099",
+        3,
+        true
+      ),
+    /strictly greater than expected version/
+  );
+
+  mockRpcHandler = null;
+});
+
+test("HT-NR-05C-A-R1 Defect B: Operational StudioVideoDesk supplies search query to listVideos", () => {
+  const deskSource = read("src/ui/StudioVideoDesk.tsx");
+
+  // Verify search state and debounce in StudioVideoDesk
+  assert.ok(
+    deskSource.includes("const [searchQuery, setSearchQuery] = useState"),
+    "StudioVideoDesk must maintain searchQuery state"
+  );
+  assert.ok(
+    deskSource.includes("const [debouncedSearch, setDebouncedSearch] = useState"),
+    "StudioVideoDesk must maintain debouncedSearch state"
+  );
+  assert.ok(
+    deskSource.includes("search: debouncedSearch.trim() ? debouncedSearch.trim() : undefined"),
+    "StudioVideoDesk must pass debounced search to services.newsroomVideo.listVideos"
+  );
+  assert.ok(
+    deskSource.includes("limit: 100"),
+    "StudioVideoDesk must explicitly request limit: 100"
+  );
+
+  // Verify services.newsroomVideo passes p_search to RPC
+  const serviceSource = read("src/services/newsroom-video.ts");
+  assert.ok(
+    serviceSource.includes("p_search: options?.search ?? null"),
+    "stagingNewsroomVideoService must supply p_search to newsroom_list_videos"
+  );
+});
+
+test("HT-NR-05C-A-R1 Defect B2: Metric counters display truthful result-set labels and disclosure text", () => {
+  const deskSource = read("src/ui/StudioVideoDesk.tsx");
+
+  // Verify truthful labels
+  assert.ok(
+    deskSource.includes("Loaded Results"),
+    "Metric counters must display 'Loaded Results' instead of 'Total Registered'"
+  );
+  assert.ok(
+    deskSource.includes("Draft in Results"),
+    "Metric counters must display 'Draft in Results' instead of 'Draft Videos'"
+  );
+  assert.ok(
+    deskSource.includes("Ready in Results"),
+    "Metric counters must display 'Ready in Results' instead of 'Ready Videos'"
+  );
+
+  // Verify disclosure copy
+  assert.ok(
+    deskSource.includes("Showing up to 100 server-matched videos. Results reflect current query criteria."),
+    "Must display explicit disclosure copy explaining the result set constraint"
+  );
+
+  // Prohibit fake authority labels in the metrics row
+  assert.strictEqual(
+    deskSource.includes("<Text style={styles.metricLabel}>Total Registered</Text>"),
+    false,
+    "Must not claim authoritative 'Total Registered' in metric labels"
+  );
+  assert.strictEqual(
+    deskSource.includes("<Text style={styles.metricLabel}>Draft Videos</Text>"),
+    false,
+    "Must not claim authoritative 'Draft Videos' in metric labels"
+  );
+  assert.strictEqual(
+    deskSource.includes("<Text style={styles.metricLabel}>Ready Videos</Text>"),
+    false,
+    "Must not claim authoritative 'Ready Videos' in metric labels"
   );
 });

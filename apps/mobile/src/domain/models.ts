@@ -1893,12 +1893,20 @@ export function validateVideoHttpsUrl(url: unknown): boolean {
   const trimmed = url.trim();
   if (trimmed.length === 0 || /\s/.test(trimmed)) return false;
   if (!/^https:\/\//i.test(trimmed)) return false;
-  if (/^https:\/\/[^/]*@/i.test(trimmed)) return false;
+
+  const rest = trimmed.slice(8);
+  if (/^[^/?#]*@/.test(rest)) return false;
+
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol.toLowerCase() !== "https:") return false;
     if (parsed.username || parsed.password) return false;
-    if (!parsed.hostname || parsed.hostname.length < 1) return false;
+    const host = parsed.hostname.toLowerCase();
+    if (!host || host === "localhost" || host.endsWith(".localhost")) return false;
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return false;
+    if (host.startsWith("[") || host.endsWith("]") || host.includes(":")) return false;
+    if (!host.includes(".")) return false;
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(host)) return false;
     return true;
   } catch {
     return false;

@@ -114,6 +114,7 @@ export type StudioVideoDeskViewProps = {
   error?: string | null;
   selectedVideoId?: string | null;
   onSelectVideo?: (video: NewsroomVideo | null) => void;
+  searchQuery?: string;
   onSearch?: (query: string) => void;
   statusFilter?: "all" | "draft" | "ready";
   onStatusFilterChange?: (filter: "all" | "draft" | "ready") => void;
@@ -139,6 +140,7 @@ export function StudioVideoDeskView({
   error = null,
   selectedVideoId = null,
   onSelectVideo,
+  searchQuery: searchQueryProp,
   onSearch,
   statusFilter = "all",
   onStatusFilterChange,
@@ -151,7 +153,14 @@ export function StudioVideoDeskView({
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [internalSearchQuery, setInternalSearchQuery] = useState(searchQueryProp ?? "");
+  const searchQuery = searchQueryProp !== undefined ? searchQueryProp : internalSearchQuery;
+
+  useEffect(() => {
+    if (searchQueryProp !== undefined) {
+      setInternalSearchQuery(searchQueryProp);
+    }
+  }, [searchQueryProp]);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   // New Video Form State (Starts Blank per Section 14)
@@ -227,7 +236,7 @@ export function StudioVideoDeskView({
   }, [videos, statusFilter, searchQuery]);
 
   const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
+    setInternalSearchQuery(text);
     onSearch?.(text);
   };
 
@@ -426,19 +435,24 @@ export function StudioVideoDeskView({
         </View>
       </View>
 
-      {/* Metric Counters (Section 25) */}
+      {/* Metric Counters (Truthful Result-Set Labels per Defect B2) */}
       <View style={styles.metricsRow} testID="video-desk-metrics">
         <View style={styles.metricCard}>
           <Text style={styles.metricValue}>{counts.total}</Text>
-          <Text style={styles.metricLabel}>Total Registered</Text>
+          <Text style={styles.metricLabel}>Loaded Results</Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: colors.amber700 }]}>{counts.draft}</Text>
-          <Text style={styles.metricLabel}>Draft Videos</Text>
+          <Text style={styles.metricLabel}>Draft in Results</Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: colors.emerald700 }]}>{counts.ready}</Text>
-          <Text style={styles.metricLabel}>Ready Videos</Text>
+          <Text style={styles.metricLabel}>Ready in Results</Text>
+        </View>
+        <View style={styles.metricDisclaimer}>
+          <Text style={styles.metricDisclaimerText}>
+            Showing up to 100 server-matched videos. Results reflect current query criteria.
+          </Text>
         </View>
       </View>
 
@@ -1072,6 +1086,15 @@ export function StudioVideoDesk() {
   const [error, setError] = useState<string | null>(null);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "ready">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const loadData = async () => {
     setLoading(true);
@@ -1079,7 +1102,9 @@ export function StudioVideoDesk() {
     try {
       const [videoList, storyList] = await Promise.all([
         services.newsroomVideo.listVideos({
-          status: statusFilter === "all" ? undefined : statusFilter
+          status: statusFilter === "all" ? undefined : statusFilter,
+          search: debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
+          limit: 100
         }),
         services.newsroomStories.listStories(50).catch(() => [] as NewsroomStory[])
       ]);
@@ -1094,7 +1119,7 @@ export function StudioVideoDesk() {
 
   useEffect(() => {
     loadData();
-  }, [statusFilter]);
+  }, [statusFilter, debouncedSearch]);
 
   const handleCreateVideo = async (input: NewsroomVideoCreateInput) => {
     const newId = await services.newsroomVideo.createVideo(input);
@@ -1129,6 +1154,8 @@ export function StudioVideoDesk() {
         error={error}
         selectedVideoId={selectedVideoId}
         onSelectVideo={(v) => setSelectedVideoId(v ? v.id : null)}
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onRefresh={loadData}
@@ -1265,6 +1292,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.gray500,
     marginTop: 2
+  },
+  metricDisclaimer: {
+    justifyContent: "center",
+    paddingLeft: spacing.sm,
+    flex: 1,
+    minWidth: 200
+  },
+  metricDisclaimerText: {
+    fontSize: 11,
+    color: colors.gray500,
+    fontStyle: "italic",
+    lineHeight: 15
   },
   filterBar: {
     flexDirection: "row",
