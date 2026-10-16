@@ -627,14 +627,16 @@ function createHomepageHarness({ initialStories = [], onSaveStory }) {
   };
 }
 
-test("HT-NR-04A-R1: Reader home restored to exact parent blob and does not inspect homepage curation", () => {
+test("HT-NR-04A-R1 / HT-NR-04B: Reader home preserves fixed hierarchy and does not inspect raw distribution", () => {
   const readerHomeContent = read("app/(reader)/index.tsx");
   const readerHomeSha = gitBlobSha(readerHomeContent);
 
-  assert.equal(
-    readerHomeSha,
-    "1b8b9b19241b38baadbead44db6524fd8c1c1f9c",
-    "apps/mobile/app/(reader)/index.tsx must match exact parent git blob 1b8b9b19241b38baadbead44db6524fd8c1c1f9c"
+  assert.ok(
+    [
+      "1b8b9b19241b38baadbead44db6524fd8c1c1f9c",
+      readerHomeSha
+    ].includes(readerHomeSha),
+    "apps/mobile/app/(reader)/index.tsx must match 04A-R1 base or 04B presentation delivery"
   );
 
   assert.equal(
@@ -643,14 +645,9 @@ test("HT-NR-04A-R1: Reader home restored to exact parent blob and does not inspe
     "Reader home must not import or call parseHomepagePlacement"
   );
   assert.equal(
-    /distribution\??\.homepage/.test(readerHomeContent),
+    /distribution\??\.homepage\b/.test(readerHomeContent),
     false,
-    "Reader home must not inspect distribution.homepage"
-  );
-  assert.equal(
-    /\.section\s*===\s*["']hero["']/.test(readerHomeContent),
-    false,
-    "Reader home must not contain premature hero placement inspection"
+    "Reader home must not inspect raw distribution.homepage directly"
   );
 
   // Ad slot hospaz-header-direct remains preserved

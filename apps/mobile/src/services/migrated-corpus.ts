@@ -26,6 +26,7 @@ import {
   mapMigratedStoryDocument,
   type MigratedStoryDocument
 } from "./migrated-corpus-mapper";
+import { publicPresentationService } from "./presentation";
 
 type FeedRow = {
   title: string;
@@ -167,11 +168,31 @@ async function resolveIdentity(id: string) {
     requestedPath = normalizePath("/" + decodeURIComponent(id));
   }
 
-  const resolution = await rpc<PathResolution | null>("ag05_resolve_public_path", {
-    p_path: requestedPath
-  });
-  if (!resolution || resolution.http_status === 404 || !resolution.target_path) return null;
-  return storyForPath(resolution.target_path);
+  try {
+    const resolution = await rpc<PathResolution | null>("ag05_resolve_public_path", {
+      p_path: requestedPath
+    });
+    if (resolution && resolution.http_status !== 404 && resolution.target_path) {
+      const legacy = await storyForPath(resolution.target_path);
+      if (legacy) return legacy;
+    }
+  } catch {
+    // Continue to native resolution fallback
+  }
+
+  // Fallback for native CMS stories not indexed in legacy migration corpus
+  try {
+    const nativeDoc = await rpc<MigratedStoryDocument | null>("newsroom_public_story_document", {
+      p_path: requestedPath
+    });
+    if (nativeDoc?.story_id) {
+      return mapMigratedStoryDocument(nativeDoc, stagingConfig.url);
+    }
+  } catch {
+    // Fail safe to null if native RPC fails or story is not found
+  }
+
+  return null;
 }
 
 const articleRepository: ArticleRepository = {
@@ -375,6 +396,7 @@ const publicationRepository: PublicationRepository = {
 export const migratedCorpusServices = {
   ...sourceParityServices,
   articles: articleRepository,
+  presentation: publicPresentationService,
   search: searchService,
   taxonomy: taxonomyService,
   publication: publicationRepository,
