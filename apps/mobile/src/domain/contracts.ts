@@ -51,7 +51,13 @@ import type {
   PublicHomepagePresentation,
   NewsroomMediaAsset,
   NewsroomMediaPreview,
-  NewsroomMediaMetadataPatch
+  NewsroomMediaMetadataPatch,
+  PrepareStoryMediaPayload,
+  StoryMediaPreparation,
+  StoryMediaUploadContext,
+  StoryMediaPromotionItem,
+  StoryMediaStageResult,
+  StoryMediaUsageType
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -251,6 +257,24 @@ export interface NewsroomMediaService {
   listMedia(search?: string | null, limit?: number): Promise<NewsroomMediaAsset[]>;
   getMediaPreview(mediaId: string): Promise<NewsroomMediaPreview>;
   updateMediaMetadata(mediaId: string, patch: NewsroomMediaMetadataPatch): Promise<void>;
+  prepareStoryMedia(storyId: string, payload: PrepareStoryMediaPayload): Promise<StoryMediaPreparation>;
+  getUploadContext(mediaId: string, storyId: string): Promise<StoryMediaUploadContext>;
+  finalizeStoryMedia(
+    mediaId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType,
+    checksum?: string | null
+  ): Promise<{ mediaId: string; storyId: string; usageType: StoryMediaUsageType; status: string }>;
+  attachStoryMedia(mediaId: string, storyId: string, usageType: StoryMediaUsageType): Promise<void>;
+  detachStoryMedia(mediaId: string, storyId: string, usageType: StoryMediaUsageType): Promise<void>;
+  getPromotionPlan(storyId: string): Promise<StoryMediaPromotionItem[]>;
+  stagePromotion(
+    storyId: string,
+    mediaId: string,
+    publicStorageKey: string,
+    verifiedChecksum: string
+  ): Promise<StoryMediaStageResult>;
+  clearStagedPromotion(storyId: string, mediaId: string): Promise<void>;
 }
 
 export interface HealthTimesServices {

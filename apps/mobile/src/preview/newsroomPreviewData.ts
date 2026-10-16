@@ -9,7 +9,8 @@ import type {
   NewsroomStoryAutosave,
   NewsroomStoryCorrection,
   NewsroomStoryReview,
-  NewsroomStoryRevision
+  NewsroomStoryRevision,
+  StoryMediaPromotionItem
 } from "../domain/models";
 
 export const OWNER_PREVIEW_WATERMARK =
@@ -1087,6 +1088,46 @@ export function buildPreviewMediaAssets(): NewsroomMediaAsset[] {
       usage: [],
       typeGroup: "Audio",
       storageCustodyCategory: "unknown"
+    }
+  ];
+}
+
+export function buildPreviewStoryMediaAttachments(storyId: string): NewsroomMediaAsset[] {
+  const allMedia = buildPreviewMediaAssets();
+  const attached = allMedia.filter((m) => m.usage.some((u) => u.storyId === storyId));
+  if (attached.length > 0) return attached;
+  return allMedia.slice(0, 3);
+}
+
+export function buildPreviewPromotionPlan(storyId: string): StoryMediaPromotionItem[] {
+  return [
+    {
+      mediaId: "00000000-0000-4000-8000-000000007001",
+      usageType: "featured",
+      privateBucket: "newsroom-private",
+      privateKey: `story-media/${storyId}/00000000-0000-4000-8000-000000007001/clinical-ward-vaccination.jpg`,
+      filename: "clinical-ward-vaccination.jpg",
+      mimeType: "image/jpeg",
+      byteSize: 2458900,
+      checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      publicStorageBucket: null,
+      publicStorageKey: null,
+      publicUrl: null,
+      mediaStatus: "private_ready"
+    },
+    {
+      mediaId: "00000000-0000-4000-8000-000000007002",
+      usageType: "inline",
+      privateBucket: "newsroom-private",
+      privateKey: `story-media/${storyId}/00000000-0000-4000-8000-000000007002/water-purification-infographic.png`,
+      filename: "water-purification-infographic.png",
+      mimeType: "image/png",
+      byteSize: 1245000,
+      checksum: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      publicStorageBucket: "newsroom-public",
+      publicStorageKey: `story-media/${storyId}/00000000-0000-4000-8000-000000007002/ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb/water-purification-infographic.png`,
+      publicUrl: `https://preview-media.local/storage/v1/object/public/newsroom-public/story-media/${storyId}/00000000-0000-4000-8000-000000007002/ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb/water-purification-infographic.png`,
+      mediaStatus: "public_staged"
     }
   ];
 }

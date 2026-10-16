@@ -20,7 +20,8 @@ import {
   type NewsroomMediaAssetStatus,
   type NewsroomMediaAssetTypeGroup,
   type NewsroomMediaMetadataPatch,
-  type NewsroomMediaUsage
+  type NewsroomMediaUsage,
+  type StoryMediaUsageType
 } from "../domain/models";
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
 
@@ -106,6 +107,14 @@ export type StudioMediaLibraryViewProps = {
   searchQuery?: string;
   isOwnerPreview?: boolean;
   watermarkBanner?: string;
+  onAttachToStory?: (
+    assetId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType,
+    caption?: string,
+    credit?: string
+  ) => Promise<void>;
+  storyOptions?: Array<{ id: string; title: string; workflowStatus?: string | null }>;
 };
 
 export function StudioMediaLibraryView({
@@ -122,7 +131,9 @@ export function StudioMediaLibraryView({
   saveSuccess = false,
   searchQuery: initialSearchQuery = "",
   isOwnerPreview = false,
-  watermarkBanner
+  watermarkBanner,
+  onAttachToStory,
+  storyOptions = []
 }: StudioMediaLibraryViewProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -133,6 +144,17 @@ export function StudioMediaLibraryView({
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [usageFilter, setUsageFilter] = useState<"All" | "used" | "unused">("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Story attachment modal state
+  const [showAttachModal, setShowAttachModal] = useState(false);
+  const [targetStoryId, setTargetStoryId] = useState("");
+  const [attachUsageType, setAttachUsageType] = useState<StoryMediaUsageType>("featured");
+  const [attachCaption, setAttachCaption] = useState("");
+  const [attachCredit, setAttachCredit] = useState("");
+  const [attachSubmitting, setAttachSubmitting] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [attachSuccess, setAttachSuccess] = useState(false);
+  const [storySearchFilter, setStorySearchFilter] = useState("");
 
   // Filtered assets
   const filteredAssets = useMemo(() => {
@@ -174,8 +196,45 @@ export function StudioMediaLibraryView({
       setDraftCredit(selectedAsset.credit ?? "");
       setDraftProvenance(selectedAsset.sourceProvenance ?? "");
       setClientValidationError(null);
+      setShowAttachModal(false);
+      setAttachError(null);
+      setAttachSuccess(false);
     }
   }, [selectedAsset?.id]);
+
+  const filteredStoryOptions = useMemo(() => {
+    if (!storyOptions || storyOptions.length === 0) return [];
+    if (!storySearchFilter.trim()) return storyOptions;
+    const q = storySearchFilter.toLowerCase();
+    return storyOptions.filter(
+      (s) => s.title.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)
+    );
+  }, [storyOptions, storySearchFilter]);
+
+  const handleExecuteAttach = async () => {
+    if (!selectedAsset || !targetStoryId || !onAttachToStory) return;
+    setAttachSubmitting(true);
+    setAttachError(null);
+    setAttachSuccess(false);
+    try {
+      await onAttachToStory(
+        selectedAsset.id,
+        targetStoryId,
+        attachUsageType,
+        attachCaption.trim() || undefined,
+        attachCredit.trim() || undefined
+      );
+      setAttachSuccess(true);
+      setTimeout(() => {
+        setShowAttachModal(false);
+        setAttachSuccess(false);
+      }, 1200);
+    } catch (err: any) {
+      setAttachError(err.message || "Failed to attach asset to story.");
+    } finally {
+      setAttachSubmitting(false);
+    }
+  };
 
   const handleSearchSubmit = () => {
     if (onSearch) {
@@ -837,6 +896,216 @@ export function StudioMediaLibraryView({
                   </View>
                 )}
               </View>
+
+              {/* Story Association / Attachment */}
+              {onAttachToStory ? (
+                <View style={styles.inspectorSection} testID="media-story-attachment-section">
+                  <Text style={styles.sectionHeading}>Story Association</Text>
+                  <Text style={styles.editorNote}>
+                    Attach this canonical asset to a newsroom story as featured lead, inline media, or supporting document.
+                  </Text>
+                  {!showAttachModal ? (
+                    <Pressable
+                      style={styles.attachToStoryBtn}
+                      onPress={() => {
+                        setShowAttachModal(true);
+                        setAttachError(null);
+                        setAttachSuccess(false);
+                        const isImg = selectedAsset.mimeType.startsWith("image/");
+                        setAttachUsageType(isImg ? "featured" : "supporting_document");
+                        setAttachCaption(selectedAsset.caption ?? "");
+                        setAttachCredit(selectedAsset.credit ?? "");
+                        if (storyOptions.length > 0 && !targetStoryId) {
+                          setTargetStoryId(storyOptions[0]?.id || "");
+                        }
+                      }}
+                      testID="media-attach-to-story-button"
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.attachToStoryBtnText}>📎 Attach to Story…</Text>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.attachModalOverlay} testID="media-attach-modal">
+                      <Text style={styles.attachModalTitle}>Attach Asset to Story</Text>
+                      <Text style={styles.attachModalSub}>
+                        Target Asset: {selectedAsset.filename}
+                      </Text>
+
+                      {/* Story Search / Selection */}
+                      <Text style={styles.formLabel}>Target Story *</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Search stories by headline or ID…"
+                        placeholderTextColor={colors.inkMuted}
+                        value={storySearchFilter}
+                        onChangeText={setStorySearchFilter}
+                        testID="media-attach-story-search"
+                      />
+                      <ScrollView
+                        style={styles.storyChoiceScroll}
+                        nestedScrollEnabled
+                      >
+                        {filteredStoryOptions.length === 0 ? (
+                          <Text style={styles.noUsageText}>No matching stories available.</Text>
+                        ) : (
+                          filteredStoryOptions.map((st) => {
+                            const isPicked = targetStoryId === st.id;
+                            return (
+                              <Pressable
+                                key={st.id}
+                                style={[
+                                  styles.storyChoiceItem,
+                                  isPicked && styles.storyChoiceItemSelected
+                                ]}
+                                onPress={() => setTargetStoryId(st.id)}
+                                testID={`media-attach-pick-story-${st.id}`}
+                              >
+                                <Text
+                                  style={[
+                                    styles.storyChoiceText,
+                                    isPicked && styles.storyChoiceTextSelected
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {st.title || "Untitled story"} ({st.workflowStatus ?? "Draft"})
+                                </Text>
+                              </Pressable>
+                            );
+                          })
+                        )}
+                      </ScrollView>
+
+                      {/* Role selection */}
+                      <Text style={styles.formLabel}>Usage Role *</Text>
+                      <View style={styles.roleOptionRow}>
+                        {selectedAsset.mimeType.startsWith("image/") ? (
+                          <>
+                            <Pressable
+                              style={[
+                                styles.roleOptionBtn,
+                                attachUsageType === "featured" && styles.roleOptionBtnSelected
+                              ]}
+                              onPress={() => setAttachUsageType("featured")}
+                              testID="media-attach-role-featured"
+                            >
+                              <Text
+                                style={[
+                                  styles.roleOptionText,
+                                  attachUsageType === "featured" && styles.roleOptionTextSelected
+                                ]}
+                              >
+                                Featured Lead
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={[
+                                styles.roleOptionBtn,
+                                attachUsageType === "inline" && styles.roleOptionBtnSelected
+                              ]}
+                              onPress={() => setAttachUsageType("inline")}
+                              testID="media-attach-role-inline"
+                            >
+                              <Text
+                                style={[
+                                  styles.roleOptionText,
+                                  attachUsageType === "inline" && styles.roleOptionTextSelected
+                                ]}
+                              >
+                                Inline Image
+                              </Text>
+                            </Pressable>
+                          </>
+                        ) : (
+                          <Pressable
+                            style={[
+                              styles.roleOptionBtn,
+                              attachUsageType === "supporting_document" && styles.roleOptionBtnSelected
+                            ]}
+                            onPress={() => setAttachUsageType("supporting_document")}
+                            testID="media-attach-role-doc"
+                          >
+                            <Text
+                              style={[
+                                styles.roleOptionText,
+                                attachUsageType === "supporting_document" && styles.roleOptionTextSelected
+                              ]}
+                            >
+                              Supporting Document
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {/* Featured Replacement Warning */}
+                      {attachUsageType === "featured" ? (
+                        <View style={styles.warningBox} testID="media-attach-replacement-warning">
+                          <Text style={styles.warningText}>
+                            ⚠️ REPLACEMENT: Setting this image as Featured will replace any existing featured lead image on the target story upon confirmation.
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* Caption override */}
+                      <Text style={styles.formLabel}>Caption Override (optional)</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={attachCaption}
+                        onChangeText={setAttachCaption}
+                        placeholder="Contextual caption for this story..."
+                        placeholderTextColor={colors.inkMuted}
+                        testID="media-attach-caption-input"
+                      />
+
+                      {/* Credit override */}
+                      <Text style={styles.formLabel}>Credit Override (optional)</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={attachCredit}
+                        onChangeText={setAttachCredit}
+                        placeholder="Photographer / agency credit..."
+                        placeholderTextColor={colors.inkMuted}
+                        testID="media-attach-credit-input"
+                      />
+
+                      {attachError ? (
+                        <View style={styles.errorAlert} testID="media-attach-error">
+                          <Text style={styles.errorAlertText}>❌ {attachError}</Text>
+                        </View>
+                      ) : null}
+
+                      {attachSuccess ? (
+                        <View style={styles.successAlert} testID="media-attach-success">
+                          <Text style={styles.successAlertText}>✓ Asset successfully attached to story.</Text>
+                        </View>
+                      ) : null}
+
+                      {/* Action buttons */}
+                      <View style={styles.attachActionRow}>
+                        <Pressable
+                          style={[
+                            styles.attachSubmitBtn,
+                            (!targetStoryId || attachSubmitting) && styles.saveButtonDisabled
+                          ]}
+                          onPress={handleExecuteAttach}
+                          disabled={!targetStoryId || attachSubmitting}
+                          testID="media-attach-confirm-button"
+                        >
+                          <Text style={styles.attachSubmitBtnText}>
+                            {attachSubmitting ? "Attaching…" : "Confirm Attachment"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.attachCancelBtn}
+                          onPress={() => setShowAttachModal(false)}
+                          disabled={attachSubmitting}
+                        >
+                          <Text style={styles.attachCancelBtnText}>Cancel</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ) : null}
             </ScrollView>
           ) : (
             <View style={styles.emptyInspector}>
@@ -876,6 +1145,23 @@ export function StudioMediaLibrary() {
   }, [isAuthorized, searchQuery, refreshKey]);
 
   const assets = Array.isArray(mediaAsync.data) ? mediaAsync.data : [];
+
+  // Stories listing for attachment:
+  const storiesAsync = useAsync(async () => {
+    if (!isAuthorized) return [];
+    return await services.newsroomStories.listStories(100);
+  }, [isAuthorized, refreshKey]);
+
+  const stories = Array.isArray(storiesAsync.data) ? storiesAsync.data : [];
+
+  const handleAttachToStory = async (
+    assetId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType
+  ) => {
+    await services.newsroomMedia.attachStoryMedia(assetId, storyId, usageType);
+    setRefreshKey((k) => k + 1);
+  };
 
   const handleSaveMetadata = async (
     mediaId: string,
@@ -935,6 +1221,12 @@ export function StudioMediaLibrary() {
       saveError={saveError}
       saveSuccess={saveSuccess}
       searchQuery={searchQuery}
+      onAttachToStory={handleAttachToStory}
+      storyOptions={stories.map((s) => ({
+        id: s.id,
+        title: s.title,
+        workflowStatus: s.workflowStatus
+      }))}
     />
   );
 }
@@ -1598,6 +1890,111 @@ const styles = StyleSheet.create({
   unauthorizedBody: {
     fontSize: 14,
     lineHeight: 22,
+    color: colors.inkMuted
+  },
+  attachToStoryBtn: {
+    backgroundColor: colors.blue,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    marginTop: spacing.xs
+  },
+  attachToStoryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  attachModalOverlay: {
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm
+  },
+  attachModalTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.ink
+  },
+  attachModalSub: {
+    fontSize: 12,
+    color: colors.inkMuted
+  },
+  storyChoiceScroll: {
+    maxHeight: 140,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.paperMuted,
+    padding: spacing.xs
+  },
+  storyChoiceItem: {
+    padding: spacing.xs,
+    borderRadius: 4,
+    marginBottom: 2
+  },
+  storyChoiceItemSelected: {
+    backgroundColor: "#DBEAFE"
+  },
+  storyChoiceText: {
+    fontSize: 12,
+    color: colors.ink
+  },
+  storyChoiceTextSelected: {
+    fontWeight: "700",
+    color: colors.blue
+  },
+  roleOptionRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: 2
+  },
+  roleOptionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.paper
+  },
+  roleOptionBtnSelected: {
+    backgroundColor: colors.navy,
+    borderColor: colors.navy
+  },
+  roleOptionText: {
+    fontSize: 11,
+    color: colors.ink
+  },
+  roleOptionTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700"
+  },
+  attachActionRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    alignItems: "center"
+  },
+  attachSubmitBtn: {
+    backgroundColor: colors.blue,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm
+  },
+  attachSubmitBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  attachCancelBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm
+  },
+  attachCancelBtnText: {
+    fontSize: 12,
     color: colors.inkMuted
   }
 });

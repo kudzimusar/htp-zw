@@ -328,15 +328,41 @@ export const fixtureNewsroomStoryService: NewsroomStoryService = {
   }
 };
 
-const fixtureNewsroomMediaService: NewsroomMediaService = {
+const FAIL_CLOSED_MEDIA_MESSAGE = "Server-authorized Newsroom media operations are unavailable in fixture mode.";
+
+export const fixtureNewsroomMediaService: NewsroomMediaService = {
   async listMedia() {
     return [];
   },
   async getMediaPreview() {
-    throw new Error("Server-authorized Newsroom media operations are unavailable in fixture mode.");
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
   },
   async updateMediaMetadata() {
-    throw new Error("Server-authorized Newsroom media operations are unavailable in fixture mode.");
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async prepareStoryMedia() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async getUploadContext() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async finalizeStoryMedia() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async attachStoryMedia() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async detachStoryMedia() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async getPromotionPlan() {
+    return [];
+  },
+  async stagePromotion() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
+  },
+  async clearStagedPromotion() {
+    throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
   }
 };
 
