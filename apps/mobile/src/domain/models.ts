@@ -698,3 +698,47 @@ export function getAssignmentProgressActionLabel(currentStatus: string): string 
       return null;
   }
 }
+
+export type NewsroomCalendarEventKind =
+  | "story_deadline"
+  | "scheduled_publication"
+  | "assignment_deadline";
+
+export type NewsroomCalendarSourceType = "story" | "assignment";
+
+export type NewsroomCalendarUrgency =
+  | "overdue"
+  | "today"
+  | "tomorrow"
+  | "upcoming"
+  | "completed"
+  | "past_scheduled";
+
+export type NewsroomCalendarHorizonBucket =
+  | "overdue"
+  | "today"
+  | "tomorrow"
+  | "next_7_days"
+  | "later"
+  | "past";
+
+export type NewsroomCalendarItem = {
+  id: string;
+  sourceType: NewsroomCalendarSourceType;
+  sourceId: string;
+  title: string;
+  timestamp: string;
+  timestampMs: number;
+  eventKind: NewsroomCalendarEventKind;
+  desk: string | null;
+  workflowOrStatus: string;
+  accessPolicy: "public" | "premium" | string | null;
+  priority: string | null;
+  urgency: NewsroomCalendarUrgency;
+  horizonBucket: NewsroomCalendarHorizonBucket;
+  isOverdue: boolean;
+  isTerminal: boolean;
+  storyId: string | null;
+  assignmentId: string | null;
+};
+
