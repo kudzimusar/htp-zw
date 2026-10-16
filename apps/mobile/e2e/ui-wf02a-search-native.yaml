@@ -1,0 +1,41 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- openLink: "healthtimes://search"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes Dev.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Search HealthTimes"
+    timeout: 90000
+- extendedWaitUntil:
+    visible: "Try searching for"
+    timeout: 45000
+- extendedWaitUntil:
+    visible: "Intelligent Search"
+    timeout: 45000
+- assertVisible: "All"
+- assertVisible: "Articles"
+- assertVisible: "Videos"
+- assertVisible: "Audio"
+- assertVisible: "Authors"
+- assertVisible: "Filters"
+- assertVisible: "Home"
+- assertVisible: "Explore"
+- assertVisible: "Live"
+- assertVisible: "Watch"
+- assertVisible: "My HT"
+- assertNotVisible: "RedBox"
+- assertNotVisible: "Unhandled JS Exception"
+- takeScreenshot: search-initial
+- tapOn: "Filters"
+- extendedWaitUntil:
+    visible: "Section"
+    timeout: 20000
+- assertVisible: "Date range"
+- assertVisible: "Sort order"
+- takeScreenshot: search-filters-open
