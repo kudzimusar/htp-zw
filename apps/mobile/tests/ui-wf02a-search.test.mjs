@@ -63,7 +63,7 @@ test("Try searching for derives suggestions from real taxonomy/geography authori
   assert.match(search,/taxonomy\.data\?\.editorialDesks/);
   assert.match(search,/\.\.\.topics\.slice\(0,3\)/);
   assert.match(search,/\.\.\.countries\.slice\(0,2\)/);
-  assert.match(search,/\]\)\.slice\(0,5\)/,"Initial Search should expose a bounded five-item real suggestion set");
+  assert.match(search,/\]\)\)\.slice\(0,5\)/,"Initial Search should expose a bounded five-item real suggestion set");
   assert.match(search,/>Try searching for</);
   assert.match(search,/SuggestionRow/);
   assert.doesNotMatch(search,/suggestionArrow/,"Suggestion rows should stay query-like rather than card/CTA-like");

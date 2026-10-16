@@ -34,8 +34,11 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: search-initial
 - tapOn: "Filters"
 - extendedWaitUntil:
-    visible: "Section"
+    visible: "COUNTRY"
     timeout: 20000
-- assertVisible: "Date range"
-- assertVisible: "Sort order"
+- assertVisible: "COUNTRY"
+- extendedWaitUntil:
+    visible: "TOPIC / DESK"
+    timeout: 20000
+- assertVisible: "TOPIC / DESK"
 - takeScreenshot: search-filters-open

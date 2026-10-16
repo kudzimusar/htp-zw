@@ -21,8 +21,7 @@ appId: zw.co.healthtimes.app.dev
 - tapOn: "Search articles, topics, authors…"
 - inputText: "health"
 - takeScreenshot: search-keyboard
-- hideKeyboard
-- tapOn: "Submit HealthTimes search"
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "HEALTHTIMES SEARCH"
     timeout: 20000
