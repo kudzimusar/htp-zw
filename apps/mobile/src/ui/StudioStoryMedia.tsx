@@ -11,7 +11,14 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { services } from "../services";
-import { newsroomStorageService, computeSha256Hex } from "../services/newsroom-storage";
+import {
+  newsroomStorageService,
+  computeSha256Hex,
+  orchestrateStageCompensation,
+  executeInitialUpload,
+  executeRetryUpload,
+  executeRetryFinalize
+} from "../services/newsroom-storage";
 import { useAsync } from "../hooks/useAsync";
 import { hasServerCapability, type HealthTimesCapability } from "../security/capabilities";
 import {
@@ -29,7 +36,8 @@ import {
   type StoryMediaPromotionItem,
   type StoryMediaSelectedFile,
   type StoryMediaStageResult,
-  type StoryMediaUsageType
+  type StoryMediaUsageType,
+  type UploadReconciliationState
 } from "../domain/models";
 import { pickStoryMediaFile } from "../services/file-picker";
 import { colors, radius, spacing } from "../theme/tokens";
@@ -39,19 +47,7 @@ import { formatByteSize, formatMediaUsageSourceContext } from "./StudioMediaLibr
 // PRESENTATION CONTRACT FOR SHARED VIEW
 // =========================================================================
 
-export type UploadReconciliationState = {
-  stage: "upload_failed" | "finalize_failed";
-  mediaId: string;
-  storyId: string;
-  usageType: StoryMediaUsageType;
-  storageBucket: string;
-  storageKey: string;
-  filename: string;
-  mimeType: string;
-  bytes: Uint8Array;
-  checksum: string;
-  errorMessage: string;
-};
+export type { UploadReconciliationState };
 
 export interface AttachedMediaItem {
   mediaId: string;
@@ -1393,6 +1389,14 @@ export function StudioStoryMediaPanel({
     fileBytes: Uint8Array | ArrayBuffer | Blob
   ) => {
     const rawBytes = fileBytes instanceof Uint8Array ? fileBytes : new Uint8Array(fileBytes as ArrayBuffer);
+
+    // Strict byte-level file type and signature validation
+    payload.byteSize = rawBytes.byteLength;
+    const validation = validateStoryMediaUpload(payload, rawBytes);
+    if (!validation.valid) {
+      throw new Error(validation.error || "File validation failed.");
+    }
+
     let mediaId: string;
     let storageBucket: string;
     let storageKey: string;
@@ -1435,6 +1439,21 @@ export function StudioStoryMediaPanel({
       throw uploadErr;
     }
 
+    // Storage upload succeeded! Now set state to pending finalize
+    const finalizePendingState: UploadReconciliationState = {
+      stage: "finalize_failed",
+      mediaId,
+      storyId,
+      usageType: payload.usageType,
+      storageBucket,
+      storageKey,
+      filename: payload.filename,
+      mimeType: payload.mimeType,
+      bytes: rawBytes,
+      checksum: payload.checksum || "",
+      errorMessage: "Storage upload succeeded. Finalize confirmation pending."
+    };
+
     // Step 3: Finalize RPC
     try {
       await services.newsroomMedia.finalizeStoryMedia(
@@ -1445,16 +1464,7 @@ export function StudioStoryMediaPanel({
       );
     } catch (finalizeErr) {
       setReconciliationState({
-        stage: "finalize_failed",
-        mediaId,
-        storyId,
-        usageType: payload.usageType,
-        storageBucket,
-        storageKey,
-        filename: payload.filename,
-        mimeType: payload.mimeType,
-        bytes: rawBytes,
-        checksum: payload.checksum || "",
+        ...finalizePendingState,
         errorMessage: finalizeErr instanceof Error ? finalizeErr.message : "Media finalization failed."
       });
       throw finalizeErr;
@@ -1468,18 +1478,50 @@ export function StudioStoryMediaPanel({
 
   const handleRetryUpload = async () => {
     if (!reconciliationState || reconciliationState.stage !== "upload_failed") return;
-    await newsroomStorageService.uploadPrivateObject(
-      reconciliationState.storageBucket,
-      reconciliationState.storageKey,
-      reconciliationState.bytes,
-      reconciliationState.mimeType
-    );
-    await services.newsroomMedia.finalizeStoryMedia(
-      reconciliationState.mediaId,
-      storyId,
-      reconciliationState.usageType,
-      reconciliationState.checksum
-    );
+
+    // Step 1: Retry Storage Upload on exact same key/bytes WITHOUT calling prepare RPC
+    try {
+      await newsroomStorageService.uploadPrivateObject(
+        reconciliationState.storageBucket,
+        reconciliationState.storageKey,
+        reconciliationState.bytes,
+        reconciliationState.mimeType
+      );
+    } catch (uploadErr) {
+      // Still upload_failed
+      setReconciliationState({
+        ...reconciliationState,
+        stage: "upload_failed",
+        errorMessage: uploadErr instanceof Error ? uploadErr.message : "Private storage upload failed on retry."
+      });
+      throw uploadErr;
+    }
+
+    // Upload succeeded! State MUST become finalize_failed preserving all context
+    const pendingFinalizeState: UploadReconciliationState = {
+      ...reconciliationState,
+      stage: "finalize_failed",
+      errorMessage: "Storage upload succeeded. Finalize confirmation pending."
+    };
+    setReconciliationState(pendingFinalizeState);
+
+    // Step 2: Attempt Finalize RPC
+    try {
+      await services.newsroomMedia.finalizeStoryMedia(
+        reconciliationState.mediaId,
+        storyId,
+        reconciliationState.usageType,
+        reconciliationState.checksum
+      );
+    } catch (finalizeErr) {
+      setReconciliationState({
+        ...pendingFinalizeState,
+        errorMessage: finalizeErr instanceof Error ? finalizeErr.message : "Media finalization failed on retry."
+      });
+      throw finalizeErr;
+    }
+
+    // Success: clear reconciliation context and refresh canonical state
     setReconciliationState(null);
     await Promise.all([refreshStoryAttachments(), refreshPlan()]);
     if (onStoryUpdated) onStoryUpdated();
@@ -1487,17 +1529,24 @@ export function StudioStoryMediaPanel({
 
   const handleRetryFinalize = async () => {
     if (!reconciliationState || reconciliationState.stage !== "finalize_failed") return;
-    try {
-      await services.newsroomMedia.getUploadContext(reconciliationState.mediaId, storyId);
-    } catch {
-      // Proceed to finalize
+
+    // Step 1: Verify upload-context custody (do NOT silently swallow real custody failure)
+    const custody = await services.newsroomMedia.getUploadContext(reconciliationState.mediaId, storyId);
+    if (!custody || custody.mediaId !== reconciliationState.mediaId || custody.storyId !== storyId) {
+      throw new Error(
+        `Upload context custody mismatch for media "${reconciliationState.mediaId}" and story "${storyId}".`
+      );
     }
+
+    // Step 2: Finalize RPC directly (no second storage upload!)
     await services.newsroomMedia.finalizeStoryMedia(
       reconciliationState.mediaId,
       storyId,
       reconciliationState.usageType,
       reconciliationState.checksum
     );
+
+    // Success: clear reconciliation context and refresh canonical state
     setReconciliationState(null);
     await Promise.all([refreshStoryAttachments(), refreshPlan()]);
     if (onStoryUpdated) onStoryUpdated();
@@ -1527,45 +1576,32 @@ export function StudioStoryMediaPanel({
       expectedChecksum: item.checksum
     });
 
-    // 2. Stage Promotion RPC with verified checksum
-    try {
-      await services.newsroomMedia.stagePromotion(
-        storyId,
-        item.mediaId,
-        publicKey,
-        verifiedChecksum
-      );
-    } catch (rpcErr) {
-      // Refresh canonical state to check if RPC committed despite response error
-      let refreshedPlan: StoryMediaPromotionItem[] = [];
-      try {
-        refreshedPlan = await services.newsroomMedia.getPromotionPlan(storyId);
-      } catch {
-        // ignore
+    // 2. Stage Promotion RPC with verified checksum & bounded compensation
+    const compResult = await orchestrateStageCompensation(
+      storyId,
+      item.mediaId,
+      publicKey,
+      {
+        stageRpc: () =>
+          services.newsroomMedia.stagePromotion(
+            storyId,
+            item.mediaId,
+            publicKey,
+            verifiedChecksum
+          ),
+        getCanonicalPlan: () => services.newsroomMedia.getPromotionPlan(storyId),
+        deletePublicObject: (b: string, k: string) =>
+          newsroomStorageService.deleteStagedPublicObject(b, k)
       }
+    );
 
-      const refreshedItem = refreshedPlan.find((p) => p.mediaId === item.mediaId);
-      if (refreshedItem && refreshedItem.mediaStatus === "public_staged") {
-        setPromotionPlan(refreshedPlan);
-        await refreshStoryAttachments();
-        return;
-      }
+    if (compResult.outcome === "reconciliation_required") {
+      throw compResult.error;
+    }
 
-      // Bounded compensation: delete newly uploaded staged public object using corrected authority
-      try {
-        await newsroomStorageService.deleteStagedPublicObject("newsroom-public", publicKey);
-        throw new Error(
-          `Stage promotion failed: ${rpcErr instanceof Error ? rpcErr.message : String(rpcErr)}. Public storage staging was safely rolled back.`
-        );
-      } catch (cleanupErr) {
-        throw new Error(
-          `RECONCILIATION REQUIRED: Stage promotion failed (${
-            rpcErr instanceof Error ? rpcErr.message : String(rpcErr)
-          }) and public storage cleanup also failed (${
-            cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
-          }) for public key "${publicKey}".`
-        );
-      }
+    if (compResult.outcome === "rollback_complete") {
+      await Promise.all([refreshPlan(), refreshStoryAttachments()]);
+      throw new Error(compResult.message);
     }
 
     // 3. Refresh Plan

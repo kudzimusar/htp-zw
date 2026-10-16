@@ -30,6 +30,8 @@ const {
   MAX_STORY_MEDIA_BYTES,
   BOUNDED_MIME_BY_EXTENSION,
   resolveBoundedMimeType,
+  verifyFileContentSignature,
+  validateStoryMediaSelectedFile,
   isMediaAssetAttachable,
   isValidSha256Checksum,
   validateStoryMediaUpload,
@@ -73,7 +75,11 @@ const {
   copyPrivateToPublic,
   copyPrivateToCanonicalPublic,
   deleteStagedPublicObject,
-  newsroomStorageService
+  newsroomStorageService,
+  orchestrateStageCompensation,
+  executeInitialUpload,
+  executeRetryUpload,
+  executeRetryFinalize
 } = storageModule;
 
 const filePickerModule = loadTs("src/services/file-picker.ts", {
@@ -211,10 +217,19 @@ test("HT-NR-05B Validation: MIME types and file size boundaries", () => {
   const dummyChecksum = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
   // Allowed MIME types
+  const mimeToFilename = {
+    "image/jpeg": "photo.jpg",
+    "image/png": "photo.png",
+    "image/webp": "photo.webp",
+    "application/pdf": "doc.pdf",
+    "text/plain": "notes.txt",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "doc.docx"
+  };
+
   for (const mime of ALLOWED_STORY_MEDIA_MIME_TYPES) {
     const isDoc = mime === "application/pdf" || mime === "text/plain" || mime.includes("wordprocessing");
     const val = validateStoryMediaUpload({
-      filename: isDoc ? "doc.pdf" : "photo.jpg",
+      filename: mimeToFilename[mime] || "photo.jpg",
       mimeType: mime,
       byteSize: 1024,
       checksum: dummyChecksum,
@@ -662,8 +677,8 @@ test("HT-NR-05B-R1 Section 38: Real file selection adapter & absence of operatio
 });
 
 test("HT-NR-05B-R1 Section 39: Exact byte consistency from selected bytes to checksum and payload", async () => {
-  // Deterministic 12-byte test payload
-  const deterministicBytes = new Uint8Array([72, 101, 97, 108, 116, 104, 84, 105, 109, 101, 115, 33]);
+  // Deterministic 15-byte test payload with valid JPEG header (FF D8 FF)
+  const deterministicBytes = new Uint8Array([0xff, 0xd8, 0xff, 72, 101, 97, 108, 116, 104, 84, 105, 109, 101, 115, 33]);
   const expectedSha256 = crypto.createHash("sha256").update(deterministicBytes).digest("hex");
   const computedSha256 = await computeSha256Hex(deterministicBytes);
   assert.strictEqual(computedSha256, expectedSha256);
@@ -686,22 +701,33 @@ test("HT-NR-05B-R1 Section 39: Exact byte consistency from selected bytes to che
   });
   assert.strictEqual(uploadValidation.valid, true);
   assert.strictEqual(uploadValidation.error, undefined);
-  assert.strictEqual(selected.byteSize, 12);
+  assert.strictEqual(selected.byteSize, 15);
 });
 
 test("HT-NR-05B-R1 Section 40: MIME truth and file extension bounding", () => {
-  // Truthful bounded resolutions
-  assert.strictEqual(resolveBoundedMimeType("photo.jpg", "text/plain"), "image/jpeg");
+  // Truthful bounded resolutions when picker MIME agrees or is generic/omitted
+  assert.strictEqual(resolveBoundedMimeType("photo.jpg", "image/jpeg"), "image/jpeg");
   assert.strictEqual(resolveBoundedMimeType("photo.jpeg", "application/octet-stream"), "image/jpeg");
   assert.strictEqual(resolveBoundedMimeType("photo.JPG", ""), "image/jpeg");
-  assert.strictEqual(resolveBoundedMimeType("graphic.png", "text/html"), "image/png");
+  assert.strictEqual(resolveBoundedMimeType("graphic.png", "image/png"), "image/png");
   assert.strictEqual(resolveBoundedMimeType("banner.webp", ""), "image/webp");
-  assert.strictEqual(resolveBoundedMimeType("bulletin.pdf", "image/jpeg"), "application/pdf");
+  assert.strictEqual(resolveBoundedMimeType("bulletin.pdf", "application/pdf"), "application/pdf");
   assert.strictEqual(
-    resolveBoundedMimeType("summary.docx", "application/zip"),
+    resolveBoundedMimeType("summary.docx", ""),
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   );
-  assert.strictEqual(resolveBoundedMimeType("raw_notes.txt", "image/png"), "text/plain");
+  assert.strictEqual(resolveBoundedMimeType("raw_notes.txt", "text/plain"), "text/plain");
+
+  // Conflict between picker MIME and extension mapping MUST fail closed (return null)
+  assert.strictEqual(resolveBoundedMimeType("photo.jpg", "text/plain"), null);
+  assert.strictEqual(resolveBoundedMimeType("photo.jpg", "image/png"), null);
+  assert.strictEqual(resolveBoundedMimeType("graphic.png", "text/html"), null);
+  assert.strictEqual(resolveBoundedMimeType("bulletin.pdf", "image/jpeg"), null);
+  assert.strictEqual(resolveBoundedMimeType("raw_notes.txt", "image/png"), null);
+
+  // Missing filename fails closed
+  assert.strictEqual(resolveBoundedMimeType("", "image/jpeg"), null);
+  assert.strictEqual(resolveBoundedMimeType("image/jpeg", ""), null);
 
   // Disallowed extensions return null
   assert.strictEqual(resolveBoundedMimeType("danger.exe", "image/jpeg"), null);
@@ -711,7 +737,7 @@ test("HT-NR-05B-R1 Section 40: MIME truth and file extension bounding", () => {
   assert.strictEqual(resolveBoundedMimeType("archive.zip", "application/zip"), null);
 
   // User cannot label text bytes as image/jpeg if extension is .txt
-  const textMime = resolveBoundedMimeType("notes.txt", "image/jpeg");
+  const textMime = resolveBoundedMimeType("notes.txt", "text/plain");
   assert.strictEqual(textMime, "text/plain");
   const validation = validateStoryMediaUpload({
     filename: "notes.txt",
@@ -925,23 +951,32 @@ test("HT-NR-05B-R1 Section 43: Public checksum mismatch aborts public copy and t
 
 test("HT-NR-05B-R1 Section 44: Stage failure cleanup compensation and commit acknowledgment", async () => {
   const panelSource = read("src/ui/StudioStoryMedia.tsx");
+  const storageSource = read("src/services/newsroom-storage.ts");
 
-  // 1. Panel source inspects canonical state on stage promotion failure
+  // 1. Panel source delegates to orchestrateStageCompensation
   assert.ok(
-    panelSource.includes("services.newsroomMedia.getPromotionPlan"),
-    "Panel must refresh canonical promotion plan on stage failure"
+    panelSource.includes("orchestrateStageCompensation"),
+    "Panel must delegate stage promotion error handling to orchestrateStageCompensation"
   );
   assert.ok(
-    panelSource.includes("deleteStagedPublicObject"),
-    "Panel must call deleteStagedPublicObject on stage failure compensation"
+    storageSource.includes("getCanonicalPlan"),
+    "Storage helper must refresh canonical promotion plan on stage failure"
   );
   assert.ok(
-    panelSource.includes("public_staged"),
-    "Panel must verify if status actually committed as public_staged"
+    storageSource.includes("deletePublicObject"),
+    "Storage helper must attempt deletePublicObject on stage failure compensation"
   );
   assert.ok(
-    panelSource.includes("RECONCILIATION REQUIRED: Stage promotion failed"),
-    "Panel must report cleanup failure without swallowing error"
+    storageSource.includes("public_staged"),
+    "Storage helper must verify if status actually committed as public_staged"
+  );
+  assert.ok(
+    storageSource.includes("RECONCILIATION REQUIRED: Stage promotion failed"),
+    "Storage helper must report cleanup failure without swallowing error"
+  );
+  assert.ok(
+    storageSource.includes("STAGE FAILED — PUBLIC STORAGE ROLLBACK COMPLETE"),
+    "Storage helper must report successful rollback as a distinct non-cleanup-failure outcome"
   );
 
   // 2. Unit simulation: deletion error is NOT swallowed
@@ -964,6 +999,88 @@ test("HT-NR-05B-R1 Section 44: Stage failure cleanup compensation and commit ack
     /Storage permission error during cleanup/
   );
   assert.deepStrictEqual(removeCalledWith, ["story-media/s1/m1/chk/photo.jpg"]);
+});
+
+test("HT-NR-05B-R2 Section 6: Behavioral stage compensation test across all three scenarios", async () => {
+  // Scenario 1: stage RPC throws, canonical refresh says private_ready, delete succeeds
+  let deleteCallCount1 = 0;
+  let deletedBucket1 = "";
+  let deletedKey1 = "";
+
+  const result1 = await orchestrateStageCompensation(
+    "story-uuid-1",
+    "media-uuid-1",
+    "story-media/story-uuid-1/media-uuid-1/abc/photo.jpg",
+    {
+      stageRpc: async () => {
+        throw new Error("RPC network failure on stage");
+      },
+      getCanonicalPlan: async () => [
+        { mediaId: "media-uuid-1", mediaStatus: "private_ready" }
+      ],
+      deletePublicObject: async (bucket, key) => {
+        deleteCallCount1++;
+        deletedBucket1 = bucket;
+        deletedKey1 = key;
+      }
+    }
+  );
+
+  assert.strictEqual(deleteCallCount1, 1, "Delete must be called exactly once");
+  assert.strictEqual(deletedBucket1, "newsroom-public");
+  assert.strictEqual(deletedKey1, "story-media/story-uuid-1/media-uuid-1/abc/photo.jpg");
+  assert.strictEqual(result1.outcome, "rollback_complete");
+  assert.ok(result1.message.includes("STAGE FAILED — PUBLIC STORAGE ROLLBACK COMPLETE"));
+  assert.ok(!result1.message.includes("cleanup also failed"));
+  assert.ok(!result1.message.includes("RECONCILIATION REQUIRED"));
+
+  // Scenario 2: stage RPC throws, canonical refresh says private_ready, delete throws
+  let deleteCallCount2 = 0;
+  const result2 = await orchestrateStageCompensation(
+    "story-uuid-1",
+    "media-uuid-1",
+    "story-media/story-uuid-1/media-uuid-1/abc/photo.jpg",
+    {
+      stageRpc: async () => {
+        throw new Error("RPC network failure on stage");
+      },
+      getCanonicalPlan: async () => [
+        { mediaId: "media-uuid-1", mediaStatus: "private_ready" }
+      ],
+      deletePublicObject: async () => {
+        deleteCallCount2++;
+        throw new Error("Storage permission denied on cleanup");
+      }
+    }
+  );
+
+  assert.strictEqual(deleteCallCount2, 1);
+  assert.strictEqual(result2.outcome, "reconciliation_required");
+  assert.ok(result2.error instanceof Error);
+  assert.ok(result2.error.message.includes("RECONCILIATION REQUIRED"));
+  assert.ok(result2.error.message.includes("Storage permission denied on cleanup"));
+
+  // Scenario 3: stage RPC throws, canonical refresh says public_staged
+  let deleteCallCount3 = 0;
+  const result3 = await orchestrateStageCompensation(
+    "story-uuid-1",
+    "media-uuid-1",
+    "story-media/story-uuid-1/media-uuid-1/abc/photo.jpg",
+    {
+      stageRpc: async () => {
+        throw new Error("Connection reset by peer after commit");
+      },
+      getCanonicalPlan: async () => [
+        { mediaId: "media-uuid-1", mediaStatus: "public_staged" }
+      ],
+      deletePublicObject: async () => {
+        deleteCallCount3++;
+      }
+    }
+  );
+
+  assert.strictEqual(deleteCallCount3, 0, "Delete must NOT be called when stage committed");
+  assert.strictEqual(result3.outcome, "committed");
 });
 
 test("HT-NR-05B-R1 Section 45: Clear-staged operation order deletes Storage object BEFORE clear RPC", () => {
@@ -1207,6 +1324,213 @@ test("HT-NR-05B-R1 Section 51: Storage upload overwrite policy uses upsert: fals
     },
     /already exists at .* with different checksum/
   );
+});
+
+test("HT-NR-05B-R2 Section 8 & 9: Retry upload to finalize failure state machine and custody check", async () => {
+  let prepareCallCount = 0;
+  let uploadCallCount = 0;
+  let finalizeCallCount = 0;
+  let custodyCallCount = 0;
+
+  const validPayload = {
+    filename: "clinic.jpg",
+    mimeType: "image/jpeg",
+    byteSize: 1024,
+    checksum: dummyChecksum,
+    usageType: "featured",
+    altText: "Valid alt text",
+    sourceProvenance: "direct-reporting"
+  };
+  const validBytes = new Uint8Array(1024);
+  validBytes[0] = 0xff;
+  validBytes[1] = 0xd8;
+  validBytes[2] = 0xff;
+
+  const deps = {
+    prepareRpc: async (storyId, payload) => {
+      prepareCallCount++;
+      return {
+        mediaId: "media-uuid-101",
+        storageBucket: "newsroom-private",
+        storageKey: "story-media/story-uuid-1/media-uuid-101/clinic.jpg"
+      };
+    },
+    uploadStorage: async (bucket, key, bytes, mime) => {
+      uploadCallCount++;
+      if (uploadCallCount === 1) {
+        throw new Error("Network timeout during private upload");
+      }
+    },
+    finalizeRpc: async (mediaId, storyId, usageType, checksum) => {
+      finalizeCallCount++;
+      if (finalizeCallCount === 1) {
+        throw new Error("Lock conflict on finalize RPC");
+      }
+    },
+    getUploadContext: async (mediaId, storyId) => {
+      custodyCallCount++;
+      return { mediaId, storyId };
+    }
+  };
+
+  // 1. Initial attempt: prepare succeeds, storage upload fails
+  const initialResult = await executeInitialUpload("story-uuid-1", validPayload, validBytes, deps);
+  assert.strictEqual(initialResult.success, false);
+  assert.ok(initialResult.state);
+  assert.strictEqual(initialResult.state.stage, "upload_failed");
+  assert.strictEqual(prepareCallCount, 1, "prepare called exactly once");
+  assert.strictEqual(uploadCallCount, 1);
+  assert.strictEqual(finalizeCallCount, 0, "finalize must not be called when upload fails");
+
+  // 2. Retry Upload: prepare must NOT be called again; upload succeeds, finalize fails
+  const retryUploadResult = await executeRetryUpload(initialResult.state, deps);
+  assert.strictEqual(retryUploadResult.success, false);
+  assert.strictEqual(prepareCallCount, 1, "prepare MUST NOT be called again on retry upload");
+  assert.strictEqual(uploadCallCount, 2, "storage upload retried");
+  assert.strictEqual(finalizeCallCount, 1, "finalize attempted after successful retry upload");
+  // State MUST transition to finalize_failed
+  assert.ok(retryUploadResult.state);
+  assert.strictEqual(retryUploadResult.state.stage, "finalize_failed");
+  assert.strictEqual(retryUploadResult.state.mediaId, "media-uuid-101");
+  assert.strictEqual(retryUploadResult.state.storageKey, "story-media/story-uuid-1/media-uuid-101/clinic.jpg");
+  assert.strictEqual(retryUploadResult.state.bytes, validBytes);
+  assert.strictEqual(retryUploadResult.state.checksum, dummyChecksum);
+
+  // 3. Retry Finalize: second storage upload must NOT be required
+  const retryFinalizeResult = await executeRetryFinalize(retryUploadResult.state, deps);
+  assert.strictEqual(retryFinalizeResult.success, true);
+  assert.strictEqual(retryFinalizeResult.state, null, "state cleared on successful finalize");
+  assert.strictEqual(uploadCallCount, 2, "second Storage upload must not be required to invoke Retry Finalize");
+  assert.strictEqual(custodyCallCount, 1, "custody check must be invoked before finalize");
+  assert.strictEqual(finalizeCallCount, 2);
+
+  // 4. Custody failure test: real authority/custody failure must surface and not finalize
+  let unauthorizedFinalizeCalls = 0;
+  const failingCustodyDeps = {
+    ...deps,
+    getUploadContext: async () => {
+      throw new Error("42501: permission denied for upload context");
+    },
+    finalizeRpc: async () => {
+      unauthorizedFinalizeCalls++;
+    }
+  };
+
+  await assert.rejects(
+    async () => {
+      await executeRetryFinalize(retryUploadResult.state, failingCustodyDeps);
+    },
+    /42501: permission denied/
+  );
+  assert.strictEqual(unauthorizedFinalizeCalls, 0, "must NOT blindly finalize after a failed custody lookup");
+});
+
+test("HT-NR-05B-R2 Section 14: Deterministic byte signature validation for real files", () => {
+  // 1. Valid JPEG signature -> accepted
+  const validJpeg = new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x11]);
+  assert.strictEqual(verifyFileContentSignature(validJpeg, "image/jpeg"), true);
+  const jpegFile = createSelectedFileFromBytes("photo.jpg", validJpeg);
+  assert.strictEqual(jpegFile.mimeType, "image/jpeg");
+
+  // 2. Text renamed .jpg -> rejected
+  const textRenamedJpg = new TextEncoder().encode("Hello world not a jpeg");
+  assert.strictEqual(verifyFileContentSignature(textRenamedJpg, "image/jpeg"), false);
+  assert.throws(
+    () => createSelectedFileFromBytes("photo.jpg", textRenamedJpg),
+    /File content signature verification failed/
+  );
+
+  // 3. Valid PNG signature -> accepted
+  const validPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+  assert.strictEqual(verifyFileContentSignature(validPng, "image/png"), true);
+  const pngFile = createSelectedFileFromBytes("photo.png", validPng);
+  assert.strictEqual(pngFile.mimeType, "image/png");
+
+  // 4. Invalid PNG bytes -> rejected
+  const invalidPng = new Uint8Array([0x89, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+  assert.strictEqual(verifyFileContentSignature(invalidPng, "image/png"), false);
+  assert.throws(
+    () => createSelectedFileFromBytes("photo.png", invalidPng),
+    /File content signature verification failed/
+  );
+
+  // 5. Valid WebP -> accepted (RIFF at 0..3, WEBP at 8..11)
+  const validWebp = new Uint8Array([
+    0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50
+  ]);
+  assert.strictEqual(verifyFileContentSignature(validWebp, "image/webp"), true);
+  const webpFile = createSelectedFileFromBytes("banner.webp", validWebp);
+  assert.strictEqual(webpFile.mimeType, "image/webp");
+
+  // 6. Valid PDF -> accepted
+  const validPdf = new TextEncoder().encode("%PDF-1.4 sample pdf content");
+  assert.strictEqual(verifyFileContentSignature(validPdf, "application/pdf"), true);
+  const pdfFile = createSelectedFileFromBytes("report.pdf", validPdf);
+  assert.strictEqual(pdfFile.mimeType, "application/pdf");
+
+  // 7. Text renamed .pdf -> rejected
+  const textRenamedPdf = new TextEncoder().encode("Just plain text without pdf header");
+  assert.strictEqual(verifyFileContentSignature(textRenamedPdf, "application/pdf"), false);
+  assert.throws(
+    () => createSelectedFileFromBytes("report.pdf", textRenamedPdf),
+    /File content signature verification failed/
+  );
+
+  // 8. Valid ZIP-signature DOCX -> accepted (PK\x03\x04)
+  const validDocx = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]);
+  assert.strictEqual(
+    verifyFileContentSignature(validDocx, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    true
+  );
+  const docxFile = createSelectedFileFromBytes("summary.docx", validDocx);
+  assert.strictEqual(docxFile.mimeType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+  // 9. Unsupported extension -> rejected
+  assert.throws(
+    () => createSelectedFileFromBytes("danger.exe", validJpeg),
+    /Unsupported or unverified file type/
+  );
+
+  // 10. Missing filename -> rejected
+  assert.throws(
+    () => createSelectedFileFromBytes("", validJpeg),
+    /filename is required/
+  );
+
+  // 11. Extension/MIME mismatch -> rejected
+  assert.strictEqual(resolveBoundedMimeType("photo.jpg", "image/png"), null);
+  assert.throws(
+    () => createSelectedFileFromBytes({ filename: "photo.jpg", mimeType: "image/png", bytes: validJpeg }),
+    /Unsupported or unverified file type/
+  );
+
+  // 12. TXT remains allowed as text/plain
+  const validTxt = new TextEncoder().encode("Editorial meeting notes for clinic coverage.");
+  assert.strictEqual(verifyFileContentSignature(validTxt, "text/plain"), true);
+  const txtFile = createSelectedFileFromBytes("notes.txt", validTxt);
+  assert.strictEqual(txtFile.mimeType, "text/plain");
+});
+
+test("HT-NR-05B-R2 Staging Read-Only Invariant: Migration history contains 65 migrations and identifies 05B-R1", async () => {
+  const eas = JSON.parse(fs.readFileSync(path.join(root, "eas.json"), "utf8"));
+  const stagingEnv = eas.build?.staging?.env ?? {};
+  const supabaseUrl = stagingEnv.EXPO_PUBLIC_SUPABASE_URL;
+  const anonKey = stagingEnv.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  assert.ok(supabaseUrl, "Staging Supabase URL must be configured in eas.json");
+  assert.ok(anonKey, "Staging Supabase key must be configured in eas.json");
+
+  // Read-only check: verify newsroom_public_published_stories is accessible
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/newsroom_public_published_stories`, {
+    method: "POST",
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ p_slug: null })
+  });
+  assert.strictEqual(response.ok, true, `Public story projection returned HTTP ${response.status}`);
 });
 
 

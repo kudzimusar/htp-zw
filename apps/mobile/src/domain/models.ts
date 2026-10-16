@@ -1462,20 +1462,60 @@ export type StoryMediaOperationState =
   | "error"
   | "reconciliation_required";
 
+export type UploadReconciliationState = {
+  stage: "upload_failed" | "finalize_failed";
+  mediaId: string;
+  storyId: string;
+  usageType: StoryMediaUsageType;
+  storageBucket: string;
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+  checksum: string;
+  errorMessage: string;
+};
+
 export function isValidSha256Checksum(value: unknown): value is string {
   if (typeof value !== "string") return false;
   return /^[0-9a-f]{64}$/.test(value.trim());
 }
 
-export function validateStoryMediaUpload(payload: PrepareStoryMediaPayload): {
+export function validateStoryMediaUpload(
+  payload: PrepareStoryMediaPayload,
+  bytes?: Uint8Array
+): {
   valid: boolean;
   error?: string;
 } {
+  const filename = (payload.filename || "").trim();
+  if (filename.length === 0) {
+    return {
+      valid: false,
+      error: "A valid filename is required."
+    };
+  }
+
   const mime = (payload.mimeType || "").trim().toLowerCase();
   if (!ALLOWED_STORY_MEDIA_MIME_TYPES.includes(mime as any)) {
     return {
       valid: false,
       error: `Unsupported media MIME type "${payload.mimeType}". Allowed types: JPEG, PNG, WebP, PDF, Plain Text, DOCX.`
+    };
+  }
+
+  const resolvedMime = resolveBoundedMimeType(mime, filename);
+  if (!resolvedMime || resolvedMime !== mime) {
+    return {
+      valid: false,
+      error: `Filename extension does not match media MIME type "${payload.mimeType}" for "${filename}".`
+    };
+  }
+
+  if (bytes && !verifyFileContentSignature(bytes, resolvedMime)) {
+    return {
+      valid: false,
+      error: `File content signature verification failed: bytes do not match expected format for ${resolvedMime} ("${filename}").`
     };
   }
 
@@ -1541,14 +1581,6 @@ export function validateStoryMediaUpload(payload: PrepareStoryMediaPayload): {
     };
   }
 
-  const filename = (payload.filename || "").trim();
-  if (filename.length === 0) {
-    return {
-      valid: false,
-      error: "A valid filename is required."
-    };
-  }
-
   return { valid: true };
 }
 
@@ -1583,6 +1615,81 @@ export const BOUNDED_MIME_BY_EXTENSION: Record<string, AllowedStoryMediaMimeType
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 };
 
+export function verifyFileContentSignature(
+  bytes: Uint8Array,
+  mimeType: AllowedStoryMediaMimeType
+): boolean {
+  if (!bytes) return false;
+
+  switch (mimeType) {
+    case "image/jpeg":
+      // Minimum 3 bytes: FF D8 FF
+      return (
+        bytes.byteLength >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff
+      );
+
+    case "image/png":
+      // Minimum 8 bytes: 89 50 4E 47 0D 0A 1A 0A
+      return (
+        bytes.byteLength >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47 &&
+        bytes[4] === 0x0d &&
+        bytes[5] === 0x0a &&
+        bytes[6] === 0x1a &&
+        bytes[7] === 0x0a
+      );
+
+    case "image/webp":
+      // Minimum 12 bytes: RIFF at 0..3, WEBP at 8..11
+      return (
+        bytes.byteLength >= 12 &&
+        bytes[0] === 0x52 && // 'R'
+        bytes[1] === 0x49 && // 'I'
+        bytes[2] === 0x46 && // 'F'
+        bytes[3] === 0x46 && // 'F'
+        bytes[8] === 0x57 && // 'W'
+        bytes[9] === 0x45 && // 'E'
+        bytes[10] === 0x42 && // 'B'
+        bytes[11] === 0x50    // 'P'
+      );
+
+    case "application/pdf":
+      // Minimum 5 bytes: %PDF-
+      return (
+        bytes.byteLength >= 5 &&
+        bytes[0] === 0x25 && // '%'
+        bytes[1] === 0x50 && // 'P'
+        bytes[2] === 0x44 && // 'D'
+        bytes[3] === 0x46 && // 'F'
+        bytes[4] === 0x2d    // '-'
+      );
+
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      // ZIP container signature: PK\x03\x04 or standard ZIP variants PK\x05\x06 / PK\x07\x08
+      return (
+        bytes.byteLength >= 4 &&
+        bytes[0] === 0x50 && // 'P'
+        bytes[1] === 0x4b && // 'K'
+        ((bytes[2] === 0x03 && bytes[3] === 0x04) ||
+          (bytes[2] === 0x05 && bytes[3] === 0x06) ||
+          (bytes[2] === 0x07 && bytes[3] === 0x08))
+      );
+
+    case "text/plain":
+      // Plain text: extension/text governed. Valid Uint8Array accepted.
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 export function resolveBoundedMimeType(
   rawMimeOrFilename?: string | null,
   filenameOrRawMime?: string | null
@@ -1605,29 +1712,72 @@ export function resolveBoundedMimeType(
   } else if (!p1.includes(".") && p2.includes(".")) {
     rawMime = p1;
     filename = p2;
+  } else if (p1.includes(".") && p2.includes(".")) {
+    filename = p1;
+    rawMime = p2;
   } else {
     rawMime = p1;
     filename = p2;
   }
 
-  // If filename is present with an extension, extension truth takes priority
-  if (filename && filename.includes(".")) {
-    const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
-    const mappedMime = BOUNDED_MIME_BY_EXTENSION[ext];
-    if (mappedMime) {
-      return mappedMime;
-    }
-    // Extension not in bounded list -> reject/fail closed
+  // Filename must be present and contain an extension
+  if (!filename || !filename.includes(".")) {
     return null;
   }
 
-  // If no filename extension is present, validate rawMime against ALLOWED_STORY_MEDIA_MIME_TYPES
-  const normalizedMime = rawMime.toLowerCase();
-  if (ALLOWED_STORY_MEDIA_MIME_TYPES.includes(normalizedMime as AllowedStoryMediaMimeType)) {
-    return normalizedMime as AllowedStoryMediaMimeType;
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  const mappedMime = BOUNDED_MIME_BY_EXTENSION[ext];
+  if (!mappedMime) {
+    // Unsupported extension -> fail closed
+    return null;
   }
 
-  return null;
+  // If picker-provided MIME is present, meaningful and conflicts with canonical extension mapping -> fail closed
+  if (rawMime && rawMime.includes("/") && rawMime.toLowerCase() !== "application/octet-stream") {
+    if (rawMime.toLowerCase() !== mappedMime) {
+      return null;
+    }
+  }
+
+  return mappedMime;
+}
+
+export function validateStoryMediaSelectedFile(file: {
+  filename?: string | null;
+  mimeType?: string | null;
+  bytes: Uint8Array;
+}): {
+  valid: boolean;
+  resolvedMime?: AllowedStoryMediaMimeType;
+  error?: string;
+} {
+  const filename = (file.filename || "").trim();
+  if (!filename) {
+    return {
+      valid: false,
+      error: "Filename is required and cannot be empty."
+    };
+  }
+
+  const resolvedMime = resolveBoundedMimeType(file.mimeType, filename);
+  if (!resolvedMime) {
+    return {
+      valid: false,
+      error: `Unsupported file type, missing extension, or MIME/extension mismatch for "${filename}".`
+    };
+  }
+
+  if (!verifyFileContentSignature(file.bytes, resolvedMime)) {
+    return {
+      valid: false,
+      error: `File content signature verification failed: bytes do not match expected format for ${resolvedMime} ("${filename}").`
+    };
+  }
+
+  return {
+    valid: true,
+    resolvedMime
+  };
 }
 
 export function isMediaAssetAttachable(

@@ -626,12 +626,18 @@ export function OwnerPreviewStoryWorkspace({
       canPublish={true}
       isReadOnly={false}
       existingAssets={buildPreviewMediaAssets()}
-      onPickFile={async (): Promise<StoryMediaSelectedFile> => ({
-        filename: "clinic-immunization-review.jpg",
-        mimeType: "image/jpeg",
-        byteSize: 128,
-        bytes: new Uint8Array(128)
-      })}
+      onPickFile={async (): Promise<StoryMediaSelectedFile> => {
+        const sampleBytes = new Uint8Array(128);
+        sampleBytes[0] = 0xff;
+        sampleBytes[1] = 0xd8;
+        sampleBytes[2] = 0xff;
+        return {
+          filename: "clinic-immunization-review.jpg",
+          mimeType: "image/jpeg",
+          byteSize: 128,
+          bytes: sampleBytes
+        };
+      }}
       onUploadMedia={handlePreviewUpload}
       onAttachExisting={handlePreviewAttachExisting}
       onDetachMedia={handlePreviewDetach}

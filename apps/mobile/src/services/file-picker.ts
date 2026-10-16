@@ -2,13 +2,15 @@ import * as DocumentPicker from "expo-document-picker";
 import {
   ALLOWED_STORY_MEDIA_MIME_TYPES,
   resolveBoundedMimeType,
+  verifyFileContentSignature,
   type AllowedStoryMediaMimeType,
   type StoryMediaSelectedFile
 } from "../domain/models";
 
 /**
  * Cross-platform Expo file picker adapter for Newsroom Story Media.
- * Enforces real file selection, exact byte reading, and bounded canonical MIME resolution.
+ * Enforces real file selection, exact byte reading, filename presence,
+ * bounded canonical MIME resolution, and byte-level signature verification.
  */
 export async function pickStoryMediaFile(): Promise<StoryMediaSelectedFile | null> {
   const result = await DocumentPicker.getDocumentAsync({
@@ -24,7 +26,11 @@ export async function pickStoryMediaFile(): Promise<StoryMediaSelectedFile | nul
   if (!asset) {
     return null;
   }
-  const filename = (asset.name || "selected-media").trim();
+  const rawName = asset.name?.trim();
+  if (!rawName) {
+    throw new Error("File selection failed: document picker returned no usable filename.");
+  }
+  const filename = rawName;
 
   // 1. Resolve exact bytes across Web and Native
   let bytes: Uint8Array;
@@ -43,11 +49,18 @@ export async function pickStoryMediaFile(): Promise<StoryMediaSelectedFile | nul
 
   const byteSize = bytes.byteLength;
 
-  // 2. Resolve canonical MIME type safely
+  // 2. Resolve canonical MIME type safely with conflict check
   const resolvedMime = resolveBoundedMimeType(asset.mimeType, filename);
   if (!resolvedMime) {
     throw new Error(
       `Unsupported or unverified file type for "${filename}". Allowed types: JPEG, PNG, WebP, PDF, Plain Text, DOCX.`
+    );
+  }
+
+  // 3. Verify byte-level signature against resolved MIME
+  if (!verifyFileContentSignature(bytes, resolvedMime)) {
+    throw new Error(
+      `File content signature verification failed: bytes do not match expected format for ${resolvedMime} ("${filename}").`
     );
   }
 
@@ -88,16 +101,26 @@ export function createSelectedFileFromBytes(
     rawMime = maybeMimeType;
     sourceUri = maybeSourceUri;
   } else {
-    filename = paramsOrFilename.filename.trim();
+    filename = (paramsOrFilename.filename || "").trim();
     bytes = paramsOrFilename.bytes;
     rawMime = paramsOrFilename.mimeType;
     sourceUri = paramsOrFilename.sourceUri;
+  }
+
+  if (!filename) {
+    throw new Error("File creation failed: filename is required and cannot be empty.");
   }
 
   const resolvedMime = resolveBoundedMimeType(rawMime, filename);
   if (!resolvedMime) {
     throw new Error(
       `Unsupported or unverified file type for "${filename}". Allowed types: JPEG, PNG, WebP, PDF, Plain Text, DOCX.`
+    );
+  }
+
+  if (!verifyFileContentSignature(bytes, resolvedMime)) {
+    throw new Error(
+      `File content signature verification failed: bytes do not match expected format for ${resolvedMime} ("${filename}").`
     );
   }
 
