@@ -109,13 +109,13 @@ const { mapNewsroomVideoRow, stagingNewsroomVideoService } = videoServiceModule;
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =============================================================================
 
-test("HT-NR-05C-A-R1 Invariant: Migration count is exactly 67", () => {
+test("HT-NR-05C-A-R2 Invariant: Migration count is exactly 68", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    67,
-    `Migration count must be exactly 67 (65 prior + 05C video desk foundation + 05C-A-R1 video url safety). Found ${files.length}.`
+    68,
+    `Migration count must be exactly 68 (65 prior + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261016210000_ht_nr05c_video_desk_foundation.sql"),
@@ -124,6 +124,10 @@ test("HT-NR-05C-A-R1 Invariant: Migration count is exactly 67", () => {
   assert.ok(
     files.includes("20261016220000_ht_nr05ca_r1_video_url_safety.sql"),
     "Migration directory must contain 20261016220000_ht_nr05ca_r1_video_url_safety.sql"
+  );
+  assert.ok(
+    files.includes("20261016230000_ht_nr05ca_r2_video_url_port_safety.sql"),
+    "Migration directory must contain 20261016230000_ht_nr05ca_r2_video_url_port_safety.sql"
   );
 });
 
@@ -281,26 +285,35 @@ test("HT-NR-05C Section 40: Studio module route gates video-desk with media.mana
 // 3. VALIDATION & DOMAIN CONTRACTS (Section 41)
 // =============================================================================
 
-test("HT-NR-05C-A-R1 Defect C: validateVideoHttpsUrl enforces public DNS boundary parity", () => {
-  // Required Canonical Test Matrix:
-  // Valid Public HTTPS URLs
+test("HT-NR-05C-A-R2 Defect C: validateVideoHttpsUrl enforces public DNS boundary and port parity (1..65535)", () => {
+  // Required Canonical Test Matrix (Section 12):
+  // PASS:
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com/video"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:443/video"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:8443/video"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:65535/video"), true);
   assert.strictEqual(validateVideoHttpsUrl("https://youtube.com?v=abc"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://youtu.be/abc"), true);
+  assert.strictEqual(validateVideoHttpsUrl("https://cdn.healthtimes.co.zw/video.mp4"), true);
+
+  // Additional valid cases
   assert.strictEqual(validateVideoHttpsUrl("https://www.youtube.com/watch?v=123"), true);
-  assert.strictEqual(validateVideoHttpsUrl("https://youtu.be/xyz"), true);
   assert.strictEqual(validateVideoHttpsUrl("https://player.vimeo.com/video/456"), true);
-  assert.strictEqual(validateVideoHttpsUrl("https://cdn.healthtimes.co.zw/media/v.mp4"), true);
-  assert.strictEqual(validateVideoHttpsUrl("https://sub.domain.example.com:8443/stream.m3u8#t=10"), true);
   assert.strictEqual(validateVideoHttpsUrl("HTTPS://EXAMPLE.COM/STREAM"), true);
 
-  // Invalid / Insecure / Non-public URLs fail closed
-  assert.strictEqual(validateVideoHttpsUrl("http://example.com"), false);
+  // FAIL:
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:0/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:65536/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:99999/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://example.com:abc/video"), false);
   assert.strictEqual(validateVideoHttpsUrl("https://localhost/video"), false);
-  assert.strictEqual(validateVideoHttpsUrl("https://localhost:8080/video"), false);
   assert.strictEqual(validateVideoHttpsUrl("https://127.0.0.1/video"), false);
-  assert.strictEqual(validateVideoHttpsUrl("https://192.168.1.1/video"), false);
   assert.strictEqual(validateVideoHttpsUrl("https://[::1]/video"), false);
-  assert.strictEqual(validateVideoHttpsUrl("https://singlelabel/video"), false);
-  assert.strictEqual(validateVideoHttpsUrl("https://user:pass@domain.com/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://example/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("https://user:pass@example.com/video"), false);
+  assert.strictEqual(validateVideoHttpsUrl("http://example.com/video"), false);
+
+  // Insecure protocols & invalid formats fail closed
   assert.strictEqual(validateVideoHttpsUrl("javascript:alert(1)"), false);
   assert.strictEqual(validateVideoHttpsUrl("ftp://files.example.com/video.mp4"), false);
   assert.strictEqual(validateVideoHttpsUrl("data:video/mp4;base64,..."), false);
@@ -793,9 +806,10 @@ test("HT-NR-05C-A-R1 Defect A: mapNewsroomVideoRow rejects malformed rows and ne
   assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, updated_by: "not-uuid" }), null);
   assert.strictEqual(mapNewsroomVideoRow({ ...baseValid, updated_by: null }), null);
 });
+test("HT-NR-05C-A-R2 Defect A: Mutation responses strictly validate returned identifiers and lock versions without coercion", async () => {
+  const videoId = "00000000-0000-4000-8000-000000000099";
 
-test("HT-NR-05C-A-R1 Defect A: Mutation responses strictly validate returned identifiers and lock versions", async () => {
-  // Test createVideo strict UUID check
+  // 1. createVideo strict UUID check
   mockRpcHandler = async (fn, args) => {
     if (fn === "newsroom_create_video") {
       return { data: "00000000-0000-4000-8000-000000000099", error: null };
@@ -831,58 +845,203 @@ test("HT-NR-05C-A-R1 Defect A: Mutation responses strictly validate returned ide
     /canonical UUID/
   );
 
-  // Test saveVideo strict lock version check
-  mockRpcHandler = async (fn, args) => ({ data: 3, error: null });
-  const savedVersion = await stagingNewsroomVideoService.saveVideo(
-    "00000000-0000-4000-8000-000000000099",
-    2,
-    { title: "Updated Title" }
-  );
+  // 2. saveVideo lock version contract (Section 5 test matrix, expectedVersion = 2)
+  // expectedVersion = 2, returns 3 -> PASS
+  mockRpcHandler = async () => ({ data: 3, error: null });
+  const savedVersion = await stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated Title" });
   assert.strictEqual(savedVersion, 3);
 
-  // saveVideo rejects non-incremented version
+  // returns "3" -> FAIL
+  mockRpcHandler = async () => ({ data: "3", error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns null -> FAIL
+  mockRpcHandler = async () => ({ data: null, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns NaN -> FAIL
+  mockRpcHandler = async () => ({ data: NaN, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns Infinity -> FAIL
+  mockRpcHandler = async () => ({ data: Infinity, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns 2 (same version) -> FAIL
   mockRpcHandler = async () => ({ data: 2, error: null });
   await assert.rejects(
-    async () =>
-      stagingNewsroomVideoService.saveVideo(
-        "00000000-0000-4000-8000-000000000099",
-        2,
-        { title: "Updated" }
-      ),
-    /strictly greater than expected version/
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
   );
 
-  mockRpcHandler = async () => ({ data: "invalid", error: null });
+  // returns 1 (lower version) -> FAIL
+  mockRpcHandler = async () => ({ data: 1, error: null });
   await assert.rejects(
-    async () =>
-      stagingNewsroomVideoService.saveVideo(
-        "00000000-0000-4000-8000-000000000099",
-        2,
-        { title: "Updated" }
-      ),
-    /strictly greater than expected version/
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
   );
 
-  // Test setReady strict lock version check
-  mockRpcHandler = async () => ({ data: 4, error: null });
-  const readyVersion = await stagingNewsroomVideoService.setReady(
-    "00000000-0000-4000-8000-000000000099",
-    3,
-    true
+  // returns 3.5 (fractional) -> FAIL
+  mockRpcHandler = async () => ({ data: 3.5, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.saveVideo(videoId, 2, { title: "Updated" }),
+    /expected numeric lock version strictly greater than expected version/
   );
-  assert.strictEqual(readyVersion, 4);
 
-  // setReady rejects non-incremented or malformed version
+  // 3. setReady lock version contract (Section 5 test matrix, expectedVersion = 2)
+  // expectedVersion = 2, returns 3 -> PASS
   mockRpcHandler = async () => ({ data: 3, error: null });
+  const readyVersion = await stagingNewsroomVideoService.setReady(videoId, 2, true);
+  assert.strictEqual(readyVersion, 3);
+
+  // returns "3" -> FAIL
+  mockRpcHandler = async () => ({ data: "3", error: null });
   await assert.rejects(
-    async () =>
-      stagingNewsroomVideoService.setReady(
-        "00000000-0000-4000-8000-000000000099",
-        3,
-        true
-      ),
-    /strictly greater than expected version/
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
   );
+
+  // returns null -> FAIL
+  mockRpcHandler = async () => ({ data: null, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns NaN -> FAIL
+  mockRpcHandler = async () => ({ data: NaN, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns Infinity -> FAIL
+  mockRpcHandler = async () => ({ data: Infinity, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns 2 (same version) -> FAIL
+  mockRpcHandler = async () => ({ data: 2, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns 1 (lower version) -> FAIL
+  mockRpcHandler = async () => ({ data: 1, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  // returns 3.5 (fractional) -> FAIL
+  mockRpcHandler = async () => ({ data: 3.5, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.setReady(videoId, 2, true),
+    /expected numeric lock version strictly greater than expected version/
+  );
+
+  mockRpcHandler = null;
+});
+
+test("HT-NR-05C-A-R2 Defect B: listVideos rejects malformed envelopes and preserves valid rows in mixed responses", async () => {
+  // RPC returns null -> listVideos() rejects
+  mockRpcHandler = async () => ({ data: null, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.listVideos(),
+    /expected array of video rows/
+  );
+
+  // RPC returns object -> listVideos() rejects
+  mockRpcHandler = async () => ({ data: { error: "something" }, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.listVideos(),
+    /expected array of video rows/
+  );
+
+  // RPC returns string -> listVideos() rejects
+  mockRpcHandler = async () => ({ data: "not-an-array", error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.listVideos(),
+    /expected array of video rows/
+  );
+
+  // RPC returns number -> listVideos() rejects
+  mockRpcHandler = async () => ({ data: 42, error: null });
+  await assert.rejects(
+    async () => stagingNewsroomVideoService.listVideos(),
+    /expected array of video rows/
+  );
+
+  // RPC returns [] -> valid empty registry
+  mockRpcHandler = async () => ({ data: [], error: null });
+  const emptyResult = await stagingNewsroomVideoService.listVideos();
+  assert.ok(Array.isArray(emptyResult), "Must return array");
+  assert.strictEqual(emptyResult.length, 0, "Must be empty array");
+
+  // RPC returns mixed array [validRow1, malformedRow, validRow2]
+  const validRow1 = {
+    id: "a0000000-0000-4000-8000-000000000001",
+    title: "Valid Video 1",
+    source_url: "https://example.com/stream1.mp4",
+    thumbnail_url: null,
+    duration_seconds: 120,
+    related_story_id: null,
+    source_provenance: "Reporter A",
+    status: "draft",
+    lock_version: 1,
+    created_at: "2026-10-16T10:00:00.000Z",
+    updated_at: "2026-10-16T10:00:00.000Z",
+    created_by: "c0000000-0000-4000-8000-000000000003",
+    updated_by: "c0000000-0000-4000-8000-000000000003"
+  };
+
+  const malformedRow = {
+    id: "not-a-uuid",
+    title: "",
+    source_url: "http://insecure.com",
+    status: "unknown"
+  };
+
+  const validRow2 = {
+    id: "a0000000-0000-4000-8000-000000000002",
+    title: "Valid Video 2",
+    source_url: "https://example.com/stream2.mp4",
+    thumbnail_url: "https://example.com/thumb2.jpg",
+    duration_seconds: 240,
+    related_story_id: null,
+    source_provenance: "Reporter B",
+    status: "ready",
+    lock_version: 2,
+    created_at: "2026-10-16T11:00:00.000Z",
+    updated_at: "2026-10-16T11:00:00.000Z",
+    created_by: "c0000000-0000-4000-8000-000000000003",
+    updated_by: "c0000000-0000-4000-8000-000000000003"
+  };
+
+  mockRpcHandler = async () => ({
+    data: [validRow1, malformedRow, validRow2],
+    error: null
+  });
+
+  const mixedResult = await stagingNewsroomVideoService.listVideos();
+  assert.strictEqual(mixedResult.length, 2, "Valid rows must survive and malformed row omitted");
+  assert.strictEqual(mixedResult[0].id, validRow1.id);
+  assert.strictEqual(mixedResult[1].id, validRow2.id);
 
   mockRpcHandler = null;
 });

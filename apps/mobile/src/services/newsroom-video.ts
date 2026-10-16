@@ -121,7 +121,9 @@ export const stagingNewsroomVideoService: NewsroomVideoService = {
       p_search: options?.search ?? null,
       p_limit: options?.limit ?? 100
     });
-    if (!Array.isArray(rawRows)) return [];
+    if (!Array.isArray(rawRows)) {
+      throw new Error("Invalid response from video list: expected array of video rows.");
+    }
     const mapped: NewsroomVideo[] = [];
     for (const r of rawRows) {
       const v = mapNewsroomVideoRow(r);
@@ -194,11 +196,16 @@ export const stagingNewsroomVideoService: NewsroomVideoService = {
       p_expected_version: expectedVersion,
       p_patch
     });
-    const v = typeof nextVersion === "number" ? nextVersion : Number(nextVersion);
-    if (!Number.isInteger(v) || v < 1 || v <= expectedVersion) {
-      throw new Error("Invalid response from video save: expected incremented lock version strictly greater than expected version.");
+    if (
+      typeof nextVersion !== "number" ||
+      !Number.isFinite(nextVersion) ||
+      !Number.isInteger(nextVersion) ||
+      nextVersion < 1 ||
+      nextVersion <= expectedVersion
+    ) {
+      throw new Error("Invalid response from video save: expected numeric lock version strictly greater than expected version.");
     }
-    return v;
+    return nextVersion;
   },
 
   async setReady(
@@ -217,10 +224,15 @@ export const stagingNewsroomVideoService: NewsroomVideoService = {
       p_expected_version: expectedVersion,
       p_ready: Boolean(ready)
     });
-    const v = typeof nextVersion === "number" ? nextVersion : Number(nextVersion);
-    if (!Number.isInteger(v) || v < 1 || v <= expectedVersion) {
-      throw new Error("Invalid response from video setReady: expected incremented lock version strictly greater than expected version.");
+    if (
+      typeof nextVersion !== "number" ||
+      !Number.isFinite(nextVersion) ||
+      !Number.isInteger(nextVersion) ||
+      nextVersion < 1 ||
+      nextVersion <= expectedVersion
+    ) {
+      throw new Error("Invalid response from video setReady: expected numeric lock version strictly greater than expected version.");
     }
-    return v;
+    return nextVersion;
   }
 };

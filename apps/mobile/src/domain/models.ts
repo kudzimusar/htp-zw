@@ -1897,10 +1897,35 @@ export function validateVideoHttpsUrl(url: unknown): boolean {
   const rest = trimmed.slice(8);
   if (/^[^/?#]*@/.test(rest)) return false;
 
+  const authorityMatch = rest.match(/^([^/?#]+)/);
+  if (!authorityMatch || !authorityMatch[1]) return false;
+  const authority = authorityMatch[1];
+
+  // If an explicit port is supplied, it must be an integer in 1..65535
+  if (authority.includes(":")) {
+    const portMatch = authority.match(/:([0-9]+)$/);
+    if (!portMatch || !portMatch[1]) {
+      // Malformed port syntax or IPv6
+      return false;
+    }
+    const portStr = portMatch[1];
+    if (portStr.length > 5) return false;
+    const portNum = Number(portStr);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+      return false;
+    }
+  }
+
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol.toLowerCase() !== "https:") return false;
     if (parsed.username || parsed.password) return false;
+    if (parsed.port) {
+      const portNum = Number(parsed.port);
+      if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+        return false;
+      }
+    }
     const host = parsed.hostname.toLowerCase();
     if (!host || host === "localhost" || host.endsWith(".localhost")) return false;
     if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return false;
