@@ -88,6 +88,30 @@ export function mapNewsroomVideoRow(row: any): NewsroomVideo | null {
   const ua = new Date(row.updated_at);
   if (isNaN(ua.getTime())) return null;
 
+  // published_at: null or parseable timestamp
+  let publishedAt: string | null = null;
+  if (row.published_at !== null && row.published_at !== undefined) {
+    if (typeof row.published_at !== "string") return null;
+    const pa = new Date(row.published_at);
+    if (isNaN(pa.getTime())) return null;
+    publishedAt = row.published_at;
+  }
+
+  // watch_featured: boolean (default false if omitted from row)
+  let watchFeatured = false;
+  if (row.watch_featured !== null && row.watch_featured !== undefined) {
+    if (typeof row.watch_featured !== "boolean") return null;
+    watchFeatured = row.watch_featured;
+  }
+
+  // published_by: null or canonical UUID
+  let publishedByStaffId: string | null = null;
+  const pubBy = row.published_by ?? row.published_by_staff_id;
+  if (pubBy !== null && pubBy !== undefined) {
+    if (!isValidUuid(pubBy)) return null;
+    publishedByStaffId = String(pubBy).trim();
+  }
+
   return {
     id: String(row.id).trim(),
     title: row.title.trim(),
@@ -101,7 +125,10 @@ export function mapNewsroomVideoRow(row: any): NewsroomVideo | null {
     createdByStaffId: String(createdBy).trim(),
     updatedByStaffId: String(updatedBy).trim(),
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    publishedAt,
+    watchFeatured,
+    publishedByStaffId
   };
 }
 
@@ -232,6 +259,94 @@ export const stagingNewsroomVideoService: NewsroomVideoService = {
       nextVersion <= expectedVersion
     ) {
       throw new Error("Invalid response from video setReady: expected numeric lock version strictly greater than expected version.");
+    }
+    return nextVersion;
+  },
+
+  async publishVideo(
+    videoId: string,
+    expectedVersion: number,
+    featured = false
+  ): Promise<number> {
+    if (!videoId || typeof videoId !== "string" || !isValidUuid(videoId)) {
+      throw new Error("Valid video ID is required for publish.");
+    }
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("Valid expected lock version >= 1 is required for publish.");
+    }
+    if (featured !== undefined && typeof featured !== "boolean") {
+      throw new Error("featured must be a boolean.");
+    }
+    const nextVersion = await rpc<number>("newsroom_publish_video", {
+      p_video_id: videoId,
+      p_expected_version: expectedVersion,
+      p_featured: Boolean(featured)
+    });
+    if (
+      typeof nextVersion !== "number" ||
+      !Number.isFinite(nextVersion) ||
+      !Number.isInteger(nextVersion) ||
+      nextVersion < 1 ||
+      nextVersion <= expectedVersion
+    ) {
+      throw new Error("Invalid response from video publish: expected numeric lock version strictly greater than expected version.");
+    }
+    return nextVersion;
+  },
+
+  async unpublishVideo(
+    videoId: string,
+    expectedVersion: number
+  ): Promise<number> {
+    if (!videoId || typeof videoId !== "string" || !isValidUuid(videoId)) {
+      throw new Error("Valid video ID is required for unpublish.");
+    }
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("Valid expected lock version >= 1 is required for unpublish.");
+    }
+    const nextVersion = await rpc<number>("newsroom_unpublish_video", {
+      p_video_id: videoId,
+      p_expected_version: expectedVersion
+    });
+    if (
+      typeof nextVersion !== "number" ||
+      !Number.isFinite(nextVersion) ||
+      !Number.isInteger(nextVersion) ||
+      nextVersion < 1 ||
+      nextVersion <= expectedVersion
+    ) {
+      throw new Error("Invalid response from video unpublish: expected numeric lock version strictly greater than expected version.");
+    }
+    return nextVersion;
+  },
+
+  async setFeatured(
+    videoId: string,
+    expectedVersion: number,
+    featured: boolean
+  ): Promise<number> {
+    if (!videoId || typeof videoId !== "string" || !isValidUuid(videoId)) {
+      throw new Error("Valid video ID is required to set featured.");
+    }
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error("Valid expected lock version >= 1 is required to set featured.");
+    }
+    if (typeof featured !== "boolean") {
+      throw new Error("featured must be a boolean.");
+    }
+    const nextVersion = await rpc<number>("newsroom_set_video_featured", {
+      p_video_id: videoId,
+      p_expected_version: expectedVersion,
+      p_featured: featured
+    });
+    if (
+      typeof nextVersion !== "number" ||
+      !Number.isFinite(nextVersion) ||
+      !Number.isInteger(nextVersion) ||
+      nextVersion < 1 ||
+      nextVersion <= expectedVersion
+    ) {
+      throw new Error("Invalid response from video setFeatured: expected numeric lock version strictly greater than expected version.");
     }
     return nextVersion;
   }

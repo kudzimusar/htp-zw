@@ -1862,6 +1862,9 @@ export interface NewsroomVideo {
   updatedByStaffId: string;
   createdAt: string;
   updatedAt: string;
+  publishedAt: string | null;
+  watchFeatured: boolean;
+  publishedByStaffId?: string | null;
 }
 
 export interface NewsroomVideoCreateInput {
