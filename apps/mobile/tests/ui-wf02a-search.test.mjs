@@ -30,14 +30,18 @@ test("Phone initial Search state opens with prominent Search field and no phone 
   assert.match(search,/accessibilityLabel="Search HealthTimes"/);
   assert.match(search,/returnKeyType="search"/);
   assert.match(search,/onSubmitEditing=\{\(\)=>submit\(\)\}/);
-  assert.match(search,/accessibilityLabel="Submit HealthTimes search"/);
+  assert.doesNotMatch(search,/accessibilityLabel="Submit HealthTimes search"/,"Phone Search should rely on native keyboard Search instead of a persistent trailing CTA");
+  assert.doesNotMatch(search,/submitIconButton/,"Persistent blue submit block must not return");
   assert.doesNotMatch(search,/>Search<\/Text>/,"Phone Search must not use a large adjacent text Search button");
 
-  const fieldIndex=search.indexOf('placeholder="Search articles, topics, authors…"');
-  const tryIndex=search.indexOf(">Try searching for<");
-  const explanationIndex=search.indexOf(">Intelligent Search<");
+  const render=search.slice(search.indexOf("<Page chrome={desktop}>"));
+  const fieldIndex=render.indexOf('placeholder="Search articles, topics, authors…"');
+  const formatIndex=render.indexOf("styles.controlsBar");
+  const tryIndex=render.indexOf(">Try searching for<");
+  const explanationIndex=render.indexOf(">Intelligent Search<");
   assert.ok(fieldIndex>0,"Search field must be present");
-  assert.ok(tryIndex>fieldIndex,"Try searching for section must follow the Search field");
+  assert.ok(formatIndex>fieldIndex,"Format controls must follow the Search field");
+  assert.ok(tryIndex>formatIndex,"Try searching for must immediately follow the type-filter family in the initial phone hierarchy");
   assert.ok(explanationIndex>tryIndex,"Intelligent Search explanation must follow Try searching for");
 });
 
@@ -46,6 +50,9 @@ test("Format tabs preserve exact All / Articles / Videos / Audio / Authors order
   const block=search.match(/const formatTabs:[\s\S]*?\];/)?.[0] ?? "";
   const labels=[...block.matchAll(/\["([^"]+)",\s*"([^"]+)"\]/g)].map((match)=>match[1]);
   assert.deepEqual(labels,["All","Articles","Videos","Audio","Authors"]);
+  assert.match(search,/formatRail:\{width:"100%"/,"Type controls must own the available phone row");
+  assert.match(search,/formatTabs:\{paddingHorizontal:0,gap:4/,"Phone type controls must stay compact enough for 390px");
+  assert.match(search,/formatTab:\{[\s\S]*?minHeight:36,[\s\S]*?paddingHorizontal:10/,"Type controls must preserve readable compact touch styling");
 });
 
 test("Try searching for derives suggestions from real taxonomy/geography authority",()=>{
@@ -54,8 +61,12 @@ test("Try searching for derives suggestions from real taxonomy/geography authori
   assert.match(search,/taxonomy\.data\?\.geographicZones/);
   assert.match(search,/taxonomy\.data\?\.topics/);
   assert.match(search,/taxonomy\.data\?\.editorialDesks/);
+  assert.match(search,/\.\.\.topics\.slice\(0,3\)/);
+  assert.match(search,/\.\.\.countries\.slice\(0,2\)/);
+  assert.match(search,/\]\)\.slice\(0,5\)/,"Initial Search should expose a bounded five-item real suggestion set");
   assert.match(search,/>Try searching for</);
   assert.match(search,/SuggestionRow/);
+  assert.doesNotMatch(search,/suggestionArrow/,"Suggestion rows should stay query-like rather than card/CTA-like");
   assert.match(search,/onPress=\{\(\)=>submit\(item\)\}/);
 });
 
@@ -65,6 +76,8 @@ test("Progressive-disclosure filters are initially collapsed and remain function
   assert.match(search,/accessibilityState=\{\{expanded:filtersOpen\}\}/);
   assert.match(search,/filtersOpen\?"Hide search filters":"Show search filters"/);
   assert.match(search,/filtersOpen && view!=="authors"/);
+  assert.match(search,/suggestionsHeadingRow/,"Initial Filters affordance should remain subordinate to Try searching for");
+  assert.match(search,/const filterControl=view!=="authors"/);
   assert.match(search,/>COUNTRY</);
   assert.match(search,/>TOPIC \/ DESK</);
   assert.match(search,/Clear filters/);

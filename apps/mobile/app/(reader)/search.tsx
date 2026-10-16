@@ -86,9 +86,6 @@ function SuggestionRow({
       <Text numberOfLines={1} style={[styles.suggestionText,{color:palette.ink}]}>
         {label}
       </Text>
-      <Text accessible={false} style={[styles.suggestionArrow,{color:palette.inkMuted}]}>
-        ↗
-      </Text>
     </Pressable>
   );
 }
@@ -141,9 +138,9 @@ export default function SearchScreen(){
 
   const suggestions=useMemo(()=>
     Array.from(new Set([
-      ...topics.slice(0,6),
-      ...countries.slice(0,3)
-    ])).slice(0,8)
+      ...topics.slice(0,3),
+      ...countries.slice(0,2)
+    ])).slice(0,5)
   ,[topics,countries]);
 
   const visibleArticles=(view==="all"||view==="article") ? results.data?.articles ?? [] : [];
@@ -208,6 +205,33 @@ export default function SearchScreen(){
 
   const activeFilterCount=[country,topic].filter(Boolean).length;
 
+  const filterControl=view!=="authors" ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{expanded:filtersOpen}}
+      accessibilityLabel={filtersOpen?"Hide search filters":"Show search filters"}
+      hitSlop={6}
+      style={[
+        styles.filterToggleButton,
+        {
+          backgroundColor:filtersOpen ? palette.paperMuted : "transparent"
+        }
+      ]}
+      onPress={()=>setFiltersOpen((value)=>!value)}
+    >
+      <View accessible={false} style={styles.filterToggleIcon}>
+        <SymbolView
+          name={{ios:"slider.horizontal.3",android:"tune",web:"tune"}}
+          tintColor={filtersOpen||hasFilters ? palette.blue : palette.inkMuted}
+          size={13}
+        />
+      </View>
+      <Text style={[styles.filterToggleText,{color:filtersOpen||hasFilters ? palette.blue : palette.inkMuted}]}>
+        {filtersOpen ? "Hide filters" : "Filters"}{activeFilterCount ? " · "+activeFilterCount : ""}
+      </Text>
+    </Pressable>
+  ) : null;
+
   const resultTitle=submitted
     ? totalResults+" "+(totalResults===1?"result":"results")+" for “"+submitted+"”"
     : hasFilters||view!=="all"
@@ -217,7 +241,7 @@ export default function SearchScreen(){
   return (
     <Page chrome={desktop}>
       <View style={[styles.root,!desktop && styles.mobileBottomReserve,wideLayout && styles.wideContainer]}>
-        <View style={[styles.searchFieldWrap,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+        <View style={[styles.searchFieldWrap,{borderColor:palette.border,backgroundColor:palette.paper}]}>
           <View accessible={false} style={styles.searchLeadingIcon}>
             <SymbolView
               name={{ios:"magnifyingglass",android:"search",web:"search"}}
@@ -252,21 +276,6 @@ export default function SearchScreen(){
               />
             </Pressable>
           )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Submit HealthTimes search"
-            onPress={()=>submit()}
-            style={({pressed})=>[
-              styles.submitIconButton,
-              {backgroundColor:pressed ? palette.navy : palette.blue}
-            ]}
-          >
-            <SymbolView
-              name={{ios:"arrow.forward",android:"arrow_forward",web:"arrow_forward"}}
-              tintColor="#FFFFFF"
-              size={16}
-            />
-          </Pressable>
         </View>
 
         <View style={[styles.controlsBar,wideLayout && styles.controlsBarWide]}>
@@ -286,41 +295,18 @@ export default function SearchScreen(){
               />
             ))}
           </ScrollView>
-
-          {view!=="authors" && (
-            <View style={styles.filterUtilityRow}>
-              {hasFilters && !filtersOpen ? (
-                <Text numberOfLines={1} style={[styles.activeFilterSummary,{color:palette.inkMuted}]}>
-                  {[country,topic].filter(Boolean).join(" · ")}
-                </Text>
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{expanded:filtersOpen}}
-                accessibilityLabel={filtersOpen?"Hide search filters":"Show search filters"}
-                style={[
-                  styles.filterToggleButton,
-                  {
-                    borderColor:filtersOpen||hasFilters ? palette.blue : palette.border,
-                    backgroundColor:filtersOpen ? palette.paperMuted : palette.paper
-                  }
-                ]}
-                onPress={()=>setFiltersOpen((value)=>!value)}
-              >
-                <View accessible={false} style={styles.filterToggleIcon}>
-                  <SymbolView
-                    name={{ios:"slider.horizontal.3",android:"tune",web:"tune"}}
-                    tintColor={filtersOpen||hasFilters ? palette.blue : palette.inkMuted}
-                    size={14}
-                  />
-                </View>
-                <Text style={[styles.filterToggleText,{color:filtersOpen||hasFilters ? palette.blue : palette.ink}]}>
-                  {filtersOpen ? "Hide filters" : "Filters"}{activeFilterCount ? " · "+activeFilterCount : ""}
-                </Text>
-              </Pressable>
-            </View>
-          )}
         </View>
+
+        {searchActive && filterControl ? (
+          <View style={styles.filterUtilityRow}>
+            {hasFilters && !filtersOpen ? (
+              <Text numberOfLines={1} style={[styles.activeFilterSummary,{color:palette.inkMuted}]}>
+                {[country,topic].filter(Boolean).join(" · ")}
+              </Text>
+            ) : null}
+            {filterControl}
+          </View>
+        ) : null}
 
         {filtersOpen && view!=="authors" && (
           <View style={[styles.filterPanel,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
@@ -364,7 +350,10 @@ export default function SearchScreen(){
         {!searchActive && (
           <>
             <View style={styles.suggestionsSection}>
-              <Text style={[styles.trySearchingHeading,{color:palette.ink}]}>Try searching for</Text>
+              <View style={styles.suggestionsHeadingRow}>
+                <Text style={[styles.trySearchingHeading,{color:palette.ink}]}>Try searching for</Text>
+                {filterControl}
+              </View>
               {taxonomy.loading && !taxonomy.data ? (
                 <LoadingBlock label="Loading suggestions…" />
               ) : suggestions.length ? (
@@ -385,24 +374,17 @@ export default function SearchScreen(){
               )}
             </View>
 
-            <View style={[styles.explanationCard,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+            <View style={[styles.explanationCard,{borderColor:palette.border}]}>
               <View style={styles.explanationHeader}>
-                <View accessible={false} style={[styles.explanationBadge,{backgroundColor:palette.paper,borderColor:palette.border}]}>
-                  <SymbolView
-                    name={{ios:"sparkle.magnifyingglass",android:"manage_search",web:"manage_search"}}
-                    tintColor={palette.blue}
-                    size={18}
-                  />
-                </View>
-                <View style={styles.explanationTitleWrap}>
-                  <Text style={[styles.explanationTitle,{color:palette.ink}]}>Intelligent Search</Text>
-                  <Text style={[styles.explanationSubtitle,{color:palette.inkMuted}]}>
-                    HealthTimes Journalism & Discovery
-                  </Text>
-                </View>
+                <SymbolView
+                  name={{ios:"sparkle.magnifyingglass",android:"manage_search",web:"manage_search"}}
+                  tintColor={palette.blue}
+                  size={14}
+                />
+                <Text style={[styles.explanationTitle,{color:palette.ink}]}>Intelligent Search</Text>
               </View>
               <Text style={[styles.explanationBody,{color:palette.inkMuted}]}>
-                Search HealthTimes reporting by headline, topic, author, country, video and audio using publication taxonomy and recency.
+                Search HealthTimes reporting by headline, topic, author, country, video and audio.
               </Text>
               <Text style={[styles.privacyNote,{color:palette.inkMuted}]}>
                 Your raw health search words are not sent to Reader analytics.
@@ -528,7 +510,7 @@ export default function SearchScreen(){
 }
 
 const styles=StyleSheet.create({
-  root:{paddingTop:spacing.md,gap:spacing.md},
+  root:{paddingTop:spacing.md,gap:spacing.sm},
   mobileBottomReserve:{paddingBottom:spacing.xxl},
   wideContainer:{maxWidth:860,width:"100%",alignSelf:"center",paddingTop:spacing.xl,gap:spacing.lg},
   searchFieldWrap:{
@@ -556,28 +538,19 @@ const styles=StyleSheet.create({
     alignItems:"center",
     justifyContent:"center"
   },
-  submitIconButton:{
-    width:38,
-    height:38,
-    minWidth:38,
-    minHeight:38,
-    borderRadius:radius.md,
-    alignItems:"center",
-    justifyContent:"center"
-  },
   controlsBar:{gap:spacing.xs},
   controlsBarWide:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md},
-  formatRail:{marginHorizontal:-spacing.xs,flexGrow:0},
-  formatTabs:{paddingHorizontal:spacing.xs,gap:spacing.sm,alignItems:"center"},
+  formatRail:{width:"100%",flexGrow:0},
+  formatTabs:{paddingHorizontal:0,gap:4,alignItems:"center"},
   formatTab:{
-    minHeight:40,
-    paddingHorizontal:14,
+    minHeight:36,
+    paddingHorizontal:10,
     borderRadius:999,
     borderWidth:1,
     alignItems:"center",
     justifyContent:"center"
   },
-  formatTabText:{fontSize:13,fontWeight:"800"},
+  formatTabText:{fontSize:12,fontWeight:"800"},
   controlFocused:{borderWidth:2},
   filterUtilityRow:{
     flexDirection:"row",
@@ -587,16 +560,16 @@ const styles=StyleSheet.create({
   },
   activeFilterSummary:{fontSize:12,flex:1},
   filterToggleButton:{
-    minHeight:38,
-    paddingHorizontal:12,
-    borderRadius:999,
-    borderWidth:1,
+    minHeight:36,
+    paddingHorizontal:4,
+    borderRadius:radius.sm,
+    borderWidth:0,
     flexDirection:"row",
     alignItems:"center",
-    gap:6
+    gap:5
   },
   filterToggleIcon:{alignItems:"center",justifyContent:"center"},
-  filterToggleText:{fontSize:12,fontWeight:"800"},
+  filterToggleText:{fontSize:11,fontWeight:"800"},
   filterPanel:{
     borderWidth:1,
     borderRadius:radius.md,
@@ -609,46 +582,40 @@ const styles=StyleSheet.create({
   filterUnavailable:{fontSize:13,lineHeight:20},
   clear:{alignSelf:"flex-start",minHeight:layout.touchMin,justifyContent:"center"},
   clearText:{fontSize:13,fontWeight:"900"},
-  suggestionsSection:{marginTop:spacing.xs,gap:spacing.sm},
+  suggestionsSection:{marginTop:spacing.xs,gap:spacing.xs},
+  suggestionsHeadingRow:{minHeight:36,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
   trySearchingHeading:{fontSize:16,fontWeight:"900",letterSpacing:-0.2},
-  suggestionsList:{gap:spacing.sm},
+  suggestionsList:{gap:0},
   suggestionsGridWide:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   suggestionRow:{
-    minHeight:layout.touchMin,
-    borderWidth:1,
-    borderRadius:radius.md,
-    paddingHorizontal:spacing.md,
-    paddingVertical:10,
+    minHeight:40,
+    borderWidth:0,
+    borderBottomWidth:1,
+    borderRadius:0,
+    paddingHorizontal:2,
+    paddingVertical:6,
     flexDirection:"row",
     alignItems:"center",
     gap:spacing.sm
   },
   suggestionRowColumn:{flexBasis:"48%",flexGrow:1,minWidth:240},
   suggestionIconWrap:{width:20,alignItems:"center",justifyContent:"center"},
-  suggestionText:{flex:1,fontSize:14,fontWeight:"700"},
-  suggestionArrow:{fontSize:13,fontWeight:"700"},
+  suggestionText:{flex:1,fontSize:14,fontWeight:"600"},
   initialNote:{fontSize:14,lineHeight:21},
   explanationCard:{
-    marginTop:spacing.xs,
-    borderWidth:1,
-    borderRadius:radius.md,
-    padding:spacing.lg,
-    gap:spacing.sm
+    marginTop:spacing.sm,
+    borderWidth:0,
+    borderTopWidth:1,
+    borderRadius:0,
+    paddingTop:spacing.md,
+    paddingHorizontal:0,
+    paddingBottom:0,
+    gap:spacing.xs
   },
-  explanationHeader:{flexDirection:"row",alignItems:"center",gap:spacing.md},
-  explanationBadge:{
-    width:40,
-    height:40,
-    borderRadius:radius.md,
-    borderWidth:1,
-    alignItems:"center",
-    justifyContent:"center"
-  },
-  explanationTitleWrap:{flex:1,gap:2},
-  explanationTitle:{fontSize:16,fontWeight:"900",letterSpacing:-0.2},
-  explanationSubtitle:{fontSize:12,fontWeight:"700"},
-  explanationBody:{fontSize:13,lineHeight:19},
-  privacyNote:{fontSize:12,lineHeight:18},
+  explanationHeader:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
+  explanationTitle:{fontSize:15,fontWeight:"900",letterSpacing:-0.2},
+  explanationBody:{fontSize:12,lineHeight:18},
+  privacyNote:{fontSize:11,lineHeight:16},
   privacyNoteStandalone:{fontSize:12,lineHeight:18,marginTop:spacing.md},
   inlineAction:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center",marginTop:spacing.sm},
   inlineActionText:{fontSize:13,fontWeight:"900"},
