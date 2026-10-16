@@ -67,7 +67,8 @@ test("HT-NR-VIS-01: All 8 Owner Preview routes and static export params exist", 
     "planning",
     "assignments",
     "calendar",
-    "homepage"
+    "homepage",
+    "media"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -75,7 +76,7 @@ test("HT-NR-VIS-01: All 8 Owner Preview routes and static export params exist", 
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 8);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 9);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -85,6 +86,7 @@ test("HT-NR-VIS-01: All 8 Owner Preview routes and static export params exist", 
     "/owner-preview/studio/assignments",
     "/owner-preview/studio/calendar",
     "/owner-preview/studio/homepage",
+    "/owner-preview/studio/media",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -291,6 +293,7 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "My Assignments",
     "Calendar",
     "Homepage",
+    "Media Library",
     "Story Workspace"
   ]);
 
@@ -352,6 +355,7 @@ test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from 
   const commsSource = read("src/ui/StudioCommunications.tsx");
   const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
   const homepageSource = read("src/ui/StudioHomepage.tsx");
+  const mediaSource = read("src/ui/StudioMediaLibrary.tsx");
 
   assert.ok(storiesSource.includes("export function StudioStoriesView"));
   assert.ok(storiesSource.includes("export function StudioStories"));
@@ -373,6 +377,9 @@ test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from 
 
   assert.ok(homepageSource.includes("export function StudioHomepageView"));
   assert.ok(homepageSource.includes("export function StudioHomepage"));
+
+  assert.ok(mediaSource.includes("export function StudioMediaLibraryView"));
+  assert.ok(mediaSource.includes("export function StudioMediaLibrary"));
 });
 
 test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Studio views without duplicate UI", () => {
@@ -398,6 +405,9 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   assert.ok(studioPreviewSource.includes("StudioHomepageView"));
   assert.ok(studioPreviewSource.includes("<StudioHomepageView"));
 
+  assert.ok(studioPreviewSource.includes("StudioMediaLibraryView"));
+  assert.ok(studioPreviewSource.includes("<StudioMediaLibraryView"));
+
   // OwnerPreviewStoryWorkspace imports and renders shared view
   assert.ok(workspacePreviewSource.includes("StudioStoryWorkspaceView"));
   assert.ok(workspacePreviewSource.includes("<StudioStoryWorkspaceView"));
@@ -410,6 +420,7 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   const commsSource = read("src/ui/StudioCommunications.tsx");
   const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
   const homepageSource = read("src/ui/StudioHomepage.tsx");
+  const mediaSource = read("src/ui/StudioMediaLibrary.tsx");
 
   assert.ok(storiesSource.includes("services.newsroomStories"));
   assert.ok(workspaceSource.includes("services.newsroomStories"));
@@ -421,6 +432,7 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
       calendarSource.includes("services.newsroomCommunication")
   );
   assert.ok(homepageSource.includes("services.newsroomStories"));
+  assert.ok(mediaSource.includes("services.newsroomMedia"));
 });
 
 

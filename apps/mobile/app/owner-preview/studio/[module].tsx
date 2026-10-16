@@ -9,7 +9,8 @@ export function generateStaticParams() {
     "planning",
     "assignments",
     "calendar",
-    "homepage"
+    "homepage",
+    "media"
   ].map((module) => ({ module }));
 }
 
