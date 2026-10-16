@@ -48,7 +48,7 @@ function loadTsModule(relPath, stubs = {}) {
 
 const previewData = loadTsModule("src/preview/newsroomPreviewData.ts");
 
-test("HT-NR-VIS-01: All 7 Owner Preview routes and static export params exist", () => {
+test("HT-NR-VIS-01: All 8 Owner Preview routes and static export params exist", () => {
   assert.ok(
     fs.existsSync(path.join(root, "app/owner-preview/studio/index.tsx")),
     "app/owner-preview/studio/index.tsx must exist"
@@ -66,7 +66,8 @@ test("HT-NR-VIS-01: All 7 Owner Preview routes and static export params exist", 
     "review-queue",
     "planning",
     "assignments",
-    "calendar"
+    "calendar",
+    "homepage"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -74,7 +75,7 @@ test("HT-NR-VIS-01: All 7 Owner Preview routes and static export params exist", 
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 7);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 8);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -83,6 +84,7 @@ test("HT-NR-VIS-01: All 7 Owner Preview routes and static export params exist", 
     "/owner-preview/studio/planning",
     "/owner-preview/studio/assignments",
     "/owner-preview/studio/calendar",
+    "/owner-preview/studio/homepage",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -288,6 +290,7 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Planning",
     "My Assignments",
     "Calendar",
+    "Homepage",
     "Story Workspace"
   ]);
 
@@ -348,6 +351,7 @@ test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from 
   const planningSource = read("src/ui/StudioPlanningBoard.tsx");
   const commsSource = read("src/ui/StudioCommunications.tsx");
   const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
+  const homepageSource = read("src/ui/StudioHomepage.tsx");
 
   assert.ok(storiesSource.includes("export function StudioStoriesView"));
   assert.ok(storiesSource.includes("export function StudioStories"));
@@ -366,6 +370,9 @@ test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from 
 
   assert.ok(calendarSource.includes("export function StudioEditorialCalendarView"));
   assert.ok(calendarSource.includes("export function StudioEditorialCalendar"));
+
+  assert.ok(homepageSource.includes("export function StudioHomepageView"));
+  assert.ok(homepageSource.includes("export function StudioHomepage"));
 });
 
 test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Studio views without duplicate UI", () => {
@@ -388,6 +395,9 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   assert.ok(studioPreviewSource.includes("StudioEditorialCalendarView"));
   assert.ok(studioPreviewSource.includes("<StudioEditorialCalendarView"));
 
+  assert.ok(studioPreviewSource.includes("StudioHomepageView"));
+  assert.ok(studioPreviewSource.includes("<StudioHomepageView"));
+
   // OwnerPreviewStoryWorkspace imports and renders shared view
   assert.ok(workspacePreviewSource.includes("StudioStoryWorkspaceView"));
   assert.ok(workspacePreviewSource.includes("<StudioStoryWorkspaceView"));
@@ -399,6 +409,7 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   const planningSource = read("src/ui/StudioPlanningBoard.tsx");
   const commsSource = read("src/ui/StudioCommunications.tsx");
   const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
+  const homepageSource = read("src/ui/StudioHomepage.tsx");
 
   assert.ok(storiesSource.includes("services.newsroomStories"));
   assert.ok(workspaceSource.includes("services.newsroomStories"));
@@ -409,6 +420,7 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
     calendarSource.includes("services.newsroomStories") ||
       calendarSource.includes("services.newsroomCommunication")
   );
+  assert.ok(homepageSource.includes("services.newsroomStories"));
 });
 
 

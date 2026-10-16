@@ -22,6 +22,7 @@ const modules=[
   ["Breaking","/studio/breaking"],
   ["Moderation","/studio/moderation"],
   ["Media","/studio/media"],
+  ["Homepage","/studio/homepage"],
   ["Advertising","/studio/advertising"],
   ["Premium","/studio/premium"],
   ["Social Desk","/studio/social"],

@@ -9,9 +9,13 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import type {
-  NewsroomAssignment,
-  NewsroomStory
+import {
+  deriveHomepageCurationState,
+  mergeHomepageDistribution,
+  parseHomepagePlacement,
+  type CuratedHomepageSectionKey,
+  type NewsroomAssignment,
+  type NewsroomStory
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -32,6 +36,7 @@ import {
   getCalendarEventKindLabel,
   StudioEditorialCalendarView
 } from "../ui/StudioEditorialCalendar";
+import { StudioHomepageView } from "../ui/StudioHomepage";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -367,6 +372,12 @@ export function OwnerPreviewTodayDashboard() {
             onPress={() => router.push("/owner-preview/studio/stories")}
           >
             <Text style={styles.secondaryBtnText}>All Stories Index</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryBtn}
+            onPress={() => router.push("/owner-preview/studio/homepage")}
+          >
+            <Text style={styles.secondaryBtnText}>Homepage Curation</Text>
           </Pressable>
         </View>
       </View>
@@ -730,6 +741,129 @@ export function OwnerPreviewCalendarView() {
   );
 }
 
+export function OwnerPreviewHomepageView() {
+  const router = useRouter();
+  const [stories, setStories] = useState<NewsroomStory[]>(() => buildPreviewStories());
+  const [notice, setNotice] = useState<string>(
+    "Preview state only — not saved. Shared presentation view StudioHomepageView rendered with sample data (writes disabled)."
+  );
+
+  const curationState = useMemo(() => deriveHomepageCurationState(stories), [stories]);
+
+  const handleSetHero = (storyId: string) => {
+    setStories((prev) =>
+      prev.map((s) => {
+        if (s.id === storyId) {
+          const nextDist = mergeHomepageDistribution(
+            s.distribution as Record<string, unknown> | null,
+            { section: "hero", rank: 1, active: true }
+          );
+          return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+        }
+        const currentP = parseHomepagePlacement(s.distribution?.homepage);
+        if (currentP?.section === "hero") {
+          const nextDist = mergeHomepageDistribution(
+            s.distribution as Record<string, unknown> | null,
+            null
+          );
+          return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+        }
+        return s;
+      })
+    );
+    setNotice("Preview state only: Simulated setting story as active Hero.");
+  };
+
+  const handleRemoveHero = () => {
+    setStories((prev) =>
+      prev.map((s) => {
+        const currentP = parseHomepagePlacement(s.distribution?.homepage);
+        if (currentP?.section === "hero") {
+          const nextDist = mergeHomepageDistribution(
+            s.distribution as Record<string, unknown> | null,
+            null
+          );
+          return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+        }
+        return s;
+      })
+    );
+    setNotice("Preview state only: Simulated removing active Hero.");
+  };
+
+  const handleAssignPlacement = (
+    section: CuratedHomepageSectionKey,
+    rank: number,
+    storyId: string
+  ) => {
+    setStories((prev) =>
+      prev.map((s) => {
+        if (s.id === storyId) {
+          const nextDist = mergeHomepageDistribution(
+            s.distribution as Record<string, unknown> | null,
+            { section, rank, active: true }
+          );
+          return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+        }
+        const currentP = parseHomepagePlacement(s.distribution?.homepage);
+        if (currentP?.section === section && currentP?.rank === rank) {
+          const nextDist = mergeHomepageDistribution(
+            s.distribution as Record<string, unknown> | null,
+            null
+          );
+          return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+        }
+        return s;
+      })
+    );
+    setNotice(`Preview state only: Simulated placing story in ${section} (rank ${rank}).`);
+  };
+
+  const handleRemovePlacement = (storyId: string) => {
+    setStories((prev) =>
+      prev.map((s) => {
+        if (s.id === storyId) {
+          const nextDist = mergeHomepageDistribution(
+            s.distribution as Record<string, unknown> | null,
+            null
+          );
+          return { ...s, distribution: nextDist, updatedAt: new Date().toISOString() };
+        }
+        return s;
+      })
+    );
+    setNotice("Preview state only: Simulated removing story from homepage placement.");
+  };
+
+  return (
+    <View style={styles.sectionStack} testID="owner-preview-homepage-view">
+      <View style={styles.previewNoticeBanner} testID="preview-homepage-notice">
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioHomepageView
+        stories={stories}
+        curationState={curationState}
+        loading={false}
+        error={null}
+        savingId={null}
+        actionMessage={null}
+        conflictError={null}
+        onRefresh={() => {}}
+        onSetHero={handleSetHero}
+        onRemoveHero={handleRemoveHero}
+        onAssignPlacement={handleAssignPlacement}
+        onRemovePlacement={handleRemovePlacement}
+        onOpenStoryWorkspace={(storyId: string) =>
+          router.push({
+            pathname: "/owner-preview/studio/create-edit",
+            params: { storyId }
+          } as never)
+        }
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -796,6 +930,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Unified chronological Agenda and 7-Day Week view derived from story deadlines, scheduled publications, and assignment deadlines."
         >
           <OwnerPreviewCalendarView />
+        </OwnerPreviewShell>
+      );
+    case "homepage":
+      return (
+        <OwnerPreviewShell
+          activeKey="homepage"
+          title="Homepage Presentation & Curation (Owner Visual Preview)"
+          subtitle="Editorial curation control plane for the HealthTimes reader home, including Hero (max 1), Top Stories (ranks 1-6), and thematic sections."
+        >
+          <OwnerPreviewHomepageView />
         </OwnerPreviewShell>
       );
     default:

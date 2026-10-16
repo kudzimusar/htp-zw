@@ -35,7 +35,8 @@
     "test:ht-nr02b": "node --test tests/ht-nr02b-review-queue.test.mjs",
     "test:ht-nr03": "node --test tests/ht-nr03-planning.test.mjs",
     "test:ht-nr03b": "node --test tests/ht-nr03b-editorial-calendar.test.mjs",
-    "test:ht-nr-owner-preview": "node --test tests/ht-nr-owner-preview.test.mjs"
+    "test:ht-nr-owner-preview": "node --test tests/ht-nr-owner-preview.test.mjs",
+    "test:ht-nr04a": "node --test tests/ht-nr04a-homepage.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",

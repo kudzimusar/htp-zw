@@ -8,7 +8,8 @@ export function generateStaticParams() {
     "review-queue",
     "planning",
     "assignments",
-    "calendar"
+    "calendar",
+    "homepage"
   ].map((module) => ({ module }));
 }
 

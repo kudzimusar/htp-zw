@@ -74,6 +74,7 @@ export type ArticleSummary = {
   topics: TaxonomyRef[];
   legacyTaxonomy?: TaxonomyRef[];
   heroMedia: MediaRef | null;
+  distribution?: { homepage?: unknown; [key: string]: unknown } | null;
   sourceProvenance?: SourceProvenance | null;
   contentIntegrity?: ContentIntegrityState;
   premiumSourceContext?: PremiumSourceContext;
@@ -741,4 +742,256 @@ export type NewsroomCalendarItem = {
   storyId: string | null;
   assignmentId: string | null;
 };
+
+// ============================================================================
+// HT-NR-04A: HOMEPAGE CURATION CONTROL-PLANE DOMAIN MODELS
+// ============================================================================
+
+export const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const HOMEPAGE_SECTION_KEYS = [
+  "hero",
+  "top-stories",
+  "latest",
+  "features",
+  "public-health",
+  "research",
+  "health-business",
+  "hiv-aids",
+  "global-health",
+  "watch",
+  "premium",
+  "opportunities",
+  "edition",
+  "further-coverage"
+] as const;
+
+export type HomepageSectionKey = typeof HOMEPAGE_SECTION_KEYS[number];
+
+export const CURATED_HOMEPAGE_SECTIONS = [
+  "hero",
+  "top-stories",
+  "features",
+  "public-health",
+  "research",
+  "health-business",
+  "hiv-aids",
+  "global-health",
+  "premium",
+  "further-coverage"
+] as const;
+
+export type CuratedHomepageSectionKey =
+  typeof CURATED_HOMEPAGE_SECTIONS[number];
+
+export const UNCURATED_HOMEPAGE_SECTIONS = [
+  "latest",
+  "watch",
+  "opportunities",
+  "edition"
+] as const;
+
+export type UncuratedHomepageSectionKey =
+  typeof UNCURATED_HOMEPAGE_SECTIONS[number];
+
+export type HomepagePlacement = {
+  section: CuratedHomepageSectionKey;
+  rank: number;
+  active: boolean;
+};
+
+export function isStoryPublishable(story: {
+  id?: string | null;
+  title?: string | null;
+  slug?: string | null;
+  workflowStatus?: string | null;
+  status?: string | null;
+  accessPolicy?: string | null;
+}): boolean {
+  if (!story || typeof story !== "object") return false;
+  if (!story.id || !CANONICAL_UUID_PATTERN.test(story.id)) return false;
+  if (!story.title || !story.title.trim()) return false;
+  if (!story.slug || !story.slug.trim()) return false;
+  const policy = (story.accessPolicy || "").toLowerCase();
+  if (policy !== "public" && policy !== "premium") return false;
+  const ws = (story.workflowStatus || "").toLowerCase();
+  const st = (story.status || "").toLowerCase();
+  if (ws === "archived" || st === "archived") return false;
+  return true;
+}
+
+export function parseHomepagePlacement(
+  input: unknown
+): HomepagePlacement | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return null;
+  }
+  const raw = input as Record<string, unknown>;
+  const section = raw.section;
+  if (
+    typeof section !== "string" ||
+    !CURATED_HOMEPAGE_SECTIONS.includes(section as CuratedHomepageSectionKey)
+  ) {
+    return null;
+  }
+  const rank = raw.rank;
+  if (
+    typeof rank !== "number" ||
+    !Number.isInteger(rank) ||
+    rank < 1 ||
+    rank > 6
+  ) {
+    return null;
+  }
+  if (section === "hero" && rank !== 1) {
+    return null;
+  }
+  const active = raw.active;
+  if (typeof active !== "boolean") {
+    return null;
+  }
+  return {
+    section: section as CuratedHomepageSectionKey,
+    rank,
+    active
+  };
+}
+
+export function mergeHomepageDistribution(
+  currentDistribution: Record<string, unknown> | null | undefined,
+  homepagePlacement: HomepagePlacement | null
+): Record<string, unknown> {
+  const next = { ...(currentDistribution || {}) };
+  if (!homepagePlacement) {
+    delete next.homepage;
+  } else {
+    next.homepage = homepagePlacement;
+  }
+  return next;
+}
+
+export type HomepageCurationState = {
+  hero: NewsroomStory | null;
+  topStories: NewsroomStory[];
+  sections: Record<CuratedHomepageSectionKey, NewsroomStory[]>;
+};
+
+export function deriveHomepageCurationState(
+  stories: NewsroomStory[]
+): HomepageCurationState {
+  const initialSections: Record<CuratedHomepageSectionKey, NewsroomStory[]> = {
+    hero: [],
+    "top-stories": [],
+    features: [],
+    "public-health": [],
+    research: [],
+    "health-business": [],
+    "hiv-aids": [],
+    "global-health": [],
+    premium: [],
+    "further-coverage": []
+  };
+
+  const eligibleStories = (Array.isArray(stories) ? stories : []).filter(isStoryPublishable);
+
+  const heroCandidates: NewsroomStory[] = [];
+  const topStoryCandidates: NewsroomStory[] = [];
+  const sectionCandidates: Record<string, NewsroomStory[]> = {};
+
+  for (const story of eligibleStories) {
+    const placement = parseHomepagePlacement(story.distribution?.homepage);
+    if (!placement || !placement.active) continue;
+
+    if (placement.section === "hero") {
+      heroCandidates.push(story);
+    } else if (placement.section === "top-stories") {
+      topStoryCandidates.push(story);
+    } else if (placement.section in initialSections) {
+      const currentList = sectionCandidates[placement.section] ?? [];
+      currentList.push(story);
+      sectionCandidates[placement.section] = currentList;
+    }
+  }
+
+  // Resolve Hero: lowest rank (all 1), newest modification timestamp, stable UUID order
+  let hero: NewsroomStory | null = null;
+  if (heroCandidates.length > 0) {
+    heroCandidates.sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.modifiedAt || 0).getTime();
+      const timeB = new Date(b.updatedAt || b.modifiedAt || 0).getTime();
+      if (timeB !== timeA) return timeB - timeA;
+      return a.id.localeCompare(b.id);
+    });
+    hero = heroCandidates[0] ?? null;
+  }
+
+  // Resolve Top Stories: unique ranks 1..6, max 6
+  const topByRank = new Map<number, NewsroomStory>();
+  for (const story of topStoryCandidates) {
+    const placement = parseHomepagePlacement(story.distribution?.homepage)!;
+    const existing = topByRank.get(placement.rank);
+    if (!existing) {
+      topByRank.set(placement.rank, story);
+    } else {
+      const timeExisting = new Date(
+        existing.updatedAt || existing.modifiedAt || 0
+      ).getTime();
+      const timeStory = new Date(
+        story.updatedAt || story.modifiedAt || 0
+      ).getTime();
+      if (
+        timeStory > timeExisting ||
+        (timeStory === timeExisting && story.id < existing.id)
+      ) {
+        topByRank.set(placement.rank, story);
+      }
+    }
+  }
+  const topStories = Array.from(topByRank.entries())
+    .sort(([rankA], [rankB]) => rankA - rankB)
+    .map(([, story]) => story)
+    .slice(0, 6);
+
+  // Resolve Curated Sections
+  const sections = { ...initialSections };
+  sections.hero = hero ? [hero] : [];
+  sections["top-stories"] = topStories;
+
+  for (const sectionKey of CURATED_HOMEPAGE_SECTIONS) {
+    if (sectionKey === "hero" || sectionKey === "top-stories") continue;
+    const list = sectionCandidates[sectionKey] || [];
+    const byRank = new Map<number, NewsroomStory>();
+    for (const story of list) {
+      const placement = parseHomepagePlacement(story.distribution?.homepage)!;
+      const existing = byRank.get(placement.rank);
+      if (!existing) {
+        byRank.set(placement.rank, story);
+      } else {
+        const timeExisting = new Date(
+          existing.updatedAt || existing.modifiedAt || 0
+        ).getTime();
+        const timeStory = new Date(
+          story.updatedAt || story.modifiedAt || 0
+        ).getTime();
+        if (
+          timeStory > timeExisting ||
+          (timeStory === timeExisting && story.id < existing.id)
+        ) {
+          byRank.set(placement.rank, story);
+        }
+      }
+    }
+    sections[sectionKey] = Array.from(byRank.entries())
+      .sort(([rankA], [rankB]) => rankA - rankB)
+      .map(([, story]) => story)
+      .slice(0, 6);
+  }
+
+  return {
+    hero,
+    topStories,
+    sections
+  };
+}
 
