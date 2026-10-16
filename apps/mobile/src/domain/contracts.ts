@@ -287,6 +287,9 @@ export interface NewsroomVideoService {
   createVideo(input: NewsroomVideoCreateInput): Promise<string>;
   saveVideo(videoId: string, expectedVersion: number, patch: NewsroomVideoPatch): Promise<number>;
   setReady(videoId: string, expectedVersion: number, ready: boolean): Promise<number>;
+  publishVideo(videoId: string, expectedVersion: number, featured?: boolean): Promise<number>;
+  unpublishVideo(videoId: string, expectedVersion: number): Promise<number>;
+  setFeatured(videoId: string, expectedVersion: number, featured: boolean): Promise<number>;
 }
 
 export interface HealthTimesServices {

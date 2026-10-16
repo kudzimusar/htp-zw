@@ -385,6 +385,15 @@ export const fixtureNewsroomVideoService: NewsroomVideoService = {
   },
   async setReady() {
     throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
+  },
+  async publishVideo() {
+    throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
+  },
+  async unpublishVideo() {
+    throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
+  },
+  async setFeatured() {
+    throw new Error(FAIL_CLOSED_VIDEO_MESSAGE);
   }
 };
 

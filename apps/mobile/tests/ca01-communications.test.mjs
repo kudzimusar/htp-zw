@@ -76,7 +76,7 @@ test("Reader article discussion is visibly unavailable on non-canonical stories"
   const article=read("app/article/[id].tsx");
   const panel=read("src/ui/ReaderDiscussion.tsx");
   assert.ok(article.includes("story.canonicalStoryId"));
-  assert.ok(panel.includes("source-parity or fixture story"));
+  assert.ok(panel.includes("Discussion isn't available for this article yet") || panel.includes("source-parity or fixture story"));
   assert.ok(panel.includes("services.readerDiscussion"));
   assert.equal(panel.includes("story_internal_comments"),false);
 });

@@ -77,6 +77,22 @@ export function hasVideoDeskAuthority(snapshot: unknown): boolean {
   );
 }
 
+export function hasVideoPublicationAuthority(snapshot: unknown): boolean {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  const s = snapshot as {
+    status?: unknown;
+    authorized?: unknown;
+    source?: unknown;
+    capabilities?: unknown;
+  };
+  const isAuthorized = s.status === "authorized" || s.authorized === true;
+  return (
+    isAuthorized &&
+    Array.isArray(s.capabilities) &&
+    s.capabilities.includes("story.publish")
+  );
+}
+
 export function formatDurationSeconds(seconds: number | null | undefined): string {
   if (seconds == null || isNaN(seconds) || seconds < 0) {
     return "Unknown duration";
@@ -120,6 +136,7 @@ export type StudioVideoDeskViewProps = {
   onStatusFilterChange?: (filter: "all" | "draft" | "ready") => void;
   onRefresh?: () => void;
   isOwnerPreview?: boolean;
+  canPublish?: boolean;
   onCreateVideo?: (input: NewsroomVideoCreateInput) => Promise<string | void>;
   onSaveVideo?: (
     videoId: string,
@@ -130,6 +147,20 @@ export type StudioVideoDeskViewProps = {
     videoId: string,
     expectedVersion: number,
     ready: boolean
+  ) => Promise<number | void>;
+  onPublishVideo?: (
+    videoId: string,
+    expectedVersion: number,
+    featured?: boolean
+  ) => Promise<number | void>;
+  onUnpublishVideo?: (
+    videoId: string,
+    expectedVersion: number
+  ) => Promise<number | void>;
+  onSetFeatured?: (
+    videoId: string,
+    expectedVersion: number,
+    featured: boolean
   ) => Promise<number | void>;
 };
 
@@ -146,9 +177,13 @@ export function StudioVideoDeskView({
   onStatusFilterChange,
   onRefresh,
   isOwnerPreview = false,
+  canPublish = false,
   onCreateVideo,
   onSaveVideo,
-  onToggleReady
+  onToggleReady,
+  onPublishVideo,
+  onUnpublishVideo,
+  onSetFeatured
 }: StudioVideoDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -189,6 +224,9 @@ export function StudioVideoDeskView({
   const [saveFeedback, setSaveFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [saveSubmitting, setSaveSubmitting] = useState(false);
   const [readySubmitting, setReadySubmitting] = useState(false);
+  const [publishSubmitting, setPublishSubmitting] = useState(false);
+  const [unpublishSubmitting, setUnpublishSubmitting] = useState(false);
+  const [featureSubmitting, setFeatureSubmitting] = useState(false);
 
   // Sync edit form with selected video
   useEffect(() => {
@@ -314,6 +352,15 @@ export function StudioVideoDeskView({
     if (!selectedVideo || saveSubmitting) return;
     setSaveFeedback(null);
 
+    // CRITICAL SECURITY BOUNDARY UX: Do not attempt to save metadata while published
+    if (selectedVideo.publishedAt) {
+      setSaveFeedback({
+        type: "error",
+        message: "Unpublish this video before changing its public metadata."
+      });
+      return;
+    }
+
     let parsedDuration: number | null = null;
     if (editDuration.trim()) {
       const n = Number(editDuration.trim());
@@ -373,6 +420,16 @@ export function StudioVideoDeskView({
   const handleToggleReady = async (targetReady: boolean) => {
     if (!selectedVideo || readySubmitting) return;
     setSaveFeedback(null);
+
+    // CRITICAL SECURITY BOUNDARY UX: Do not transition published video to draft
+    if (!targetReady && selectedVideo.publishedAt) {
+      setSaveFeedback({
+        type: "error",
+        message: "Published video cannot be transitioned to draft. Unpublish first."
+      });
+      return;
+    }
+
     setReadySubmitting(true);
     try {
       if (onToggleReady) {
@@ -398,6 +455,95 @@ export function StudioVideoDeskView({
       });
     } finally {
       setReadySubmitting(false);
+    }
+  };
+
+  const handlePublish = async (featured = false) => {
+    if (!selectedVideo || publishSubmitting) return;
+    setSaveFeedback(null);
+    setPublishSubmitting(true);
+    try {
+      if (onPublishVideo) {
+        await onPublishVideo(selectedVideo.id, selectedVideo.lockVersion, featured);
+        setSaveFeedback({
+          type: "success",
+          message: featured
+            ? "Video published and featured on Watch."
+            : "Video published to Watch."
+        });
+      } else {
+        setSaveFeedback({
+          type: "success",
+          message: featured
+            ? "Simulated: Video published and featured on Watch."
+            : "Simulated: Video published to Watch."
+        });
+      }
+    } catch (err) {
+      setSaveFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to publish video."
+      });
+    } finally {
+      setPublishSubmitting(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!selectedVideo || unpublishSubmitting) return;
+    setSaveFeedback(null);
+    setUnpublishSubmitting(true);
+    try {
+      if (onUnpublishVideo) {
+        await onUnpublishVideo(selectedVideo.id, selectedVideo.lockVersion);
+        setSaveFeedback({
+          type: "success",
+          message: "Video unpublished from Watch. Metadata editing is now unlocked."
+        });
+      } else {
+        setSaveFeedback({
+          type: "success",
+          message: "Simulated: Video unpublished from Watch."
+        });
+      }
+    } catch (err) {
+      setSaveFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to unpublish video."
+      });
+    } finally {
+      setUnpublishSubmitting(false);
+    }
+  };
+
+  const handleSetFeatured = async (featured: boolean) => {
+    if (!selectedVideo || featureSubmitting) return;
+    setSaveFeedback(null);
+    setFeatureSubmitting(true);
+    try {
+      if (onSetFeatured) {
+        await onSetFeatured(selectedVideo.id, selectedVideo.lockVersion, featured);
+        setSaveFeedback({
+          type: "success",
+          message: featured
+            ? "Video featured on Watch."
+            : "Video removed from Featured."
+        });
+      } else {
+        setSaveFeedback({
+          type: "success",
+          message: featured
+            ? "Simulated: Video featured on Watch."
+            : "Simulated: Video removed from Featured."
+        });
+      }
+    } catch (err) {
+      setSaveFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to update featured state."
+      });
+    } finally {
+      setFeatureSubmitting(false);
     }
   };
 
@@ -555,24 +701,36 @@ export function StudioVideoDeskView({
                       <Text style={styles.cardTitle} numberOfLines={2}>
                         {video.title}
                       </Text>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          video.status === "ready"
-                            ? styles.statusBadgeReady
-                            : styles.statusBadgeDraft
-                        ]}
-                      >
-                        <Text
+                      <View style={styles.badgeRow}>
+                        <View
                           style={[
-                            styles.statusBadgeText,
+                            styles.statusBadge,
                             video.status === "ready"
-                              ? styles.statusBadgeTextReady
-                              : styles.statusBadgeTextDraft
+                              ? styles.statusBadgeReady
+                              : styles.statusBadgeDraft
                           ]}
                         >
-                          {video.status.toUpperCase()}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              video.status === "ready"
+                                ? styles.statusBadgeTextReady
+                                : styles.statusBadgeTextDraft
+                            ]}
+                          >
+                            {video.status.toUpperCase()}
+                          </Text>
+                        </View>
+                        {Boolean(video.publishedAt) && (
+                          <View style={styles.statusBadgePublished} testID={`badge-published-${video.id}`}>
+                            <Text style={styles.statusBadgeTextPublished}>PUBLISHED</Text>
+                          </View>
+                        )}
+                        {Boolean(video.watchFeatured) && (
+                          <View style={styles.statusBadgeFeatured} testID={`badge-featured-${video.id}`}>
+                            <Text style={styles.statusBadgeTextFeatured}>FEATURED ON WATCH</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
@@ -780,35 +938,66 @@ export function StudioVideoDeskView({
                     {selectedVideo.title}
                   </Text>
                 </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    selectedVideo.status === "ready"
-                      ? styles.statusBadgeReady
-                      : styles.statusBadgeDraft
-                  ]}
-                >
-                  <Text
+                <View style={styles.badgeRow}>
+                  <View
                     style={[
-                      styles.statusBadgeText,
+                      styles.statusBadge,
                       selectedVideo.status === "ready"
-                        ? styles.statusBadgeTextReady
-                        : styles.statusBadgeTextDraft
+                        ? styles.statusBadgeReady
+                        : styles.statusBadgeDraft
                     ]}
                   >
-                    {selectedVideo.status.toUpperCase()}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        selectedVideo.status === "ready"
+                          ? styles.statusBadgeTextReady
+                          : styles.statusBadgeTextDraft
+                      ]}
+                    >
+                      {selectedVideo.status.toUpperCase()}
+                    </Text>
+                  </View>
+                  {Boolean(selectedVideo.publishedAt) && (
+                    <View style={styles.statusBadgePublished} testID="inspector-badge-published">
+                      <Text style={styles.statusBadgeTextPublished}>PUBLISHED</Text>
+                    </View>
+                  )}
+                  {Boolean(selectedVideo.watchFeatured) && (
+                    <View style={styles.statusBadgeFeatured} testID="inspector-badge-featured">
+                      <Text style={styles.statusBadgeTextFeatured}>FEATURED ON WATCH</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
-              {/* Ready State Distinction Banner (Section 30) */}
-              {selectedVideo.status === "ready" ? (
+              {/* Publication / Ready State Distinction Banners */}
+              {selectedVideo.publishedAt ? (
+                <>
+                  <View style={styles.publishedDistinctionBanner} testID="video-published-distinction-banner">
+                    <Text style={styles.publishedDistinctionTitle}>
+                      ● PUBLISHED TO READER WATCH {selectedVideo.watchFeatured ? "(FEATURED)" : ""}
+                    </Text>
+                    <Text style={styles.publishedDistinctionBody}>
+                      This video is live on HealthTimes Watch. Viewing destination opens directly from Reader Watch cards.
+                    </Text>
+                  </View>
+                  <View style={styles.publishedLockBanner} testID="video-published-lock-banner">
+                    <Text style={styles.publishedLockTitle}>
+                      🔒 PUBLISHED ON WATCH · METADATA LOCKED
+                    </Text>
+                    <Text style={styles.publishedLockBody}>
+                      Unpublish this video before changing its public metadata.
+                    </Text>
+                  </View>
+                </>
+              ) : selectedVideo.status === "ready" ? (
                 <View style={styles.readyDistinctionBanner} testID="video-ready-distinction-banner">
                   <Text style={styles.readyDistinctionTitle}>
-                    ✓ EDITORIAL METADATA READY FOR PUBLIC DELIVERY PHASE
+                    ✓ EDITORIAL METADATA READY FOR PUBLIC DELIVERY
                   </Text>
                   <Text style={styles.readyDistinctionBody}>
-                    This video is validated and ready for future distribution. It is NOT yet published, NOT visible on Reader Watch, and NOT publicly streamable.
+                    This video is validated and ready for public Watch delivery. Use "Publish to Watch" below to make it visible to readers.
                   </Text>
                 </View>
               ) : (
@@ -875,15 +1064,31 @@ export function StudioVideoDeskView({
                     {selectedVideo.updatedByStaffId || "System"}
                   </Text>
                 </View>
+                <View style={styles.readOnlyItem}>
+                  <Text style={styles.readOnlyLabel}>Published At</Text>
+                  <Text style={styles.readOnlyValue}>
+                    {selectedVideo.publishedAt ? formatDate(selectedVideo.publishedAt) : "Unpublished"}
+                  </Text>
+                </View>
+                <View style={styles.readOnlyItem}>
+                  <Text style={styles.readOnlyLabel}>Watch Featured</Text>
+                  <Text style={styles.readOnlyValue}>
+                    {selectedVideo.watchFeatured ? "Yes (Featured on Watch)" : "No"}
+                  </Text>
+                </View>
               </View>
 
               {/* Editable Fields */}
               <View style={styles.formGroup}>
                 <Text style={styles.fieldLabel}>Title *</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[
+                    styles.fieldInput,
+                    Boolean(selectedVideo.publishedAt) && styles.fieldInputDisabled
+                  ]}
                   value={editTitle}
                   onChangeText={setEditTitle}
+                  editable={!selectedVideo.publishedAt}
                   testID="video-editor-title-input"
                 />
               </View>
@@ -891,9 +1096,13 @@ export function StudioVideoDeskView({
               <View style={styles.formGroup}>
                 <Text style={styles.fieldLabel}>Public Viewing Destination (Source URL) *</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[
+                    styles.fieldInput,
+                    Boolean(selectedVideo.publishedAt) && styles.fieldInputDisabled
+                  ]}
                   value={editSourceUrl}
                   onChangeText={setEditSourceUrl}
+                  editable={!selectedVideo.publishedAt}
                   autoCapitalize="none"
                   testID="video-editor-source-url-input"
                 />
@@ -921,9 +1130,13 @@ export function StudioVideoDeskView({
               <View style={styles.formGroup}>
                 <Text style={styles.fieldLabel}>Thumbnail URL (Optional)</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[
+                    styles.fieldInput,
+                    Boolean(selectedVideo.publishedAt) && styles.fieldInputDisabled
+                  ]}
                   value={editThumbnailUrl}
                   onChangeText={setEditThumbnailUrl}
+                  editable={!selectedVideo.publishedAt}
                   autoCapitalize="none"
                   placeholder="https://..."
                   placeholderTextColor={colors.gray400}
@@ -953,9 +1166,13 @@ export function StudioVideoDeskView({
               <View style={styles.formGroup}>
                 <Text style={styles.fieldLabel}>Duration in Seconds (Optional)</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[
+                    styles.fieldInput,
+                    Boolean(selectedVideo.publishedAt) && styles.fieldInputDisabled
+                  ]}
                   value={editDuration}
                   onChangeText={setEditDuration}
+                  editable={!selectedVideo.publishedAt}
                   keyboardType="numeric"
                   placeholder="e.g. 185"
                   placeholderTextColor={colors.gray400}
@@ -972,9 +1189,13 @@ export function StudioVideoDeskView({
                   <Pressable
                     style={[
                       styles.storyOption,
-                      editRelatedStoryId === null && styles.storyOptionSelected
+                      editRelatedStoryId === null && styles.storyOptionSelected,
+                      Boolean(selectedVideo.publishedAt) && styles.storyOptionDisabled
                     ]}
-                    onPress={() => setEditRelatedStoryId(null)}
+                    onPress={() => {
+                      if (!selectedVideo.publishedAt) setEditRelatedStoryId(null);
+                    }}
+                    disabled={Boolean(selectedVideo.publishedAt)}
                   >
                     <Text
                       style={[
@@ -990,8 +1211,15 @@ export function StudioVideoDeskView({
                     return (
                       <Pressable
                         key={story.id}
-                        style={[styles.storyOption, isSelected && styles.storyOptionSelected]}
-                        onPress={() => setEditRelatedStoryId(story.id)}
+                        style={[
+                          styles.storyOption,
+                          isSelected && styles.storyOptionSelected,
+                          Boolean(selectedVideo.publishedAt) && styles.storyOptionDisabled
+                        ]}
+                        onPress={() => {
+                          if (!selectedVideo.publishedAt) setEditRelatedStoryId(story.id);
+                        }}
+                        disabled={Boolean(selectedVideo.publishedAt)}
                       >
                         <Text
                           style={[
@@ -1011,9 +1239,13 @@ export function StudioVideoDeskView({
               <View style={styles.formGroup}>
                 <Text style={styles.fieldLabel}>Source Provenance *</Text>
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[
+                    styles.fieldInput,
+                    Boolean(selectedVideo.publishedAt) && styles.fieldInputDisabled
+                  ]}
                   value={editProvenance}
                   onChangeText={setEditProvenance}
+                  editable={!selectedVideo.publishedAt}
                   testID="video-editor-provenance-input"
                 />
               </View>
@@ -1023,14 +1255,19 @@ export function StudioVideoDeskView({
                 <Pressable
                   style={[
                     styles.primaryButton,
-                    (saveSubmitting || isOwnerPreview) && styles.buttonDisabled
+                    (saveSubmitting || Boolean(selectedVideo.publishedAt) || isOwnerPreview) &&
+                      styles.buttonDisabled
                   ]}
                   onPress={handleSaveVideo}
-                  disabled={saveSubmitting || isOwnerPreview}
+                  disabled={saveSubmitting || Boolean(selectedVideo.publishedAt) || isOwnerPreview}
                   testID="video-editor-save-button"
                 >
                   <Text style={styles.primaryButtonText}>
-                    {saveSubmitting ? "Saving..." : "Save Changes"}
+                    {saveSubmitting
+                      ? "Saving..."
+                      : selectedVideo.publishedAt
+                      ? "Locked While Published"
+                      : "Save Changes"}
                   </Text>
                 </Pressable>
 
@@ -1038,10 +1275,11 @@ export function StudioVideoDeskView({
                   <Pressable
                     style={[
                       styles.readyButton,
-                      (readySubmitting || isOwnerPreview) && styles.buttonDisabled
+                      (readySubmitting || Boolean(selectedVideo.publishedAt) || isOwnerPreview) &&
+                        styles.buttonDisabled
                     ]}
                     onPress={() => handleToggleReady(true)}
-                    disabled={readySubmitting || isOwnerPreview}
+                    disabled={readySubmitting || Boolean(selectedVideo.publishedAt) || isOwnerPreview}
                     testID="video-editor-ready-button"
                   >
                     <Text style={styles.readyButtonText}>
@@ -1052,10 +1290,11 @@ export function StudioVideoDeskView({
                   <Pressable
                     style={[
                       styles.draftButton,
-                      (readySubmitting || isOwnerPreview) && styles.buttonDisabled
+                      (readySubmitting || Boolean(selectedVideo.publishedAt) || isOwnerPreview) &&
+                        styles.buttonDisabled
                     ]}
                     onPress={() => handleToggleReady(false)}
-                    disabled={readySubmitting || isOwnerPreview}
+                    disabled={readySubmitting || Boolean(selectedVideo.publishedAt) || isOwnerPreview}
                     testID="video-editor-draft-button"
                   >
                     <Text style={styles.draftButtonText}>
@@ -1064,6 +1303,90 @@ export function StudioVideoDeskView({
                   </Pressable>
                 )}
               </View>
+
+              {/* Publication Action Buttons (Section 38 & 39) */}
+              {canPublish && (
+                <View style={styles.publicationActionRow} testID="video-publication-actions">
+                  {!selectedVideo.publishedAt && selectedVideo.status === "ready" && (
+                    <>
+                      <Pressable
+                        style={[
+                          styles.publishButton,
+                          (publishSubmitting || isOwnerPreview) && styles.buttonDisabled
+                        ]}
+                        onPress={() => handlePublish(false)}
+                        disabled={publishSubmitting || isOwnerPreview}
+                        testID="video-publish-button"
+                      >
+                        <Text style={styles.publishButtonText}>
+                          {publishSubmitting ? "Publishing..." : "Publish to Watch"}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[
+                          styles.publishFeatureButton,
+                          (publishSubmitting || isOwnerPreview) && styles.buttonDisabled
+                        ]}
+                        onPress={() => handlePublish(true)}
+                        disabled={publishSubmitting || isOwnerPreview}
+                        testID="video-publish-feature-button"
+                      >
+                        <Text style={styles.publishFeatureButtonText}>
+                          {publishSubmitting ? "Publishing..." : "Publish & Feature"}
+                        </Text>
+                      </Pressable>
+                    </>
+                  )}
+
+                  {Boolean(selectedVideo.publishedAt) && (
+                    <>
+                      <Pressable
+                        style={[
+                          styles.unpublishButton,
+                          (unpublishSubmitting || isOwnerPreview) && styles.buttonDisabled
+                        ]}
+                        onPress={handleUnpublish}
+                        disabled={unpublishSubmitting || isOwnerPreview}
+                        testID="video-unpublish-button"
+                      >
+                        <Text style={styles.unpublishButtonText}>
+                          {unpublishSubmitting ? "Unpublishing..." : "Unpublish"}
+                        </Text>
+                      </Pressable>
+
+                      {!selectedVideo.watchFeatured ? (
+                        <Pressable
+                          style={[
+                            styles.featureButton,
+                            (featureSubmitting || isOwnerPreview) && styles.buttonDisabled
+                          ]}
+                          onPress={() => handleSetFeatured(true)}
+                          disabled={featureSubmitting || isOwnerPreview}
+                          testID="video-feature-button"
+                        >
+                          <Text style={styles.featureButtonText}>
+                            {featureSubmitting ? "Updating..." : "Feature on Watch"}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          style={[
+                            styles.unfeatureButton,
+                            (featureSubmitting || isOwnerPreview) && styles.buttonDisabled
+                          ]}
+                          onPress={() => handleSetFeatured(false)}
+                          disabled={featureSubmitting || isOwnerPreview}
+                          testID="video-unfeature-button"
+                        >
+                          <Text style={styles.unfeatureButtonText}>
+                            {featureSubmitting ? "Updating..." : "Remove Featured"}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
             </ScrollView>
           ) : (
             <View style={styles.centerMessage} testID="video-desk-no-selection">
@@ -1145,6 +1468,35 @@ export function StudioVideoDesk() {
     await loadData();
   };
 
+  const authSnapshot = services.authorization.getSnapshot();
+  const canPublish = hasVideoPublicationAuthority(authSnapshot);
+
+  const handlePublishVideo = async (
+    videoId: string,
+    expectedVersion: number,
+    featured?: boolean
+  ) => {
+    await services.newsroomVideo.publishVideo(videoId, expectedVersion, featured);
+    await loadData();
+  };
+
+  const handleUnpublishVideo = async (
+    videoId: string,
+    expectedVersion: number
+  ) => {
+    await services.newsroomVideo.unpublishVideo(videoId, expectedVersion);
+    await loadData();
+  };
+
+  const handleSetFeatured = async (
+    videoId: string,
+    expectedVersion: number,
+    featured: boolean
+  ) => {
+    await services.newsroomVideo.setFeatured(videoId, expectedVersion, featured);
+    await loadData();
+  };
+
   return (
     <StudioAccessGate capability="media.manage">
       <StudioVideoDeskView
@@ -1159,9 +1511,13 @@ export function StudioVideoDesk() {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onRefresh={loadData}
+        canPublish={canPublish}
         onCreateVideo={handleCreateVideo}
         onSaveVideo={handleSaveVideo}
         onToggleReady={handleToggleReady}
+        onPublishVideo={handlePublishVideo}
+        onUnpublishVideo={handleUnpublishVideo}
+        onSetFeatured={handleSetFeatured}
       />
     </StudioAccessGate>
   );
@@ -1735,5 +2091,143 @@ const styles = StyleSheet.create({
   errorBoxText: {
     color: colors.rose800,
     fontSize: 12
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexWrap: "wrap"
+  },
+  statusBadgePublished: {
+    backgroundColor: colors.blue100,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: radius.sm
+  },
+  statusBadgeTextPublished: {
+    color: colors.blue900,
+    fontSize: 10,
+    fontWeight: "800"
+  },
+  statusBadgeFeatured: {
+    backgroundColor: colors.amber100,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: radius.sm
+  },
+  statusBadgeTextFeatured: {
+    color: colors.amber800,
+    fontSize: 10,
+    fontWeight: "800"
+  },
+  publishedDistinctionBanner: {
+    backgroundColor: colors.blue50,
+    borderColor: colors.blue600,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md
+  },
+  publishedDistinctionTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.blue900
+  },
+  publishedDistinctionBody: {
+    fontSize: 11,
+    color: colors.blue900,
+    marginTop: 4,
+    lineHeight: 16
+  },
+  publishedLockBanner: {
+    backgroundColor: colors.gray100,
+    borderColor: colors.gray300,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm
+  },
+  publishedLockTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.gray800
+  },
+  publishedLockBody: {
+    fontSize: 11,
+    color: colors.gray600,
+    marginTop: 4,
+    lineHeight: 16
+  },
+  publicationActionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200
+  },
+  publishButton: {
+    backgroundColor: colors.blue600,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md
+  },
+  publishButtonText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  publishFeatureButton: {
+    backgroundColor: colors.amber600,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md
+  },
+  publishFeatureButtonText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  unpublishButton: {
+    backgroundColor: colors.rose600,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md
+  },
+  unpublishButtonText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  featureButton: {
+    backgroundColor: colors.amber700,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md
+  },
+  featureButtonText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  unfeatureButton: {
+    backgroundColor: colors.gray600,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md
+  },
+  unfeatureButtonText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 13
+  },
+  fieldInputDisabled: {
+    backgroundColor: colors.gray100,
+    color: colors.gray500,
+    borderColor: colors.gray200
+  },
+  storyOptionDisabled: {
+    opacity: 0.6
   }
 });

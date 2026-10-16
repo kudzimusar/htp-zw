@@ -1113,6 +1113,9 @@ function OwnerPreviewVideoDeskView() {
               `Optimistic concurrency conflict: Expected version ${expectedVersion}, but video is at version ${v.lockVersion}. Please reload.`
             );
           }
+          if (v.publishedAt) {
+            throw new Error("Published video cannot be edited. Unpublish first.");
+          }
           newVersion = v.lockVersion + 1;
           return {
             ...v,
@@ -1162,6 +1165,9 @@ function OwnerPreviewVideoDeskView() {
         `Optimistic concurrency conflict: Expected version ${expectedVersion}, but video is at version ${targetVideo.lockVersion}. Please reload.`
       );
     }
+    if (!ready && targetVideo.publishedAt) {
+      throw new Error("Published video cannot be transitioned to draft. Unpublish first.");
+    }
     if (ready) {
       if (
         !targetVideo.title?.trim() ||
@@ -1204,6 +1210,9 @@ function OwnerPreviewVideoDeskView() {
       relatedStoryId: input.relatedStoryId ?? null,
       sourceProvenance: input.sourceProvenance,
       status: "draft",
+      publishedAt: null,
+      watchFeatured: false,
+      publishedByStaffId: null,
       lockVersion: 1,
       createdByStaffId: "preview-editor",
       updatedByStaffId: "preview-editor",
@@ -1214,6 +1223,102 @@ function OwnerPreviewVideoDeskView() {
     setSelectedVideoId(newId);
     setNotice("Preview state only: Simulated video registered in local preview memory.");
     return newId;
+  };
+
+  const handlePublishVideo = async (
+    videoId: string,
+    expectedVersion: number,
+    featured: boolean = false
+  ): Promise<number> => {
+    let targetVideo = videos.find((v) => v.id === videoId);
+    if (!targetVideo) throw new Error("Video not found");
+    if (targetVideo.lockVersion !== expectedVersion) {
+      throw new Error("Optimistic concurrency conflict");
+    }
+    if (targetVideo.status !== "ready") {
+      throw new Error("Video must be in ready status to publish");
+    }
+    const newVersion = targetVideo.lockVersion + 1;
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id === videoId) {
+          return {
+            ...v,
+            publishedAt: new Date().toISOString(),
+            watchFeatured: Boolean(featured),
+            publishedByStaffId: "preview-editor",
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        if (featured && v.watchFeatured) {
+          return { ...v, watchFeatured: false };
+        }
+        return v;
+      })
+    );
+    setNotice(`Preview state only: Simulated video published ${featured ? "and featured on Watch" : "to Watch"}.`);
+    return newVersion;
+  };
+
+  const handleUnpublishVideo = async (
+    videoId: string,
+    expectedVersion: number
+  ): Promise<number> => {
+    let targetVideo = videos.find((v) => v.id === videoId);
+    if (!targetVideo) throw new Error("Video not found");
+    if (targetVideo.lockVersion !== expectedVersion) {
+      throw new Error("Optimistic concurrency conflict");
+    }
+    const newVersion = targetVideo.lockVersion + 1;
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id === videoId) {
+          return {
+            ...v,
+            publishedAt: null,
+            watchFeatured: false,
+            publishedByStaffId: null,
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return v;
+      })
+    );
+    setNotice("Preview state only: Simulated video unpublished from Watch.");
+    return newVersion;
+  };
+
+  const handleSetFeatured = async (
+    videoId: string,
+    expectedVersion: number,
+    featured: boolean
+  ): Promise<number> => {
+    let targetVideo = videos.find((v) => v.id === videoId);
+    if (!targetVideo) throw new Error("Video not found");
+    if (targetVideo.lockVersion !== expectedVersion) {
+      throw new Error("Optimistic concurrency conflict");
+    }
+    const newVersion = targetVideo.lockVersion + 1;
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id === videoId) {
+          return {
+            ...v,
+            watchFeatured: featured,
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        if (featured && v.watchFeatured) {
+          return { ...v, watchFeatured: false };
+        }
+        return v;
+      })
+    );
+    setNotice(`Preview state only: Simulated video featured status updated to ${featured}.`);
+    return newVersion;
   };
 
   return (
@@ -1233,9 +1338,13 @@ function OwnerPreviewVideoDeskView() {
         onSelectVideo={(video) => setSelectedVideoId(video ? video.id : null)}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        canPublish={true}
         onSaveVideo={handleSaveVideo}
         onToggleReady={handleToggleReady}
         onCreateVideo={handleCreateVideo}
+        onPublishVideo={handlePublishVideo}
+        onUnpublishVideo={handleUnpublishVideo}
+        onSetFeatured={handleSetFeatured}
         isOwnerPreview={true}
       />
     </View>
