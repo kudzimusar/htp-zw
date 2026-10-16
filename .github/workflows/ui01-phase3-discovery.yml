@@ -191,7 +191,7 @@ jobs:
               const search=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
               const searchDiag=diagnostics(search);
               const searchResponse=await search.goto(base+'/search',{waitUntil:'domcontentloaded',timeout:30000});
-              await search.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
+              await search.getByText('Try searching for',{exact:true}).waitFor({timeout:30000});
               const suggestionsLoading=search.getByText('Loading suggestions…',{exact:true});
               if(await suggestionsLoading.count()) await suggestionsLoading.waitFor({state:'hidden',timeout:30000});
               await search.getByRole('button',{name:expectedSuggestions[0],exact:true}).waitFor({timeout:30000});
@@ -322,7 +322,7 @@ jobs:
             await dark.screenshot({path:darkExploreFile,fullPage:true});
             manifest.screens.push({name:'dark-explore',route:'/explore',viewport:'mobile',width:390,height:844,file:darkExploreFile,resolvedState:'dark',pageErrors:darkDiag.pageErrors,consoleErrors:darkDiag.consoleErrors,react418:0,...darkExploreInspect});
             await dark.goto(base+'/search',{waitUntil:'domcontentloaded',timeout:30000});
-            await dark.getByText('Suggested searches',{exact:true}).waitFor({timeout:30000});
+            await dark.getByText('Try searching for',{exact:true}).waitFor({timeout:30000});
             const darkSuggestionsLoading=dark.getByText('Loading suggestions…',{exact:true});
             if(await darkSuggestionsLoading.count()) await darkSuggestionsLoading.waitFor({state:'hidden',timeout:30000});
             await dark.getByRole('button',{name:expectedSuggestions[0],exact:true}).waitFor({timeout:30000});

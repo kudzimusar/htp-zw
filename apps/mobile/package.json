@@ -31,7 +31,8 @@
     "test:ui01-phase4": "node --test tests/ui01-phase4-media.test.mjs",
     "test:ui04": "node --test tests/ui04-reader-ownership.test.mjs",
     "test:ui05": "node --test tests/ui05-phase6b-quality.test.mjs",
-    "test:ui-wf01b-r2": "node --test tests/ui-wf01b-r2-home.test.mjs"
+    "test:ui-wf01b-r2": "node --test tests/ui-wf01b-r2-home.test.mjs",
+    "test:ui-wf02a": "node --test tests/ui-wf02a-search.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",

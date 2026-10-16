@@ -99,7 +99,7 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   const cards = read("src/ui/Cards.tsx");
   const home = read("app/(reader)/index.tsx");
   const explore = read("app/(reader)/explore.tsx");
-  const search = read("app/search.tsx");
+  const search = read("app/(reader)/search.tsx");
   const article = read("app/article/[id].tsx");
 
   assert.match(layout, /EDITION/);
@@ -126,7 +126,7 @@ test("unified UI milestone follows approved Reader and PWA design authority", ()
   ]) {
     assert.equal(explore.includes(internalCopy), false, "Explore must not expose internal copy: " + internalCopy);
   }
-  assert.match(search, /Suggested searches/);
+  assert.match(search, /Try searching for/);
   assert.match(search, /VideoCard/);
   assert.match(search, /AudioCard/);
   assert.match(search, /LiveRail/);

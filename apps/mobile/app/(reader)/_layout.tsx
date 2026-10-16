@@ -52,6 +52,7 @@ export default function ReaderTabs() {
       <Tabs.Screen name="live" options={{title:"Live",tabBarIcon:icon("live")}} />
       <Tabs.Screen name="watch" options={{title:"Watch",tabBarIcon:icon("watch")}} />
       <Tabs.Screen name="my" options={{title:"My HT",tabBarIcon:icon("profile")}} />
+      <Tabs.Screen name="search" options={{href:null}} />
     </Tabs>
   );
 }

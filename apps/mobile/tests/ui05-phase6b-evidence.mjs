@@ -149,7 +149,7 @@ const manifest={
 
 try{
   for(const spec of [
-    {name:"mobile-search",route:"/search",viewport:["mobile",390,844],ready:"Suggested searches"},
+    {name:"mobile-search",route:"/search",viewport:["mobile",390,844],ready:"Try searching for"},
     {name:"tablet-my",route:"/my",viewport:["tablet",834,1112],ready:"My HealthTimes"},
     {name:"desktop-article",route:"/article/"+articleId,viewport:["desktop",1440,1000],readiness:requireResolvedArticle,loadingMarkers:["Loading article…"]}
   ]) await capture(browser,manifest,spec);
@@ -158,7 +158,7 @@ try{
     name:"narrow-long-search",
     route:"/search",
     viewport:["narrow",320,844],
-    ready:"Suggested searches",
+    ready:"Try searching for",
     after:async page=>{
       const input=page.getByRole("textbox",{name:"Search HealthTimes"});
       await input.fill("cardiovascular-health-policy-and-community-prevention-".repeat(3));

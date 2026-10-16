@@ -14,7 +14,7 @@ test("required Reader and Studio routes exist", () => {
     "app/(reader)/live.tsx",
     "app/(reader)/watch.tsx",
     "app/(reader)/my.tsx",
-    "app/search.tsx",
+    "app/(reader)/search.tsx",
     "app/article/[id].tsx",
     "app/listen.tsx",
     "app/saved.tsx",
@@ -31,6 +31,7 @@ test("required Reader and Studio routes exist", () => {
     assert.equal(existsSync(join(root, route)), true, `missing route: ${route}`);
   }
   assert.equal(existsSync(join(root, "app/index.tsx")), false, "Reader route group should own / without a duplicate root route");
+  assert.equal(existsSync(join(root, "app/search.tsx")), false, "Reader route group should own /search without a duplicate root route");
 });
 
 test("service contract surface stays explicit", () => {
