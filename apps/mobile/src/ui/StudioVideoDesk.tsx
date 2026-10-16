@@ -81,13 +81,12 @@ export function hasVideoPublicationAuthority(snapshot: unknown): boolean {
   if (!snapshot || typeof snapshot !== "object") return false;
   const s = snapshot as {
     status?: unknown;
-    authorized?: unknown;
     source?: unknown;
     capabilities?: unknown;
   };
-  const isAuthorized = s.status === "authorized" || s.authorized === true;
   return (
-    isAuthorized &&
+    s.status === "authorized" &&
+    s.source === "server" &&
     Array.isArray(s.capabilities) &&
     s.capabilities.includes("story.publish")
   );

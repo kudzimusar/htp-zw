@@ -284,47 +284,79 @@ test("HT-NR-05C-B Migration 69: RPC functions and capability boundaries", () => 
 // 3. EDITORIAL AUTHORITY & PUBLICATION GATING
 // =============================================================================
 
-test("HT-NR-05C-B Authority: hasVideoPublicationAuthority requires story.publish", () => {
-  // Valid publication authority
+test("HT-NR-05C-B Authority: hasVideoPublicationAuthority requires server status and story.publish", () => {
+  // Matrix item 1: status="authorized", source="server", capabilities=["story.publish"] -> TRUE
   assert.strictEqual(
     hasVideoPublicationAuthority({
       status: "authorized",
-      capabilities: ["story.publish", "media.manage"]
+      source: "server",
+      capabilities: ["story.publish"]
     }),
     true
   );
 
+  // Matrix item 2: status="authorized", source="server", capabilities=[] -> FALSE
+  assert.strictEqual(
+    hasVideoPublicationAuthority({
+      status: "authorized",
+      source: "server",
+      capabilities: []
+    }),
+    false
+  );
+
+  // Matrix item 3: status="authorized", source="fixture", capabilities=["story.publish"] -> FALSE
+  assert.strictEqual(
+    hasVideoPublicationAuthority({
+      status: "authorized",
+      source: "fixture",
+      capabilities: ["story.publish"]
+    }),
+    false
+  );
+
+  // Matrix item 4: status="authorized", source="local", capabilities=["story.publish"] -> FALSE
+  assert.strictEqual(
+    hasVideoPublicationAuthority({
+      status: "authorized",
+      source: "local",
+      capabilities: ["story.publish"]
+    }),
+    false
+  );
+
+  // Matrix item 5: status="authorized", capabilities=["story.publish"] (missing source) -> FALSE
+  assert.strictEqual(
+    hasVideoPublicationAuthority({
+      status: "authorized",
+      capabilities: ["story.publish"]
+    }),
+    false
+  );
+
+  // Matrix item 6: authorized=true, capabilities=["story.publish"] -> FALSE
   assert.strictEqual(
     hasVideoPublicationAuthority({
       authorized: true,
       capabilities: ["story.publish"]
     }),
-    true
+    false
   );
 
-  // Missing story.publish
+  // Matrix item 7: null -> FALSE
+  assert.strictEqual(hasVideoPublicationAuthority(null), false);
+
+  // Additional boundary checks: undefined, empty object, non-array capabilities
+  assert.strictEqual(hasVideoPublicationAuthority(undefined), false);
+  assert.strictEqual(hasVideoPublicationAuthority({}), false);
   assert.strictEqual(
     hasVideoPublicationAuthority({
       status: "authorized",
-      capabilities: ["media.manage"]
+      source: "server",
+      capabilities: "story.publish"
     }),
     false
   );
-
-  // Unauthorized status
-  assert.strictEqual(
-    hasVideoPublicationAuthority({
-      status: "unauthorized",
-      capabilities: ["story.publish"]
-    }),
-    false
-  );
-
-  // Null, undefined, empty object
-  assert.strictEqual(hasVideoPublicationAuthority(null), false);
-  assert.strictEqual(hasVideoPublicationAuthority(undefined), false);
-  assert.strictEqual(hasVideoPublicationAuthority({}), false);
-  assert.strictEqual(hasVideoPublicationAuthority({ capabilities: "story.publish" }), false);
 });
 
 // =============================================================================
