@@ -224,6 +224,22 @@ export const stagingNewsroomMediaService: NewsroomMediaService = {
     return assets;
   },
 
+  async listStoryMedia(storyId: string): Promise<NewsroomMediaAsset[]> {
+    const validStoryId = requireCanonicalId(storyId, "story");
+    const rows = await rpc<any[]>("newsroom_list_story_media", { p_story_id: validStoryId });
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+    const assets: NewsroomMediaAsset[] = [];
+    for (const r of rows) {
+      const mapped = mapMediaAssetRow(r);
+      if (mapped) {
+        assets.push(mapped);
+      }
+    }
+    return assets;
+  },
+
   async getMediaPreview(mediaId: string): Promise<NewsroomMediaPreview> {
     const validId = requireCanonicalId(mediaId, "media");
     const result = await rpc<any>("newsroom_get_media_preview", { p_media_id: validId });

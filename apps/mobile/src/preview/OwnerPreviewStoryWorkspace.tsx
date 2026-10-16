@@ -19,6 +19,7 @@ import type {
   NewsroomStoryRevision,
   PrepareStoryMediaPayload,
   StoryMediaPromotionItem,
+  StoryMediaSelectedFile,
   StoryMediaUsageType
 } from "../domain/models";
 import {
@@ -625,6 +626,12 @@ export function OwnerPreviewStoryWorkspace({
       canPublish={true}
       isReadOnly={false}
       existingAssets={buildPreviewMediaAssets()}
+      onPickFile={async (): Promise<StoryMediaSelectedFile> => ({
+        filename: "clinic-immunization-review.jpg",
+        mimeType: "image/jpeg",
+        byteSize: 128,
+        bytes: new Uint8Array(128)
+      })}
       onUploadMedia={handlePreviewUpload}
       onAttachExisting={handlePreviewAttachExisting}
       onDetachMedia={handlePreviewDetach}

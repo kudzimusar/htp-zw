@@ -56,6 +56,17 @@ export async function computeSha256Hex(
   }
 }
 
+export type CopyPrivateToCanonicalPublicParams = {
+  storyId: string;
+  mediaId: string;
+  privateBucket?: string;
+  privateKey: string;
+  filename: string;
+  mimeType: string;
+  expectedChecksum?: string | null;
+  clientOverride?: any;
+};
+
 export interface NewsroomStorageService {
   uploadPrivateObject(
     bucket: string,
@@ -78,6 +89,9 @@ export interface NewsroomStorageService {
     expectedChecksum?: string | null,
     clientOverride?: any
   ): Promise<{ verifiedChecksum: string }>;
+  copyPrivateToCanonicalPublic(
+    params: CopyPrivateToCanonicalPublicParams
+  ): Promise<{ verifiedChecksum: string; publicKey: string }>;
   deleteStagedPublicObject(bucket: string, key: string, clientOverride?: any): Promise<void>;
 }
 
@@ -86,9 +100,10 @@ export const newsroomStorageService: NewsroomStorageService = {
     bucket: string,
     key: string,
     bytes: Uint8Array | ArrayBuffer | Blob,
-    mimeType: string
+    mimeType: string,
+    clientOverride?: any
   ): Promise<void> {
-    const client = getStagingSupabaseClient() as any;
+    const client = clientOverride || getStagingSupabaseClient();
     if (!client || !client.storage) {
       throw new Error("Supabase Storage client is not available.");
     }
@@ -97,10 +112,32 @@ export const newsroomStorageService: NewsroomStorageService = {
       .from(bucket)
       .upload(key, bytes, {
         contentType: mimeType,
-        upsert: true
+        upsert: false
       });
 
     if (error) {
+      const isDuplicate =
+        error.statusCode === 409 ||
+        error.statusCode === "409" ||
+        /already exists|duplicate|The resource already exists/i.test(error.message || "");
+
+      if (isDuplicate) {
+        // Download and verify checksum under existing authority
+        const expectedChecksum = await computeSha256Hex(bytes);
+        const { checksum: existingChecksum } = await this.downloadPrivateObject(
+          bucket,
+          key,
+          client
+        );
+        if (existingChecksum.toLowerCase() === expectedChecksum.toLowerCase()) {
+          // Deterministic object already uploaded with identical checksum
+          return;
+        }
+        throw new Error(
+          `RECONCILIATION ERROR: Private object already exists at ${bucket}/${key} with different checksum (${existingChecksum} vs expected ${expectedChecksum}).`
+        );
+      }
+
       throw new Error(
         error.message || `Failed to upload object to ${bucket}/${key}.`
       );
@@ -148,6 +185,85 @@ export const newsroomStorageService: NewsroomStorageService = {
 
     const checksum = await computeSha256Hex(arrayBuffer);
     return { bytes: arrayBuffer, checksum };
+  },
+
+  async copyPrivateToCanonicalPublic({
+    storyId,
+    mediaId,
+    privateBucket = "newsroom-private",
+    privateKey,
+    filename,
+    mimeType,
+    expectedChecksum = null,
+    clientOverride
+  }: CopyPrivateToCanonicalPublicParams): Promise<{ verifiedChecksum: string; publicKey: string }> {
+    const client = clientOverride || getStagingSupabaseClient();
+    if (!client || !client.storage) {
+      throw new Error("Supabase Storage client is not available.");
+    }
+
+    // 1. Download private object
+    const { bytes, checksum: calculatedChecksum } = await this.downloadPrivateObject(
+      privateBucket,
+      privateKey,
+      client
+    );
+
+    // 2. Validate against expected checksum if present
+    if (
+      expectedChecksum &&
+      isValidSha256Checksum(expectedChecksum) &&
+      expectedChecksum.toLowerCase() !== calculatedChecksum.toLowerCase()
+    ) {
+      throw new Error(
+        `CHECKSUM VERIFICATION FAILED: Downloaded private object checksum (${calculatedChecksum}) does not match recorded canonical checksum (${expectedChecksum}).`
+      );
+    }
+
+    const verifiedChecksum = calculatedChecksum;
+
+    // 3. Build canonical public key
+    const safeFilename = filename
+      .trim()
+      .replace(/[^A-Za-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const publicKey = `story-media/${storyId.trim()}/${mediaId.trim()}/${verifiedChecksum}/${safeFilename}`;
+
+    // 4. Upload to newsroom-public with upsert: false
+    const { error } = await client.storage
+      .from("newsroom-public")
+      .upload(publicKey, bytes, {
+        contentType: mimeType,
+        upsert: false
+      });
+
+    if (error) {
+      const isDuplicate =
+        error.statusCode === 409 ||
+        error.statusCode === "409" ||
+        /already exists|duplicate|The resource already exists/i.test(error.message || "");
+
+      if (isDuplicate) {
+        // Verify existing public object checksum before continuing
+        const { checksum: existingPublicChecksum } = await this.downloadPrivateObject(
+          "newsroom-public",
+          publicKey,
+          client
+        );
+        if (existingPublicChecksum.toLowerCase() === verifiedChecksum.toLowerCase()) {
+          return { verifiedChecksum, publicKey };
+        }
+        throw new Error(
+          `RECONCILIATION ERROR: Public object already exists at newsroom-public/${publicKey} with different checksum (${existingPublicChecksum} vs expected ${verifiedChecksum}).`
+        );
+      }
+
+      throw new Error(
+        error.message || `Failed to stage public object to newsroom-public/${publicKey}.`
+      );
+    }
+
+    return { verifiedChecksum, publicKey };
   },
 
   async copyPrivateToPublic(
@@ -203,10 +319,29 @@ export const newsroomStorageService: NewsroomStorageService = {
       .from(publicBucket)
       .upload(publicKey, bytes, {
         contentType: mimeType,
-        upsert: true
+        upsert: false
       });
 
     if (error) {
+      const isDuplicate =
+        error.statusCode === 409 ||
+        error.statusCode === "409" ||
+        /already exists|duplicate|The resource already exists/i.test(error.message || "");
+
+      if (isDuplicate) {
+        const { checksum: existingPublicChecksum } = await this.downloadPrivateObject(
+          publicBucket,
+          publicKey,
+          client
+        );
+        if (existingPublicChecksum.toLowerCase() === checksum.toLowerCase()) {
+          return { verifiedChecksum: checksum };
+        }
+        throw new Error(
+          `RECONCILIATION ERROR: Public object already exists at ${publicBucket}/${publicKey} with different checksum (${existingPublicChecksum} vs expected ${checksum}).`
+        );
+      }
+
       throw new Error(
         error.message ||
           `Failed to stage public object to ${publicBucket}/${publicKey}.`
@@ -234,14 +369,12 @@ export const newsroomStorageService: NewsroomStorageService = {
 
     client = client || getStagingSupabaseClient();
     if (!client || !client.storage) {
-      return;
+      throw new Error("Supabase Storage client is not available.");
     }
 
-    try {
-      await client.storage.from(bucket).remove([key]);
-    } catch (err) {
-      // Bounded cleanup failure must not throw fatal error, logged gracefully
-      console.warn(`[newsroom-storage] Cleanup of ${bucket}/${key} failed:`, err);
+    const { error } = await client.storage.from(bucket).remove([key]);
+    if (error) {
+      throw new Error(error.message || `Failed to delete public object from ${bucket}/${key}.`);
     }
   }
 };
@@ -249,4 +382,6 @@ export const newsroomStorageService: NewsroomStorageService = {
 export const uploadPrivateObject = newsroomStorageService.uploadPrivateObject.bind(newsroomStorageService);
 export const downloadPrivateObject = newsroomStorageService.downloadPrivateObject.bind(newsroomStorageService);
 export const copyPrivateToPublic = newsroomStorageService.copyPrivateToPublic.bind(newsroomStorageService);
+export const copyPrivateToCanonicalPublic = newsroomStorageService.copyPrivateToCanonicalPublic.bind(newsroomStorageService);
 export const deleteStagedPublicObject = newsroomStorageService.deleteStagedPublicObject.bind(newsroomStorageService);
+

@@ -255,6 +255,7 @@ export interface PresentationRepository {
 
 export interface NewsroomMediaService {
   listMedia(search?: string | null, limit?: number): Promise<NewsroomMediaAsset[]>;
+  listStoryMedia(storyId: string): Promise<NewsroomMediaAsset[]>;
   getMediaPreview(mediaId: string): Promise<NewsroomMediaPreview>;
   updateMediaMetadata(mediaId: string, patch: NewsroomMediaMetadataPatch): Promise<void>;
   prepareStoryMedia(storyId: string, payload: PrepareStoryMediaPayload): Promise<StoryMediaPreparation>;

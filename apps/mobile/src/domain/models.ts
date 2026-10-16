@@ -1565,4 +1565,132 @@ export function buildCanonicalPublicStorageKey(
   return `story-media/${storyId.trim()}/${mediaId.trim()}/${checksum.trim().toLowerCase()}/${safeFilename}`;
 }
 
+export type StoryMediaSelectedFile = {
+  filename: string;
+  mimeType: AllowedStoryMediaMimeType;
+  byteSize: number;
+  bytes: Uint8Array;
+  sourceUri?: string;
+};
+
+export const BOUNDED_MIME_BY_EXTENSION: Record<string, AllowedStoryMediaMimeType> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+  ".txt": "text/plain",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+};
+
+export function resolveBoundedMimeType(
+  rawMimeOrFilename?: string | null,
+  filenameOrRawMime?: string | null
+): AllowedStoryMediaMimeType | null {
+  const p1 = (rawMimeOrFilename || "").trim();
+  const p2 = (filenameOrRawMime || "").trim();
+
+  let filename = "";
+  let rawMime = "";
+
+  if (p1.includes("/") && !p2.includes("/")) {
+    rawMime = p1;
+    filename = p2;
+  } else if (!p1.includes("/") && p2.includes("/")) {
+    filename = p1;
+    rawMime = p2;
+  } else if (p1.includes(".") && !p2.includes(".")) {
+    filename = p1;
+    rawMime = p2;
+  } else if (!p1.includes(".") && p2.includes(".")) {
+    rawMime = p1;
+    filename = p2;
+  } else {
+    rawMime = p1;
+    filename = p2;
+  }
+
+  // If filename is present with an extension, extension truth takes priority
+  if (filename && filename.includes(".")) {
+    const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+    const mappedMime = BOUNDED_MIME_BY_EXTENSION[ext];
+    if (mappedMime) {
+      return mappedMime;
+    }
+    // Extension not in bounded list -> reject/fail closed
+    return null;
+  }
+
+  // If no filename extension is present, validate rawMime against ALLOWED_STORY_MEDIA_MIME_TYPES
+  const normalizedMime = rawMime.toLowerCase();
+  if (ALLOWED_STORY_MEDIA_MIME_TYPES.includes(normalizedMime as AllowedStoryMediaMimeType)) {
+    return normalizedMime as AllowedStoryMediaMimeType;
+  }
+
+  return null;
+}
+
+export function isMediaAssetAttachable(
+  asset: Pick<NewsroomMediaAsset, "storageBucket" | "status" | "mimeType"> | null | undefined,
+  usageType?: StoryMediaUsageType
+): { eligible: boolean; attachable: boolean; reason?: string } {
+  if (!asset) {
+    return {
+      eligible: false,
+      attachable: false,
+      reason: "No asset selected."
+    };
+  }
+  if (asset.storageBucket !== "newsroom-private") {
+    return {
+      eligible: false,
+      attachable: false,
+      reason: `Asset is in "${asset.storageBucket}" custody. Only "newsroom-private" assets may be attached.`
+    };
+  }
+  if (asset.status !== "private_ready" && asset.status !== "published") {
+    let reasonDetail = `Asset status is "${asset.status}". Only "private_ready" or "published" assets may be attached.`;
+    if (asset.status === "pending") {
+      reasonDetail = "Asset is pending processing.";
+    } else if (asset.status === "upload_pending") {
+      reasonDetail = "Asset upload has not been finalized.";
+    } else if (asset.status === "public_staged") {
+      reasonDetail = "Asset is currently staged for public presentation.";
+    } else if (asset.status === "missing_from_uploads_archive") {
+      reasonDetail = "Asset is missing from storage archive.";
+    }
+    return {
+      eligible: false,
+      attachable: false,
+      reason: reasonDetail
+    };
+  }
+  if (!ALLOWED_STORY_MEDIA_MIME_TYPES.includes(asset.mimeType as any)) {
+    return {
+      eligible: false,
+      attachable: false,
+      reason: `MIME type ${asset.mimeType} is not supported for story attachment.`
+    };
+  }
+  if (usageType) {
+    const isImage = (asset.mimeType || "").startsWith("image/");
+    if ((usageType === "featured" || usageType === "inline") && !isImage) {
+      return {
+        eligible: false,
+        attachable: false,
+        reason: `${usageType === "featured" ? "Featured lead" : "Inline"} media requires an image asset.`
+      };
+    }
+    if (usageType === "supporting_document" && isImage) {
+      return {
+        eligible: false,
+        attachable: false,
+        reason: "Supporting documents cannot be image assets."
+      };
+    }
+  }
+  return { eligible: true, attachable: true };
+}
+
+
 

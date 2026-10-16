@@ -334,6 +334,9 @@ export const fixtureNewsroomMediaService: NewsroomMediaService = {
   async listMedia() {
     return [];
   },
+  async listStoryMedia() {
+    return [];
+  },
   async getMediaPreview() {
     throw new Error(FAIL_CLOSED_MEDIA_MESSAGE);
   },

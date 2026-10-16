@@ -15,6 +15,7 @@ import { useAsync } from "../hooks/useAsync";
 import {
   classifyMediaMimeType,
   deriveStorageCustodyCategory,
+  isMediaAssetAttachable,
   validateMediaMetadataPatch,
   type NewsroomMediaAsset,
   type NewsroomMediaAssetStatus,
@@ -904,7 +905,13 @@ export function StudioMediaLibraryView({
                   <Text style={styles.editorNote}>
                     Attach this canonical asset to a newsroom story as featured lead, inline media, or supporting document.
                   </Text>
-                  {!showAttachModal ? (
+                  {!isMediaAssetAttachable(selectedAsset).eligible ? (
+                    <View style={styles.ineligibleBox} testID="media-ineligible-notice">
+                      <Text style={styles.ineligibleText}>
+                        🔒 Attachment unavailable: {isMediaAssetAttachable(selectedAsset).reason}
+                      </Text>
+                    </View>
+                  ) : !showAttachModal ? (
                     <Pressable
                       style={styles.attachToStoryBtn}
                       onPress={() => {
@@ -1996,5 +2003,18 @@ const styles = StyleSheet.create({
   attachCancelBtnText: {
     fontSize: 12,
     color: colors.inkMuted
+  },
+  ineligibleBox: {
+    backgroundColor: "#fef3c7",
+    borderColor: "#f59e0b",
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginTop: spacing.xs
+  },
+  ineligibleText: {
+    fontSize: 12,
+    color: "#92400e",
+    fontWeight: "600"
   }
 });

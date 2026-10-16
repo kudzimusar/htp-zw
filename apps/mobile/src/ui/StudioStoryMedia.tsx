@@ -20,21 +20,38 @@ import {
   buildCanonicalPublicStorageKey,
   classifyMediaMimeType,
   deriveStorageCustodyCategory,
+  isMediaAssetAttachable,
   isValidSha256Checksum,
   validateStoryMediaUpload,
   type NewsroomMediaAsset,
   type PrepareStoryMediaPayload,
   type StoryMediaOperationState,
   type StoryMediaPromotionItem,
+  type StoryMediaSelectedFile,
   type StoryMediaStageResult,
   type StoryMediaUsageType
 } from "../domain/models";
+import { pickStoryMediaFile } from "../services/file-picker";
 import { colors, radius, spacing } from "../theme/tokens";
 import { formatByteSize, formatMediaUsageSourceContext } from "./StudioMediaLibrary";
 
 // =========================================================================
 // PRESENTATION CONTRACT FOR SHARED VIEW
 // =========================================================================
+
+export type UploadReconciliationState = {
+  stage: "upload_failed" | "finalize_failed";
+  mediaId: string;
+  storyId: string;
+  usageType: StoryMediaUsageType;
+  storageBucket: string;
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+  checksum: string;
+  errorMessage: string;
+};
 
 export interface AttachedMediaItem {
   mediaId: string;
@@ -77,6 +94,12 @@ export interface StudioStoryMediaPanelViewProps {
   onStagePromotion?: (item: StoryMediaPromotionItem) => Promise<void>;
   onClearStagedPromotion?: (item: StoryMediaPromotionItem) => Promise<void>;
   onOpenInMediaLibrary?: (mediaId: string) => void;
+  // File selection adapter
+  onPickFile?: () => Promise<StoryMediaSelectedFile | null>;
+  // Reconciliation retry handlers
+  reconciliationState?: UploadReconciliationState | null;
+  onRetryUpload?: () => Promise<void>;
+  onRetryFinalize?: () => Promise<void>;
   // Available existing assets for picker
   existingAssets?: NewsroomMediaAsset[];
   loadingExistingAssets?: boolean;
@@ -103,6 +126,10 @@ export function StudioStoryMediaPanelView({
   onStagePromotion,
   onClearStagedPromotion,
   onOpenInMediaLibrary,
+  onPickFile,
+  reconciliationState,
+  onRetryUpload,
+  onRetryFinalize,
   existingAssets = [],
   loadingExistingAssets = false,
   onRefreshExistingAssets
@@ -122,16 +149,17 @@ export function StudioStoryMediaPanelView({
     filename: string;
   } | null>(null);
 
+  // Selected real file state
+  const [selectedFile, setSelectedFile] = useState<StoryMediaSelectedFile | null>(null);
+  const [calculatingHash, setCalculatingHash] = useState(false);
+  const [computedChecksum, setComputedChecksum] = useState<string | null>(null);
+
   // Upload Form fields
   const [uploadUsageType, setUploadUsageType] = useState<StoryMediaUsageType>("featured");
-  const [uploadFilename, setUploadFilename] = useState("");
-  const [uploadMimeType, setUploadMimeType] = useState("image/jpeg");
-  const [uploadByteSize, setUploadByteSize] = useState<number>(245000);
   const [uploadAltText, setUploadAltText] = useState("");
   const [uploadCaption, setUploadCaption] = useState("");
   const [uploadCredit, setUploadCredit] = useState("");
   const [uploadSourceProvenance, setUploadSourceProvenance] = useState("");
-  const [uploadSimulatedContent, setUploadSimulatedContent] = useState("Sample newsroom asset content for verification.");
 
   // Async operation state
   const [opState, setOpState] = useState<StoryMediaOperationState>("idle");
@@ -154,22 +182,45 @@ export function StudioStoryMediaPanelView({
 
   const publicationBlocker = isPublicationState && hasUnstagedReaderMedia;
 
+  const handlePickFile = async () => {
+    if (!onPickFile) return;
+    setOpError(null);
+    try {
+      const file = await onPickFile();
+      if (!file) return;
+      setSelectedFile(file);
+      setCalculatingHash(true);
+      const hash = await computeSha256Hex(file.bytes);
+      setComputedChecksum(hash);
+      setCalculatingHash(false);
+
+      if (!file.mimeType.startsWith("image/") && uploadUsageType !== "supporting_document") {
+        setUploadUsageType("supporting_document");
+      }
+    } catch (err) {
+      setCalculatingHash(false);
+      setOpError(err instanceof Error ? err.message : "Failed to select file.");
+    }
+  };
+
   // Handle Upload Submission
   const handleExecuteUpload = async () => {
     setOpError(null);
     setOpSuccessMessage(null);
 
-    // Compute checksum
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(uploadSimulatedContent);
-    const checksum = await computeSha256Hex(bytes);
+    if (!selectedFile) {
+      setOpError("Please select a file to upload.");
+      return;
+    }
+
+    const checksum = computedChecksum || (await computeSha256Hex(selectedFile.bytes));
 
     const payload: PrepareStoryMediaPayload = {
-      filename: uploadFilename.trim(),
-      mimeType: uploadMimeType,
-      byteSize: bytes.byteLength || uploadByteSize,
+      filename: selectedFile.filename,
+      mimeType: selectedFile.mimeType,
+      byteSize: selectedFile.byteSize,
       checksum,
-      altText: uploadMimeType.startsWith("image/") ? uploadAltText.trim() : null,
+      altText: selectedFile.mimeType.startsWith("image/") ? uploadAltText.trim() : null,
       caption: uploadCaption.trim() || null,
       credit: uploadCredit.trim() || null,
       sourceProvenance: uploadSourceProvenance.trim(),
@@ -183,14 +234,14 @@ export function StudioStoryMediaPanelView({
     }
 
     if (uploadUsageType === "featured" && featuredMedia) {
-      setPendingUploadPayload({ payload, bytes });
+      setPendingUploadPayload({ payload, bytes: selectedFile.bytes });
       return;
     }
 
     try {
       setOpState("uploading");
       if (onUploadMedia) {
-        await onUploadMedia(payload, bytes);
+        await onUploadMedia(payload, selectedFile.bytes);
       }
       setOpState("success");
       setOpSuccessMessage(`Successfully uploaded and finalized ${payload.filename} as private_ready.`);
@@ -224,12 +275,12 @@ export function StudioStoryMediaPanelView({
   };
 
   const resetUploadForm = () => {
-    setUploadFilename("");
+    setSelectedFile(null);
+    setComputedChecksum(null);
     setUploadAltText("");
     setUploadCaption("");
     setUploadCredit("");
     setUploadSourceProvenance("");
-    setUploadSimulatedContent("Sample newsroom asset content for verification.");
   };
 
   // Handle Existing Media Attachment
@@ -398,13 +449,8 @@ export function StudioStoryMediaPanelView({
           <Pressable
             style={[styles.primaryBtn, opState === "uploading" && styles.disabledBtn]}
             onPress={() => {
+              resetUploadForm();
               setUploadUsageType("featured");
-              setUploadFilename("clinic-lead-photo.jpg");
-              setUploadMimeType("image/jpeg");
-              setUploadAltText("Nurses reviewing immunization cards in clinical ward");
-              setUploadCaption("Harare Central Hospital pediatric ward catchment drive");
-              setUploadCredit("HealthTimes Staff / Tafadzwa Moyo");
-              setUploadSourceProvenance("editorial/2026/field-reporting/harare-central");
               setShowUploadModal(true);
             }}
           >
@@ -541,11 +587,8 @@ export function StudioStoryMediaPanelView({
                 <Pressable
                   style={styles.actionBtn}
                   onPress={() => {
+                    resetUploadForm();
                     setUploadUsageType("featured");
-                    setUploadFilename("featured-lead-photo.jpg");
-                    setUploadMimeType("image/jpeg");
-                    setUploadAltText("Pediatric health specialist during clinic consultation");
-                    setUploadSourceProvenance("editorial/field-reporting/2026");
                     setShowUploadModal(true);
                   }}
                 >
@@ -580,11 +623,8 @@ export function StudioStoryMediaPanelView({
             <Pressable
               style={styles.actionBtnSmall}
               onPress={() => {
+                resetUploadForm();
                 setUploadUsageType("inline");
-                setUploadFilename("inline-infographic.png");
-                setUploadMimeType("image/png");
-                setUploadAltText("Detailed statistical chart illustrating water purification milestones");
-                setUploadSourceProvenance("visual-unit/infographics/2026");
                 setShowUploadModal(true);
               }}
             >
@@ -670,10 +710,8 @@ export function StudioStoryMediaPanelView({
             <Pressable
               style={styles.actionBtnSmall}
               onPress={() => {
+                resetUploadForm();
                 setUploadUsageType("supporting_document");
-                setUploadFilename("technical-epidemiology-report.pdf");
-                setUploadMimeType("application/pdf");
-                setUploadSourceProvenance("government-gazette/health/2026");
                 setShowUploadModal(true);
               }}
             >
@@ -802,7 +840,7 @@ export function StudioStoryMediaPanelView({
                             </Pressable>
                           ) : null}
 
-                          {isStaged ? (
+                          {isStaged && !isPublished && storyWorkflowStatus !== "Published" ? (
                             <Pressable
                               style={[styles.secondaryBtnSmall, isPromoting && styles.disabledBtn]}
                               disabled={isPromoting}
@@ -870,6 +908,29 @@ export function StudioStoryMediaPanelView({
               </Pressable>
             </View>
             <ScrollView style={styles.modalBody}>
+              {reconciliationState ? (
+                <View
+                  style={styles.reconciliationAlert}
+                  testID={
+                    reconciliationState.stage === "upload_failed"
+                      ? "upload-pending-retry-banner"
+                      : "upload-finalization-unconfirmed-banner"
+                  }
+                >
+                  <Text style={styles.reconciliationAlertTitle}>
+                    {reconciliationState.stage === "upload_failed"
+                      ? "UPLOAD PENDING — RETRY AVAILABLE"
+                      : "PRIVATE OBJECT UPLOADED — FINALIZATION NOT CONFIRMED"}
+                  </Text>
+                  <Text style={styles.reconciliationAlertText}>
+                    {reconciliationState.errorMessage}
+                  </Text>
+                  <Text style={styles.reconciliationAlertSub}>
+                    Asset: {reconciliationState.filename} ({reconciliationState.mediaId})
+                  </Text>
+                </View>
+              ) : null}
+
               <Text style={styles.inputLabel}>Usage Role *</Text>
               <View style={styles.radioGroup}>
                 {(["featured", "inline", "supporting_document"] as StoryMediaUsageType[]).map((role) => (
@@ -879,20 +940,7 @@ export function StudioStoryMediaPanelView({
                       styles.radioBtn,
                       uploadUsageType === role && styles.radioBtnActive
                     ]}
-                    onPress={() => {
-                      setUploadUsageType(role);
-                      if (role === "supporting_document") {
-                        setUploadMimeType("application/pdf");
-                        if (!uploadFilename.endsWith(".pdf")) {
-                          setUploadFilename("technical-briefing.pdf");
-                        }
-                      } else {
-                        setUploadMimeType("image/jpeg");
-                        if (!uploadFilename.endsWith(".jpg")) {
-                          setUploadFilename("clinical-photo.jpg");
-                        }
-                      }
-                    }}
+                    onPress={() => setUploadUsageType(role)}
                   >
                     <Text
                       style={[
@@ -906,23 +954,38 @@ export function StudioStoryMediaPanelView({
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Filename *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={uploadFilename}
-                onChangeText={setUploadFilename}
-                placeholder="e.g. ward-catchment-drive.jpg"
-              />
+              {/* Real File Selection */}
+              <Text style={styles.inputLabel}>File Selection *</Text>
+              <View style={styles.filePickerBox}>
+                <Pressable
+                  style={styles.pickerBtn}
+                  onPress={handlePickFile}
+                  accessibilityRole="button"
+                  accessibilityLabel="Select File"
+                  testID="media-select-file-button"
+                >
+                  <Text style={styles.pickerBtnText}>📂 Select File…</Text>
+                </Pressable>
+                {selectedFile ? (
+                  <View style={styles.selectedFileInfo} testID="selected-file-info">
+                    <Text style={styles.selectedFileName}>📄 {selectedFile.filename}</Text>
+                    <Text style={styles.selectedFileMeta}>
+                      MIME: {selectedFile.mimeType} • Size: {formatByteSize(selectedFile.byteSize)}
+                    </Text>
+                    {calculatingHash ? (
+                      <Text style={styles.selectedFileChecksum}>Computing SHA-256…</Text>
+                    ) : computedChecksum ? (
+                      <Text style={styles.selectedFileChecksum} numberOfLines={1}>
+                        SHA-256: {computedChecksum}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.noFileSelectedText}>No file selected. Please choose a local asset.</Text>
+                )}
+              </View>
 
-              <Text style={styles.inputLabel}>MIME Type *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={uploadMimeType}
-                onChangeText={setUploadMimeType}
-                placeholder="e.g. image/jpeg, image/png, application/pdf"
-              />
-
-              {uploadMimeType.startsWith("image/") ? (
+              {selectedFile && selectedFile.mimeType.startsWith("image/") ? (
                 <>
                   <Text style={styles.inputLabel}>Image Alt Text * (accessibility)</Text>
                   <TextInput
@@ -930,6 +993,8 @@ export function StudioStoryMediaPanelView({
                     value={uploadAltText}
                     onChangeText={setUploadAltText}
                     placeholder="Descriptive text for visually impaired readers (min 2 chars)"
+                    placeholderTextColor={colors.inkMuted}
+                    testID="upload-alt-text-input"
                   />
                 </>
               ) : null}
@@ -940,6 +1005,8 @@ export function StudioStoryMediaPanelView({
                 value={uploadCaption}
                 onChangeText={setUploadCaption}
                 placeholder="Editorial context or story reference"
+                placeholderTextColor={colors.inkMuted}
+                testID="upload-caption-input"
               />
 
               <Text style={styles.inputLabel}>Credit</Text>
@@ -948,6 +1015,8 @@ export function StudioStoryMediaPanelView({
                 value={uploadCredit}
                 onChangeText={setUploadCredit}
                 placeholder="Photographer, agency, or author attribution"
+                placeholderTextColor={colors.inkMuted}
+                testID="upload-credit-input"
               />
 
               <Text style={styles.inputLabel}>Source / Provenance * (mandatory)</Text>
@@ -956,15 +1025,8 @@ export function StudioStoryMediaPanelView({
                 value={uploadSourceProvenance}
                 onChangeText={setUploadSourceProvenance}
                 placeholder="e.g. editorial/harare-central-catchment/2026-10"
-              />
-
-              <Text style={styles.inputLabel}>File Bytes Simulation Content</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
-                value={uploadSimulatedContent}
-                onChangeText={setUploadSimulatedContent}
-                multiline
-                numberOfLines={3}
+                placeholderTextColor={colors.inkMuted}
+                testID="upload-provenance-input"
               />
             </ScrollView>
             <View style={styles.modalFooter}>
@@ -974,20 +1036,72 @@ export function StudioStoryMediaPanelView({
               >
                 <Text style={styles.secondaryBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable
-                style={[
-                  styles.primaryBtn,
-                  opState === "uploading" && styles.disabledBtn
-                ]}
-                disabled={opState === "uploading"}
-                onPress={handleExecuteUpload}
-              >
-                {opState === "uploading" ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Execute Private Upload</Text>
-                )}
-              </Pressable>
+
+              {reconciliationState?.stage === "upload_failed" ? (
+                <Pressable
+                  style={[styles.primaryBtn, opState === "uploading" && styles.disabledBtn]}
+                  onPress={async () => {
+                    if (onRetryUpload) {
+                      setOpState("uploading");
+                      try {
+                        await onRetryUpload();
+                        setOpState("success");
+                        setShowUploadModal(false);
+                        resetUploadForm();
+                      } catch (err) {
+                        setOpState("error");
+                        setOpError(err instanceof Error ? err.message : "Retry upload failed.");
+                      }
+                    }
+                  }}
+                  disabled={opState === "uploading"}
+                  testID="media-retry-upload-button"
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {opState === "uploading" ? "Retrying Upload…" : "Retry Upload"}
+                  </Text>
+                </Pressable>
+              ) : reconciliationState?.stage === "finalize_failed" ? (
+                <Pressable
+                  style={[styles.primaryBtn, opState === "uploading" && styles.disabledBtn]}
+                  onPress={async () => {
+                    if (onRetryFinalize) {
+                      setOpState("uploading");
+                      try {
+                        await onRetryFinalize();
+                        setOpState("success");
+                        setShowUploadModal(false);
+                        resetUploadForm();
+                      } catch (err) {
+                        setOpState("error");
+                        setOpError(err instanceof Error ? err.message : "Retry finalize failed.");
+                      }
+                    }
+                  }}
+                  disabled={opState === "uploading"}
+                  testID="media-retry-finalize-button"
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {opState === "uploading" ? "Retrying Finalize…" : "Retry Finalize"}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.primaryBtn,
+                    (!selectedFile || opState === "uploading") && styles.disabledBtn
+                  ]}
+                  disabled={!selectedFile || opState === "uploading"}
+                  onPress={handleExecuteUpload}
+                  testID="media-upload-submit-button"
+                >
+                  {opState === "uploading" ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Execute Private Upload</Text>
+                  )}
+                </Pressable>
+              )}
             </View>
           </View>
         </View>
@@ -1014,14 +1128,9 @@ export function StudioStoryMediaPanelView({
                   <ActivityIndicator color={colors.blue} />
                   <Text style={styles.loadingText}>Loading library media assets…</Text>
                 </View>
-              ) : existingAssets.length > 0 ? (
+              ) : existingAssets.filter((a) => isMediaAssetAttachable(a, pickerUsageType).eligible).length > 0 ? (
                 existingAssets
-                  .filter((a) => {
-                    if (pickerUsageType === "supporting_document") {
-                      return !a.mimeType.startsWith("image/");
-                    }
-                    return a.mimeType.startsWith("image/");
-                  })
+                  .filter((a) => isMediaAssetAttachable(a, pickerUsageType).eligible)
                   .map((asset) => (
                     <View key={asset.id} style={styles.pickerRow}>
                       <View style={styles.pickerDetails}>
@@ -1194,7 +1303,28 @@ export function StudioStoryMediaPanel({
     void refreshPlan();
   }, [refreshPlan]);
 
-  // 3. Load Existing Media Assets for Picker & Attachment Mapping
+  // 3. Load Current Story Media Attachments via Canonical Story Media RPC
+  const [storyAttachments, setStoryAttachments] = useState<NewsroomMediaAsset[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+
+  const refreshStoryAttachments = useCallback(async () => {
+    if (!canManageMedia || !storyId) return;
+    setLoadingAttachments(true);
+    try {
+      const list = await services.newsroomMedia.listStoryMedia(storyId);
+      setStoryAttachments(list);
+    } catch {
+      setStoryAttachments([]);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  }, [canManageMedia, storyId]);
+
+  useEffect(() => {
+    void refreshStoryAttachments();
+  }, [refreshStoryAttachments]);
+
+  // 4. Load Existing Media Assets for Picker Modal ONLY
   const [mediaAssets, setMediaAssets] = useState<NewsroomMediaAsset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
@@ -1215,14 +1345,14 @@ export function StudioStoryMediaPanel({
     void refreshAssets();
   }, [refreshAssets]);
 
-  // 4. Derive Attached Media Items from mediaAssets
+  // 5. Derive Attached Media Items from Story Attachments RPC
   const { featured, inlines, docs } = useMemo(() => {
     let featuredItem: AttachedMediaItem | null = null;
     const inlineItems: AttachedMediaItem[] = [];
     const docItems: AttachedMediaItem[] = [];
 
-    for (const a of mediaAssets) {
-      const matchingUsage = a.usage.find((u) => u.storyId === storyId);
+    for (const a of storyAttachments) {
+      const matchingUsage = a.usage.find((u) => u.storyId === storyId) || a.usage[0];
       if (!matchingUsage) continue;
 
       const item: AttachedMediaItem = {
@@ -1252,65 +1382,152 @@ export function StudioStoryMediaPanel({
     }
 
     return { featured: featuredItem, inlines: inlineItems, docs: docItems };
-  }, [mediaAssets, storyId]);
+  }, [storyAttachments, storyId]);
 
-  // 5. Operational Handlers
+  // 6. Reconciliation State for Two-Stage Private Failure
+  const [reconciliationState, setReconciliationState] = useState<UploadReconciliationState | null>(null);
+
+  // 7. Operational Handlers
   const handleUploadMedia = async (
     payload: PrepareStoryMediaPayload,
     fileBytes: Uint8Array | ArrayBuffer | Blob
   ) => {
-    // 1. Prepare RPC
-    const prep = await services.newsroomMedia.prepareStoryMedia(storyId, payload);
+    const rawBytes = fileBytes instanceof Uint8Array ? fileBytes : new Uint8Array(fileBytes as ArrayBuffer);
+    let mediaId: string;
+    let storageBucket: string;
+    let storageKey: string;
 
-    // 2. Authenticated Storage Upload
+    if (reconciliationState && reconciliationState.stage === "upload_failed") {
+      // Retry with SAME prepared asset!
+      mediaId = reconciliationState.mediaId;
+      storageBucket = reconciliationState.storageBucket;
+      storageKey = reconciliationState.storageKey;
+    } else {
+      // Step 1: Prepare RPC
+      const prep = await services.newsroomMedia.prepareStoryMedia(storyId, payload);
+      mediaId = prep.mediaId;
+      storageBucket = prep.storageBucket;
+      storageKey = prep.storageKey;
+    }
+
+    // Step 2: Authenticated Storage Upload
+    try {
+      await newsroomStorageService.uploadPrivateObject(
+        storageBucket,
+        storageKey,
+        rawBytes,
+        payload.mimeType
+      );
+    } catch (uploadErr) {
+      setReconciliationState({
+        stage: "upload_failed",
+        mediaId,
+        storyId,
+        usageType: payload.usageType,
+        storageBucket,
+        storageKey,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+        bytes: rawBytes,
+        checksum: payload.checksum || "",
+        errorMessage: uploadErr instanceof Error ? uploadErr.message : "Private storage upload failed."
+      });
+      throw uploadErr;
+    }
+
+    // Step 3: Finalize RPC
+    try {
+      await services.newsroomMedia.finalizeStoryMedia(
+        mediaId,
+        storyId,
+        payload.usageType,
+        payload.checksum || null
+      );
+    } catch (finalizeErr) {
+      setReconciliationState({
+        stage: "finalize_failed",
+        mediaId,
+        storyId,
+        usageType: payload.usageType,
+        storageBucket,
+        storageKey,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+        bytes: rawBytes,
+        checksum: payload.checksum || "",
+        errorMessage: finalizeErr instanceof Error ? finalizeErr.message : "Media finalization failed."
+      });
+      throw finalizeErr;
+    }
+
+    // Success: clear reconciliation context and refresh canonical state
+    setReconciliationState(null);
+    await Promise.all([refreshStoryAttachments(), refreshPlan()]);
+    if (onStoryUpdated) onStoryUpdated();
+  };
+
+  const handleRetryUpload = async () => {
+    if (!reconciliationState || reconciliationState.stage !== "upload_failed") return;
     await newsroomStorageService.uploadPrivateObject(
-      prep.storageBucket,
-      prep.storageKey,
-      fileBytes,
-      prep.mimeType
+      reconciliationState.storageBucket,
+      reconciliationState.storageKey,
+      reconciliationState.bytes,
+      reconciliationState.mimeType
     );
-
-    // 3. Finalize RPC
     await services.newsroomMedia.finalizeStoryMedia(
-      prep.mediaId,
+      reconciliationState.mediaId,
       storyId,
-      prep.usageType,
-      payload.checksum || null
+      reconciliationState.usageType,
+      reconciliationState.checksum
     );
+    setReconciliationState(null);
+    await Promise.all([refreshStoryAttachments(), refreshPlan()]);
+    if (onStoryUpdated) onStoryUpdated();
+  };
 
-    // 4. Refresh
-    await Promise.all([refreshAssets(), refreshPlan()]);
+  const handleRetryFinalize = async () => {
+    if (!reconciliationState || reconciliationState.stage !== "finalize_failed") return;
+    try {
+      await services.newsroomMedia.getUploadContext(reconciliationState.mediaId, storyId);
+    } catch {
+      // Proceed to finalize
+    }
+    await services.newsroomMedia.finalizeStoryMedia(
+      reconciliationState.mediaId,
+      storyId,
+      reconciliationState.usageType,
+      reconciliationState.checksum
+    );
+    setReconciliationState(null);
+    await Promise.all([refreshStoryAttachments(), refreshPlan()]);
     if (onStoryUpdated) onStoryUpdated();
   };
 
   const handleAttachExisting = async (mediaId: string, usageType: StoryMediaUsageType) => {
     await services.newsroomMedia.attachStoryMedia(mediaId, storyId, usageType);
-    await Promise.all([refreshAssets(), refreshPlan()]);
+    await Promise.all([refreshStoryAttachments(), refreshPlan()]);
     if (onStoryUpdated) onStoryUpdated();
   };
 
   const handleDetachMedia = async (mediaId: string, usageType: StoryMediaUsageType) => {
     await services.newsroomMedia.detachStoryMedia(mediaId, storyId, usageType);
-    await Promise.all([refreshAssets(), refreshPlan()]);
+    await Promise.all([refreshStoryAttachments(), refreshPlan()]);
     if (onStoryUpdated) onStoryUpdated();
   };
 
   const handleStagePromotion = async (item: StoryMediaPromotionItem) => {
-    // 1. Compute canonical public key
-    const checksum = item.checksum || (await computeSha256Hex(new Uint8Array(item.byteSize || 100)));
-    const publicKey = buildCanonicalPublicStorageKey(storyId, item.mediaId, checksum, item.filename);
+    // 1. Download private object, calculate exact byte SHA-256 BEFORE building key, and upload to public
+    const { verifiedChecksum, publicKey } = await newsroomStorageService.copyPrivateToCanonicalPublic({
+      storyId,
+      mediaId: item.mediaId,
+      privateBucket: item.privateBucket,
+      privateKey: item.privateKey,
+      filename: item.filename,
+      mimeType: item.mimeType,
+      expectedChecksum: item.checksum
+    });
 
-    // 2. Authenticated Storage copy
-    const { verifiedChecksum } = await newsroomStorageService.copyPrivateToPublic(
-      item.privateBucket,
-      item.privateKey,
-      "newsroom-public",
-      publicKey,
-      item.mimeType,
-      item.checksum
-    );
-
-    // 3. Stage Promotion RPC with compensation
+    // 2. Stage Promotion RPC with verified checksum
     try {
       await services.newsroomMedia.stagePromotion(
         storyId,
@@ -1319,24 +1536,96 @@ export function StudioStoryMediaPanel({
         verifiedChecksum
       );
     } catch (rpcErr) {
-      // Bounded compensation: delete newly uploaded staged public object
-      await newsroomStorageService.deleteStagedPublicObject("newsroom-public", publicKey);
-      throw rpcErr;
+      // Refresh canonical state to check if RPC committed despite response error
+      let refreshedPlan: StoryMediaPromotionItem[] = [];
+      try {
+        refreshedPlan = await services.newsroomMedia.getPromotionPlan(storyId);
+      } catch {
+        // ignore
+      }
+
+      const refreshedItem = refreshedPlan.find((p) => p.mediaId === item.mediaId);
+      if (refreshedItem && refreshedItem.mediaStatus === "public_staged") {
+        setPromotionPlan(refreshedPlan);
+        await refreshStoryAttachments();
+        return;
+      }
+
+      // Bounded compensation: delete newly uploaded staged public object using corrected authority
+      try {
+        await newsroomStorageService.deleteStagedPublicObject("newsroom-public", publicKey);
+        throw new Error(
+          `Stage promotion failed: ${rpcErr instanceof Error ? rpcErr.message : String(rpcErr)}. Public storage staging was safely rolled back.`
+        );
+      } catch (cleanupErr) {
+        throw new Error(
+          `RECONCILIATION REQUIRED: Stage promotion failed (${
+            rpcErr instanceof Error ? rpcErr.message : String(rpcErr)
+          }) and public storage cleanup also failed (${
+            cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
+          }) for public key "${publicKey}".`
+        );
+      }
     }
 
-    // 4. Refresh Plan
-    await Promise.all([refreshPlan(), refreshAssets()]);
+    // 3. Refresh Plan
+    await Promise.all([refreshPlan(), refreshStoryAttachments()]);
   };
 
   const handleClearStagedPromotion = async (item: StoryMediaPromotionItem) => {
-    await services.newsroomMedia.clearStagedPromotion(storyId, item.mediaId);
-    if (item.publicStorageKey) {
-      await newsroomStorageService.deleteStagedPublicObject(
-        "newsroom-public",
-        item.publicStorageKey
+    if (item.mediaStatus === "published" || effectiveWorkflowStatus === "Published") {
+      throw new Error("Published media assets cannot be cleared from public storage.");
+    }
+
+    if (item.mediaStatus !== "public_staged" || !item.publicStorageKey) {
+      throw new Error("Item must be in public_staged status with a valid public storage key to clear.");
+    }
+
+    const publicBucket = item.publicStorageBucket || "newsroom-public";
+    const publicKey = item.publicStorageKey;
+
+    // 1. Delete Storage object FIRST while DB is still public_staged
+    await newsroomStorageService.deleteStagedPublicObject(publicBucket, publicKey);
+
+    // 2. Call clear RPC
+    try {
+      await services.newsroomMedia.clearStagedPromotion(storyId, item.mediaId);
+    } catch (clearRpcErr) {
+      // Refresh canonical state to check if DB reverted despite error
+      const refreshedPlan = await services.newsroomMedia.getPromotionPlan(storyId);
+      const refreshedItem = refreshedPlan.find((p) => p.mediaId === item.mediaId);
+
+      if (refreshedItem && refreshedItem.mediaStatus === "private_ready") {
+        setPromotionPlan(refreshedPlan);
+        await refreshStoryAttachments();
+        return;
+      }
+
+      // DB remains public_staged: RESTORE public object from canonical private bytes
+      try {
+        await newsroomStorageService.copyPrivateToPublic(
+          item.privateBucket,
+          item.privateKey,
+          publicBucket,
+          publicKey,
+          item.mimeType,
+          item.checksum
+        );
+      } catch (restoreErr) {
+        throw new Error(
+          `RECONCILIATION FAILURE: Clear RPC failed and restoration of public object failed: ${
+            restoreErr instanceof Error ? restoreErr.message : String(restoreErr)
+          }`
+        );
+      }
+
+      throw new Error(
+        `Clear RPC failed (${clearRpcErr instanceof Error ? clearRpcErr.message : String(clearRpcErr)}). Public storage object has been restored.`
       );
     }
-    await Promise.all([refreshPlan(), refreshAssets()]);
+
+    // 3. Refresh
+    await Promise.all([refreshPlan(), refreshStoryAttachments()]);
   };
 
   return (
@@ -1359,6 +1648,10 @@ export function StudioStoryMediaPanel({
       onStagePromotion={handleStagePromotion}
       onClearStagedPromotion={handleClearStagedPromotion}
       onOpenInMediaLibrary={(mediaId) => router.push(`/studio/media?select=${mediaId}` as any)}
+      onPickFile={pickStoryMediaFile}
+      reconciliationState={reconciliationState}
+      onRetryUpload={handleRetryUpload}
+      onRetryFinalize={handleRetryFinalize}
       existingAssets={mediaAssets}
       loadingExistingAssets={loadingAssets}
       onRefreshExistingAssets={refreshAssets}
@@ -2160,6 +2453,77 @@ const styles = StyleSheet.create({
   pickerSelectBtnText: {
     color: "#fff",
     fontSize: 12,
+    fontWeight: "600"
+  },
+  filePickerBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: "#f8fafc",
+    gap: spacing.sm
+  },
+  pickerBtn: {
+    backgroundColor: colors.blue,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    alignItems: "center"
+  },
+  pickerBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  selectedFileInfo: {
+    padding: spacing.sm,
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    gap: 4
+  },
+  selectedFileName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  selectedFileMeta: {
+    fontSize: 12,
+    color: colors.inkMuted
+  },
+  selectedFileChecksum: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    fontFamily: "monospace"
+  },
+  noFileSelectedText: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    fontStyle: "italic",
+    textAlign: "center"
+  },
+  reconciliationAlert: {
+    backgroundColor: "#fff7ed",
+    borderColor: "#ea580c",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: 4
+  },
+  reconciliationAlertTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#c2410c"
+  },
+  reconciliationAlertText: {
+    fontSize: 13,
+    color: "#9a3412"
+  },
+  reconciliationAlertSub: {
+    fontSize: 11,
+    color: "#c2410c",
     fontWeight: "600"
   }
 });

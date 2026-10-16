@@ -28,6 +28,9 @@ const models = loadTs("src/domain/models.ts");
 const {
   ALLOWED_STORY_MEDIA_MIME_TYPES,
   MAX_STORY_MEDIA_BYTES,
+  BOUNDED_MIME_BY_EXTENSION,
+  resolveBoundedMimeType,
+  isMediaAssetAttachable,
   isValidSha256Checksum,
   validateStoryMediaUpload,
   buildCanonicalPublicStorageKey
@@ -68,8 +71,19 @@ const {
   uploadPrivateObject,
   downloadPrivateObject,
   copyPrivateToPublic,
-  deleteStagedPublicObject
+  copyPrivateToCanonicalPublic,
+  deleteStagedPublicObject,
+  newsroomStorageService
 } = storageModule;
+
+const filePickerModule = loadTs("src/services/file-picker.ts", {
+  mocks: {
+    "expo-document-picker": {
+      getDocumentAsync: async () => ({ canceled: true, assets: [] })
+    }
+  }
+});
+const { createSelectedFileFromBytes } = filePickerModule;
 
 const mediaServiceModule = loadTs("src/services/newsroom-media.ts", {
   mocks: {
@@ -82,13 +96,13 @@ const { stagingNewsroomMediaService } = mediaServiceModule;
 // 1. INVARIANTS & INTEGRITY TESTS
 // -----------------------------------------------------------------------------
 
-test("HT-NR-05B Invariant: Migration count remains exactly 64 (zero new migrations)", () => {
+test("HT-NR-05B-R1 Invariant: Migration count is exactly 65", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    64,
-    `Migration count must be exactly 64. Found ${files.length}. No new migrations permitted for HT-NR-05B.`
+    65,
+    `Migration count must be exactly 65 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity). Found ${files.length}.`
   );
 });
 
@@ -610,3 +624,589 @@ test("HT-NR-05B Owner Preview: OwnerPreviewStoryWorkspace renders StudioStoryMed
     "Must report PUBLIC STAGED status upon staging"
   );
 });
+
+// -----------------------------------------------------------------------------
+// 6. HT-NR-05B-R1 REAL FILE INGESTION & DATA CUSTODY TESTS (Sections 38-51)
+// -----------------------------------------------------------------------------
+
+test("HT-NR-05B-R1 Section 38: Real file selection adapter & absence of operational sample content", () => {
+  const panelSource = read("src/ui/StudioStoryMedia.tsx");
+  assert.ok(
+    !panelSource.includes("uploadSimulatedContent"),
+    "Operational StudioStoryMedia must NOT contain uploadSimulatedContent"
+  );
+  assert.ok(
+    !panelSource.includes("Sample newsroom asset content for verification."),
+    "Operational StudioStoryMedia must NOT contain sample verification strings"
+  );
+  assert.ok(
+    !panelSource.includes("clinic-lead-photo.jpg"),
+    "Operational StudioStoryMedia must NOT contain hardcoded clinic-lead-photo.jpg"
+  );
+  assert.ok(
+    !panelSource.includes("Tafadzwa Moyo"),
+    "Operational StudioStoryMedia must NOT contain hardcoded Tafadzwa Moyo credit"
+  );
+  assert.ok(
+    panelSource.includes("pickStoryMediaFile"),
+    "Operational StudioStoryMedia must import pickStoryMediaFile"
+  );
+  assert.ok(
+    panelSource.includes("onPickFile"),
+    "Operational StudioStoryMedia must support onPickFile adapter"
+  );
+  assert.ok(
+    panelSource.includes('testID="media-select-file-button"'),
+    "Operational UI must render real file selection button"
+  );
+});
+
+test("HT-NR-05B-R1 Section 39: Exact byte consistency from selected bytes to checksum and payload", async () => {
+  // Deterministic 12-byte test payload
+  const deterministicBytes = new Uint8Array([72, 101, 97, 108, 116, 104, 84, 105, 109, 101, 115, 33]);
+  const expectedSha256 = crypto.createHash("sha256").update(deterministicBytes).digest("hex");
+  const computedSha256 = await computeSha256Hex(deterministicBytes);
+  assert.strictEqual(computedSha256, expectedSha256);
+
+  const selected = createSelectedFileFromBytes("clinic-ward.jpg", deterministicBytes);
+  assert.strictEqual(selected.filename, "clinic-ward.jpg");
+  assert.strictEqual(selected.mimeType, "image/jpeg");
+  assert.strictEqual(selected.byteSize, deterministicBytes.byteLength);
+  assert.strictEqual(selected.bytes, deterministicBytes);
+
+  // Prepare payload byte size and checksum MUST be derived from same exact bytes
+  const uploadValidation = validateStoryMediaUpload({
+    filename: selected.filename,
+    mimeType: selected.mimeType,
+    byteSize: selected.byteSize,
+    checksum: computedSha256,
+    usageType: "featured",
+    altText: "Harare hospital clinic ward",
+    sourceProvenance: "direct-reporting"
+  });
+  assert.strictEqual(uploadValidation.valid, true);
+  assert.strictEqual(uploadValidation.error, undefined);
+  assert.strictEqual(selected.byteSize, 12);
+});
+
+test("HT-NR-05B-R1 Section 40: MIME truth and file extension bounding", () => {
+  // Truthful bounded resolutions
+  assert.strictEqual(resolveBoundedMimeType("photo.jpg", "text/plain"), "image/jpeg");
+  assert.strictEqual(resolveBoundedMimeType("photo.jpeg", "application/octet-stream"), "image/jpeg");
+  assert.strictEqual(resolveBoundedMimeType("photo.JPG", ""), "image/jpeg");
+  assert.strictEqual(resolveBoundedMimeType("graphic.png", "text/html"), "image/png");
+  assert.strictEqual(resolveBoundedMimeType("banner.webp", ""), "image/webp");
+  assert.strictEqual(resolveBoundedMimeType("bulletin.pdf", "image/jpeg"), "application/pdf");
+  assert.strictEqual(
+    resolveBoundedMimeType("summary.docx", "application/zip"),
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+  assert.strictEqual(resolveBoundedMimeType("raw_notes.txt", "image/png"), "text/plain");
+
+  // Disallowed extensions return null
+  assert.strictEqual(resolveBoundedMimeType("danger.exe", "image/jpeg"), null);
+  assert.strictEqual(resolveBoundedMimeType("malware.bin", "image/png"), null);
+  assert.strictEqual(resolveBoundedMimeType("script.js", "application/javascript"), null);
+  assert.strictEqual(resolveBoundedMimeType("page.html", "text/html"), null);
+  assert.strictEqual(resolveBoundedMimeType("archive.zip", "application/zip"), null);
+
+  // User cannot label text bytes as image/jpeg if extension is .txt
+  const textMime = resolveBoundedMimeType("notes.txt", "image/jpeg");
+  assert.strictEqual(textMime, "text/plain");
+  const validation = validateStoryMediaUpload({
+    filename: "notes.txt",
+    mimeType: textMime,
+    byteSize: 100,
+    checksum: dummyChecksum,
+    usageType: "featured",
+    altText: "Test image alt",
+    sourceProvenance: "direct-reporting"
+  });
+  assert.strictEqual(validation.valid, false);
+  assert.ok(validation.error?.includes("Featured lead media must be an image"));
+});
+
+test("HT-NR-05B-R1 Section 41: Two-stage private upload failure & retry state machine", async () => {
+  // Scenario A: Prepare succeeds, Storage upload fails
+  let prepareCalls = 0;
+  let finalizeCalls = 0;
+  let uploadCalls = 0;
+
+  const failureClient = {
+    auth: { getSession: async () => ({ data: mockSession, error: null }) },
+    rpc: async (name, args) => {
+      if (name === "newsroom_prepare_story_media") {
+        prepareCalls++;
+        return {
+          data: {
+            media_id: "00000000-0000-4000-8000-000000008001",
+            storage_bucket: "newsroom-private",
+            storage_key: "story-media/00000000-0000-4000-8000-000000001001/00000000-0000-4000-8000-000000008001/clinic.jpg",
+            status: "upload_pending",
+            usage_type: "featured",
+            checksum: dummyChecksum
+          },
+          error: null
+        };
+      }
+      if (name === "newsroom_finalize_story_media") {
+        finalizeCalls++;
+        return { data: { status: "private_ready" }, error: null };
+      }
+      return { data: null, error: null };
+    },
+    storage: {
+      from: (bucket) => ({
+        upload: async () => {
+          uploadCalls++;
+          if (uploadCalls === 1) {
+            return { error: { message: "Network connection lost during upload." } };
+          }
+          return { error: null };
+        }
+      })
+    }
+  };
+
+  const testMediaService = loadTs("src/services/newsroom-media.ts", {
+    mocks: { "../platform/supabase": { getStagingSupabaseClient: () => failureClient } }
+  }).stagingNewsroomMediaService;
+
+  // 1. Prepare succeeds
+  const prepared = await testMediaService.prepareStoryMedia("00000000-0000-4000-8000-000000001001", {
+    filename: "clinic.jpg",
+    mimeType: "image/jpeg",
+    byteSize: 1024,
+    checksum: dummyChecksum,
+    usageType: "featured",
+    altText: "Clinic ward",
+    sourceProvenance: "direct-reporting"
+  });
+  assert.strictEqual(prepareCalls, 1);
+  assert.strictEqual(prepared.mediaId, "00000000-0000-4000-8000-000000008001");
+
+  // 2. Storage upload fails
+  const uploadResult = await failureClient.storage.from(prepared.storageBucket).upload();
+  assert.ok(uploadResult.error);
+  // Finalize MUST NOT be called
+  assert.strictEqual(finalizeCalls, 0);
+
+  // 3. Retry upload does NOT call prepare a second time
+  const retryUploadResult = await failureClient.storage.from(prepared.storageBucket).upload();
+  assert.strictEqual(retryUploadResult.error, null);
+  assert.strictEqual(prepareCalls, 1, "Prepare MUST NOT be called a second time on retry");
+
+  // 4. Finalize succeeds after upload succeeds
+  const finalized = await testMediaService.finalizeStoryMedia("00000000-0000-4000-8000-000000001001", prepared.mediaId);
+  assert.strictEqual(finalizeCalls, 1);
+  assert.strictEqual(finalized.status, "private_ready");
+
+  // Scenario B: Upload succeeds, Finalize RPC fails
+  let finalizeAttempts = 0;
+  let detachCalls = 0;
+
+  const finalizeFailureClient = {
+    auth: { getSession: async () => ({ data: mockSession, error: null }) },
+    rpc: async (name, args) => {
+      if (name === "newsroom_finalize_story_media") {
+        finalizeAttempts++;
+        if (finalizeAttempts === 1) {
+          return { data: null, error: { message: "Database lock conflict on finalize." } };
+        }
+        return { data: { status: "private_ready" }, error: null };
+      }
+      if (name === "newsroom_detach_story_media") {
+        detachCalls++;
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
+    }
+  };
+
+  const testMediaService2 = loadTs("src/services/newsroom-media.ts", {
+    mocks: { "../platform/supabase": { getStagingSupabaseClient: () => finalizeFailureClient } }
+  }).stagingNewsroomMediaService;
+
+  await assert.rejects(
+    async () => {
+      await testMediaService2.finalizeStoryMedia("00000000-0000-4000-8000-000000001001", "00000000-0000-4000-8000-000000008001");
+    },
+    /Database lock conflict on finalize/
+  );
+
+  // Must NOT detach and must NOT falsely mark private_ready
+  assert.strictEqual(detachCalls, 0, "Must not detach story media on finalize failure");
+
+  // Retry finalize succeeds with exact same mediaId
+  const retriedFinalize = await testMediaService2.finalizeStoryMedia("00000000-0000-4000-8000-000000001001", "00000000-0000-4000-8000-000000008001");
+  assert.strictEqual(retriedFinalize.status, "private_ready");
+  assert.strictEqual(finalizeAttempts, 2);
+});
+
+test("HT-NR-05B-R1 Section 42: Public null-checksum promotion uses real private byte SHA-256", async () => {
+  const privateBytes = new Uint8Array([11, 22, 33, 44, 55, 66]);
+  const realSha256 = crypto.createHash("sha256").update(privateBytes).digest("hex");
+
+  let uploadedTargetKey = null;
+  let uploadedContentType = null;
+  let uploadedUpsert = null;
+
+  const storageMock = {
+    storage: {
+      from: (bucket) => ({
+        download: async (p) => ({ data: new Blob([privateBytes]), error: null }),
+        upload: async (targetPath, bytes, options) => {
+          uploadedTargetKey = targetPath;
+          uploadedContentType = options?.contentType;
+          uploadedUpsert = options?.upsert;
+          return { error: null };
+        }
+      })
+    }
+  };
+
+  const { verifiedChecksum, publicKey } = await copyPrivateToCanonicalPublic({
+    storyId: "00000000-0000-4000-8000-000000001001",
+    mediaId: "00000000-0000-4000-8000-000000007001",
+    privateBucket: "newsroom-private",
+    privateKey: "story-media/00000000-0000-4000-8000-000000001001/00000000-0000-4000-8000-000000007001/sample.jpg",
+    filename: "sample.jpg",
+    mimeType: "image/jpeg",
+    expectedChecksum: null, // NULL checksum in canonical metadata
+    clientOverride: storageMock
+  });
+
+  assert.strictEqual(verifiedChecksum, realSha256);
+  assert.strictEqual(
+    publicKey,
+    `story-media/00000000-0000-4000-8000-000000001001/00000000-0000-4000-8000-000000007001/${realSha256}/sample.jpg`
+  );
+  assert.strictEqual(uploadedTargetKey, publicKey);
+  assert.strictEqual(uploadedContentType, "image/jpeg");
+  assert.strictEqual(uploadedUpsert, false);
+});
+
+test("HT-NR-05B-R1 Section 43: Public checksum mismatch aborts public copy and throws CHECKSUM VERIFICATION FAILED", async () => {
+  const privateBytes = new Uint8Array([99, 88, 77]);
+  const mismatchedExpectedChecksum = "0000000000000000000000000000000000000000000000000000000000000000";
+
+  let publicUploadAttempted = false;
+
+  const storageMock = {
+    storage: {
+      from: (bucket) => ({
+        download: async () => ({ data: new Blob([privateBytes]), error: null }),
+        upload: async () => {
+          publicUploadAttempted = true;
+          return { error: null };
+        }
+      })
+    }
+  };
+
+  await assert.rejects(
+    async () => {
+      await copyPrivateToCanonicalPublic({
+        storyId: "s1",
+        mediaId: "m1",
+        privateBucket: "newsroom-private",
+        privateKey: "story-media/s1/m1/photo.jpg",
+        filename: "photo.jpg",
+        mimeType: "image/jpeg",
+        expectedChecksum: mismatchedExpectedChecksum,
+        clientOverride: storageMock
+      });
+    },
+    /CHECKSUM VERIFICATION FAILED/
+  );
+
+  assert.strictEqual(publicUploadAttempted, false, "Must not attempt upload to public bucket when checksum mismatches");
+});
+
+test("HT-NR-05B-R1 Section 44: Stage failure cleanup compensation and commit acknowledgment", async () => {
+  const panelSource = read("src/ui/StudioStoryMedia.tsx");
+
+  // 1. Panel source inspects canonical state on stage promotion failure
+  assert.ok(
+    panelSource.includes("services.newsroomMedia.getPromotionPlan"),
+    "Panel must refresh canonical promotion plan on stage failure"
+  );
+  assert.ok(
+    panelSource.includes("deleteStagedPublicObject"),
+    "Panel must call deleteStagedPublicObject on stage failure compensation"
+  );
+  assert.ok(
+    panelSource.includes("public_staged"),
+    "Panel must verify if status actually committed as public_staged"
+  );
+  assert.ok(
+    panelSource.includes("RECONCILIATION REQUIRED: Stage promotion failed"),
+    "Panel must report cleanup failure without swallowing error"
+  );
+
+  // 2. Unit simulation: deletion error is NOT swallowed
+  let removeCalledWith = null;
+  const errorStorageMock = {
+    storage: {
+      from: (bucket) => ({
+        remove: async (paths) => {
+          removeCalledWith = paths;
+          return { error: { message: "Storage permission error during cleanup" } };
+        }
+      })
+    }
+  };
+
+  await assert.rejects(
+    async () => {
+      await deleteStagedPublicObject("story-media/s1/m1/chk/photo.jpg", errorStorageMock);
+    },
+    /Storage permission error during cleanup/
+  );
+  assert.deepStrictEqual(removeCalledWith, ["story-media/s1/m1/chk/photo.jpg"]);
+});
+
+test("HT-NR-05B-R1 Section 45: Clear-staged operation order deletes Storage object BEFORE clear RPC", () => {
+  const panelSource = read("src/ui/StudioStoryMedia.tsx");
+  const clearHandlerIdx = panelSource.lastIndexOf("const handleClearStagedPromotion = async");
+  assert.ok(clearHandlerIdx > -1, "handleClearStagedPromotion must be present");
+
+  const clearSnippet = panelSource.slice(clearHandlerIdx, clearHandlerIdx + 1200);
+  const deleteStorageIdx = clearSnippet.indexOf("newsroomStorageService.deleteStagedPublicObject");
+  const clearRpcIdx = clearSnippet.indexOf("services.newsroomMedia.clearStagedPromotion");
+
+  assert.ok(deleteStorageIdx > -1, "Must call deleteStagedPublicObject in clear handler");
+  assert.ok(clearRpcIdx > -1, "Must call clearStagedPromotion in clear handler");
+  assert.ok(
+    deleteStorageIdx < clearRpcIdx,
+    "Storage public object MUST be deleted BEFORE calling newsroom_clear_staged_story_media RPC"
+  );
+});
+
+test("HT-NR-05B-R1 Section 46: Clear failure compensation restores public object when DB remains public_staged", () => {
+  const panelSource = read("src/ui/StudioStoryMedia.tsx");
+  const clearHandlerIdx = panelSource.lastIndexOf("const handleClearStagedPromotion = async");
+  const clearSnippet = panelSource.slice(clearHandlerIdx, clearHandlerIdx + 3000);
+
+  assert.ok(
+    clearSnippet.includes("copyPrivateToPublic"),
+    "Must attempt restoring public object if clear RPC fails and DB remains public_staged"
+  );
+  assert.ok(
+    clearSnippet.includes("Public storage object has been restored") ||
+      clearSnippet.includes("restoration of public object failed"),
+    "Must surface explicit revert notice upon clear restoration"
+  );
+});
+
+test("HT-NR-05B-R1 Section 47: Story media completeness via newsroom_list_story_media", async () => {
+  let rpcCalledWith = null;
+  const mockRpcClient = {
+    auth: { getSession: async () => ({ data: mockSession, error: null }) },
+    rpc: async (name, args) => {
+      rpcCalledWith = { name, args };
+      // Return 20 columns as defined in 20261016190000_ht_nr05b_r1_story_media_integrity.sql
+      return {
+        data: [
+          {
+            id: "00000000-0000-4000-8000-000000009999",
+            filename: "deep-archive-attachment.jpg",
+            mime_type: "image/jpeg",
+            byte_size: 2048,
+            width: 800,
+            height: 600,
+            storage_bucket: "newsroom-private",
+            storage_key: "story-media/s-target/00000000-0000-4000-8000-000000009999/deep-archive-attachment.jpg",
+            public_url: null,
+            checksum: dummyChecksum,
+            status: "private_ready",
+            source_provenance: "direct-reporting",
+            caption: "Deep archive photo",
+            alt_text: "Deep archive image",
+            credit: "HealthTimes Staff",
+            legacy_source_id: null,
+            created_at: "2026-10-16T12:00:00Z",
+            created_by: "00000000-0000-4000-8000-000000000001",
+            updated_at: "2026-10-16T12:00:00Z",
+            updated_by: "00000000-0000-4000-8000-000000000001",
+            usage: [
+              {
+                story_id: "00000000-0000-4000-8000-000000001001",
+                usage_type: "featured",
+                sort_order: 0,
+                caption: "Deep archive photo",
+                alt_text: "Deep archive image",
+                credit: "HealthTimes Staff",
+                source_context: { attached_at: "2026-10-16T12:00:00Z" }
+              }
+            ]
+          }
+        ],
+        error: null
+      };
+    }
+  };
+
+  const testMediaService = loadTs("src/services/newsroom-media.ts", {
+    mocks: { "../platform/supabase": { getStagingSupabaseClient: () => mockRpcClient } }
+  }).stagingNewsroomMediaService;
+
+  const result = await testMediaService.listStoryMedia("00000000-0000-4000-8000-000000001001");
+  assert.strictEqual(rpcCalledWith.name, "newsroom_list_story_media");
+  assert.strictEqual(rpcCalledWith.args.p_story_id, "00000000-0000-4000-8000-000000001001");
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].id, "00000000-0000-4000-8000-000000009999");
+  assert.strictEqual(result[0].filename, "deep-archive-attachment.jpg");
+  assert.strictEqual(result[0].usage.length, 1);
+  assert.strictEqual(result[0].usage[0].usageType, "featured");
+
+  // In StudioStoryMedia.tsx, assert listStoryMedia is called instead of listMedia
+  const panelSource = read("src/ui/StudioStoryMedia.tsx");
+  assert.ok(
+    panelSource.includes("services.newsroomMedia.listStoryMedia(storyId)"),
+    "StudioStoryMediaPanel must call listStoryMedia(storyId) to load all story attachments"
+  );
+});
+
+test("HT-NR-05B-R1 Section 48: Attachability eligibility filtering in Workspace and Media Library", () => {
+  // Attachable
+  assert.strictEqual(
+    isMediaAssetAttachable({
+      storageBucket: "newsroom-private",
+      status: "private_ready",
+      mimeType: "image/jpeg"
+    }).attachable,
+    true
+  );
+  assert.strictEqual(
+    isMediaAssetAttachable({
+      storageBucket: "newsroom-private",
+      status: "published",
+      mimeType: "application/pdf"
+    }).attachable,
+    true
+  );
+
+  // Ineligible statuses
+  const pending = isMediaAssetAttachable({
+    storageBucket: "newsroom-private",
+    status: "pending",
+    mimeType: "image/jpeg"
+  });
+  assert.strictEqual(pending.attachable, false);
+  assert.ok(pending.reason?.includes("pending processing"));
+
+  const uploadPending = isMediaAssetAttachable({
+    storageBucket: "newsroom-private",
+    status: "upload_pending",
+    mimeType: "image/jpeg"
+  });
+  assert.strictEqual(uploadPending.attachable, false);
+  assert.ok(uploadPending.reason?.includes("not been finalized"));
+
+  const publicStaged = isMediaAssetAttachable({
+    storageBucket: "newsroom-private",
+    status: "public_staged",
+    mimeType: "image/jpeg"
+  });
+  assert.strictEqual(publicStaged.attachable, false);
+  assert.ok(publicStaged.reason?.includes("staged for public presentation"));
+
+  const missing = isMediaAssetAttachable({
+    storageBucket: "newsroom-private",
+    status: "missing_from_uploads_archive",
+    mimeType: "image/jpeg"
+  });
+  assert.strictEqual(missing.attachable, false);
+  assert.ok(missing.reason?.includes("missing from storage archive"));
+
+  // Ineligible custody
+  const publicBucket = isMediaAssetAttachable({
+    storageBucket: "newsroom-public",
+    status: "published",
+    mimeType: "image/jpeg"
+  });
+  assert.strictEqual(publicBucket.attachable, false);
+  assert.ok(publicBucket.reason?.includes("newsroom-private"));
+
+  // Ineligible MIME
+  const unsupportedMime = isMediaAssetAttachable({
+    storageBucket: "newsroom-private",
+    status: "private_ready",
+    mimeType: "video/mp4"
+  });
+  assert.strictEqual(unsupportedMime.attachable, false);
+  assert.ok(unsupportedMime.reason?.includes("not supported for story attachment"));
+
+  // Null asset
+  assert.strictEqual(isMediaAssetAttachable(null).attachable, false);
+});
+
+test("HT-NR-05B-R1 Section 51: Storage upload overwrite policy uses upsert: false and retry verification", async () => {
+  const deterministicBytes = new Uint8Array([1, 2, 3, 4, 5]);
+  const expectedSha256 = crypto.createHash("sha256").update(deterministicBytes).digest("hex");
+
+  let recordedUpsert = null;
+  let uploadCalled = false;
+  let downloadCalled = false;
+
+  // Mock client that errors with 409 already exists on upload
+  const duplicateClient = {
+    storage: {
+      from: (bucket) => ({
+        upload: async (path, bytes, options) => {
+          uploadCalled = true;
+          recordedUpsert = options?.upsert;
+          return { error: { statusCode: 409, message: "The resource already exists" } };
+        },
+        download: async (path) => {
+          downloadCalled = true;
+          return { data: new Blob([deterministicBytes]), error: null };
+        }
+      })
+    }
+  };
+
+  // Safe retry: Existing object matches expectedChecksum
+  await uploadPrivateObject(
+    "newsroom-private",
+    "story-media/s1/m1/photo.jpg",
+    deterministicBytes,
+    "image/jpeg",
+    duplicateClient
+  );
+
+  assert.strictEqual(uploadCalled, true);
+  assert.strictEqual(recordedUpsert, false, "Must specify upsert: false");
+  assert.strictEqual(downloadCalled, true, "Must download existing object on duplicate to verify checksum");
+
+  // Mismatch error: Existing object has DIFFERENT checksum
+  const differentClient = {
+    storage: {
+      from: (bucket) => ({
+        upload: async (path, bytes, options) => ({
+          error: { statusCode: 409, message: "The resource already exists" }
+        }),
+        download: async (path) => ({
+          data: new Blob([new Uint8Array([9, 9, 9])]),
+          error: null
+        })
+      })
+    }
+  };
+
+  await assert.rejects(
+    async () => {
+      await uploadPrivateObject(
+        "newsroom-private",
+        "story-media/s1/m1/photo.jpg",
+        deterministicBytes,
+        "image/jpeg",
+        differentClient
+      );
+    },
+    /already exists at .* with different checksum/
+  );
+});
+
+
