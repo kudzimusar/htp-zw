@@ -65,29 +65,31 @@ function statusBadgeStyle(status: string | null) {
   }
 }
 
-export function StudioStories() {
-  const router = useRouter();
-  const [refreshKey, setRefreshKey] = useState(0);
+export type StudioStoriesViewProps = {
+  stories: NewsroomStory[];
+  loading: boolean;
+  error: Error | null;
+  canCreate: boolean;
+  onRefresh: () => void;
+  onOpenReviewQueue: () => void;
+  onCreateStory: () => void;
+  onOpenStory: (storyId: string) => void;
+};
+
+export function StudioStoriesView({
+  stories,
+  loading,
+  error,
+  canCreate,
+  onRefresh,
+  onOpenReviewQueue,
+  onCreateStory,
+  onOpenStory
+}: StudioStoriesViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [policyFilter, setPolicyFilter] = useState<string>("All");
   const [deskFilter, setDeskFilter] = useState<string>("All");
-
-  const storiesAsync = useAsync(
-    () => services.newsroomStories.listStories(200),
-    [refreshKey]
-  );
-
-  const authAsync = useAsync(
-    () => services.authorization.getSnapshot(),
-    []
-  );
-
-  const canCreate = authAsync.data
-    ? hasServerCapability(authAsync.data, "story.create")
-    : false;
-
-  const stories = storiesAsync.data ?? [];
 
   const availableDesks = useMemo(() => {
     const set = new Set<string>();
@@ -148,14 +150,14 @@ export function StudioStories() {
         <View style={styles.headerActions}>
           <Pressable
             style={styles.reviewQueueButton}
-            onPress={() => router.push("/studio/review-queue" as never)}
+            onPress={onOpenReviewQueue}
             accessibilityRole="button"
           >
             <Text style={styles.reviewQueueButtonText}>Review Queue →</Text>
           </Pressable>
           <Pressable
             style={styles.refreshButton}
-            onPress={() => setRefreshKey((k) => k + 1)}
+            onPress={onRefresh}
             accessibilityRole="button"
           >
             <Text style={styles.refreshButtonText}>Refresh</Text>
@@ -163,7 +165,7 @@ export function StudioStories() {
           {canCreate && (
             <Pressable
               style={styles.newStoryButton}
-              onPress={() => router.push("/studio/create-edit" as never)}
+              onPress={onCreateStory}
               accessibilityRole="button"
             >
               <Text style={styles.newStoryButtonText}>+ New Story</Text>
@@ -250,20 +252,20 @@ export function StudioStories() {
       </View>
 
       {/* Loading & Error States */}
-      {storiesAsync.loading && (
+      {loading && (
         <View style={styles.statusBox}>
           <Text style={styles.statusTitle}>Fetching Stories</Text>
           <Text style={styles.statusText}>Connecting to server-authoritative Newsroom kernel…</Text>
         </View>
       )}
 
-      {storiesAsync.error && (
+      {error && (
         <View style={styles.errorBox}>
           <Text style={styles.errorTitle}>Failed to Load Stories</Text>
-          <Text style={styles.errorText}>{storiesAsync.error.message}</Text>
+          <Text style={styles.errorText}>{error.message}</Text>
           <Pressable
             style={styles.retryButton}
-            onPress={() => setRefreshKey((k) => k + 1)}
+            onPress={onRefresh}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
@@ -271,7 +273,7 @@ export function StudioStories() {
       )}
 
       {/* Empty State */}
-      {!storiesAsync.loading && !storiesAsync.error && filteredStories.length === 0 && (
+      {!loading && !error && filteredStories.length === 0 && (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyTitle}>No Stories Found</Text>
           <Text style={styles.emptyText}>
@@ -280,7 +282,7 @@ export function StudioStories() {
           {canCreate && (
             <Pressable
               style={styles.newStoryButtonSecondary}
-              onPress={() => router.push("/studio/create-edit" as never)}
+              onPress={onCreateStory}
             >
               <Text style={styles.newStoryButtonSecondaryText}>Create First Story</Text>
             </Pressable>
@@ -289,7 +291,7 @@ export function StudioStories() {
       )}
 
       {/* Story Cards List */}
-      {!storiesAsync.loading && !storiesAsync.error && filteredStories.length > 0 && (
+      {!loading && !error && filteredStories.length > 0 && (
         <View style={styles.storyList}>
           {filteredStories.map((story) => {
             const curStatus = resolveWorkflowStatus(story);
@@ -298,9 +300,7 @@ export function StudioStories() {
               <Pressable
                 key={story.id}
                 style={styles.storyCard}
-                onPress={() =>
-                  router.push(`/studio/create-edit?storyId=${story.id}` as never)
-                }
+                onPress={() => onOpenStory(story.id)}
                 accessibilityRole="button"
               >
                 <View style={styles.cardHeader}>
@@ -383,6 +383,42 @@ export function StudioStories() {
         </View>
       )}
     </View>
+  );
+}
+
+export function StudioStories() {
+  const router = useRouter();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const storiesAsync = useAsync(
+    () => services.newsroomStories.listStories(200),
+    [refreshKey]
+  );
+
+  const authAsync = useAsync(
+    () => services.authorization.getSnapshot(),
+    []
+  );
+
+  const canCreate = authAsync.data
+    ? hasServerCapability(authAsync.data, "story.create")
+    : false;
+
+  const stories = storiesAsync.data ?? [];
+
+  return (
+    <StudioStoriesView
+      stories={stories}
+      loading={storiesAsync.loading}
+      error={storiesAsync.error}
+      canCreate={canCreate}
+      onRefresh={() => setRefreshKey((k) => k + 1)}
+      onOpenReviewQueue={() => router.push("/studio/review-queue" as never)}
+      onCreateStory={() => router.push("/studio/create-edit" as never)}
+      onOpenStory={(storyId) =>
+        router.push(`/studio/create-edit?storyId=${storyId}` as never)
+      }
+    />
   );
 }
 

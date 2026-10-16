@@ -44,6 +44,85 @@ function LoadingOrError({loading,error}:{loading:boolean;error?:Error|null}){
   return null;
 }
 
+export type StudioAssignmentsViewProps = {
+  assignments: NewsroomAssignment[];
+  loading?: boolean;
+  error?: Error | null;
+  progressError?: string | null;
+  progressConfirmation?: string | null;
+  progressingId?: string | null;
+  canAdvanceAssignment: (item: NewsroomAssignment) => boolean;
+  onAdvanceAssignment: (item: NewsroomAssignment) => void | Promise<void>;
+  onOpenDiscussion: (assignmentId: string) => void;
+  onOpenStory: (storyId: string) => void;
+};
+
+export function StudioAssignmentsView({
+  assignments,
+  loading = false,
+  error = null,
+  progressError = null,
+  progressConfirmation = null,
+  progressingId = null,
+  canAdvanceAssignment,
+  onAdvanceAssignment,
+  onOpenDiscussion,
+  onOpenStory
+}: StudioAssignmentsViewProps) {
+  return (
+    <View style={styles.stack}>
+      <LoadingOrError loading={loading} error={error}/>
+      {!!progressError&&<Text style={styles.error}>{progressError}</Text>}
+      {!!progressConfirmation&&<Text style={styles.meta}>{progressConfirmation}</Text>}
+      {assignments.map(item=>{
+        const canAdvance=canAdvanceAssignment(item);
+        const actionLabel=getAssignmentProgressActionLabel(item.status);
+        const nextStatus=getNextAssignmentStatus(item.status);
+        const isAdvancing=progressingId===item.id;
+        return (
+          <View key={item.id} style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
+            {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
+            {!!item.notes&&<Text style={styles.muted}>{item.notes}</Text>}
+            <View style={styles.actions}>
+              {canAdvance&&actionLabel&&nextStatus&&(
+                <Pressable
+                  style={styles.primary}
+                  onPress={()=>void onAdvanceAssignment(item)}
+                  disabled={isAdvancing}
+                >
+                  <Text style={styles.primaryText}>
+                    {isAdvancing?"Advancing…":`${actionLabel} → ${nextStatus}`}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={styles.secondary}
+                onPress={()=>onOpenDiscussion(item.id)}
+              >
+                <Text style={styles.secondaryText}>Open Discussion</Text>
+              </Pressable>
+              {!!item.storyId&&(
+                <Pressable
+                  style={styles.secondary}
+                  onPress={()=>onOpenStory(item.storyId!)}
+                >
+                  <Text style={styles.secondaryText}>Open Story</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        );
+      })}
+      {!loading&&!assignments.length&&<Text style={styles.muted}>No assignments are available to this authorized session.</Text>}
+    </View>
+  );
+}
+
 export function StudioAssignmentsPanel(){
   const router=useRouter();
   const [refresh,setRefresh]=useState(0);
@@ -72,58 +151,26 @@ export function StudioAssignmentsPanel(){
     }
   };
 
-  return (
-    <View style={styles.stack}>
-      <LoadingOrError loading={assignments.loading||authorization.loading} error={assignments.error||authorization.error}/>
-      {!!progressError&&<Text style={styles.error}>{progressError}</Text>}
-      {!!progressConfirmation&&<Text style={styles.meta}>{progressConfirmation}</Text>}
-      {(assignments.data??[]).map(item=>{
-        const canAdvance=canProgressAssignment(authSnapshot,item);
-        const actionLabel=getAssignmentProgressActionLabel(item.status);
-        const nextStatus=getNextAssignmentStatus(item.status);
-        const isAdvancing=progressingId===item.id;
-        return (
-          <View key={item.id} style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
-            </View>
-            <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
-            {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
-            {!!item.notes&&<Text style={styles.muted}>{item.notes}</Text>}
-            <View style={styles.actions}>
-              {canAdvance&&actionLabel&&nextStatus&&(
-                <Pressable
-                  style={styles.primary}
-                  onPress={()=>void advance(item)}
-                  disabled={isAdvancing}
-                >
-                  <Text style={styles.primaryText}>
-                    {isAdvancing?"Advancing…":`${actionLabel} → ${nextStatus}`}
-                  </Text>
-                </Pressable>
-              )}
-              <Pressable
-                style={styles.secondary}
-                onPress={()=>router.push({pathname:"/studio/assignments",params:{assignmentId:item.id}} as never)}
-              >
-                <Text style={styles.secondaryText}>Open Discussion</Text>
-              </Pressable>
-              {!!item.storyId&&(
-                <Pressable
-                  style={styles.secondary}
-                  onPress={()=>router.push({pathname:"/studio/[module]",params:{module:"create-edit",storyId:item.storyId}} as never)}
-                >
-                  <Text style={styles.secondaryText}>Open Story</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        );
-      })}
-      {!assignments.loading&&!(assignments.data??[]).length&&<Text style={styles.muted}>No assignments are available to this authorized session.</Text>}
-    </View>
-  );
+  return StudioAssignmentsView({
+    assignments: assignments.data ?? [],
+    loading: assignments.loading || authorization.loading,
+    error: assignments.error || authorization.error,
+    progressError,
+    progressConfirmation,
+    progressingId,
+    canAdvanceAssignment: (item) => canProgressAssignment(authSnapshot, item),
+    onAdvanceAssignment: advance,
+    onOpenDiscussion: (assignmentId) =>
+      router.push({
+        pathname: "/studio/assignments",
+        params: { assignmentId }
+      } as never),
+    onOpenStory: (storyId) =>
+      router.push({
+        pathname: "/studio/[module]",
+        params: { module: "create-edit", storyId }
+      } as never)
+  });
 }
 
 export function StudioAssignmentDiscussionPanel({assignmentId}:{assignmentId:string}){

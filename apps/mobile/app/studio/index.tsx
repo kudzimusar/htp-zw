@@ -1,27 +1,34 @@
-import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { StudioShell } from "../../src/ui/Studio";
+import { StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
-import { resolveWorkflowStatus } from "../../src/ui/StudioStories";
-import { isReviewWorkflowStatus } from "../../src/ui/StudioReviewQueue";
-import { ASSIGNMENT_STATUS_SEQUENCE } from "../../src/ui/StudioPlanningBoard";
-import {
-  computeCalendarSummaryMetrics,
-  deriveEditorialCalendarItems,
-  getCalendarEventKindLabel
-} from "../../src/ui/StudioEditorialCalendar";
 
 const actions=[
-  ["Stories","stories","Draft, review, assignment and publication workflows"],
-  ["Create / Edit","create-edit","Server-authorized story creation and editing"],
-  ["Review Queue","review-queue","Operational editorial review, triage and deadline prioritization"],
-  ["Planning / News Budget","planning","Operational editorial planning, news budget and assignment management"],
+  ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"],
   ["Assignments","assignments","Authoritative assignments with typed coordination discussions"],
+  ["Planning / News Budget","planning","Operational editorial planning, news budget and assignment management"],
   ["Editorial Calendar","calendar","Chronological editorial agenda for story deadlines, scheduled publications and assignments"],
-  ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"]
+  ["Stories","stories","Draft, review, assignment and publication workflows"],
+  ["Review Queue","review-queue","Operational editorial review, triage and deadline prioritization"],
+  ["Create / Edit","create-edit","Server-authorized story creation and editing"],
+  ["Live Desk","live-desk","Live blogs, streams and scheduled events"],
+  ["Video Desk","video-desk","Video publishing and metadata"],
+  ["Desks","desks","Private specialist coordination and assignment discussions"],
+  ["Breaking","breaking","Temporary breaking-news coordination rooms"],
+  ["Moderation","moderation","Verified-reader comment review and restrictions"],
+  ["Advertising","advertising","Campaigns, creatives and placements"],
+  ["Analytics","analytics","KPI-first views from AG-05 real services"],
+  ["Staff & Roles","staff-roles","Server-authorized staff and capabilities"]
+] as const;
+
+const dependencies=[
+  ["AG-04","Migrated articles, authors and media","BLOCKED / NOT INTEGRATED"],
+  ["AG-05","Verified analytics, ads and growth services","BLOCKED / NOT INTEGRATED"],
+  ["AG-06","Server roles, sessions, audit and privileged APIs","CERTIFIED PARENT / CLIENT PROJECTION PENDING"],
+  ["CA-01","Inbox, communications and verified-reader discussion","NATIVE CONTRACT INTEGRATION"],
+  ["AG-07","Frozen integrated candidate and client UAT","CP7 BLOCKED"]
 ] as const;
 
 export default function StudioToday(){
@@ -30,132 +37,79 @@ export default function StudioToday(){
   const stories=useAsync(()=>services.articles.getHome(),[]);
   const publication=useAsync(()=>services.publication.getProfile(),[]);
   const authStatus=authorization.data?.status ?? "checking";
-  const isAuthorizedStaff=authStatus==="authorized" && authorization.data?.source==="server";
-
-  const newsroomStoriesAsync=useAsync(
-    ()=>isAuthorizedStaff ? services.newsroomStories.listStories(200) : Promise.resolve([]),
-    [isAuthorizedStaff]
-  );
-  const newsroomAssignmentsAsync=useAsync(
-    ()=>isAuthorizedStaff ? services.newsroomCommunication.listAssignments() : Promise.resolve([]),
-    [isAuthorizedStaff]
-  );
-
-  const newsroomStories=newsroomStoriesAsync.data ?? [];
-  const newsroomAssignments=newsroomAssignmentsAsync.data ?? [];
-
-  const calendarItems=useMemo(
-    ()=>deriveEditorialCalendarItems(newsroomStories,newsroomAssignments),
-    [newsroomStories,newsroomAssignments]
-  );
-  const calendarMetrics=useMemo(
-    ()=>computeCalendarSummaryMetrics(calendarItems),
-    [calendarItems]
-  );
-  const reviewQueueCount=useMemo(
-    ()=>newsroomStories.filter((s)=>isReviewWorkflowStatus(resolveWorkflowStatus(s))).length,
-    [newsroomStories]
-  );
-
   const sourceStories=stories.data ?? [];
   const sourceBacked=sourceStories.filter((story)=>story.sourceProvenance?.system==="wordpress");
   const premiumStories=sourceStories.filter((story)=>story.accessPolicy==="premium");
-
+  const reviewStories=sourceStories.filter((story)=>story.contentIntegrity==="requires-review");
   return (
     <StudioShell title="Today">
-      {/* 1. Attention */}
+      <StudioPlaceholder owner="AG-06 / AG-05" description="Studio layout and capability gates are ready for service integration, but newsroom identity, permissions, analytics and commercial data remain service-owned and are not invented by the client." />
+
+      <View style={styles.statusStrip}>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>AUTHORITY STATE</Text>
+          <Text style={styles.statusValue}>{authStatus}</Text>
+        </View>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>CP7</Text>
+          <Text style={styles.statusValue}>BLOCKED</Text>
+        </View>
+        <View style={styles.statusBlock}>
+          <Text style={styles.statusLabel}>PRODUCTION CUTOVER</Text>
+          <Text style={styles.statusValue}>NOT AUTHORIZED</Text>
+        </View>
+      </View>
+
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Attention</Text>
-        <Text style={styles.sectionText}>Immediate newsroom priorities across deadlines, editorial review gates and active assignments.</Text>
+        <Text style={styles.sectionTitle}>Publication visibility</Text>
+        <Text style={styles.sectionText}>Read-only Reader context is safe to inspect here. It does not grant editorial write authority.</Text>
       </View>
 
       <View style={styles.statusStrip}>
         <View style={styles.statusBlock}>
-          <Text style={styles.statusLabel}>OVERDUE DEADLINES</Text>
-          <Text style={styles.metricValue}>{calendarMetrics.overdueDeadlinesCount}</Text>
+          <Text style={styles.statusLabel}>SOURCE-BACKED STORIES</Text>
+          <Text style={styles.metricValue}>{sourceBacked.length}</Text>
         </View>
         <View style={styles.statusBlock}>
-          <Text style={styles.statusLabel}>IN REVIEW QUEUE</Text>
-          <Text style={styles.metricValue}>{reviewQueueCount}</Text>
+          <Text style={styles.statusLabel}>PREMIUM-LABELLED</Text>
+          <Text style={styles.metricValue}>{premiumStories.length}</Text>
         </View>
         <View style={styles.statusBlock}>
-          <Text style={styles.statusLabel}>DUE TODAY</Text>
-          <Text style={styles.metricValue}>{calendarMetrics.todayCount}</Text>
+          <Text style={styles.statusLabel}>REQUIRES REVIEW</Text>
+          <Text style={styles.metricValue}>{reviewStories.length}</Text>
         </View>
         <View style={styles.statusBlock}>
-          <Text style={styles.statusLabel}>SCHEDULED RELEASES</Text>
-          <Text style={styles.metricValue}>{calendarMetrics.scheduledPublicationsCount}</Text>
+          <Text style={styles.statusLabel}>PUBLICATION</Text>
+          <Text style={styles.statusValue}>{publication.data?.name ?? "HealthTimes"}</Text>
         </View>
       </View>
 
-      {/* 2. Today's Schedule */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Today&apos;s schedule</Text>
-        <Text style={styles.sectionText}>Chronological deadlines and scheduled publications from server authority.</Text>
-      </View>
-
-      <View style={styles.sourcePanel}>
-        <View style={styles.sourcePanelHeader}>
-          <Text style={styles.sourcePanelTitle}>Upcoming editorial agenda</Text>
-          <Pressable onPress={()=>router.push("/studio/calendar" as never)}>
-            <Text style={styles.sourceBadge}>OPEN CALENDAR →</Text>
-          </Pressable>
-        </View>
-        {calendarItems.length===0 ? (
-          <Text style={styles.sourceFootnote}>
-            {isAuthorizedStaff
-              ? "No scheduled deadlines or publications currently active."
-              : "Sign in with an active server-authorized Newsroom staff profile to view live editorial deadlines."}
-          </Text>
-        ) : (
-          calendarItems.slice(0,5).map((item)=>(
-            <View key={item.id} style={styles.sourceRow}>
+      {!!sourceBacked.length && (
+        <View style={styles.sourcePanel}>
+          <View style={styles.sourcePanelHeader}>
+            <Text style={styles.sourcePanelTitle}>Current public source context</Text>
+            <Text style={styles.sourceBadge}>READ-ONLY</Text>
+          </View>
+          {sourceBacked.slice(0,5).map((story)=>(
+            <View key={story.id} style={styles.sourceRow}>
               <View style={styles.sourceCopy}>
-                <Text style={styles.sourceTitle}>{item.title}</Text>
+                <Text style={styles.sourceTitle}>{story.title}</Text>
                 <Text style={styles.sourceMeta}>
-                  {getCalendarEventKindLabel(item.eventKind)} · {item.workflowOrStatus} · {item.timestamp.slice(0,16).replace("T"," ")} UTC
+                  {story.author?.displayName ?? "HealthTimes"} · {story.primarySection?.name ?? "Canonical desk pending"}
                 </Text>
               </View>
-              <Text style={item.isOverdue ? styles.premiumState : styles.publicState}>
-                {item.isOverdue ? "OVERDUE" : item.horizonBucket.toUpperCase()}
+              <Text style={story.accessPolicy==="premium" ? styles.premiumState : styles.publicState}>
+                {story.accessPolicy==="premium" ? "PREMIUM" : "PUBLIC"}
               </Text>
             </View>
-          ))
-        )}
-      </View>
+          ))}
+          <Text style={styles.sourceFootnote}>SOURCE-BACKED = public WordPress parity only. AG-04 remains authoritative for migrated story/media records and editorial workflow state.</Text>
+        </View>
+      )}
 
-      {/* 3. Editorial workflow pipeline & 4. Planning summary */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Editorial workflow pipeline & Planning summary</Text>
-        <Text style={styles.sectionText}>Active story workflow distribution and news budget assignment stages.</Text>
-      </View>
-
-      <View style={styles.statusStrip}>
-        {(["Draft","Submitted","Fact check","Health / Science review","Copy edit","Editor review","Ready","Scheduled","Published"] as const).map((stage)=>(
-          <View key={stage} style={styles.statusBlock}>
-            <Text style={styles.statusLabel}>{stage.toUpperCase()}</Text>
-            <Text style={styles.metricValue}>
-              {newsroomStories.filter((s)=>resolveWorkflowStatus(s)===stage).length}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.statusStrip}>
-        {ASSIGNMENT_STATUS_SEQUENCE.map((status)=>(
-          <View key={status} style={styles.statusBlock}>
-            <Text style={styles.statusLabel}>ASSIGNMENT · {status.toUpperCase()}</Text>
-            <Text style={styles.metricValue}>
-              {newsroomAssignments.filter((a)=>a.status===status).length}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* 5. Quick actions */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Quick actions</Text>
-        <Text style={styles.sectionText}>Open a daily newsroom workspace module. Each privileged action passes through its server capability gate.</Text>
+        <Text style={styles.sectionTitle}>Workspace</Text>
+        <Text style={styles.sectionText}>Open a module. Each privileged action still passes through its server capability gate.</Text>
       </View>
 
       <View style={styles.grid}>
@@ -168,40 +122,54 @@ export default function StudioToday(){
         ))}
       </View>
 
-      {/* Demoted governance & publication footer */}
-      <View style={styles.governanceFooter}>
-        <Text style={styles.governanceFooterText}>
-          Publication: {publication.data?.name ?? "HealthTimes"} · Public Feed Stories: {sourceBacked.length} ({premiumStories.length} Premium) · Session Authority: {authStatus} · Release Gate CP7: NOT AUTHORIZED
-        </Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Integration dependencies</Text>
+        <Text style={styles.sectionText}>These are backend programme gates, not UI blockers.</Text>
+      </View>
+      <View style={styles.dependencies}>
+        {dependencies.map(([owner,description,state])=>(
+          <View style={styles.dependencyRow} key={owner}>
+            <View style={styles.dependencyOwner}><Text style={styles.dependencyOwnerText}>{owner}</Text></View>
+            <View style={styles.dependencyCopy}>
+              <Text style={styles.dependencyDescription}>{description}</Text>
+              <Text style={styles.dependencyState}>{state}</Text>
+            </View>
+          </View>
+        ))}
       </View>
     </StudioShell>
   );
 }
 const styles=StyleSheet.create({
-  statusStrip:{marginTop:spacing.md,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  statusBlock:{minWidth:155,flexGrow:1,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,padding:spacing.md,borderRadius:radius.md,gap:4},
+  statusStrip:{marginTop:spacing.xl,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  statusBlock:{minWidth:190,flexGrow:1,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,padding:spacing.lg,borderRadius:radius.md,gap:4},
   statusLabel:{fontSize:9,fontWeight:"900",letterSpacing:1,color:colors.inkMuted},
   statusValue:{fontSize:14,fontWeight:"900",color:colors.ink,textTransform:"uppercase"},
-  metricValue:{fontSize:22,fontWeight:"900",color:colors.ink,letterSpacing:-.5},
-  sourcePanel:{marginTop:spacing.md,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
+  metricValue:{fontSize:26,fontWeight:"900",color:colors.ink,letterSpacing:-.5},
+  sourcePanel:{marginTop:spacing.lg,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   sourcePanelHeader:{padding:spacing.lg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md,borderBottomWidth:1,borderBottomColor:colors.border},
   sourcePanelTitle:{fontSize:16,fontWeight:"900",color:colors.ink},
-  sourceBadge:{fontSize:10,fontWeight:"900",letterSpacing:.9,color:colors.blue},
+  sourceBadge:{fontSize:9,fontWeight:"900",letterSpacing:.9,color:colors.blue},
   sourceRow:{padding:spacing.lg,flexDirection:"row",alignItems:"center",gap:spacing.md,borderBottomWidth:1,borderBottomColor:colors.border},
   sourceCopy:{flex:1,gap:3},
   sourceTitle:{fontSize:14,fontWeight:"800",color:colors.ink},
   sourceMeta:{fontSize:11,lineHeight:16,color:colors.inkMuted},
   publicState:{fontSize:9,fontWeight:"900",letterSpacing:.8,color:colors.success},
-  premiumState:{fontSize:9,fontWeight:"900",letterSpacing:.8,color:colors.live},
-  sourceFootnote:{fontSize:12,lineHeight:18,color:colors.inkMuted,padding:spacing.lg},
+  premiumState:{fontSize:9,fontWeight:"900",letterSpacing:.8,color:colors.premium},
+  sourceFootnote:{fontSize:11,lineHeight:17,color:colors.inkMuted,padding:spacing.lg},
   sectionHeader:{marginTop:spacing.xl,gap:4},
   sectionTitle:{fontSize:20,fontWeight:"900",color:colors.ink},
   sectionText:{fontSize:13,lineHeight:20,color:colors.inkMuted},
-  grid:{marginTop:spacing.md,flexDirection:"row",flexWrap:"wrap",gap:spacing.lg},
+  grid:{marginTop:spacing.lg,flexDirection:"row",flexWrap:"wrap",gap:spacing.lg},
   card:{minWidth:240,flex:1,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,padding:spacing.xl,gap:spacing.sm,borderRadius:radius.md},
   cardTitle:{fontSize:18,fontWeight:"900",color:colors.ink},
   cardText:{fontSize:13,lineHeight:20,color:colors.inkMuted},
   open:{fontSize:12,fontWeight:"900",color:colors.blue,marginTop:spacing.sm},
-  governanceFooter:{marginTop:spacing.xl,paddingTop:spacing.md,borderTopWidth:1,borderTopColor:colors.border},
-  governanceFooterText:{fontSize:11,color:colors.inkMuted}
+  dependencies:{marginTop:spacing.lg,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
+  dependencyRow:{minHeight:72,flexDirection:"row",gap:spacing.md,alignItems:"center",padding:spacing.lg,borderBottomWidth:1,borderBottomColor:colors.border},
+  dependencyOwner:{minWidth:64,alignItems:"center",justifyContent:"center",paddingVertical:8,backgroundColor:colors.navy},
+  dependencyOwnerText:{color:"#FFFFFF",fontSize:11,fontWeight:"900"},
+  dependencyCopy:{flex:1,gap:3},
+  dependencyDescription:{fontSize:14,fontWeight:"800",color:colors.ink},
+  dependencyState:{fontSize:11,fontWeight:"800",color:colors.warning}
 });

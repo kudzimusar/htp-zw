@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -325,3 +326,89 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
   assert.ok(realModuleSource.includes("<StudioAccessGate"));
   assert.ok(realModuleSource.includes("<StudioAuthorityGate>"));
 });
+
+test("HT-NR-VIS-01-R1: Defect A — Real /studio landing is reverted to exact parent authority", () => {
+  const content = fs.readFileSync(path.join(root, "app/studio/index.tsx"));
+  const header = `blob ${content.length}\0`;
+  const sha = crypto
+    .createHash("sha1")
+    .update(Buffer.concat([Buffer.from(header), content]))
+    .digest("hex");
+  assert.equal(
+    sha,
+    "8ed2d24a4f8f20b5af881f9ce54f517b7a80720e",
+    "app/studio/index.tsx must match exact parent git blob 8ed2d24a4f8f20b5af881f9ce54f517b7a80720e"
+  );
+});
+
+test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from canonical UI files", () => {
+  const storiesSource = read("src/ui/StudioStories.tsx");
+  const workspaceSource = read("src/ui/StudioStoryWorkspace.tsx");
+  const reviewQueueSource = read("src/ui/StudioReviewQueue.tsx");
+  const planningSource = read("src/ui/StudioPlanningBoard.tsx");
+  const commsSource = read("src/ui/StudioCommunications.tsx");
+  const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
+
+  assert.ok(storiesSource.includes("export function StudioStoriesView"));
+  assert.ok(storiesSource.includes("export function StudioStories"));
+
+  assert.ok(workspaceSource.includes("export function StudioStoryWorkspaceView"));
+  assert.ok(workspaceSource.includes("export function StudioStoryWorkspace"));
+
+  assert.ok(reviewQueueSource.includes("export function StudioReviewQueueView"));
+  assert.ok(reviewQueueSource.includes("export function StudioReviewQueue"));
+
+  assert.ok(planningSource.includes("export function StudioPlanningBoardView"));
+  assert.ok(planningSource.includes("export function StudioPlanningBoard"));
+
+  assert.ok(commsSource.includes("export function StudioAssignmentsView"));
+  assert.ok(commsSource.includes("export function StudioAssignmentsPanel"));
+
+  assert.ok(calendarSource.includes("export function StudioEditorialCalendarView"));
+  assert.ok(calendarSource.includes("export function StudioEditorialCalendar"));
+});
+
+test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Studio views without duplicate UI", () => {
+  const studioPreviewSource = read("src/preview/OwnerPreviewStudio.tsx");
+  const workspacePreviewSource = read("src/preview/OwnerPreviewStoryWorkspace.tsx");
+
+  // OwnerPreviewStudio imports and renders shared views
+  assert.ok(studioPreviewSource.includes("StudioStoriesView"));
+  assert.ok(studioPreviewSource.includes("<StudioStoriesView"));
+
+  assert.ok(studioPreviewSource.includes("StudioReviewQueueView"));
+  assert.ok(studioPreviewSource.includes("<StudioReviewQueueView"));
+
+  assert.ok(studioPreviewSource.includes("StudioPlanningBoardView"));
+  assert.ok(studioPreviewSource.includes("<StudioPlanningBoardView"));
+
+  assert.ok(studioPreviewSource.includes("StudioAssignmentsView"));
+  assert.ok(studioPreviewSource.includes("<StudioAssignmentsView"));
+
+  assert.ok(studioPreviewSource.includes("StudioEditorialCalendarView"));
+  assert.ok(studioPreviewSource.includes("<StudioEditorialCalendarView"));
+
+  // OwnerPreviewStoryWorkspace imports and renders shared view
+  assert.ok(workspacePreviewSource.includes("StudioStoryWorkspaceView"));
+  assert.ok(workspacePreviewSource.includes("<StudioStoryWorkspaceView"));
+
+  // Operational wrappers retain backend service bindings
+  const storiesSource = read("src/ui/StudioStories.tsx");
+  const workspaceSource = read("src/ui/StudioStoryWorkspace.tsx");
+  const reviewQueueSource = read("src/ui/StudioReviewQueue.tsx");
+  const planningSource = read("src/ui/StudioPlanningBoard.tsx");
+  const commsSource = read("src/ui/StudioCommunications.tsx");
+  const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
+
+  assert.ok(storiesSource.includes("services.newsroomStories"));
+  assert.ok(workspaceSource.includes("services.newsroomStories"));
+  assert.ok(reviewQueueSource.includes("services.newsroomStories"));
+  assert.ok(planningSource.includes("services.newsroomCommunication"));
+  assert.ok(commsSource.includes("services.newsroomCommunication"));
+  assert.ok(
+    calendarSource.includes("services.newsroomStories") ||
+      calendarSource.includes("services.newsroomCommunication")
+  );
+});
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, type ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
@@ -25,7 +25,7 @@ import type {
 import { colors, radius, spacing } from "../theme/tokens";
 import { StudioStoryDiscussionPanel } from "./StudioCommunications";
 
-type TabId = "writing" | "reporting" | "editorial" | "publication" | "history" | "discussion";
+export type TabId = "writing" | "reporting" | "editorial" | "publication" | "history" | "discussion";
 
 type Props = {
   storyId?: string;
@@ -677,13 +677,299 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
   }
 
   return (
+    <StudioStoryWorkspaceView
+      storyId={storyId}
+      story={story}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      loading={loading}
+      isReadOnly={isReadOnly}
+      expectedVersion={expectedVersion}
+      isDirty={isDirty}
+      saveStatus={saveStatus}
+      statusMessage={statusMessage}
+      title={title}
+      setTitle={setTitle}
+      slug={slug}
+      setSlug={setSlug}
+      standfirst={standfirst}
+      setStandfirst={setStandfirst}
+      body={body}
+      setBody={setBody}
+      desk={desk}
+      setDesk={setDesk}
+      topic={topic}
+      setTopic={setTopic}
+      country={country}
+      setCountry={setCountry}
+      region={region}
+      setRegion={setRegion}
+      sourceNotes={sourceNotes}
+      setSourceNotes={setSourceNotes}
+      internalNotes={internalNotes}
+      setInternalNotes={setInternalNotes}
+      deadlineAt={deadlineAt}
+      setDeadlineAt={setDeadlineAt}
+      authorId={authorId}
+      setAuthorId={setAuthorId}
+      primarySectionId={primarySectionId}
+      setPrimarySectionId={setPrimarySectionId}
+      accessPolicy={accessPolicy}
+      setAccessPolicy={setAccessPolicy}
+      commentPolicy={commentPolicy}
+      distributionPublicReader={distributionPublicReader}
+      setDistributionPublicReader={setDistributionPublicReader}
+      adSetting={adSetting}
+      setAdSetting={setAdSetting}
+      seoTitle={seoTitle}
+      setSeoTitle={setSeoTitle}
+      seoDescription={seoDescription}
+      setSeoDescription={setSeoDescription}
+      scheduledAt={scheduledAt}
+      setScheduledAt={setScheduledAt}
+      authors={authors}
+      sections={sections}
+      revisions={revisions}
+      autosave={autosave}
+      reviews={reviews}
+      corrections={corrections}
+      canEditAll={canEditAll}
+      canManagePremium={canManagePremium}
+      canManageDistribution={canManageDistribution}
+      canManageAdSetting={canManageAdSetting}
+      canSchedule={canSchedule}
+      canConfigureComments={canConfigureComments}
+      canEnableComments={canEnableComments}
+      canRequestChanges={canRequestChanges}
+      canCorrect={canCorrect}
+      currentWorkflowStatus={currentWorkflowStatus}
+      transitionOptions={transitionOptions}
+      availableReviewTypes={availableReviewTypes}
+      promptAction={promptAction}
+      setPromptAction={setPromptAction}
+      promptReason={promptReason}
+      setPromptReason={setPromptReason}
+      reviewType={reviewType}
+      setReviewType={setReviewType}
+      reviewOutcome={reviewOutcome}
+      setReviewOutcome={setReviewOutcome}
+      reviewNotes={reviewNotes}
+      setReviewNotes={setReviewNotes}
+      confirmRestoreRev={confirmRestoreRev}
+      setConfirmRestoreRev={setConfirmRestoreRev}
+      markDirty={markDirty}
+      handleSave={handleSave}
+      loadStory={loadStory}
+      handleTransition={handleTransition}
+      handleOpenRecordReview={handleOpenRecordReview}
+      executeRequestChanges={executeRequestChanges}
+      executeRecordReview={executeRecordReview}
+      executeCorrection={executeCorrection}
+      executeRestoreRevision={executeRestoreRevision}
+      handleSetCommentPolicy={handleSetCommentPolicy}
+      onBackToStories={() => router.push("/studio/stories" as never)}
+    />
+  );
+}
+
+export type StudioStoryWorkspaceViewProps = {
+  storyId: string | null;
+  story: NewsroomStory | null;
+  activeTab: TabId;
+  setActiveTab: (tab: TabId) => void;
+  loading: boolean;
+  isReadOnly: boolean;
+  expectedVersion: number;
+  isDirty: boolean;
+  saveStatus: "idle" | "saving" | "autosaving" | "saved" | "conflict" | "error";
+  statusMessage: string | null;
+  title: string;
+  setTitle: (v: string) => void;
+  slug: string;
+  setSlug: (v: string) => void;
+  standfirst: string;
+  setStandfirst: (v: string) => void;
+  body: string;
+  setBody: (v: string) => void;
+  desk: string;
+  setDesk: (v: string) => void;
+  topic: string;
+  setTopic: (v: string) => void;
+  country: string;
+  setCountry: (v: string) => void;
+  region: string;
+  setRegion: (v: string) => void;
+  sourceNotes: string;
+  setSourceNotes: (v: string) => void;
+  internalNotes: string;
+  setInternalNotes: (v: string) => void;
+  deadlineAt: string;
+  setDeadlineAt: (v: string) => void;
+  authorId: string;
+  setAuthorId: (v: string) => void;
+  primarySectionId: string;
+  setPrimarySectionId: (v: string) => void;
+  accessPolicy: string;
+  setAccessPolicy: (v: string) => void;
+  commentPolicy: string;
+  distributionPublicReader: boolean;
+  setDistributionPublicReader: (v: boolean) => void;
+  adSetting: string;
+  setAdSetting: (v: string) => void;
+  seoTitle: string;
+  setSeoTitle: (v: string) => void;
+  seoDescription: string;
+  setSeoDescription: (v: string) => void;
+  scheduledAt: string;
+  setScheduledAt: (v: string) => void;
+  authors: NewsroomPublicAuthor[];
+  sections: NewsroomSection[];
+  revisions: NewsroomStoryRevision[];
+  autosave: NewsroomStoryAutosave | null;
+  reviews: NewsroomStoryReview[];
+  corrections: NewsroomStoryCorrection[];
+  canEditAll: boolean;
+  canManagePremium: boolean;
+  canManageDistribution: boolean;
+  canManageAdSetting: boolean;
+  canSchedule: boolean;
+  canConfigureComments: boolean;
+  canEnableComments: boolean;
+  canRequestChanges: boolean;
+  canCorrect: boolean;
+  currentWorkflowStatus: string;
+  transitionOptions: Array<{ label: string; status: string; allowed: boolean }>;
+  availableReviewTypes: Array<{ type: string; label: string; cap?: HealthTimesCapability }>;
+  promptAction: "requestChanges" | "correction" | "recordReview" | null;
+  setPromptAction: (action: "requestChanges" | "correction" | "recordReview" | null) => void;
+  promptReason: string;
+  setPromptReason: (v: string) => void;
+  reviewType: string;
+  setReviewType: (v: string) => void;
+  reviewOutcome: "completed" | "approved" | "changes_requested";
+  setReviewOutcome: (v: "completed" | "approved" | "changes_requested") => void;
+  reviewNotes: string;
+  setReviewNotes: (v: string) => void;
+  confirmRestoreRev: NewsroomStoryRevision | null;
+  setConfirmRestoreRev: (rev: NewsroomStoryRevision | null) => void;
+  markDirty: () => void;
+  handleSave: (reason?: string) => void | Promise<void>;
+  loadStory: (id: string) => void | Promise<void>;
+  handleTransition: (nextStatus: string, reason?: string) => void | Promise<void>;
+  handleOpenRecordReview: () => void;
+  executeRequestChanges: () => void | Promise<void>;
+  executeRecordReview: () => void | Promise<void>;
+  executeCorrection: () => void | Promise<void>;
+  executeRestoreRevision: () => void | Promise<void>;
+  handleSetCommentPolicy: (nextPolicy: "disabled" | "read_only" | "open") => void | Promise<void>;
+  onBackToStories: () => void;
+  topControlsSlot?: ReactNode;
+  discussionSlot?: ReactNode;
+};
+
+export function StudioStoryWorkspaceView({
+  storyId,
+  story,
+  activeTab,
+  setActiveTab,
+  loading,
+  isReadOnly,
+  expectedVersion,
+  isDirty,
+  saveStatus,
+  statusMessage,
+  title,
+  setTitle,
+  slug,
+  setSlug,
+  standfirst,
+  setStandfirst,
+  body,
+  setBody,
+  desk,
+  setDesk,
+  topic,
+  setTopic,
+  country,
+  setCountry,
+  region,
+  setRegion,
+  sourceNotes,
+  setSourceNotes,
+  internalNotes,
+  setInternalNotes,
+  deadlineAt,
+  setDeadlineAt,
+  authorId,
+  setAuthorId,
+  primarySectionId,
+  setPrimarySectionId,
+  accessPolicy,
+  setAccessPolicy,
+  commentPolicy,
+  distributionPublicReader,
+  setDistributionPublicReader,
+  adSetting,
+  setAdSetting,
+  seoTitle,
+  setSeoTitle,
+  seoDescription,
+  setSeoDescription,
+  scheduledAt,
+  setScheduledAt,
+  authors,
+  sections,
+  revisions,
+  autosave,
+  reviews,
+  corrections,
+  canEditAll,
+  canManagePremium,
+  canManageDistribution,
+  canManageAdSetting,
+  canSchedule,
+  canConfigureComments,
+  canEnableComments,
+  canRequestChanges,
+  canCorrect,
+  currentWorkflowStatus,
+  transitionOptions,
+  availableReviewTypes,
+  promptAction,
+  setPromptAction,
+  promptReason,
+  setPromptReason,
+  reviewType,
+  setReviewType,
+  reviewOutcome,
+  setReviewOutcome,
+  reviewNotes,
+  setReviewNotes,
+  confirmRestoreRev,
+  setConfirmRestoreRev,
+  markDirty,
+  handleSave,
+  loadStory,
+  handleTransition,
+  handleOpenRecordReview,
+  executeRequestChanges,
+  executeRecordReview,
+  executeCorrection,
+  executeRestoreRevision,
+  handleSetCommentPolicy,
+  onBackToStories,
+  topControlsSlot,
+  discussionSlot
+}: StudioStoryWorkspaceViewProps) {
+  return (
     <View style={styles.container}>
+      {topControlsSlot}
       {/* Workspace Header */}
       <View style={styles.workspaceHeader}>
         <View style={styles.headerInfoGroup}>
           <Pressable
             style={styles.backLink}
-            onPress={() => router.push("/studio/stories" as never)}
+            onPress={onBackToStories}
           >
             <Text style={styles.backLinkText}>← Back to Stories</Text>
           </Pressable>
@@ -1626,7 +1912,9 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       {/* TAB 6: Internal Discussion */}
       {activeTab === "discussion" && (
         <View style={styles.tabContent}>
-          {storyId ? (
+          {discussionSlot !== undefined ? (
+            discussionSlot
+          ) : storyId ? (
             <StudioStoryDiscussionPanel storyId={storyId} />
           ) : (
             <View style={styles.emptyBox}>
