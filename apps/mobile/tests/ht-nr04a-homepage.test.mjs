@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadTs } from "./ts-module-loader.mjs";
@@ -528,31 +529,462 @@ test("HT-NR-04A: StudioHomepage displays unauthorized state when user lacks capa
   );
 });
 
-test("HT-NR-04A: Reader Home integrates parseHomepagePlacement preferring curated stories while preserving fallback", () => {
-  const readerHomeSource = read("app/(reader)/index.tsx");
+function gitBlobSha(content) {
+  const buf = Buffer.isBuffer(content) ? content : Buffer.from(content, "utf8");
+  return crypto.createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
+}
 
-  assert.match(
-    readerHomeSource,
-    /parseHomepagePlacement/,
-    "Reader home must import and use parseHomepagePlacement"
+function createHomepageHarness({ initialStories = [], onSaveStory }) {
+  const stateValues = {};
+  let stateIndex = 0;
+  const mockUseState = (init) => {
+    const idx = stateIndex++;
+    if (!(idx in stateValues)) {
+      stateValues[idx] = typeof init === "function" ? init() : init;
+    }
+    const setter = (val) => {
+      if (typeof val === "function") {
+        stateValues[idx] = val(stateValues[idx]);
+      } else {
+        stateValues[idx] = val;
+      }
+    };
+    return [stateValues[idx], setter];
+  };
+
+  let asyncCount = 0;
+  const loaded = loadTs("src/ui/StudioHomepage.tsx", {
+    mocks: {
+      react: {
+        useState: mockUseState,
+        useMemo: (fn) => fn(),
+        useEffect: () => {}
+      },
+      "react-native": {
+        Pressable: "Pressable",
+        ScrollView: "ScrollView",
+        StyleSheet: { create: (s) => s },
+        Text: "Text",
+        TextInput: "TextInput",
+        View: "View",
+        useWindowDimensions: () => ({ width: 1280, height: 800 })
+      },
+      "expo-router": {
+        useRouter: () => ({ push: () => {} })
+      },
+      "../services": {
+        services: {
+          newsroomStories: {
+            listStories: async () => initialStories,
+            saveStory: onSaveStory
+          },
+          authorization: {
+            getSnapshot: async () => ({
+              status: "authorized",
+              source: "server",
+              capabilities: ["distribution.manage"]
+            })
+          }
+        }
+      },
+      "../hooks/useAsync": {
+        useAsync: () => {
+          const idx = asyncCount++;
+          if (idx % 2 === 0) {
+            return {
+              data: {
+                status: "authorized",
+                source: "server",
+                capabilities: ["distribution.manage"]
+              },
+              loading: false,
+              error: null
+            };
+          }
+          return { data: initialStories, loading: false, error: null };
+        }
+      },
+      "../security/capabilities": {
+        hasServerCapability: () => true
+      },
+      "react/jsx-runtime": {
+        jsx: (type, props) => ({ type, props }),
+        jsxs: (type, props) => ({ type, props })
+      }
+    }
+  });
+
+  stateIndex = 0;
+  const tree = loaded.StudioHomepage();
+  return {
+    props: tree.props,
+    getState: () => ({
+      refreshKey: stateValues[0],
+      savingId: stateValues[1],
+      actionMessage: stateValues[2],
+      conflictError: stateValues[3]
+    })
+  };
+}
+
+test("HT-NR-04A-R1: Reader home restored to exact parent blob and does not inspect homepage curation", () => {
+  const readerHomeContent = read("app/(reader)/index.tsx");
+  const readerHomeSha = gitBlobSha(readerHomeContent);
+
+  assert.equal(
+    readerHomeSha,
+    "1b8b9b19241b38baadbead44db6524fd8c1c1f9c",
+    "apps/mobile/app/(reader)/index.tsx must match exact parent git blob 1b8b9b19241b38baadbead44db6524fd8c1c1f9c"
   );
-  assert.match(
-    readerHomeSource,
-    /\.section === "hero"/,
-    "Reader home must inspect curated hero placement"
+
+  assert.equal(
+    /parseHomepagePlacement/.test(readerHomeContent),
+    false,
+    "Reader home must not import or call parseHomepagePlacement"
   );
-  assert.match(
-    readerHomeSource,
-    /\.section === "top-stories"/,
-    "Reader home must inspect curated top-stories placement"
+  assert.equal(
+    /distribution\??\.homepage/.test(readerHomeContent),
+    false,
+    "Reader home must not inspect distribution.homepage"
+  );
+  assert.equal(
+    /\.section\s*===\s*["']hero["']/.test(readerHomeContent),
+    false,
+    "Reader home must not contain premature hero placement inspection"
   );
 
   // Ad slot hospaz-header-direct remains preserved
   assert.match(
-    readerHomeSource,
+    readerHomeContent,
     /hospaz-header-direct/,
     "AdSlot hospaz-header-direct must remain present in reader home"
   );
+
+  // ArticleSummary in models.ts must not have distribution
+  const modelsSource = read("src/domain/models.ts");
+  const articleSummaryMatch = modelsSource.match(
+    /export type ArticleSummary = \{[\s\S]*?\n\};/
+  );
+  assert.ok(articleSummaryMatch, "ArticleSummary must be defined in models.ts");
+  assert.equal(
+    /distribution\??:/.test(articleSummaryMatch[0]),
+    false,
+    "ArticleSummary must not expose distribution property in Reader domain"
+  );
+
+  // NewsroomStory must retain distribution
+  const newsroomStoryMatch = modelsSource.match(
+    /export type NewsroomStory = \{[\s\S]*?\n\};/
+  );
+  assert.ok(newsroomStoryMatch, "NewsroomStory must be defined in models.ts");
+  assert.match(
+    newsroomStoryMatch[0],
+    /distribution:\s*\{/,
+    "NewsroomStory must retain distribution property"
+  );
+});
+
+test("HT-NR-04A-R1: Studio Homepage and Owner Preview declare truthful deferred Reader delivery", () => {
+  const studioHomepageSource = read("src/ui/StudioHomepage.tsx");
+
+  assert.match(
+    studioHomepageSource,
+    /Public Reader consumption will activate after the certified presentation delivery contract is connected/,
+    "Studio Homepage must declare truthful notice that Reader delivery is deferred until HT-NR-04B"
+  );
+
+  // Verify delivery notice is rendered in StudioHomepageView
+  const viewTree = StudioHomepageView({
+    stories: [],
+    curationState: deriveHomepageCurationState([]),
+    loading: false,
+    error: null,
+    savingId: null,
+    actionMessage: null,
+    conflictError: null,
+    onRefresh: () => {},
+    onSetHero: () => {},
+    onRemoveHero: () => {},
+    onAssignPlacement: () => {},
+    onRemovePlacement: () => {}
+  });
+
+  const texts = collectTexts(viewTree);
+  assert.ok(
+    texts.some((t) =>
+      t.includes("Public Reader consumption will activate after the certified presentation delivery contract is connected")
+    ),
+    "StudioHomepageView must render delivery notice banner"
+  );
+});
+
+test("HT-NR-04A-R1: Hero replacement executes Step A-D and triggers canonical refresh", async () => {
+  const heroStory = {
+    id: "00000000-0000-4000-8000-000000001001",
+    title: "Previous Hero Story",
+    slug: "previous-hero-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 1,
+    distribution: { homepage: { section: "hero", rank: 1, active: true }, public_reader: true }
+  };
+  const targetStory = {
+    id: "00000000-0000-4000-8000-000000001002",
+    title: "New Hero Story",
+    slug: "new-hero-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 4,
+    distribution: { public_reader: true }
+  };
+
+  const calls = [];
+  const harness = createHomepageHarness({
+    initialStories: [heroStory, targetStory],
+    onSaveStory: async (storyId, expectedVersion, patch, reason) => {
+      calls.push({ storyId, expectedVersion, patch, reason });
+      return expectedVersion + 1;
+    }
+  });
+
+  await harness.props.onSetHero(targetStory.id);
+
+  assert.equal(calls.length, 2, "Hero replacement must perform exactly 2 saves (displace + assign)");
+  // Step B: Displaced previous hero
+  assert.equal(calls[0].storyId, heroStory.id);
+  assert.equal(calls[0].expectedVersion, 1);
+  assert.equal("homepage" in calls[0].patch.distribution, false);
+  assert.equal(calls[0].reason, "Homepage hero replaced");
+
+  // Step C: Assign new hero
+  assert.equal(calls[1].storyId, targetStory.id);
+  assert.equal(calls[1].expectedVersion, 4);
+  assert.deepEqual(calls[1].patch.distribution.homepage, {
+    section: "hero",
+    rank: 1,
+    active: true
+  });
+  assert.equal(calls[1].reason, "Homepage hero assigned");
+
+  // Step D: Target success
+  const state = harness.getState();
+  assert.match(state.actionMessage, /Active Hero set to "New Hero Story"/);
+  assert.equal(state.conflictError, null);
+  assert.equal(state.refreshKey, 1, "Refresh must be triggered on successful replacement");
+});
+
+test("HT-NR-04A-R1: Hero replacement executes compensating rollback (Step E) on target failure", async () => {
+  const heroStory = {
+    id: "00000000-0000-4000-8000-000000001001",
+    title: "Previous Hero Story",
+    slug: "previous-hero-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 1,
+    distribution: { homepage: { section: "hero", rank: 1, active: true }, public_reader: true }
+  };
+  const targetStory = {
+    id: "00000000-0000-4000-8000-000000001002",
+    title: "Target Hero Story",
+    slug: "target-hero-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 4,
+    distribution: { public_reader: true }
+  };
+
+  const calls = [];
+  const harness = createHomepageHarness({
+    initialStories: [heroStory, targetStory],
+    onSaveStory: async (storyId, expectedVersion, patch, reason) => {
+      calls.push({ storyId, expectedVersion, patch, reason });
+      if (storyId === targetStory.id) {
+        throw new Error("VERSION_CONFLICT: target modified");
+      }
+      return expectedVersion + 1; // Story 1 displaced returns version 2
+    }
+  });
+
+  await harness.props.onSetHero(targetStory.id);
+
+  assert.equal(calls.length, 3, "Failed replacement must execute displacement, target attempt, and rollback");
+  // Step B
+  assert.equal(calls[0].storyId, heroStory.id);
+  assert.equal(calls[0].expectedVersion, 1);
+  assert.equal(calls[0].reason, "Homepage hero replaced");
+
+  // Step C (Failed)
+  assert.equal(calls[1].storyId, targetStory.id);
+  assert.equal(calls[1].expectedVersion, 4);
+
+  // Step E (Rollback)
+  assert.equal(calls[2].storyId, heroStory.id);
+  assert.equal(calls[2].expectedVersion, 2, "Rollback must use new lockVersion returned from Step B");
+  assert.deepEqual(calls[2].patch.distribution, heroStory.distribution, "Rollback must restore original distribution");
+  assert.equal(calls[2].reason, "Homepage replacement rollback");
+
+  const state = harness.getState();
+  assert.match(state.conflictError, /Previous Hero was restored/);
+  assert.equal(state.refreshKey, 1, "Refresh must still be triggered when server mutation occurred");
+});
+
+test("HT-NR-04A-R1: Hero replacement reports reconciliation error on rollback failure", async () => {
+  const heroStory = {
+    id: "00000000-0000-4000-8000-000000001001",
+    title: "Previous Hero Story",
+    slug: "previous-hero-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 1,
+    distribution: { homepage: { section: "hero", rank: 1, active: true }, public_reader: true }
+  };
+  const targetStory = {
+    id: "00000000-0000-4000-8000-000000001002",
+    title: "Target Hero Story",
+    slug: "target-hero-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 4,
+    distribution: { public_reader: true }
+  };
+
+  const calls = [];
+  const harness = createHomepageHarness({
+    initialStories: [heroStory, targetStory],
+    onSaveStory: async (storyId, expectedVersion, patch, reason) => {
+      calls.push({ storyId, expectedVersion, patch, reason });
+      if (storyId === targetStory.id) {
+        throw new Error("Target save failed");
+      }
+      if (reason === "Homepage replacement rollback") {
+        throw new Error("Rollback failed");
+      }
+      return expectedVersion + 1;
+    }
+  });
+
+  await harness.props.onSetHero(targetStory.id);
+
+  assert.equal(calls.length, 3);
+  assert.equal(calls[2].reason, "Homepage replacement rollback");
+
+  const state = harness.getState();
+  assert.equal(
+    state.conflictError,
+    "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing.",
+    "Must set exact reconciliation error on rollback failure"
+  );
+  assert.equal(state.refreshKey, 1, "Canonical refresh must occur to reload state");
+});
+
+test("HT-NR-04A-R1: Occupied slot replacement executes compensating rollback on target failure", async () => {
+  const slotStory = {
+    id: "00000000-0000-4000-8000-000000002002",
+    title: "Existing Slot Story",
+    slug: "existing-slot-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 2,
+    distribution: { homepage: { section: "top-stories", rank: 2, active: true }, public_reader: true }
+  };
+  const targetStory = {
+    id: "00000000-0000-4000-8000-000000002003",
+    title: "New Slot Story",
+    slug: "new-slot-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 7,
+    distribution: { public_reader: true }
+  };
+
+  const calls = [];
+  const harness = createHomepageHarness({
+    initialStories: [slotStory, targetStory],
+    onSaveStory: async (storyId, expectedVersion, patch, reason) => {
+      calls.push({ storyId, expectedVersion, patch, reason });
+      if (storyId === targetStory.id) {
+        throw new Error("Network save failure");
+      }
+      return expectedVersion + 1; // Slot story displaced returns version 3
+    }
+  });
+
+  await harness.props.onAssignPlacement("top-stories", 2, targetStory.id);
+
+  assert.equal(calls.length, 3, "Displacement, target attempt, and rollback must be executed");
+  assert.equal(calls[0].storyId, slotStory.id);
+  assert.equal(calls[0].expectedVersion, 2);
+  assert.equal(calls[0].reason, "Homepage curation updated - displaced");
+
+  assert.equal(calls[1].storyId, targetStory.id);
+  assert.equal(calls[1].expectedVersion, 7);
+
+  assert.equal(calls[2].storyId, slotStory.id);
+  assert.equal(calls[2].expectedVersion, 3, "Rollback must use new lockVersion from Step B");
+  assert.deepEqual(calls[2].patch.distribution, slotStory.distribution);
+  assert.equal(calls[2].reason, "Homepage replacement rollback");
+
+  const state = harness.getState();
+  assert.match(state.conflictError, /Displaced story was restored/);
+  assert.equal(state.refreshKey, 1);
+});
+
+test("HT-NR-04A-R1: Occupied slot replacement reports reconciliation error on rollback failure", async () => {
+  const slotStory = {
+    id: "00000000-0000-4000-8000-000000002002",
+    title: "Existing Slot Story",
+    slug: "existing-slot-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 2,
+    distribution: { homepage: { section: "top-stories", rank: 2, active: true }, public_reader: true }
+  };
+  const targetStory = {
+    id: "00000000-0000-4000-8000-000000002003",
+    title: "New Slot Story",
+    slug: "new-slot-story",
+    accessPolicy: "public",
+    status: "published",
+    workflowStatus: "Published",
+    lockVersion: 7,
+    distribution: { public_reader: true }
+  };
+
+  const calls = [];
+  const harness = createHomepageHarness({
+    initialStories: [slotStory, targetStory],
+    onSaveStory: async (storyId, expectedVersion, patch, reason) => {
+      calls.push({ storyId, expectedVersion, patch, reason });
+      if (storyId === targetStory.id) {
+        throw new Error("Target write failed");
+      }
+      if (reason === "Homepage replacement rollback") {
+        throw new Error("Rollback network dropped");
+      }
+      return expectedVersion + 1;
+    }
+  });
+
+  await harness.props.onAssignPlacement("top-stories", 2, targetStory.id);
+
+  assert.equal(calls.length, 3);
+  assert.equal(calls[2].reason, "Homepage replacement rollback");
+
+  const state = harness.getState();
+  assert.equal(
+    state.conflictError,
+    "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+  );
+  assert.equal(state.refreshKey, 1);
 });
 
 test("HT-NR-04A: Owner Preview incorporates Homepage curation preview route", () => {

@@ -74,7 +74,6 @@ export type ArticleSummary = {
   topics: TaxonomyRef[];
   legacyTaxonomy?: TaxonomyRef[];
   heroMedia: MediaRef | null;
-  distribution?: { homepage?: unknown; [key: string]: unknown } | null;
   sourceProvenance?: SourceProvenance | null;
   contentIntegrity?: ContentIntegrityState;
   premiumSourceContext?: PremiumSourceContext;

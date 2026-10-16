@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import {
-  type ArticleSummary,
-  type EditionPreference,
-  type PublicationLink,
-  type CuratedHomepageSectionKey,
-  parseHomepagePlacement
-} from "../../src/domain/models";
+import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
 import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
@@ -141,92 +135,28 @@ export default function HomeScreen() {
     return matches.length ? matches : source;
   })();
 
-  const [fallbackHero,...filteredRemainder]=filteredStories;
-
-  // HT-NR-04A: Bounded explicit homepage curation integration
-  const curatedHeroCandidate = source.find((story) => {
-    const p = parseHomepagePlacement(story.distribution?.homepage);
-    return p?.section === "hero" && p.active;
-  });
-  const hero = curatedHeroCandidate ?? fallbackHero;
-
-  // Top Stories (ranks 1-6)
-  const curatedTopList = source
-    .filter((story) => {
-      if (story.id === hero?.id) return false;
-      const p = parseHomepagePlacement(story.distribution?.homepage);
-      return p?.section === "top-stories" && p.active;
-    })
-    .sort((a, b) => {
-      const rankA = parseHomepagePlacement(a.distribution?.homepage)?.rank ?? 99;
-      const rankB = parseHomepagePlacement(b.distribution?.homepage)?.rank ?? 99;
-      return rankA - rankB;
-    });
-
-  const topStoriesUsed = new Set<string>([
-    ...(hero ? [hero.id] : []),
-    ...curatedTopList.map((s) => s.id)
-  ]);
-  const fallbackTopFill = filteredRemainder
-    .filter((story) => !topStoriesUsed.has(story.id))
-    .slice(0, Math.max(0, 6 - curatedTopList.length));
-  const topStories = [...curatedTopList, ...fallbackTopFill].slice(0, 6);
-
-  // Helper for curated sections
-  function resolveCuratedSection(
-    sectionKey: CuratedHomepageSectionKey,
-    fallbackList: ArticleSummary[],
-    maxCount = 6
-  ): ArticleSummary[] {
-    const curated = source
-      .filter((story) => {
-        const p = parseHomepagePlacement(story.distribution?.homepage);
-        return p?.section === sectionKey && p.active;
-      })
-      .sort((a, b) => {
-        const rankA = parseHomepagePlacement(a.distribution?.homepage)?.rank ?? 99;
-        const rankB = parseHomepagePlacement(b.distribution?.homepage)?.rank ?? 99;
-        return rankA - rankB;
-      });
-    const seen = new Set(curated.map((s) => s.id));
-    const fill = fallbackList.filter((s) => !seen.has(s.id));
-    return [...curated, ...fill].slice(0, maxCount);
-  }
-
+  const [hero,...filteredRemainder]=filteredStories;
+  const topStories=filteredRemainder.slice(0,6);
   const latest=source.filter((story)=>story.id!==hero?.id).slice(0,6);
-  const fallbackFeatures=source.filter((story)=>hasSourceTerm(story,"Features"));
-  const features=resolveCuratedSection("features", fallbackFeatures);
-
-  const fallbackResearch=source.filter((story)=>
+  const features=source.filter((story)=>hasSourceTerm(story,"Features"));
+  const research=source.filter((story)=>
     story.primarySection?.slug==="research" ||
     hasSourceTerm(story,"Research & Findings","Reseach Findings","Academic & Research")
   );
-  const research=resolveCuratedSection("research", fallbackResearch);
-
-  const fallbackFinancing=source.filter((story)=>
+  const financing=source.filter((story)=>
     story.primarySection?.slug==="health-business" ||
     hasSourceTerm(story,"Health Financing")
   );
-  const financing=resolveCuratedSection("health-business", fallbackFinancing);
-
-  const fallbackHiv=source.filter((story)=>hasSourceTerm(story,"HIV/AIDS"));
-  const hiv=resolveCuratedSection("hiv-aids", fallbackHiv);
-
-  const fallbackGlobalHealth=source.filter((story)=>
+  const hiv=source.filter((story)=>hasSourceTerm(story,"HIV/AIDS"));
+  const globalHealth=source.filter((story)=>
     story.primarySection?.slug==="global-health" ||
     story.geography.some((zone)=>zone.slug==="global")
   );
-  const globalHealth=resolveCuratedSection("global-health", fallbackGlobalHealth);
-
-  const fallbackPublicHealth=source.filter((story)=>
+  const publicHealth=source.filter((story)=>
     story.primarySection?.slug==="public-health" &&
     !hasSourceTerm(story,"Features","Health Financing","HIV/AIDS")
   );
-  const publicHealth=resolveCuratedSection("public-health", fallbackPublicHealth);
-
-  const fallbackPremium=source.filter((story)=>story.accessPolicy==="premium");
-  const premium=resolveCuratedSection("premium", fallbackPremium);
-
+  const premium=source.filter((story)=>story.accessPolicy==="premium");
   const featuredVideos=video.data?.slice(0,4) ?? [];
   const liveItems=live.data?.length ? live.data.filter((item)=>item.status==="live") : [];
   const opportunityLinks=(publication.data?.sourceLinks ?? []).filter((link)=>
@@ -244,8 +174,7 @@ export default function HomeScreen() {
     ...globalHealth.slice(0,3),
     ...premium.slice(0,3)
   ]).map((story)=>story.id));
-  const fallbackFurther=source.filter((story)=>!usedIds.has(story.id));
-  const furtherCoverage=resolveCuratedSection("further-coverage", fallbackFurther, 6);
+  const furtherCoverage=source.filter((story)=>!usedIds.has(story.id)).slice(0,6);
 
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},

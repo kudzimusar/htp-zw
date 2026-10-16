@@ -281,6 +281,13 @@ export function StudioHomepageView({
         </Text>
       </View>
 
+      {/* Editorial Delivery Information Notice */}
+      <View style={styles.deliveryNoticeBanner} testID="homepage-delivery-notice">
+        <Text style={styles.deliveryNoticeText}>
+          Homepage placements are stored as canonical Newsroom presentation metadata. Public Reader consumption will activate after the certified presentation delivery contract is connected.
+        </Text>
+      </View>
+
       {/* Notifications */}
       {actionMessage && (
         <View style={styles.successBanner}>
@@ -290,7 +297,11 @@ export function StudioHomepageView({
 
       {conflictError && (
         <View style={styles.conflictBanner}>
-          <Text style={styles.conflictTitle}>Version Conflict</Text>
+          <Text style={styles.conflictTitle}>
+            {conflictError.includes("partially applied")
+              ? "Reconciliation Error"
+              : "Version Conflict"}
+          </Text>
           <Text style={styles.conflictText}>{conflictError}</Text>
           <Pressable style={styles.retryBtn} onPress={onRefresh}>
             <Text style={styles.retryBtnText}>Reload Latest Stories</Text>
@@ -319,9 +330,10 @@ export function StudioHomepageView({
             No Explicit Homepage Curation Saved
           </Text>
           <Text style={styles.emptyNoticeText}>
-            No explicit Homepage curation has been saved yet. The Public Reader
-            Home is currently operating in source-driven fallback mode. Assign a
-            Hero or Top Stories below to activate explicit editorial curation.
+            No explicit Homepage curation has been saved yet. Assign a Hero or
+            Top Stories below to activate explicit editorial curation. Public
+            Reader consumption will activate after the certified presentation
+            delivery contract is connected.
           </Text>
         </View>
       )}
@@ -883,46 +895,103 @@ export function StudioHomepage() {
     [stories]
   );
 
-  // Set hero with confirmation
+  // Set hero with confirmation and compensating rollback
   const handleSetHero = async (storyId: string) => {
     const target = stories.find((s) => s.id === storyId);
     if (!target) return;
 
+    let serverMutationOccurred = false;
     try {
       setSavingId(storyId);
       setConflictError(null);
       setActionMessage(null);
 
-      // If previous hero existed, unassign it
-      if (curationState.hero && curationState.hero.id !== storyId) {
-        const prev = curationState.hero;
-        const prevNextDist = mergeHomepageDistribution(
-          prev.distribution,
+      // Check if previous hero existed and needs displacement
+      const displacedStory =
+        curationState.hero && curationState.hero.id !== storyId
+          ? curationState.hero
+          : null;
+
+      let displacedOriginalDistribution: Record<string, unknown> | null = null;
+      let displacedNewLockVersion: number | null = null;
+
+      if (displacedStory) {
+        // Step A: Capture displaced story's original distribution and lockVersion
+        displacedOriginalDistribution = displacedStory.distribution
+          ? JSON.parse(JSON.stringify(displacedStory.distribution))
+          : {};
+        const displacedDist = mergeHomepageDistribution(
+          displacedStory.distribution,
           null
         );
-        await services.newsroomStories.saveStory(
-          prev.id,
-          prev.lockVersion,
-          { distribution: prevNextDist },
+
+        // Step B: Save displaced story removal, capturing the new lockVersion returned by saveStory
+        displacedNewLockVersion = await services.newsroomStories.saveStory(
+          displacedStory.id,
+          displacedStory.lockVersion,
+          { distribution: displacedDist },
           "Homepage hero replaced"
         );
+        serverMutationOccurred = true;
       }
 
-      // Assign new hero
-      const nextDist = mergeHomepageDistribution(target.distribution, {
+      // Step C: Attempt target placement save
+      const targetNextDist = mergeHomepageDistribution(target.distribution, {
         section: "hero",
         rank: 1,
         active: true
       });
-      await services.newsroomStories.saveStory(
-        target.id,
-        target.lockVersion,
-        { distribution: nextDist },
-        "Homepage hero assigned"
-      );
 
-      setActionMessage(`Active Hero set to "${target.title}".`);
-      setRefreshKey((k) => k + 1);
+      try {
+        await services.newsroomStories.saveStory(
+          target.id,
+          target.lockVersion,
+          { distribution: targetNextDist },
+          "Homepage hero assigned"
+        );
+        serverMutationOccurred = true;
+
+        // Step D (Target Success):
+        setActionMessage(`Active Hero set to "${target.title}".`);
+      } catch (targetErr: unknown) {
+        // Step E (Target Failure): If displaced story was removed, attempt compensating rollback
+        if (
+          displacedStory &&
+          displacedNewLockVersion !== null &&
+          displacedOriginalDistribution !== null
+        ) {
+          try {
+            await services.newsroomStories.saveStory(
+              displacedStory.id,
+              displacedNewLockVersion,
+              { distribution: displacedOriginalDistribution },
+              "Homepage replacement rollback"
+            );
+            const msg =
+              targetErr instanceof Error ? targetErr.message : String(targetErr);
+            if (
+              msg.includes("VERSION_CONFLICT") ||
+              msg.includes("version conflict")
+            ) {
+              setConflictError(
+                `Version Conflict: Story "${target.title}" was modified concurrently by another editor. Previous Hero was restored.`
+              );
+            } else {
+              setConflictError(
+                `Failed to save Hero placement: ${msg}. Previous Hero was restored.`
+              );
+            }
+            return;
+          } catch (rollbackErr: unknown) {
+            // Rollback failed -> reconciliation error
+            setConflictError(
+              "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+            );
+            return;
+          }
+        }
+        throw targetErr;
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (
@@ -936,6 +1005,9 @@ export function StudioHomepage() {
         setConflictError(`Failed to save Hero placement: ${msg}`);
       }
     } finally {
+      if (serverMutationOccurred) {
+        setRefreshKey((k) => k + 1);
+      }
       setSavingId(null);
     }
   };
@@ -944,6 +1016,7 @@ export function StudioHomepage() {
   const handleRemoveHero = async () => {
     if (!curationState.hero) return;
     const hero = curationState.hero;
+    let serverMutationOccurred = false;
     try {
       setSavingId(hero.id);
       setConflictError(null);
@@ -956,18 +1029,21 @@ export function StudioHomepage() {
         { distribution: nextDist },
         "Homepage hero removed"
       );
+      serverMutationOccurred = true;
 
       setActionMessage("Active Hero unassigned. Falling back to source-driven lead.");
-      setRefreshKey((k) => k + 1);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setConflictError(`Failed to remove Hero: ${msg}`);
     } finally {
+      if (serverMutationOccurred) {
+        setRefreshKey((k) => k + 1);
+      }
       setSavingId(null);
     }
   };
 
-  // Assign slot
+  // Assign slot with compensating rollback
   const handleAssignPlacement = async (
     section: CuratedHomepageSectionKey,
     rank: number,
@@ -976,6 +1052,7 @@ export function StudioHomepage() {
     const target = stories.find((s) => s.id === storyId);
     if (!target) return;
 
+    let serverMutationOccurred = false;
     try {
       setSavingId(storyId);
       setConflictError(null);
@@ -997,35 +1074,90 @@ export function StudioHomepage() {
         });
       }
 
-      if (existingStory && existingStory.id !== storyId) {
+      const displacedStory =
+        existingStory && existingStory.id !== storyId ? existingStory : null;
+      let displacedOriginalDistribution: Record<string, unknown> | null = null;
+      let displacedNewLockVersion: number | null = null;
+
+      if (displacedStory) {
+        // Step A: Capture displaced story's original distribution and lockVersion
+        displacedOriginalDistribution = displacedStory.distribution
+          ? JSON.parse(JSON.stringify(displacedStory.distribution))
+          : {};
         const displacedDist = mergeHomepageDistribution(
-          existingStory.distribution,
+          displacedStory.distribution,
           null
         );
-        await services.newsroomStories.saveStory(
-          existingStory.id,
-          existingStory.lockVersion,
+
+        // Step B: Save displaced story removal, capturing the new lockVersion returned by saveStory
+        displacedNewLockVersion = await services.newsroomStories.saveStory(
+          displacedStory.id,
+          displacedStory.lockVersion,
           { distribution: displacedDist },
           "Homepage curation updated - displaced"
         );
+        serverMutationOccurred = true;
       }
 
+      // Step C: Attempt target placement save
       const targetNextDist = mergeHomepageDistribution(target.distribution, {
         section,
         rank,
         active: true
       });
-      await services.newsroomStories.saveStory(
-        target.id,
-        target.lockVersion,
-        { distribution: targetNextDist },
-        "Homepage curation updated"
-      );
 
-      setActionMessage(
-        `Assigned "${target.title}" to ${formatSectionTitle(section)} #${rank}.`
-      );
-      setRefreshKey((k) => k + 1);
+      try {
+        await services.newsroomStories.saveStory(
+          target.id,
+          target.lockVersion,
+          { distribution: targetNextDist },
+          "Homepage curation updated"
+        );
+        serverMutationOccurred = true;
+
+        // Step D (Target Success):
+        setActionMessage(
+          `Assigned "${target.title}" to ${formatSectionTitle(section)} #${rank}.`
+        );
+      } catch (targetErr: unknown) {
+        // Step E (Target Failure): If displaced story was removed, attempt compensating rollback
+        if (
+          displacedStory &&
+          displacedNewLockVersion !== null &&
+          displacedOriginalDistribution !== null
+        ) {
+          try {
+            await services.newsroomStories.saveStory(
+              displacedStory.id,
+              displacedNewLockVersion,
+              { distribution: displacedOriginalDistribution },
+              "Homepage replacement rollback"
+            );
+            const msg =
+              targetErr instanceof Error ? targetErr.message : String(targetErr);
+            if (
+              msg.includes("VERSION_CONFLICT") ||
+              msg.includes("version conflict")
+            ) {
+              setConflictError(
+                `Version Conflict: Story "${target.title}" was modified concurrently. Displaced story was restored.`
+              );
+            } else {
+              setConflictError(
+                `Failed to assign placement: ${msg}. Displaced story was restored.`
+              );
+            }
+            return;
+          } catch (rollbackErr: unknown) {
+            // Rollback failed -> reconciliation error
+            setConflictError(
+              "Homepage replacement was only partially applied. Canonical state has been reloaded; review the affected slot before continuing."
+            );
+            return;
+          }
+        }
+        throw targetErr;
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (
@@ -1039,6 +1171,9 @@ export function StudioHomepage() {
         setConflictError(`Failed to assign placement: ${msg}`);
       }
     } finally {
+      if (serverMutationOccurred) {
+        setRefreshKey((k) => k + 1);
+      }
       setSavingId(null);
     }
   };
@@ -1048,6 +1183,7 @@ export function StudioHomepage() {
     const target = stories.find((s) => s.id === storyId);
     if (!target) return;
 
+    let serverMutationOccurred = false;
     try {
       setSavingId(storyId);
       setConflictError(null);
@@ -1060,13 +1196,16 @@ export function StudioHomepage() {
         { distribution: nextDist },
         "Homepage curation updated - removed"
       );
+      serverMutationOccurred = true;
 
       setActionMessage(`Removed "${target.title}" from homepage curation.`);
-      setRefreshKey((k) => k + 1);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setConflictError(`Failed to remove placement: ${msg}`);
     } finally {
+      if (serverMutationOccurred) {
+        setRefreshKey((k) => k + 1);
+      }
       setSavingId(null);
     }
   };
@@ -1127,25 +1266,28 @@ export function StudioHomepage() {
     );
   }
 
-  return StudioHomepageView({
-    stories,
-    curationState,
-    loading: storiesAsync.loading,
-    error: storiesAsync.error,
-    savingId,
-    actionMessage,
-    conflictError,
-    onRefresh: () => setRefreshKey((k) => k + 1),
-    onSetHero: handleSetHero,
-    onRemoveHero: handleRemoveHero,
-    onAssignPlacement: handleAssignPlacement,
-    onRemovePlacement: handleRemovePlacement,
-    onOpenStoryWorkspace: (storyId) =>
-      router.push({
-        pathname: "/studio/[module]",
-        params: { module: "create-edit", storyId }
-      } as never)
-  });
+  return (
+    <StudioHomepageView
+      stories={stories}
+      curationState={curationState}
+      loading={storiesAsync.loading}
+      error={storiesAsync.error}
+      savingId={savingId}
+      actionMessage={actionMessage}
+      conflictError={conflictError}
+      onRefresh={() => setRefreshKey((k) => k + 1)}
+      onSetHero={handleSetHero}
+      onRemoveHero={handleRemoveHero}
+      onAssignPlacement={handleAssignPlacement}
+      onRemovePlacement={handleRemovePlacement}
+      onOpenStoryWorkspace={(storyId) =>
+        router.push({
+          pathname: "/studio/[module]",
+          params: { module: "create-edit", storyId }
+        } as never)
+      }
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -1221,6 +1363,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: colors.ink
+  },
+  deliveryNoticeBanner: {
+    backgroundColor: "#F0F9FF",
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+    borderRadius: radius.sm,
+    padding: spacing.md
+  },
+  deliveryNoticeText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#0369A1",
+    fontWeight: "600"
   },
   successBanner: {
     backgroundColor: "#EAF7ED",
