@@ -1842,5 +1842,153 @@ export function isMediaAssetAttachable(
   return { eligible: true, attachable: true };
 }
 
+// ============================================================
+// HT-NR-05C-A: Newsroom Video Registry Models & Helpers
+// ============================================================
+
+export type NewsroomVideoStatus = "draft" | "ready";
+
+export interface NewsroomVideo {
+  id: string;
+  title: string;
+  sourceUrl: string;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
+  relatedStoryId: string | null;
+  sourceProvenance: string;
+  status: NewsroomVideoStatus;
+  lockVersion: number;
+  createdByStaffId: string;
+  updatedByStaffId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomVideoCreateInput {
+  title: string;
+  sourceUrl: string;
+  thumbnailUrl?: string | null;
+  durationSeconds?: number | null;
+  relatedStoryId?: string | null;
+  sourceProvenance: string;
+}
+
+export interface NewsroomVideoPatch {
+  title?: string;
+  sourceUrl?: string;
+  thumbnailUrl?: string | null;
+  durationSeconds?: number | null;
+  relatedStoryId?: string | null;
+  sourceProvenance?: string;
+}
+
+export interface NewsroomVideoListOptions {
+  status?: NewsroomVideoStatus;
+  search?: string;
+  limit?: number;
+}
+
+export function validateVideoHttpsUrl(url: unknown): boolean {
+  if (typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (trimmed.length === 0 || /\s/.test(trimmed)) return false;
+  if (!/^https:\/\//i.test(trimmed)) return false;
+  if (/^https:\/\/[^/]*@/i.test(trimmed)) return false;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol.toLowerCase() !== "https:") return false;
+    if (parsed.username || parsed.password) return false;
+    if (!parsed.hostname || parsed.hostname.length < 1) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function validateVideoCreateInput(input: NewsroomVideoCreateInput): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object") {
+    return { valid: false, error: "Video payload is required." };
+  }
+  if (!input.title || input.title.trim().length === 0) {
+    return { valid: false, error: "Video title is required." };
+  }
+  if (!input.sourceUrl || !validateVideoHttpsUrl(input.sourceUrl)) {
+    return { valid: false, error: "A valid absolute HTTPS source URL without credentials is required." };
+  }
+  if (input.thumbnailUrl && !validateVideoHttpsUrl(input.thumbnailUrl)) {
+    return { valid: false, error: "Thumbnail URL must be a valid absolute HTTPS URL without credentials." };
+  }
+  if (input.durationSeconds !== undefined && input.durationSeconds !== null) {
+    if (!Number.isInteger(input.durationSeconds) || input.durationSeconds < 0) {
+      return { valid: false, error: "Duration must be an integer greater than or equal to 0." };
+    }
+  }
+  if (input.relatedStoryId !== undefined && input.relatedStoryId !== null) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(input.relatedStoryId)) {
+      return { valid: false, error: "Related story ID must be a valid UUID." };
+    }
+  }
+  if (!input.sourceProvenance || input.sourceProvenance.trim().length === 0) {
+    return { valid: false, error: "Source provenance is required and cannot be empty." };
+  }
+  return { valid: true };
+}
+
+export function validateVideoPatch(patch: NewsroomVideoPatch): { valid: boolean; error?: string } {
+  if (!patch || typeof patch !== "object") {
+    return { valid: false, error: "Patch object is required." };
+  }
+  const keys = Object.keys(patch);
+  if (keys.length === 0) {
+    return { valid: false, error: "Patch must contain at least one field to update." };
+  }
+  const allowedKeys = new Set([
+    "title",
+    "sourceUrl",
+    "thumbnailUrl",
+    "durationSeconds",
+    "relatedStoryId",
+    "sourceProvenance"
+  ]);
+  for (const key of keys) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Invalid or unpatchable field: ${key}` };
+    }
+  }
+  if (patch.title !== undefined) {
+    if (!patch.title || patch.title.trim().length === 0) {
+      return { valid: false, error: "Video title cannot be empty." };
+    }
+  }
+  if (patch.sourceUrl !== undefined) {
+    if (!patch.sourceUrl || !validateVideoHttpsUrl(patch.sourceUrl)) {
+      return { valid: false, error: "A valid absolute HTTPS source URL without credentials is required." };
+    }
+  }
+  if (patch.thumbnailUrl !== undefined && patch.thumbnailUrl !== null) {
+    if (patch.thumbnailUrl.trim().length > 0 && !validateVideoHttpsUrl(patch.thumbnailUrl)) {
+      return { valid: false, error: "Thumbnail URL must be a valid absolute HTTPS URL without credentials." };
+    }
+  }
+  if (patch.durationSeconds !== undefined && patch.durationSeconds !== null) {
+    if (!Number.isInteger(patch.durationSeconds) || patch.durationSeconds < 0) {
+      return { valid: false, error: "Duration must be an integer greater than or equal to 0." };
+    }
+  }
+  if (patch.relatedStoryId !== undefined && patch.relatedStoryId !== null) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(patch.relatedStoryId)) {
+      return { valid: false, error: "Related story ID must be a valid UUID." };
+    }
+  }
+  if (patch.sourceProvenance !== undefined) {
+    if (!patch.sourceProvenance || patch.sourceProvenance.trim().length === 0) {
+      return { valid: false, error: "Source provenance cannot be empty." };
+    }
+  }
+  return { valid: true };
+}
+
 
 

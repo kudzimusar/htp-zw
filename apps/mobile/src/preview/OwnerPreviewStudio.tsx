@@ -20,7 +20,10 @@ import {
   type NewsroomMediaAsset,
   type NewsroomMediaMetadataPatch,
   type NewsroomStory,
-  type StoryMediaUsageType
+  type StoryMediaUsageType,
+  type NewsroomVideo,
+  type NewsroomVideoCreateInput,
+  type NewsroomVideoPatch
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -43,6 +46,7 @@ import {
 } from "../ui/StudioEditorialCalendar";
 import { StudioHomepageView } from "../ui/StudioHomepage";
 import { StudioMediaLibraryView } from "../ui/StudioMediaLibrary";
+import { StudioVideoDeskView } from "../ui/StudioVideoDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -53,6 +57,7 @@ import {
   buildPreviewAssignments,
   buildPreviewMediaAssets,
   buildPreviewStories,
+  buildPreviewVideos,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1083,6 +1088,160 @@ function OwnerPreviewMediaLibraryView() {
   );
 }
 
+function OwnerPreviewVideoDeskView() {
+  const [videos, setVideos] = useState<NewsroomVideo[]>(() => buildPreviewVideos());
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string>(
+    "Preview state: Sample video registry loaded. Local edits only."
+  );
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "ready">("all");
+  const stories = useMemo(() => buildPreviewStories(), []);
+
+  const handleSaveVideo = async (
+    videoId: string,
+    expectedVersion: number,
+    patch: NewsroomVideoPatch
+  ): Promise<number> => {
+    let newVersion = expectedVersion + 1;
+    let found = false;
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id === videoId) {
+          found = true;
+          if (v.lockVersion !== expectedVersion) {
+            throw new Error(
+              `Optimistic concurrency conflict: Expected version ${expectedVersion}, but video is at version ${v.lockVersion}. Please reload.`
+            );
+          }
+          newVersion = v.lockVersion + 1;
+          return {
+            ...v,
+            title: patch.title !== undefined ? patch.title : v.title,
+            sourceUrl: patch.sourceUrl !== undefined ? patch.sourceUrl : v.sourceUrl,
+            thumbnailUrl:
+              patch.thumbnailUrl !== undefined ? patch.thumbnailUrl : v.thumbnailUrl,
+            durationSeconds:
+              patch.durationSeconds !== undefined
+                ? patch.durationSeconds
+                : v.durationSeconds,
+            relatedStoryId:
+              patch.relatedStoryId !== undefined
+                ? patch.relatedStoryId
+                : v.relatedStoryId,
+            sourceProvenance:
+              patch.sourceProvenance !== undefined
+                ? patch.sourceProvenance
+                : v.sourceProvenance,
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return v;
+      })
+    );
+    if (!found) throw new Error("Video not found");
+    setNotice("Preview state only: Simulated video metadata update saved in local preview memory.");
+    return newVersion;
+  };
+
+  const handleToggleReady = async (
+    videoId: string,
+    expectedVersion: number,
+    ready: boolean
+  ): Promise<number> => {
+    let targetVideo: NewsroomVideo | undefined;
+    for (const v of videos) {
+      if (v.id === videoId) {
+        targetVideo = v;
+        break;
+      }
+    }
+    if (!targetVideo) throw new Error("Video not found");
+    if (targetVideo.lockVersion !== expectedVersion) {
+      throw new Error(
+        `Optimistic concurrency conflict: Expected version ${expectedVersion}, but video is at version ${targetVideo.lockVersion}. Please reload.`
+      );
+    }
+    if (ready) {
+      if (
+        !targetVideo.title?.trim() ||
+        !targetVideo.sourceUrl?.trim() ||
+        !targetVideo.sourceProvenance?.trim()
+      ) {
+        throw new Error(
+          "Cannot set video to Ready: Missing required metadata (title, HTTPS source URL, and provenance)."
+        );
+      }
+    }
+    const newVersion = targetVideo.lockVersion + 1;
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id === videoId) {
+          return {
+            ...v,
+            status: ready ? "ready" : "draft",
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return v;
+      })
+    );
+    setNotice(`Preview state only: Simulated video marked as ${ready ? "ready" : "draft"}.`);
+    return newVersion;
+  };
+
+  const handleCreateVideo = async (
+    input: NewsroomVideoCreateInput
+  ): Promise<string> => {
+    const newId = `preview-video-${Date.now()}`;
+    const newVideo: NewsroomVideo = {
+      id: newId,
+      title: input.title,
+      sourceUrl: input.sourceUrl,
+      thumbnailUrl: input.thumbnailUrl ?? null,
+      durationSeconds: input.durationSeconds ?? null,
+      relatedStoryId: input.relatedStoryId ?? null,
+      sourceProvenance: input.sourceProvenance,
+      status: "draft",
+      lockVersion: 1,
+      createdByStaffId: "preview-editor",
+      updatedByStaffId: "preview-editor",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setVideos((prev) => [newVideo, ...prev]);
+    setSelectedVideoId(newId);
+    setNotice("Preview state only: Simulated video registered in local preview memory.");
+    return newId;
+  };
+
+  return (
+    <View style={styles.sectionStack} testID="owner-preview-video-desk-view">
+      <View style={styles.previewNoticeBanner} testID="preview-video-desk-notice">
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioVideoDeskView
+        videos={videos}
+        stories={stories.map((s) => ({
+          id: s.id,
+          title: s.title
+        }))}
+        loading={false}
+        error={null}
+        selectedVideoId={selectedVideoId}
+        onSelectVideo={(video) => setSelectedVideoId(video ? video.id : null)}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        onSaveVideo={handleSaveVideo}
+        onToggleReady={handleToggleReady}
+        onCreateVideo={handleCreateVideo}
+        isOwnerPreview={true}
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -1169,6 +1328,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Visual inspection of migrated media assets, technical metadata, safe preview sandboxing, and story usage handoffs."
         >
           <OwnerPreviewMediaLibraryView />
+        </OwnerPreviewShell>
+      );
+    case "video-desk":
+      return (
+        <OwnerPreviewShell
+          activeKey="video-desk"
+          title="Video Desk Registry (Owner Visual Preview)"
+          subtitle="Editorial video custody, HTTPS source provenance, duration, related story linking, and publication-ready lifecycle."
+        >
+          <OwnerPreviewVideoDeskView />
         </OwnerPreviewShell>
       );
     default:

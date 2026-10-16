@@ -980,11 +980,12 @@ test("HT-NR-03A: Server scope remains frozen with zero migrations or client muta
   const migrationFiles = fs.readdirSync(migrationsDir);
   // 62 pre-Presentation baseline migrations + HT-NR-04B public presentation RPC
   // + HT-NR-04B-R1 public presentation safety replacement
-  // + HT-NR-05B-R1 story-media integrity RPC/helper = 65 exact migrations.
+  // + HT-NR-05B-R1 story-media integrity RPC/helper
+  // + HT-NR-05C video desk foundation = 66 exact migrations.
   assert.equal(
     migrationFiles.length,
-    65,
-    `Migration files count must be exactly 65 at HT-NR-05B-R1 authority, found ${migrationFiles.length}`
+    66,
+    `Migration files count must be exactly 66 at HT-NR-05C authority, found ${migrationFiles.length}`
   );
 
   // Check no service role key used in mobile src

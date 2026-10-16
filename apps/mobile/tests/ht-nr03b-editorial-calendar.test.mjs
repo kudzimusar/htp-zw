@@ -791,12 +791,13 @@ test("HT-NR-03B: Read-only boundary, no localStorage, no fake fixtures, and froz
 
   // 62 pre-Presentation baseline migrations + HT-NR-04B public presentation RPC
   // + HT-NR-04B-R1 public presentation safety replacement
-  // + HT-NR-05B-R1 story-media integrity RPC/helper = 65 exact migrations.
+  // + HT-NR-05B-R1 story-media integrity RPC/helper
+  // + HT-NR-05C video desk foundation = 66 exact migrations.
   const migrationsDir = path.resolve(root, "../../supabase/migrations");
   const migrationFiles = fs.readdirSync(migrationsDir);
   assert.equal(
     migrationFiles.length,
-    65,
-    `Migration files count must be exactly 65 at HT-NR-05B-R1 authority, found ${migrationFiles.length}`
+    66,
+    `Migration files count must be exactly 66 at HT-NR-05C authority, found ${migrationFiles.length}`
   );
 });
