@@ -19,10 +19,11 @@ import { StudioStoryWorkspace } from "../../src/ui/StudioStoryWorkspace";
 import { StudioReviewQueue } from "../../src/ui/StudioReviewQueue";
 import { StudioPlanningBoard } from "../../src/ui/StudioPlanningBoard";
 import { StudioEditorialCalendar } from "../../src/ui/StudioEditorialCalendar";
+import { StudioHomepage } from "../../src/ui/StudioHomepage";
 
 export function generateStaticParams() {
   return [
-    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
+    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "homepage", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
@@ -47,6 +48,7 @@ const owners:Record<string,ModuleConfig>={
   // In-workspace capability checks: capability:"story.create"
   "create-edit":{title:"Story Workspace",owner:"HT-NR-02A",capability:null,description:"Professional editorial workspace with writing, reporting, canonical metadata, review workflow, history and autosave.",readiness:["Route entry uses StudioAuthorityGate; creation gated inside workspace","Optimistic concurrency with lock_version","Debounced autosave (~10s)","Canonical public author and section authority","Review records and revision restoration"]},
   "review-queue":{title:"Review Queue",owner:"HT-NR-02B",capability:null,description:"Operational editorial review queue and triage desk derived from canonical server story workflow data.",readiness:["Queue derived from canonical server stories","Operational triage filtering: workflow state, desk, reporter, overdue, deadline","Deterministic priority ordering: overdue, imminent deadline, review state urgency","Canonical workspace handoff to StudioStoryWorkspace","Fail-closed empty, unauthorized and error states"]},
+  "homepage":{title:"Homepage",owner:"HT-NR-04A",capability:"distribution.manage" as const,description:"Editorial homepage presentation control-plane for Hero, Top Stories, and Curated Sections backed by canonical story distribution metadata.",readiness:["Canonical stories.distribution.homepage metadata authority","Strict distribution.manage capability enforcement","Hero (max 1) and Top Stories (ranks 1-6) curation","Manual curated sections: features, public-health, research, health-business, hiv-aids, global-health, premium, further-coverage","Preserves unknown distribution keys and optimistic lock_version concurrency"]},
   "live-desk":{title:"Live Desk",owner:"AG-04 + AG-06",capability:"story.publish",description:"Live content and media connect to migrated content truth and staff-authorized publishing workflows.",readiness:["Live Reader surface ready","Source data pending AG-04","Publish authority pending AG-06"]},
   "video-desk":{title:"Video Desk",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Video metadata, media and publishing remain backend-owned.",readiness:["Watch surface ready","Video metadata pending AG-04","Publishing authority pending AG-06"]},
   "media":{title:"Media Library",owner:"AG-04 + AG-06",capability:"story.edit_all",description:"Migrated media, captions, credits, alt text and provenance come from staging Storage and media_assets.",readiness:["Media component language ready","Authoritative assets pending AG-04","Privileged writes pending AG-06"]},
@@ -74,7 +76,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -84,6 +86,7 @@ export default function StudioModule(){
       {String(module)==="stories" && <StudioStories />}
       {String(module)==="create-edit" && <StudioStoryWorkspace storyId={storyId ? String(storyId) : undefined} />}
       {String(module)==="review-queue" && <StudioReviewQueue />}
+      {String(module)==="homepage" && <StudioHomepage />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}

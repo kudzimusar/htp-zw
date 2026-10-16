@@ -27,6 +27,7 @@ export type OwnerPreviewModuleKey =
   | "planning"
   | "assignments"
   | "calendar"
+  | "homepage"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -48,6 +49,7 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
     path: "/owner-preview/studio/assignments"
   },
   { key: "calendar", label: "Calendar", path: "/owner-preview/studio/calendar" },
+  { key: "homepage", label: "Homepage", path: "/owner-preview/studio/homepage" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -281,7 +283,11 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
       internalNotes:
         "PREVIEW INTERNAL NOTE: Fact check and clinical review signed off. Holding in Editor review for final headline check and chart caption verification.",
       deadlineAt: t.overdue6hIso,
-      distribution: { public_reader: true, newsletter_brief: false },
+      distribution: {
+        public_reader: true,
+        newsletter_brief: false,
+        homepage: { section: "top-stories", rank: 2, active: true }
+      },
       adSetting: "Context-Safe Health",
       commentPolicy: "read_only",
       lockVersion: 4,
@@ -323,7 +329,10 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
       sourceNotes: "PREVIEW SOURCE NOTES: Sample Treasury Blue Book tables pp. 42-49.",
       internalNotes: "PREVIEW INTERNAL NOTE: Verify Table 3 inflation-adjusted column.",
       deadlineAt: t.imminent4hIso,
-      distribution: { public_reader: true },
+      distribution: {
+        public_reader: true,
+        homepage: { section: "public-health", rank: 1, active: true }
+      },
       adSetting: "Standard",
       commentPolicy: "disabled",
       lockVersion: 2,
@@ -364,7 +373,10 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
       sourceNotes: "PREVIEW SOURCE NOTES: Sample clinical protocol v2.4 and transcript.",
       internalNotes: "PREVIEW INTERNAL NOTE: Checking dosage interval wording with Preview Health Reviewer.",
       deadlineAt: t.tomorrowAfternoonIso,
-      distribution: { public_reader: true },
+      distribution: {
+        public_reader: true,
+        homepage: { section: "hiv-aids", rank: 1, active: true }
+      },
       adSetting: "Standard",
       commentPolicy: "disabled",
       lockVersion: 3,
@@ -487,7 +499,10 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
       sourceNotes: "PREVIEW SOURCE NOTES: Sample regulatory gazette notice.",
       internalNotes: "PREVIEW INTERNAL NOTE: All reviews complete; ready for morning edition.",
       deadlineAt: t.dayPlus2Iso,
-      distribution: { public_reader: true },
+      distribution: {
+        public_reader: true,
+        homepage: { section: "top-stories", rank: 1, active: true }
+      },
       adSetting: "Standard",
       commentPolicy: "open",
       lockVersion: 5,
@@ -611,7 +626,10 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
       sourceNotes: "PREVIEW SOURCE NOTES: Sample vector control bulletin.",
       internalNotes: "PREVIEW INTERNAL NOTE: Published cleanly.",
       deadlineAt: t.past4dIso,
-      distribution: { public_reader: true },
+      distribution: {
+        public_reader: true,
+        homepage: { section: "hero", rank: 1, active: true }
+      },
       adSetting: "Standard",
       commentPolicy: "open",
       lockVersion: 6,
