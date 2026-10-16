@@ -1372,4 +1372,475 @@ export function validateMediaMetadataPatch(
   return { valid: true };
 }
 
+// =========================================================================
+// HT-NR-05B: STORY MEDIA INGESTION, ATTACHMENT & PUBLIC STAGING DOMAIN MODELS
+// =========================================================================
+
+export type StoryMediaUsageType = "featured" | "inline" | "supporting_document";
+
+export const ALLOWED_STORY_MEDIA_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+] as const;
+
+export type AllowedStoryMediaMimeType = (typeof ALLOWED_STORY_MEDIA_MIME_TYPES)[number];
+
+export const MAX_STORY_MEDIA_BYTES = 15728640; // 15 MB
+
+export interface PrepareStoryMediaPayload {
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  checksum?: string | null;
+  altText?: string | null;
+  caption?: string | null;
+  credit?: string | null;
+  sourceProvenance: string;
+  usageType: StoryMediaUsageType;
+}
+
+export interface StoryMediaPreparation {
+  mediaId: string;
+  storyId: string;
+  usageType: StoryMediaUsageType;
+  storageBucket: string;
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  status: string; // "upload_pending"
+}
+
+export interface StoryMediaUploadContext {
+  mediaId: string;
+  storyId: string;
+  storageBucket: string;
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+}
+
+export interface StoryMediaPromotionItem {
+  mediaId: string;
+  usageType: string;
+  privateBucket: string;
+  privateKey: string;
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  checksum: string | null;
+  publicStorageBucket: string | null;
+  publicStorageKey: string | null;
+  publicUrl: string | null;
+  mediaStatus: string;
+}
+
+export interface StoryMediaStageResult {
+  mediaId: string;
+  usageType: string;
+  status: string; // "public_staged"
+  publicStorageBucket: string;
+  publicStorageKey: string;
+  publicUrl: string;
+  checksum: string;
+}
+
+export type StoryMediaOperationState =
+  | "idle"
+  | "validating"
+  | "preparing"
+  | "uploading"
+  | "finalizing"
+  | "staging"
+  | "clearing"
+  | "success"
+  | "error"
+  | "reconciliation_required";
+
+export type UploadReconciliationState = {
+  stage: "upload_failed" | "finalize_failed";
+  mediaId: string;
+  storyId: string;
+  usageType: StoryMediaUsageType;
+  storageBucket: string;
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+  checksum: string;
+  errorMessage: string;
+};
+
+export function isValidSha256Checksum(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  return /^[0-9a-f]{64}$/.test(value.trim());
+}
+
+export function validateStoryMediaUpload(
+  payload: PrepareStoryMediaPayload,
+  bytes?: Uint8Array
+): {
+  valid: boolean;
+  error?: string;
+} {
+  const filename = (payload.filename || "").trim();
+  if (filename.length === 0) {
+    return {
+      valid: false,
+      error: "A valid filename is required."
+    };
+  }
+
+  const mime = (payload.mimeType || "").trim().toLowerCase();
+  if (!ALLOWED_STORY_MEDIA_MIME_TYPES.includes(mime as any)) {
+    return {
+      valid: false,
+      error: `Unsupported media MIME type "${payload.mimeType}". Allowed types: JPEG, PNG, WebP, PDF, Plain Text, DOCX.`
+    };
+  }
+
+  const resolvedMime = resolveBoundedMimeType(mime, filename);
+  if (!resolvedMime || resolvedMime !== mime) {
+    return {
+      valid: false,
+      error: `Filename extension does not match media MIME type "${payload.mimeType}" for "${filename}".`
+    };
+  }
+
+  if (bytes && !verifyFileContentSignature(bytes, resolvedMime)) {
+    return {
+      valid: false,
+      error: `File content signature verification failed: bytes do not match expected format for ${resolvedMime} ("${filename}").`
+    };
+  }
+
+  if (typeof payload.byteSize !== "number" || !Number.isFinite(payload.byteSize) || payload.byteSize <= 0) {
+    return {
+      valid: false,
+      error: "File size must be greater than 0 bytes."
+    };
+  }
+
+  if (payload.byteSize > MAX_STORY_MEDIA_BYTES) {
+    return {
+      valid: false,
+      error: `File size exceeds the 15 MB limit (${(payload.byteSize / (1024 * 1024)).toFixed(1)} MB).`
+    };
+  }
+
+  const usage = payload.usageType;
+  if (usage !== "featured" && usage !== "inline" && usage !== "supporting_document") {
+    return {
+      valid: false,
+      error: `Unsupported story media usage role "${usage}". Allowed: featured, inline, supporting_document.`
+    };
+  }
+
+  const isImage = mime.startsWith("image/");
+  if ((usage === "featured" || usage === "inline") && !isImage) {
+    return {
+      valid: false,
+      error: `${usage === "featured" ? "Featured lead media" : "Inline media"} must be an image file (JPEG, PNG, or WebP).`
+    };
+  }
+
+  if (usage === "supporting_document" && isImage) {
+    return {
+      valid: false,
+      error: "Supporting documents cannot be images (must be PDF, DOCX, or Plain Text)."
+    };
+  }
+
+  if (isImage) {
+    const alt = (payload.altText || "").trim();
+    if (alt.length < 2) {
+      return {
+        valid: false,
+        error: "Alt text is required for editorial images (minimum 2 characters)."
+      };
+    }
+  }
+
+  const provenance = (payload.sourceProvenance || "").trim();
+  if (provenance.length === 0) {
+    return {
+      valid: false,
+      error: "Source provenance is required for all new Story media uploads."
+    };
+  }
+
+  if (payload.checksum && !isValidSha256Checksum(payload.checksum)) {
+    return {
+      valid: false,
+      error: "Checksum must be a 64-character lowercase SHA-256 hexadecimal string."
+    };
+  }
+
+  return { valid: true };
+}
+
+export function buildCanonicalPublicStorageKey(
+  storyId: string,
+  mediaId: string,
+  checksum: string,
+  filename: string
+): string {
+  const safeFilename = filename
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `story-media/${storyId.trim()}/${mediaId.trim()}/${checksum.trim().toLowerCase()}/${safeFilename}`;
+}
+
+export type StoryMediaSelectedFile = {
+  filename: string;
+  mimeType: AllowedStoryMediaMimeType;
+  byteSize: number;
+  bytes: Uint8Array;
+  sourceUri?: string;
+};
+
+export const BOUNDED_MIME_BY_EXTENSION: Record<string, AllowedStoryMediaMimeType> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+  ".txt": "text/plain",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+};
+
+export function verifyFileContentSignature(
+  bytes: Uint8Array,
+  mimeType: AllowedStoryMediaMimeType
+): boolean {
+  if (!bytes) return false;
+
+  switch (mimeType) {
+    case "image/jpeg":
+      // Minimum 3 bytes: FF D8 FF
+      return (
+        bytes.byteLength >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff
+      );
+
+    case "image/png":
+      // Minimum 8 bytes: 89 50 4E 47 0D 0A 1A 0A
+      return (
+        bytes.byteLength >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47 &&
+        bytes[4] === 0x0d &&
+        bytes[5] === 0x0a &&
+        bytes[6] === 0x1a &&
+        bytes[7] === 0x0a
+      );
+
+    case "image/webp":
+      // Minimum 12 bytes: RIFF at 0..3, WEBP at 8..11
+      return (
+        bytes.byteLength >= 12 &&
+        bytes[0] === 0x52 && // 'R'
+        bytes[1] === 0x49 && // 'I'
+        bytes[2] === 0x46 && // 'F'
+        bytes[3] === 0x46 && // 'F'
+        bytes[8] === 0x57 && // 'W'
+        bytes[9] === 0x45 && // 'E'
+        bytes[10] === 0x42 && // 'B'
+        bytes[11] === 0x50    // 'P'
+      );
+
+    case "application/pdf":
+      // Minimum 5 bytes: %PDF-
+      return (
+        bytes.byteLength >= 5 &&
+        bytes[0] === 0x25 && // '%'
+        bytes[1] === 0x50 && // 'P'
+        bytes[2] === 0x44 && // 'D'
+        bytes[3] === 0x46 && // 'F'
+        bytes[4] === 0x2d    // '-'
+      );
+
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      // ZIP container signature: PK\x03\x04 or standard ZIP variants PK\x05\x06 / PK\x07\x08
+      return (
+        bytes.byteLength >= 4 &&
+        bytes[0] === 0x50 && // 'P'
+        bytes[1] === 0x4b && // 'K'
+        ((bytes[2] === 0x03 && bytes[3] === 0x04) ||
+          (bytes[2] === 0x05 && bytes[3] === 0x06) ||
+          (bytes[2] === 0x07 && bytes[3] === 0x08))
+      );
+
+    case "text/plain":
+      // Plain text: extension/text governed. Valid Uint8Array accepted.
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+export function resolveBoundedMimeType(
+  rawMimeOrFilename?: string | null,
+  filenameOrRawMime?: string | null
+): AllowedStoryMediaMimeType | null {
+  const p1 = (rawMimeOrFilename || "").trim();
+  const p2 = (filenameOrRawMime || "").trim();
+
+  let filename = "";
+  let rawMime = "";
+
+  if (p1.includes("/") && !p2.includes("/")) {
+    rawMime = p1;
+    filename = p2;
+  } else if (!p1.includes("/") && p2.includes("/")) {
+    filename = p1;
+    rawMime = p2;
+  } else if (p1.includes(".") && !p2.includes(".")) {
+    filename = p1;
+    rawMime = p2;
+  } else if (!p1.includes(".") && p2.includes(".")) {
+    rawMime = p1;
+    filename = p2;
+  } else if (p1.includes(".") && p2.includes(".")) {
+    filename = p1;
+    rawMime = p2;
+  } else {
+    rawMime = p1;
+    filename = p2;
+  }
+
+  // Filename must be present and contain an extension
+  if (!filename || !filename.includes(".")) {
+    return null;
+  }
+
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  const mappedMime = BOUNDED_MIME_BY_EXTENSION[ext];
+  if (!mappedMime) {
+    // Unsupported extension -> fail closed
+    return null;
+  }
+
+  // If picker-provided MIME is present, meaningful and conflicts with canonical extension mapping -> fail closed
+  if (rawMime && rawMime.includes("/") && rawMime.toLowerCase() !== "application/octet-stream") {
+    if (rawMime.toLowerCase() !== mappedMime) {
+      return null;
+    }
+  }
+
+  return mappedMime;
+}
+
+export function validateStoryMediaSelectedFile(file: {
+  filename?: string | null;
+  mimeType?: string | null;
+  bytes: Uint8Array;
+}): {
+  valid: boolean;
+  resolvedMime?: AllowedStoryMediaMimeType;
+  error?: string;
+} {
+  const filename = (file.filename || "").trim();
+  if (!filename) {
+    return {
+      valid: false,
+      error: "Filename is required and cannot be empty."
+    };
+  }
+
+  const resolvedMime = resolveBoundedMimeType(file.mimeType, filename);
+  if (!resolvedMime) {
+    return {
+      valid: false,
+      error: `Unsupported file type, missing extension, or MIME/extension mismatch for "${filename}".`
+    };
+  }
+
+  if (!verifyFileContentSignature(file.bytes, resolvedMime)) {
+    return {
+      valid: false,
+      error: `File content signature verification failed: bytes do not match expected format for ${resolvedMime} ("${filename}").`
+    };
+  }
+
+  return {
+    valid: true,
+    resolvedMime
+  };
+}
+
+export function isMediaAssetAttachable(
+  asset: Pick<NewsroomMediaAsset, "storageBucket" | "status" | "mimeType"> | null | undefined,
+  usageType?: StoryMediaUsageType
+): { eligible: boolean; attachable: boolean; reason?: string } {
+  if (!asset) {
+    return {
+      eligible: false,
+      attachable: false,
+      reason: "No asset selected."
+    };
+  }
+  if (asset.storageBucket !== "newsroom-private") {
+    return {
+      eligible: false,
+      attachable: false,
+      reason: `Asset is in "${asset.storageBucket}" custody. Only "newsroom-private" assets may be attached.`
+    };
+  }
+  if (asset.status !== "private_ready" && asset.status !== "published") {
+    let reasonDetail = `Asset status is "${asset.status}". Only "private_ready" or "published" assets may be attached.`;
+    if (asset.status === "pending") {
+      reasonDetail = "Asset is pending processing.";
+    } else if (asset.status === "upload_pending") {
+      reasonDetail = "Asset upload has not been finalized.";
+    } else if (asset.status === "public_staged") {
+      reasonDetail = "Asset is currently staged for public presentation.";
+    } else if (asset.status === "missing_from_uploads_archive") {
+      reasonDetail = "Asset is missing from storage archive.";
+    }
+    return {
+      eligible: false,
+      attachable: false,
+      reason: reasonDetail
+    };
+  }
+  if (!ALLOWED_STORY_MEDIA_MIME_TYPES.includes(asset.mimeType as any)) {
+    return {
+      eligible: false,
+      attachable: false,
+      reason: `MIME type ${asset.mimeType} is not supported for story attachment.`
+    };
+  }
+  if (usageType) {
+    const isImage = (asset.mimeType || "").startsWith("image/");
+    if ((usageType === "featured" || usageType === "inline") && !isImage) {
+      return {
+        eligible: false,
+        attachable: false,
+        reason: `${usageType === "featured" ? "Featured lead" : "Inline"} media requires an image asset.`
+      };
+    }
+    if (usageType === "supporting_document" && isImage) {
+      return {
+        eligible: false,
+        attachable: false,
+        reason: "Supporting documents cannot be image assets."
+      };
+    }
+  }
+  return { eligible: true, attachable: true };
+}
+
+
 

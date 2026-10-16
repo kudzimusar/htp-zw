@@ -19,7 +19,8 @@ import {
   type NewsroomAssignment,
   type NewsroomMediaAsset,
   type NewsroomMediaMetadataPatch,
-  type NewsroomStory
+  type NewsroomStory,
+  type StoryMediaUsageType
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -988,6 +989,40 @@ function OwnerPreviewMediaLibraryView() {
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const stories = useMemo(() => buildPreviewStories(), []);
+
+  const handleAttachToStory = async (
+    assetId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType,
+    caption?: string,
+    credit?: string
+  ) => {
+    setAssets((prev) =>
+      prev.map((item) => {
+        if (item.id === assetId) {
+          const newUsage = [
+            {
+              storyId,
+              usageType,
+              sourceContext: {
+                preview_placement_slot: usageType,
+                caption: caption ?? item.caption,
+                credit: credit ?? item.credit
+              }
+            },
+            ...item.usage
+          ];
+          return {
+            ...item,
+            usage: newUsage
+          };
+        }
+        return item;
+      })
+    );
+    setNotice(`Preview state only: Simulated story attachment (${usageType}) saved in local preview memory.`);
+  };
 
   const handleSaveMetadata = async (
     assetId: string,
@@ -1032,6 +1067,12 @@ function OwnerPreviewMediaLibraryView() {
         selectedAssetId={selectedAssetId}
         onSelectAsset={(asset) => setSelectedAssetId(asset ? asset.id : null)}
         onSaveMetadata={handleSaveMetadata}
+        onAttachToStory={handleAttachToStory}
+        storyOptions={stories.map((s) => ({
+          id: s.id,
+          title: s.title,
+          workflowStatus: s.workflowStatus
+        }))}
         savingId={savingId}
         saveError={null}
         saveSuccess={saveSuccess}

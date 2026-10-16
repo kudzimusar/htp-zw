@@ -2,10 +2,18 @@ import type { NewsroomMediaService } from "../domain/contracts";
 import {
   classifyMediaMimeType,
   deriveStorageCustodyCategory,
+  isValidSha256Checksum,
+  validateStoryMediaUpload,
   type NewsroomMediaAsset,
   type NewsroomMediaMetadataPatch,
   type NewsroomMediaPreview,
-  type NewsroomMediaUsage
+  type NewsroomMediaUsage,
+  type PrepareStoryMediaPayload,
+  type StoryMediaPreparation,
+  type StoryMediaPromotionItem,
+  type StoryMediaStageResult,
+  type StoryMediaUploadContext,
+  type StoryMediaUsageType
 } from "../domain/models";
 import { getStagingSupabaseClient } from "../platform/supabase";
 
@@ -216,6 +224,22 @@ export const stagingNewsroomMediaService: NewsroomMediaService = {
     return assets;
   },
 
+  async listStoryMedia(storyId: string): Promise<NewsroomMediaAsset[]> {
+    const validStoryId = requireCanonicalId(storyId, "story");
+    const rows = await rpc<any[]>("newsroom_list_story_media", { p_story_id: validStoryId });
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+    const assets: NewsroomMediaAsset[] = [];
+    for (const r of rows) {
+      const mapped = mapMediaAssetRow(r);
+      if (mapped) {
+        assets.push(mapped);
+      }
+    }
+    return assets;
+  },
+
   async getMediaPreview(mediaId: string): Promise<NewsroomMediaPreview> {
     const validId = requireCanonicalId(mediaId, "media");
     const result = await rpc<any>("newsroom_get_media_preview", { p_media_id: validId });
@@ -233,6 +257,207 @@ export const stagingNewsroomMediaService: NewsroomMediaService = {
       p_caption: patch.caption !== undefined ? patch.caption : null,
       p_credit: patch.credit !== undefined ? patch.credit : null,
       p_source_provenance: patch.sourceProvenance !== undefined ? patch.sourceProvenance : null
+    });
+  },
+
+  async prepareStoryMedia(
+    storyId: string,
+    payload: PrepareStoryMediaPayload
+  ): Promise<StoryMediaPreparation> {
+    const validStoryId = requireCanonicalId(storyId, "story");
+    const validation = validateStoryMediaUpload(payload);
+    if (!validation.valid) {
+      throw new Error(validation.error || "Invalid Story media upload payload.");
+    }
+
+    const res = await rpc<any>("newsroom_prepare_story_media", {
+      p_story_id: validStoryId,
+      p_filename: payload.filename,
+      p_mime_type: payload.mimeType,
+      p_byte_size: payload.byteSize,
+      p_checksum: payload.checksum || null,
+      p_alt_text: payload.altText || null,
+      p_caption: payload.caption || null,
+      p_credit: payload.credit || null,
+      p_source_provenance: payload.sourceProvenance,
+      p_usage_type: payload.usageType
+    });
+
+    if (!res || typeof res !== "object") {
+      throw new Error("Failed to prepare Story media: invalid response from server.");
+    }
+
+    return {
+      mediaId: String(res.media_id),
+      storyId: String(res.story_id),
+      usageType: String(res.usage_type) as StoryMediaUsageType,
+      storageBucket: String(res.storage_bucket),
+      storageKey: String(res.storage_key),
+      filename: String(res.filename),
+      mimeType: String(res.mime_type),
+      byteSize: Number(res.byte_size),
+      status: String(res.status)
+    };
+  },
+
+  async getUploadContext(
+    mediaId: string,
+    storyId: string
+  ): Promise<StoryMediaUploadContext> {
+    const validMediaId = requireCanonicalId(mediaId, "media");
+    const validStoryId = requireCanonicalId(storyId, "story");
+
+    const res = await rpc<any>("newsroom_media_upload_context", {
+      p_media_id: validMediaId,
+      p_story_id: validStoryId
+    });
+
+    if (!res || typeof res !== "object") {
+      throw new Error("Failed to retrieve upload context: invalid response.");
+    }
+
+    return {
+      mediaId: String(res.media_id),
+      storyId: String(res.story_id),
+      storageBucket: String(res.storage_bucket),
+      storageKey: String(res.storage_key),
+      filename: String(res.filename),
+      mimeType: String(res.mime_type),
+      byteSize: Number(res.byte_size)
+    };
+  },
+
+  async finalizeStoryMedia(
+    mediaId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType,
+    checksum?: string | null
+  ): Promise<{ mediaId: string; storyId: string; usageType: StoryMediaUsageType; status: string }> {
+    const validMediaId = requireCanonicalId(mediaId, "media");
+    const validStoryId = requireCanonicalId(storyId, "story");
+
+    const res = await rpc<any>("newsroom_finalize_story_media", {
+      p_media_id: validMediaId,
+      p_story_id: validStoryId,
+      p_usage_type: usageType,
+      p_checksum: checksum || null
+    });
+
+    if (!res || typeof res !== "object") {
+      throw new Error("Failed to finalize Story media: invalid response.");
+    }
+
+    return {
+      mediaId: String(res.media_id),
+      storyId: String(res.story_id),
+      usageType: String(res.usage_type) as StoryMediaUsageType,
+      status: String(res.status)
+    };
+  },
+
+  async attachStoryMedia(
+    mediaId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType
+  ): Promise<void> {
+    const validMediaId = requireCanonicalId(mediaId, "media");
+    const validStoryId = requireCanonicalId(storyId, "story");
+
+    await rpc("newsroom_attach_story_media", {
+      p_media_id: validMediaId,
+      p_story_id: validStoryId,
+      p_usage_type: usageType
+    });
+  },
+
+  async detachStoryMedia(
+    mediaId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType
+  ): Promise<void> {
+    const validMediaId = requireCanonicalId(mediaId, "media");
+    const validStoryId = requireCanonicalId(storyId, "story");
+
+    await rpc("newsroom_detach_story_media", {
+      p_media_id: validMediaId,
+      p_story_id: validStoryId,
+      p_usage_type: usageType
+    });
+  },
+
+  async getPromotionPlan(storyId: string): Promise<StoryMediaPromotionItem[]> {
+    const validStoryId = requireCanonicalId(storyId, "story");
+
+    const rows = await rpc<any[]>("newsroom_story_media_promotion_plan", {
+      p_story_id: validStoryId
+    });
+
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+
+    return rows.map((r) => ({
+      mediaId: String(r.media_id),
+      usageType: String(r.usage_type),
+      privateBucket: String(r.private_bucket),
+      privateKey: String(r.private_key),
+      filename: String(r.filename),
+      mimeType: String(r.mime_type),
+      byteSize: Number(r.byte_size),
+      checksum: r.checksum ? String(r.checksum) : null,
+      publicStorageBucket: r.public_storage_bucket ? String(r.public_storage_bucket) : null,
+      publicStorageKey: r.public_storage_key ? String(r.public_storage_key) : null,
+      publicUrl: r.public_url ? String(r.public_url) : null,
+      mediaStatus: String(r.media_status)
+    }));
+  },
+
+  async stagePromotion(
+    storyId: string,
+    mediaId: string,
+    publicStorageKey: string,
+    verifiedChecksum: string
+  ): Promise<StoryMediaStageResult> {
+    const validStoryId = requireCanonicalId(storyId, "story");
+    const validMediaId = requireCanonicalId(mediaId, "media");
+
+    if (!isValidSha256Checksum(verifiedChecksum)) {
+      throw new Error("Verified SHA-256 checksum is required (64 lowercase hex characters).");
+    }
+
+    if (!publicStorageKey || !publicStorageKey.startsWith("story-media/")) {
+      throw new Error("Invalid public storage key: must follow canonical story-media/ path format.");
+    }
+
+    const res = await rpc<any>("newsroom_stage_story_media_promotion", {
+      p_story_id: validStoryId,
+      p_media_id: validMediaId,
+      p_public_storage_key: publicStorageKey,
+      p_verified_checksum: verifiedChecksum
+    });
+
+    if (!res || typeof res !== "object") {
+      throw new Error("Failed to stage Story media promotion: invalid response.");
+    }
+
+    return {
+      mediaId: String(res.media_id),
+      usageType: String(res.usage_type),
+      status: String(res.status),
+      publicStorageBucket: String(res.public_storage_bucket),
+      publicStorageKey: String(res.public_storage_key),
+      publicUrl: String(res.public_url),
+      checksum: String(res.checksum)
+    };
+  },
+
+  async clearStagedPromotion(storyId: string, mediaId: string): Promise<void> {
+    const validStoryId = requireCanonicalId(storyId, "story");
+    const validMediaId = requireCanonicalId(mediaId, "media");
+
+    await rpc("newsroom_clear_staged_story_media", {
+      p_story_id: validStoryId,
+      p_media_id: validMediaId
     });
   }
 };

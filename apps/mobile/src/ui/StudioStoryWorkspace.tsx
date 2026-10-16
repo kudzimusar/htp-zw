@@ -24,16 +24,23 @@ import type {
 } from "../domain/models";
 import { colors, radius, spacing } from "../theme/tokens";
 import { StudioStoryDiscussionPanel } from "./StudioCommunications";
+import { StudioStoryMediaPanel } from "./StudioStoryMedia";
 
-export type TabId = "writing" | "reporting" | "editorial" | "publication" | "history" | "discussion";
+export type TabId = "writing" | "reporting" | "editorial" | "media" | "publication" | "history" | "discussion";
 
 type Props = {
   storyId?: string;
+  discussionSlot?: ReactNode;
+  mediaSlot?: ReactNode;
 };
 
 const REVIEW_STATUSES = ["completed", "approved", "changes_requested"] as const;
 
-export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
+export function StudioStoryWorkspace({
+  storyId: propStoryId,
+  discussionSlot,
+  mediaSlot: propMediaSlot
+}: Props) {
   const router = useRouter();
   const [storyId, setStoryId] = useState<string | null>(propStoryId ?? null);
   const [activeTab, setActiveTab] = useState<TabId>("writing");
@@ -768,6 +775,17 @@ export function StudioStoryWorkspace({ storyId: propStoryId }: Props) {
       executeRestoreRevision={executeRestoreRevision}
       handleSetCommentPolicy={handleSetCommentPolicy}
       onBackToStories={() => router.push("/studio/stories" as never)}
+      discussionSlot={discussionSlot}
+      mediaSlot={
+        propMediaSlot ??
+        (storyId ? (
+          <StudioStoryMediaPanel
+            storyId={storyId}
+            title={title}
+            workflowStatus={story?.workflowStatus ?? "Draft"}
+          />
+        ) : undefined)
+      }
     />
   );
 }
@@ -865,6 +883,7 @@ export type StudioStoryWorkspaceViewProps = {
   onBackToStories: () => void;
   topControlsSlot?: ReactNode;
   discussionSlot?: ReactNode;
+  mediaSlot?: ReactNode;
 };
 
 export function StudioStoryWorkspaceView({
@@ -959,7 +978,8 @@ export function StudioStoryWorkspaceView({
   handleSetCommentPolicy,
   onBackToStories,
   topControlsSlot,
-  discussionSlot
+  discussionSlot,
+  mediaSlot
 }: StudioStoryWorkspaceViewProps) {
   return (
     <View style={styles.container}>
@@ -1066,6 +1086,7 @@ export function StudioStoryWorkspaceView({
           ["writing", "Writing"],
           ["reporting", "Reporting & Desk"],
           ["editorial", "Editorial & Review"],
+          ["media", "Media & Attachments"],
           ["publication", "Publication & SEO"],
           ["history", "History & Revisions"],
           ["discussion", "Internal Notes & Desk"]
@@ -1557,6 +1578,28 @@ export function StudioStoryWorkspaceView({
                   </View>
                 </View>
               )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* TAB: Media & Attachments */}
+      {activeTab === "media" && (
+        <View style={styles.tabContent}>
+          {mediaSlot !== undefined ? (
+            mediaSlot
+          ) : storyId ? (
+            <StudioStoryMediaPanel
+              storyId={storyId}
+              title={title}
+              workflowStatus={story?.workflowStatus ?? "Draft"}
+            />
+          ) : (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>Media Ingestion Unavailable</Text>
+              <Text style={styles.emptyText}>
+                Save or create the story draft first before preparing and attaching media assets.
+              </Text>
             </View>
           )}
         </View>

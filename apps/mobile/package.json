@@ -38,24 +38,26 @@
     "test:ht-nr-owner-preview": "node --test tests/ht-nr-owner-preview.test.mjs",
     "test:ht-nr04a": "node --test tests/ht-nr04a-homepage.test.mjs",
     "test:ht-nr04b": "node --test tests/ht-nr04b-presentation-editions.test.mjs",
-    "test:ht-nr05a": "node --test tests/ht-nr05a-media-library.test.mjs"
+    "test:ht-nr05a": "node --test tests/ht-nr05a-media-library.test.mjs",
+    "test:ht-nr05b": "node --test tests/ht-nr05b-story-media.test.mjs"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "2.116.0",
     "expo": "~57.0.10",
     "expo-constants": "~57.0.9",
+    "expo-document-picker": "~57.0.3",
     "expo-linking": "~57.0.5",
+    "expo-notifications": "~57.0.20",
     "expo-router": "~57.0.10",
+    "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-web": "~0.21.0",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "@supabase/supabase-js": "2.116.0",
-    "expo-secure-store": "~57.0.4",
-    "expo-notifications": "~57.0.20"
+    "react-native-web": "~0.21.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

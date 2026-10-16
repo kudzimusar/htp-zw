@@ -16,14 +16,23 @@ import type {
   NewsroomStoryAutosave,
   NewsroomStoryCorrection,
   NewsroomStoryReview,
-  NewsroomStoryRevision
+  NewsroomStoryRevision,
+  PrepareStoryMediaPayload,
+  StoryMediaPromotionItem,
+  StoryMediaSelectedFile,
+  StoryMediaUsageType
 } from "../domain/models";
 import {
   StudioStoryWorkspaceView,
   type TabId
 } from "../ui/StudioStoryWorkspace";
+import {
+  StudioStoryMediaPanelView,
+  type AttachedMediaItem
+} from "../ui/StudioStoryMedia";
 import { colors, radius, spacing } from "../theme/tokens";
 import {
+  buildPreviewMediaAssets,
   buildPreviewStories,
   PREVIEW_PUBLIC_AUTHORS,
   PREVIEW_SECTIONS,
@@ -338,13 +347,313 @@ export function OwnerPreviewStoryWorkspace({
     </View>
   );
 
+  // Media attachments & promotion plan local state (simulated in-memory)
+  const [previewAttachments, setPreviewAttachments] = useState<AttachedMediaItem[]>([
+    {
+      mediaId: "00000000-0000-4000-8000-000000007001",
+      usageType: "featured",
+      filename: "clinical-ward-vaccination.jpg",
+      mimeType: "image/jpeg",
+      byteSize: 2458900,
+      status: "private_ready",
+      publicUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+      altText: "Harare Central Hospital maternal clinic nurses reviewing child immunization registry cards",
+      caption: "Maternal clinic nurses review pediatric immunization schedules during the October catchment drive.",
+      credit: "HealthTimes Staff / Tafadzwa Moyo",
+      sourceProvenance: "uploads/2026/10/clinical-ward-vaccination.jpg",
+      storageBucket: "newsroom-private",
+      storageKey: `story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007001/clinical-ward-vaccination.jpg`,
+      checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      mediaId: "00000000-0000-4000-8000-000000007002",
+      usageType: "inline",
+      filename: "water-purification-infographic.png",
+      mimeType: "image/png",
+      byteSize: 1245000,
+      status: "public_staged",
+      publicUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80",
+      altText: "Diagram outlining four-step community water treatment for borehole purification",
+      caption: "Step-by-step chlorine dosage and boiling guide for peri-urban household boreholes.",
+      credit: "Ministry of Health and Child Care / Visual Unit",
+      sourceProvenance: "uploads/2026/10/water-purification-infographic.png",
+      storageBucket: "newsroom-public",
+      storageKey: `story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007002/ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb/water-purification-infographic.png`,
+      checksum: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+    },
+    {
+      mediaId: "00000000-0000-4000-8000-000000007003",
+      usageType: "supporting_document",
+      filename: "epidemiology-monthly-bulletin.pdf",
+      mimeType: "application/pdf",
+      byteSize: 5410200,
+      status: "private_ready",
+      publicUrl: null,
+      altText: null,
+      caption: "National Epidemiological Bulletin — Epidemiological Week 41 Official Tables",
+      credit: "Department of Epidemiology & Disease Control",
+      sourceProvenance: "uploads/2026/10/epidemiology-monthly-bulletin.pdf",
+      storageBucket: "newsroom-private",
+      storageKey: `story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007003/epidemiology-monthly-bulletin.pdf`,
+      checksum: "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+    }
+  ]);
+
+  const [previewPromotionPlan, setPreviewPromotionPlan] = useState<StoryMediaPromotionItem[]>([
+    {
+      mediaId: "00000000-0000-4000-8000-000000007001",
+      usageType: "featured",
+      privateBucket: "newsroom-private",
+      privateKey: `story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007001/clinical-ward-vaccination.jpg`,
+      filename: "clinical-ward-vaccination.jpg",
+      mimeType: "image/jpeg",
+      byteSize: 2458900,
+      checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      publicStorageBucket: null,
+      publicStorageKey: null,
+      publicUrl: null,
+      mediaStatus: "private_ready"
+    },
+    {
+      mediaId: "00000000-0000-4000-8000-000000007002",
+      usageType: "inline",
+      privateBucket: "newsroom-private",
+      privateKey: `story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007002/water-purification-infographic.png`,
+      filename: "water-purification-infographic.png",
+      mimeType: "image/png",
+      byteSize: 1245000,
+      checksum: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      publicStorageBucket: "newsroom-public",
+      publicStorageKey: `story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007002/ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb/water-purification-infographic.png`,
+      publicUrl: `https://preview-media.local/storage/v1/object/public/newsroom-public/story-media/${selectedStoryId}/00000000-0000-4000-8000-000000007002/ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb/water-purification-infographic.png`,
+      mediaStatus: "public_staged"
+    }
+  ]);
+
+  const handlePreviewUpload = async (
+    payload: PrepareStoryMediaPayload,
+    fileBytes: Uint8Array | ArrayBuffer | Blob
+  ) => {
+    const fakeId = `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0")}`;
+    const newItem: AttachedMediaItem = {
+      mediaId: fakeId,
+      usageType: payload.usageType,
+      filename: payload.filename,
+      mimeType: payload.mimeType,
+      byteSize: payload.byteSize,
+      status: "private_ready",
+      publicUrl: payload.mimeType.startsWith("image/")
+        ? "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80"
+        : null,
+      altText: payload.altText ?? null,
+      caption: payload.caption ?? null,
+      credit: payload.credit ?? null,
+      sourceProvenance: payload.sourceProvenance,
+      storageBucket: "newsroom-private",
+      storageKey: `story-media/${selectedStoryId}/${fakeId}/${payload.filename}`,
+      checksum: payload.checksum ?? null
+    };
+
+    setPreviewAttachments((prev) => {
+      let filtered = prev;
+      if (payload.usageType === "featured") {
+        filtered = prev.filter((a) => a.usageType !== "featured");
+      }
+      return [newItem, ...filtered];
+    });
+
+    if (payload.usageType === "featured" || payload.usageType === "inline") {
+      const planItem: StoryMediaPromotionItem = {
+        mediaId: fakeId,
+        usageType: payload.usageType,
+        privateBucket: "newsroom-private",
+        privateKey: `story-media/${selectedStoryId}/${fakeId}/${payload.filename}`,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+        byteSize: payload.byteSize,
+        checksum: payload.checksum ?? null,
+        publicStorageBucket: null,
+        publicStorageKey: null,
+        publicUrl: null,
+        mediaStatus: "private_ready"
+      };
+      setPreviewPromotionPlan((prev) => {
+        let next = prev;
+        if (payload.usageType === "featured") {
+          next = prev.filter((p) => p.usageType !== "featured");
+        }
+        return [planItem, ...next];
+      });
+    }
+
+    setExpectedVersion((v) => v + 1);
+    setStatusMessage(`Uploaded and attached ${payload.filename} as ${payload.usageType} (simulated v${expectedVersion + 1}).`);
+  };
+
+  const handlePreviewAttachExisting = async (
+    mediaId: string,
+    usageType: StoryMediaUsageType
+  ) => {
+    const all = buildPreviewMediaAssets();
+    const found = all.find((a) => a.id === mediaId);
+    if (!found) return;
+
+    const attached: AttachedMediaItem = {
+      mediaId: found.id,
+      usageType,
+      filename: found.filename,
+      mimeType: found.mimeType,
+      byteSize: found.byteSize,
+      status: found.status === "published" ? "published" : "private_ready",
+      publicUrl: found.publicUrl,
+      altText: found.altText,
+      caption: found.caption,
+      credit: found.credit,
+      sourceProvenance: found.sourceProvenance,
+      storageBucket: found.storageBucket,
+      storageKey: found.storageKey,
+      checksum: found.checksum
+    };
+
+    setPreviewAttachments((prev) => {
+      let next = prev;
+      if (usageType === "featured") {
+        next = prev.filter((a) => a.usageType !== "featured");
+      }
+      return [attached, ...next.filter((a) => a.mediaId !== mediaId)];
+    });
+
+    if (usageType === "featured" || usageType === "inline") {
+      const planItem: StoryMediaPromotionItem = {
+        mediaId: found.id,
+        usageType,
+        privateBucket: found.storageBucket ?? "newsroom-private",
+        privateKey: found.storageKey ?? "",
+        filename: found.filename,
+        mimeType: found.mimeType,
+        byteSize: found.byteSize ?? 0,
+        checksum: found.checksum ?? null,
+        publicStorageBucket: found.status === "published" ? "newsroom-public" : null,
+        publicStorageKey: found.status === "published" ? found.storageKey : null,
+        publicUrl: found.publicUrl,
+        mediaStatus: found.status === "published" ? "public_staged" : "private_ready"
+      };
+      setPreviewPromotionPlan((prev) => {
+        let next = prev;
+        if (usageType === "featured") {
+          next = prev.filter((p) => p.usageType !== "featured");
+        }
+        return [planItem, ...next];
+      });
+    }
+
+    setExpectedVersion((v) => v + 1);
+    setStatusMessage(`Attached existing asset ${found.filename} (simulated v${expectedVersion + 1}).`);
+  };
+
+  const handlePreviewDetach = async (
+    mediaId: string,
+    usageType: StoryMediaUsageType
+  ) => {
+    setPreviewAttachments((prev) => prev.filter((a) => a.mediaId !== mediaId || a.usageType !== usageType));
+    setPreviewPromotionPlan((prev) => prev.filter((p) => p.mediaId !== mediaId));
+    setExpectedVersion((v) => v + 1);
+    setStatusMessage(`Detached media asset (simulated v${expectedVersion + 1}).`);
+  };
+
+  const handlePreviewStagePromotion = async (item: StoryMediaPromotionItem) => {
+    const stagedKey = `story-media/${selectedStoryId}/${item.mediaId}/${item.checksum || "checksum"}/${item.filename}`;
+    setPreviewPromotionPlan((prev) =>
+      prev.map((p) =>
+        p.mediaId === item.mediaId
+          ? {
+              ...p,
+              mediaStatus: "public_staged",
+              publicStorageBucket: "newsroom-public",
+              publicStorageKey: stagedKey,
+              publicUrl: `https://preview-media.local/storage/v1/object/public/newsroom-public/${stagedKey}`
+            }
+          : p
+      )
+    );
+    setPreviewAttachments((prev) =>
+      prev.map((a) =>
+        a.mediaId === item.mediaId
+          ? { ...a, status: "public_staged", storageBucket: "newsroom-public" }
+          : a
+      )
+    );
+    setStatusMessage(`Promoted and staged ${item.filename} in newsroom-public (PUBLIC STAGED).`);
+  };
+
+  const handlePreviewClearStaged = async (item: StoryMediaPromotionItem) => {
+    setPreviewPromotionPlan((prev) =>
+      prev.map((p) =>
+        p.mediaId === item.mediaId
+          ? {
+              ...p,
+              mediaStatus: "private_ready",
+              publicStorageBucket: null,
+              publicStorageKey: null,
+              publicUrl: null
+            }
+          : p
+      )
+    );
+    setPreviewAttachments((prev) =>
+      prev.map((a) =>
+        a.mediaId === item.mediaId
+          ? { ...a, status: "private_ready", storageBucket: "newsroom-private" }
+          : a
+      )
+    );
+    setStatusMessage(`Reverted staged promotion for ${item.filename} to private_ready.`);
+  };
+
+  const mediaSlot = (
+    <StudioStoryMediaPanelView
+      storyId={selectedStoryId}
+      storyTitle={title}
+      storyWorkflowStatus={currentStory.workflowStatus ?? "Draft"}
+      storyAccessPolicy={accessPolicy as "public" | "premium"}
+      featuredMedia={previewAttachments.find((a) => a.usageType === "featured") ?? null}
+      inlineMedia={previewAttachments.filter((a) => a.usageType === "inline")}
+      supportingDocuments={previewAttachments.filter((a) => a.usageType === "supporting_document")}
+      promotionPlan={previewPromotionPlan}
+      loadingPlan={false}
+      canManageMedia={true}
+      canEditStory={true}
+      canPublish={true}
+      isReadOnly={false}
+      existingAssets={buildPreviewMediaAssets()}
+      onPickFile={async (): Promise<StoryMediaSelectedFile> => {
+        const sampleBytes = new Uint8Array(128);
+        sampleBytes[0] = 0xff;
+        sampleBytes[1] = 0xd8;
+        sampleBytes[2] = 0xff;
+        return {
+          filename: "clinic-immunization-review.jpg",
+          mimeType: "image/jpeg",
+          byteSize: 128,
+          bytes: sampleBytes
+        };
+      }}
+      onUploadMedia={handlePreviewUpload}
+      onAttachExisting={handlePreviewAttachExisting}
+      onDetachMedia={handlePreviewDetach}
+      onStagePromotion={handlePreviewStagePromotion}
+      onClearStagedPromotion={handlePreviewClearStaged}
+      onOpenInMediaLibrary={(mediaId) => router.push(`/owner-preview/studio/media` as never)}
+    />
+  );
+
   const topControlsSlot = (
     <View style={previewStyles.previewControlsCard} testID="owner-preview-story-controls">
       <View style={previewStyles.previewNoticeBox}>
         <Text style={previewStyles.previewNoticeTitle}>PREVIEW STATE ONLY — NOT SAVED TO SERVER</Text>
         <Text style={previewStyles.previewNoticeBody}>
           Shared presentation component `StudioStoryWorkspaceView` is rendered with non-persistent sample data.
-          All 6 tabs, workflow transitions, review records, and revision restores are interactive locally.
+          All 7 tabs, workflow transitions, review records, media attachments, and revision restores are interactive locally.
         </Text>
       </View>
 
@@ -487,6 +796,7 @@ export function OwnerPreviewStoryWorkspace({
       onBackToStories={() => router.push("/owner-preview/studio/stories" as never)}
       topControlsSlot={topControlsSlot}
       discussionSlot={discussionSlot}
+      mediaSlot={mediaSlot}
     />
   );
 }
