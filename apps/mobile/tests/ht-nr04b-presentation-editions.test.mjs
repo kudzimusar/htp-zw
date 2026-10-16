@@ -692,3 +692,117 @@ test("HT-NR-04B: Owner Preview Homepage simulates edition distribution updates a
     "OwnerPreviewHomepageView must pass deliveryConnected={true} to StudioHomepageView"
   );
 });
+
+
+// ---------------------------------------------------------------------------
+// 11. HT-NR-04B-R1 PUBLIC PRESENTATION SAFETY CLOSURE
+// ---------------------------------------------------------------------------
+test("HT-NR-04B-R1: Reader Edition presentation resolution never invents an unknown slug", () => {
+  const readerHomeContent = read("app/(reader)/index.tsx");
+
+  assert.match(
+    readerHomeContent,
+    /const zones = taxonomy\.data\?\.geographicZones \?\? \[\];/,
+    "Edition presentation resolution must use canonical taxonomy zones"
+  );
+  assert.match(
+    readerHomeContent,
+    /return match\?\.slug \?\? null;/,
+    "Unknown or unavailable taxonomy Edition must fall back to Global/null"
+  );
+  assert.equal(
+    readerHomeContent.includes('edition.toLowerCase().replace(/\\s+/g, "-")'),
+    false,
+    "Reader must not invent an Edition slug from preference display text"
+  );
+  assert.equal(
+    readerHomeContent.includes("validateEditionSlug(sanitized)"),
+    false,
+    "Reader must not validate and accept a guessed slug"
+  );
+});
+
+test("HT-NR-04B-R1: corrective RPC is non-throwing for malformed placement booleans and preserves the 19-column contract", () => {
+  const originalPath = path.join(
+    root,
+    "../../supabase/migrations/20261016140000_ht_nr04b_public_homepage_presentations.sql"
+  );
+  const r1Path = path.join(
+    root,
+    "../../supabase/migrations/20261016150000_ht_nr04b_r1_public_presentation_safety.sql"
+  );
+  assert.ok(fs.existsSync(originalPath), "Original HT-NR-04B migration must remain in lineage");
+  assert.ok(fs.existsSync(r1Path), "HT-NR-04B-R1 corrective migration must exist");
+
+  const sql = fs.readFileSync(r1Path, "utf8");
+  assert.equal(
+    sql.includes("::boolean"),
+    false,
+    "Corrective public presentation RPC must not cast JSON text directly to boolean"
+  );
+  assert.match(
+    sql,
+    /lower\(coalesce\(s\.distribution->'homepage'->>'active',\s*''\)\)\s*=\s*'true'/,
+    "Global placement active flag must use non-throwing truth evaluation"
+  );
+  assert.match(
+    sql,
+    /lower\(coalesce\(s\.distribution->'homepage_editions'->v_edition->>'active',\s*''\)\)\s*=\s*'true'/,
+    "Edition placement active flag must use non-throwing truth evaluation"
+  );
+  assert.match(
+    sql,
+    /lower\(coalesce\(s\.distribution->>'public_reader',\s*''\)\)\s*=\s*'true'/,
+    "Native Reader eligibility must also avoid unsafe JSON boolean casts"
+  );
+
+  const match = sql.match(/returns table\s*\(([\s\S]*?)\)\s*language plpgsql/i);
+  assert.ok(match, "Corrective RPC must retain an explicit returns table contract");
+  const columns = match[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/,$/, "").split(/\s+/)[0]);
+  assert.equal(columns.length, 19, "Public presentation contract must remain exactly 19 columns");
+  assert.deepEqual(columns, [
+    "story_id", "slug", "title", "standfirst", "excerpt", "access_policy",
+    "published_at", "modified_at", "canonical_url", "author_name", "author_slug",
+    "section_name", "section_slug", "hero_public_url", "hero_alt_text",
+    "hero_caption", "hero_credit", "global_placement", "edition_placement"
+  ]);
+});
+
+test("HT-NR-04B-R1: native presentation media is public-only while legacy source fallback remains", () => {
+  const r1Path = path.join(
+    root,
+    "../../supabase/migrations/20261016150000_ht_nr04b_r1_public_presentation_safety.sql"
+  );
+  const sql = fs.readFileSync(r1Path, "utf8");
+
+  assert.match(
+    sql,
+    /when s\.legacy_source_id is not null then coalesce\(ma\.public_url,\s*ma\.source_url\)\s*else ma\.public_url\s*end as hero_public_url/i,
+    "Legacy stories may retain public_url -> source_url media fallback"
+  );
+  assert.match(sql, /lower\(coalesce\(ma\.status,\s*''\)\)\s*=\s*'published'/i);
+  assert.match(sql, /ma\.public_storage_bucket\s*=\s*'newsroom-public'/i);
+  assert.match(sql, /ma\.public_storage_key is not null/i);
+  assert.match(sql, /ma\.public_url is not null/i);
+  assert.match(
+    sql,
+    /s\.legacy_source_id is not null\s*or\s*\(\s*lower\(coalesce\(ma\.status,\s*''\)\)\s*=\s*'published'/i,
+    "Strict public-media publication gate must apply to native stories only"
+  );
+});
+
+test("HT-NR-04B-R1: repository migration authority is exactly 64", () => {
+  const migrationsDir = path.resolve(root, "../../supabase/migrations");
+  const migrationFiles = fs.readdirSync(migrationsDir);
+  assert.equal(migrationFiles.length, 64);
+  assert.ok(
+    migrationFiles.includes("20261016140000_ht_nr04b_public_homepage_presentations.sql")
+  );
+  assert.ok(
+    migrationFiles.includes("20261016150000_ht_nr04b_r1_public_presentation_safety.sql")
+  );
+});

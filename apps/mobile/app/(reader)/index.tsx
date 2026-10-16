@@ -182,9 +182,7 @@ export default function HomeScreen() {
     const match = zones.find(
       (z) => z.name.toLowerCase() === edition.toLowerCase() || z.slug.toLowerCase() === edition.toLowerCase()
     );
-    if (match) return match.slug;
-    const sanitized = edition.toLowerCase().replace(/\s+/g, "-");
-    return validateEditionSlug(sanitized) ? sanitized : null;
+    return match?.slug ?? null;
   })();
 
   const presentationState = useAsync(async () => {
