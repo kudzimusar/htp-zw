@@ -104,7 +104,8 @@ export function parseCanonicalTimestamp(
 
 /**
  * Conservative terminal-state check for story deadlines:
- * Published or archived stories are not active overdue editorial deadlines.
+ * Published (including raw migrated `status = "publish"`) or archived stories
+ * are not active overdue editorial deadlines.
  */
 export function isStoryTerminalState(
   story: Pick<NewsroomStory, "status" | "workflowStatus">
@@ -112,6 +113,7 @@ export function isStoryTerminalState(
   const statusLower = (story.status || "").trim().toLowerCase();
   const wfLower = (story.workflowStatus || "").trim().toLowerCase();
   return (
+    statusLower === "publish" ||
     statusLower === "published" ||
     statusLower === "archived" ||
     wfLower === "published" ||

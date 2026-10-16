@@ -472,6 +472,89 @@ test("HT-NR-03B: Story and assignment projections derive stable IDs, omit publis
   assert.equal(scheduledOnly.length, 2);
 });
 
+test("HT-NR-03B-R1: Canonical migrated status='publish' normalization prevents false overdue deadlines and summary inflation", () => {
+  // 1. Raw migrated published state (5786 live rows: status="publish", workflowStatus=null)
+  assert.equal(
+    isStoryTerminalState({ status: "publish", workflowStatus: null }),
+    true
+  );
+
+  // 2. Normalized workflow state (3 live rows: status="publish", workflowStatus="Published")
+  assert.equal(
+    isStoryTerminalState({ status: "publish", workflowStatus: "Published" }),
+    true
+  );
+
+  // 3. Published alias
+  assert.equal(
+    isStoryTerminalState({ status: "published", workflowStatus: null }),
+    true
+  );
+
+  // 4. Archived states
+  assert.equal(
+    isStoryTerminalState({ status: "archived", workflowStatus: null }),
+    true
+  );
+  assert.equal(
+    isStoryTerminalState({ status: "draft", workflowStatus: "Archived" }),
+    true
+  );
+
+  // 5. Non-terminal active editorial states
+  assert.equal(
+    isStoryTerminalState({ status: "draft", workflowStatus: "Submitted" }),
+    false
+  );
+  assert.equal(
+    isStoryTerminalState({ status: "draft", workflowStatus: null }),
+    false
+  );
+  assert.equal(
+    isStoryTerminalState({ status: "scheduled", workflowStatus: "Ready" }),
+    false
+  );
+
+  // 6. Overdue & Summary protection for status="publish", workflowStatus=null with past deadlineAt and scheduledAt
+  const nowMs = new Date(2026, 9, 16, 12, 0, 0).getTime();
+  const migratedPublishedWithDates = [
+    {
+      id: "66666666-6666-4666-8666-666666666666",
+      title: "Migrated Published Story With Historical Deadline",
+      status: "publish",
+      workflowStatus: null,
+      accessPolicy: "public",
+      desk: "Public Health",
+      publishedAt: new Date(2026, 9, 10, 12, 0, 0).toISOString(),
+      deadlineAt: new Date(2026, 9, 9, 17, 0, 0).toISOString(),
+      scheduledAt: new Date(2026, 9, 10, 11, 0, 0).toISOString()
+    }
+  ];
+
+  const derived = deriveEditorialCalendarItems(migratedPublishedWithDates, [], nowMs);
+  assert.equal(derived.length, 2);
+
+  const deadlineProjection = derived.find((i) => i.eventKind === "story_deadline");
+  assert.ok(deadlineProjection);
+  assert.equal(deadlineProjection.isTerminal, true);
+  assert.equal(deadlineProjection.isOverdue, false);
+  assert.equal(deadlineProjection.urgency, "completed");
+  assert.equal(deadlineProjection.horizonBucket, "past");
+
+  const scheduledProjection = derived.find((i) => i.eventKind === "scheduled_publication");
+  assert.ok(scheduledProjection);
+  assert.equal(scheduledProjection.isTerminal, true);
+  assert.equal(scheduledProjection.isOverdue, false);
+  assert.equal(scheduledProjection.urgency, "past_scheduled");
+
+  const summary = computeCalendarSummaryMetrics(derived, nowMs);
+  assert.equal(
+    summary.overdueDeadlinesCount,
+    0,
+    "Past deadline on a status='publish' story must never increment overdueDeadlinesCount"
+  );
+});
+
 test("HT-NR-03B: Empty state, partial/full source error states, and deep handoffs behave truthfully", async () => {
   const pushedRoutes = [];
   const managerSnapshot = {
