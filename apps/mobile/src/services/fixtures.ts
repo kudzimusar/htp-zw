@@ -178,7 +178,100 @@ const analyticsService: AnalyticsService = {
   }
 };
 
-const liveService: LiveService = { async list() { return liveItems; } };
+const fixtureCanonicalLiveItems = [
+  {
+    id: "d1000000-0000-4000-b000-000000000001",
+    title: "National Cholera & Waterborne Disease Emergency Briefing",
+    summary: "Real-time epidemiological updates, rapid response deployments, and municipal water testing bulletins from the Ministry of Health and Child Care.",
+    kind: "live-blog" as const,
+    status: "live" as const,
+    updatedAt: "2026-10-17T10:42:00.000Z",
+    updateCount: 3,
+    media: liveItems[0]?.media ?? null
+  },
+  {
+    id: "d1000000-0000-4000-b000-000000000005",
+    title: "Provincial Maternal Health Infrastructure Roundtable",
+    summary: "Live coverage of provincial hospital maternity wing upgrades and rural clinic referral transport discussions.",
+    kind: "live-blog" as const,
+    status: "live" as const,
+    updatedAt: "2026-10-17T09:15:00.000Z",
+    updateCount: 0,
+    media: null
+  },
+  {
+    id: "d1000000-0000-4000-b000-000000000002",
+    title: "Parliamentary Portfolio Committee on Health Budget Hearing",
+    summary: "Scheduled live blog covering health sector allocations and NatPharm supply chain testimony.",
+    kind: "live-blog" as const,
+    status: "upcoming" as const,
+    updatedAt: "2026-10-17T08:00:00.000Z",
+    updateCount: 0,
+    media: null
+  },
+  {
+    id: "d1000000-0000-4000-b000-000000000003",
+    title: "Southern Africa Antimicrobial Resistance Symposium",
+    summary: "Scheduled regional briefing on hospital stewardship and laboratory surveillance.",
+    kind: "scheduled" as const,
+    status: "upcoming" as const,
+    updatedAt: "2026-10-17T07:30:00.000Z",
+    media: liveItems[1]?.media ?? null
+  },
+  ...liveItems
+];
+
+const liveService: LiveService = {
+  async list() {
+    return fixtureCanonicalLiveItems;
+  },
+  async listUpdates(coverageId, options) {
+    if (coverageId === "d1000000-0000-4000-b000-000000000001" || coverageId === "fixture-live-001") {
+      const allUpdates = [
+        {
+          streamSeq: 3,
+          id: "e1000000-0000-4000-b000-000000000003",
+          coverageId,
+          headline: "NatPharm dispatches 40 tonnes of oral rehydration salts to provincial depots",
+          body: "Emergency logistics teams have completed loading at the Harare central warehouse. Consignments of intravenous fluids, chlorine tablets, and rapid diagnostic kits are en route to Manicaland and Mashonaland Central.",
+          publishedAt: "2026-10-17T10:42:00.000Z",
+          media: liveItems[0]?.media
+            ? {
+                ...liveItems[0].media,
+                caption: "Field epidemiology teams coordinating emergency supply dispatch in Harare.",
+                credit: "HealthTimes Newsroom"
+              }
+            : null
+        },
+        {
+          streamSeq: 2,
+          id: "e1000000-0000-4000-b000-000000000002",
+          coverageId,
+          headline: "Municipal water quality monitoring expanded across 14 high-density suburbs",
+          body: "Environmental health technicians have established 28 additional borehole and tap-water sampling points, with laboratory turnaround times shortened to under six hours.",
+          publishedAt: "2026-10-17T10:15:00.000Z",
+          media: null
+        },
+        {
+          streamSeq: 1,
+          id: "e1000000-0000-4000-b000-000000000001",
+          coverageId,
+          headline: null,
+          body: "The Ministry of Health and Child Care has opened the morning situation briefing, confirming that rapid response teams are operational in all eight rural provinces.",
+          publishedAt: "2026-10-17T09:50:00.000Z",
+          media: null
+        }
+      ];
+      if (options?.afterSeq !== undefined && options?.afterSeq !== null) {
+        return allUpdates
+          .filter((u) => u.streamSeq > options.afterSeq!)
+          .sort((a, b) => a.streamSeq - b.streamSeq);
+      }
+      return allUpdates;
+    }
+    return [];
+  }
+};
 const videoService: VideoService = { async list() { return videos; } };
 const audioService: AudioService = { async list() { return audioItems; } };
 
@@ -415,6 +508,12 @@ const fixtureNewsroomLiveCoverageService: NewsroomLiveCoverageService = {
     throw new Error(FAIL_CLOSED_LIVE_MESSAGE);
   },
   async endCoverage() {
+    throw new Error(FAIL_CLOSED_LIVE_MESSAGE);
+  },
+  async listUpdates() {
+    return [];
+  },
+  async postUpdate() {
     throw new Error(FAIL_CLOSED_LIVE_MESSAGE);
   }
 };

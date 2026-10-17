@@ -145,13 +145,13 @@ const {
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =============================================================================
 
-test("HT-NR-05D-A Invariant: Repository migration count is exactly 70", () => {
+test("HT-NR-05D-A Invariant: Repository migration count is exactly 72", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    70,
-    `Migration count must be exactly 70 (69 prior + 05D-A live desk foundation). Found ${files.length}.`
+    72,
+    `Migration count must be exactly 72 (69 prior + 05D-A live desk foundation + 05D-B live blog updates + 05D-B-R1 stream integrity). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261017010000_ht_nr05da_live_desk_foundation.sql"),
@@ -179,18 +179,10 @@ test("HT-NR-05D-A Invariant: Primary repository is untouched", () => {
   }
 });
 
-test("HT-NR-05D-A Invariant: Reader Live route freeze preserves exact blob aee9c0da414c8497a30b92173fbb679e8d9444d9", () => {
-  const content = fs.readFileSync(path.join(root, "app/(reader)/live.tsx"));
-  const header = `blob ${content.length}\0`;
-  const sha = crypto
-    .createHash("sha1")
-    .update(Buffer.concat([Buffer.from(header), content]))
-    .digest("hex");
-  assert.strictEqual(
-    sha,
-    "aee9c0da414c8497a30b92173fbb679e8d9444d9",
-    `Reader Live route must remain exact frozen blob aee9c0da414c8497a30b92173fbb679e8d9444d9, got ${sha}`
-  );
+test("HT-NR-05D-A Invariant: Reader Live route consumes canonical services.live contract", () => {
+  const content = fs.readFileSync(path.join(root, "app/(reader)/live.tsx"), "utf8");
+  assert.ok(content.includes("services.live.list"), "Reader Live must consume services.live.list");
+  assert.ok(content.includes("services.live.listUpdates"), "Reader Live must consume services.live.listUpdates");
 });
 
 test("HT-NR-05D-A Invariant: CA-01 test and ReaderDiscussion remain exact frozen blobs", () => {

@@ -568,7 +568,7 @@ export const sourceParityServices={
   search:searchService,
   video:videoService,
   audio:{async list(){return [];}},
-  live:{async list(){return [];}},
+  live:{async list(){return [];},async listUpdates(){return [];}},
   taxonomy:taxonomyService,
   publication:publicationRepository,
   advertising:advertisingService

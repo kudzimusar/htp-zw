@@ -2,12 +2,15 @@ import type { NewsroomLiveCoverageService } from "../domain/contracts";
 import {
   validateLiveCoverageCreateInput,
   validateLiveCoveragePatch,
+  validateLiveUpdateCreateInput,
   type NewsroomLiveCoverage,
   type NewsroomLiveCoverageCreateInput,
   type NewsroomLiveCoverageKind,
   type NewsroomLiveCoverageListOptions,
   type NewsroomLiveCoveragePatch,
-  type NewsroomLiveCoverageStatus
+  type NewsroomLiveCoverageStatus,
+  type NewsroomLiveUpdate,
+  type NewsroomLiveUpdateCreateInput
 } from "../domain/models";
 import { getStagingSupabaseClient } from "../platform/supabase";
 
@@ -15,6 +18,54 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 export function isValidUuid(id: unknown): boolean {
   return typeof id === "string" && UUID_REGEX.test(id.trim());
+}
+
+export function mapNewsroomLiveUpdateRow(row: any): NewsroomLiveUpdate | null {
+  if (!row || typeof row !== "object") return null;
+
+  if (!isValidUuid(row.id)) return null;
+  if (!isValidUuid(row.coverage_id)) return null;
+
+  let headline: string | null = null;
+  if (row.headline !== null && row.headline !== undefined) {
+    if (typeof row.headline !== "string") return null;
+    const trimmedHeadline = row.headline.trim();
+    if (trimmedHeadline.length > 200) return null;
+    headline = trimmedHeadline.length > 0 ? trimmedHeadline : null;
+  }
+
+  if (typeof row.body !== "string") return null;
+  const trimmedBody = row.body.trim();
+  if (trimmedBody.length === 0 || trimmedBody.length > 10000) return null;
+
+  let mediaId: string | null = null;
+  if (row.media_id !== null && row.media_id !== undefined) {
+    if (!isValidUuid(row.media_id)) return null;
+    mediaId = String(row.media_id).trim();
+  }
+
+  if (!row.published_at || typeof row.published_at !== "string") return null;
+  const pa = new Date(row.published_at);
+  if (isNaN(pa.getTime())) return null;
+
+  const createdBy = row.author_staff_id ?? row.created_by ?? row.created_by_staff_id;
+  if (!isValidUuid(createdBy)) return null;
+
+  if (!row.created_at || typeof row.created_at !== "string") return null;
+  const ca = new Date(row.created_at);
+  if (isNaN(ca.getTime())) return null;
+
+  return {
+    id: String(row.id).trim(),
+    coverageId: String(row.coverage_id).trim(),
+    headline,
+    body: trimmedBody,
+    mediaId,
+    publishedAt: row.published_at,
+    authorStaffId: String(createdBy).trim(),
+    createdByStaffId: String(createdBy).trim(),
+    createdAt: row.created_at
+  };
 }
 
 export function mapNewsroomLiveCoverageRow(row: any): NewsroomLiveCoverage | null {
@@ -298,9 +349,77 @@ export function createNewsroomLiveCoverageService(
         throw new Error("Invalid response from live coverage end: expected numeric lock version strictly greater than expected version.");
       }
       return nextVersion;
+    },
+
+    async listUpdates(coverageId: string, limit = 100): Promise<NewsroomLiveUpdate[]> {
+      if (!coverageId || typeof coverageId !== "string" || !isValidUuid(coverageId)) {
+        throw new Error("Valid canonical coverage ID is required to list live updates.");
+      }
+      const boundedLimit =
+        typeof limit === "number" && Number.isInteger(limit)
+          ? Math.max(1, Math.min(limit, 250))
+          : 100;
+
+      const rawRows = await callRpc<any[]>("newsroom_list_live_updates", {
+        p_coverage_id: coverageId.trim(),
+        p_limit: boundedLimit
+      });
+
+      if (!Array.isArray(rawRows)) {
+        throw new Error("Invalid response from live updates list: expected array of update rows.");
+      }
+      if (rawRows.length === 0) {
+        return [];
+      }
+
+      const mapped: NewsroomLiveUpdate[] = [];
+      for (const r of rawRows) {
+        const u = mapNewsroomLiveUpdateRow(r);
+        if (u) mapped.push(u);
+      }
+
+      if (mapped.length === 0) {
+        throw new Error(
+          "Invalid response from live updates list: non-empty payload contained no valid update rows."
+        );
+      }
+
+      return mapped;
+    },
+
+    async postUpdate(
+      coverageId: string,
+      input: NewsroomLiveUpdateCreateInput
+    ): Promise<string> {
+      if (!coverageId || typeof coverageId !== "string" || !isValidUuid(coverageId)) {
+        throw new Error("Valid canonical coverage ID is required to post a live update.");
+      }
+
+      const check = validateLiveUpdateCreateInput(input);
+      if (!check.valid) {
+        throw new Error(check.error || "Invalid live update payload.");
+      }
+
+      const payload = {
+        headline: input.headline?.trim() || null,
+        body: input.body.trim(),
+        media_id: input.mediaId?.trim() || null
+      };
+
+      const newId = await callRpc<string>("newsroom_post_live_update", {
+        p_coverage_id: coverageId.trim(),
+        p_input: payload
+      });
+
+      if (!newId || typeof newId !== "string" || !isValidUuid(newId)) {
+        throw new Error("Invalid response from live update post: expected canonical UUID.");
+      }
+
+      return String(newId).trim();
     }
   };
 }
 
 export const stagingNewsroomLiveCoverageService: NewsroomLiveCoverageService =
   createNewsroomLiveCoverageService();
+

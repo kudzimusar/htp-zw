@@ -12,6 +12,7 @@ import type {
   NewsroomStoryRevision,
   NewsroomVideo,
   NewsroomLiveCoverage,
+  NewsroomLiveUpdate,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -1305,5 +1306,61 @@ export function buildPreviewLiveCoverage(): NewsroomLiveCoverage[] {
     }
   ];
 }
+
+export function buildPreviewLiveUpdates(): NewsroomLiveUpdate[] {
+  return [
+    {
+      id: "e1000000-0000-4000-b000-000000000003",
+      coverageId: "d1000000-0000-4000-b000-000000000001",
+      headline: "Ministerial panel confirms provincial cold-chain buffer expansion",
+      body: "PREVIEW SAMPLE DISPATCH: Provincial health directors confirmed 98.4% uptime across solar-backed cold storage depots and announced an expanded Q4 essential medicines buffer.",
+      mediaId: "00000000-0000-4000-8000-000000007001",
+      publishedAt: "2026-10-16T09:10:00.000Z",
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-16T09:10:00.000Z"
+    },
+    {
+      id: "e1000000-0000-4000-b000-000000000002",
+      coverageId: "d1000000-0000-4000-b000-000000000001",
+      headline: "Primary care financing framework tabled before delegates",
+      body: "PREVIEW SAMPLE DISPATCH: Treasury and Ministry of Health technical teams presented the revised district primary care grant allocation formula for rural clinics.",
+      mediaId: null,
+      publishedAt: "2026-10-16T08:45:00.000Z",
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-16T08:45:00.000Z"
+    },
+    {
+      id: "e1000000-0000-4000-b000-000000000001",
+      coverageId: "d1000000-0000-4000-b000-000000000001",
+      headline: "Summit plenary session opens in Harare",
+      body: "PREVIEW SAMPLE DISPATCH: Delegates from all ten provinces have convened for the opening keynote of the National Health Summit 2026.",
+      mediaId: null,
+      publishedAt: "2026-10-16T08:20:00.000Z",
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-16T08:20:00.000Z"
+    },
+    {
+      id: "e1000000-0000-4000-b000-000000000005",
+      coverageId: "d1000000-0000-4000-b000-000000000004",
+      headline: "Committee concludes public hearings and adjourns",
+      body: "PREVIEW SAMPLE DISPATCH: The Parliamentary Portfolio Committee on Health concluded oral evidence sessions and locked the hearing transcript for legislative review.",
+      mediaId: null,
+      publishedAt: "2026-10-15T16:50:00.000Z",
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-15T16:50:00.000Z"
+    },
+    {
+      id: "e1000000-0000-4000-b000-000000000004",
+      coverageId: "d1000000-0000-4000-b000-000000000004",
+      headline: "Provincial medical directors testify on referral hospital staffing",
+      body: "PREVIEW SAMPLE DISPATCH: Provincial delegations submitted staffing and biomedical equipment maintenance schedules to the committee.",
+      mediaId: null,
+      publishedAt: "2026-10-15T11:30:00.000Z",
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-15T11:30:00.000Z"
+    }
+  ];
+}
+
 
 

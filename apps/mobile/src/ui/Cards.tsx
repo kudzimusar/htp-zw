@@ -152,20 +152,54 @@ export function StoryList({ stories }: { stories: ArticleSummary[] }) {
   );
 }
 
-export function LiveRail({ items }: { items: LiveItem[] }) {
+export function formatLiveUpdateCountLabel(item: LiveItem): string | null {
+  if (item.kind !== "live-blog" || typeof item.updateCount !== "number") return null;
+  return item.updateCount === 1 ? "1 update" : item.updateCount + " updates";
+}
+
+export function LiveRail({ items, onSelectItem }: { items: LiveItem[]; onSelectItem?: (item: LiveItem) => void }) {
+  const router=useRouter();
   const { palette }=useAppearance();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-      {items.map((item) => (
-        <View style={[styles.liveCard,{borderColor:palette.border,backgroundColor:palette.paper}]} key={item.id}>
-          {item.media?.publicUrl ? <Image source={{ uri:item.media.publicUrl }} style={styles.liveImage} accessibilityLabel={item.media.altText ?? item.title} /> : null}
-          <View style={styles.liveBody}>
-            <Text style={[styles.liveBadge,{backgroundColor:palette.live}]}>{item.status === "live" ? "LIVE" : "UPCOMING"}</Text>
-            <Text style={[styles.liveTitle,{color:palette.ink}]}>{item.title}</Text>
-            <Text style={[styles.meta,{color:palette.inkMuted}]}>{item.updateCount ? item.updateCount + " updates" : "HealthTimes Live"}</Text>
+      {items.map((item) => {
+        const isLiveBlog=item.kind === "live-blog";
+        const updateLabel=formatLiveUpdateCountLabel(item);
+        const cardBody=(
+          <>
+            {item.media?.publicUrl ? <Image source={{ uri:item.media.publicUrl }} style={styles.liveImage} accessibilityLabel={item.media.altText ?? item.title} /> : null}
+            <View style={styles.liveBody}>
+              <Text style={[styles.liveBadge,{backgroundColor:item.status === "live" ? palette.live : palette.inkMuted}]}>{item.status === "live" ? "LIVE" : "UPCOMING"}</Text>
+              <Text style={[styles.liveTitle,{color:palette.ink}]}>{item.title}</Text>
+              <Text style={[styles.meta,{color:palette.inkMuted}]}>{updateLabel ?? "HealthTimes Live"}</Text>
+            </View>
+          </>
+        );
+        if (isLiveBlog) {
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole="link"
+              accessibilityLabel={"Open live blog: " + item.title}
+              style={[styles.liveCard,{borderColor:palette.border,backgroundColor:palette.paper}]}
+              onPress={() => {
+                if (onSelectItem) {
+                  onSelectItem(item);
+                } else {
+                  router.push(("/live?id=" + encodeURIComponent(item.id)) as never);
+                }
+              }}
+            >
+              {cardBody}
+            </Pressable>
+          );
+        }
+        return (
+          <View style={[styles.liveCard,{borderColor:palette.border,backgroundColor:palette.paper}]} key={item.id}>
+            {cardBody}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </ScrollView>
   );
 }
