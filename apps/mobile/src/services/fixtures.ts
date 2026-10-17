@@ -16,6 +16,7 @@ import type {
   NewsroomVideoService,
   NewsroomLiveCoverageService,
   NewsroomSocialService,
+  NewsroomCampaignService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -543,6 +544,27 @@ const fixtureNewsroomSocialService: NewsroomSocialService = {
   }
 };
 
+const FAIL_CLOSED_CAMPAIGN_MESSAGE =
+  "Newsroom newsletter campaign desk mutations are disabled in fixture mode. Staging or production server connection required.";
+
+const fixtureNewsroomCampaignService: NewsroomCampaignService = {
+  async listCampaigns() {
+    return [];
+  },
+  async listSegments() {
+    return [];
+  },
+  async createCampaign() {
+    throw new Error(FAIL_CLOSED_CAMPAIGN_MESSAGE);
+  },
+  async approveCampaign() {
+    throw new Error(FAIL_CLOSED_CAMPAIGN_MESSAGE);
+  },
+  async prepareSend() {
+    throw new Error(FAIL_CLOSED_CAMPAIGN_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -572,6 +594,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomVideo: fixtureNewsroomVideoService,
   newsroomLive: fixtureNewsroomLiveCoverageService,
   newsroomSocial: fixtureNewsroomSocialService,
+  newsroomCampaigns: fixtureNewsroomCampaignService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

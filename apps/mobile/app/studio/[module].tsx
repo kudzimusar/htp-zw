@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View, StyleSheet } from "react-native";
 import { StudioAccessGate, StudioAnyCapabilityGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
-import { SOCIAL_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
+import { NEWSLETTER_DESK_CAPABILITIES, SOCIAL_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { StudioInboxPanel } from "../../src/ui/StudioInbox";
 import {
@@ -24,10 +24,11 @@ import { StudioMediaLibrary } from "../../src/ui/StudioMediaLibrary";
 import { StudioVideoDesk } from "../../src/ui/StudioVideoDesk";
 import { StudioLiveDesk } from "../../src/ui/StudioLiveDesk";
 import { StudioSocialDesk } from "../../src/ui/StudioSocialDesk";
+import { StudioNewsletterDesk } from "../../src/ui/StudioNewsletterDesk";
 
 export function generateStaticParams() {
   return [
-    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "homepage", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social",
+    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "homepage", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social", "newsletters",
     "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
   ].map((module) => ({ module }));
 }
@@ -60,6 +61,7 @@ const owners:Record<string,ModuleConfig>={
   "advertising":{title:"Advertising Manager",owner:"AG-05 + AG-06",capability:"ads.view",description:"Campaigns, creatives, placements and approval capabilities stay separate from editorial authority.",readiness:["Reader placements declared","Native provider IDs not certified","Campaign authority pending AG-06"]},
   "premium":{title:"Premium",owner:"AG-05 + AG-06",capability:"premium.manage",description:"Commercial configuration and subscriber entitlements are server enforced; no client-side authority.",readiness:["Store UI fail-closed","Verified native products pending AG-05","Entitlement authority pending AG-06"]},
   "social":{title:"Social Desk",owner:"HT-NR-06A",capability:null,anyOfCapabilities:SOCIAL_DESK_CAPABILITIES,description:"Story-linked social draft composition, editorial approval, and provider publication handoff backed by canonical social_accounts, social_posts, and social_publication_attempts.",readiness:["Canonical social_accounts, social_posts, and social_publication_attempts authority","Scoped social.compose, social.approve, social.publish, and social.manage_accounts enforcement","Distinct editorial approval vs publication preparation handoff","Service-role provider completion remains server-only","Zero fabricated provider accounts in operational runtime"]},
+  "newsletters":{title:"Newsletter Desk",owner:"HT-NR-06B",capability:null,anyOfCapabilities:NEWSLETTER_DESK_CAPABILITIES,description:"Newsletter and consented campaign composition, human approval, and Brevo send preparation handoff backed by canonical audience_campaigns and contact_segments.",readiness:["Canonical audience_campaigns and contact_segments authority","Scoped marketing.create, marketing.approve, marketing.send, and marketing.analytics enforcement","Distinct human approval vs consented send preparation handoff","Aggregate eligibility summary only; zero recipient email exposure","Service-role provider completion remains server-only"]},
   "audience":{title:"Audience",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Audience intelligence uses real first-party and GA4-derived aggregates only.",readiness:["No fabricated audience totals","Verified aggregates pending AG-05","Access policy pending AG-06"]},
   "search-growth":{title:"Search & Growth",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Search Console, SEO and growth evidence comes from verified external identities and ingestion.",readiness:["Search UI ready","Privacy-safe analytics taxonomy ready","External ingestion pending AG-05"]},
   "analytics":{title:"Analytics & Intelligence",owner:"AG-05 + AG-06",capability:"analytics.view",description:"KPI cards remain empty until AnalyticsService supplies verified metrics. No sample revenue is shown as truth.",readiness:["KPI component language ready","No sample metrics presented as truth","Analytics service pending AG-05"]},
@@ -81,7 +83,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -96,6 +98,7 @@ export default function StudioModule(){
       {String(module)==="video-desk" && <StudioVideoDesk />}
       {String(module)==="live-desk" && <StudioLiveDesk />}
       {String(module)==="social" && <StudioSocialDesk />}
+      {String(module)==="newsletters" && <StudioNewsletterDesk />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}

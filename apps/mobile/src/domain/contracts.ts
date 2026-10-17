@@ -74,7 +74,13 @@ import type {
   NewsroomSocialPostStatus,
   NewsroomSocialPublicationAttempt,
   NewsroomSocialPreparePublishResult,
-  NewsroomSocialDraftCreateInput
+  NewsroomSocialDraftCreateInput,
+  NewsroomCampaign,
+  NewsroomCampaignPurpose,
+  NewsroomCampaignStatus,
+  NewsroomContactSegment,
+  NewsroomCampaignCreateInput,
+  NewsroomCampaignPrepareSendResult
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -332,6 +338,18 @@ export interface NewsroomSocialService {
   preparePublish(socialPostId: string): Promise<NewsroomSocialPreparePublishResult>;
 }
 
+export interface NewsroomCampaignService {
+  listCampaigns(options?: {
+    status?: NewsroomCampaignStatus | null;
+    purpose?: NewsroomCampaignPurpose | null;
+    limit?: number;
+  }): Promise<NewsroomCampaign[]>;
+  listSegments(): Promise<NewsroomContactSegment[]>;
+  createCampaign(input: NewsroomCampaignCreateInput): Promise<string>;
+  approveCampaign(campaignId: string): Promise<void>;
+  prepareSend(campaignId: string): Promise<NewsroomCampaignPrepareSendResult>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -357,6 +375,7 @@ export interface HealthTimesServices {
   newsroomVideo: NewsroomVideoService;
   newsroomLive: NewsroomLiveCoverageService;
   newsroomSocial: NewsroomSocialService;
+  newsroomCampaigns: NewsroomCampaignService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;
