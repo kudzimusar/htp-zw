@@ -19,6 +19,8 @@ import type {
   NewsroomCampaign,
   NewsroomContactSegment,
   NewsroomCampaignPrepareSendResult,
+  NewsroomPushAlert,
+  NewsroomPushAlertPrepareResult,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -44,6 +46,7 @@ export type OwnerPreviewModuleKey =
   | "live-desk"
   | "social"
   | "newsletters"
+  | "push-alerts"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -1679,3 +1682,88 @@ export function buildPreviewCampaignPrepareSendResult(): NewsroomCampaignPrepare
     suppressedCount: 18
   };
 }
+
+export function buildPreviewPushAlerts(): NewsroomPushAlert[] {
+  return [
+    {
+      id: "d1000000-0000-4000-a000-000000000001",
+      title: "PREVIEW BREAKING: Harare City Health Issues Emergency Water Quality Advisory",
+      body: "Metropolitan health inspectorate directs immediate boil-water protocol across five high-density southern suburbs following rapid lab turbidity tests.",
+      category: "breaking",
+      status: "draft",
+      destination: "/stories/preview-harare-water-emergency",
+      relatedStoryId: null,
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      updatedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: null,
+      preparedBy: null,
+      approvedAt: null,
+      preparedAt: null,
+      createdAt: "2026-10-16T10:00:00.000Z",
+      updatedAt: "2026-10-16T10:00:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-a000-000000000002",
+      title: "PREVIEW LIVE: National Malaria Vector Control Press Briefing Underway",
+      body: "Director of Epidemiology is presenting district-level residual spraying coverage data live from the Ministry auditorium.",
+      category: "live",
+      status: "approved",
+      destination: "/live",
+      relatedStoryId: null,
+      createdBy: "e0000000-0000-4000-a000-000000000002",
+      updatedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      preparedBy: null,
+      approvedAt: "2026-10-16T09:30:00.000Z",
+      preparedAt: null,
+      createdAt: "2026-10-16T09:00:00.000Z",
+      updatedAt: "2026-10-16T09:30:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-a000-000000000003",
+      title: "PREVIEW: Maternal & Pediatric Cold-Chain Telemetry Expansion",
+      body: "Provincial health leadership has commissioned 24 solar-backed vaccine refrigeration monitors in Manicaland.",
+      category: "topic",
+      status: "prepared",
+      destination: "/topics/maternal-health",
+      relatedStoryId: null,
+      createdBy: "e0000000-0000-4000-a000-000000000003",
+      updatedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      preparedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedAt: "2026-10-15T14:00:00.000Z",
+      preparedAt: "2026-10-15T14:15:00.000Z",
+      createdAt: "2026-10-15T13:30:00.000Z",
+      updatedAt: "2026-10-15T14:15:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-a000-000000000004",
+      title: "PREVIEW: HealthTimes Reader App Maintenance Window Concluded",
+      body: "Real-time synchronization services and offline edition cache have resumed normal operations.",
+      category: "system",
+      status: "prepared",
+      destination: "/settings",
+      relatedStoryId: null,
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      updatedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      preparedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedAt: "2026-10-14T02:00:00.000Z",
+      preparedAt: "2026-10-14T02:05:00.000Z",
+      createdAt: "2026-10-14T01:50:00.000Z",
+      updatedAt: "2026-10-14T02:06:00.000Z"
+    }
+  ];
+}
+
+export function buildPreviewPushAlertPrepareResult(): NewsroomPushAlertPrepareResult {
+  return {
+    alert_id: "d1000000-0000-4000-a000-000000000003",
+    title: "PREVIEW: Maternal & Pediatric Cold-Chain Telemetry Expansion",
+    body: "Provincial health leadership has commissioned 24 solar-backed vaccine refrigeration monitors in Manicaland.",
+    category: "topic",
+    destination: "/topics/maternal-health",
+    eligible_device_count: 3840
+  };
+}
+

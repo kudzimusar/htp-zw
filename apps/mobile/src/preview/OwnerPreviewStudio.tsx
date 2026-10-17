@@ -40,7 +40,13 @@ import {
   type NewsroomCampaignPrepareSendResult,
   type NewsroomCampaignPurpose,
   type NewsroomCampaignStatus,
-  type NewsroomContactSegment
+  type NewsroomContactSegment,
+  type NewsroomPushAlert,
+  type NewsroomPushAlertCategory,
+  type NewsroomPushAlertCreateInput,
+  type NewsroomPushAlertPatch,
+  type NewsroomPushAlertPrepareResult,
+  type NewsroomPushAlertStatus
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -70,6 +76,7 @@ import {
   formatPublishPrepareFeedback
 } from "../ui/StudioSocialDesk";
 import { StudioNewsletterDeskView } from "../ui/StudioNewsletterDesk";
+import { StudioPushAlertDeskView } from "../ui/StudioPushAlertDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -89,6 +96,8 @@ import {
   buildPreviewContactSegments,
   buildPreviewCampaigns,
   buildPreviewCampaignPrepareSendResult,
+  buildPreviewPushAlerts,
+  buildPreviewPushAlertPrepareResult,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1888,6 +1897,210 @@ function OwnerPreviewNewsletterDeskView() {
   );
 }
 
+function OwnerPreviewPushAlertDeskView() {
+  const [alerts, setAlerts] = useState<NewsroomPushAlert[]>(() =>
+    buildPreviewPushAlerts()
+  );
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(
+    () => buildPreviewPushAlerts()[0]?.id ?? null
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    NewsroomPushAlertStatus | "all"
+  >("all");
+  const [categoryFilter, setCategoryFilter] = useState<
+    NewsroomPushAlertCategory | "all"
+  >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [preparedHandoff, setPreparedHandoff] =
+    useState<NewsroomPushAlertPrepareResult | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(
+    "Push Alert Desk operational."
+  );
+  const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(
+    null
+  );
+  const [notice, setNotice] = useState<string>(
+    "Preview state only — not saved to server. Displaying fictional sample push alerts, category segmentation, and aggregate device eligibility counts."
+  );
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((a) => {
+      if (statusFilter !== "all" && a.status !== statusFilter) return false;
+      if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchTitle = a.title.toLowerCase().includes(q);
+        const matchBody = a.body.toLowerCase().includes(q);
+        if (!matchTitle && !matchBody) return false;
+      }
+      return true;
+    });
+  }, [alerts, statusFilter, categoryFilter, searchQuery]);
+
+  const selectedAlert =
+    filteredAlerts.find((a) => a.id === selectedAlertId) ??
+    filteredAlerts[0] ??
+    null;
+
+  const handleSelectAlert = (alertId: string) => {
+    setSelectedAlertId(alertId);
+    setActionErrorMessage(null);
+    if (preparedHandoff && preparedHandoff.alert_id !== alertId) {
+      setPreparedHandoff(null);
+    }
+  };
+
+  const handleCreateAlert = (input: NewsroomPushAlertCreateInput) => {
+    const nowIso = new Date().toISOString();
+    const newId = `d1000000-0000-4000-a000-${String(Date.now()).slice(-12).padStart(12, "0")}`;
+    const newAlert: NewsroomPushAlert = {
+      id: newId,
+      title: input.title.trim(),
+      body: input.body.trim(),
+      category: input.category,
+      status: "draft",
+      destination: input.destination ? input.destination.trim() : null,
+      relatedStoryId: input.related_story_id ? input.related_story_id.trim() : null,
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      updatedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: null,
+      preparedBy: null,
+      approvedAt: null,
+      preparedAt: null,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    setAlerts((prev) => [newAlert, ...prev]);
+    setSelectedAlertId(newId);
+    setPreparedHandoff(null);
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Push alert draft created in local preview."
+    );
+    setNotice(
+      "Preview state only — not saved: Simulated local draft push alert creation."
+    );
+  };
+
+  const handlePatchAlert = (alertId: string, patch: NewsroomPushAlertPatch) => {
+    const nowIso = new Date().toISOString();
+    setAlerts((prev) =>
+      prev.map((a) => {
+        if (a.id !== alertId) return a;
+        return {
+          ...a,
+          ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+          ...(patch.body !== undefined ? { body: patch.body.trim() } : {}),
+          ...(patch.category !== undefined ? { category: patch.category } : {}),
+          ...(patch.destination !== undefined
+            ? { destination: patch.destination ? patch.destination.trim() : null }
+            : {}),
+          ...(patch.related_story_id !== undefined
+            ? { relatedStoryId: patch.related_story_id ? patch.related_story_id.trim() : null }
+            : {}),
+          updatedAt: nowIso
+        };
+      })
+    );
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Push alert updated in local preview."
+    );
+  };
+
+  const handleApproveAlert = (alertId: string) => {
+    const nowIso = new Date().toISOString();
+    setAlerts((prev) =>
+      prev.map((a) =>
+        a.id === alertId && a.status === "draft"
+          ? {
+              ...a,
+              status: "approved",
+              approvedAt: nowIso,
+              updatedAt: nowIso
+            }
+          : a
+      )
+    );
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Push alert approved for dispatch preparation."
+    );
+    setNotice(
+      "Preview state only — not saved: Simulated human push alert approval."
+    );
+  };
+
+  const handlePrepareAlert = (alertId: string) => {
+    const target = alerts.find((a) => a.id === alertId);
+    if (!target) return;
+    if (target.status !== "approved" && target.status !== "prepared") {
+      setActionErrorMessage("Push alert must be approved before preparation");
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    setAlerts((prev) =>
+      prev.map((a) =>
+        a.id === alertId
+          ? {
+              ...a,
+              status: "prepared",
+              preparedAt: nowIso,
+              updatedAt: nowIso
+            }
+          : a
+      )
+    );
+    const result: NewsroomPushAlertPrepareResult = {
+      alert_id: target.id,
+      title: target.title,
+      body: target.body,
+      category: target.category,
+      destination: target.destination,
+      eligible_device_count: 3840
+    };
+    setPreparedHandoff(result);
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Dispatch handoff prepared for native background worker."
+    );
+    setNotice(
+      "Preview state only — not saved: Simulated push alert dispatch preparation handoff."
+    );
+  };
+
+  return (
+    <View
+      style={styles.sectionStack}
+      testID="owner-preview-push-alert-desk-view"
+    >
+      <View
+        style={styles.previewNoticeBanner}
+        testID="preview-push-alert-desk-notice"
+      >
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioPushAlertDeskView
+        alerts={filteredAlerts}
+        selectedAlert={selectedAlert}
+        onSelectAlert={(alert) => handleSelectAlert(alert?.id ?? "")}
+        statusFilter={statusFilter}
+        onChangeStatusFilter={(s: string) => setStatusFilter(s as any)}
+        categoryFilter={categoryFilter}
+        onChangeCategoryFilter={(c: string) => setCategoryFilter(c as any)}
+        searchQuery={searchQuery}
+        onChangeSearchQuery={setSearchQuery}
+        preparedHandoff={preparedHandoff}
+        canCreate={true}
+        canApprove={true}
+        onCreateAlert={async (input) => handleCreateAlert(input)}
+        onSaveAlert={async (id, patch) => handlePatchAlert(id, patch)}
+        onApproveAlert={async (id) => handleApproveAlert(id)}
+        onPrepareAlert={async (id) => handlePrepareAlert(id)}
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2014,6 +2227,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Editorial newsletter composition (marketing.create), human approval (marketing.approve), and consented Brevo send preparation handoff (marketing.send)."
         >
           <OwnerPreviewNewsletterDeskView />
+        </OwnerPreviewShell>
+      );
+    case "push-alerts":
+      return (
+        <OwnerPreviewShell
+          activeKey="push-alerts"
+          title="Push Alert Desk & Reader Push Control Plane (Owner Visual Preview)"
+          subtitle="Reader push alert composition, editorial approval, and notification dispatch preparation handoff backed by canonical newsroom_push_alerts."
+        >
+          <OwnerPreviewPushAlertDeskView />
         </OwnerPreviewShell>
       );
     default:

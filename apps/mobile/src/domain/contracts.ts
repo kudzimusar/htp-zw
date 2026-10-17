@@ -80,7 +80,13 @@ import type {
   NewsroomCampaignStatus,
   NewsroomContactSegment,
   NewsroomCampaignCreateInput,
-  NewsroomCampaignPrepareSendResult
+  NewsroomCampaignPrepareSendResult,
+  NewsroomPushAlert,
+  NewsroomPushAlertCategory,
+  NewsroomPushAlertCreateInput,
+  NewsroomPushAlertPatch,
+  NewsroomPushAlertPrepareResult,
+  NewsroomPushAlertStatus
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -351,6 +357,19 @@ export interface NewsroomCampaignService {
   prepareSend(campaignId: string): Promise<NewsroomCampaignPrepareSendResult>;
 }
 
+export interface NewsroomPushAlertService {
+  listAlerts(options?: {
+    status?: NewsroomPushAlertStatus | null;
+    category?: NewsroomPushAlertCategory | null;
+    search?: string | null;
+    limit?: number;
+  }): Promise<NewsroomPushAlert[]>;
+  createAlert(input: NewsroomPushAlertCreateInput): Promise<string>;
+  saveAlert(alertId: string, patch: NewsroomPushAlertPatch): Promise<void>;
+  approveAlert(alertId: string): Promise<void>;
+  prepareAlert(alertId: string): Promise<NewsroomPushAlertPrepareResult>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -377,6 +396,7 @@ export interface HealthTimesServices {
   newsroomLive: NewsroomLiveCoverageService;
   newsroomSocial: NewsroomSocialService;
   newsroomCampaigns: NewsroomCampaignService;
+  newsroomPushAlerts: NewsroomPushAlertService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

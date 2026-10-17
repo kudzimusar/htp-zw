@@ -2655,3 +2655,253 @@ export function validateCampaignCreateInput(
 
   return { valid: true };
 }
+
+// ============================================================================
+// HT-NR-06C: PUSH ALERT CONTROL PLANE MODELS & VALIDATORS
+// ============================================================================
+
+export const NEWSROOM_PUSH_ALERT_CATEGORIES = [
+  "breaking",
+  "live",
+  "topic",
+  "premium",
+  "system"
+] as const;
+
+export type NewsroomPushAlertCategory =
+  (typeof NEWSROOM_PUSH_ALERT_CATEGORIES)[number];
+
+export const NEWSROOM_PUSH_ALERT_STATUSES = [
+  "draft",
+  "approved",
+  "prepared"
+] as const;
+
+export type NewsroomPushAlertStatus =
+  (typeof NEWSROOM_PUSH_ALERT_STATUSES)[number];
+
+export interface NewsroomPushAlertCreateInput {
+  title: string;
+  body: string;
+  category: NewsroomPushAlertCategory;
+  destination?: string | null;
+  related_story_id?: string | null;
+}
+
+export interface NewsroomPushAlertPatch {
+  title?: string;
+  body?: string;
+  category?: NewsroomPushAlertCategory;
+  destination?: string | null;
+  related_story_id?: string | null;
+}
+
+export interface NewsroomPushAlert {
+  id: string;
+  title: string;
+  body: string;
+  category: NewsroomPushAlertCategory;
+  destination: string | null;
+  relatedStoryId: string | null;
+  status: NewsroomPushAlertStatus;
+  createdBy: string;
+  updatedBy: string;
+  approvedBy: string | null;
+  preparedBy: string | null;
+  approvedAt: string | null;
+  preparedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomPushAlertPrepareResult {
+  alert_id: string;
+  title: string;
+  body: string;
+  category: NewsroomPushAlertCategory;
+  destination: string | null;
+  eligible_device_count: number;
+}
+
+export function validatePushAlertCategory(
+  category: unknown
+): category is NewsroomPushAlertCategory {
+  return (
+    typeof category === "string" &&
+    NEWSROOM_PUSH_ALERT_CATEGORIES.includes(
+      category as NewsroomPushAlertCategory
+    )
+  );
+}
+
+export function validatePushAlertDestination(
+  destination: unknown
+): boolean {
+  if (destination === null || destination === undefined) return true;
+  if (typeof destination !== "string") return false;
+  const trimmed = destination.trim();
+  if (trimmed.length === 0) return true;
+  if (trimmed.length > 255) return false;
+  if (!trimmed.startsWith("/")) return false;
+  if (trimmed.includes("//") || trimmed.includes(":")) return false;
+  return /^\/[a-zA-Z0-9_\-./]*$/.test(trimmed);
+}
+
+export function validatePushAlertCreateInput(
+  input: unknown
+): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { valid: false, error: "Push alert input must be a JSON object." };
+  }
+
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "title",
+    "body",
+    "category",
+    "destination",
+    "related_story_id"
+  ]);
+
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Unexpected field in push alert: ${key}` };
+    }
+  }
+
+  if (typeof record.title !== "string" || record.title.trim().length === 0) {
+    return { valid: false, error: "Push alert title is required." };
+  }
+  if (record.title.trim().length > 140) {
+    return {
+      valid: false,
+      error: "Push alert title cannot exceed 140 characters."
+    };
+  }
+
+  if (typeof record.body !== "string" || record.body.trim().length === 0) {
+    return { valid: false, error: "Push alert body is required." };
+  }
+  if (record.body.trim().length > 500) {
+    return {
+      valid: false,
+      error: "Push alert body cannot exceed 500 characters."
+    };
+  }
+
+  if (!validatePushAlertCategory(record.category)) {
+    return {
+      valid: false,
+      error: "Invalid category. Must be breaking, live, topic, premium, or system."
+    };
+  }
+
+  if (!validatePushAlertDestination(record.destination)) {
+    return {
+      valid: false,
+      error:
+        "Destination must be a valid internal path starting with / without schemes or credentials."
+    };
+  }
+
+  if (
+    record.related_story_id !== null &&
+    record.related_story_id !== undefined &&
+    record.related_story_id !== ""
+  ) {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (
+      typeof record.related_story_id !== "string" ||
+      !uuidRegex.test(record.related_story_id.trim())
+    ) {
+      return { valid: false, error: "related_story_id must be a valid UUID." };
+    }
+  }
+
+  return { valid: true };
+}
+
+export function validatePushAlertPatch(
+  patch: unknown
+): { valid: boolean; error?: string } {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return { valid: false, error: "Patch payload must be a JSON object." };
+  }
+
+  const record = patch as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "title",
+    "body",
+    "category",
+    "destination",
+    "related_story_id"
+  ]);
+
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Invalid or unpatchable field: ${key}` };
+    }
+  }
+
+  if (record.title !== undefined) {
+    if (typeof record.title !== "string" || record.title.trim().length === 0) {
+      return { valid: false, error: "Push alert title cannot be empty." };
+    }
+    if (record.title.trim().length > 140) {
+      return {
+        valid: false,
+        error: "Push alert title cannot exceed 140 characters."
+      };
+    }
+  }
+
+  if (record.body !== undefined) {
+    if (typeof record.body !== "string" || record.body.trim().length === 0) {
+      return { valid: false, error: "Push alert body cannot be empty." };
+    }
+    if (record.body.trim().length > 500) {
+      return {
+        valid: false,
+        error: "Push alert body cannot exceed 500 characters."
+      };
+    }
+  }
+
+  if (record.category !== undefined) {
+    if (!validatePushAlertCategory(record.category)) {
+      return {
+        valid: false,
+        error: "Invalid category. Must be breaking, live, topic, premium, or system."
+      };
+    }
+  }
+
+  if (record.destination !== undefined) {
+    if (!validatePushAlertDestination(record.destination)) {
+      return {
+        valid: false,
+        error:
+          "Destination must be a valid internal path starting with / without schemes or credentials."
+      };
+    }
+  }
+
+  if (
+    record.related_story_id !== null &&
+    record.related_story_id !== undefined &&
+    record.related_story_id !== ""
+  ) {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (
+      typeof record.related_story_id !== "string" ||
+      !uuidRegex.test(record.related_story_id.trim())
+    ) {
+      return { valid: false, error: "related_story_id must be a valid UUID." };
+    }
+  }
+
+  return { valid: true };
+}
+

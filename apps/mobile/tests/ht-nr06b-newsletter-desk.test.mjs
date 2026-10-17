@@ -145,7 +145,7 @@ function createMockCampaignClient(queryResolver, rpcResolver) {
 // 1. MIGRATION DISCIPLINE & REPOSITORY AUTHORITY
 // ============================================================================
 
-test("HT-NR-06B: repository migration count is exactly 73", () => {
+test("HT-NR-06B: repository migration count is exactly 75 at HT-NR-06C-A-R1 authority", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -154,8 +154,8 @@ test("HT-NR-06B: repository migration count is exactly 73", () => {
 
   assert.equal(
     migrationFiles.length,
-    73,
-    `Expected exactly 73 migrations in supabase/migrations, found ${migrationFiles.length}`
+    75,
+    `Expected exactly 75 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes("20261017020000_ht_nr06b_campaign_read_authority.sql"),

@@ -3,7 +3,7 @@ import { appEnvironment, editorialDataMode } from "../platform/config";
 import { fixtureServices } from "./fixtures";
 import { sourceParityServices } from "./source-parity";
 import { migratedCorpusServices } from "./migrated-corpus";
-import { stagingAuthService, stagingPlatformService } from "./staging";
+import { stagingAuthService, stagingNotificationService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
 import { stagingNewsroomStoryService } from "./newsroom-stories";
@@ -12,6 +12,7 @@ import { stagingNewsroomVideoService } from "./newsroom-video";
 import { stagingNewsroomLiveCoverageService } from "./newsroom-live";
 import { stagingNewsroomSocialService } from "./newsroom-social";
 import { stagingNewsroomCampaignService } from "./newsroom-campaigns";
+import { stagingNewsroomPushAlertService } from "./newsroom-push-alerts";
 
 export const serviceMode = editorialDataMode;
 
@@ -35,6 +36,7 @@ function buildServices(): HealthTimesServices {
       auth: stagingAuthService,
       authorization: stagingAuthorizationService,
       deviceSecurity: stagingDeviceSecurityService,
+      notifications: stagingNotificationService,
       readerDiscussion: stagingReaderDiscussionService,
       newsroomCommunication: stagingNewsroomCommunicationService,
       commentModeration: stagingCommentModerationService,
@@ -44,6 +46,7 @@ function buildServices(): HealthTimesServices {
       newsroomLive: stagingNewsroomLiveCoverageService,
       newsroomSocial: stagingNewsroomSocialService,
       newsroomCampaigns: stagingNewsroomCampaignService,
+      newsroomPushAlerts: stagingNewsroomPushAlertService,
       platform: stagingPlatformService
     };
   }

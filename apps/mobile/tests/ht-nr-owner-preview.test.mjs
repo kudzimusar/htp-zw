@@ -72,7 +72,8 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "video-desk",
     "live-desk",
     "social",
-    "newsletters"
+    "newsletters",
+    "push-alerts"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),

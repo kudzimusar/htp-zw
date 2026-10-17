@@ -62,6 +62,11 @@ export const NEWSLETTER_DESK_CAPABILITIES = [
   "marketing.analytics"
 ] as const satisfies readonly HealthTimesCapability[];
 
+export const PUSH_DESK_CAPABILITIES = [
+  "distribution.manage",
+  "story.publish"
+] as const satisfies readonly HealthTimesCapability[];
+
 export type AuthorizationSnapshot = {
   status:
     | "anonymous"
@@ -126,4 +131,11 @@ export function hasNewsletterDeskAccess(
 ): boolean {
   return hasAnyServerCapability(snapshot, NEWSLETTER_DESK_CAPABILITIES);
 }
+
+export function hasPushDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  return hasAnyServerCapability(snapshot, PUSH_DESK_CAPABILITIES);
+}
+
 
