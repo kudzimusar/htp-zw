@@ -145,13 +145,13 @@ const {
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =============================================================================
 
-test("HT-NR-05D-A Invariant: Repository migration count is exactly 75", () => {
+test("HT-NR-05D-A Invariant: Repository migration count is exactly 76", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    75,
-    `Migration count must be exactly 75 (69 prior + 05D-A live desk foundation + 05D-B live blog updates + 05D-B-R1 stream integrity + 06B campaign read authority + 06C-A push alert foundation + 06C-A-R1 push security boundary). Found ${files.length}.`
+    77,
+    `Migration count must be exactly 77 at HT-NR-06C-B. Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261017010000_ht_nr05da_live_desk_foundation.sql"),

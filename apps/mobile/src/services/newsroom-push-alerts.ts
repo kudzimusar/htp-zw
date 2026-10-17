@@ -2,16 +2,21 @@ import type { NewsroomPushAlertService } from "../domain/contracts";
 import {
   NEWSROOM_PUSH_ALERT_CATEGORIES,
   NEWSROOM_PUSH_ALERT_STATUSES,
+  NEWSROOM_PUSH_DISPATCH_STATUSES,
   validatePushAlertCategory,
   validatePushAlertCreateInput,
   validatePushAlertDestination,
   validatePushAlertPatch,
+  validatePushDispatchStatus,
   type NewsroomPushAlert,
   type NewsroomPushAlertCategory,
   type NewsroomPushAlertCreateInput,
   type NewsroomPushAlertPatch,
   type NewsroomPushAlertPrepareResult,
-  type NewsroomPushAlertStatus
+  type NewsroomPushAlertStatus,
+  type NewsroomPushDispatch,
+  type NewsroomPushDispatchResult,
+  type NewsroomPushDispatchStatus
 } from "../domain/models";
 import { getStagingSupabaseClient } from "../platform/supabase";
 
@@ -206,6 +211,155 @@ export function mapPreparePushAlertResponse(
     eligible_device_count: count
   };
 }
+
+export function mapNewsroomPushDispatchRow(
+  row: any
+): NewsroomPushDispatch | null {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+
+  // Privacy invariant: zero token, device ID, or user ID leakage
+  const forbiddenKeys = [
+    "expo_push_token",
+    "token",
+    "token_hash",
+    "reader_user_id",
+    "device_id",
+    "device_ids",
+    "devices",
+    "tickets"
+  ];
+  for (const key of forbiddenKeys) {
+    if (key in row) return null;
+  }
+
+  if (!isValidAlertUuid(row.dispatch_id || row.id)) return null;
+  if (!isValidAlertUuid(row.alert_id)) return null;
+
+  if (
+    typeof row.idempotency_key !== "string" ||
+    row.idempotency_key.trim().length === 0
+  ) {
+    return null;
+  }
+
+  if (
+    typeof row.status !== "string" ||
+    !validatePushDispatchStatus(row.status)
+  ) {
+    return null;
+  }
+
+  const eligible = Number(row.eligible_device_count);
+  const accepted = Number(row.provider_accepted_count);
+  const rejected = Number(row.provider_rejected_count);
+  const confirmed = Number(row.confirmed_delivery_count ?? 0);
+
+  if (
+    !Number.isInteger(eligible) ||
+    eligible < 0 ||
+    !Number.isInteger(accepted) ||
+    accepted < 0 ||
+    !Number.isInteger(rejected) ||
+    rejected < 0 ||
+    !Number.isInteger(confirmed) ||
+    confirmed < 0
+  ) {
+    return null;
+  }
+
+  if (!isValidTimestamp(row.created_at) || !isValidTimestamp(row.updated_at)) {
+    return null;
+  }
+
+  return {
+    id: String(row.dispatch_id || row.id).trim(),
+    alertId: String(row.alert_id).trim(),
+    idempotencyKey: row.idempotency_key.trim(),
+    status: row.status as NewsroomPushDispatchStatus,
+    eligibleDeviceCount: eligible,
+    providerAcceptedCount: accepted,
+    providerRejectedCount: rejected,
+    confirmedDeliveryCount: confirmed,
+    failureReason:
+      typeof row.failure_reason === "string" &&
+      row.failure_reason.trim().length > 0
+        ? row.failure_reason.trim()
+        : null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+export function mapNewsroomPushDispatchResult(
+  data: any
+): NewsroomPushDispatchResult | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+
+  // Strict privacy invariant: zero token, device ID, or user ID leakage
+  const forbiddenKeys = [
+    "expo_push_token",
+    "token",
+    "token_hash",
+    "reader_user_id",
+    "device_id",
+    "device_ids",
+    "devices",
+    "tickets"
+  ];
+  for (const key of forbiddenKeys) {
+    if (key in data) return null;
+  }
+
+  if (!isValidAlertUuid(data.dispatch_id)) return null;
+  if (!isValidAlertUuid(data.alert_id)) return null;
+
+  if (
+    typeof data.status !== "string" ||
+    !validatePushDispatchStatus(data.status)
+  ) {
+    return null;
+  }
+
+  const eligible = Number(data.eligible_device_count);
+  const accepted = Number(data.provider_accepted_count);
+  const rejected = Number(data.provider_rejected_count);
+  const confirmed = Number(data.confirmed_delivery_count ?? 0);
+
+  if (
+    !Number.isInteger(eligible) ||
+    eligible < 0 ||
+    !Number.isInteger(accepted) ||
+    accepted < 0 ||
+    !Number.isInteger(rejected) ||
+    rejected < 0 ||
+    !Number.isInteger(confirmed) ||
+    confirmed < 0
+  ) {
+    return null;
+  }
+
+  const timestamp = data.dispatched_at || data.updated_at || data.created_at;
+  if (!isValidTimestamp(timestamp)) {
+    return null;
+  }
+
+  return {
+    dispatch_id: String(data.dispatch_id).trim(),
+    alert_id: String(data.alert_id).trim(),
+    status: data.status as NewsroomPushDispatchStatus,
+    eligible_device_count: eligible,
+    provider_accepted_count: accepted,
+    provider_rejected_count: rejected,
+    confirmed_delivery_count: confirmed,
+    failure_reason:
+      typeof data.failure_reason === "string" &&
+      data.failure_reason.trim().length > 0
+        ? data.failure_reason.trim()
+        : null,
+    dispatched_at: timestamp
+  };
+}
+
 
 export function createNewsroomPushAlertService(
   clientProvider: () => any
@@ -471,6 +625,109 @@ export function createNewsroomPushAlertService(
       if (!mapped) {
         throw new NewsroomPushAlertError(
           "Malformed response from newsroom_prepare_push_alert.",
+          "MALFORMED_ENVELOPE"
+        );
+      }
+
+      return mapped;
+    },
+
+    async getDispatch(
+      alertId: string
+    ): Promise<NewsroomPushDispatch | null> {
+      const client = clientProvider();
+      if (!client) {
+        throw new NewsroomPushAlertError(
+          "Supabase client unavailable.",
+          "FAIL_CLOSED"
+        );
+      }
+
+      if (!isValidAlertUuid(alertId)) {
+        throw new NewsroomPushAlertError(
+          "Invalid alert ID: valid UUID required.",
+          "VALIDATION_ERROR"
+        );
+      }
+
+      const { data, error } = await client.rpc(
+        "newsroom_get_push_alert_dispatch",
+        { p_alert_id: alertId.trim() }
+      );
+
+      if (error) {
+        throw new NewsroomPushAlertError(
+          `Failed to get push alert dispatch: ${error.message || "Unknown RPC error"}`,
+          "RPC_ERROR"
+        );
+      }
+
+      if (!data) return null;
+
+      const targetRow = Array.isArray(data)
+        ? data.length > 0
+          ? data[0]
+          : null
+        : data;
+      if (!targetRow) return null;
+
+      return mapNewsroomPushDispatchRow(targetRow);
+    },
+
+    async dispatchAlert(
+      alertId: string,
+      idempotencyKey?: string
+    ): Promise<NewsroomPushDispatchResult> {
+      const client = clientProvider();
+      if (!client) {
+        throw new NewsroomPushAlertError(
+          "Supabase client unavailable.",
+          "FAIL_CLOSED"
+        );
+      }
+
+      if (!isValidAlertUuid(alertId)) {
+        throw new NewsroomPushAlertError(
+          "Invalid alert ID: valid UUID required.",
+          "VALIDATION_ERROR"
+        );
+      }
+
+      const key =
+        idempotencyKey && idempotencyKey.trim().length >= 8
+          ? idempotencyKey.trim()
+          : `dispatch-alert-${alertId.trim()}`;
+
+      let data: any = null;
+      let error: any = null;
+
+      if (client.functions && typeof client.functions.invoke === "function") {
+        const res = await client.functions.invoke("newsroom-push-dispatch", {
+          body: {
+            alert_id: alertId.trim(),
+            idempotency_key: key
+          }
+        });
+        data = res.data;
+        error = res.error;
+      } else {
+        throw new NewsroomPushAlertError(
+          "Functions invoke client unavailable on Supabase client.",
+          "FAIL_CLOSED"
+        );
+      }
+
+      if (error) {
+        throw new NewsroomPushAlertError(
+          `Push dispatch failed: ${error.message || "Unknown error"}`,
+          "RPC_ERROR"
+        );
+      }
+
+      const mapped = mapNewsroomPushDispatchResult(data);
+      if (!mapped) {
+        throw new NewsroomPushAlertError(
+          "Malformed response envelope from push dispatch.",
           "MALFORMED_ENVELOPE"
         );
       }

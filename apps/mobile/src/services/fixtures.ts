@@ -584,6 +584,12 @@ const fixtureNewsroomPushAlertService: NewsroomPushAlertService = {
   },
   async prepareAlert() {
     throw new Error(FAIL_CLOSED_PUSH_ALERT_MESSAGE);
+  },
+  async getDispatch() {
+    return null;
+  },
+  async dispatchAlert() {
+    throw new Error(FAIL_CLOSED_PUSH_ALERT_MESSAGE);
   }
 };
 
