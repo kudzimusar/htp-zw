@@ -337,6 +337,7 @@ export function createNewsroomCampaignService(
     async listCampaigns(options?: {
       status?: NewsroomCampaignStatus | null;
       purpose?: NewsroomCampaignPurpose | null;
+      search?: string | null;
       limit?: number;
     }): Promise<NewsroomCampaign[]> {
       if (options?.status !== undefined && options.status !== null) {
@@ -357,6 +358,26 @@ export function createNewsroomCampaignService(
         }
       }
 
+      let normalizedSearch: string | null = null;
+      if (options?.search !== undefined && options.search !== null) {
+        if (typeof options.search !== "string") {
+          throw new NewsroomCampaignError(
+            "Campaign search query must be a string.",
+            "VALIDATION_ERROR"
+          );
+        }
+        const trimmed = options.search.trim();
+        if (trimmed.length > 80) {
+          throw new NewsroomCampaignError(
+            "Campaign search query must be 80 characters or fewer.",
+            "VALIDATION_ERROR"
+          );
+        }
+        if (trimmed.length > 0) {
+          normalizedSearch = trimmed;
+        }
+      }
+
       const boundedLimit =
         typeof options?.limit === "number" && Number.isInteger(options.limit)
           ? Math.max(1, Math.min(options.limit, 200))
@@ -374,6 +395,9 @@ export function createNewsroomCampaignService(
       }
       if (options?.purpose) {
         query = query.eq("purpose", options.purpose);
+      }
+      if (normalizedSearch) {
+        query = query.ilike("name", `%${normalizedSearch}%`);
       }
 
       const { data, error } = await query

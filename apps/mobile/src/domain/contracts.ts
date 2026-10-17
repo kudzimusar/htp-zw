@@ -342,6 +342,7 @@ export interface NewsroomCampaignService {
   listCampaigns(options?: {
     status?: NewsroomCampaignStatus | null;
     purpose?: NewsroomCampaignPurpose | null;
+    search?: string | null;
     limit?: number;
   }): Promise<NewsroomCampaign[]>;
   listSegments(): Promise<NewsroomContactSegment[]>;

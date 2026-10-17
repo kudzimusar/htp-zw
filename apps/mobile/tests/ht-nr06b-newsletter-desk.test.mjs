@@ -82,14 +82,23 @@ function createMockCampaignClient(queryResolver, rpcResolver) {
     from(table) {
       return {
         select(cols) {
-          const makeQueryObj = (currentFilter) => {
+          const makeQueryObj = (currentFilters = []) => {
             const queryObj = {
               eq(col, val) {
-                return makeQueryObj({ col, val });
+                return makeQueryObj([...currentFilters, { type: "eq", col, val }]);
+              },
+              ilike(col, pattern) {
+                return makeQueryObj([...currentFilters, { type: "ilike", col, pattern }]);
               },
               order(orderCol, orderOpts) {
                 const resultPromise = Promise.resolve(
-                  queryResolver(table, { cols, filter: currentFilter, orderCol, orderOpts })
+                  queryResolver(table, {
+                    cols,
+                    filters: currentFilters,
+                    filter: currentFilters[0] || null,
+                    orderCol,
+                    orderOpts
+                  })
                 );
                 // Return an object that is both awaitable and has .limit()
                 return Object.assign(resultPromise, {
@@ -97,7 +106,8 @@ function createMockCampaignClient(queryResolver, rpcResolver) {
                     calls.queries.push({
                       table,
                       cols,
-                      filter: currentFilter,
+                      filters: currentFilters,
+                      filter: currentFilters[0] || null,
                       orderCol,
                       orderOpts,
                       limit: limitVal
@@ -105,7 +115,8 @@ function createMockCampaignClient(queryResolver, rpcResolver) {
                     return Promise.resolve(
                       queryResolver(table, {
                         cols,
-                        filter: currentFilter,
+                        filters: currentFilters,
+                        filter: currentFilters[0] || null,
                         orderCol,
                         orderOpts,
                         limit: limitVal
@@ -117,7 +128,7 @@ function createMockCampaignClient(queryResolver, rpcResolver) {
             };
             return queryObj;
           };
-          return makeQueryObj(null);
+          return makeQueryObj([]);
         }
       };
     },
@@ -730,3 +741,221 @@ test("HT-NR-06B: services/index.ts registers stagingNewsroomCampaignService", ()
     "services/index.ts must wire newsroomCampaigns"
   );
 });
+
+// ============================================================================
+// 9. HT-NR-06B-R1: REGISTRY QUERY TRUTH & SERVER FILTERING
+// ============================================================================
+
+test("HT-NR-06B-R1: listCampaigns applies server status and purpose constraints before limit", async () => {
+  const client = createMockCampaignClient(() => ({ data: [], error: null }));
+  const service = createNewsroomCampaignService(client);
+
+  await service.listCampaigns({
+    status: "approved",
+    purpose: "NEWSLETTER",
+    limit: 100
+  });
+
+  assert.equal(client.calls.queries.length, 1);
+  const q = client.calls.queries[0];
+  assert.equal(q.table, "audience_campaigns");
+  assert.equal(q.limit, 100);
+
+  const statusConstraint = q.filters.find((f) => f.col === "status");
+  const purposeConstraint = q.filters.find((f) => f.col === "purpose");
+
+  assert.ok(statusConstraint, "Must issue status constraint to server query");
+  assert.equal(statusConstraint.type, "eq");
+  assert.equal(statusConstraint.val, "approved");
+
+  assert.ok(purposeConstraint, "Must issue purpose constraint to server query");
+  assert.equal(purposeConstraint.type, "eq");
+  assert.equal(purposeConstraint.val, "NEWSLETTER");
+});
+
+// ============================================================================
+// 10. HT-NR-06B-R1: SERVER-BACKED CAMPAIGN NAME SEARCH
+// ============================================================================
+
+test("HT-NR-06B-R1: listCampaigns applies .ilike('name', pattern) and validates search input", async () => {
+  const client = createMockCampaignClient(() => ({ data: [], error: null }));
+  const service = createNewsroomCampaignService(client);
+
+  // 1. Valid search query applies .ilike("name", "%Harare%")
+  await service.listCampaigns({
+    search: "Harare",
+    limit: 100
+  });
+  assert.equal(client.calls.queries.length, 1);
+  const q1 = client.calls.queries[0];
+  const searchFilter = q1.filters.find((f) => f.col === "name");
+  assert.ok(searchFilter, "Must issue name filter for search");
+  assert.equal(searchFilter.type, "ilike");
+  assert.equal(searchFilter.pattern, "%Harare%");
+  assert.equal(q1.limit, 100);
+
+  // 2. Blank or whitespace search applies NO ilike filter
+  await service.listCampaigns({
+    search: "   ",
+    limit: 50
+  });
+  assert.equal(client.calls.queries.length, 2);
+  const q2 = client.calls.queries[1];
+  const noFilter = q2.filters.find((f) => f.col === "name");
+  assert.equal(noFilter, undefined, "Blank search must not apply ilike filter");
+
+  // 3. Overlong search (>80 characters) throws VALIDATION_ERROR
+  await assert.rejects(
+    () => service.listCampaigns({ search: "a".repeat(81) }),
+    (err) => {
+      assert.equal(err.name, "NewsroomCampaignError");
+      assert.equal(err.code, "VALIDATION_ERROR");
+      assert.ok(err.message.includes("80 characters or fewer"));
+      return true;
+    }
+  );
+
+  // 4. Combined status + purpose + search all applied before limit
+  await service.listCampaigns({
+    status: "draft",
+    purpose: "MARKETING",
+    search: "  Bulawayo Clinic  ",
+    limit: 100
+  });
+  assert.equal(client.calls.queries.length, 3);
+  const q3 = client.calls.queries[2];
+  assert.equal(q3.filters.length, 3);
+  assert.deepEqual(q3.filters, [
+    { type: "eq", col: "status", val: "draft" },
+    { type: "eq", col: "purpose", val: "MARKETING" },
+    { type: "ilike", col: "name", pattern: "%Bulawayo Clinic%" }
+  ]);
+  assert.equal(q3.limit, 100);
+});
+
+// ============================================================================
+// 11. HT-NR-06B-R1: OPERATIONAL WIRING & SEARCH INPUT
+// ============================================================================
+
+test("HT-NR-06B-R1: operational StudioNewsletterDesk wires debounced search and canonical query", () => {
+  const deskSource = read("src/ui/StudioNewsletterDesk.tsx");
+
+  // Search input and debounce in operational container
+  assert.ok(deskSource.includes('searchQuery, setSearchQuery] = useState("")'));
+  assert.ok(deskSource.includes('debouncedSearch, setDebouncedSearch] = useState("")'));
+  assert.ok(deskSource.includes("requestSeqRef"));
+  assert.ok(deskSource.includes("setTimeout("));
+  assert.ok(deskSource.includes("350"));
+
+  // Query parameter passing to listCampaigns
+  assert.ok(deskSource.includes('statusFilter === "all" ? undefined : statusFilter'));
+  assert.ok(deskSource.includes('purposeFilter === "all" ? undefined : purposeFilter'));
+  assert.ok(deskSource.includes("search: targetSearch.trim()"));
+  assert.ok(deskSource.includes("limit: 100"));
+
+  // Shared view search input and label
+  assert.ok(deskSource.includes("Search campaign names"));
+  assert.ok(deskSource.includes('testID="newsletter-search-input"'));
+  assert.ok(deskSource.includes('maxLength={80}'));
+});
+
+// ============================================================================
+// 12. HT-NR-06B-R1: COUNTER TRUTH & DISCLOSURE
+// ============================================================================
+
+test("HT-NR-06B-R1: counter labels use bounded results and include disclosure", () => {
+  const deskSource = read("src/ui/StudioNewsletterDesk.tsx");
+
+  // Must NOT claim global Total Campaigns over bounded array
+  assert.equal(
+    deskSource.includes("<Text style={styles.metricLabel}>Total Campaigns</Text>"),
+    false,
+    "Must not claim Total Campaigns"
+  );
+
+  // Must use truthful bounded result labels
+  assert.ok(deskSource.includes("Loaded Results"));
+  assert.ok(deskSource.includes("Draft in Results"));
+  assert.ok(deskSource.includes("Approved in Results"));
+  assert.ok(deskSource.includes("Sent in Results"));
+  assert.ok(deskSource.includes("Failed in Results"));
+
+  // Must keep segment inventory counter truthful
+  assert.ok(deskSource.includes("Brevo Synced Segments"));
+
+  // Must include visible disclosure
+  assert.ok(
+    deskSource.includes("Showing up to 100 server-matched campaigns."),
+    "Must include 'Showing up to 100 server-matched campaigns.' disclosure"
+  );
+  assert.ok(deskSource.includes('testID="newsletter-desk-disclosure"'));
+});
+
+// ============================================================================
+// 13. HT-NR-06B-R1: HANDOFF CUSTODY & CROSS-CAMPAIGN ISOLATION
+// ============================================================================
+
+test("HT-NR-06B-R1: activeHandoff is strictly scoped to selected campaign ID", () => {
+  const deskSource = read("src/ui/StudioNewsletterDesk.tsx");
+
+  // Ensure activeHandoff ternary does NOT leak
+  assert.equal(
+    deskSource.includes(": preparedHandoff;"),
+    false,
+    "activeHandoff must not fall back to preparedHandoff when campaignId mismatches"
+  );
+  assert.ok(
+    deskSource.includes("preparedHandoff.campaignId === selectedCampaign.id\n      ? preparedHandoff\n      : null") ||
+    deskSource.includes("preparedHandoff.campaignId === selectedCampaign.id ? preparedHandoff : null"),
+    "activeHandoff must return null when selectedCampaign does not match"
+  );
+
+  // Behavioral test of the handoff custody logic
+  const resolveActiveHandoff = (prepared, selected) => {
+    return prepared && selected && prepared.campaignId === selected.id
+      ? prepared
+      : null;
+  };
+
+  const handoffA = {
+    campaignId: "campaign-aaa",
+    name: "Campaign A",
+    eligibleCount: 100
+  };
+  const campA = { id: "campaign-aaa", name: "Campaign A" };
+  const campB = { id: "campaign-bbb", name: "Campaign B" };
+
+  // 1. When selected is Campaign A: visible
+  assert.deepEqual(resolveActiveHandoff(handoffA, campA), handoffA);
+
+  // 2. When selected is Campaign B: hidden (null)
+  assert.equal(resolveActiveHandoff(handoffA, campB), null);
+
+  // 3. When selected is null: hidden (null)
+  assert.equal(resolveActiveHandoff(handoffA, null), null);
+
+  // 4. When prepared is null: hidden (null)
+  assert.equal(resolveActiveHandoff(null, campA), null);
+});
+
+// ============================================================================
+// 14. HT-NR-06B-R1: PRIVACY COPY TRUTH
+// ============================================================================
+
+test("HT-NR-06B-R1: privacy banner states truthful aggregate eligibility boundary", () => {
+  const deskSource = read("src/ui/StudioNewsletterDesk.tsx");
+
+  // Updated truthful wording
+  assert.ok(
+    deskSource.includes(
+      "RECIPIENT PRIVACY: AGGREGATE ELIGIBILITY ONLY · ZERO RECIPIENT IDENTITY EXPOSURE"
+    ),
+    "Must display updated truthful recipient privacy wording"
+  );
+
+  // No recipient email exposure
+  assert.equal(/recipient.*email.*table/i.test(deskSource), false);
+  assert.equal(/contact_id/i.test(deskSource), false);
+  assert.equal(/consent_records/i.test(deskSource), false);
+});
+

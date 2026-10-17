@@ -1741,6 +1741,7 @@ function OwnerPreviewNewsletterDeskView() {
   const [purposeFilter, setPurposeFilter] = useState<
     NewsroomCampaignPurpose | "all"
   >("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [preparedHandoff, setPreparedHandoff] =
     useState<NewsroomCampaignPrepareSendResult | null>(() =>
       buildPreviewCampaignPrepareSendResult()
@@ -1867,6 +1868,8 @@ function OwnerPreviewNewsletterDeskView() {
         onChangeStatusFilter={setStatusFilter}
         purposeFilter={purposeFilter}
         onChangePurposeFilter={setPurposeFilter}
+        searchQuery={searchQuery}
+        onChangeSearchQuery={setSearchQuery}
         capabilities={{
           canCreate: true,
           canApprove: true,

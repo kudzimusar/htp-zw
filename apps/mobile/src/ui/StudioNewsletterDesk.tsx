@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -211,6 +211,8 @@ export interface StudioNewsletterDeskViewProps {
   onChangeStatusFilter: (status: NewsroomCampaignStatus | "all") => void;
   purposeFilter: NewsroomCampaignPurpose | "all";
   onChangePurposeFilter: (purpose: NewsroomCampaignPurpose | "all") => void;
+  searchQuery?: string;
+  onChangeSearchQuery?: (query: string) => void;
   capabilities: {
     canCreate: boolean;
     canApprove: boolean;
@@ -239,6 +241,8 @@ export function StudioNewsletterDeskView({
   onChangeStatusFilter,
   purposeFilter,
   onChangePurposeFilter,
+  searchQuery = "",
+  onChangeSearchQuery,
   capabilities,
   previewMode = false,
   loading = false,
@@ -301,9 +305,15 @@ export function StudioNewsletterDeskView({
       if (purposeFilter !== "all" && campaign.purpose !== purposeFilter) {
         return false;
       }
+      if (searchQuery && searchQuery.trim().length > 0) {
+        const queryLower = searchQuery.trim().toLowerCase();
+        if (!campaign.name.toLowerCase().includes(queryLower)) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [campaigns, statusFilter, purposeFilter]);
+  }, [campaigns, statusFilter, purposeFilter, searchQuery]);
 
   const selectedCampaign = useMemo(() => {
     if (!selectedCampaignId) return filteredCampaigns[0] ?? null;
@@ -409,7 +419,7 @@ export function StudioNewsletterDeskView({
     selectedCampaign &&
     preparedHandoff.campaignId === selectedCampaign.id
       ? preparedHandoff
-      : preparedHandoff;
+      : null;
 
   return (
     <View style={styles.root} testID="studio-newsletter-desk-view">
@@ -535,7 +545,7 @@ export function StudioNewsletterDeskView({
           </View>
           <View style={styles.privacyGuardBadge}>
             <Text style={styles.privacyGuardText}>
-              PRIVACY LOCK: AGGREGATE COUNTS ONLY • ZERO RECIPIENT EMAIL EXPOSURE
+              RECIPIENT PRIVACY: AGGREGATE ELIGIBILITY ONLY · ZERO RECIPIENT IDENTITY EXPOSURE
             </Text>
           </View>
         </View>
@@ -544,23 +554,23 @@ export function StudioNewsletterDeskView({
         <View style={styles.metricsRow}>
           <View style={styles.metricBox}>
             <Text style={styles.metricValue}>{statusCounts.total}</Text>
-            <Text style={styles.metricLabel}>Total Campaigns</Text>
+            <Text style={styles.metricLabel}>Loaded Results</Text>
           </View>
           <View style={styles.metricBox}>
             <Text style={styles.metricValue}>{statusCounts.draft}</Text>
-            <Text style={styles.metricLabel}>Drafts</Text>
+            <Text style={styles.metricLabel}>Draft in Results</Text>
           </View>
           <View style={styles.metricBox}>
             <Text style={styles.metricValue}>{statusCounts.approved}</Text>
-            <Text style={styles.metricLabel}>Approved (Ready for Handoff)</Text>
+            <Text style={styles.metricLabel}>Approved in Results</Text>
           </View>
           <View style={styles.metricBox}>
             <Text style={styles.metricValue}>{statusCounts.sent}</Text>
-            <Text style={styles.metricLabel}>Provider Sent</Text>
+            <Text style={styles.metricLabel}>Sent in Results</Text>
           </View>
           <View style={styles.metricBox}>
             <Text style={styles.metricValue}>{statusCounts.failed}</Text>
-            <Text style={styles.metricLabel}>Failed</Text>
+            <Text style={styles.metricLabel}>Failed in Results</Text>
           </View>
           <View style={styles.metricBox}>
             <Text style={styles.metricValue}>
@@ -568,6 +578,18 @@ export function StudioNewsletterDeskView({
             </Text>
             <Text style={styles.metricLabel}>Brevo Synced Segments</Text>
           </View>
+        </View>
+
+        {/* Result Window Disclosure */}
+        <View style={styles.disclosureRow} testID="newsletter-desk-disclosure">
+          <Text style={styles.disclosureText}>
+            Showing up to 100 server-matched campaigns.
+            {Boolean(
+              (searchQuery && searchQuery.trim()) ||
+                statusFilter !== "all" ||
+                purposeFilter !== "all"
+            ) && " Displayed metrics describe the current query result set."}
+          </Text>
         </View>
       </View>
 
@@ -954,6 +976,35 @@ export function StudioNewsletterDeskView({
 
       {/* Filters Bar */}
       <View style={styles.filterCard}>
+        <View style={styles.searchGroup}>
+          <Text style={styles.filterLabel}>Search campaign names</Text>
+          <View style={styles.searchBox}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search campaign names…"
+              accessibilityLabel="Search campaign names"
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={onChangeSearchQuery}
+              maxLength={80}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="newsletter-search-input"
+            />
+            {Boolean(searchQuery && searchQuery.length > 0) && (
+              <Pressable
+                onPress={() => onChangeSearchQuery?.("")}
+                style={styles.clearSearchBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                testID="newsletter-clear-search-button"
+              >
+                <Text style={styles.clearSearchText}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+
         <View style={styles.filterGroup}>
           <Text style={styles.filterLabel}>STATUS FILTER:</Text>
           <ScrollView
@@ -1470,6 +1521,9 @@ export function StudioNewsletterDesk() {
   const [purposeFilter, setPurposeFilter] = useState<
     NewsroomCampaignPurpose | "all"
   >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const requestSeqRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -1479,44 +1533,66 @@ export function StudioNewsletterDesk() {
   const [preparedHandoff, setPreparedHandoff] =
     useState<NewsroomCampaignPrepareSendResult | null>(null);
 
-  const loadWorkspace = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const authSnap = await services.authorization.getSnapshot();
-      setSnapshot(authSnap);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-      const capState = resolveNewsletterDeskCapabilityState(authSnap);
-      if (!capState.hasDeskAccess) {
-        setCampaigns([]);
-        setSegments([]);
-        setLoading(false);
-        return;
+  const loadWorkspace = useCallback(
+    async (targetSearch = debouncedSearch) => {
+      const currentSeq = ++requestSeqRef.current;
+      setLoading(true);
+      setError(null);
+      try {
+        const authSnap = await services.authorization.getSnapshot();
+        if (currentSeq !== requestSeqRef.current) return;
+        setSnapshot(authSnap);
+
+        const capState = resolveNewsletterDeskCapabilityState(authSnap);
+        if (!capState.hasDeskAccess) {
+          setCampaigns([]);
+          setSegments([]);
+          setLoading(false);
+          return;
+        }
+
+        const [loadedCampaigns, loadedSegments] = await Promise.all([
+          services.newsroomCampaigns.listCampaigns({
+            status: statusFilter === "all" ? undefined : statusFilter,
+            purpose: purposeFilter === "all" ? undefined : purposeFilter,
+            search: targetSearch.trim() ? targetSearch.trim() : undefined,
+            limit: 100
+          }),
+          services.newsroomCampaigns.listSegments()
+        ]);
+
+        if (currentSeq !== requestSeqRef.current) return;
+
+        setCampaigns(loadedCampaigns);
+        setSegments(loadedSegments);
+        setSelectedCampaignId((prev) => {
+          if (prev && loadedCampaigns.some((c) => c.id === prev)) return prev;
+          return loadedCampaigns[0]?.id ?? null;
+        });
+      } catch (err: any) {
+        if (currentSeq !== requestSeqRef.current) return;
+        setError(
+          err?.message || "Failed to load canonical Newsletter Desk data."
+        );
+      } finally {
+        if (currentSeq === requestSeqRef.current) {
+          setLoading(false);
+        }
       }
-
-      const [loadedCampaigns, loadedSegments] = await Promise.all([
-        services.newsroomCampaigns.listCampaigns(),
-        services.newsroomCampaigns.listSegments()
-      ]);
-
-      setCampaigns(loadedCampaigns);
-      setSegments(loadedSegments);
-      setSelectedCampaignId((prev) => {
-        if (prev && loadedCampaigns.some((c) => c.id === prev)) return prev;
-        return loadedCampaigns[0]?.id ?? null;
-      });
-    } catch (err: any) {
-      setError(
-        err?.message || "Failed to load canonical Newsletter Desk data."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [statusFilter, purposeFilter, debouncedSearch]
+  );
 
   useEffect(() => {
-    void loadWorkspace();
-  }, [loadWorkspace]);
+    void loadWorkspace(debouncedSearch);
+  }, [loadWorkspace, debouncedSearch]);
 
   const capabilityMatrix = useMemo(
     () => resolveNewsletterDeskCapabilityState(snapshot),
@@ -1529,7 +1605,7 @@ export function StudioNewsletterDesk() {
       setActionErrorMessage(null);
       try {
         const newId = await services.newsroomCampaigns.createCampaign(input);
-        await loadWorkspace();
+        await loadWorkspace(debouncedSearch);
         setSelectedCampaignId(newId);
         setFeedbackMessage("Campaign draft created in canonical registry.");
       } catch (err: any) {
@@ -1538,7 +1614,7 @@ export function StudioNewsletterDesk() {
         );
       }
     },
-    [loadWorkspace]
+    [loadWorkspace, debouncedSearch]
   );
 
   const handleApproveCampaign = useCallback(
@@ -1547,7 +1623,7 @@ export function StudioNewsletterDesk() {
       setActionErrorMessage(null);
       try {
         await services.newsroomCampaigns.approveCampaign(campaignId);
-        await loadWorkspace();
+        await loadWorkspace(debouncedSearch);
         setSelectedCampaignId(campaignId);
         setFeedbackMessage(
           "Campaign approved. Ready for consented send preparation."
@@ -1556,7 +1632,7 @@ export function StudioNewsletterDesk() {
         setActionErrorMessage(err?.message || "Failed to approve campaign.");
       }
     },
-    [loadWorkspace]
+    [loadWorkspace, debouncedSearch]
   );
 
   const handlePrepareSend = useCallback(
@@ -1568,7 +1644,7 @@ export function StudioNewsletterDesk() {
           await services.newsroomCampaigns.prepareSend(campaignId);
         setPreparedHandoff(result);
         setFeedbackMessage("Send handoff prepared.");
-        await loadWorkspace();
+        await loadWorkspace(debouncedSearch);
         setSelectedCampaignId(campaignId);
       } catch (err: any) {
         setPreparedHandoff(null);
@@ -1577,7 +1653,7 @@ export function StudioNewsletterDesk() {
         );
       }
     },
-    [loadWorkspace]
+    [loadWorkspace, debouncedSearch]
   );
 
   return (
@@ -1590,6 +1666,8 @@ export function StudioNewsletterDesk() {
       onChangeStatusFilter={setStatusFilter}
       purposeFilter={purposeFilter}
       onChangePurposeFilter={setPurposeFilter}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
       capabilities={capabilityMatrix}
       loading={loading}
       error={error}
@@ -1599,7 +1677,7 @@ export function StudioNewsletterDesk() {
       onCreateCampaign={handleCreateCampaign}
       onApproveCampaign={handleApproveCampaign}
       onPrepareSend={handlePrepareSend}
-      onRefresh={loadWorkspace}
+      onRefresh={() => loadWorkspace(debouncedSearch)}
     />
   );
 }
@@ -2115,6 +2193,52 @@ const styles = StyleSheet.create({
   segmentCardDetail: {
     fontSize: 11,
     color: colors.inkMuted
+  },
+  disclosureRow: {
+    paddingHorizontal: 4,
+    paddingTop: 4
+  },
+  disclosureText: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    fontStyle: "italic"
+  },
+  searchGroup: {
+    gap: 6,
+    marginBottom: spacing.xs
+  },
+  searchBox: {
+    position: "relative",
+    justifyContent: "center"
+  },
+  searchInput: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    paddingRight: 36,
+    fontSize: 13,
+    color: colors.ink
+  },
+  clearSearchBtn: {
+    position: "absolute",
+    right: 8,
+    top: "50%",
+    transform: [{ translateY: -10 }],
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  clearSearchText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.inkMuted,
+    lineHeight: 12
   },
   filterCard: {
     backgroundColor: "#FFFFFF",
