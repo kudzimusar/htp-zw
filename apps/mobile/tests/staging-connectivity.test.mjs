@@ -69,3 +69,48 @@ test("HealthTimes Staging public migrated-media bucket is reachable after AG-04 
     assert.equal(typeof body[0]?.name, "string", "Migrated media list result should expose an object name");
   }
 });
+
+test("HealthTimes Staging PostgREST denies anonymous direct table access and RPC execution on push distribution endpoints (HT-NR-06C-A-R1)", async () => {
+  // Direct table access must fail closed
+  const devicesTable = await fetch(`${url}/rest/v1/reader_push_devices?select=*`, { headers });
+  assert.equal(
+    [401, 403, 404].includes(devicesTable.status),
+    true,
+    `Direct anonymous reader_push_devices access must fail closed, received HTTP ${devicesTable.status}`
+  );
+
+  const alertsTable = await fetch(`${url}/rest/v1/newsroom_push_alerts?select=*`, { headers });
+  assert.equal(
+    [401, 403, 404].includes(alertsTable.status),
+    true,
+    `Direct anonymous newsroom_push_alerts access must fail closed, received HTTP ${alertsTable.status}`
+  );
+
+  // All 7 push RPCs must fail closed for anonymous / public callers
+  const pushRpcs = [
+    "reader_register_push_device",
+    "reader_revoke_push_device",
+    "newsroom_list_push_alerts",
+    "newsroom_create_push_alert",
+    "newsroom_save_push_alert",
+    "newsroom_approve_push_alert",
+    "newsroom_prepare_push_alert"
+  ];
+
+  for (const rpc of pushRpcs) {
+    const res = await fetch(`${url}/rest/v1/rpc/${rpc}`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({})
+    });
+    assert.equal(
+      [401, 403, 404].includes(res.status),
+      true,
+      `Anonymous RPC execution on ${rpc} must fail closed, received HTTP ${res.status}`
+    );
+  }
+});
+

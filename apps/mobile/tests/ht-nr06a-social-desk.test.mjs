@@ -70,7 +70,7 @@ const {
 // 1. MIGRATION DISCIPLINE & FROZEN AUTHORITY
 // ============================================================================
 
-test("HT-NR-06A Section 3/9: repository migration count is 74 at HT-NR-06C-A authority", () => {
+test("HT-NR-06A Section 3/9: repository migration count is 75 at HT-NR-06C-A-R1 authority", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -79,8 +79,8 @@ test("HT-NR-06A Section 3/9: repository migration count is 74 at HT-NR-06C-A aut
 
   assert.equal(
     migrationFiles.length,
-    74,
-    `Expected exactly 74 migrations in supabase/migrations, found ${migrationFiles.length}`
+    75,
+    `Expected exactly 75 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes("20261017030000_ht_nr05db_r1_stream_integrity.sql")

@@ -83,10 +83,10 @@ function createMockPushAlertClient(rpcResolver) {
 }
 
 // =============================================================================
-// 1. MIGRATION 74 DISCIPLINE & REPOSITORY AUTHORITY
+// 1. MIGRATION 74 & 75 DISCIPLINE & REPOSITORY AUTHORITY (HT-NR-06C-A & R1)
 // =============================================================================
 
-test("HT-NR-06C-A: repository migration count is exactly 74", () => {
+test("HT-NR-06C-A-R1: repository migration count is exactly 75", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -95,14 +95,20 @@ test("HT-NR-06C-A: repository migration count is exactly 74", () => {
 
   assert.equal(
     migrationFiles.length,
-    74,
-    `Expected exactly 74 migrations in supabase/migrations, found ${migrationFiles.length}`
+    75,
+    `Expected exactly 75 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(
       "20261017030000_ht_nr06ca_push_alert_foundation.sql"
     ),
     "Expected migration 20261017030000_ht_nr06ca_push_alert_foundation.sql to be present"
+  );
+  assert.ok(
+    migrationFiles.includes(
+      "20261017031000_ht_nr06ca_r1_push_security_boundary.sql"
+    ),
+    "Expected migration 20261017031000_ht_nr06ca_r1_push_security_boundary.sql to be present"
   );
 });
 
@@ -133,16 +139,6 @@ test("HT-NR-06C-A: migration 74 defines reader_push_devices and newsroom_push_al
     "newsroom_push_alerts must have RLS enabled"
   );
 
-  // Direct table grants revoked
-  assert.ok(
-    sql.includes("revoke all on public.reader_push_devices from public, anon, authenticated;"),
-    "reader_push_devices must revoke all from public, anon, authenticated"
-  );
-  assert.ok(
-    sql.includes("revoke insert, update, delete, truncate on table public.newsroom_push_alerts from public, anon, authenticated;"),
-    "newsroom_push_alerts must revoke mutations from public, anon, authenticated"
-  );
-
   // RPCs
   assert.ok(
     sql.includes("create or replace function public.reader_register_push_device"),
@@ -168,32 +164,220 @@ test("HT-NR-06C-A: migration 74 defines reader_push_devices and newsroom_push_al
     sql.includes("create or replace function public.newsroom_list_push_alerts"),
     "Must define newsroom_list_push_alerts RPC"
   );
+});
 
-  // Grants on RPCs to authenticated
+test("HT-NR-06C-A-R1: migration 75 hardens table and RPC privileges and enforces strict token ownership", () => {
+  const migrationPath = path.join(
+    repoRoot,
+    "supabase/migrations/20261017031000_ht_nr06ca_r1_push_security_boundary.sql"
+  );
+  const sql = fs.readFileSync(migrationPath, "utf-8").toLowerCase();
+
+  // Table privileges revoked completely from public, anon, authenticated
   assert.ok(
-    sql.includes("grant execute on function public.reader_register_push_device"),
-    "Must grant execute on reader_register_push_device"
+    sql.includes("revoke all on table public.reader_push_devices from public, anon, authenticated;"),
+    "reader_push_devices must revoke all from public, anon, authenticated"
   );
   assert.ok(
-    sql.includes("grant execute on function public.newsroom_create_push_alert"),
-    "Must grant execute on newsroom_create_push_alert"
+    sql.includes("revoke all on table public.newsroom_push_alerts from public, anon, authenticated;"),
+    "newsroom_push_alerts must revoke all from public, anon, authenticated"
+  );
+
+  // Function privileges explicitly revoked from PUBLIC and anon for all 7 RPCs
+  const rpcs = [
+    "public.reader_register_push_device(text, text)",
+    "public.reader_revoke_push_device(uuid)",
+    "public.newsroom_list_push_alerts(text, text, text, integer)",
+    "public.newsroom_create_push_alert(jsonb)",
+    "public.newsroom_save_push_alert(uuid, jsonb)",
+    "public.newsroom_approve_push_alert(uuid)",
+    "public.newsroom_prepare_push_alert(uuid)"
+  ];
+
+  for (const rpc of rpcs) {
+    assert.ok(
+      sql.includes(`revoke all on function ${rpc} from public;`),
+      `Must revoke all on function ${rpc} from public`
+    );
+    assert.ok(
+      sql.includes(`revoke execute on function ${rpc} from public;`),
+      `Must revoke execute on function ${rpc} from public`
+    );
+    assert.ok(
+      sql.includes(`revoke all on function ${rpc} from anon;`),
+      `Must revoke all on function ${rpc} from anon`
+    );
+    assert.ok(
+      sql.includes(`revoke execute on function ${rpc} from anon;`),
+      `Must revoke execute on function ${rpc} from anon`
+    );
+    assert.ok(
+      sql.includes(`grant execute on function ${rpc} to authenticated;`),
+      `Must grant execute on function ${rpc} to authenticated`
+    );
+  }
+
+  // reader_register_push_device token ownership check
+  assert.ok(
+    sql.includes("push token is already registered to another reader"),
+    "Must fail closed if active token belongs to another reader"
   );
   assert.ok(
-    sql.includes("grant execute on function public.newsroom_save_push_alert"),
-    "Must grant execute on newsroom_save_push_alert"
+    sql.includes("raise exception using errcode = '42501'"),
+    "Must raise 42501 on ownership violation"
   );
+  // Must NOT revoke other readers
   assert.ok(
-    sql.includes("grant execute on function public.newsroom_approve_push_alert"),
-    "Must grant execute on newsroom_approve_push_alert"
+    !sql.includes("set status = 'revoked' where token_hash"),
+    "Must NOT revoke tokens belonging to other readers"
   );
-  assert.ok(
-    sql.includes("grant execute on function public.newsroom_prepare_push_alert"),
-    "Must grant execute on newsroom_prepare_push_alert"
+});
+
+// Contract simulation of reader_register_push_device security semantics
+test("HT-NR-06C-A-R1 Contract: reader_register_push_device simulation enforces strict token ownership", () => {
+  // In-memory simulation of the DB table and unique active hash constraint
+  const db = [];
+
+  function simulateRegisterPushDevice(authUid, expoPushToken, platform) {
+    if (!authUid) {
+      const err = new Error("Authentication required to register push device");
+      err.code = "42501";
+      throw err;
+    }
+
+    const token = (expoPushToken ?? "").trim();
+    if (!token || token.length > 255) {
+      const err = new Error("Invalid push token: non-empty bounded token required");
+      err.code = "22023";
+      throw err;
+    }
+
+    if (!/^(ExponentPushToken|ExpoPushToken)\[[^\s\[\]]{10,200}\]$/.test(token)) {
+      const err = new Error("Invalid Expo push token format");
+      err.code = "22023";
+      throw err;
+    }
+
+    const plat = (platform ?? "").trim().toLowerCase();
+    if (plat !== "ios" && plat !== "android") {
+      const err = new Error("Invalid platform: only ios and android are supported");
+      err.code = "22023";
+      throw err;
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token, "utf8").digest("hex");
+
+    const activeExisting = db.find(
+      (row) => row.token_hash === tokenHash && row.status === "active"
+    );
+
+    if (activeExisting) {
+      if (activeExisting.reader_user_id === authUid) {
+        // Idempotent refresh for same user
+        activeExisting.last_registered_at = new Date().toISOString();
+        activeExisting.platform = plat;
+        activeExisting.expo_push_token = token;
+        return { device_id: activeExisting.id, status: "active" };
+      } else {
+        // Active registration belongs to another reader -> FAIL CLOSED (42501)
+        const err = new Error("Push token is already registered to another reader");
+        err.code = "42501";
+        throw err;
+      }
+    }
+
+    // Check for historical revoked row for same user
+    const revokedExisting = db.find(
+      (row) => row.token_hash === tokenHash && row.reader_user_id === authUid && row.status === "revoked"
+    );
+
+    if (revokedExisting) {
+      revokedExisting.status = "active";
+      revokedExisting.revoked_at = null;
+      revokedExisting.last_registered_at = new Date().toISOString();
+      revokedExisting.platform = plat;
+      revokedExisting.expo_push_token = token;
+      return { device_id: revokedExisting.id, status: "active" };
+    }
+
+    // Insert new row
+    const newId = crypto.randomUUID();
+    const newRow = {
+      id: newId,
+      reader_user_id: authUid,
+      expo_push_token: token,
+      token_hash: tokenHash,
+      platform: plat,
+      status: "active",
+      last_registered_at: new Date().toISOString(),
+      revoked_at: null,
+      created_at: new Date().toISOString()
+    };
+    db.push(newRow);
+    return { device_id: newId, status: "active" };
+  }
+
+  const userA = "u0000000-0000-4000-a000-000000000001";
+  const userB = "u0000000-0000-4000-a000-000000000002";
+  const validToken1 = "ExponentPushToken[xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]";
+  const validToken2 = "ExpoPushToken[abcdef1234567890]";
+
+  // 1. Unauthenticated rejects with 42501
+  assert.throws(
+    () => simulateRegisterPushDevice(null, validToken1, "ios"),
+    (err) => err.code === "42501"
   );
-  assert.ok(
-    sql.includes("grant execute on function public.newsroom_list_push_alerts"),
-    "Must grant execute on newsroom_list_push_alerts"
+
+  // 2. Invalid token format rejects with 22023
+  assert.throws(
+    () => simulateRegisterPushDevice(userA, "raw_fcm_token_12345", "ios"),
+    (err) => err.code === "22023"
   );
+  assert.throws(
+    () => simulateRegisterPushDevice(userA, "", "ios"),
+    (err) => err.code === "22023"
+  );
+
+  // 3. Invalid platform rejects with 22023
+  assert.throws(
+    () => simulateRegisterPushDevice(userA, validToken1, "web"),
+    (err) => err.code === "22023"
+  );
+
+  // 4. User A registers validToken1 -> success
+  const res1 = simulateRegisterPushDevice(userA, validToken1, "ios");
+  assert.equal(res1.status, "active");
+  assert.ok(res1.device_id);
+
+  // 5. User A re-registers validToken1 -> idempotent refresh (same device_id)
+  const res2 = simulateRegisterPushDevice(userA, validToken1, "ios");
+  assert.equal(res2.device_id, res1.device_id);
+  assert.equal(db.filter((r) => r.token_hash === crypto.createHash("sha256").update(validToken1).digest("hex")).length, 1);
+
+  // 6. User B tries to register validToken1 while active on User A -> FAILS CLOSED with 42501
+  assert.throws(
+    () => simulateRegisterPushDevice(userB, validToken1, "android"),
+    (err) => {
+      assert.equal(err.code, "42501");
+      assert.match(err.message, /already registered to another reader/);
+      return true;
+    }
+  );
+
+  // Verify User A's registration is untouched
+  const userARow = db.find((r) => r.id === res1.device_id);
+  assert.equal(userARow.status, "active");
+  assert.equal(userARow.reader_user_id, userA);
+
+  // 7. Revoke User A's token
+  userARow.status = "revoked";
+  userARow.revoked_at = new Date().toISOString();
+
+  // 8. Now User B can register validToken1 because no ACTIVE registration exists
+  const res3 = simulateRegisterPushDevice(userB, validToken1, "android");
+  assert.equal(res3.status, "active");
+  assert.notEqual(res3.device_id, res1.device_id);
+  assert.equal(db.find((r) => r.id === res3.device_id).reader_user_id, userB);
 });
 
 // =============================================================================
