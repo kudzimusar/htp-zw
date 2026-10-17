@@ -65,7 +65,10 @@ import type {
   NewsroomLiveCoverage,
   NewsroomLiveCoverageCreateInput,
   NewsroomLiveCoveragePatch,
-  NewsroomLiveCoverageListOptions
+  NewsroomLiveCoverageListOptions,
+  NewsroomLiveUpdate,
+  NewsroomLiveUpdateCreateInput,
+  LiveBlogUpdate
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -159,6 +162,10 @@ export interface AnalyticsService {
 
 export interface LiveService {
   list(): Promise<LiveItem[]>;
+  listUpdates(
+    coverageId: string,
+    options?: { since?: string | null; limit?: number }
+  ): Promise<LiveBlogUpdate[]>;
 }
 
 export interface VideoService {
@@ -302,6 +309,8 @@ export interface NewsroomLiveCoverageService {
   saveCoverage(id: string, expectedVersion: number, patch: NewsroomLiveCoveragePatch): Promise<number>;
   startCoverage(id: string, expectedVersion: number): Promise<number>;
   endCoverage(id: string, expectedVersion: number): Promise<number>;
+  listUpdates(coverageId: string, limit?: number): Promise<NewsroomLiveUpdate[]>;
+  postUpdate(coverageId: string, input: NewsroomLiveUpdateCreateInput): Promise<string>;
 }
 
 export interface HealthTimesServices {

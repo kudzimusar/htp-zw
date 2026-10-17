@@ -102,13 +102,13 @@ const { stagingNewsroomMediaService } = mediaServiceModule;
 // 1. INVARIANTS & INTEGRITY TESTS
 // -----------------------------------------------------------------------------
 
-test("HT-NR-05B-R1 Invariant: Migration count is exactly 70", () => {
+test("HT-NR-05B-R1 Invariant: Migration count is exactly 71", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    70,
-    `Migration count must be exactly 70 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery + 05D-A live desk foundation). Found ${files.length}.`
+    71,
+    `Migration count must be exactly 71 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery + 05D-A live desk foundation + 05D-B live blog updates). Found ${files.length}.`
   );
 });
 

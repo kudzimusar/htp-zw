@@ -157,13 +157,13 @@ const { mapPublicVideoRow, createPublicVideoService, PublicVideoError } = public
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =============================================================================
 
-test("HT-NR-05C-B Invariant: Repository migration count is exactly 70", () => {
+test("HT-NR-05C-B Invariant: Repository migration count is exactly 71", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    70,
-    `Migration count must be exactly 70 (68 prior + 05C-B public watch delivery + 05D-A live desk foundation). Found ${files.length}.`
+    71,
+    `Migration count must be exactly 71 (68 prior + 05C-B public watch delivery + 05D-A live desk foundation + 05D-B live blog updates). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261017000000_ht_nr05cb_public_watch_delivery.sql"),

@@ -14,12 +14,15 @@ import { StudioAccessGate } from "./Studio";
 import {
   validateLiveCoverageCreateInput,
   validateLiveCoveragePatch,
+  validateLiveUpdateCreateInput,
   type NewsroomLiveCoverage,
   type NewsroomLiveCoverageCreateInput,
   type NewsroomLiveCoverageKind,
   type NewsroomLiveCoverageListOptions,
   type NewsroomLiveCoveragePatch,
-  type NewsroomLiveCoverageStatus
+  type NewsroomLiveCoverageStatus,
+  type NewsroomLiveUpdate,
+  type NewsroomLiveUpdateCreateInput
 } from "../domain/models";
 import { breakpoints, colors as tokenColors, radius, spacing } from "../theme/tokens";
 
@@ -98,6 +101,9 @@ function formatDate(iso: string | null | undefined): string {
 
 export type StudioLiveDeskViewProps = {
   coverage: NewsroomLiveCoverage[];
+  updates?: NewsroomLiveUpdate[];
+  updatesLoading?: boolean;
+  updatesError?: string | null;
   stories?: Array<{ id: string; title: string }>;
   mediaAssets?: Array<{ id: string; filename?: string; publicUrl?: string | null; altText?: string | null }>;
   loading?: boolean;
@@ -126,10 +132,17 @@ export type StudioLiveDeskViewProps = {
     id: string,
     expectedVersion: number
   ) => Promise<number | void>;
+  onPostUpdate?: (
+    coverageId: string,
+    input: NewsroomLiveUpdateCreateInput
+  ) => Promise<string | void>;
 };
 
 export function StudioLiveDeskView({
   coverage,
+  updates = [],
+  updatesLoading = false,
+  updatesError = null,
   stories = [],
   mediaAssets = [],
   loading = false,
@@ -147,7 +160,8 @@ export function StudioLiveDeskView({
   onCreateCoverage,
   onSaveCoverage,
   onStartCoverage,
-  onEndCoverage
+  onEndCoverage,
+  onPostUpdate
 }: StudioLiveDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -193,6 +207,16 @@ export function StudioLiveDeskView({
   const [endSubmitting, setEndSubmitting] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"start" | "end" | null>(null);
 
+  // Live Blog Update Composer State (HT-NR-05D-B)
+  const [updateHeadline, setUpdateHeadline] = useState("");
+  const [updateBody, setUpdateBody] = useState("");
+  const [updateMediaId, setUpdateMediaId] = useState<string | null>(null);
+  const [updateFeedback, setUpdateFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [updateSubmitting, setUpdateSubmitting] = useState(false);
+
   // Sync edit form with selected item
   useEffect(() => {
     if (selectedItem) {
@@ -206,6 +230,87 @@ export function StudioLiveDeskView({
       setIsCreatingNew(false);
     }
   }, [selectedItem]);
+
+  // Reset update composer draft only when switching to a different coverage ID
+  useEffect(() => {
+    setUpdateHeadline("");
+    setUpdateBody("");
+    setUpdateMediaId(null);
+    setUpdateFeedback(null);
+  }, [selectedCoverageId]);
+
+  const selectedCoverageUpdates = useMemo(() => {
+    if (!selectedItem || selectedItem.kind !== "live-blog") return [];
+    return [...updates]
+      .filter((u) => u.coverageId === selectedItem.id)
+      .sort((a, b) => {
+        const tDiff = new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        if (tDiff !== 0) return tDiff;
+        return b.id.localeCompare(a.id);
+      });
+  }, [updates, selectedItem]);
+
+  const handlePostUpdate = async () => {
+    if (!selectedItem || updateSubmitting) return;
+    setUpdateFeedback(null);
+
+    if (selectedItem.kind !== "live-blog") {
+      setUpdateFeedback({
+        type: "error",
+        message: "Live updates can only be posted to Live Blog coverage."
+      });
+      return;
+    }
+
+    if (selectedItem.status !== "live") {
+      setUpdateFeedback({
+        type: "error",
+        message: "Start this coverage before posting live updates."
+      });
+      return;
+    }
+
+    const input: NewsroomLiveUpdateCreateInput = {
+      headline: updateHeadline.trim().length > 0 ? updateHeadline.trim() : null,
+      body: updateBody,
+      mediaId: updateMediaId
+    };
+
+    const check = validateLiveUpdateCreateInput(input);
+    if (!check.valid) {
+      setUpdateFeedback({
+        type: "error",
+        message: check.error || "Invalid live update payload."
+      });
+      return;
+    }
+
+    try {
+      setUpdateSubmitting(true);
+      if (onPostUpdate) {
+        await onPostUpdate(selectedItem.id, {
+          headline: input.headline,
+          body: input.body.trim(),
+          mediaId: input.mediaId
+        });
+        setUpdateHeadline("");
+        setUpdateBody("");
+        setUpdateMediaId(null);
+        setUpdateFeedback({
+          type: "success",
+          message: "Live update published to the stream."
+        });
+      }
+    } catch (err: any) {
+      // Preserve draft headline/body/mediaId on error
+      setUpdateFeedback({
+        type: "error",
+        message: err?.message || "Failed to publish live update."
+      });
+    } finally {
+      setUpdateSubmitting(false);
+    }
+  };
 
   // Counters
   const counts = useMemo(() => {
@@ -1215,6 +1320,206 @@ export function StudioLiveDeskView({
                   </Pressable>
                 </View>
               )}
+
+              {/* HT-NR-05D-B: Live Blog Updates Stream & Composer */}
+              {selectedItem.kind === "live-blog" && (
+                <View style={styles.liveUpdatesSection} testID="live-updates-section">
+                  <View style={styles.liveUpdatesHeaderRow}>
+                    <Text style={styles.liveUpdatesSectionTitle}>Live Updates</Text>
+                    <View style={styles.liveUpdatesCountBadge}>
+                      <Text style={styles.liveUpdatesCountText}>
+                        {selectedCoverageUpdates.length}{" "}
+                        {selectedCoverageUpdates.length === 1 ? "update" : "updates"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {selectedItem.status === "live" ? (
+                    <View style={styles.postUpdateComposer} testID="live-update-composer">
+                      <Text style={styles.composerTitle}>Post Update</Text>
+                      <Text style={styles.composerSubtitle}>
+                        Dispatches published here appear immediately in the public Reader Live Blog stream.
+                      </Text>
+
+                      {updateFeedback && (
+                        <View
+                          style={[
+                            styles.feedbackBanner,
+                            updateFeedback.type === "error"
+                              ? styles.feedbackError
+                              : styles.feedbackSuccess
+                          ]}
+                          testID="live-update-feedback"
+                        >
+                          <Text
+                            style={[
+                              styles.feedbackText,
+                              updateFeedback.type === "error"
+                                ? styles.feedbackTextError
+                                : styles.feedbackTextSuccess
+                            ]}
+                          >
+                            {updateFeedback.message}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Update Headline (Optional, max 200 chars)</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          placeholder="e.g., Minister announces provincial cold-chain expansion"
+                          placeholderTextColor={colors.gray400}
+                          value={updateHeadline}
+                          onChangeText={setUpdateHeadline}
+                          maxLength={200}
+                          testID="live-update-headline-input"
+                        />
+                      </View>
+
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Update Body *</Text>
+                        <TextInput
+                          style={[styles.formInput, styles.updateBodyTextarea]}
+                          placeholder="Write verified live update dispatch…"
+                          placeholderTextColor={colors.gray400}
+                          value={updateBody}
+                          onChangeText={setUpdateBody}
+                          multiline
+                          textAlignVertical="top"
+                          testID="live-update-body-input"
+                        />
+                      </View>
+
+                      <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Update Media Attachment (Optional)</Text>
+                        <ScrollView
+                          horizontal
+                          style={styles.storySelectScroll}
+                          testID="live-update-media-picker"
+                        >
+                          <Pressable
+                            style={[
+                              styles.storyOptionChip,
+                              updateMediaId === null && styles.storyOptionChipActive
+                            ]}
+                            onPress={() => setUpdateMediaId(null)}
+                          >
+                            <Text
+                              style={[
+                                styles.storyOptionText,
+                                updateMediaId === null && styles.storyOptionTextActive
+                              ]}
+                            >
+                              No Media
+                            </Text>
+                          </Pressable>
+                          {mediaAssets.map((m) => (
+                            <Pressable
+                              key={m.id}
+                              style={[
+                                styles.storyOptionChip,
+                                updateMediaId === m.id && styles.storyOptionChipActive
+                              ]}
+                              onPress={() => setUpdateMediaId(m.id)}
+                            >
+                              <Text
+                                style={[
+                                  styles.storyOptionText,
+                                  updateMediaId === m.id && styles.storyOptionTextActive
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {m.filename || m.altText || m.id.slice(0, 8)}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </View>
+
+                      <Pressable
+                        style={[styles.postUpdateBtn, updateSubmitting && styles.btnDisabled]}
+                        onPress={handlePostUpdate}
+                        disabled={updateSubmitting}
+                        testID="post-live-update-btn"
+                      >
+                        <Text style={styles.postUpdateBtnText}>
+                          {updateSubmitting ? "Posting Update…" : "Post Update"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : selectedItem.status === "upcoming" ? (
+                    <View
+                      style={styles.upcomingUpdateNotice}
+                      testID="live-update-upcoming-notice"
+                    >
+                      <Text style={styles.upcomingUpdateNoticeText}>
+                        Start this coverage before posting live updates.
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.endedUpdateNotice} testID="live-update-ended-notice">
+                      <Text style={styles.endedUpdateNoticeText}>
+                        This live coverage has ended. Update history is locked and read-only.
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Update History List */}
+                  <View style={styles.updatesHistoryList} testID="live-updates-history-list">
+                    <Text style={styles.updatesHistoryHeading}>
+                      Published Update Stream (Newest First)
+                    </Text>
+                    {updatesError && (
+                      <View style={[styles.feedbackBanner, styles.feedbackError]}>
+                        <Text style={[styles.feedbackText, styles.feedbackTextError]}>
+                          {updatesError}
+                        </Text>
+                      </View>
+                    )}
+                    {updatesLoading && selectedCoverageUpdates.length === 0 ? (
+                      <Text style={styles.updatesEmptyText}>Loading live updates…</Text>
+                    ) : selectedCoverageUpdates.length === 0 ? (
+                      <Text style={styles.updatesEmptyText}>
+                        No live updates posted yet for this coverage.
+                      </Text>
+                    ) : (
+                      selectedCoverageUpdates.map((u) => {
+                        const attachedMedia = u.mediaId
+                          ? mediaAssets.find((m) => m.id === u.mediaId)
+                          : null;
+                        return (
+                          <View
+                            key={u.id}
+                            style={styles.updateHistoryCard}
+                            testID={`live-update-item-${u.id}`}
+                          >
+                            <View style={styles.updateHistoryMetaRow}>
+                              <Text style={styles.updateHistoryTimestamp}>
+                                {formatDate(u.publishedAt)}
+                              </Text>
+                              <Text style={styles.updateHistoryStaff}>
+                                Staff {u.createdByStaffId.slice(0, 8)}
+                              </Text>
+                            </View>
+                            {u.headline && (
+                              <Text style={styles.updateHistoryHeadline}>{u.headline}</Text>
+                            )}
+                            <Text style={styles.updateHistoryBody}>{u.body}</Text>
+                            {u.mediaId && (
+                              <View style={styles.updateHistoryMediaBadge}>
+                                <Text style={styles.updateHistoryMediaText}>
+                                  Media: {attachedMedia?.filename || attachedMedia?.altText || u.mediaId.slice(0, 8)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                </View>
+              )}
             </ScrollView>
           ) : (
             <View style={styles.emptyInspector}>
@@ -1232,6 +1537,9 @@ export function StudioLiveDeskView({
 
 function StudioLiveDeskContainer() {
   const [coverage, setCoverage] = useState<NewsroomLiveCoverage[]>([]);
+  const [updates, setUpdates] = useState<NewsroomLiveUpdate[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [updatesError, setUpdatesError] = useState<string | null>(null);
   const [stories, setStories] = useState<Array<{ id: string; title: string }>>([]);
   const [mediaAssets, setMediaAssets] = useState<
     Array<{ id: string; filename?: string; publicUrl?: string | null; altText?: string | null }>
@@ -1245,6 +1553,7 @@ function StudioLiveDeskContainer() {
   const [kindFilter, setKindFilter] = useState<"all" | NewsroomLiveCoverageKind>("all");
 
   const requestSeqRef = useRef(0);
+  const updatesSeqRef = useRef(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1252,6 +1561,42 @@ function StudioLiveDeskContainer() {
     }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const loadUpdatesForCoverage = async (coverageId: string | null) => {
+    const currentUpdateSeq = ++updatesSeqRef.current;
+    if (!coverageId) {
+      setUpdates([]);
+      setUpdatesError(null);
+      setUpdatesLoading(false);
+      return;
+    }
+    try {
+      setUpdatesLoading(true);
+      setUpdatesError(null);
+      const list = await services.newsroomLive.listUpdates(coverageId, 100);
+      if (currentUpdateSeq !== updatesSeqRef.current) return;
+      setUpdates(list);
+    } catch (err: any) {
+      if (currentUpdateSeq !== updatesSeqRef.current) return;
+      setUpdatesError(err?.message || "Failed to load live updates from server.");
+    } finally {
+      if (currentUpdateSeq === updatesSeqRef.current) {
+        setUpdatesLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const selected = coverage.find((c) => c.id === selectedCoverageId);
+    if (selected && selected.kind === "live-blog") {
+      void loadUpdatesForCoverage(selected.id);
+    } else {
+      ++updatesSeqRef.current;
+      setUpdates([]);
+      setUpdatesError(null);
+      setUpdatesLoading(false);
+    }
+  }, [selectedCoverageId]);
 
   const loadData = async (targetSearch = debouncedSearch) => {
     const currentSeq = ++requestSeqRef.current;
@@ -1330,18 +1675,32 @@ function StudioLiveDeskContainer() {
   const handleStartCoverage = async (id: string, expectedVersion: number) => {
     const nextVer = await services.newsroomLive.startCoverage(id, expectedVersion);
     await loadData(debouncedSearch);
+    await loadUpdatesForCoverage(id);
     return nextVer;
   };
 
   const handleEndCoverage = async (id: string, expectedVersion: number) => {
     const nextVer = await services.newsroomLive.endCoverage(id, expectedVersion);
     await loadData(debouncedSearch);
+    await loadUpdatesForCoverage(id);
     return nextVer;
+  };
+
+  const handlePostUpdate = async (
+    coverageId: string,
+    input: NewsroomLiveUpdateCreateInput
+  ) => {
+    const newUpdateId = await services.newsroomLive.postUpdate(coverageId, input);
+    await Promise.all([loadUpdatesForCoverage(coverageId), loadData(debouncedSearch)]);
+    return newUpdateId;
   };
 
   return (
     <StudioLiveDeskView
       coverage={coverage}
+      updates={updates}
+      updatesLoading={updatesLoading}
+      updatesError={updatesError}
       stories={stories}
       mediaAssets={mediaAssets}
       loading={loading}
@@ -1354,11 +1713,17 @@ function StudioLiveDeskContainer() {
       onStatusFilterChange={setStatusFilter}
       kindFilter={kindFilter}
       onKindFilterChange={setKindFilter}
-      onRefresh={() => loadData(debouncedSearch)}
+      onRefresh={() => {
+        void loadData(debouncedSearch);
+        if (selectedCoverageId) {
+          void loadUpdatesForCoverage(selectedCoverageId);
+        }
+      }}
       onCreateCoverage={handleCreateCoverage}
       onSaveCoverage={handleSaveCoverage}
       onStartCoverage={handleStartCoverage}
       onEndCoverage={handleEndCoverage}
+      onPostUpdate={handlePostUpdate}
     />
   );
 }
@@ -2068,5 +2433,156 @@ const styles = StyleSheet.create({
     textAlign: "center",
     maxWidth: 320,
     lineHeight: 18
+  },
+  liveUpdatesSection: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200,
+    gap: spacing.md
+  },
+  liveUpdatesHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  liveUpdatesSectionTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.gray900
+  },
+  liveUpdatesCountBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: colors.rose50,
+    borderWidth: 1,
+    borderColor: colors.rose200
+  },
+  liveUpdatesCountText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.rose700
+  },
+  postUpdateComposer: {
+    padding: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.blue100,
+    gap: spacing.sm
+  },
+  composerTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.gray900
+  },
+  composerSubtitle: {
+    fontSize: 12,
+    color: colors.gray600,
+    marginBottom: 4
+  },
+  updateBodyTextarea: {
+    minHeight: 88,
+    paddingTop: 10
+  },
+  postUpdateBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.rose600,
+    borderRadius: radius.sm,
+    alignItems: "center"
+  },
+  postUpdateBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.white
+  },
+  upcomingUpdateNotice: {
+    padding: spacing.md,
+    backgroundColor: colors.amber50,
+    borderWidth: 1,
+    borderColor: colors.amber300,
+    borderRadius: radius.sm
+  },
+  upcomingUpdateNoticeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.amber800
+  },
+  endedUpdateNotice: {
+    padding: spacing.md,
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: radius.sm
+  },
+  endedUpdateNoticeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.gray700
+  },
+  updatesHistoryList: {
+    gap: spacing.sm
+  },
+  updatesHistoryHeading: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.gray600,
+    textTransform: "uppercase"
+  },
+  updatesEmptyText: {
+    fontSize: 12,
+    color: colors.gray500,
+    fontStyle: "italic",
+    paddingVertical: spacing.xs
+  },
+  updateHistoryCard: {
+    padding: spacing.md,
+    backgroundColor: colors.gray50,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    borderRadius: radius.sm,
+    gap: 6
+  },
+  updateHistoryMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  updateHistoryTimestamp: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.rose700
+  },
+  updateHistoryStaff: {
+    fontSize: 10,
+    color: colors.gray500
+  },
+  updateHistoryHeadline: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.gray900
+  },
+  updateHistoryBody: {
+    fontSize: 12,
+    color: colors.gray700,
+    lineHeight: 18
+  },
+  updateHistoryMediaBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: colors.blue50,
+    borderWidth: 1,
+    borderColor: colors.blue100
+  },
+  updateHistoryMediaText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.blue700
   }
 });
+

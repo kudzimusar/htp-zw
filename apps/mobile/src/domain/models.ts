@@ -100,6 +100,7 @@ export type PremiumPreviewWindow = {
 export type LiveItem = {
   id: string;
   title: string;
+  summary?: string | null;
   kind: "live-blog" | "live-video" | "scheduled";
   status: "live" | "upcoming" | "ended";
   updatedAt: string;
@@ -2159,3 +2160,100 @@ export function validateLiveCoveragePatch(patch: NewsroomLiveCoveragePatch): { v
   }
   return { valid: true };
 }
+
+// ============================================================
+// HT-NR-05D-B: Canonical Live Blog Update Stream Models & Helpers
+// ============================================================
+
+export interface NewsroomLiveUpdate {
+  id: string;
+  coverageId: string;
+  headline: string | null;
+  body: string;
+  mediaId: string | null;
+  publishedAt: string;
+  authorStaffId?: string;
+  createdByStaffId: string;
+  createdAt: string;
+}
+
+export interface NewsroomLiveUpdateCreateInput {
+  coverageId?: string;
+  headline?: string | null;
+  body: string;
+  mediaId?: string | null;
+}
+
+export interface LiveBlogUpdate {
+  id: string;
+  coverageId: string;
+  headline: string | null;
+  body: string;
+  publishedAt: string;
+  media?: MediaRef | null | undefined;
+  sourceProvenance?: SourceProvenance | null | undefined;
+}
+
+export function validateLiveUpdateCreateInput(
+  input: unknown
+): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { valid: false, error: "Live update input payload must be a JSON object." };
+  }
+
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set(["coverageId", "headline", "body", "mediaId"]);
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Unknown or forbidden live update field: ${key}` };
+    }
+  }
+
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (record.coverageId !== undefined) {
+    if (
+      typeof record.coverageId !== "string" ||
+      !uuidRegex.test(record.coverageId.trim())
+    ) {
+      return { valid: false, error: "Valid coverage reference is required." };
+    }
+  }
+
+  if (typeof record.body !== "string") {
+    return { valid: false, error: "Update body is required." };
+  }
+
+  const trimmedBody = record.body.trim();
+  if (trimmedBody.length === 0) {
+    return { valid: false, error: "Update body is required." };
+  }
+  if (trimmedBody.length > 10000) {
+    return { valid: false, error: "Update body must be between 1 and 10,000 characters." };
+  }
+
+  if (record.headline !== undefined && record.headline !== null) {
+    if (typeof record.headline !== "string") {
+      return { valid: false, error: "Update headline must be a string or null." };
+    }
+    if (record.headline.trim().length > 200) {
+      return { valid: false, error: "Update headline must not exceed 200 characters." };
+    }
+  }
+
+  if (record.mediaId !== undefined && record.mediaId !== null) {
+    if (typeof record.mediaId !== "string") {
+      return { valid: false, error: "Invalid media asset reference." };
+    }
+    const trimmedMediaId = record.mediaId.trim();
+    if (trimmedMediaId.length > 0) {
+      if (!uuidRegex.test(trimmedMediaId)) {
+        return { valid: false, error: "Invalid media asset reference." };
+      }
+    }
+  }
+
+  return { valid: true };
+}
+

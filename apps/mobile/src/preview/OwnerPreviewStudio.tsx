@@ -28,7 +28,9 @@ import {
   type NewsroomLiveCoverageCreateInput,
   type NewsroomLiveCoveragePatch,
   type NewsroomLiveCoverageKind,
-  type NewsroomLiveCoverageStatus
+  type NewsroomLiveCoverageStatus,
+  type NewsroomLiveUpdate,
+  type NewsroomLiveUpdateCreateInput
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -65,6 +67,7 @@ import {
   buildPreviewStories,
   buildPreviewVideos,
   buildPreviewLiveCoverage,
+  buildPreviewLiveUpdates,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1362,6 +1365,9 @@ function OwnerPreviewLiveDeskView() {
   const [coverage, setCoverage] = useState<NewsroomLiveCoverage[]>(() =>
     buildPreviewLiveCoverage()
   );
+  const [updates, setUpdates] = useState<NewsroomLiveUpdate[]>(() =>
+    buildPreviewLiveUpdates()
+  );
   const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
   const [mediaAssets] = useState<NewsroomMediaAsset[]>(() => buildPreviewMediaAssets());
   const [selectedCoverageId, setSelectedCoverageId] = useState<string | null>(
@@ -1374,7 +1380,7 @@ function OwnerPreviewLiveDeskView() {
     "all" | NewsroomLiveCoverageKind
   >("all");
   const [notice, setNotice] = useState<string>(
-    "Owner Visual Preview: Live coverage registry, status transitions, and story linking run in simulated memory."
+    "Owner Visual Preview: Live coverage registry, status transitions, and live blog update stream run in simulated memory."
   );
 
   const handleSaveCoverage = async (
@@ -1497,6 +1503,38 @@ function OwnerPreviewLiveDeskView() {
     return newId;
   };
 
+  const handlePostUpdate = async (
+    coverageId: string,
+    input: NewsroomLiveUpdateCreateInput
+  ): Promise<string> => {
+    const target = coverage.find((c) => c.id === coverageId);
+    if (!target) throw new Error("Live coverage not found");
+    if (target.kind !== "live-blog") {
+      throw new Error("Live updates can only be posted to live-blog coverage");
+    }
+    if (target.status !== "live") {
+      throw new Error("Live updates can only be posted when coverage is live");
+    }
+    const nowIso = new Date().toISOString();
+    const newUpdateId = `e1000000-0000-4000-b000-${String(Date.now()).slice(-12).padStart(12, "0")}`;
+    const newUpdate: NewsroomLiveUpdate = {
+      id: newUpdateId,
+      coverageId,
+      headline: input.headline?.trim() || null,
+      body: input.body.trim(),
+      mediaId: input.mediaId ?? null,
+      publishedAt: nowIso,
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: nowIso
+    };
+    setUpdates((prev) => [newUpdate, ...prev]);
+    setCoverage((prev) =>
+      prev.map((c) => (c.id === coverageId ? { ...c, updatedAt: nowIso } : c))
+    );
+    setNotice("Preview state only: Simulated live blog update published in local preview memory.");
+    return newUpdateId;
+  };
+
   return (
     <View style={styles.sectionStack} testID="owner-preview-live-desk-view">
       <View style={styles.previewNoticeBanner} testID="preview-live-desk-notice">
@@ -1504,6 +1542,7 @@ function OwnerPreviewLiveDeskView() {
       </View>
       <StudioLiveDeskView
         coverage={coverage}
+        updates={updates}
         stories={stories.map((s) => ({
           id: s.id,
           title: s.title
@@ -1525,6 +1564,7 @@ function OwnerPreviewLiveDeskView() {
         onStartCoverage={handleStartCoverage}
         onEndCoverage={handleEndCoverage}
         onCreateCoverage={handleCreateCoverage}
+        onPostUpdate={handlePostUpdate}
         isOwnerPreview={true}
       />
     </View>
