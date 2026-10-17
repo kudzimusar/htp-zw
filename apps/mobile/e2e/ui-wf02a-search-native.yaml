@@ -1,7 +1,5 @@
 appId: zw.co.healthtimes.app.dev
 ---
-- launchApp:
-    clearState: true
 - openLink: "healthtimes://search"
 - runFlow:
     when:
@@ -10,13 +8,13 @@ appId: zw.co.healthtimes.app.dev
     commands:
       - tapOn: "Open"
 - extendedWaitUntil:
-    visible: "Search HealthTimes"
+    visible: "Try searching for"
     timeout: 90000
 - extendedWaitUntil:
-    visible: "Try searching for"
+    visible: "Intelligent Search"
     timeout: 45000
 - extendedWaitUntil:
-    visible: "Intelligent Search"
+    visible: "Search HealthTimes"
     timeout: 45000
 - assertVisible: "All"
 - assertVisible: "Articles"
@@ -24,11 +22,12 @@ appId: zw.co.healthtimes.app.dev
 - assertVisible: "Audio"
 - assertVisible: "Authors"
 - assertVisible: "Show search filters"
-- assertVisible: "Home"
-- assertVisible: "Explore"
-- assertVisible: "Live"
-- assertVisible: "Watch"
-- assertVisible: "My HT"
+- assertVisible: "Home(?:, tab, [0-9]+ of [0-9]+)?"
+- assertVisible: "Explore(?:, tab, [0-9]+ of [0-9]+)?"
+- assertVisible: "Live(?:, tab, [0-9]+ of [0-9]+)?"
+- assertVisible: "Watch(?:, tab, [0-9]+ of [0-9]+)?"
+- assertVisible: "My HT(?:, tab, [0-9]+ of [0-9]+)?"
+- assertNotVisible: "^Search, tab, [0-9]+ of [0-9]+$"
 - assertNotVisible: "RedBox"
 - assertNotVisible: "Unhandled JS Exception"
 - takeScreenshot: search-initial
@@ -41,4 +40,6 @@ appId: zw.co.healthtimes.app.dev
     visible: "TOPIC / DESK"
     timeout: 20000
 - assertVisible: "TOPIC / DESK"
+- assertNotVisible: "RedBox"
+- assertNotVisible: "Unhandled JS Exception"
 - takeScreenshot: search-filters-open
