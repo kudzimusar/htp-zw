@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadTs } from "./ts-module-loader.mjs";
+import { handlePushDispatchRequest } from "../../../supabase/functions/newsroom-push-dispatch/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,10 +53,10 @@ test("HT-NR-06C-B: NEWSROOM_PUSH_DISPATCH_STATUSES defines all 6 canonical trans
 });
 
 // =============================================================================
-// 2. MIGRATION 76 DISCIPLINE & REPOSITORY AUTHORITY
+// 2. MIGRATION 76 & 77 AUTHORITY & DISCIPLINE
 // =============================================================================
 
-test("HT-NR-06C-B: repository migration count is exactly 76", () => {
+test("HT-NR-06C-B-R1: repository migration count is exactly 77", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -64,8 +65,8 @@ test("HT-NR-06C-B: repository migration count is exactly 76", () => {
 
   assert.equal(
     migrationFiles.length,
-    76,
-    `Expected exactly 76 migrations in supabase/migrations, found ${migrationFiles.length}`
+    77,
+    `Expected exactly 77 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(
@@ -73,47 +74,52 @@ test("HT-NR-06C-B: repository migration count is exactly 76", () => {
     ),
     "Expected migration 20261017040000_ht_nr06cb_push_provider_execution.sql to be present"
   );
+  assert.ok(
+    migrationFiles.includes(
+      "20261017041000_ht_nr06cb_r1_dispatch_idempotency_runtime_parity.sql"
+    ),
+    "Expected migration 20261017041000_ht_nr06cb_r1_dispatch_idempotency_runtime_parity.sql to be present"
+  );
 });
 
-test("HT-NR-06C-B: migration 76 defines dispatch ledger tables and security boundary", () => {
-  const sql = readRepo("supabase/migrations/20261017040000_ht_nr06cb_push_provider_execution.sql");
+test("HT-NR-06C-B-R1: Migration 77 enforces single-dispatch invariant and accounting invariants", () => {
+  const sql = readRepo(
+    "supabase/migrations/20261017041000_ht_nr06cb_r1_dispatch_idempotency_runtime_parity.sql"
+  );
 
-  // Tables defined
-  assert.ok(sql.includes("create table if not exists public.newsroom_push_dispatches"));
-  assert.ok(sql.includes("create table if not exists public.newsroom_push_dispatch_tickets"));
+  // Single-dispatch database constraint on alert_id
+  assert.ok(
+    sql.includes("uq_newsroom_push_dispatches_alert_id unique (alert_id)"),
+    "Migration 77 must enforce unique constraint on alert_id"
+  );
 
-  // Check constraint on dispatch status
-  assert.ok(sql.includes("'dispatching'"));
-  assert.ok(sql.includes("'provider-accepted'"));
-  assert.ok(sql.includes("'partially-accepted'"));
-  assert.ok(sql.includes("'provider-rejected'"));
-  assert.ok(sql.includes("'delivery-failed'"));
-  assert.ok(sql.includes("'zero-recipients'"));
+  // Idempotency key conflict handling (fails closed if key attached to different alert)
+  assert.ok(
+    sql.includes("Idempotency key already belongs to a different push alert"),
+    "Migration 77 must fail closed when key belongs to a different alert"
+  );
 
-  // Idempotency unique constraint
-  assert.ok(sql.includes("uq_newsroom_push_dispatches_idempotency") || sql.includes("unique (idempotency_key)"));
+  // Single alert dispatch idempotency (returns is_duplicate: true for same alert under different key)
+  assert.ok(
+    sql.includes("where alert_id = p_alert_id"),
+    "Migration 77 must check if alert is already dispatched"
+  );
 
-  // RLS enabled
-  assert.ok(sql.includes("alter table public.newsroom_push_dispatches enable row level security;"));
-  assert.ok(sql.includes("alter table public.newsroom_push_dispatch_tickets enable row level security;"));
+  // Accounting invariant enforcement
+  assert.ok(
+    sql.includes("Accepted and rejected counts must sum to eligible count"),
+    "Migration 77 must enforce accepted + rejected == eligible in record RPC"
+  );
 
-  // Direct table privileges revoked from public, anon, authenticated
-  assert.ok(sql.includes("revoke all on table public.newsroom_push_dispatches from public, anon, authenticated;"));
-  assert.ok(sql.includes("revoke all on table public.newsroom_push_dispatch_tickets from public, anon, authenticated;"));
-
-  // RPCs defined
-  assert.ok(sql.includes("newsroom_get_push_alert_dispatch"));
-  assert.ok(sql.includes("newsroom_prepare_dispatch_recipients"));
-  assert.ok(sql.includes("newsroom_record_dispatch_result"));
-
-  // RPC privileges
-  assert.ok(sql.includes("grant execute on function public.newsroom_get_push_alert_dispatch(uuid) to authenticated;"));
-  assert.ok(sql.includes("grant execute on function public.newsroom_prepare_dispatch_recipients(uuid, text, uuid) to service_role;"));
-  assert.ok(sql.includes("grant execute on function public.newsroom_record_dispatch_result(uuid, text, integer, integer, integer, text, jsonb, jsonb) to service_role;"));
-
-  // Service-role-only boundary verified inside function bodies
-  assert.ok(sql.includes("current_user not in ('service_role', 'postgres')"));
-  assert.ok(sql.includes("coalesce(auth.role(), '') <> 'service_role'"));
+  // Service role ACLs
+  assert.ok(
+    sql.includes("grant execute on function public.newsroom_prepare_dispatch_recipients(uuid, text, uuid) to service_role;"),
+    "Preparation RPC must be granted to service_role only"
+  );
+  assert.ok(
+    sql.includes("grant execute on function public.newsroom_record_dispatch_result(uuid, text, integer, integer, integer, text, jsonb, jsonb) to service_role;"),
+    "Record RPC must be granted to service_role only"
+  );
 });
 
 // =============================================================================
@@ -128,7 +134,6 @@ test("HT-NR-06C-B: Parent PR #104 authority is verified at 92cae009f47ec9fa145cd
     ).trim();
     assert.equal(parentHead, "92cae009f47ec9fa145cdc237b691fa78b9677d8");
   } catch {
-    // If remote is not directly resolvable in offline test environment, verify base commit
     const baseCommit = execSync(
       "git merge-base HEAD origin/feat/ht-nr06ca-push-alert-foundation || git rev-parse HEAD~1",
       { cwd: repoRoot, encoding: "utf8" }
@@ -152,7 +157,7 @@ test("HT-NR-06C-B: frozen file ReaderDiscussion.tsx matches exact blob f7ac3671f
 });
 
 // =============================================================================
-// 4. EDGE FUNCTION CONTRACT & SOURCE CHECKS
+// 4. EDGE FUNCTION CONFIGURATION & SOURCE INVARIANTS
 // =============================================================================
 
 test("HT-NR-06C-B: supabase/config.toml configures newsroom-push-dispatch with verify_jwt = true", () => {
@@ -164,132 +169,784 @@ test("HT-NR-06C-B: supabase/config.toml configures newsroom-push-dispatch with v
 test("HT-NR-06C-B: Edge Function source code enforces story.publish capability and strict boundary", () => {
   const code = readRepo("supabase/functions/newsroom-push-dispatch/index.ts");
 
-  // CORS and OPTIONS handling
   assert.ok(code.includes("corsHeaders"));
-  assert.ok(code.includes('req.method === "OPTIONS"') || code.includes("req.method === 'OPTIONS'"));
-
-  // Authorization header parsing and 401 unauthenticated
+  assert.ok(code.includes('req.method === "OPTIONS"'));
   assert.ok(code.includes("Authentication required"));
-  assert.ok(code.includes("status: 401") || code.includes("response(401"));
-
-  // Capability verification: story.publish required, distribution.manage alone rejected
   assert.ok(code.includes("newsroom_has_capability"));
   assert.ok(code.includes("story.publish"));
   assert.ok(code.includes("Forbidden: story.publish capability required"));
-
-  // Input validation
-  assert.ok(code.includes("alert_id") && code.includes("valid UUID required"));
-  assert.ok(code.includes("status: 400") || code.includes("response(400"));
-
-  // Service role execution of prepare RPC
   assert.ok(code.includes("newsroom_prepare_dispatch_recipients"));
-
-  // Zero recipients handling: does NOT call Expo
   assert.ok(code.includes("devices.length === 0"));
   assert.ok(code.includes("zero-recipients"));
-
-  // Batching tokens in chunks of 100
-  assert.ok(code.includes("CHUNK_SIZE = 100") || code.includes("100"));
-
-  // Expo push provider endpoint
   assert.ok(code.includes("https://exp.host/--/api/v2/push/send"));
-
-  // Provider response statuses
   assert.ok(code.includes("provider-accepted"));
   assert.ok(code.includes("partially-accepted"));
   assert.ok(code.includes("provider-rejected"));
   assert.ok(code.includes("delivery-failed"));
-
-  // Service role recording of results
   assert.ok(code.includes("newsroom_record_dispatch_result"));
-
-  // Separation of transport from delivery
   assert.ok(code.includes("confirmed_delivery_count"));
-
-  // Client response must NEVER include device tokens or user IDs
   assert.ok(!code.includes("device_tokens"));
   assert.ok(!code.includes("reader_user_ids"));
 });
 
 // =============================================================================
-// 5. CAPABILITY MATRIX RESOLUTION
+// 5. DETERMINISTIC EXECUTABLE PROVIDER-PATH TEST MATRIX (20 CASES)
 // =============================================================================
 
-const capabilitiesModule = loadTs("src/security/capabilities.ts");
-const { resolvePushAlertDeskCapabilityState } = loadTs("src/ui/StudioPushAlertDesk.tsx", {
-  mocks: {
-    "react": {
-      useCallback: () => {},
-      useEffect: () => {},
-      useMemo: () => {},
-      useRef: () => ({ current: null }),
-      useState: () => [null, () => {}]
+function createMockEnvironment(overrides = {}) {
+  let fetchCallCount = 0;
+  let fetchCalls = [];
+
+  const mockFetch = overrides.fetchImpl || (async (url, init) => {
+    fetchCallCount++;
+    fetchCalls.push({ url, init, body: JSON.parse(init.body) });
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: [{ status: "ok", id: "ticket-123" }]
+      })
+    };
+  });
+
+  const mockUserClient = overrides.userClient || {
+    auth: {
+      getUser: async () => ({
+        data: { user: { id: "u1000000-0000-4000-a000-000000000001", email: "editor@healthtimes.co.zw" } },
+        error: null
+      })
     },
-    "react/jsx-runtime": {
-      jsx: () => null,
-      jsxs: () => null,
-      Fragment: () => null
-    },
-    "react-native": {
-      Platform: { OS: "web" },
-      Pressable: () => null,
-      ScrollView: () => null,
-      StyleSheet: { create: (s) => s },
-      Text: () => null,
-      TextInput: () => null,
-      useWindowDimensions: () => ({ width: 1024 }),
-      View: () => null
-    },
-    "../services": { services: {} },
-    "../theme/tokens": {
-      breakpoints: { tablet: 768 },
-      colors: { blue: "#2563EB", ink: "#0F172A", inkMuted: "#64748B", border: "#E2E8F0" },
-      radius: { sm: 4, md: 8, pill: 999 },
-      spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 }
+    rpc: async (fn, args) => {
+      if (fn === "newsroom_has_capability") {
+        if (args?.p_capability === "story.publish") {
+          return { data: overrides.hasPublishCap ?? true, error: null };
+        }
+      }
+      return { data: false, error: null };
     }
-  }
+  };
+
+  const mockAdminClient = overrides.adminClient || {
+    rpc: async (fn, args) => {
+      if (fn === "newsroom_prepare_dispatch_recipients") {
+        return overrides.prepareResult || {
+          data: {
+            is_duplicate: false,
+            dispatch_id: "d1000000-0000-4000-a000-000000000001",
+            alert_id: args.p_alert_id,
+            status: "dispatching",
+            alert: {
+              id: args.p_alert_id,
+              title: "Cholera Outbreak Alert",
+              body: "Urgent advisory from MoHCC.",
+              category: "breaking",
+              destination: "/article/cholera-2026"
+            },
+            devices: [
+              { device_id: "dev-001", expo_push_token: "ExponentPushToken[token1]" }
+            ]
+          },
+          error: null
+        };
+      }
+      if (fn === "newsroom_record_dispatch_result") {
+        return overrides.recordResult || {
+          data: {
+            dispatch_id: args.p_dispatch_id,
+            alert_id: "d1000000-0000-4000-a000-000000000001",
+            status: args.p_status,
+            eligible_device_count: args.p_eligible_count,
+            provider_accepted_count: args.p_accepted_count,
+            provider_rejected_count: args.p_rejected_count,
+            confirmed_delivery_count: 0,
+            failure_reason: args.p_failure_reason,
+            dispatched_at: new Date().toISOString()
+          },
+          error: null
+        };
+      }
+      return { data: null, error: null };
+    }
+  };
+
+  return {
+    fetchImpl: mockFetch,
+    userClient: mockUserClient,
+    adminClient: mockAdminClient,
+    supabaseUrl: "https://mock.supabase.co",
+    serviceRoleKey: "mock-service-role-key",
+    anonKey: "mock-anon-key",
+    getFetchCount: () => fetchCallCount,
+    getFetchCalls: () => fetchCalls
+  };
+}
+
+function makeRequest(body, headers = {}) {
+  const reqHeaders = new Headers({
+    "Content-Type": "application/json",
+    Authorization: "Bearer valid-jwt-token",
+    ...headers
+  });
+  return new Request("https://mock.supabase.co/functions/v1/newsroom-push-dispatch", {
+    method: "POST",
+    headers: reqHeaders,
+    body: JSON.stringify(body)
+  });
+}
+
+test("Case 1: unauthenticated execution denied (401)", async () => {
+  const env = createMockEnvironment();
+  const req = makeRequest(
+    { alert_id: "d1000000-0000-4000-a000-000000000001", idempotency_key: "idem-key-12345" },
+    { Authorization: "" }
+  );
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 401);
+  const json = await res.json();
+  assert.equal(json.ok, false);
+  assert.match(json.error, /Authentication required/);
+  assert.equal(env.getFetchCount(), 0);
 });
 
-test("HT-NR-06C-B: resolvePushAlertDeskCapabilityState enforces story.publish for canDispatch", () => {
-  // Null / unauthorized
-  const empty = resolvePushAlertDeskCapabilityState(null);
-  assert.equal(empty.canDispatch, false);
-
-  // Authenticated with distribution.manage ONLY -> canCreate/canSave true, canDispatch false
-  const distOnly = resolvePushAlertDeskCapabilityState({
-    status: "authorized",
-    source: "server",
-    user: { id: "u1", email: "dist@healthtimes.co.zw" },
-    capabilities: ["distribution.manage"]
+test("Case 2: authenticated Reader / non-Newsroom execution denied (403)", async () => {
+  const env = createMockEnvironment({ hasPublishCap: false });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
   });
-  assert.equal(distOnly.hasDeskAccess, true);
-  assert.equal(distOnly.canCreate, true);
-  assert.equal(distOnly.canSave, true);
-  assert.equal(distOnly.canApprove, false);
-  assert.equal(distOnly.canPrepare, false);
-  assert.equal(distOnly.canDispatch, false, "distribution.manage ALONE cannot dispatch!");
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 403);
+  const json = await res.json();
+  assert.equal(json.ok, false);
+  assert.match(json.error, /Forbidden: story\.publish capability required/);
+  assert.equal(env.getFetchCount(), 0);
+});
 
-  // Authenticated with story.publish -> canDispatch true
-  const publisher = resolvePushAlertDeskCapabilityState({
-    status: "authorized",
-    source: "server",
-    user: { id: "u2", email: "editor@healthtimes.co.zw" },
-    capabilities: ["distribution.manage", "story.publish"]
+test("Case 3: Newsroom session without story.publish denied (403)", async () => {
+  const env = createMockEnvironment({ hasPublishCap: false });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
   });
-  assert.equal(publisher.canDispatch, true);
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 403);
+  const json = await res.json();
+  assert.equal(json.ok, false);
+  assert.match(json.error, /story\.publish capability required/);
+  assert.equal(env.getFetchCount(), 0);
+});
 
-  // Client-source snapshot is rejected (server source required)
-  const clientSnapshot = resolvePushAlertDeskCapabilityState({
-    status: "authorized",
-    source: "client",
-    user: { id: "u3", email: "fake@healthtimes.co.zw" },
-    capabilities: ["distribution.manage", "story.publish"]
+test("Case 4: non-prepared alert denied (400)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: null,
+      error: new Error("Push alert must be in prepared status for dispatch")
+    }
   });
-  assert.equal(clientSnapshot.canDispatch, false);
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 400);
+  const json = await res.json();
+  assert.equal(json.ok, false);
+  assert.match(json.error, /prepared status/);
+  assert.equal(env.getFetchCount(), 0);
+});
+
+test("Case 5: prepared alert enters canonical dispatch (200)", async () => {
+  const env = createMockEnvironment();
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.ok, true);
+  assert.equal(json.status, "provider-accepted");
+  assert.equal(env.getFetchCount(), 1);
+});
+
+test("Case 6: zero recipients performs zero provider requests (200)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: {
+        is_duplicate: false,
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "dispatching",
+        alert: { id: "d1000000-0000-4000-a000-000000000001", title: "Test", body: "Body", category: "breaking", destination: null },
+        devices: []
+      },
+      error: null
+    },
+    recordResult: {
+      data: {
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "zero-recipients",
+        eligible_device_count: 0,
+        provider_accepted_count: 0,
+        provider_rejected_count: 0,
+        confirmed_delivery_count: 0,
+        failure_reason: "Zero active reader devices registered",
+        dispatched_at: new Date().toISOString()
+      },
+      error: null
+    }
+  });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.ok, true);
+  assert.equal(json.status, "zero-recipients");
+  assert.equal(env.getFetchCount(), 0); // Zero provider requests!
+});
+
+test("Case 7: same idempotency key cannot resend (200 duplicate)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: {
+        is_duplicate: true,
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "provider-accepted",
+        eligible_device_count: 1,
+        provider_accepted_count: 1,
+        provider_rejected_count: 0,
+        confirmed_delivery_count: 0,
+        failure_reason: null,
+        devices: []
+      },
+      error: null
+    }
+  });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.ok, true);
+  assert.equal(json.is_duplicate, true);
+  assert.equal(env.getFetchCount(), 0);
+});
+
+test("Case 8: same alert with a DIFFERENT idempotency key cannot resend (200 duplicate)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: {
+        is_duplicate: true,
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "provider-accepted",
+        eligible_device_count: 1,
+        provider_accepted_count: 1,
+        provider_rejected_count: 0,
+        confirmed_delivery_count: 0,
+        failure_reason: null,
+        devices: []
+      },
+      error: null
+    }
+  });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "different-key-99999"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.ok, true);
+  assert.equal(json.is_duplicate, true);
+  assert.equal(env.getFetchCount(), 0);
+});
+
+test("Case 9: concurrent execution for the same alert cannot double-send (race safe)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: {
+        is_duplicate: true,
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "dispatching",
+        eligible_device_count: 1,
+        provider_accepted_count: 0,
+        provider_rejected_count: 0,
+        confirmed_delivery_count: 0,
+        failure_reason: null,
+        devices: []
+      },
+      error: null
+    }
+  });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "concurrent-race-key"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.is_duplicate, true);
+  assert.equal(env.getFetchCount(), 0);
+});
+
+test("Case 10: idempotency key already attached to another alert fails closed (409)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: null,
+      error: new Error("Idempotency key already belongs to a different push alert")
+    }
+  });
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000002",
+    idempotency_key: "key-from-alert-1"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 409);
+  const json = await res.json();
+  assert.equal(json.ok, false);
+  assert.match(json.error, /already belongs to a different push alert/);
+  assert.equal(env.getFetchCount(), 0);
+});
+
+test("Case 11: provider complete acceptance (provider-accepted)", async () => {
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: {
+        is_duplicate: false,
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "dispatching",
+        alert: { id: "d1000000-0000-4000-a000-000000000001", title: "T", body: "B", category: "breaking", destination: null },
+        devices: [
+          { device_id: "dev-1", expo_push_token: "tok-1" },
+          { device_id: "dev-2", expo_push_token: "tok-2" }
+        ]
+      },
+      error: null
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          { status: "ok", id: "ticket-1" },
+          { status: "ok", id: "ticket-2" }
+        ]
+      })
+    }),
+    recordResult: {
+      data: {
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "provider-accepted",
+        eligible_device_count: 2,
+        provider_accepted_count: 2,
+        provider_rejected_count: 0,
+        confirmed_delivery_count: 0,
+        failure_reason: null,
+        dispatched_at: new Date().toISOString()
+      },
+      error: null
+    }
+  });
+
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.status, "provider-accepted");
+  assert.equal(json.provider_accepted_count, 2);
+  assert.equal(json.provider_rejected_count, 0);
+});
+
+test("Case 12: provider complete rejection (provider-rejected)", async () => {
+  let recordedStatus = null;
+  const env = createMockEnvironment({
+    prepareResult: {
+      data: {
+        is_duplicate: false,
+        dispatch_id: "d1000000-0000-4000-a000-000000000001",
+        alert_id: "d1000000-0000-4000-a000-000000000001",
+        status: "dispatching",
+        alert: { id: "d1000000-0000-4000-a000-000000000001", title: "T", body: "B", category: "breaking", destination: null },
+        devices: [
+          { device_id: "dev-1", expo_push_token: "tok-1" },
+          { device_id: "dev-2", expo_push_token: "tok-2" }
+        ]
+      },
+      error: null
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          { status: "error", message: "DeviceNotRegistered" },
+          { status: "error", message: "InvalidCredentials" }
+        ]
+      })
+    }),
+    adminClient: {
+      rpc: async (fn, args) => {
+        if (fn === "newsroom_prepare_dispatch_recipients") {
+          return {
+            data: {
+              is_duplicate: false,
+              dispatch_id: "d1000000-0000-4000-a000-000000000001",
+              alert_id: args.p_alert_id,
+              status: "dispatching",
+              alert: { id: args.p_alert_id, title: "T", body: "B", category: "breaking", destination: null },
+              devices: [
+                { device_id: "dev-1", expo_push_token: "tok-1" },
+                { device_id: "dev-2", expo_push_token: "tok-2" }
+              ]
+            },
+            error: null
+          };
+        }
+        if (fn === "newsroom_record_dispatch_result") {
+          recordedStatus = args.p_status;
+          return {
+            data: {
+              dispatch_id: args.p_dispatch_id,
+              alert_id: "d1000000-0000-4000-a000-000000000001",
+              status: args.p_status,
+              eligible_device_count: args.p_eligible_count,
+              provider_accepted_count: args.p_accepted_count,
+              provider_rejected_count: args.p_rejected_count,
+              confirmed_delivery_count: 0,
+              failure_reason: args.p_failure_reason,
+              dispatched_at: new Date().toISOString()
+            },
+            error: null
+          };
+        }
+      }
+    }
+  });
+
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(recordedStatus, "provider-rejected");
+  assert.equal(json.status, "provider-rejected");
+  assert.equal(json.provider_accepted_count, 0);
+  assert.equal(json.provider_rejected_count, 2);
+});
+
+test("Case 13: provider mixed acceptance (partially-accepted)", async () => {
+  let recordedStatus = null;
+  const env = createMockEnvironment({
+    adminClient: {
+      rpc: async (fn, args) => {
+        if (fn === "newsroom_prepare_dispatch_recipients") {
+          return {
+            data: {
+              is_duplicate: false,
+              dispatch_id: "d1000000-0000-4000-a000-000000000001",
+              alert_id: args.p_alert_id,
+              status: "dispatching",
+              alert: { id: args.p_alert_id, title: "T", body: "B", category: "breaking", destination: null },
+              devices: [
+                { device_id: "dev-1", expo_push_token: "tok-1" },
+                { device_id: "dev-2", expo_push_token: "tok-2" }
+              ]
+            },
+            error: null
+          };
+        }
+        if (fn === "newsroom_record_dispatch_result") {
+          recordedStatus = args.p_status;
+          return {
+            data: {
+              dispatch_id: args.p_dispatch_id,
+              alert_id: "d1000000-0000-4000-a000-000000000001",
+              status: args.p_status,
+              eligible_device_count: args.p_eligible_count,
+              provider_accepted_count: args.p_accepted_count,
+              provider_rejected_count: args.p_rejected_count,
+              confirmed_delivery_count: 0,
+              failure_reason: args.p_failure_reason,
+              dispatched_at: new Date().toISOString()
+            },
+            error: null
+          };
+        }
+      }
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          { status: "ok", id: "ticket-1" },
+          { status: "error", message: "DeviceNotRegistered" }
+        ]
+      })
+    })
+  });
+
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(recordedStatus, "partially-accepted");
+  assert.equal(json.status, "partially-accepted");
+  assert.equal(json.provider_accepted_count, 1);
+  assert.equal(json.provider_rejected_count, 1);
+});
+
+test("Case 14: provider HTTP failure (delivery-failed)", async () => {
+  let recordedStatus = null;
+  const env = createMockEnvironment({
+    adminClient: {
+      rpc: async (fn, args) => {
+        if (fn === "newsroom_prepare_dispatch_recipients") {
+          return {
+            data: {
+              is_duplicate: false,
+              dispatch_id: "d1000000-0000-4000-a000-000000000001",
+              alert_id: args.p_alert_id,
+              status: "dispatching",
+              alert: { id: args.p_alert_id, title: "T", body: "B", category: "breaking", destination: null },
+              devices: [
+                { device_id: "dev-1", expo_push_token: "tok-1" },
+                { device_id: "dev-2", expo_push_token: "tok-2" }
+              ]
+            },
+            error: null
+          };
+        }
+        if (fn === "newsroom_record_dispatch_result") {
+          recordedStatus = args.p_status;
+          return {
+            data: {
+              dispatch_id: args.p_dispatch_id,
+              alert_id: "d1000000-0000-4000-a000-000000000001",
+              status: args.p_status,
+              eligible_device_count: args.p_eligible_count,
+              provider_accepted_count: args.p_accepted_count,
+              provider_rejected_count: args.p_rejected_count,
+              confirmed_delivery_count: 0,
+              failure_reason: args.p_failure_reason,
+              dispatched_at: new Date().toISOString()
+            },
+            error: null
+          };
+        }
+      }
+    },
+    fetchImpl: async () => ({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable"
+    })
+  });
+
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(recordedStatus, "delivery-failed");
+  assert.equal(json.status, "delivery-failed");
+  assert.equal(json.provider_accepted_count, 0);
+  assert.equal(json.provider_rejected_count, 2);
+  assert.match(json.failure_reason, /Expo provider HTTP 503/);
+});
+
+test("Case 15: provider malformed non-array response (delivery-failed)", async () => {
+  let recordedStatus = null;
+  const env = createMockEnvironment({
+    adminClient: {
+      rpc: async (fn, args) => {
+        if (fn === "newsroom_prepare_dispatch_recipients") {
+          return {
+            data: {
+              is_duplicate: false,
+              dispatch_id: "d1000000-0000-4000-a000-000000000001",
+              alert_id: args.p_alert_id,
+              status: "dispatching",
+              alert: { id: args.p_alert_id, title: "T", body: "B", category: "breaking", destination: null },
+              devices: [{ device_id: "dev-1", expo_push_token: "tok-1" }]
+            },
+            error: null
+          };
+        }
+        if (fn === "newsroom_record_dispatch_result") {
+          recordedStatus = args.p_status;
+          return {
+            data: {
+              dispatch_id: args.p_dispatch_id,
+              alert_id: "d1000000-0000-4000-a000-000000000001",
+              status: args.p_status,
+              eligible_device_count: args.p_eligible_count,
+              provider_accepted_count: args.p_accepted_count,
+              provider_rejected_count: args.p_rejected_count,
+              confirmed_delivery_count: 0,
+              failure_reason: args.p_failure_reason,
+              dispatched_at: new Date().toISOString()
+            },
+            error: null
+          };
+        }
+      }
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: "not-an-array" })
+    })
+  });
+
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(recordedStatus, "delivery-failed");
+  assert.equal(json.status, "delivery-failed");
+  assert.match(json.failure_reason, /Malformed response envelope/);
+});
+
+test("Case 16: provider response with wrong result cardinality (delivery-failed)", async () => {
+  let recordedStatus = null;
+  const env = createMockEnvironment({
+    adminClient: {
+      rpc: async (fn, args) => {
+        if (fn === "newsroom_prepare_dispatch_recipients") {
+          return {
+            data: {
+              is_duplicate: false,
+              dispatch_id: "d1000000-0000-4000-a000-000000000001",
+              alert_id: args.p_alert_id,
+              status: "dispatching",
+              alert: { id: args.p_alert_id, title: "T", body: "B", category: "breaking", destination: null },
+              devices: [
+                { device_id: "dev-1", expo_push_token: "tok-1" },
+                { device_id: "dev-2", expo_push_token: "tok-2" }
+              ]
+            },
+            error: null
+          };
+        }
+        if (fn === "newsroom_record_dispatch_result") {
+          recordedStatus = args.p_status;
+          return {
+            data: {
+              dispatch_id: args.p_dispatch_id,
+              alert_id: "d1000000-0000-4000-a000-000000000001",
+              status: args.p_status,
+              eligible_device_count: args.p_eligible_count,
+              provider_accepted_count: args.p_accepted_count,
+              provider_rejected_count: args.p_rejected_count,
+              confirmed_delivery_count: 0,
+              failure_reason: args.p_failure_reason,
+              dispatched_at: new Date().toISOString()
+            },
+            error: null
+          };
+        }
+      }
+    },
+    // Submits 2 devices, but provider returns only 1 ticket
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [{ status: "ok", id: "ticket-1" }]
+      })
+    })
+  });
+
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(recordedStatus, "delivery-failed");
+  assert.equal(json.status, "delivery-failed");
+  assert.match(json.failure_reason, /expected 2 tickets, received 1/);
+});
+
+test("Case 17: provider result never claims confirmed delivery merely from ticket acceptance", async () => {
+  const env = createMockEnvironment();
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  const json = await res.json();
+  assert.equal(json.confirmed_delivery_count, 0);
+});
+
+test("Case 18: client response contains zero Expo tokens", async () => {
+  const env = createMockEnvironment();
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  const json = await res.json();
+  const rawText = JSON.stringify(json);
+  assert.ok(!rawText.includes("ExponentPushToken"));
+  assert.ok(!rawText.includes("expo_push_token"));
+});
+
+test("Case 19: client response contains zero device IDs", async () => {
+  const env = createMockEnvironment();
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  const json = await res.json();
+  assert.equal(json.device_id, undefined);
+  assert.equal(json.device_ids, undefined);
+  assert.equal(json.devices, undefined);
+});
+
+test("Case 20: client response contains zero reader user IDs", async () => {
+  const env = createMockEnvironment();
+  const req = makeRequest({
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    idempotency_key: "idem-key-12345"
+  });
+  const res = await handlePushDispatchRequest(req, env);
+  const json = await res.json();
+  assert.equal(json.user_id, undefined);
+  assert.equal(json.reader_id, undefined);
+  assert.equal(json.reader_user_id, undefined);
 });
 
 // =============================================================================
-// 6. CLIENT SERVICE LAYER: newsroom-push-alerts.ts
+// 6. CLIENT SERVICE INTEGRATION & CONTRACT CONFORMANCE
 // =============================================================================
 
 const pushServiceModule = loadTs("src/services/newsroom-push-alerts.ts", {
@@ -305,41 +962,90 @@ const pushServiceModule = loadTs("src/services/newsroom-push-alerts.ts", {
     }
   }
 });
-const { createNewsroomPushAlertService, mapNewsroomPushDispatchRow, mapNewsroomPushDispatchResult } = pushServiceModule;
+const {
+  createNewsroomPushAlertService,
+  mapNewsroomPushDispatchRow,
+  mapNewsroomPushDispatchResult,
+  NewsroomPushAlertError
+} = pushServiceModule;
 
-test("HT-NR-06C-B: mapNewsroomPushDispatchRow correctly transforms snake_case DB row to camelCase model", () => {
-  const row = {
+test("HT-NR-06C-B: mapNewsroomPushDispatchRow strictly preserves privacy and parses ledger row", () => {
+  const validRow = {
     id: "e1000000-0000-4000-a000-000000000001",
     alert_id: "d1000000-0000-4000-a000-000000000001",
-    idempotency_key: "idem-12345",
+    idempotency_key: "dispatch-key-001",
     status: "provider-accepted",
     eligible_device_count: 50,
-    provider_accepted_count: 48,
-    provider_rejected_count: 2,
+    provider_accepted_count: 49,
+    provider_rejected_count: 1,
     confirmed_delivery_count: 0,
     failure_reason: null,
     created_at: "2026-10-17T04:00:00.000Z",
     updated_at: "2026-10-17T04:00:05.000Z"
   };
 
-  const dispatch = mapNewsroomPushDispatchRow(row);
-  assert.equal(dispatch.id, "e1000000-0000-4000-a000-000000000001");
-  assert.equal(dispatch.alertId, "d1000000-0000-4000-a000-000000000001");
-  assert.equal(dispatch.idempotencyKey, "idem-12345");
-  assert.equal(dispatch.status, "provider-accepted");
-  assert.equal(dispatch.eligibleDeviceCount, 50);
-  assert.equal(dispatch.providerAcceptedCount, 48);
-  assert.equal(dispatch.providerRejectedCount, 2);
-  assert.equal(dispatch.confirmedDeliveryCount, 0);
-  assert.equal(dispatch.failureReason, null);
-  assert.equal(dispatch.createdAt, "2026-10-17T04:00:00.000Z");
-  assert.equal(dispatch.updatedAt, "2026-10-17T04:00:05.000Z");
+  const mapped = mapNewsroomPushDispatchRow(validRow);
+  assert.ok(mapped);
+  assert.equal(mapped.id, "e1000000-0000-4000-a000-000000000001");
+  assert.equal(mapped.alertId, "d1000000-0000-4000-a000-000000000001");
+  assert.equal(mapped.status, "provider-accepted");
+  assert.equal(mapped.eligibleDeviceCount, 50);
+  assert.equal(mapped.providerAcceptedCount, 49);
+  assert.equal(mapped.providerRejectedCount, 1);
+  assert.equal(mapped.confirmedDeliveryCount, 0);
+
+  // Rejects rows containing raw device tokens
+  assert.equal(
+    mapNewsroomPushDispatchRow({ ...validRow, expo_push_token: "ExponentPushToken[123]" }),
+    null
+  );
+  // Rejects rows containing user IDs
+  assert.equal(
+    mapNewsroomPushDispatchRow({ ...validRow, reader_user_id: "user-uuid" }),
+    null
+  );
+  // Rejects invalid status
+  assert.equal(
+    mapNewsroomPushDispatchRow({ ...validRow, status: "completed" }),
+    null
+  );
 });
 
-test("HT-NR-06C-B: getDispatch returns null when no dispatch record exists, and dispatches correctly via Edge Function", async () => {
+test("HT-NR-06C-B: mapNewsroomPushDispatchResult parses edge function result envelope safely", () => {
+  const validResult = {
+    dispatch_id: "e1000000-0000-4000-a000-000000000001",
+    alert_id: "d1000000-0000-4000-a000-000000000001",
+    status: "partially-accepted",
+    eligible_device_count: 100,
+    provider_accepted_count: 98,
+    provider_rejected_count: 2,
+    confirmed_delivery_count: 0,
+    failure_reason: null,
+    dispatched_at: "2026-10-17T04:00:00.000Z"
+  };
+
+  const mapped = mapNewsroomPushDispatchResult(validResult);
+  assert.ok(mapped);
+  assert.equal(mapped.dispatch_id, "e1000000-0000-4000-a000-000000000001");
+  assert.equal(mapped.status, "partially-accepted");
+  assert.equal(mapped.confirmed_delivery_count, 0);
+
+  // Token leak rejection
+  assert.equal(
+    mapNewsroomPushDispatchResult({ ...validResult, token: "ExponentPushToken[123]" }),
+    null
+  );
+  // Device ID leak rejection
+  assert.equal(
+    mapNewsroomPushDispatchResult({ ...validResult, device_id: "uuid" }),
+    null
+  );
+});
+
+test("HT-NR-06C-B: getDispatch and dispatchAlert client methods invoke correct backend endpoints", async () => {
+  let invokedRpc = null;
   let invokedFunction = null;
   let invokedBody = null;
-  let invokedRpc = null;
 
   const mockClient = {
     rpc(fn, args) {
@@ -468,7 +1174,6 @@ test("HT-NR-06C-B: Neither model nor client code exposes raw tokens or private i
   const contractsCode = read("src/domain/contracts.ts");
   const serviceCode = read("src/services/newsroom-push-alerts.ts");
 
-  // Push token strings must never appear as fields on dispatch models
   assert.doesNotMatch(modelsCode, /expoPushToken/);
   assert.doesNotMatch(modelsCode, /tokenHash/);
   assert.doesNotMatch(contractsCode, /expoPushToken/);

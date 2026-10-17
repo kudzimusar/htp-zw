@@ -162,8 +162,8 @@ test("HT-NR-05C-B Invariant: Repository migration count is exactly 76", () => {
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    76,
-    `Migration count must be exactly 76 at HT-NR-06C-B. Found ${files.length}.`
+    77,
+    `Migration count must be exactly 77 at HT-NR-06C-B. Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261017000000_ht_nr05cb_public_watch_delivery.sql"),

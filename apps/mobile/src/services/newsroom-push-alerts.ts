@@ -696,7 +696,7 @@ export function createNewsroomPushAlertService(
       const key =
         idempotencyKey && idempotencyKey.trim().length >= 8
           ? idempotencyKey.trim()
-          : `dispatch-${alertId.trim()}-${Date.now()}`;
+          : `dispatch-alert-${alertId.trim()}`;
 
       let data: any = null;
       let error: any = null;

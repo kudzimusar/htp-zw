@@ -122,8 +122,8 @@ test("HT-NR-05A: Migration count matches repository authority (exactly 76 at HT-
   const sqlFiles = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.equal(
     sqlFiles.length,
-    76,
-    `Migration count must be exactly 76 at HT-NR-06C-B. Found: ${sqlFiles.length}`
+    77,
+    `Migration count must be exactly 77 at HT-NR-06C-B. Found: ${sqlFiles.length}`
   );
 });
 
