@@ -30,7 +30,11 @@ import {
   type NewsroomLiveCoverageKind,
   type NewsroomLiveCoverageStatus,
   type NewsroomLiveUpdate,
-  type NewsroomLiveUpdateCreateInput
+  type NewsroomLiveUpdateCreateInput,
+  type NewsroomSocialAccount,
+  type NewsroomSocialDraftCreateInput,
+  type NewsroomSocialPost,
+  type NewsroomSocialPublicationAttempt
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -56,6 +60,10 @@ import { StudioMediaLibraryView } from "../ui/StudioMediaLibrary";
 import { StudioVideoDeskView } from "../ui/StudioVideoDesk";
 import { StudioLiveDeskView } from "../ui/StudioLiveDesk";
 import {
+  StudioSocialDeskView,
+  formatPublishPrepareFeedback
+} from "../ui/StudioSocialDesk";
+import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
   OWNER_PREVIEW_UNAVAILABLE_MESSAGE,
@@ -68,6 +76,9 @@ import {
   buildPreviewVideos,
   buildPreviewLiveCoverage,
   buildPreviewLiveUpdates,
+  buildPreviewSocialAccounts,
+  buildPreviewSocialPosts,
+  buildPreviewSocialAttempts,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1571,6 +1582,139 @@ function OwnerPreviewLiveDeskView() {
   );
 }
 
+function OwnerPreviewSocialDeskView() {
+  const [accounts] = useState<NewsroomSocialAccount[]>(() => buildPreviewSocialAccounts());
+  const [posts, setPosts] = useState<NewsroomSocialPost[]>(() => buildPreviewSocialPosts());
+  const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
+  const [attemptsByPostId, setAttemptsByPostId] = useState<
+    Record<string, NewsroomSocialPublicationAttempt[]>
+  >(() => buildPreviewSocialAttempts());
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(
+    () => buildPreviewSocialPosts()[0]?.id ?? null
+  );
+  const [notice, setNotice] = useState<string>(
+    "Preview state: Sample Social Desk registry loaded. Local simulation only — writes disabled."
+  );
+  const [actionFeedback, setActionFeedback] = useState<{
+    tone: "info" | "warning" | "error";
+    message: string;
+  } | null>(null);
+
+  const handleCreateDraft = async (input: NewsroomSocialDraftCreateInput) => {
+    const nowIso = new Date().toISOString();
+    const newId = `f2000000-0000-4000-a000-${String(Date.now()).slice(-12).padStart(12, "0")}`;
+    const newPost: NewsroomSocialPost = {
+      id: newId,
+      storyId: input.storyId,
+      socialAccountId: input.socialAccountId ?? accounts[0]?.id ?? null,
+      provider: input.provider.trim().toLowerCase(),
+      body: input.body.trim(),
+      status: "draft",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      approvedBy: null,
+      approvedAt: null,
+      publishedAt: null,
+      providerPostId: null,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    setPosts((prev) => [newPost, ...prev]);
+    setSelectedPostId(newId);
+    setActionFeedback({
+      tone: "info",
+      message: "Social draft created and queued for editorial approval."
+    });
+    setNotice("Preview state only: Simulated creating story-linked social draft in local preview memory.");
+  };
+
+  const handleApprovePost = async (postId: string) => {
+    const nowIso = new Date().toISOString();
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              status: "approved",
+              approvedBy: "00000000-0000-4000-8000-000000000201",
+              approvedAt: nowIso,
+              updatedAt: nowIso
+            }
+          : p
+      )
+    );
+    setActionFeedback({
+      tone: "info",
+      message: "Social draft approved. Ready for publication handoff preparation."
+    });
+    setNotice("Preview state only: Simulated editorial approval (draft → approved).");
+  };
+
+  const handlePreparePublish = async (postId: string) => {
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+    const acc = post.socialAccountId
+      ? accounts.find((a) => a.id === post.socialAccountId)
+      : accounts.find((a) => a.provider === post.provider);
+    const providerReady = acc?.status === "ready";
+    const nowIso = new Date().toISOString();
+    const attemptId = `f3000000-0000-4000-a000-${String(Date.now()).slice(-12).padStart(12, "0")}`;
+    const newAttempt: NewsroomSocialPublicationAttempt = {
+      id: attemptId,
+      socialPostId: postId,
+      attemptedBy: "00000000-0000-4000-8000-000000000201",
+      provider: post.provider,
+      status: providerReady ? "pending" : "unconfigured",
+      providerPostId: null,
+      attemptedAt: nowIso,
+      completedAt: providerReady ? null : nowIso,
+      safeReason: providerReady ? null : "Provider account is not ready"
+    };
+    setAttemptsByPostId((prev) => ({
+      ...prev,
+      [postId]: [newAttempt, ...(prev[postId] ?? [])]
+    }));
+    const msg = formatPublishPrepareFeedback({
+      attemptId,
+      provider: post.provider,
+      body: post.body,
+      providerReady
+    });
+    setActionFeedback({
+      tone: providerReady ? "info" : "warning",
+      message: msg
+    });
+    setNotice(`Preview state only: Simulated publication handoff preparation (${newAttempt.status}).`);
+  };
+
+  return (
+    <View style={styles.sectionStack} testID="owner-preview-social-desk-view">
+      <View style={styles.previewNoticeBanner} testID="preview-social-desk-notice">
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioSocialDeskView
+        accounts={accounts}
+        posts={posts}
+        stories={stories}
+        attemptsByPostId={attemptsByPostId}
+        capabilities={{
+          canAccess: true,
+          canCompose: true,
+          canApprove: true,
+          canPublish: true,
+          canManageAccounts: true
+        }}
+        actionFeedback={actionFeedback}
+        onCreateDraft={handleCreateDraft}
+        onApprovePost={handleApprovePost}
+        onPreparePublish={handlePreparePublish}
+        onSelectPost={(id) => setSelectedPostId(id)}
+        selectedPostId={selectedPostId}
+        isPreview={true}
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -1677,6 +1821,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Editorial live coverage lifecycle (Upcoming → Live → Ended), live blog / scheduled kinds, related story linking, and public projection."
         >
           <OwnerPreviewLiveDeskView />
+        </OwnerPreviewShell>
+      );
+    case "social":
+      return (
+        <OwnerPreviewShell
+          activeKey="social"
+          title="Social Desk & Distribution Control Plane (Owner Visual Preview)"
+          subtitle="Story-linked social draft composition, editorial approval (social.approve), and provider publication handoff preparation (social.publish)."
+        >
+          <OwnerPreviewSocialDeskView />
         </OwnerPreviewShell>
       );
     default:

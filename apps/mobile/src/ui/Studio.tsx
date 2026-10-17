@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, radius, spacing } from "../theme/tokens";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
-import { hasServerCapability, type HealthTimesCapability } from "../security/capabilities";
+import { hasAnyServerCapability, hasServerCapability, type HealthTimesCapability } from "../security/capabilities";
 
 const modules=[
   ["Today","/studio"],
@@ -166,6 +166,48 @@ export function StudioAccessGate({
         <View style={styles.capabilityRow}>
           <Text style={styles.capabilityLabel}>Required capability</Text>
           <Text style={styles.capabilityValue}>{capability}</Text>
+        </View>
+        <Text style={styles.accessGateText}>
+          {snapshot?.reason ?? authorization.error?.message ?? "No server capability snapshot is available."}
+        </Text>
+        <Text style={styles.accessGateText}>
+          Signing in, changing local state, editing the client, or navigating directly to this route cannot grant this capability.
+        </Text>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+export function StudioAnyCapabilityGate({
+  capabilities,
+  children
+}:PropsWithChildren<{capabilities:readonly HealthTimesCapability[]}>){
+  const capabilityKey=capabilities.join(",");
+  const authorization=useAsync(()=>services.authorization.getSnapshot(),[capabilityKey]);
+
+  if(authorization.loading){
+    return (
+      <View style={styles.accessGate}>
+        <Text style={styles.accessGateEyebrow}>SERVER AUTHORITY</Text>
+        <Text style={styles.accessGateTitle}>Checking capability…</Text>
+      </View>
+    );
+  }
+
+  const snapshot=authorization.data;
+  const allowed=snapshot ? hasAnyServerCapability(snapshot,capabilities) : false;
+  if(!allowed){
+    return (
+      <View style={styles.accessGate}>
+        <Text style={styles.accessGateEyebrow}>SERVER AUTHORITY REQUIRED</Text>
+        <Text style={styles.accessGateTitle}>This Studio module is locked.</Text>
+        <View style={styles.capabilityRow}>
+          <Text style={styles.capabilityLabel}>Required capability (any of)</Text>
+          {capabilities.map((cap)=>(
+            <Text key={cap} style={styles.capabilityValue}>{cap}</Text>
+          ))}
         </View>
         <Text style={styles.accessGateText}>
           {snapshot?.reason ?? authorization.error?.message ?? "No server capability snapshot is available."}

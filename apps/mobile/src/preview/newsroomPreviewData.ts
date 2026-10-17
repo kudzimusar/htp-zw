@@ -13,6 +13,9 @@ import type {
   NewsroomVideo,
   NewsroomLiveCoverage,
   NewsroomLiveUpdate,
+  NewsroomSocialAccount,
+  NewsroomSocialPost,
+  NewsroomSocialPublicationAttempt,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -36,6 +39,7 @@ export type OwnerPreviewModuleKey =
   | "media"
   | "video-desk"
   | "live-desk"
+  | "social"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -1361,6 +1365,154 @@ export function buildPreviewLiveUpdates(): NewsroomLiveUpdate[] {
     }
   ];
 }
+
+export function buildPreviewSocialAccounts(): NewsroomSocialAccount[] {
+  return [
+    {
+      id: "f1000000-0000-4000-a000-000000000001",
+      provider: "x",
+      accountLabel: "@HealthTimesZW Official",
+      providerAccountId: null,
+      environment: "staging",
+      status: "unconfigured",
+      createdAt: "2026-10-12T08:00:00.000Z",
+      updatedAt: "2026-10-16T08:00:00.000Z"
+    },
+    {
+      id: "f1000000-0000-4000-a000-000000000002",
+      provider: "facebook",
+      accountLabel: "HealthTimes Zimbabwe Page",
+      providerAccountId: "ht-fb-page-2026",
+      environment: "staging",
+      status: "ready",
+      createdAt: "2026-10-12T08:00:00.000Z",
+      updatedAt: "2026-10-16T08:30:00.000Z"
+    },
+    {
+      id: "f1000000-0000-4000-a000-000000000003",
+      provider: "linkedin",
+      accountLabel: "HealthTimes Policy & Research",
+      providerAccountId: null,
+      environment: "staging",
+      status: "unconfigured",
+      createdAt: "2026-10-12T08:00:00.000Z",
+      updatedAt: "2026-10-15T14:00:00.000Z"
+    }
+  ];
+}
+
+export function buildPreviewSocialPosts(): NewsroomSocialPost[] {
+  return [
+    {
+      id: "f2000000-0000-4000-a000-000000000001",
+      storyId: "00000000-0000-4000-8000-000000001001",
+      socialAccountId: "f1000000-0000-4000-a000-000000000001",
+      provider: "x",
+      body: "PREVIEW SAMPLE COPY: Urban clinic cholera readiness investigation confirms 18-hour municipal water lab turnaround and expanded oral rehydration buffer stocks across 16 metropolitan clinics.",
+      status: "approved",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedAt: "2026-10-16T09:00:00.000Z",
+      publishedAt: null,
+      providerPostId: null,
+      createdAt: "2026-10-16T08:15:00.000Z",
+      updatedAt: "2026-10-16T09:00:00.000Z"
+    },
+    {
+      id: "f2000000-0000-4000-a000-000000000002",
+      storyId: "00000000-0000-4000-8000-000000001002",
+      socialAccountId: "f1000000-0000-4000-a000-000000000002",
+      provider: "facebook",
+      body: "PREVIEW SAMPLE COPY: Provincial maternal health clinics roll out solar-backed vaccine cold-chain telemetry ahead of the Q4 immunization catchment drive.",
+      status: "draft",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      approvedBy: null,
+      approvedAt: null,
+      publishedAt: null,
+      providerPostId: null,
+      createdAt: "2026-10-16T09:20:00.000Z",
+      updatedAt: "2026-10-16T09:20:00.000Z"
+    },
+    {
+      id: "f2000000-0000-4000-a000-000000000003",
+      storyId: "00000000-0000-4000-8000-000000001009",
+      socialAccountId: "f1000000-0000-4000-a000-000000000002",
+      provider: "facebook",
+      body: "PREVIEW SAMPLE COPY: District malaria vector surveillance report highlights early indoor residual spraying milestones across lowveld wards.",
+      status: "published",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedAt: "2026-10-15T14:00:00.000Z",
+      publishedAt: "2026-10-15T14:30:00.000Z",
+      providerPostId: "fb_post_20261015_9901",
+      createdAt: "2026-10-15T13:15:00.000Z",
+      updatedAt: "2026-10-15T14:30:00.000Z"
+    },
+    {
+      id: "f2000000-0000-4000-a000-000000000004",
+      storyId: "00000000-0000-4000-8000-000000001003",
+      socialAccountId: "f1000000-0000-4000-a000-000000000003",
+      provider: "linkedin",
+      body: "PREVIEW SAMPLE COPY: Regional antiretroviral procurement and cold-storage resilience briefing for public health supply chain directors.",
+      status: "failed",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedAt: "2026-10-15T10:00:00.000Z",
+      publishedAt: null,
+      providerPostId: null,
+      createdAt: "2026-10-15T09:30:00.000Z",
+      updatedAt: "2026-10-15T10:15:00.000Z"
+    }
+  ];
+}
+
+export function buildPreviewSocialAttempts(): Record<
+  string,
+  NewsroomSocialPublicationAttempt[]
+> {
+  return {
+    "f2000000-0000-4000-a000-000000000001": [
+      {
+        id: "f3000000-0000-4000-a000-000000000001",
+        socialPostId: "f2000000-0000-4000-a000-000000000001",
+        attemptedBy: "00000000-0000-4000-8000-000000000201",
+        provider: "x",
+        status: "unconfigured",
+        providerPostId: null,
+        attemptedAt: "2026-10-16T09:05:00.000Z",
+        completedAt: "2026-10-16T09:05:00.000Z",
+        safeReason: "Provider account is not ready"
+      }
+    ],
+    "f2000000-0000-4000-a000-000000000003": [
+      {
+        id: "f3000000-0000-4000-a000-000000000002",
+        socialPostId: "f2000000-0000-4000-a000-000000000003",
+        attemptedBy: "00000000-0000-4000-8000-000000000201",
+        provider: "facebook",
+        status: "succeeded",
+        providerPostId: "fb_post_20261015_9901",
+        attemptedAt: "2026-10-15T14:29:00.000Z",
+        completedAt: "2026-10-15T14:30:00.000Z",
+        safeReason: null
+      }
+    ],
+    "f2000000-0000-4000-a000-000000000004": [
+      {
+        id: "f3000000-0000-4000-a000-000000000003",
+        socialPostId: "f2000000-0000-4000-a000-000000000004",
+        attemptedBy: "00000000-0000-4000-8000-000000000201",
+        provider: "linkedin",
+        status: "failed",
+        providerPostId: null,
+        attemptedAt: "2026-10-15T10:14:00.000Z",
+        completedAt: "2026-10-15T10:15:00.000Z",
+        safeReason: "Provider token expired or missing"
+      }
+    ]
+  };
+}
+
 
 
 

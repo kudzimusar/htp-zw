@@ -35,10 +35,21 @@ export const HEALTH_TIMES_CAPABILITIES = [
   "comment.configure",
   "comment.moderate",
   "comment.restrict",
-  "comment.audit"
+  "comment.audit",
+  "social.compose",
+  "social.approve",
+  "social.publish",
+  "social.manage_accounts"
 ] as const;
 
 export type HealthTimesCapability = (typeof HEALTH_TIMES_CAPABILITIES)[number];
+
+export const SOCIAL_DESK_CAPABILITIES = [
+  "social.compose",
+  "social.approve",
+  "social.publish",
+  "social.manage_accounts"
+] as const satisfies readonly HealthTimesCapability[];
 
 export type AuthorizationSnapshot = {
   status:
@@ -73,3 +84,29 @@ export function hasServerCapability(
     snapshot.source === "server" &&
     snapshot.capabilities.includes(capability);
 }
+
+export function hasAnyServerCapability(
+  snapshot: AuthorizationSnapshot | null | undefined,
+  capabilities: readonly HealthTimesCapability[]
+): boolean {
+  if (
+    !snapshot ||
+    snapshot.status !== "authorized" ||
+    snapshot.source !== "server" ||
+    !Array.isArray(snapshot.capabilities) ||
+    !Array.isArray(capabilities) ||
+    capabilities.length === 0
+  ) {
+    return false;
+  }
+  return capabilities.some((capability) =>
+    snapshot.capabilities.includes(capability)
+  );
+}
+
+export function hasSocialDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  return hasAnyServerCapability(snapshot, SOCIAL_DESK_CAPABILITIES);
+}
+

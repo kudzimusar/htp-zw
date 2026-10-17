@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View, StyleSheet } from "react-native";
-import { StudioAccessGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
-import type { HealthTimesCapability } from "../../src/security/capabilities";
+import { StudioAccessGate, StudioAnyCapabilityGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
+import { SOCIAL_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { StudioInboxPanel } from "../../src/ui/StudioInbox";
 import {
@@ -23,6 +23,7 @@ import { StudioHomepage } from "../../src/ui/StudioHomepage";
 import { StudioMediaLibrary } from "../../src/ui/StudioMediaLibrary";
 import { StudioVideoDesk } from "../../src/ui/StudioVideoDesk";
 import { StudioLiveDesk } from "../../src/ui/StudioLiveDesk";
+import { StudioSocialDesk } from "../../src/ui/StudioSocialDesk";
 
 export function generateStaticParams() {
   return [
@@ -36,6 +37,7 @@ type ModuleConfig={
   owner:string;
   description:string;
   capability:HealthTimesCapability|null;
+  anyOfCapabilities?:readonly HealthTimesCapability[];
   readiness:string[];
 };
 
@@ -57,7 +59,7 @@ const owners:Record<string,ModuleConfig>={
   "media":{title:"Media Library",owner:"HT-NR-05A",capability:"media.manage" as const,description:"Canonical media library and metadata operations backed by server media RPCs (newsroom_list_media, newsroom_get_media_preview, newsroom_update_story_media_metadata).",readiness:["Canonical newsroom_list_media authority","Strict media.manage capability enforcement","Authoritative metadata updates via newsroom_update_story_media_metadata","Full mime type classification & storage custody transparency","Safe preview isolation & deep story usage handoff"]},
   "advertising":{title:"Advertising Manager",owner:"AG-05 + AG-06",capability:"ads.view",description:"Campaigns, creatives, placements and approval capabilities stay separate from editorial authority.",readiness:["Reader placements declared","Native provider IDs not certified","Campaign authority pending AG-06"]},
   "premium":{title:"Premium",owner:"AG-05 + AG-06",capability:"premium.manage",description:"Commercial configuration and subscriber entitlements are server enforced; no client-side authority.",readiness:["Store UI fail-closed","Verified native products pending AG-05","Entitlement authority pending AG-06"]},
-  "social":{title:"Social Desk",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Publishing attribution and downstream referral measurement use canonical links and real integrations.",readiness:["Canonical share links ready","Attribution taxonomy ready","Provider ingestion pending AG-05"]},
+  "social":{title:"Social Desk",owner:"HT-NR-06A",capability:null,anyOfCapabilities:SOCIAL_DESK_CAPABILITIES,description:"Story-linked social draft composition, editorial approval, and provider publication handoff backed by canonical social_accounts, social_posts, and social_publication_attempts.",readiness:["Canonical social_accounts, social_posts, and social_publication_attempts authority","Scoped social.compose, social.approve, social.publish, and social.manage_accounts enforcement","Distinct editorial approval vs publication preparation handoff","Service-role provider completion remains server-only","Zero fabricated provider accounts in operational runtime"]},
   "audience":{title:"Audience",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Audience intelligence uses real first-party and GA4-derived aggregates only.",readiness:["No fabricated audience totals","Verified aggregates pending AG-05","Access policy pending AG-06"]},
   "search-growth":{title:"Search & Growth",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Search Console, SEO and growth evidence comes from verified external identities and ingestion.",readiness:["Search UI ready","Privacy-safe analytics taxonomy ready","External ingestion pending AG-05"]},
   "analytics":{title:"Analytics & Intelligence",owner:"AG-05 + AG-06",capability:"analytics.view",description:"KPI cards remain empty until AnalyticsService supplies verified metrics. No sample revenue is shown as truth.",readiness:["KPI component language ready","No sample metrics presented as truth","Analytics service pending AG-05"]},
@@ -79,7 +81,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -93,6 +95,7 @@ export default function StudioModule(){
       {String(module)==="media" && <StudioMediaLibrary />}
       {String(module)==="video-desk" && <StudioVideoDesk />}
       {String(module)==="live-desk" && <StudioLiveDesk />}
+      {String(module)==="social" && <StudioSocialDesk />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}
@@ -105,9 +108,11 @@ export default function StudioModule(){
 
   return (
     <StudioShell title={config.title}>
-      {config.capability
-        ? <StudioAccessGate capability={config.capability}>{content}</StudioAccessGate>
-        : <StudioAuthorityGate>{content}</StudioAuthorityGate>}
+      {config.anyOfCapabilities
+        ? <StudioAnyCapabilityGate capabilities={config.anyOfCapabilities}>{content}</StudioAnyCapabilityGate>
+        : config.capability
+          ? <StudioAccessGate capability={config.capability}>{content}</StudioAccessGate>
+          : <StudioAuthorityGate>{content}</StudioAuthorityGate>}
     </StudioShell>
   );
 }
