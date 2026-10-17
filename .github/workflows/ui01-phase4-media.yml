@@ -273,7 +273,7 @@ jobs:
 
             const regressionChecks=[
               ['phase3-regression-explore','/explore','Explore by topic'],
-              ['phase3-regression-search','/search','Suggested searches'],
+              ['phase3-regression-search','/search','Try searching for'],
               ['phase2-regression-article','/article/'+articleId,null],
               ['phase2-regression-premium','/premium','HealthTimes Premium']
             ];
