@@ -20,23 +20,65 @@ export function isValidLiveCoverageId(value: string | null | undefined): boolean
   return UUID_REGEX.test(value.trim());
 }
 
+export function computeMaxStreamSeq(
+  updates: LiveBlogUpdate[],
+  currentMax: number | null = null
+): number | null {
+  let maxSeq =
+    typeof currentMax === "number" && Number.isSafeInteger(currentMax) && currentMax >= 1
+      ? currentMax
+      : null;
+  for (const item of updates) {
+    if (
+      item &&
+      typeof item.streamSeq === "number" &&
+      Number.isSafeInteger(item.streamSeq) &&
+      item.streamSeq >= 1
+    ) {
+      if (maxSeq === null || item.streamSeq > maxSeq) {
+        maxSeq = item.streamSeq;
+      }
+    }
+  }
+  return maxSeq;
+}
+
 export function mergeAndSortLiveUpdates(
   existing: LiveBlogUpdate[],
   incoming: LiveBlogUpdate[]
 ): LiveBlogUpdate[] {
   const byId = new Map<string, LiveBlogUpdate>();
-  for (const item of existing) {
-    if (item && typeof item.id === "string") {
-      byId.set(item.id, item);
-    }
-  }
+  const seenSeq = new Set<number>();
+
   for (const item of incoming) {
     if (item && typeof item.id === "string") {
       byId.set(item.id, item);
+      if (typeof item.streamSeq === "number" && Number.isSafeInteger(item.streamSeq)) {
+        seenSeq.add(item.streamSeq);
+      }
     }
   }
+  for (const item of existing) {
+    if (item && typeof item.id === "string" && !byId.has(item.id)) {
+      if (
+        typeof item.streamSeq === "number" &&
+        Number.isSafeInteger(item.streamSeq) &&
+        seenSeq.has(item.streamSeq)
+      ) {
+        continue;
+      }
+      byId.set(item.id, item);
+      if (typeof item.streamSeq === "number" && Number.isSafeInteger(item.streamSeq)) {
+        seenSeq.add(item.streamSeq);
+      }
+    }
+  }
+
   const merged = Array.from(byId.values());
   merged.sort((a, b) => {
+    const seqA = typeof a.streamSeq === "number" && Number.isSafeInteger(a.streamSeq) ? a.streamSeq : 0;
+    const seqB = typeof b.streamSeq === "number" && Number.isSafeInteger(b.streamSeq) ? b.streamSeq : 0;
+    if (seqB !== seqA) return seqB - seqA;
     const tA = Date.parse(a.publishedAt);
     const tB = Date.parse(b.publishedAt);
     const validA = Number.isNaN(tA) ? 0 : tA;
@@ -45,6 +87,18 @@ export function mergeAndSortLiveUpdates(
     return b.id.localeCompare(a.id);
   });
   return merged;
+}
+
+export function advanceLiveStreamCursor(
+  state: { updates: LiveBlogUpdate[]; lastSeenStreamSeq: number | null },
+  incoming: LiveBlogUpdate[]
+): { updates: LiveBlogUpdate[]; lastSeenStreamSeq: number | null } {
+  const merged = mergeAndSortLiveUpdates(state.updates, incoming);
+  const nextCursor = computeMaxStreamSeq(merged, computeMaxStreamSeq(incoming, state.lastSeenStreamSeq));
+  return {
+    updates: merged,
+    lastSeenStreamSeq: nextCursor
+  };
 }
 
 function updatedLabel(value:string){
@@ -78,7 +132,7 @@ export default function LiveScreen(){
   const [streamEnded,setStreamEnded]=useState(false);
 
   const pollSeqRef=useRef(0);
-  const latestPublishedAtRef=useRef<string | null>(null);
+  const lastSeenStreamSeqRef=useRef<number | null>(null);
 
   const selectedCoverage=useMemo(() => {
     if (!selectedCoverageId) return null;
@@ -92,7 +146,7 @@ export default function LiveScreen(){
       setUpdatesRefreshing(false);
       setUpdatesError(null);
       setStreamEnded(false);
-      latestPublishedAtRef.current = null;
+      lastSeenStreamSeqRef.current = null;
       return;
     }
 
@@ -100,19 +154,22 @@ export default function LiveScreen(){
     setUpdatesLoading(true);
     setUpdatesError(null);
     setStreamEnded(false);
-    latestPublishedAtRef.current = null;
+    lastSeenStreamSeqRef.current = null;
 
     try {
       const [latestCoverage, initialUpdates] = await Promise.all([
         services.live.list(),
-        services.live.listUpdates(coverageId, { since: null, limit: 50 })
+        services.live.listUpdates(coverageId, { afterSeq: null, limit: 100 })
       ]);
       if (seq !== pollSeqRef.current) return;
 
       setPolledSource(latestCoverage);
-      const sorted = mergeAndSortLiveUpdates([], initialUpdates);
-      setUpdates(sorted);
-      latestPublishedAtRef.current = sorted[0]?.publishedAt ?? null;
+      const nextState = advanceLiveStreamCursor(
+        { updates: [], lastSeenStreamSeq: null },
+        initialUpdates
+      );
+      setUpdates(nextState.updates);
+      lastSeenStreamSeqRef.current = nextState.lastSeenStreamSeq;
 
       const matched = latestCoverage.find((c) => c.id === coverageId) ?? null;
       if (!matched || matched.status === "ended" || matched.kind !== "live-blog") {
@@ -138,18 +195,21 @@ export default function LiveScreen(){
     }
 
     try {
-      const sinceCursor = latestPublishedAtRef.current;
+      const afterSeqCursor = lastSeenStreamSeqRef.current;
       const [latestCoverage, incomingUpdates] = await Promise.all([
         services.live.list(),
-        services.live.listUpdates(coverageId, { since: sinceCursor, limit: 50 })
+        services.live.listUpdates(coverageId, { afterSeq: afterSeqCursor, limit: 100 })
       ]);
       if (seq !== pollSeqRef.current) return;
 
       setPolledSource(latestCoverage);
       setUpdates((prev) => {
-        const merged = mergeAndSortLiveUpdates(prev, incomingUpdates);
-        latestPublishedAtRef.current = merged[0]?.publishedAt ?? latestPublishedAtRef.current;
-        return merged;
+        const nextState = advanceLiveStreamCursor(
+          { updates: prev, lastSeenStreamSeq: lastSeenStreamSeqRef.current },
+          incomingUpdates
+        );
+        lastSeenStreamSeqRef.current = nextState.lastSeenStreamSeq;
+        return nextState.updates;
       });
 
       const matched = latestCoverage.find((c) => c.id === coverageId) ?? null;
@@ -178,7 +238,7 @@ export default function LiveScreen(){
       setUpdatesRefreshing(false);
       setUpdatesError(null);
       setStreamEnded(false);
-      latestPublishedAtRef.current = null;
+      lastSeenStreamSeqRef.current = null;
       return;
     }
     void loadInitialStream(selectedCoverageId);

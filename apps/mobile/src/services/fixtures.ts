@@ -225,10 +225,11 @@ const liveService: LiveService = {
   async list() {
     return fixtureCanonicalLiveItems;
   },
-  async listUpdates(coverageId) {
+  async listUpdates(coverageId, options) {
     if (coverageId === "d1000000-0000-4000-b000-000000000001" || coverageId === "fixture-live-001") {
-      return [
+      const allUpdates = [
         {
+          streamSeq: 3,
           id: "e1000000-0000-4000-b000-000000000003",
           coverageId,
           headline: "NatPharm dispatches 40 tonnes of oral rehydration salts to provincial depots",
@@ -243,6 +244,7 @@ const liveService: LiveService = {
             : null
         },
         {
+          streamSeq: 2,
           id: "e1000000-0000-4000-b000-000000000002",
           coverageId,
           headline: "Municipal water quality monitoring expanded across 14 high-density suburbs",
@@ -251,6 +253,7 @@ const liveService: LiveService = {
           media: null
         },
         {
+          streamSeq: 1,
           id: "e1000000-0000-4000-b000-000000000001",
           coverageId,
           headline: null,
@@ -259,6 +262,12 @@ const liveService: LiveService = {
           media: null
         }
       ];
+      if (options?.afterSeq !== undefined && options?.afterSeq !== null) {
+        return allUpdates
+          .filter((u) => u.streamSeq > options.afterSeq!)
+          .sort((a, b) => a.streamSeq - b.streamSeq);
+      }
+      return allUpdates;
     }
     return [];
   }

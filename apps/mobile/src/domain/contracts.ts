@@ -164,7 +164,7 @@ export interface LiveService {
   list(): Promise<LiveItem[]>;
   listUpdates(
     coverageId: string,
-    options?: { since?: string | null; limit?: number }
+    options?: { afterSeq?: number | null; limit?: number }
   ): Promise<LiveBlogUpdate[]>;
 }
 

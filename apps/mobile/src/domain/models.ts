@@ -2185,6 +2185,7 @@ export interface NewsroomLiveUpdateCreateInput {
 }
 
 export interface LiveBlogUpdate {
+  streamSeq: number;
   id: string;
   coverageId: string;
   headline: string | null;

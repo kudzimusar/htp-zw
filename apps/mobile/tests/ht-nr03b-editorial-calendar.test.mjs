@@ -797,7 +797,7 @@ test("HT-NR-03B: Read-only boundary, no localStorage, no fake fixtures, and froz
   const migrationFiles = fs.readdirSync(migrationsDir);
   assert.equal(
     migrationFiles.length,
-    71,
-    `Migration files count must be exactly 71 at HT-NR-05D-B authority, found ${migrationFiles.length}`
+    72,
+    `Migration files count must be exactly 72 at HT-NR-05D-B-R1 authority, found ${migrationFiles.length}`
   );
 });

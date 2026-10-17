@@ -156,6 +156,27 @@ export function mapPublicLiveRow(row: any): LiveItem | null {
 export function mapPublicLiveUpdateRow(row: any): LiveBlogUpdate | null {
   if (!row || typeof row !== "object") return null;
 
+  let streamSeq: number;
+  if (
+    typeof row.stream_seq === "number" &&
+    Number.isSafeInteger(row.stream_seq) &&
+    row.stream_seq >= 1
+  ) {
+    streamSeq = row.stream_seq;
+  } else if (
+    typeof row.stream_seq === "string" &&
+    /^[1-9]\d*$/.test(row.stream_seq.trim())
+  ) {
+    const parsed = Number(row.stream_seq.trim());
+    if (Number.isSafeInteger(parsed) && parsed >= 1) {
+      streamSeq = parsed;
+    } else {
+      return null;
+    }
+  } else {
+    return null;
+  }
+
   if (!isValidUuid(row.id)) return null;
   const updateId = String(row.id).trim();
 
@@ -199,6 +220,7 @@ export function mapPublicLiveUpdateRow(row: any): LiveBlogUpdate | null {
   );
 
   return {
+    streamSeq,
     id: updateId,
     coverageId,
     headline,
@@ -258,7 +280,7 @@ export function createPublicLiveService(
 
     async listUpdates(
       coverageId: string,
-      options?: { since?: string | null; limit?: number }
+      options?: { afterSeq?: number | null; limit?: number }
     ): Promise<LiveBlogUpdate[]> {
       if (!isValidUuid(coverageId)) {
         throw new PublicLiveError(
@@ -267,22 +289,19 @@ export function createPublicLiveService(
         );
       }
 
-      let sinceIso: string | null = null;
-      if (options?.since !== undefined && options?.since !== null) {
-        if (typeof options.since !== "string" || options.since.trim().length === 0) {
+      let afterSeqVal: number | null = null;
+      if (options?.afterSeq !== undefined && options?.afterSeq !== null) {
+        if (
+          typeof options.afterSeq !== "number" ||
+          !Number.isSafeInteger(options.afterSeq) ||
+          options.afterSeq < 1
+        ) {
           throw new PublicLiveError(
-            "Invalid since timestamp filter.",
-            "INVALID_SINCE"
+            "Invalid afterSeq cursor filter.",
+            "INVALID_AFTER_SEQ"
           );
         }
-        const parsedSince = new Date(options.since.trim());
-        if (isNaN(parsedSince.getTime())) {
-          throw new PublicLiveError(
-            "Invalid since timestamp filter.",
-            "INVALID_SINCE"
-          );
-        }
-        sinceIso = options.since.trim();
+        afterSeqVal = options.afterSeq;
       }
 
       const boundedLimit =
@@ -293,7 +312,7 @@ export function createPublicLiveService(
       const client = clientOverride || (getStagingSupabaseClient() as any);
       const { data, error } = await client.rpc("newsroom_public_live_updates", {
         p_coverage_id: coverageId.trim(),
-        p_since: sinceIso,
+        p_after_seq: afterSeqVal,
         p_limit: boundedLimit
       });
 

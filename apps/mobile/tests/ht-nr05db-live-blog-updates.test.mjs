@@ -208,6 +208,8 @@ const readerLiveModule = loadTs("app/(reader)/live.tsx", {
 const {
   LIVE_BLOG_POLL_INTERVAL_MS,
   isValidLiveCoverageId,
+  computeMaxStreamSeq,
+  advanceLiveStreamCursor,
   mergeAndSortLiveUpdates
 } = readerLiveModule;
 
@@ -232,13 +234,13 @@ function collectText(node, out = []) {
 // SECTION 55 — CUSTODY, INVARIANTS & FROZEN BLOBS
 // =============================================================================
 
-test("HT-NR-05D-B Section 55: Repository migration count is exactly 71", () => {
+test("HT-NR-05D-B-R1 Section 55: Repository migration count is exactly 72", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    71,
-    `Migration count must be exactly 71 (70 prior + 05D-B live blog updates). Found ${files.length}.`
+    72,
+    `Migration count must be exactly 72 (70 prior + 05D-B live blog updates + 05D-B-R1 stream integrity). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261017010000_ht_nr05da_live_desk_foundation.sql"),
@@ -246,7 +248,11 @@ test("HT-NR-05D-B Section 55: Repository migration count is exactly 71", () => {
   );
   assert.ok(
     files.includes("20261017020000_ht_nr05db_live_blog_updates.sql"),
-    "Migration 71 (20261017020000_ht_nr05db_live_blog_updates.sql) must be present"
+    "Migration 71 (20261017020000_ht_nr05db_live_blog_updates.sql) must remain present"
+  );
+  assert.ok(
+    files.includes("20261017030000_ht_nr05db_r1_stream_integrity.sql"),
+    "Migration 72 (20261017030000_ht_nr05db_r1_stream_integrity.sql) must be present"
   );
 });
 
@@ -400,6 +406,86 @@ test("HT-NR-05D-B Section 56: Migration 71 SQL schema, index, RLS, and RPC contr
   assert.ok(
     sql.includes("update public.newsroom_live_coverage"),
     "newsroom_post_live_update must update parent coverage recency"
+  );
+});
+
+test("HT-NR-05D-B-R1 Section 56B: Migration 72 SQL stream_seq identity, public projection privacy, and append-only service_role contracts", () => {
+  const sql = readRepo("supabase/migrations/20261017030000_ht_nr05db_r1_stream_integrity.sql");
+
+  // 1. Defect A — Public coverage projection omits source_provenance and started_at
+  assert.ok(
+    sql.includes("create or replace function public.newsroom_public_live_coverage("),
+    "Migration 72 must replace public.newsroom_public_live_coverage"
+  );
+  const coverageRpcSlice = sql.slice(
+    sql.indexOf("create or replace function public.newsroom_public_live_coverage("),
+    sql.indexOf("revoke all on function public.newsroom_public_live_coverage(integer) from public;")
+  );
+  assert.strictEqual(
+    coverageRpcSlice.includes("source_provenance"),
+    false,
+    "public.newsroom_public_live_coverage must NEVER expose source_provenance"
+  );
+  assert.strictEqual(
+    coverageRpcSlice.includes("started_at"),
+    false,
+    "public.newsroom_public_live_coverage must NEVER expose started_at"
+  );
+  assert.ok(
+    coverageRpcSlice.includes("update_count integer"),
+    "public.newsroom_public_live_coverage must include update_count integer"
+  );
+
+  // 2. Defect B — Monotonic stream_seq identity and lossless cursor RPC
+  assert.ok(
+    sql.includes("add column if not exists stream_seq bigint generated always as identity"),
+    "Migration 72 must add stream_seq bigint generated always as identity"
+  );
+  assert.ok(
+    sql.includes("create unique index if not exists newsroom_live_updates_stream_seq_uidx") &&
+      sql.includes("on public.newsroom_live_updates (stream_seq)"),
+    "Migration 72 must create unique index newsroom_live_updates_stream_seq_uidx"
+  );
+  assert.ok(
+    sql.includes("create index if not exists newsroom_live_updates_coverage_stream_seq_idx") &&
+      sql.includes("on public.newsroom_live_updates (coverage_id, stream_seq desc)"),
+    "Migration 72 must create index newsroom_live_updates_coverage_stream_seq_idx on (coverage_id, stream_seq desc)"
+  );
+  assert.ok(
+    sql.includes("drop function if exists public.newsroom_public_live_updates(uuid, timestamptz, integer)"),
+    "Migration 72 must drop the old timestamp-cursor RPC signature"
+  );
+  assert.ok(
+    sql.includes("p_after_seq bigint default null") &&
+      sql.includes("stream_seq bigint") &&
+      sql.includes("u.stream_seq > p_after_seq") &&
+      sql.includes("order by u.stream_seq asc") &&
+      sql.includes("order by u.stream_seq desc"),
+    "Migration 72 newsroom_public_live_updates must support lossless ascending pagination when p_after_seq is provided and descending initial load when null"
+  );
+  assert.ok(
+    sql.includes("grant execute on function public.newsroom_public_live_updates(uuid, bigint, integer) to anon, authenticated"),
+    "Migration 72 must grant execute on newsroom_public_live_updates(uuid, bigint, integer) to anon, authenticated"
+  );
+
+  // 3. Defect C — Append-only application role privileges (service_role gets SELECT only)
+  assert.ok(
+    sql.includes("revoke all on table public.newsroom_live_updates from public, anon, authenticated, service_role;"),
+    "Migration 72 must revoke all direct table privileges from public, anon, authenticated, service_role"
+  );
+  assert.ok(
+    sql.includes("grant select on table public.newsroom_live_updates to service_role;"),
+    "Migration 72 must grant only SELECT on newsroom_live_updates to service_role"
+  );
+  assert.strictEqual(
+    /grant\s+(insert|update|delete|all)/i.test(sql),
+    false,
+    "Migration 72 must not grant INSERT, UPDATE, DELETE, or ALL on newsroom_live_updates"
+  );
+  assert.strictEqual(
+    /newsroom_(update|delete)_live_update/i.test(sql),
+    false,
+    "Migration 72 must not introduce any update or delete RPC for live updates"
   );
 });
 
@@ -671,8 +757,9 @@ test("HT-NR-05D-B Section 58: NewsroomLiveCoverageService.listUpdates & postUpda
 // SECTION 59 — PUBLIC LIVE UPDATE MAPPER & SERVICE
 // =============================================================================
 
-test("HT-NR-05D-B Section 59: mapPublicLiveUpdateRow enforces atomic media tuple rule and no private field leakage", () => {
+test("HT-NR-05D-B-R1 Section 59: mapPublicLiveUpdateRow enforces stream_seq positive integer, atomic media tuple rule, and no private field leakage", () => {
   const baseRow = {
+    stream_seq: 3,
     id: "e1000000-0000-4000-b000-000000000003",
     coverage_id: "d1000000-0000-4000-b000-000000000001",
     headline: "NatPharm dispatches 40 tonnes of oral rehydration salts",
@@ -685,9 +772,10 @@ test("HT-NR-05D-B Section 59: mapPublicLiveUpdateRow enforces atomic media tuple
     media_credit: "HealthTimes"
   };
 
-  // 1. Valid row with atomic media tuple -> canonical MediaRef with exact UUID + provenance
+  // 1. Valid row with numeric stream_seq and atomic media tuple -> canonical MediaRef with exact UUID + provenance
   const withMedia = mapPublicLiveUpdateRow(baseRow);
   assert.ok(withMedia);
+  assert.strictEqual(withMedia.streamSeq, 3);
   assert.strictEqual(withMedia.id, "e1000000-0000-4000-b000-000000000003");
   assert.strictEqual(withMedia.coverageId, "d1000000-0000-4000-b000-000000000001");
   assert.strictEqual(withMedia.headline, "NatPharm dispatches 40 tonnes of oral rehydration salts");
@@ -702,6 +790,23 @@ test("HT-NR-05D-B Section 59: mapPublicLiveUpdateRow enforces atomic media tuple
   assert.strictEqual(withMedia.media.sourceProvenance.system, "healthtimes-native");
   assert.strictEqual(withMedia.media.sourceProvenance.sourceId, "00000000-0000-4000-a000-000000000001");
   assert.strictEqual(withMedia.media.sourceProvenance.stableKey, "newsroom-media:00000000-0000-4000-a000-000000000001");
+
+  // 1b. Valid bigint string stream_seq -> positive safe integer streamSeq
+  const withStringSeq = mapPublicLiveUpdateRow({ ...baseRow, stream_seq: "42" });
+  assert.ok(withStringSeq);
+  assert.strictEqual(withStringSeq.streamSeq, 42);
+
+  // 1c. Invalid stream_seq values fail closed (null)
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: undefined }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: null }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: 0 }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: "0" }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: -1 }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: "-5" }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: 1.5 }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: "1.5" }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: "abc" }), null);
+  assert.strictEqual(mapPublicLiveUpdateRow({ ...baseRow, stream_seq: "" }), null);
 
   // 2. Valid row with no media -> media: null
   const noMedia = mapPublicLiveUpdateRow({
@@ -773,9 +878,10 @@ test("HT-NR-05D-B Section 59: mapPublicLiveUpdateRow enforces atomic media tuple
   );
 });
 
-test("HT-NR-05D-B Section 59: PublicLiveService.listUpdates envelope, cursor forwarding, and validation", async () => {
+test("HT-NR-05D-B-R1 Section 59: PublicLiveService.listUpdates envelope, afterSeq cursor forwarding, and validation", async () => {
   const validCovId = "d1000000-0000-4000-b000-000000000001";
   const validRow1 = {
+    stream_seq: 2,
     id: "e1000000-0000-4000-b000-000000000002",
     coverage_id: validCovId,
     headline: "Headline 2",
@@ -789,6 +895,7 @@ test("HT-NR-05D-B Section 59: PublicLiveService.listUpdates envelope, cursor for
   };
   const validRow2 = {
     ...validRow1,
+    stream_seq: 1,
     id: "e1000000-0000-4000-b000-000000000001",
     headline: null,
     body: "Body 1",
@@ -797,41 +904,44 @@ test("HT-NR-05D-B Section 59: PublicLiveService.listUpdates envelope, cursor for
   const malformedRow = { id: "bad-id" };
 
   let rpcData = [];
+  let rpcError = null;
   let lastCall = null;
   const service = createPublicLiveService({
     rpc: async (fn, args) => {
       lastCall = { fn, args };
-      return { data: rpcData, error: null };
+      return { data: rpcData, error: rpcError };
     }
   });
 
-  // 1. [] -> []
+  // 1. [] -> [] with initial afterSeq: null
   rpcData = [];
-  const emptyRes = await service.listUpdates(validCovId, { since: null, limit: 50 });
+  const emptyRes = await service.listUpdates(validCovId, { afterSeq: null, limit: 100 });
   assert.deepStrictEqual(emptyRes, []);
   assert.strictEqual(lastCall.fn, "newsroom_public_live_updates");
   assert.strictEqual(lastCall.args.p_coverage_id, validCovId);
-  assert.strictEqual(lastCall.args.p_since, null);
-  assert.strictEqual(lastCall.args.p_limit, 50);
+  assert.strictEqual(lastCall.args.p_after_seq, null);
+  assert.strictEqual(lastCall.args.p_limit, 100);
 
-  // 2. [valid, malformed, valid] -> [valid, valid]
+  // 2. [valid, malformed, valid] -> [valid, valid] with afterSeq: 120
   rpcData = [validRow1, malformedRow, validRow2];
   const mixedRes = await service.listUpdates(validCovId, {
-    since: "2026-10-17T09:00:00.000Z",
-    limit: 25
+    afterSeq: 120,
+    limit: 100
   });
   assert.strictEqual(mixedRes.length, 2);
-  assert.strictEqual(lastCall.args.p_since, "2026-10-17T09:00:00.000Z");
-  assert.strictEqual(lastCall.args.p_limit, 25);
+  assert.strictEqual(mixedRes[0].streamSeq, 2);
+  assert.strictEqual(mixedRes[1].streamSeq, 1);
+  assert.strictEqual(lastCall.args.p_after_seq, 120);
+  assert.strictEqual(lastCall.args.p_limit, 100);
 
-  // 3. [malformed] -> reject
+  // 3. [malformed] -> reject MALFORMED_DATA
   rpcData = [malformedRow];
   await assert.rejects(
     () => service.listUpdates(validCovId),
     (err) => err instanceof PublicLiveError && err.code === "MALFORMED_DATA"
   );
 
-  // 4. null / object -> reject
+  // 4. null / object -> reject MALFORMED_ENVELOPE
   rpcData = null;
   await assert.rejects(
     () => service.listUpdates(validCovId),
@@ -843,6 +953,15 @@ test("HT-NR-05D-B Section 59: PublicLiveService.listUpdates envelope, cursor for
     (err) => err instanceof PublicLiveError && err.code === "MALFORMED_ENVELOPE"
   );
 
+  // 4b. RPC error -> reject RPC_ERROR
+  rpcData = null;
+  rpcError = { message: "Database timeout" };
+  await assert.rejects(
+    () => service.listUpdates(validCovId),
+    (err) => err instanceof PublicLiveError && err.code === "RPC_ERROR"
+  );
+  rpcError = null;
+
   // 5. Malformed coverageId rejected
   lastCall = null;
   await assert.rejects(
@@ -853,24 +972,27 @@ test("HT-NR-05D-B Section 59: PublicLiveService.listUpdates envelope, cursor for
   );
   assert.strictEqual(lastCall, null);
 
-  // 6. Malformed since cursor rejected
-  await assert.rejects(
-    () => service.listUpdates(validCovId, { since: "not-a-timestamp" }),
-    (err) => err instanceof PublicLiveError && err.code === "INVALID_SINCE"
-  );
+  // 6. Malformed afterSeq cursor rejected
+  for (const invalidCursor of [0, -1, 1.5, NaN]) {
+    await assert.rejects(
+      () => service.listUpdates(validCovId, { afterSeq: invalidCursor }),
+      (err) => err instanceof PublicLiveError && err.code === "INVALID_AFTER_SEQ"
+    );
+  }
 });
 
 // =============================================================================
-// SECTION 60 — PUBLIC LIVE COVERAGE updateCount MAPPING
+// SECTION 60 — PUBLIC LIVE COVERAGE updateCount MAPPING & NO SOURCE PROVENANCE LEAK
 // =============================================================================
 
-test("HT-NR-05D-B Section 60: mapPublicLiveRow maps updateCount truthfully for live-blog and omits for scheduled", () => {
+test("HT-NR-05D-B-R1 Section 60: mapPublicLiveRow maps updateCount truthfully and requires no database source_provenance", () => {
   const baseRow = {
     id: "d1000000-0000-4000-b000-000000000001",
     title: "Emergency Briefing",
     kind: "live-blog",
     status: "live",
     updated_at: "2026-10-17T10:00:00.000Z",
+    scheduled_at: null,
     media_id: null,
     media_public_url: null,
     media_alt_text: null,
@@ -878,10 +1000,15 @@ test("HT-NR-05D-B Section 60: mapPublicLiveRow maps updateCount truthfully for l
     media_credit: null
   };
 
+  // Verify baseRow has no source_provenance column and maps cleanly
+  assert.strictEqual("source_provenance" in baseRow, false);
+
   // 1. live-blog with update_count: 0 -> updateCount: 0
   const zeroUpdates = mapPublicLiveRow({ ...baseRow, update_count: 0 });
   assert.ok(zeroUpdates);
   assert.strictEqual(zeroUpdates.updateCount, 0);
+  assert.strictEqual(zeroUpdates.sourceProvenance.system, "healthtimes-native");
+  assert.strictEqual(zeroUpdates.sourceProvenance.sourceId, baseRow.id);
 
   // 2. live-blog with update_count: 5 -> updateCount: 5
   const fiveUpdates = mapPublicLiveRow({ ...baseRow, update_count: 5 });
@@ -1021,10 +1148,10 @@ test("HT-NR-05D-B Section 61: StudioLiveDeskView renders composer for active liv
 });
 
 // =============================================================================
-// SECTION 62 — READER LIVE BLOG STREAM & POLLING / DEDUPLICATION
+// SECTION 62 — READER LIVE BLOG STREAM, MONOTONIC CURSOR & LOSSLESS 250-UPDATE BURST PAGINATION
 // =============================================================================
 
-test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator, deduplication, and ordering", async () => {
+test("HT-NR-05D-B-R1 Section 62: Reader Live Blog polling interval, UUID validator, streamSeq deduplication, and lossless 250-update burst pagination", async () => {
   // 1. Poll interval is 10,000ms
   assert.strictEqual(LIVE_BLOG_POLL_INTERVAL_MS, 10_000);
 
@@ -1034,9 +1161,10 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
   assert.strictEqual(isValidLiveCoverageId(""), false);
   assert.strictEqual(isValidLiveCoverageId(null), false);
 
-  // 3. mergeAndSortLiveUpdates deduplicates by UUID and orders newest-first (publishedAt DESC, id DESC)
+  // 3. mergeAndSortLiveUpdates deduplicates by id and streamSeq and orders newest-first (streamSeq DESC)
   const existing = [
     {
+      streamSeq: 1,
       id: "e1000000-0000-4000-b000-000000000001",
       coverageId: "d1000000-0000-4000-b000-000000000001",
       headline: "First update",
@@ -1045,6 +1173,7 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
       media: null
     },
     {
+      streamSeq: 2,
       id: "e1000000-0000-4000-b000-000000000002",
       coverageId: "d1000000-0000-4000-b000-000000000001",
       headline: "Second update",
@@ -1055,8 +1184,9 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
   ];
 
   const incomingPoll = [
-    // Duplicate of e1000000-0000-4000-b000-000000000002
+    // Duplicate of streamSeq 2 / e1000000-0000-4000-b000-000000000002
     {
+      streamSeq: 2,
       id: "e1000000-0000-4000-b000-000000000002",
       coverageId: "d1000000-0000-4000-b000-000000000001",
       headline: "Second update",
@@ -1064,8 +1194,9 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
       publishedAt: "2026-10-17T10:15:00.000Z",
       media: null
     },
-    // New update with same timestamp as 0003-a to test tie-breaking by id DESC
+    // Two updates with identical timestamp, ordered deterministically by streamSeq DESC
     {
+      streamSeq: 3,
       id: "e1000000-0000-4000-b000-000000000003",
       coverageId: "d1000000-0000-4000-b000-000000000001",
       headline: "Third update A",
@@ -1074,9 +1205,10 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
       media: null
     },
     {
+      streamSeq: 4,
       id: "e1000000-0000-4000-b000-000000000004",
       coverageId: "d1000000-0000-4000-b000-000000000001",
-      headline: "Third update B (same timestamp, higher UUID)",
+      headline: "Third update B (same timestamp, higher streamSeq)",
       body: "Third body B",
       publishedAt: "2026-10-17T10:42:00.000Z",
       media: null
@@ -1084,19 +1216,82 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
   ];
 
   const merged = mergeAndSortLiveUpdates(existing, incomingPoll);
-  assert.strictEqual(merged.length, 4, "Duplicate update UUID must be deduplicated");
+  assert.strictEqual(merged.length, 4, "Duplicate update must be deduplicated");
   assert.deepStrictEqual(
-    merged.map((u) => u.id),
-    [
-      "e1000000-0000-4000-b000-000000000004",
-      "e1000000-0000-4000-b000-000000000003",
-      "e1000000-0000-4000-b000-000000000002",
-      "e1000000-0000-4000-b000-000000000001"
-    ],
-    "Updates must be ordered publishedAt DESC, id DESC"
+    merged.map((u) => u.streamSeq),
+    [4, 3, 2, 1],
+    "Updates must be ordered newest-first by streamSeq DESC"
   );
+  assert.strictEqual(computeMaxStreamSeq(merged), 4);
 
-  // 4. Verify all 6 required Reader Live Blog states and race protection in app/(reader)/live.tsx
+  // 4. Lossless 250-update burst pagination proof (cursor = 10, burst = 11..260, limit = 100)
+  const coverageId = "d1000000-0000-4000-b000-000000000001";
+  const makeUpdate = (seq) => ({
+    streamSeq: seq,
+    id: `e1000000-0000-4000-b000-${String(seq).padStart(12, "0")}`,
+    coverageId,
+    headline: `Update #${seq}`,
+    body: `Body for update ${seq}`,
+    publishedAt: "2026-10-17T11:00:00.000Z", // Even if all 250 share the exact same timestamp!
+    media: null
+  });
+
+  // Initial state: updates 1..10 already loaded (newest-first: 10..1), cursor = 10
+  let streamState = {
+    updates: Array.from({ length: 10 }, (_, idx) => makeUpdate(10 - idx)),
+    lastSeenStreamSeq: 10
+  };
+  assert.strictEqual(computeMaxStreamSeq(streamState.updates), 10);
+
+  // Server database contains updates 1..260 (250 new updates 11..260 in burst)
+  const serverDbUpdates = Array.from({ length: 260 }, (_, idx) => makeUpdate(idx + 1));
+
+  // Simulate server RPC newsroom_public_live_updates(coverageId, afterSeq, limit = 100)
+  // When afterSeq is not null: WHERE stream_seq > afterSeq ORDER BY stream_seq ASC LIMIT 100
+  const simulateServerPoll = (afterSeq, limit = 100) => {
+    return serverDbUpdates
+      .filter((u) => u.streamSeq > afterSeq)
+      .sort((a, b) => a.streamSeq - b.streamSeq)
+      .slice(0, limit);
+  };
+
+  // Poll 1: afterSeq = 10, limit = 100 -> receives 11..110 -> cursor advances to 110
+  const poll1Batch = simulateServerPoll(streamState.lastSeenStreamSeq, 100);
+  assert.strictEqual(poll1Batch.length, 100);
+  assert.strictEqual(poll1Batch[0].streamSeq, 11);
+  assert.strictEqual(poll1Batch[99].streamSeq, 110);
+  streamState = advanceLiveStreamCursor(streamState, poll1Batch);
+  assert.strictEqual(streamState.lastSeenStreamSeq, 110);
+  assert.strictEqual(streamState.updates.length, 110);
+
+  // Poll 2: afterSeq = 110, limit = 100 -> receives 111..210 -> cursor advances to 210
+  const poll2Batch = simulateServerPoll(streamState.lastSeenStreamSeq, 100);
+  assert.strictEqual(poll2Batch.length, 100);
+  assert.strictEqual(poll2Batch[0].streamSeq, 111);
+  assert.strictEqual(poll2Batch[99].streamSeq, 210);
+  streamState = advanceLiveStreamCursor(streamState, poll2Batch);
+  assert.strictEqual(streamState.lastSeenStreamSeq, 210);
+  assert.strictEqual(streamState.updates.length, 210);
+
+  // Poll 3: afterSeq = 210, limit = 100 -> receives 211..260 -> cursor advances to 260
+  const poll3Batch = simulateServerPoll(streamState.lastSeenStreamSeq, 100);
+  assert.strictEqual(poll3Batch.length, 50);
+  assert.strictEqual(poll3Batch[0].streamSeq, 211);
+  assert.strictEqual(poll3Batch[49].streamSeq, 260);
+  streamState = advanceLiveStreamCursor(streamState, poll3Batch);
+  assert.strictEqual(streamState.lastSeenStreamSeq, 260);
+  assert.strictEqual(streamState.updates.length, 260);
+
+  // Verify zero lost updates, zero duplicates, and strict newest-first (260 down to 1) ordering
+  for (let i = 0; i < 260; i += 1) {
+    assert.strictEqual(
+      streamState.updates[i].streamSeq,
+      260 - i,
+      `Expected streamSeq ${260 - i} at index ${i}, got ${streamState.updates[i].streamSeq}`
+    );
+  }
+
+  // 5. Verify all 6 required Reader Live Blog states and race protection in app/(reader)/live.tsx
   const liveScreenSource = read("app/(reader)/live.tsx");
   assert.ok(
     liveScreenSource.includes("Loading live updates…"),
@@ -1119,8 +1314,10 @@ test("HT-NR-05D-B Section 62: Reader Live Blog polling interval, UUID validator,
     "Must include invalid coverage ID state copy"
   );
   assert.ok(
-    liveScreenSource.includes("pollSeqRef") && liveScreenSource.includes("clearInterval"),
-    "Must use monotonic pollSeqRef race protection and clearInterval cleanup"
+    liveScreenSource.includes("pollSeqRef") &&
+      liveScreenSource.includes("lastSeenStreamSeqRef") &&
+      liveScreenSource.includes("clearInterval"),
+    "Must use monotonic pollSeqRef race protection, lastSeenStreamSeqRef cursor, and clearInterval cleanup"
   );
 });
 
