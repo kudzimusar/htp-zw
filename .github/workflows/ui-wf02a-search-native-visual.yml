@@ -233,7 +233,7 @@ jobs:
               assert len(raw) > 1000 and raw[:8] == b"\x89PNG\r\n\x1a\n", f"Invalid PNG: {name}"
               shots[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
           manifest = {
-              "task": "UI-WF-02A-R3-T2-R2",
+              "task": "UI-WF-02A-R3-T2-R3",
               "platform": "iOS",
               "device": f"{os.environ['SIM_NAME']} ({os.environ['SIM_UDID']})",
               "runtime": os.environ["SIM_RUNTIME"],
@@ -318,6 +318,8 @@ jobs:
           {
             npm --prefix apps/mobile ls \
               expo \
+              expo-font \
+              expo-symbols \
               expo-modules-autolinking \
               expo-modules-core \
               expo-router \
@@ -325,16 +327,36 @@ jobs:
               --all || true
           } | tee ui-wf02a-search-native-evidence/android/dependency-tree.txt
 
-      - name: Diagnose and repair missing Android autolinking Publication.version metadata (fail-closed)
+      - name: Diagnose Android autolinking and assert Expo SDK line (fail-closed)
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p ui-wf02a-search-native-evidence/android
+          EVIDENCE_DIR="ui-wf02a-search-native-evidence/android"
+          mkdir -p "$EVIDENCE_DIR"
+
+          npm --prefix apps/mobile ls \
+            expo \
+            expo-font \
+            expo-symbols \
+            expo-modules-autolinking \
+            expo-modules-core \
+            expo-router \
+            react-native \
+            --all > "$EVIDENCE_DIR/dependency-tree-strict.txt"
+
+          if grep -Eq 'expo-font@58\.' "$EVIDENCE_DIR/dependency-tree-strict.txt"; then
+            echo "Incompatible ExpoFont 58.x is present in the active native dependency graph"
+            cat "$EVIDENCE_DIR/dependency-tree-strict.txt"
+            exit 1
+          fi
+          grep -Eq 'expo-font@57\.0\.[0-9]+' "$EVIDENCE_DIR/dependency-tree-strict.txt"
+          grep -Eq 'expo-symbols@57\.0\.[0-9]+' "$EVIDENCE_DIR/dependency-tree-strict.txt"
+
           (
             cd apps/mobile
-            npx expo-modules-autolinking resolve -p android --json > /tmp/ui-wf02a-android-autolinking-before.json
+            npx expo-modules-autolinking resolve -p android --json > /tmp/ui-wf02a-android-autolinking.json
           )
-          cp /tmp/ui-wf02a-android-autolinking-before.json ui-wf02a-search-native-evidence/android/autolinking-before.json
+          cp /tmp/ui-wf02a-android-autolinking.json "$EVIDENCE_DIR/autolinking.json"
 
           node - <<'NODE'
           const fs = require('fs');
@@ -342,211 +364,89 @@ jobs:
 
           const repoRoot = process.cwd();
           const nodeModulesRoot = path.resolve(repoRoot, 'apps/mobile/node_modules');
-          const beforePath = '/tmp/ui-wf02a-android-autolinking-before.json';
-          const beforeData = JSON.parse(fs.readFileSync(beforePath, 'utf8'));
-          const modules = Array.isArray(beforeData.modules) ? beforeData.modules : [];
-          const semverRe = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+          const data = JSON.parse(fs.readFileSync('/tmp/ui-wf02a-android-autolinking.json', 'utf8'));
+          const modules = Array.isArray(data.modules) ? data.modules : [];
+          const findings = [];
+          let publicationCount = 0;
+          let expoFont = null;
 
           function findModuleRoot(sourceDir, expectedPackageName) {
-            let current = path.resolve(sourceDir);
+            let current = path.resolve(sourceDir || '');
             while (current.startsWith(nodeModulesRoot) && current !== nodeModulesRoot) {
               const pkgPath = path.join(current, 'package.json');
               if (fs.existsSync(pkgPath)) {
                 try {
                   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-                  if (pkg.name === expectedPackageName) {
-                    return current;
-                  }
+                  if (pkg.name === expectedPackageName) return { root: current, pkg };
                 } catch {}
               }
               const parent = path.dirname(current);
               if (parent === current) break;
               current = parent;
             }
-            const directCandidate = path.join(nodeModulesRoot, expectedPackageName);
-            if (fs.existsSync(path.join(directCandidate, 'package.json'))) {
-              return directCandidate;
+            const direct = path.join(nodeModulesRoot, expectedPackageName);
+            const pkgPath = path.join(direct, 'package.json');
+            if (fs.existsSync(pkgPath)) {
+              return { root: direct, pkg: JSON.parse(fs.readFileSync(pkgPath, 'utf8')) };
             }
             return null;
           }
 
-          // Phase 1: Diagnose before any repair
-          const diagnosed = [];
           for (let i = 0; i < modules.length; i++) {
             const mod = modules[i];
-            const projects = Array.isArray(mod.projects) ? mod.projects : [];
-            for (let j = 0; j < projects.length; j++) {
-              const proj = projects[j];
-              const pub = proj.publication;
-              if (pub == null) continue;
-              const hasValidVersion = typeof pub.version === 'string' && pub.version.trim().length > 0;
-              if (hasValidVersion) continue;
-
-              const modRoot = findModuleRoot(proj.sourceDir || '', mod.packageName);
-              if (!modRoot || !modRoot.startsWith(nodeModulesRoot + path.sep)) {
-                throw new Error(
-                  `Cannot resolve module identity inside node_modules for ${mod.packageName} (sourceDir=${proj.sourceDir})`
-                );
-              }
-              const pkgJsonPath = path.join(modRoot, 'package.json');
-              const configPath = path.join(modRoot, 'expo-module.config.json');
-              if (!fs.existsSync(pkgJsonPath)) {
-                throw new Error(`Missing package.json at ${pkgJsonPath}`);
-              }
-              if (!fs.existsSync(configPath)) {
-                throw new Error(`Missing expo-module.config.json at ${configPath}`);
-              }
-              const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
-              const pkgVersion = pkgJson.version;
-              if (typeof pkgVersion !== 'string' || !semverRe.test(pkgVersion.trim())) {
-                throw new Error(
-                  `Absent or malformed package.json.version ('${pkgVersion}') in ${pkgJsonPath}`
-                );
-              }
-
-              diagnosed.push({
-                moduleIndex: i,
-                projectIndex: j,
+            const resolved = findModuleRoot((mod.projects || [])[0]?.sourceDir, mod.packageName);
+            const version = resolved?.pkg?.version || null;
+            if (mod.packageName === 'expo-font') {
+              expoFont = {
                 packageName: mod.packageName,
-                resolvedModulePath: path.relative(repoRoot, modRoot),
-                expoModuleConfigPath: path.relative(repoRoot, configPath),
-                packageJsonPath: path.relative(repoRoot, pkgJsonPath),
-                absConfigPath: configPath,
-                packageVersion: pkgVersion.trim(),
-                currentPublication: pub
-              });
+                version,
+                resolvedModulePath: resolved ? path.relative(repoRoot, resolved.root) : null
+              };
             }
-          }
-
-          console.log('=== SECTION 5: ANDROID AUTOLINKING DIAGNOSTIC BEFORE REPAIR ===');
-          console.log(JSON.stringify(diagnosed, null, 2));
-          fs.writeFileSync(
-            'ui-wf02a-search-native-evidence/android/autolinking-diagnostic.json',
-            JSON.stringify({ missingPublicationVersionCount: diagnosed.length, diagnosed }, null, 2) + '\n'
-          );
-
-          // Phase 2: Temporary node_modules repair ONLY for diagnosed entries
-          const receipts = [];
-          const textLines = [];
-          const alteredConfigs = new Set();
-
-          for (const d of diagnosed) {
-            const pub = d.currentPublication;
-            if (
-              typeof pub !== 'object' ||
-              typeof pub.groupId !== 'string' || !pub.groupId.trim() ||
-              typeof pub.artifactId !== 'string' || !pub.artifactId.trim() ||
-              typeof pub.repository !== 'string' || !pub.repository.trim()
-            ) {
-              throw new Error(
-                `Ambiguous publication object for ${d.packageName}: ${JSON.stringify(pub)}`
-              );
-            }
-
-            const allowedKeys = new Set(['groupId', 'artifactId', 'version', 'repository']);
-            for (const k of Object.keys(pub)) {
-              if (!allowedKeys.has(k)) {
-                throw new Error(`Unexpected key '${k}' in publication for ${d.packageName}`);
-              }
-            }
-
-            const rawConfig = JSON.parse(fs.readFileSync(d.absConfigPath, 'utf8'));
-            let targetPub = null;
-            if (rawConfig.android && rawConfig.android.publication) {
-              if (typeof rawConfig.android.publication.version === 'string' && rawConfig.android.publication.version.trim()) {
-                throw new Error(`Refusing to overwrite existing valid version in ${d.expoModuleConfigPath}`);
-              }
-              targetPub = rawConfig.android.publication;
-            } else if (rawConfig.android && Array.isArray(rawConfig.android.projects)) {
-              const candidates = rawConfig.android.projects.filter(
-                p => p.publication && (!p.publication.version || !String(p.publication.version).trim())
-              );
-              if (candidates.length !== 1) {
-                throw new Error(`Ambiguous android.projects publication target in ${d.expoModuleConfigPath}`);
-              }
-              targetPub = candidates[0].publication;
-            }
-
-            if (!targetPub) {
-              throw new Error(`Cannot locate publication object unambiguously in ${d.expoModuleConfigPath}`);
-            }
-
-            const beforeJson = JSON.parse(JSON.stringify(targetPub));
-            targetPub.version = d.packageVersion;
-            const afterJson = JSON.parse(JSON.stringify(targetPub));
-
-            fs.writeFileSync(d.absConfigPath, JSON.stringify(rawConfig, null, 2) + '\n');
-            alteredConfigs.add(d.expoModuleConfigPath);
-
-            const receiptEntry = {
-              moduleIndex: d.moduleIndex,
-              projectIndex: d.projectIndex,
-              packageName: d.packageName,
-              resolvedModulePath: d.resolvedModulePath,
-              expoModuleConfigPath: d.expoModuleConfigPath,
-              packageJsonPath: d.packageJsonPath,
-              beforePublication: beforeJson,
-              derivedVersion: d.packageVersion,
-              afterPublication: afterJson
-            };
-            receipts.push(receiptEntry);
-
-            const block = [
-              `moduleIndex=${d.moduleIndex}`,
-              `projectIndex=${d.projectIndex}`,
-              `package=${d.packageName}`,
-              `resolvedModulePath=${d.resolvedModulePath}`,
-              `packageJson=${d.packageJsonPath}`,
-              `config=${d.expoModuleConfigPath}`,
-              `BEFORE_JSON=${JSON.stringify(beforeJson)}`,
-              `DERIVED_VERSION=${d.packageVersion}`,
-              `AFTER_JSON=${JSON.stringify(afterJson)}`
-            ].join('\n');
-            textLines.push(block);
-            console.log('=== SECTION 6/7: TEMPORARY NODE_MODULES REPAIR RECEIPT ===');
-            console.log(block);
-          }
-
-          if (alteredConfigs.size > diagnosed.length) {
-            throw new Error(`More modules altered (${alteredConfigs.size}) than diagnosed (${diagnosed.length})`);
-          }
-
-          fs.writeFileSync(
-            'ui-wf02a-search-native-evidence/android/normalization-receipt.json',
-            JSON.stringify({ normalizedCount: receipts.length, entries: receipts }, null, 2) + '\n'
-          );
-          fs.writeFileSync(
-            'ui-wf02a-search-native-evidence/android/normalization-receipt.txt',
-            (textLines.length ? textLines.join('\n---\n') : 'No modules required normalization.') + '\n'
-          );
-          NODE
-
-          (
-            cd apps/mobile
-            npx expo-modules-autolinking resolve -p android --json > /tmp/ui-wf02a-android-autolinking-after.json
-          )
-          cp /tmp/ui-wf02a-android-autolinking-after.json ui-wf02a-search-native-evidence/android/autolinking-after.json
-
-          node - <<'NODE'
-          const fs = require('fs');
-          const afterData = JSON.parse(fs.readFileSync('/tmp/ui-wf02a-android-autolinking-after.json', 'utf8'));
-          const modules = Array.isArray(afterData.modules) ? afterData.modules : [];
-          let checkedCount = 0;
-          for (let i = 0; i < modules.length; i++) {
-            const mod = modules[i];
             for (let j = 0; j < (mod.projects || []).length; j++) {
               const pub = mod.projects[j].publication;
-              if (pub != null) {
-                checkedCount++;
-                if (typeof pub.version !== 'string' || !pub.version.trim()) {
-                  throw new Error(
-                    `Post-repair validation failed: missing publication.version at $.modules[${i}].projects[${j}].publication (${mod.packageName})`
-                  );
-                }
+              if (pub == null) continue;
+              publicationCount++;
+              if (typeof pub.version !== 'string' || !pub.version.trim()) {
+                findings.push({
+                  type: 'missing-publication-version',
+                  moduleIndex: i,
+                  projectIndex: j,
+                  packageName: mod.packageName,
+                  publication: pub
+                });
               }
             }
           }
-          console.log(`=== SECTION 8: POST-REPAIR AUTOLINKING VALIDATION PASSED (${modules.length} modules, ${checkedCount} publications verified) ===`);
+
+          if (!expoFont) {
+            throw new Error('expo-font is not present in Android autolinking output');
+          }
+          if (!/^57\.0\.\d+$/.test(expoFont.version || '')) {
+            throw new Error('Autolinked expo-font must resolve to the Expo SDK 57 line; got ' + JSON.stringify(expoFont));
+          }
+          if (findings.length) {
+            throw new Error('Autolinking publication metadata is incomplete: ' + JSON.stringify(findings, null, 2));
+          }
+
+          const receipt = {
+            task: 'UI-WF-02A-R3-T2-R3',
+            dependencyPolicy: {
+              expoFontRequiredLine: '57.0.x',
+              expoFont58Forbidden: true,
+              platformUpgradeAuthorized: false
+            },
+            autolinkedExpoFont: expoFont,
+            moduleCount: modules.length,
+            publicationCount,
+            missingPublicationVersionCount: 0,
+            mutationPerformed: false
+          };
+          fs.writeFileSync(
+            'ui-wf02a-search-native-evidence/android/dependency-autolinking-receipt.json',
+            JSON.stringify(receipt, null, 2) + '\n'
+          );
+          console.log(JSON.stringify(receipt, null, 2));
           NODE
 
       - name: Generate Android native project
@@ -658,7 +558,7 @@ jobs:
                 assert len(raw) > 1000 and raw[:8] == b"\x89PNG\r\n\x1a\n", f"Invalid PNG: {name}"
                 shots[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
             manifest = {
-                "task": "UI-WF-02A-R3-T2-R2",
+                "task": "UI-WF-02A-R3-T2-R3",
                 "platform": "Android",
                 "device": "pixel_7_pro (emulator-5554)",
                 "runtime": "Android API 36 (google_apis/x86_64)",
