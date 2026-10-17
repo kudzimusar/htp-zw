@@ -2258,3 +2258,190 @@ export function validateLiveUpdateCreateInput(
   return { valid: true };
 }
 
+// ============================================================
+// HT-NR-06A: Canonical Social Desk Convergence Models & Helpers
+// ============================================================
+
+export const NEWSROOM_SOCIAL_ACCOUNT_STATUSES = [
+  "unconfigured",
+  "ready",
+  "disabled",
+  "error"
+] as const;
+
+export type NewsroomSocialAccountStatus =
+  (typeof NEWSROOM_SOCIAL_ACCOUNT_STATUSES)[number];
+
+export const NEWSROOM_SOCIAL_ACCOUNT_ENVIRONMENTS = [
+  "staging",
+  "production"
+] as const;
+
+export type NewsroomSocialAccountEnvironment =
+  (typeof NEWSROOM_SOCIAL_ACCOUNT_ENVIRONMENTS)[number];
+
+export interface NewsroomSocialAccount {
+  id: string;
+  provider: string;
+  accountLabel: string;
+  providerAccountId: string | null;
+  environment: NewsroomSocialAccountEnvironment;
+  status: NewsroomSocialAccountStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const NEWSROOM_SOCIAL_POST_STATUSES = [
+  "draft",
+  "approved",
+  "published",
+  "failed",
+  "cancelled"
+] as const;
+
+export type NewsroomSocialPostStatus =
+  (typeof NEWSROOM_SOCIAL_POST_STATUSES)[number];
+
+export interface NewsroomSocialPost {
+  id: string;
+  storyId: string;
+  socialAccountId: string | null;
+  provider: string;
+  body: string;
+  status: NewsroomSocialPostStatus;
+  createdBy: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  publishedAt: string | null;
+  providerPostId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const NEWSROOM_SOCIAL_ATTEMPT_STATUSES = [
+  "pending",
+  "succeeded",
+  "failed",
+  "unconfigured"
+] as const;
+
+export type NewsroomSocialAttemptStatus =
+  (typeof NEWSROOM_SOCIAL_ATTEMPT_STATUSES)[number];
+
+export interface NewsroomSocialPublicationAttempt {
+  id: string;
+  socialPostId: string;
+  attemptedBy: string;
+  provider: string;
+  status: NewsroomSocialAttemptStatus;
+  providerPostId: string | null;
+  attemptedAt: string;
+  completedAt: string | null;
+  safeReason?: string | null;
+}
+
+export interface NewsroomSocialPreparePublishResult {
+  attemptId: string;
+  provider: string;
+  body: string;
+  providerReady: boolean;
+}
+
+export interface NewsroomSocialDraftCreateInput {
+  storyId: string;
+  provider: string;
+  body: string;
+  socialAccountId?: string | null;
+}
+
+export function validateSocialDraftCreateInput(
+  input: unknown
+): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return {
+      valid: false,
+      error: "Social draft input payload must be a JSON object."
+    };
+  }
+
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "storyId",
+    "provider",
+    "body",
+    "socialAccountId"
+  ]);
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return {
+        valid: false,
+        error: `Unknown or forbidden social draft field: ${key}`
+      };
+    }
+  }
+
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (
+    typeof record.storyId !== "string" ||
+    !uuidRegex.test(record.storyId.trim())
+  ) {
+    return {
+      valid: false,
+      error: "Canonical story selection is required."
+    };
+  }
+
+  if (
+    typeof record.provider !== "string" ||
+    record.provider.trim().length === 0 ||
+    record.provider.trim().length > 100
+  ) {
+    return {
+      valid: false,
+      error: "Configured provider context is required."
+    };
+  }
+
+  if (typeof record.body !== "string") {
+    return {
+      valid: false,
+      error: "Social post body is required."
+    };
+  }
+
+  const trimmedBody = record.body.trim();
+  if (trimmedBody.length === 0) {
+    return {
+      valid: false,
+      error: "Social post body is required."
+    };
+  }
+  if (trimmedBody.length > 10000) {
+    return {
+      valid: false,
+      error: "Social post body must be between 1 and 10,000 characters."
+    };
+  }
+
+  if (record.socialAccountId !== undefined && record.socialAccountId !== null) {
+    if (typeof record.socialAccountId !== "string") {
+      return {
+        valid: false,
+        error: "Invalid social account reference."
+      };
+    }
+    const trimmedAccountId = record.socialAccountId.trim();
+    if (trimmedAccountId.length > 0 && !uuidRegex.test(trimmedAccountId)) {
+      return {
+        valid: false,
+        error: "Invalid social account reference."
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+
