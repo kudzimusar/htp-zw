@@ -193,10 +193,8 @@ jobs:
           curl --fail --location --max-time 360 --silent --show-error --output /dev/null "$IOS_METRO_BUNDLE_URL"
 
           xcrun simctl install "$SIM_UDID" "$IOS_APP"
-          xcrun simctl launch "$SIM_UDID" zw.co.healthtimes.app.dev
-          sleep 4
-          xcrun simctl openurl "$SIM_UDID" "healthtimes://search" || true
 
+          # Maestro owns launch + deep-link sequencing so only one iOS Open prompt exists.
           maestro --device "$SIM_UDID" test \
             --test-output-dir "$EVIDENCE_DIR/maestro" \
             apps/mobile/e2e/ui-wf02a-search-native.yaml
