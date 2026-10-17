@@ -56,34 +56,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install canonical apps/mobile with proven Expo native package pins
+      - name: Install canonical apps/mobile
         shell: bash
         run: |
           set -euo pipefail
           npm install --prefix apps/mobile --no-audit --no-fund
-          npm install --prefix apps/mobile --no-save --no-audit --no-fund \
-            expo@57.0.24 \
-            expo-modules-autolinking@57.0.13 \
-            expo-modules-core@57.0.18 \
-            expo-router@57.0.22 \
-            expo-font@57.0.4 \
-            expo-asset@57.0.18 \
-            expo-constants@57.0.19 \
-            expo-file-system@57.0.7 \
-            expo-keep-awake@57.0.2 \
-            expo-linking@57.0.10 \
-            expo-notifications@57.0.20 \
-            expo-secure-store@57.0.4 \
-            expo-status-bar@57.0.1 \
-            expo-symbols@57.0.3 \
-            expo-application@57.0.3 \
-            @expo/dom-webview@57.0.1 \
-            @expo/log-box@57.0.4 \
-            @expo/ui@57.0.19 \
-            react-native@0.86.3 \
-            react-native-screens@4.26.2 \
-            react-native-safe-area-context@5.7.0 \
-            @react-native-async-storage/async-storage@2.2.0
 
       - name: Generate iOS native project
         working-directory: apps/mobile
@@ -256,7 +233,7 @@ jobs:
               assert len(raw) > 1000 and raw[:8] == b"\x89PNG\r\n\x1a\n", f"Invalid PNG: {name}"
               shots[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
           manifest = {
-              "task": "UI-WF-02A-R3-T2",
+              "task": "UI-WF-02A-R3-T2-R2",
               "platform": "iOS",
               "device": f"{os.environ['SIM_NAME']} ({os.environ['SIM_UDID']})",
               "runtime": os.environ["SIM_RUNTIME"],
@@ -272,6 +249,8 @@ jobs:
                   "Audio",
                   "Authors",
                   "Filters",
+                  "COUNTRY",
+                  "TOPIC / DESK",
                   "Try searching for",
                   "Intelligent Search",
                   "Home",
@@ -330,54 +309,244 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
 
-      - name: Install canonical apps/mobile with proven Expo native package pins
+      - name: Install canonical apps/mobile and record dependency tree
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p ui-wf02a-search-native-evidence/android
           npm install --prefix apps/mobile --no-audit --no-fund
-          npm install --prefix apps/mobile --no-save --no-audit --no-fund \
-            expo@57.0.24 \
-            expo-modules-autolinking@57.0.13 \
-            expo-modules-core@57.0.18 \
-            expo-router@57.0.22 \
-            expo-font@57.0.4 \
-            expo-asset@57.0.18 \
-            expo-constants@57.0.19 \
-            expo-file-system@57.0.7 \
-            expo-keep-awake@57.0.2 \
-            expo-linking@57.0.10 \
-            expo-notifications@57.0.20 \
-            expo-secure-store@57.0.4 \
-            expo-status-bar@57.0.1 \
-            expo-symbols@57.0.3 \
-            expo-application@57.0.3 \
-            @expo/dom-webview@57.0.1 \
-            @expo/log-box@57.0.4 \
-            @expo/ui@57.0.19 \
-            react-native@0.86.3 \
-            react-native-screens@4.26.2 \
-            react-native-safe-area-context@5.7.0 \
-            @react-native-async-storage/async-storage@2.2.0
+          {
+            npm --prefix apps/mobile ls \
+              expo \
+              expo-modules-autolinking \
+              expo-modules-core \
+              expo-router \
+              react-native \
+              --all || true
+          } | tee ui-wf02a-search-native-evidence/android/dependency-tree.txt
 
-      - name: Verify Android autolinking Publication.version integrity
-        working-directory: apps/mobile
+      - name: Diagnose and repair missing Android autolinking Publication.version metadata (fail-closed)
         shell: bash
         run: |
           set -euo pipefail
-          npx expo-modules-autolinking resolve -p android --json > /tmp/autolinking-resolve-android.json
+          mkdir -p ui-wf02a-search-native-evidence/android
+          (
+            cd apps/mobile
+            npx expo-modules-autolinking resolve -p android --json > /tmp/ui-wf02a-android-autolinking-before.json
+          )
+          cp /tmp/ui-wf02a-android-autolinking-before.json ui-wf02a-search-native-evidence/android/autolinking-before.json
+
           node - <<'NODE'
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('/tmp/autolinking-resolve-android.json', 'utf8'));
-          for (let i = 0; i < (data.modules || []).length; i++) {
-            const mod = data.modules[i];
+          const path = require('path');
+
+          const repoRoot = process.cwd();
+          const nodeModulesRoot = path.resolve(repoRoot, 'apps/mobile/node_modules');
+          const beforePath = '/tmp/ui-wf02a-android-autolinking-before.json';
+          const beforeData = JSON.parse(fs.readFileSync(beforePath, 'utf8'));
+          const modules = Array.isArray(beforeData.modules) ? beforeData.modules : [];
+          const semverRe = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
+          function findModuleRoot(sourceDir, expectedPackageName) {
+            let current = path.resolve(sourceDir);
+            while (current.startsWith(nodeModulesRoot) && current !== nodeModulesRoot) {
+              const pkgPath = path.join(current, 'package.json');
+              if (fs.existsSync(pkgPath)) {
+                try {
+                  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                  if (pkg.name === expectedPackageName) {
+                    return current;
+                  }
+                } catch {}
+              }
+              const parent = path.dirname(current);
+              if (parent === current) break;
+              current = parent;
+            }
+            const directCandidate = path.join(nodeModulesRoot, expectedPackageName);
+            if (fs.existsSync(path.join(directCandidate, 'package.json'))) {
+              return directCandidate;
+            }
+            return null;
+          }
+
+          // Phase 1: Diagnose before any repair
+          const diagnosed = [];
+          for (let i = 0; i < modules.length; i++) {
+            const mod = modules[i];
+            const projects = Array.isArray(mod.projects) ? mod.projects : [];
+            for (let j = 0; j < projects.length; j++) {
+              const proj = projects[j];
+              const pub = proj.publication;
+              if (pub == null) continue;
+              const hasValidVersion = typeof pub.version === 'string' && pub.version.trim().length > 0;
+              if (hasValidVersion) continue;
+
+              const modRoot = findModuleRoot(proj.sourceDir || '', mod.packageName);
+              if (!modRoot || !modRoot.startsWith(nodeModulesRoot + path.sep)) {
+                throw new Error(
+                  `Cannot resolve module identity inside node_modules for ${mod.packageName} (sourceDir=${proj.sourceDir})`
+                );
+              }
+              const pkgJsonPath = path.join(modRoot, 'package.json');
+              const configPath = path.join(modRoot, 'expo-module.config.json');
+              if (!fs.existsSync(pkgJsonPath)) {
+                throw new Error(`Missing package.json at ${pkgJsonPath}`);
+              }
+              if (!fs.existsSync(configPath)) {
+                throw new Error(`Missing expo-module.config.json at ${configPath}`);
+              }
+              const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+              const pkgVersion = pkgJson.version;
+              if (typeof pkgVersion !== 'string' || !semverRe.test(pkgVersion.trim())) {
+                throw new Error(
+                  `Absent or malformed package.json.version ('${pkgVersion}') in ${pkgJsonPath}`
+                );
+              }
+
+              diagnosed.push({
+                moduleIndex: i,
+                projectIndex: j,
+                packageName: mod.packageName,
+                resolvedModulePath: path.relative(repoRoot, modRoot),
+                expoModuleConfigPath: path.relative(repoRoot, configPath),
+                packageJsonPath: path.relative(repoRoot, pkgJsonPath),
+                absConfigPath: configPath,
+                packageVersion: pkgVersion.trim(),
+                currentPublication: pub
+              });
+            }
+          }
+
+          console.log('=== SECTION 5: ANDROID AUTOLINKING DIAGNOSTIC BEFORE REPAIR ===');
+          console.log(JSON.stringify(diagnosed, null, 2));
+          fs.writeFileSync(
+            'ui-wf02a-search-native-evidence/android/autolinking-diagnostic.json',
+            JSON.stringify({ missingPublicationVersionCount: diagnosed.length, diagnosed }, null, 2) + '\n'
+          );
+
+          // Phase 2: Temporary node_modules repair ONLY for diagnosed entries
+          const receipts = [];
+          const textLines = [];
+          const alteredConfigs = new Set();
+
+          for (const d of diagnosed) {
+            const pub = d.currentPublication;
+            if (
+              typeof pub !== 'object' ||
+              typeof pub.groupId !== 'string' || !pub.groupId.trim() ||
+              typeof pub.artifactId !== 'string' || !pub.artifactId.trim() ||
+              typeof pub.repository !== 'string' || !pub.repository.trim()
+            ) {
+              throw new Error(
+                `Ambiguous publication object for ${d.packageName}: ${JSON.stringify(pub)}`
+              );
+            }
+
+            const allowedKeys = new Set(['groupId', 'artifactId', 'version', 'repository']);
+            for (const k of Object.keys(pub)) {
+              if (!allowedKeys.has(k)) {
+                throw new Error(`Unexpected key '${k}' in publication for ${d.packageName}`);
+              }
+            }
+
+            const rawConfig = JSON.parse(fs.readFileSync(d.absConfigPath, 'utf8'));
+            let targetPub = null;
+            if (rawConfig.android && rawConfig.android.publication) {
+              if (typeof rawConfig.android.publication.version === 'string' && rawConfig.android.publication.version.trim()) {
+                throw new Error(`Refusing to overwrite existing valid version in ${d.expoModuleConfigPath}`);
+              }
+              targetPub = rawConfig.android.publication;
+            } else if (rawConfig.android && Array.isArray(rawConfig.android.projects)) {
+              const candidates = rawConfig.android.projects.filter(
+                p => p.publication && (!p.publication.version || !String(p.publication.version).trim())
+              );
+              if (candidates.length !== 1) {
+                throw new Error(`Ambiguous android.projects publication target in ${d.expoModuleConfigPath}`);
+              }
+              targetPub = candidates[0].publication;
+            }
+
+            if (!targetPub) {
+              throw new Error(`Cannot locate publication object unambiguously in ${d.expoModuleConfigPath}`);
+            }
+
+            const beforeJson = JSON.parse(JSON.stringify(targetPub));
+            targetPub.version = d.packageVersion;
+            const afterJson = JSON.parse(JSON.stringify(targetPub));
+
+            fs.writeFileSync(d.absConfigPath, JSON.stringify(rawConfig, null, 2) + '\n');
+            alteredConfigs.add(d.expoModuleConfigPath);
+
+            const receiptEntry = {
+              moduleIndex: d.moduleIndex,
+              projectIndex: d.projectIndex,
+              packageName: d.packageName,
+              resolvedModulePath: d.resolvedModulePath,
+              expoModuleConfigPath: d.expoModuleConfigPath,
+              packageJsonPath: d.packageJsonPath,
+              beforePublication: beforeJson,
+              derivedVersion: d.packageVersion,
+              afterPublication: afterJson
+            };
+            receipts.push(receiptEntry);
+
+            const block = [
+              `moduleIndex=${d.moduleIndex}`,
+              `projectIndex=${d.projectIndex}`,
+              `package=${d.packageName}`,
+              `resolvedModulePath=${d.resolvedModulePath}`,
+              `packageJson=${d.packageJsonPath}`,
+              `config=${d.expoModuleConfigPath}`,
+              `BEFORE_JSON=${JSON.stringify(beforeJson)}`,
+              `DERIVED_VERSION=${d.packageVersion}`,
+              `AFTER_JSON=${JSON.stringify(afterJson)}`
+            ].join('\n');
+            textLines.push(block);
+            console.log('=== SECTION 6/7: TEMPORARY NODE_MODULES REPAIR RECEIPT ===');
+            console.log(block);
+          }
+
+          if (alteredConfigs.size > diagnosed.length) {
+            throw new Error(`More modules altered (${alteredConfigs.size}) than diagnosed (${diagnosed.length})`);
+          }
+
+          fs.writeFileSync(
+            'ui-wf02a-search-native-evidence/android/normalization-receipt.json',
+            JSON.stringify({ normalizedCount: receipts.length, entries: receipts }, null, 2) + '\n'
+          );
+          fs.writeFileSync(
+            'ui-wf02a-search-native-evidence/android/normalization-receipt.txt',
+            (textLines.length ? textLines.join('\n---\n') : 'No modules required normalization.') + '\n'
+          );
+          NODE
+
+          (
+            cd apps/mobile
+            npx expo-modules-autolinking resolve -p android --json > /tmp/ui-wf02a-android-autolinking-after.json
+          )
+          cp /tmp/ui-wf02a-android-autolinking-after.json ui-wf02a-search-native-evidence/android/autolinking-after.json
+
+          node - <<'NODE'
+          const fs = require('fs');
+          const afterData = JSON.parse(fs.readFileSync('/tmp/ui-wf02a-android-autolinking-after.json', 'utf8'));
+          const modules = Array.isArray(afterData.modules) ? afterData.modules : [];
+          let checkedCount = 0;
+          for (let i = 0; i < modules.length; i++) {
+            const mod = modules[i];
             for (let j = 0; j < (mod.projects || []).length; j++) {
               const pub = mod.projects[j].publication;
-              if (pub && (!pub.version || typeof pub.version !== 'string')) {
-                throw new Error(`Missing publication.version at $.modules[${i}].projects[${j}].publication (${mod.packageName})`);
+              if (pub != null) {
+                checkedCount++;
+                if (typeof pub.version !== 'string' || !pub.version.trim()) {
+                  throw new Error(
+                    `Post-repair validation failed: missing publication.version at $.modules[${i}].projects[${j}].publication (${mod.packageName})`
+                  );
+                }
               }
             }
           }
-          console.log(`Verified ${data.modules.length} Android Expo modules have valid Publication schema.`);
+          console.log(`=== SECTION 8: POST-REPAIR AUTOLINKING VALIDATION PASSED (${modules.length} modules, ${checkedCount} publications verified) ===`);
           NODE
 
       - name: Generate Android native project
@@ -489,7 +658,7 @@ jobs:
                 assert len(raw) > 1000 and raw[:8] == b"\x89PNG\r\n\x1a\n", f"Invalid PNG: {name}"
                 shots[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
             manifest = {
-                "task": "UI-WF-02A-R3-T2",
+                "task": "UI-WF-02A-R3-T2-R2",
                 "platform": "Android",
                 "device": "pixel_7_pro (emulator-5554)",
                 "runtime": "Android API 36 (google_apis/x86_64)",
@@ -505,6 +674,8 @@ jobs:
                     "Audio",
                     "Authors",
                     "Filters",
+                    "COUNTRY",
+                    "TOPIC / DESK",
                     "Try searching for",
                     "Intelligent Search",
                     "Home",
