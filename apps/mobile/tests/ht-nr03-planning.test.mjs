@@ -984,8 +984,8 @@ test("HT-NR-03A: Server scope remains frozen with zero migrations or client muta
   // + HT-NR-05C video desk foundation + HT-NR-05C-A-R1 video url safety + HT-NR-05C-A-R2 video url port safety + HT-NR-05C-B public watch delivery + HT-NR-05D-A live desk foundation = 70 exact migrations.
   assert.equal(
     migrationFiles.length,
-    73,
-    `Migration files count must be exactly 73 at HT-NR-06B authority, found ${migrationFiles.length}`
+    74,
+    `Migration files count must be exactly 74 at HT-NR-06C-A authority, found ${migrationFiles.length}`
   );
 
   // Check no service role key used in mobile src

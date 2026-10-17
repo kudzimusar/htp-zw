@@ -7,9 +7,17 @@ export type PushRegistrationResult = {
     | "configuration-required"
     | "backend-required"
     | "unsupported"
+    | "registered"
     | "error";
   deviceTokenAvailable: boolean;
   message: string;
+};
+
+export type PushRegistrationOptions = {
+  registerRpc?: (
+    token: string,
+    platform: "ios" | "android"
+  ) => Promise<{ device_id: string; status: string }>;
 };
 
 function resolveProjectId() {
@@ -18,7 +26,9 @@ function resolveProjectId() {
     null;
 }
 
-export async function requestPushRegistrationBaseline(): Promise<PushRegistrationResult> {
+export async function requestPushRegistrationBaseline(
+  options?: PushRegistrationOptions
+): Promise<PushRegistrationResult> {
   if (Platform.OS === "web") {
     return {
       status: "unsupported",
@@ -64,6 +74,39 @@ export async function requestPushRegistrationBaseline(): Promise<PushRegistratio
     }
 
     const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    if (!token?.data) {
+      return {
+        status: "error",
+        deviceTokenAvailable: false,
+        message: "Push token issuance returned empty data."
+      };
+    }
+
+    if (options?.registerRpc) {
+      const platform = Platform.OS === "ios" ? "ios" : "android";
+      try {
+        const result = await options.registerRpc(token.data, platform);
+        if (result && result.status === "active") {
+          return {
+            status: "registered",
+            deviceTokenAvailable: true,
+            message: "Push notification device registration successful."
+          };
+        }
+        return {
+          status: "error",
+          deviceTokenAvailable: false,
+          message: "Server push registration rejected."
+        };
+      } catch {
+        return {
+          status: "error",
+          deviceTokenAvailable: false,
+          message: "Server push registration RPC failed."
+        };
+      }
+    }
+
     return {
       status: "backend-required",
       deviceTokenAvailable: Boolean(token.data),
@@ -78,3 +121,4 @@ export async function requestPushRegistrationBaseline(): Promise<PushRegistratio
     };
   }
 }
+
