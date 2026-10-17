@@ -587,9 +587,12 @@ test("HT-NR-05D-A Public Mapper: mapPublicLiveRow constructs canonical LiveItem 
 
   // Media projected
   assert.ok(item.media);
+  assert.strictEqual(item.media.id, "00000000-0000-4000-9000-000000000001");
   assert.strictEqual(item.media.publicUrl, "https://cdn.healthtimes.co.zw/media/summit.jpg");
   assert.strictEqual(item.media.altText, "Health ministers onstage");
   assert.strictEqual(item.media.sourceProvenance.system, "healthtimes-native");
+  assert.strictEqual(item.media.sourceProvenance.sourceId, "00000000-0000-4000-9000-000000000001");
+  assert.strictEqual(item.media.sourceProvenance.stableKey, "newsroom-media:00000000-0000-4000-9000-000000000001");
 
   // Provenance has no private staff IDs or lock_version
   assert.strictEqual(item.sourceProvenance.system, "healthtimes-native");
@@ -1087,4 +1090,111 @@ test("HT-NR-05D-A-R1 Provenance: operational create initializes blank, rejects b
     "Ministry of Health press briefing"
   );
 });
+
+// =============================================================================
+// 7. HT-NR-05D-A-R2 PUBLIC LIVE MEDIA TUPLE TRUTH & CANONICAL IDENTITY CLOSURE
+// =============================================================================
+
+test("HT-NR-05D-A-R2 Media Tuple Truth: canonical media mapped with exact UUID and provenance", () => {
+  const row = {
+    id: "d1000000-0000-4000-b000-000000000001",
+    title: "Live Summit Coverage",
+    kind: "live-blog",
+    status: "live",
+    updated_at: "2026-10-16T08:30:00.000Z",
+    media_id: "00000000-0000-4000-9000-000000000001",
+    media_public_url: "https://cdn.healthtimes.co.zw/media/live.jpg",
+    media_alt_text: "Summit speaker",
+    media_caption: "Minister address",
+    media_credit: "HealthTimes"
+  };
+
+  const item = mapPublicLiveRow(row);
+  assert.ok(item);
+  assert.strictEqual(item.id, "d1000000-0000-4000-b000-000000000001");
+  assert.ok(item.media);
+  assert.strictEqual(item.media.id, "00000000-0000-4000-9000-000000000001");
+  assert.strictEqual(item.media.publicUrl, "https://cdn.healthtimes.co.zw/media/live.jpg");
+  assert.strictEqual(item.media.altText, "Summit speaker");
+  assert.strictEqual(item.media.caption, "Minister address");
+  assert.strictEqual(item.media.credit, "HealthTimes");
+
+  // Provenance
+  assert.strictEqual(item.media.sourceProvenance.system, "healthtimes-native");
+  assert.strictEqual(item.media.sourceProvenance.sourceId, "00000000-0000-4000-9000-000000000001");
+  assert.strictEqual(item.media.sourceProvenance.stableKey, "newsroom-media:00000000-0000-4000-9000-000000000001");
+  assert.strictEqual(item.media.sourceProvenance.sourceUrl, "https://cdn.healthtimes.co.zw/media/live.jpg");
+  assert.strictEqual(item.media.sourceProvenance.checksum, null);
+  assert.strictEqual(item.media.sourceProvenance.capturedAt, "2026-10-16T08:30:00.000Z");
+  assert.deepStrictEqual(item.media.sourceProvenance.exceptions, []);
+});
+
+test("HT-NR-05D-A-R2 Media Tuple Truth: inconsistent media tuples yield null media without fabricating IDs", () => {
+  const baseRow = {
+    id: "d1000000-0000-4000-b000-000000000001",
+    title: "Live Summit Coverage",
+    kind: "live-blog",
+    status: "live",
+    updated_at: "2026-10-16T08:30:00.000Z"
+  };
+
+  // 1. Canonical no-media state: media_id = null, media_public_url = null
+  const noMedia = mapPublicLiveRow({
+    ...baseRow,
+    media_id: null,
+    media_public_url: null
+  });
+  assert.ok(noMedia);
+  assert.strictEqual(noMedia.media, null);
+
+  // 2. URL without media ID: media_id = null, valid HTTPS URL
+  // Item remains valid, media = null, no synthetic ID
+  const urlWithoutId = mapPublicLiveRow({
+    ...baseRow,
+    media_id: null,
+    media_public_url: "https://cdn.healthtimes.co.zw/media/live.jpg"
+  });
+  assert.ok(urlWithoutId);
+  assert.strictEqual(urlWithoutId.media, null);
+
+  // 3. Invalid media ID: media_id = "not-a-uuid", valid HTTPS URL
+  // Item remains valid, media = null, no fabricated MediaRef
+  const invalidId = mapPublicLiveRow({
+    ...baseRow,
+    media_id: "not-a-uuid",
+    media_public_url: "https://cdn.healthtimes.co.zw/media/live.jpg"
+  });
+  assert.ok(invalidId);
+  assert.strictEqual(invalidId.media, null);
+
+  // 4. Media ID without URL: valid media UUID, media_public_url = null
+  const idWithoutUrl = mapPublicLiveRow({
+    ...baseRow,
+    media_id: "00000000-0000-4000-9000-000000000001",
+    media_public_url: null
+  });
+  assert.ok(idWithoutUrl);
+  assert.strictEqual(idWithoutUrl.media, null);
+
+  // 5. Unsafe media URL: valid media UUID, insecure HTTP URL
+  const unsafeUrl = mapPublicLiveRow({
+    ...baseRow,
+    media_id: "00000000-0000-4000-9000-000000000001",
+    media_public_url: "http://private-or-insecure.example/media.jpg"
+  });
+  assert.ok(unsafeUrl);
+  assert.strictEqual(unsafeUrl.media, null);
+});
+
+test("HT-NR-05D-A-R2 Static Source Guard: operational public-live implementation contains NO synthetic media ID", () => {
+  const publicLiveSource = fs.readFileSync(path.join(root, "src/services/public-live.ts"), "utf8");
+
+  // Prohibit synthetic newsroom-live-media: fallback pattern
+  assert.strictEqual(
+    publicLiveSource.includes("newsroom-live-media:"),
+    false,
+    "public-live.ts must not contain 'newsroom-live-media:' synthetic ID fallback"
+  );
+});
+
 

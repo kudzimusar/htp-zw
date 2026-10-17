@@ -62,35 +62,37 @@ export function mapPublicLiveRow(row: any): LiveItem | null {
     exceptions: []
   };
 
-  // Safe public media projection
+  // Safe public media projection: optional atomic tuple
   let media: MediaRef | null = null;
-  if (row.media_public_url !== null && row.media_public_url !== undefined) {
-    if (typeof row.media_public_url === "string" && validateVideoHttpsUrl(row.media_public_url)) {
-      const mediaId = row.media_id && isValidUuid(row.media_id)
-        ? String(row.media_id).trim()
-        : `newsroom-live-media:${coverageId}`;
+  const rawMediaId = row.media_id;
+  const rawMediaUrl = row.media_public_url;
 
-      const mediaUrl = row.media_public_url.trim();
+  const hasValidMediaId = isValidUuid(rawMediaId);
+  const hasValidMediaUrl =
+    typeof rawMediaUrl === "string" && validateVideoHttpsUrl(rawMediaUrl);
 
-      const mediaProvenance: SourceProvenance = {
-        system: "healthtimes-native",
-        sourceId: mediaId,
-        stableKey: `newsroom-media:${mediaId}`,
-        sourceUrl: mediaUrl,
-        checksum: null,
-        capturedAt: updatedAt,
-        exceptions: []
-      };
+  if (hasValidMediaId && hasValidMediaUrl) {
+    const mediaId = String(rawMediaId).trim();
+    const mediaUrl = rawMediaUrl.trim();
 
-      media = {
-        id: mediaId,
-        publicUrl: mediaUrl,
-        altText: typeof row.media_alt_text === "string" ? row.media_alt_text : null,
-        caption: typeof row.media_caption === "string" ? row.media_caption : null,
-        credit: typeof row.media_credit === "string" ? row.media_credit : null,
-        sourceProvenance: mediaProvenance
-      };
-    }
+    const mediaProvenance: SourceProvenance = {
+      system: "healthtimes-native",
+      sourceId: mediaId,
+      stableKey: `newsroom-media:${mediaId}`,
+      sourceUrl: mediaUrl,
+      checksum: null,
+      capturedAt: updatedAt,
+      exceptions: []
+    };
+
+    media = {
+      id: mediaId,
+      publicUrl: mediaUrl,
+      altText: typeof row.media_alt_text === "string" ? row.media_alt_text : null,
+      caption: typeof row.media_caption === "string" ? row.media_caption : null,
+      credit: typeof row.media_credit === "string" ? row.media_credit : null,
+      sourceProvenance: mediaProvenance
+    };
   }
 
   return {
