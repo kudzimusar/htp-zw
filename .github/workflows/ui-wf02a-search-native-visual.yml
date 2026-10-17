@@ -498,6 +498,92 @@ jobs:
             ~/.android/adb*
           key: avd-36-pixel_7_pro-v3
 
+      - name: Prepare Android Search emulator harness
+        shell: bash
+        run: |
+          cat > /tmp/ui-wf02a-search-native-android.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          EVIDENCE_DIR="ui-wf02a-search-native-evidence/android"
+          mkdir -p "$EVIDENCE_DIR"
+          adb wait-for-device
+          adb shell cmd uimode night no || true
+          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          adb logcat -c || true
+          
+          adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://search" zw.co.healthtimes.app.dev
+          maestro --device emulator-5554 test \
+            --test-output-dir "$EVIDENCE_DIR/maestro" \
+            apps/mobile/e2e/ui-wf02a-search-native.yaml
+          
+          INITIAL_SHOT="$(find "$EVIDENCE_DIR/maestro" -type f -name 'search-initial.png' -print -quit)"
+          FILTERS_SHOT="$(find "$EVIDENCE_DIR/maestro" -type f -name 'search-filters-open.png' -print -quit)"
+          test -f "$INITIAL_SHOT"
+          test -f "$FILTERS_SHOT"
+          cp "$INITIAL_SHOT" "$EVIDENCE_DIR/android-search-initial.png"
+          cp "$FILTERS_SHOT" "$EVIDENCE_DIR/android-search-filters-open.png"
+          
+          adb shell dumpsys activity activities > "$EVIDENCE_DIR/activity-state.txt"
+          grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' "$EVIDENCE_DIR/activity-state.txt" > "$EVIDENCE_DIR/final-focus.txt" || true
+          cat "$EVIDENCE_DIR/final-focus.txt"
+          grep -Fq "zw.co.healthtimes.app.dev" "$EVIDENCE_DIR/final-focus.txt"
+          if grep -Ei 'com\.android\.chrome|org\.chromium|customtab|TrustedWebActivity|com\.getcapacitor|WebView' "$EVIDENCE_DIR/final-focus.txt"; then
+            echo "Forbidden browser/wrapper owns foreground focus"
+            exit 1
+          fi
+          
+          adb logcat -d '*:E' 2>/dev/null | grep -Ei 'ReactNativeJS.*(ERROR|Error|Exception)|FATAL EXCEPTION' > "$EVIDENCE_DIR/native-errors.log" || true
+          if [[ -s "$EVIDENCE_DIR/native-errors.log" ]]; then
+            echo "Fatal React Native / AndroidRuntime error detected:"
+            cat "$EVIDENCE_DIR/native-errors.log"
+            exit 1
+          fi
+          
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          ev = pathlib.Path("ui-wf02a-search-native-evidence/android")
+          shots = {}
+          for name in ["android-search-initial.png", "android-search-filters-open.png"]:
+              p = ev / name
+              raw = p.read_bytes()
+              assert len(raw) > 1000 and raw[:8] == b"\x89PNG\r\n\x1a\n", f"Invalid PNG: {name}"
+              shots[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+          manifest = {
+              "task": "UI-WF-02A-R3-T2-R3",
+              "platform": "Android",
+              "device": "pixel_7_pro (emulator-5554)",
+              "runtime": "Android API 36 (google_apis/x86_64)",
+              "packageId": "zw.co.healthtimes.app.dev",
+              "candidateSha": os.environ["EXPECTED_SHA"],
+              "foregroundActivityProof": (ev / "final-focus.txt").read_text().strip(),
+              "runtimeErrorCount": 0,
+              "visibleControlsVerified": [
+                  "Search HealthTimes",
+                  "All",
+                  "Articles",
+                  "Videos",
+                  "Audio",
+                  "Authors",
+                  "Filters",
+                  "COUNTRY",
+                  "TOPIC / DESK",
+                  "Try searching for",
+                  "Intelligent Search",
+                  "Home",
+                  "Explore",
+                  "Live",
+                  "Watch",
+                  "My HT"
+              ],
+              "sixthSearchTabPresent": False,
+              "screenshots": shots
+          }
+          (ev / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+          
+          BASH
+          chmod +x /tmp/ui-wf02a-search-native-android.sh
+
       - name: Certify Search directly on Android Emulator (fail-closed)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -509,85 +595,7 @@ jobs:
           enable-hw-keyboard: false
           disk-size: 6000M
           heap-size: 1024M
-          script: |
-            set -euo pipefail
-            EVIDENCE_DIR="ui-wf02a-search-native-evidence/android"
-            mkdir -p "$EVIDENCE_DIR"
-            adb wait-for-device
-            adb shell cmd uimode night no || true
-            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-            adb logcat -c || true
-
-            adb shell am start -W -a android.intent.action.VIEW -d "healthtimes://search" zw.co.healthtimes.app.dev
-            maestro --device emulator-5554 test \
-              --test-output-dir "$EVIDENCE_DIR/maestro" \
-              apps/mobile/e2e/ui-wf02a-search-native.yaml
-
-            INITIAL_SHOT="$(find "$EVIDENCE_DIR/maestro" -type f -name 'search-initial.png' -print -quit)"
-            FILTERS_SHOT="$(find "$EVIDENCE_DIR/maestro" -type f -name 'search-filters-open.png' -print -quit)"
-            test -f "$INITIAL_SHOT"
-            test -f "$FILTERS_SHOT"
-            cp "$INITIAL_SHOT" "$EVIDENCE_DIR/android-search-initial.png"
-            cp "$FILTERS_SHOT" "$EVIDENCE_DIR/android-search-filters-open.png"
-
-            adb shell dumpsys activity activities > "$EVIDENCE_DIR/activity-state.txt"
-            grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' "$EVIDENCE_DIR/activity-state.txt" > "$EVIDENCE_DIR/final-focus.txt" || true
-            cat "$EVIDENCE_DIR/final-focus.txt"
-            grep -Fq "zw.co.healthtimes.app.dev" "$EVIDENCE_DIR/final-focus.txt"
-            if grep -Ei 'com\.android\.chrome|org\.chromium|customtab|TrustedWebActivity|com\.getcapacitor|WebView' "$EVIDENCE_DIR/final-focus.txt"; then
-              echo "Forbidden browser/wrapper owns foreground focus"
-              exit 1
-            fi
-
-            adb logcat -d '*:E' 2>/dev/null | grep -Ei 'ReactNativeJS.*(ERROR|Error|Exception)|FATAL EXCEPTION' > "$EVIDENCE_DIR/native-errors.log" || true
-            if [[ -s "$EVIDENCE_DIR/native-errors.log" ]]; then
-              echo "Fatal React Native / AndroidRuntime error detected:"
-              cat "$EVIDENCE_DIR/native-errors.log"
-              exit 1
-            fi
-
-            python3 - <<'PY'
-            import hashlib, json, os, pathlib
-            ev = pathlib.Path("ui-wf02a-search-native-evidence/android")
-            shots = {}
-            for name in ["android-search-initial.png", "android-search-filters-open.png"]:
-                p = ev / name
-                raw = p.read_bytes()
-                assert len(raw) > 1000 and raw[:8] == b"\x89PNG\r\n\x1a\n", f"Invalid PNG: {name}"
-                shots[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
-            manifest = {
-                "task": "UI-WF-02A-R3-T2-R3",
-                "platform": "Android",
-                "device": "pixel_7_pro (emulator-5554)",
-                "runtime": "Android API 36 (google_apis/x86_64)",
-                "packageId": "zw.co.healthtimes.app.dev",
-                "candidateSha": os.environ["EXPECTED_SHA"],
-                "foregroundActivityProof": (ev / "final-focus.txt").read_text().strip(),
-                "runtimeErrorCount": 0,
-                "visibleControlsVerified": [
-                    "Search HealthTimes",
-                    "All",
-                    "Articles",
-                    "Videos",
-                    "Audio",
-                    "Authors",
-                    "Filters",
-                    "COUNTRY",
-                    "TOPIC / DESK",
-                    "Try searching for",
-                    "Intelligent Search",
-                    "Home",
-                    "Explore",
-                    "Live",
-                    "Watch",
-                    "My HT"
-                ],
-                "sixthSearchTabPresent": False,
-                "screenshots": shots
-            }
-            (ev / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-            PY
-
+          script: bash /tmp/ui-wf02a-search-native-android.sh
       - name: Upload Android Search native evidence
         if: always()
         uses: actions/upload-artifact@v4

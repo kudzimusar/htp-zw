@@ -23,7 +23,7 @@ appId: zw.co.healthtimes.app.dev
 - assertVisible: "Videos"
 - assertVisible: "Audio"
 - assertVisible: "Authors"
-- assertVisible: "Filters"
+- assertVisible: "Show search filters"
 - assertVisible: "Home"
 - assertVisible: "Explore"
 - assertVisible: "Live"
@@ -32,7 +32,7 @@ appId: zw.co.healthtimes.app.dev
 - assertNotVisible: "RedBox"
 - assertNotVisible: "Unhandled JS Exception"
 - takeScreenshot: search-initial
-- tapOn: "Filters"
+- tapOn: "Show search filters"
 - extendedWaitUntil:
     visible: "COUNTRY"
     timeout: 20000
