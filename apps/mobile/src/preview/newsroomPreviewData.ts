@@ -11,6 +11,7 @@ import type {
   NewsroomStoryReview,
   NewsroomStoryRevision,
   NewsroomVideo,
+  NewsroomLiveCoverage,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -33,6 +34,7 @@ export type OwnerPreviewModuleKey =
   | "homepage"
   | "media"
   | "video-desk"
+  | "live-desk"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -57,6 +59,7 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "homepage", label: "Homepage", path: "/owner-preview/studio/homepage" },
   { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
   { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
+  { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -1226,6 +1229,79 @@ export function buildPreviewVideos(): NewsroomVideo[] {
       updatedByStaffId: "00000000-0000-4000-8000-000000000020",
       createdAt: "2026-10-14T08:00:00.000Z",
       updatedAt: "2026-10-16T10:00:00.000Z"
+    }
+  ];
+}
+
+export function buildPreviewLiveCoverage(): NewsroomLiveCoverage[] {
+  return [
+    {
+      id: "d1000000-0000-4000-b000-000000000001",
+      title: "LIVE: Zimbabwe National Health Summit 2026 — Keynote & Policy Announcements",
+      kind: "live-blog",
+      status: "live",
+      scheduledAt: "2026-10-16T08:00:00.000Z",
+      startedAt: "2026-10-16T08:15:00.000Z",
+      endedAt: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000000001",
+      mediaId: "00000000-0000-4000-9000-000000000001",
+      sourceProvenance: "HealthTimes Summit Reporting Desk",
+      lockVersion: 3,
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-16T07:30:00.000Z",
+      updatedAt: "2026-10-16T08:15:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-b000-000000000002",
+      title: "Upcoming: Cholera Taskforce Emergency Briefing & Vaccine Logistics",
+      kind: "live-blog",
+      status: "upcoming",
+      scheduledAt: "2026-10-18T09:30:00.000Z",
+      startedAt: null,
+      endedAt: null,
+      relatedStoryId: null,
+      mediaId: null,
+      sourceProvenance: "Ministry of Health press briefing pool",
+      lockVersion: 1,
+      createdByStaffId: "00000000-0000-4000-8000-000000000020",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000020",
+      createdAt: "2026-10-16T11:00:00.000Z",
+      updatedAt: "2026-10-16T11:00:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-b000-000000000003",
+      title: "Scheduled Event: WHO Regional Consultations on Maternal Health Financing",
+      kind: "scheduled",
+      status: "upcoming",
+      scheduledAt: "2026-10-20T10:00:00.000Z",
+      startedAt: null,
+      endedAt: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000000002",
+      mediaId: "00000000-0000-4000-9000-000000000002",
+      sourceProvenance: "WHO Regional Africa Media Centre",
+      lockVersion: 2,
+      createdByStaffId: "00000000-0000-4000-8000-000000000030",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000030",
+      createdAt: "2026-10-15T14:00:00.000Z",
+      updatedAt: "2026-10-16T09:00:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-b000-000000000004",
+      title: "Concluded: Parliamentary Portfolio Committee on Health Public Hearings",
+      kind: "live-blog",
+      status: "ended",
+      scheduledAt: "2026-10-15T09:00:00.000Z",
+      startedAt: "2026-10-15T09:10:00.000Z",
+      endedAt: "2026-10-15T17:00:00.000Z",
+      relatedStoryId: "00000000-0000-4000-8000-000000000003",
+      mediaId: "00000000-0000-4000-9000-000000000003",
+      sourceProvenance: "HealthTimes parliamentary press gallery unit",
+      lockVersion: 5,
+      createdByStaffId: "00000000-0000-4000-8000-000000000010",
+      updatedByStaffId: "00000000-0000-4000-8000-000000000010",
+      createdAt: "2026-10-14T10:00:00.000Z",
+      updatedAt: "2026-10-15T17:00:00.000Z"
     }
   ];
 }

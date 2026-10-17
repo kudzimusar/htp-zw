@@ -117,13 +117,13 @@ const { buildPreviewMediaAssets, OWNER_PREVIEW_NAV_ITEMS } = previewData;
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =========================================================================
 
-test("HT-NR-05A: Migration count matches repository authority (exactly 69 at HT-NR-05C-B)", () => {
+test("HT-NR-05A: Migration count matches repository authority (exactly 70 at HT-NR-05D-A)", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const sqlFiles = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.equal(
     sqlFiles.length,
-    69,
-    `Migration count must be exactly 69 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery). Found: ${sqlFiles.length}`
+    70,
+    `Migration count must be exactly 70 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery + 05D-A live desk foundation). Found: ${sqlFiles.length}`
   );
 });
 
@@ -506,7 +506,7 @@ test("HT-NR-05A: UI presents truthful constraints without inventing metadata", (
 // =========================================================================
 
 test("HT-NR-05A: Owner Preview nav items include Media Library", () => {
-  assert.equal(OWNER_PREVIEW_NAV_ITEMS.length, 10);
+  assert.equal(OWNER_PREVIEW_NAV_ITEMS.length, 11);
   const mediaNav = OWNER_PREVIEW_NAV_ITEMS.find((item) => item.key === "media");
   assert.ok(mediaNav, "OWNER_PREVIEW_NAV_ITEMS must contain media item");
   assert.equal(mediaNav.label, "Media Library");

@@ -41,7 +41,8 @@
     "test:ht-nr05a": "node --test tests/ht-nr05a-media-library.test.mjs",
     "test:ht-nr05b": "node --test tests/ht-nr05b-story-media.test.mjs",
     "test:ht-nr05c": "node --test tests/ht-nr05c-video-desk.test.mjs",
-    "test:ht-nr05cb": "node --test tests/ht-nr05cb-public-watch.test.mjs"
+    "test:ht-nr05cb": "node --test tests/ht-nr05cb-public-watch.test.mjs",
+    "test:ht-nr05d": "node --test tests/ht-nr05d-live-desk.test.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

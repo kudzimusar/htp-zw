@@ -23,7 +23,12 @@ import {
   type StoryMediaUsageType,
   type NewsroomVideo,
   type NewsroomVideoCreateInput,
-  type NewsroomVideoPatch
+  type NewsroomVideoPatch,
+  type NewsroomLiveCoverage,
+  type NewsroomLiveCoverageCreateInput,
+  type NewsroomLiveCoveragePatch,
+  type NewsroomLiveCoverageKind,
+  type NewsroomLiveCoverageStatus
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -47,6 +52,7 @@ import {
 import { StudioHomepageView } from "../ui/StudioHomepage";
 import { StudioMediaLibraryView } from "../ui/StudioMediaLibrary";
 import { StudioVideoDeskView } from "../ui/StudioVideoDesk";
+import { StudioLiveDeskView } from "../ui/StudioLiveDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -58,6 +64,7 @@ import {
   buildPreviewMediaAssets,
   buildPreviewStories,
   buildPreviewVideos,
+  buildPreviewLiveCoverage,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1351,6 +1358,179 @@ function OwnerPreviewVideoDeskView() {
   );
 }
 
+function OwnerPreviewLiveDeskView() {
+  const [coverage, setCoverage] = useState<NewsroomLiveCoverage[]>(() =>
+    buildPreviewLiveCoverage()
+  );
+  const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
+  const [mediaAssets] = useState<NewsroomMediaAsset[]>(() => buildPreviewMediaAssets());
+  const [selectedCoverageId, setSelectedCoverageId] = useState<string | null>(
+    () => buildPreviewLiveCoverage()[0]?.id ?? null
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | NewsroomLiveCoverageStatus
+  >("all");
+  const [kindFilter, setKindFilter] = useState<
+    "all" | NewsroomLiveCoverageKind
+  >("all");
+  const [notice, setNotice] = useState<string>(
+    "Owner Visual Preview: Live coverage registry, status transitions, and story linking run in simulated memory."
+  );
+
+  const handleSaveCoverage = async (
+    id: string,
+    expectedVersion: number,
+    patch: NewsroomLiveCoveragePatch
+  ): Promise<number> => {
+    let target = coverage.find((c) => c.id === id);
+    if (!target) throw new Error("Live coverage not found");
+    if (target.lockVersion !== expectedVersion) {
+      throw new Error("Optimistic concurrency conflict");
+    }
+    if (target.status === "ended") {
+      throw new Error("Cannot modify ended live coverage");
+    }
+    const newVersion = target.lockVersion + 1;
+    setCoverage((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          return {
+            ...c,
+            ...patch,
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return c;
+      })
+    );
+    setNotice("Preview state only: Simulated live coverage metadata saved.");
+    return newVersion;
+  };
+
+  const handleStartCoverage = async (
+    id: string,
+    expectedVersion: number
+  ): Promise<number> => {
+    let target = coverage.find((c) => c.id === id);
+    if (!target) throw new Error("Live coverage not found");
+    if (target.lockVersion !== expectedVersion) {
+      throw new Error("Optimistic concurrency conflict");
+    }
+    if (target.status !== "upcoming") {
+      throw new Error("Live coverage must be upcoming to start");
+    }
+    const newVersion = target.lockVersion + 1;
+    setCoverage((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          return {
+            ...c,
+            status: "live",
+            startedAt: new Date().toISOString(),
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return c;
+      })
+    );
+    setNotice("Preview state only: Simulated live coverage started (now Live).");
+    return newVersion;
+  };
+
+  const handleEndCoverage = async (
+    id: string,
+    expectedVersion: number
+  ): Promise<number> => {
+    let target = coverage.find((c) => c.id === id);
+    if (!target) throw new Error("Live coverage not found");
+    if (target.lockVersion !== expectedVersion) {
+      throw new Error("Optimistic concurrency conflict");
+    }
+    if (target.status !== "live") {
+      throw new Error("Live coverage must be live to end");
+    }
+    const newVersion = target.lockVersion + 1;
+    setCoverage((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          return {
+            ...c,
+            status: "ended",
+            endedAt: new Date().toISOString(),
+            lockVersion: newVersion,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return c;
+      })
+    );
+    setNotice("Preview state only: Simulated live coverage ended (concluded & locked).");
+    return newVersion;
+  };
+
+  const handleCreateCoverage = async (
+    input: NewsroomLiveCoverageCreateInput
+  ): Promise<string> => {
+    const newId = `preview-live-${Date.now()}`;
+    const newCoverage: NewsroomLiveCoverage = {
+      id: newId,
+      title: input.title,
+      kind: input.kind,
+      status: "upcoming",
+      scheduledAt: input.scheduledAt ?? null,
+      startedAt: null,
+      endedAt: null,
+      relatedStoryId: input.relatedStoryId ?? null,
+      mediaId: input.mediaId ?? null,
+      sourceProvenance: input.sourceProvenance,
+      lockVersion: 1,
+      createdByStaffId: "preview-editor",
+      updatedByStaffId: "preview-editor",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setCoverage((prev) => [newCoverage, ...prev]);
+    setSelectedCoverageId(newId);
+    setNotice("Preview state only: Simulated live coverage registered in local preview memory.");
+    return newId;
+  };
+
+  return (
+    <View style={styles.sectionStack} testID="owner-preview-live-desk-view">
+      <View style={styles.previewNoticeBanner} testID="preview-live-desk-notice">
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioLiveDeskView
+        coverage={coverage}
+        stories={stories.map((s) => ({
+          id: s.id,
+          title: s.title
+        }))}
+        mediaAssets={mediaAssets.map((m) => ({
+          id: m.id,
+          filename: m.filename,
+          publicUrl: m.publicUrl
+        }))}
+        loading={false}
+        error={null}
+        selectedCoverageId={selectedCoverageId}
+        onSelectCoverage={(id) => setSelectedCoverageId(id)}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        kindFilter={kindFilter}
+        onKindFilterChange={setKindFilter}
+        onSaveCoverage={handleSaveCoverage}
+        onStartCoverage={handleStartCoverage}
+        onEndCoverage={handleEndCoverage}
+        onCreateCoverage={handleCreateCoverage}
+        isOwnerPreview={true}
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -1447,6 +1627,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Editorial video custody, HTTPS source provenance, duration, related story linking, and publication-ready lifecycle."
         >
           <OwnerPreviewVideoDeskView />
+        </OwnerPreviewShell>
+      );
+    case "live-desk":
+      return (
+        <OwnerPreviewShell
+          activeKey="live-desk"
+          title="Live Desk Registry & Operations (Owner Visual Preview)"
+          subtitle="Editorial live coverage lifecycle (Upcoming → Live → Ended), live blog / scheduled kinds, related story linking, and public projection."
+        >
+          <OwnerPreviewLiveDeskView />
         </OwnerPreviewShell>
       );
     default:

@@ -109,13 +109,13 @@ const { mapNewsroomVideoRow, stagingNewsroomVideoService } = videoServiceModule;
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =============================================================================
 
-test("HT-NR-05C-B Invariant: Migration count is exactly 69", () => {
+test("HT-NR-05C-B Invariant: Migration count is exactly 70", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    69,
-    `Migration count must be exactly 69 (65 prior + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery). Found ${files.length}.`
+    70,
+    `Migration count must be exactly 70 (65 prior + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery + 05D-A live desk foundation). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261016210000_ht_nr05c_video_desk_foundation.sql"),

@@ -2026,5 +2026,136 @@ export function validateVideoPatch(patch: NewsroomVideoPatch): { valid: boolean;
   return { valid: true };
 }
 
+// ============================================================
+// HT-NR-05D-A: Newsroom Live Coverage Registry Models & Helpers
+// ============================================================
 
+export type NewsroomLiveCoverageKind = "live-blog" | "scheduled";
+export type NewsroomLiveCoverageStatus = "upcoming" | "live" | "ended";
 
+export interface NewsroomLiveCoverage {
+  id: string;
+  title: string;
+  kind: NewsroomLiveCoverageKind;
+  status: NewsroomLiveCoverageStatus;
+  scheduledAt: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  relatedStoryId: string | null;
+  mediaId: string | null;
+  sourceProvenance: string;
+  lockVersion: number;
+  createdByStaffId: string;
+  updatedByStaffId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomLiveCoverageCreateInput {
+  title: string;
+  kind: NewsroomLiveCoverageKind;
+  scheduledAt?: string | null;
+  relatedStoryId?: string | null;
+  mediaId?: string | null;
+  sourceProvenance: string;
+}
+
+export interface NewsroomLiveCoveragePatch {
+  title?: string;
+  scheduledAt?: string | null;
+  relatedStoryId?: string | null;
+  mediaId?: string | null;
+  sourceProvenance?: string;
+}
+
+export interface NewsroomLiveCoverageListOptions {
+  status?: NewsroomLiveCoverageStatus;
+  kind?: NewsroomLiveCoverageKind;
+  search?: string;
+  limit?: number;
+}
+
+export function validateLiveCoverageCreateInput(input: NewsroomLiveCoverageCreateInput): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object") {
+    return { valid: false, error: "Coverage payload is required." };
+  }
+  if (!input.title || input.title.trim().length === 0) {
+    return { valid: false, error: "Coverage title is required." };
+  }
+  if (!input.kind || (input.kind !== "live-blog" && input.kind !== "scheduled")) {
+    return { valid: false, error: "kind must be either live-blog or scheduled (live-video is reserved for a future task)." };
+  }
+  if (input.scheduledAt !== undefined && input.scheduledAt !== null && input.scheduledAt.trim().length > 0) {
+    const d = new Date(input.scheduledAt);
+    if (isNaN(d.getTime())) {
+      return { valid: false, error: "scheduledAt must be a valid date timestamp if provided." };
+    }
+  }
+  if (input.relatedStoryId !== undefined && input.relatedStoryId !== null && input.relatedStoryId.trim().length > 0) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(input.relatedStoryId.trim())) {
+      return { valid: false, error: "Related story ID must be a valid UUID." };
+    }
+  }
+  if (input.mediaId !== undefined && input.mediaId !== null && input.mediaId.trim().length > 0) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(input.mediaId.trim())) {
+      return { valid: false, error: "mediaId must be a valid UUID." };
+    }
+  }
+  if (!input.sourceProvenance || input.sourceProvenance.trim().length === 0) {
+    return { valid: false, error: "Source provenance is required and cannot be empty." };
+  }
+  return { valid: true };
+}
+
+export function validateLiveCoveragePatch(patch: NewsroomLiveCoveragePatch): { valid: boolean; error?: string } {
+  if (!patch || typeof patch !== "object") {
+    return { valid: false, error: "Patch object is required." };
+  }
+  const keys = Object.keys(patch);
+  if (keys.length === 0) {
+    return { valid: false, error: "Patch must contain at least one field to update." };
+  }
+  const allowedKeys = new Set([
+    "title",
+    "scheduledAt",
+    "relatedStoryId",
+    "mediaId",
+    "sourceProvenance"
+  ]);
+  for (const key of keys) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Invalid or unpatchable field: ${key}` };
+    }
+  }
+  if (patch.title !== undefined) {
+    if (!patch.title || patch.title.trim().length === 0) {
+      return { valid: false, error: "Coverage title cannot be empty." };
+    }
+  }
+  if (patch.scheduledAt !== undefined && patch.scheduledAt !== null && patch.scheduledAt.trim().length > 0) {
+    const d = new Date(patch.scheduledAt);
+    if (isNaN(d.getTime())) {
+      return { valid: false, error: "scheduledAt must be a valid date timestamp if provided." };
+    }
+  }
+  if (patch.relatedStoryId !== undefined && patch.relatedStoryId !== null && patch.relatedStoryId.trim().length > 0) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(patch.relatedStoryId.trim())) {
+      return { valid: false, error: "Related story ID must be a valid UUID." };
+    }
+  }
+  if (patch.mediaId !== undefined && patch.mediaId !== null && patch.mediaId.trim().length > 0) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(patch.mediaId.trim())) {
+      return { valid: false, error: "mediaId must be a valid UUID." };
+    }
+  }
+  if (patch.sourceProvenance !== undefined) {
+    if (!patch.sourceProvenance || patch.sourceProvenance.trim().length === 0) {
+      return { valid: false, error: "Source provenance cannot be empty." };
+    }
+  }
+  return { valid: true };
+}
