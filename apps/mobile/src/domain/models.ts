@@ -2905,3 +2905,57 @@ export function validatePushAlertPatch(
   return { valid: true };
 }
 
+// ============================================================================
+// HT-NR-06C-B: PUSH PROVIDER EXECUTION & DELIVERY LEDGER MODELS
+// ============================================================================
+
+export const NEWSROOM_PUSH_DISPATCH_STATUSES = [
+  "dispatching",
+  "provider-accepted",
+  "partially-accepted",
+  "provider-rejected",
+  "delivery-failed",
+  "zero-recipients"
+] as const;
+
+export type NewsroomPushDispatchStatus =
+  (typeof NEWSROOM_PUSH_DISPATCH_STATUSES)[number];
+
+export interface NewsroomPushDispatch {
+  id: string;
+  alertId: string;
+  idempotencyKey: string;
+  status: NewsroomPushDispatchStatus;
+  eligibleDeviceCount: number;
+  providerAcceptedCount: number;
+  providerRejectedCount: number;
+  confirmedDeliveryCount: number;
+  failureReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomPushDispatchResult {
+  dispatch_id: string;
+  alert_id: string;
+  status: NewsroomPushDispatchStatus;
+  eligible_device_count: number;
+  provider_accepted_count: number;
+  provider_rejected_count: number;
+  confirmed_delivery_count: number;
+  failure_reason?: string | null;
+  dispatched_at: string;
+}
+
+export function validatePushDispatchStatus(
+  status: unknown
+): status is NewsroomPushDispatchStatus {
+  return (
+    typeof status === "string" &&
+    NEWSROOM_PUSH_DISPATCH_STATUSES.includes(
+      status as NewsroomPushDispatchStatus
+    )
+  );
+}
+
+

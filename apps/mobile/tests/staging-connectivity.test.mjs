@@ -86,7 +86,7 @@ test("HealthTimes Staging PostgREST denies anonymous direct table access and RPC
     `Direct anonymous newsroom_push_alerts access must fail closed, received HTTP ${alertsTable.status}`
   );
 
-  // All 7 push RPCs must fail closed for anonymous / public callers
+  // All push RPCs must fail closed for anonymous / public callers
   const pushRpcs = [
     "reader_register_push_device",
     "reader_revoke_push_device",
@@ -94,7 +94,10 @@ test("HealthTimes Staging PostgREST denies anonymous direct table access and RPC
     "newsroom_create_push_alert",
     "newsroom_save_push_alert",
     "newsroom_approve_push_alert",
-    "newsroom_prepare_push_alert"
+    "newsroom_prepare_push_alert",
+    "newsroom_get_push_alert_dispatch",
+    "newsroom_prepare_dispatch_recipients",
+    "newsroom_record_dispatch_result"
   ];
 
   for (const rpc of pushRpcs) {
@@ -112,5 +115,37 @@ test("HealthTimes Staging PostgREST denies anonymous direct table access and RPC
       `Anonymous RPC execution on ${rpc} must fail closed, received HTTP ${res.status}`
     );
   }
+});
+
+test("HealthTimes Staging PostgREST denies anonymous direct table access on push dispatch tables and verifies edge function JWT protection (HT-NR-06C-B)", async () => {
+  // Direct table access on dispatch tables must fail closed
+  const dispatchesTable = await fetch(`${url}/rest/v1/newsroom_push_dispatches?select=*`, { headers });
+  assert.equal(
+    [401, 403, 404].includes(dispatchesTable.status),
+    true,
+    `Direct anonymous newsroom_push_dispatches access must fail closed, received HTTP ${dispatchesTable.status}`
+  );
+
+  const ticketsTable = await fetch(`${url}/rest/v1/newsroom_push_dispatch_tickets?select=*`, { headers });
+  assert.equal(
+    [401, 403, 404].includes(ticketsTable.status),
+    true,
+    `Direct anonymous newsroom_push_dispatch_tickets access must fail closed, received HTTP ${ticketsTable.status}`
+  );
+
+  // Edge Function verify_jwt must reject unauthenticated requests with 401
+  const edgeRes = await fetch(`${url}/functions/v1/newsroom-push-dispatch`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ alert_id: "00000000-0000-0000-0000-000000000000" })
+  });
+  assert.equal(
+    edgeRes.status,
+    401,
+    `newsroom-push-dispatch Edge Function must require JWT and return 401 unauthenticated, received HTTP ${edgeRes.status}`
+  );
 });
 

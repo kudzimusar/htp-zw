@@ -46,7 +46,8 @@ import {
   type NewsroomPushAlertCreateInput,
   type NewsroomPushAlertPatch,
   type NewsroomPushAlertPrepareResult,
-  type NewsroomPushAlertStatus
+  type NewsroomPushAlertStatus,
+  type NewsroomPushDispatch
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -98,6 +99,8 @@ import {
   buildPreviewCampaignPrepareSendResult,
   buildPreviewPushAlerts,
   buildPreviewPushAlertPrepareResult,
+  buildPreviewPushDispatches,
+  buildPreviewPushDispatchResult,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1913,6 +1916,9 @@ function OwnerPreviewPushAlertDeskView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [preparedHandoff, setPreparedHandoff] =
     useState<NewsroomPushAlertPrepareResult | null>(null);
+  const [dispatches, setDispatches] = useState<
+    Record<string, NewsroomPushDispatch>
+  >(() => buildPreviewPushDispatches());
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(
     "Push Alert Desk operational."
   );
@@ -2068,6 +2074,33 @@ function OwnerPreviewPushAlertDeskView() {
     );
   };
 
+  const handleDispatchAlert = (alertId: string) => {
+    const target = alerts.find((a) => a.id === alertId);
+    if (!target) return;
+    const result = buildPreviewPushDispatchResult(alertId);
+    const updatedDispatch: NewsroomPushDispatch = {
+      id: result.dispatch_id,
+      alertId: result.alert_id,
+      idempotencyKey: `preview-key-${Date.now()}`,
+      status: result.status,
+      eligibleDeviceCount: result.eligible_device_count,
+      providerAcceptedCount: result.provider_accepted_count,
+      providerRejectedCount: result.provider_rejected_count,
+      confirmedDeliveryCount: result.confirmed_delivery_count,
+      failureReason: result.failure_reason,
+      createdAt: result.dispatched_at,
+      updatedAt: result.dispatched_at
+    };
+    setDispatches((prev) => ({ ...prev, [alertId]: updatedDispatch }));
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Provider push dispatch executed in local preview."
+    );
+    setNotice(
+      "Preview state only — not saved: Simulated provider push dispatch and delivery ledger record."
+    );
+  };
+
   return (
     <View
       style={styles.sectionStack}
@@ -2090,12 +2123,17 @@ function OwnerPreviewPushAlertDeskView() {
         searchQuery={searchQuery}
         onChangeSearchQuery={setSearchQuery}
         preparedHandoff={preparedHandoff}
+        dispatchRecord={
+          selectedAlert ? dispatches[selectedAlert.id] ?? null : null
+        }
         canCreate={true}
         canApprove={true}
+        canDispatch={true}
         onCreateAlert={async (input) => handleCreateAlert(input)}
         onSaveAlert={async (id, patch) => handlePatchAlert(id, patch)}
         onApproveAlert={async (id) => handleApproveAlert(id)}
         onPrepareAlert={async (id) => handlePrepareAlert(id)}
+        onDispatchAlert={async (id) => handleDispatchAlert(id)}
       />
     </View>
   );

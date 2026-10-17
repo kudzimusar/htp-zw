@@ -21,6 +21,8 @@ import type {
   NewsroomCampaignPrepareSendResult,
   NewsroomPushAlert,
   NewsroomPushAlertPrepareResult,
+  NewsroomPushDispatch,
+  NewsroomPushDispatchResult,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -1766,4 +1768,39 @@ export function buildPreviewPushAlertPrepareResult(): NewsroomPushAlertPrepareRe
     eligible_device_count: 3840
   };
 }
+
+export function buildPreviewPushDispatchResult(
+  alertId?: string
+): NewsroomPushDispatchResult {
+  return {
+    dispatch_id: "e1000000-0000-4000-a000-000000000001",
+    alert_id: alertId || "d1000000-0000-4000-a000-000000000003",
+    status: "provider-accepted",
+    eligible_device_count: 3840,
+    provider_accepted_count: 3840,
+    provider_rejected_count: 0,
+    confirmed_delivery_count: 0,
+    failure_reason: null,
+    dispatched_at: "2026-10-15T14:20:00.000Z"
+  };
+}
+
+export function buildPreviewPushDispatches(): Record<string, NewsroomPushDispatch> {
+  return {
+    "d1000000-0000-4000-a000-000000000004": {
+      id: "e1000000-0000-4000-a000-000000000002",
+      alertId: "d1000000-0000-4000-a000-000000000004",
+      idempotencyKey: "preview-dispatch-key-004",
+      status: "provider-accepted",
+      eligibleDeviceCount: 1250,
+      providerAcceptedCount: 1248,
+      providerRejectedCount: 2,
+      confirmedDeliveryCount: 0,
+      failureReason: null,
+      createdAt: "2026-10-14T02:10:00.000Z",
+      updatedAt: "2026-10-14T02:10:05.000Z"
+    }
+  };
+}
+
 

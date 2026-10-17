@@ -13,6 +13,7 @@ import {
 import {
   NEWSROOM_PUSH_ALERT_CATEGORIES,
   NEWSROOM_PUSH_ALERT_STATUSES,
+  NEWSROOM_PUSH_DISPATCH_STATUSES,
   validatePushAlertCreateInput,
   validatePushAlertPatch,
   type NewsroomPushAlert,
@@ -20,7 +21,10 @@ import {
   type NewsroomPushAlertCreateInput,
   type NewsroomPushAlertPatch,
   type NewsroomPushAlertPrepareResult,
-  type NewsroomPushAlertStatus
+  type NewsroomPushAlertStatus,
+  type NewsroomPushDispatch,
+  type NewsroomPushDispatchResult,
+  type NewsroomPushDispatchStatus
 } from "../domain/models";
 import {
   hasPushDeskAccess,
@@ -44,12 +48,22 @@ const STATUS_STYLES: Record<NewsroomPushAlertStatus, ViewStyle> = {
   prepared: { backgroundColor: "#DBEAFE" }
 };
 
+const DISPATCH_STATUS_STYLES: Record<NewsroomPushDispatchStatus, ViewStyle> = {
+  "dispatching": { backgroundColor: "#FEF3C7" },
+  "provider-accepted": { backgroundColor: "#DCFCE7" },
+  "partially-accepted": { backgroundColor: "#FEF3C7" },
+  "provider-rejected": { backgroundColor: "#FEE2E2" },
+  "delivery-failed": { backgroundColor: "#FEE2E2" },
+  "zero-recipients": { backgroundColor: "#F1F5F9" }
+};
+
 export interface PushAlertDeskCapabilityMatrix {
   hasDeskAccess: boolean;
   canCreate: boolean;
   canSave: boolean;
   canApprove: boolean;
   canPrepare: boolean;
+  canDispatch: boolean;
 }
 
 export function resolvePushAlertDeskCapabilityState(
@@ -65,7 +79,8 @@ export function resolvePushAlertDeskCapabilityState(
       canCreate: false,
       canSave: false,
       canApprove: false,
-      canPrepare: false
+      canPrepare: false,
+      canDispatch: false
     };
   }
 
@@ -74,7 +89,8 @@ export function resolvePushAlertDeskCapabilityState(
     canCreate: hasServerCapability(snapshot, "distribution.manage"),
     canSave: hasServerCapability(snapshot, "distribution.manage"),
     canApprove: hasServerCapability(snapshot, "story.publish"),
-    canPrepare: hasServerCapability(snapshot, "story.publish")
+    canPrepare: hasServerCapability(snapshot, "story.publish"),
+    canDispatch: hasServerCapability(snapshot, "story.publish")
   };
 }
 
@@ -123,6 +139,25 @@ function formatStatusLabel(st: NewsroomPushAlertStatus): string {
   }
 }
 
+function formatDispatchStatusLabel(st: NewsroomPushDispatchStatus): string {
+  switch (st) {
+    case "dispatching":
+      return "Dispatching";
+    case "provider-accepted":
+      return "Accepted by Provider";
+    case "partially-accepted":
+      return "Partially Accepted";
+    case "provider-rejected":
+      return "Rejected by Provider";
+    case "delivery-failed":
+      return "Delivery Failed";
+    case "zero-recipients":
+      return "Zero Recipients";
+    default:
+      return st;
+  }
+}
+
 export interface StudioPushAlertDeskViewProps {
   alerts: NewsroomPushAlert[];
   selectedAlert: NewsroomPushAlert | null;
@@ -134,12 +169,15 @@ export interface StudioPushAlertDeskViewProps {
   categoryFilter: string;
   onChangeCategoryFilter: (category: string) => void;
   preparedHandoff: NewsroomPushAlertPrepareResult | null;
+  dispatchRecord?: NewsroomPushDispatch | null;
   canCreate: boolean;
   canApprove: boolean;
+  canDispatch?: boolean;
   onCreateAlert?: (input: NewsroomPushAlertCreateInput) => Promise<void>;
   onSaveAlert?: (id: string, patch: NewsroomPushAlertPatch) => Promise<void>;
   onApproveAlert?: (id: string) => Promise<void>;
   onPrepareAlert?: (id: string) => Promise<void>;
+  onDispatchAlert?: (id: string) => Promise<void>;
   loading?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
@@ -159,12 +197,15 @@ export function StudioPushAlertDeskView({
   categoryFilter,
   onChangeCategoryFilter,
   preparedHandoff,
+  dispatchRecord = null,
   canCreate,
   canApprove,
+  canDispatch = false,
   onCreateAlert,
   onSaveAlert,
   onApproveAlert,
   onPrepareAlert,
+  onDispatchAlert,
   loading = false,
   refreshing = false,
   onRefresh,
@@ -196,6 +237,32 @@ export function StudioPushAlertDeskView({
   const [editStoryId, setEditStoryId] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Dispatch irreversible execution state
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchConfirmed, setDispatchConfirmed] = useState(false);
+  const [dispatchSubmitting, setDispatchSubmitting] = useState(false);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
+
+  const handleOpenDispatchModal = () => {
+    setDispatchConfirmed(false);
+    setDispatchError(null);
+    setShowDispatchModal(true);
+  };
+
+  const handleConfirmDispatch = async () => {
+    if (!selectedAlert || !onDispatchAlert || !dispatchConfirmed) return;
+    setDispatchSubmitting(true);
+    setDispatchError(null);
+    try {
+      await onDispatchAlert(selectedAlert.id);
+      setShowDispatchModal(false);
+    } catch (err: any) {
+      setDispatchError(err?.message || "Failed to execute push dispatch");
+    } finally {
+      setDispatchSubmitting(false);
+    }
+  };
 
   // Sync editing fields when selectedAlert changes
   useEffect(() => {
@@ -742,10 +809,23 @@ export function StudioPushAlertDeskView({
                       )}
 
                       {selectedAlert.status === "prepared" && (
-                        <View style={styles.preparedNoticeBadge}>
-                          <Text style={styles.preparedNoticeText}>
-                            ✓ PREPARED FOR PROVIDER EXECUTION
-                          </Text>
+                        <View style={styles.actionRow}>
+                          <View style={styles.preparedNoticeBadge}>
+                            <Text style={styles.preparedNoticeText}>
+                              ✓ PREPARED FOR PROVIDER EXECUTION
+                            </Text>
+                          </View>
+                          {!dispatchRecord && canDispatch && onDispatchAlert && (
+                            <Pressable
+                              style={styles.dispatchButton}
+                              onPress={handleOpenDispatchModal}
+                              testID="execute-provider-dispatch-button"
+                            >
+                              <Text style={styles.dispatchButtonText}>
+                                🚀 Execute Provider Dispatch
+                              </Text>
+                            </Pressable>
+                          )}
                         </View>
                       )}
                     </View>
@@ -819,6 +899,113 @@ export function StudioPushAlertDeskView({
                     <Text style={styles.handoffFooterText}>
                       🔒 AGGREGATE DEVICE COUNT ONLY · ZERO TOKENS OR IDENTITIES
                       RETURNED
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Delivery Ledger Card */}
+              {dispatchRecord && (
+                <View
+                  style={styles.ledgerCard}
+                  testID="push-dispatch-ledger-card"
+                >
+                  <View style={styles.ledgerHeader}>
+                    <View style={styles.ledgerHeaderTop}>
+                      <Text style={styles.ledgerKicker}>
+                        DELIVERY LEDGER · CANONICAL DISPATCH RECORD
+                      </Text>
+                      <View
+                        style={[
+                          styles.dispatchBadge,
+                          DISPATCH_STATUS_STYLES[dispatchRecord.status]
+                        ]}
+                      >
+                        <Text style={styles.dispatchBadgeText}>
+                          {formatDispatchStatusLabel(dispatchRecord.status).toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.ledgerTitle}>
+                      Provider Execution & Transport Ledger
+                    </Text>
+                    {dispatchRecord.failureReason ? (
+                      <View style={styles.ledgerFailureBox}>
+                        <Text style={styles.ledgerFailureText}>
+                          ⚠ {dispatchRecord.failureReason}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.ledgerGrid}>
+                    <View style={styles.ledgerMetricBox}>
+                      <Text style={styles.ledgerMetricLabel}>Eligible Devices</Text>
+                      <Text style={styles.ledgerMetricValue}>
+                        {dispatchRecord.eligibleDeviceCount}
+                      </Text>
+                    </View>
+                    <View style={styles.ledgerMetricBox}>
+                      <Text style={styles.ledgerMetricLabel}>Provider Accepted</Text>
+                      <Text style={[styles.ledgerMetricValue, { color: "#166534" }]}>
+                        {dispatchRecord.providerAcceptedCount}
+                      </Text>
+                    </View>
+                    <View style={styles.ledgerMetricBox}>
+                      <Text style={styles.ledgerMetricLabel}>Provider Rejected</Text>
+                      <Text
+                        style={[
+                          styles.ledgerMetricValue,
+                          {
+                            color:
+                              dispatchRecord.providerRejectedCount > 0
+                                ? "#991B1B"
+                                : colors.ink
+                          }
+                        ]}
+                      >
+                        {dispatchRecord.providerRejectedCount}
+                      </Text>
+                    </View>
+                    <View style={styles.ledgerMetricBox}>
+                      <Text style={styles.ledgerMetricLabel}>Confirmed Delivered</Text>
+                      <Text style={styles.ledgerMetricValue}>
+                        {dispatchRecord.confirmedDeliveryCount}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.ledgerMeta}>
+                    <View style={styles.ledgerMetaRow}>
+                      <Text style={styles.ledgerMetaLabel}>Dispatch ID:</Text>
+                      <Text style={styles.ledgerMetaValue}>{dispatchRecord.id}</Text>
+                    </View>
+                    <View style={styles.ledgerMetaRow}>
+                      <Text style={styles.ledgerMetaLabel}>Idempotency Key:</Text>
+                      <Text style={styles.ledgerMetaValue}>
+                        {dispatchRecord.idempotencyKey}
+                      </Text>
+                    </View>
+                    <View style={styles.ledgerMetaRow}>
+                      <Text style={styles.ledgerMetaLabel}>Dispatched At:</Text>
+                      <Text style={styles.ledgerMetaValue}>
+                        {formatTimestamp(dispatchRecord.createdAt)}
+                      </Text>
+                    </View>
+                    <View style={styles.ledgerMetaRow}>
+                      <Text style={styles.ledgerMetaLabel}>Last Updated:</Text>
+                      <Text style={styles.ledgerMetaValue}>
+                        {formatTimestamp(dispatchRecord.updatedAt)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.ledgerFootnote}>
+                    <Text style={styles.ledgerFootnoteText}>
+                      ℹ Receipt polling not executed in this phase; delivery confirmation requires separate receipt polling.
+                    </Text>
+                    <Text style={styles.ledgerFootnoteText}>
+                      🔒 Aggregate device metrics only · Client has zero device tokens, token hashes, or recipient identities.
                     </Text>
                   </View>
                 </View>
@@ -946,6 +1133,119 @@ export function StudioPushAlertDeskView({
           </View>
         </View>
       )}
+
+      {/* Irreversible Push Dispatch Confirmation Modal */}
+      {showDispatchModal && selectedAlert && (
+        <View style={styles.modalOverlay} testID="dispatch-confirm-modal">
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Confirm Push Alert Broadcast</Text>
+              <Pressable
+                onPress={() => {
+                  if (!dispatchSubmitting) setShowDispatchModal(false);
+                }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              <View style={styles.dispatchWarningBox}>
+                <Text style={styles.dispatchWarningKicker}>
+                  ⚠ IRREVERSIBLE BROADCAST WARNING
+                </Text>
+                <Text style={styles.dispatchWarningText}>
+                  Once initiated, push notification dispatch cannot be recalled,
+                  paused, or undone. Notifications will be dispatched immediately to
+                  all eligible reader devices.
+                </Text>
+              </View>
+
+              <View style={styles.dispatchSummaryCard}>
+                <Text style={styles.dispatchSummaryTitle}>Alert Summary</Text>
+                <View style={styles.handoffRow}>
+                  <Text style={styles.handoffLabel}>Title:</Text>
+                  <Text style={styles.handoffValue}>{selectedAlert.title}</Text>
+                </View>
+                <View style={styles.handoffRow}>
+                  <Text style={styles.handoffLabel}>Category:</Text>
+                  <Text style={styles.handoffValue}>
+                    {formatCategoryLabel(selectedAlert.category)}
+                  </Text>
+                </View>
+                {selectedAlert.destination ? (
+                  <View style={styles.handoffRow}>
+                    <Text style={styles.handoffLabel}>Destination:</Text>
+                    <Text style={styles.handoffValue}>
+                      {selectedAlert.destination}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.handoffStatRow}>
+                  <Text style={styles.handoffStatLabel}>
+                    Eligible Active Devices:
+                  </Text>
+                  <Text style={styles.handoffStatValue}>
+                    {activeHandoff?.eligible_device_count ?? 0}
+                  </Text>
+                </View>
+              </View>
+
+              {dispatchError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>⚠ {dispatchError}</Text>
+                </View>
+              )}
+
+              <Pressable
+                style={styles.checkboxRow}
+                onPress={() => setDispatchConfirmed(!dispatchConfirmed)}
+                testID="dispatch-confirm-checkbox"
+              >
+                <View
+                  style={[
+                    styles.checkboxBox,
+                    dispatchConfirmed && styles.checkboxBoxChecked
+                  ]}
+                >
+                  {dispatchConfirmed && (
+                    <Text style={styles.checkboxCheckmark}>✓</Text>
+                  )}
+                </View>
+                <Text style={styles.checkboxLabel}>
+                  I understand this broadcast cannot be cancelled or recalled.
+                </Text>
+              </Pressable>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <Pressable
+                style={[
+                  styles.executeButton,
+                  (!dispatchConfirmed || dispatchSubmitting) && styles.buttonDisabled
+                ]}
+                onPress={handleConfirmDispatch}
+                disabled={!dispatchConfirmed || dispatchSubmitting}
+                testID="confirm-execute-dispatch-button"
+              >
+                <Text style={styles.executeButtonText}>
+                  {dispatchSubmitting
+                    ? "Dispatching..."
+                    : "🚀 Confirm & Dispatch Now"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.secondaryButton}
+                onPress={() => setShowDispatchModal(false)}
+                disabled={dispatchSubmitting}
+                testID="cancel-dispatch-button"
+              >
+                <Text style={styles.secondaryButtonText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -961,6 +1261,9 @@ export function StudioPushAlertDesk() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [preparedHandoff, setPreparedHandoff] =
     useState<NewsroomPushAlertPrepareResult | null>(null);
+  const [dispatches, setDispatches] = useState<
+    Record<string, NewsroomPushDispatch | null>
+  >({});
 
   const [capabilities, setCapabilities] =
     useState<PushAlertDeskCapabilityMatrix>({
@@ -968,7 +1271,8 @@ export function StudioPushAlertDesk() {
       canCreate: false,
       canSave: false,
       canApprove: false,
-      canPrepare: false
+      canPrepare: false,
+      canDispatch: false
     });
 
   const [loading, setLoading] = useState(true);
@@ -1112,6 +1416,49 @@ export function StudioPushAlertDesk() {
     await loadAlerts();
   };
 
+  useEffect(() => {
+    let active = true;
+    if (selectedAlert && selectedAlert.status === "prepared") {
+      services.newsroomPushAlerts
+        .getDispatch(selectedAlert.id)
+        .then((record) => {
+          if (active) {
+            setDispatches((prev) => ({ ...prev, [selectedAlert.id]: record }));
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setDispatches((prev) => ({ ...prev, [selectedAlert.id]: null }));
+          }
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [selectedAlert?.id, selectedAlert?.status]);
+
+  const handleDispatchAlert = async (id: string) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const result = await services.newsroomPushAlerts.dispatchAlert(id);
+    const updatedDispatch: NewsroomPushDispatch = {
+      id: result.dispatch_id,
+      alertId: result.alert_id,
+      idempotencyKey: "",
+      status: result.status,
+      eligibleDeviceCount: result.eligible_device_count,
+      providerAcceptedCount: result.provider_accepted_count,
+      providerRejectedCount: result.provider_rejected_count,
+      confirmedDeliveryCount: result.confirmed_delivery_count,
+      failureReason: result.failure_reason,
+      createdAt: result.dispatched_at,
+      updatedAt: result.dispatched_at
+    };
+    setDispatches((prev) => ({ ...prev, [id]: updatedDispatch }));
+    setSuccessMessage(`Push dispatch executed with status: ${result.status}`);
+    await loadAlerts();
+  };
+
   return (
     <StudioPushAlertDeskView
       alerts={alerts}
@@ -1124,12 +1471,17 @@ export function StudioPushAlertDesk() {
       categoryFilter={categoryFilter}
       onChangeCategoryFilter={setCategoryFilter}
       preparedHandoff={preparedHandoff}
+      dispatchRecord={
+        selectedAlert ? dispatches[selectedAlert.id] ?? null : null
+      }
       canCreate={capabilities.canCreate}
       canApprove={capabilities.canApprove}
+      canDispatch={capabilities.canDispatch}
       onCreateAlert={handleCreateAlert}
       onSaveAlert={handleSaveAlert}
       onApproveAlert={handleApproveAlert}
       onPrepareAlert={handlePrepareAlert}
+      onDispatchAlert={handleDispatchAlert}
       loading={loading}
       refreshing={refreshing}
       onRefresh={handleRefresh}
@@ -1806,5 +2158,216 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.md
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    alignItems: "center"
+  },
+  dispatchButton: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  dispatchButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  ledgerCard: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    gap: spacing.md
+  },
+  ledgerHeader: {
+    gap: spacing.xs
+  },
+  ledgerHeaderTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs
+  },
+  ledgerKicker: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: colors.blue,
+    letterSpacing: 0.8
+  },
+  dispatchBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999
+  },
+  dispatchBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: colors.ink
+  },
+  ledgerTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  ledgerFailureBox: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginTop: spacing.xs
+  },
+  ledgerFailureText: {
+    fontSize: 12,
+    color: "#991B1B",
+    fontWeight: "600"
+  },
+  ledgerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm
+  },
+  ledgerMetricBox: {
+    flex: 1,
+    minWidth: 100,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    alignItems: "center"
+  },
+  ledgerMetricLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.inkMuted,
+    marginBottom: 2
+  },
+  ledgerMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  ledgerMeta: {
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6"
+  },
+  ledgerMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  ledgerMetaLabel: {
+    fontSize: 12,
+    color: colors.inkMuted
+  },
+  ledgerMetaValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.ink
+  },
+  ledgerFootnote: {
+    gap: 4,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6"
+  },
+  ledgerFootnoteText: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    lineHeight: 15
+  },
+  dispatchWarningBox: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.xs,
+    marginBottom: spacing.sm
+  },
+  dispatchWarningKicker: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#991B1B",
+    letterSpacing: 0.8
+  },
+  dispatchWarningText: {
+    fontSize: 12,
+    color: "#7F1D1D",
+    lineHeight: 17
+  },
+  dispatchSummaryCard: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.xs,
+    marginBottom: spacing.md
+  },
+  dispatchSummaryTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.ink,
+    marginBottom: spacing.xs
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: colors.inkMuted,
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF"
+  },
+  checkboxBoxChecked: {
+    backgroundColor: colors.blue,
+    borderColor: colors.blue
+  },
+  checkboxCheckmark: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "900"
+  },
+  checkboxLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.ink,
+    flex: 1
+  },
+  executeButton: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  executeButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  buttonDisabled: {
+    opacity: 0.4
   }
 });

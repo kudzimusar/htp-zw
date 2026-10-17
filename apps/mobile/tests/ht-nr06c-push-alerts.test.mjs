@@ -86,7 +86,7 @@ function createMockPushAlertClient(rpcResolver) {
 // 1. MIGRATION 74 & 75 DISCIPLINE & REPOSITORY AUTHORITY (HT-NR-06C-A & R1)
 // =============================================================================
 
-test("HT-NR-06C-A-R1: repository migration count is exactly 75", () => {
+test("HT-NR-06C-A-R1: repository migration count is exactly 76 at HT-NR-06C-B", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -95,8 +95,8 @@ test("HT-NR-06C-A-R1: repository migration count is exactly 75", () => {
 
   assert.equal(
     migrationFiles.length,
-    75,
-    `Expected exactly 75 migrations in supabase/migrations, found ${migrationFiles.length}`
+    76,
+    `Expected exactly 76 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(

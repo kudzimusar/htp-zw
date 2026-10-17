@@ -795,10 +795,10 @@ test("HT-NR-04B-R1: native presentation media is public-only while legacy source
   );
 });
 
-test("HT-NR-04B-R1: repository migration authority is exactly 75 at HT-NR-06C-A-R1", () => {
+test("HT-NR-04B-R1: repository migration authority is exactly 76 at HT-NR-06C-B", () => {
   const migrationsDir = path.resolve(root, "../../supabase/migrations");
   const migrationFiles = fs.readdirSync(migrationsDir);
-  assert.equal(migrationFiles.length, 75);
+  assert.equal(migrationFiles.length, 76);
   assert.ok(
     migrationFiles.includes("20261016140000_ht_nr04b_public_homepage_presentations.sql")
   );

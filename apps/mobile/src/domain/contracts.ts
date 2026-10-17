@@ -86,7 +86,9 @@ import type {
   NewsroomPushAlertCreateInput,
   NewsroomPushAlertPatch,
   NewsroomPushAlertPrepareResult,
-  NewsroomPushAlertStatus
+  NewsroomPushAlertStatus,
+  NewsroomPushDispatch,
+  NewsroomPushDispatchResult
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -368,6 +370,11 @@ export interface NewsroomPushAlertService {
   saveAlert(alertId: string, patch: NewsroomPushAlertPatch): Promise<void>;
   approveAlert(alertId: string): Promise<void>;
   prepareAlert(alertId: string): Promise<NewsroomPushAlertPrepareResult>;
+  getDispatch(alertId: string): Promise<NewsroomPushDispatch | null>;
+  dispatchAlert(
+    alertId: string,
+    idempotencyKey?: string
+  ): Promise<NewsroomPushDispatchResult>;
 }
 
 export interface HealthTimesServices {
