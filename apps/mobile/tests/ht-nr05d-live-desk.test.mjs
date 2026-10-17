@@ -769,3 +769,322 @@ test("HT-NR-05D-A Routing: studio/[module].tsx maps live-desk to StudioLiveDesk"
     "app/studio/[module].tsx must render StudioLiveDesk for live-desk"
   );
 });
+
+// =============================================================================
+// 7. HT-NR-05D-A-R1 REMEDIATION TEST SUITES
+// =============================================================================
+
+test("HT-NR-05D-A-R1 List Contract: empty array, mixed survival, all-malformed rejection, envelope check", async () => {
+  const validRow1 = {
+    id: "d1000000-0000-4000-b000-000000000001",
+    title: "Valid Row 1",
+    kind: "live-blog",
+    status: "live",
+    scheduled_at: null,
+    started_at: "2026-10-16T08:00:00.000Z",
+    ended_at: null,
+    related_story_id: null,
+    media_id: null,
+    source_provenance: "Provenance 1",
+    lock_version: 1,
+    created_by_staff_id: "00000000-0000-4000-8000-000000000010",
+    updated_by_staff_id: "00000000-0000-4000-8000-000000000010",
+    created_at: "2026-10-16T07:30:00.000Z",
+    updated_at: "2026-10-16T08:00:00.000Z"
+  };
+
+  const validRow2 = {
+    ...validRow1,
+    id: "d1000000-0000-4000-b000-000000000002",
+    title: "Valid Row 2",
+    source_provenance: "Provenance 2"
+  };
+
+  const malformedRow = {
+    id: "not-a-uuid",
+    title: ""
+  };
+
+  let mockData = null;
+  const mockClient = {
+    rpc: async () => ({ data: mockData, error: null })
+  };
+  const service = createNewsroomLiveCoverageService(mockClient);
+
+  // 1. [] -> returns []
+  mockData = [];
+  const emptyRes = await service.listCoverage();
+  assert.deepStrictEqual(emptyRes, []);
+
+  // 2. [valid, malformed, valid] -> returns two valid rows
+  mockData = [validRow1, malformedRow, validRow2];
+  const mixedRes = await service.listCoverage();
+  assert.strictEqual(mixedRes.length, 2);
+  assert.strictEqual(mixedRes[0].id, validRow1.id);
+  assert.strictEqual(mixedRes[1].id, validRow2.id);
+
+  // 3. [malformed] -> reject
+  mockData = [malformedRow, { id: "also-bad" }];
+  await assert.rejects(
+    () => service.listCoverage(),
+    (err) =>
+      err instanceof Error &&
+      err.message.includes("non-empty payload contained no valid coverage rows")
+  );
+
+  // 4. null -> reject
+  mockData = null;
+  await assert.rejects(
+    () => service.listCoverage(),
+    (err) =>
+      err instanceof Error &&
+      err.message.includes("expected array of coverage rows")
+  );
+
+  // 5. object -> reject
+  mockData = { count: 0, rows: [] };
+  await assert.rejects(
+    () => service.listCoverage(),
+    (err) =>
+      err instanceof Error &&
+      err.message.includes("expected array of coverage rows")
+  );
+});
+
+test("HT-NR-05D-A-R1 Search: debounced server search, parameter forwarding, empty search, race protection", async () => {
+  const deskSource = read("src/ui/StudioLiveDesk.tsx");
+
+  // Verify search state and 350ms debounce in StudioLiveDeskContainer
+  assert.ok(
+    deskSource.includes("const [searchQuery, setSearchQuery] = useState"),
+    "StudioLiveDeskContainer must maintain searchQuery state"
+  );
+  assert.ok(
+    deskSource.includes("const [debouncedSearch, setDebouncedSearch] = useState"),
+    "StudioLiveDeskContainer must maintain debouncedSearch state"
+  );
+  assert.ok(
+    deskSource.includes("setTimeout(() => {"),
+    "StudioLiveDeskContainer must debounce search updates"
+  );
+  assert.ok(
+    deskSource.includes("}, 350);"),
+    "StudioLiveDeskContainer must use approximately 350ms debounce"
+  );
+  assert.ok(
+    deskSource.includes("debouncedSearch"),
+    "StudioLiveDeskContainer must pass debounced search to listCoverage"
+  );
+  assert.ok(
+    deskSource.includes("requestSeqRef"),
+    "StudioLiveDeskContainer must track request sequence tokens for race safety"
+  );
+
+  // Verify parameter forwarding to RPC
+  let capturedArgs = null;
+  const mockClient = {
+    rpc: async (fn, args) => {
+      capturedArgs = args;
+      return { data: [], error: null };
+    }
+  };
+  const service = createNewsroomLiveCoverageService(mockClient);
+
+  // status + kind + search all forwarded together with limit 100
+  await service.listCoverage({
+    status: "upcoming",
+    kind: "scheduled",
+    search: "Polio Campaign",
+    limit: 100
+  });
+  assert.strictEqual(capturedArgs.p_status, "upcoming");
+  assert.strictEqual(capturedArgs.p_kind, "scheduled");
+  assert.strictEqual(capturedArgs.p_search, "Polio Campaign");
+  assert.strictEqual(capturedArgs.p_limit, 100);
+
+  // empty or whitespace search sends null
+  await service.listCoverage({ search: "" });
+  assert.strictEqual(capturedArgs.p_search, null);
+
+  await service.listCoverage({ search: "   " });
+  assert.strictEqual(capturedArgs.p_search, null);
+
+  await service.listCoverage({});
+  assert.strictEqual(capturedArgs.p_search, null);
+
+  // Conceptual proof: row exists outside first 100, server p_search retrieves it
+  const targetRow = {
+    id: "d1000000-0000-4000-b000-000000000999",
+    title: "Zululand Cholera Emergency Outbreak",
+    kind: "live-blog",
+    status: "live",
+    scheduled_at: null,
+    started_at: "2026-10-16T09:00:00.000Z",
+    ended_at: null,
+    related_story_id: null,
+    media_id: null,
+    source_provenance: "Regional Field Team",
+    lock_version: 1,
+    created_by_staff_id: "00000000-0000-4000-8000-000000000010",
+    updated_by_staff_id: "00000000-0000-4000-8000-000000000010",
+    created_at: "2026-10-16T08:00:00.000Z",
+    updated_at: "2026-10-16T09:00:00.000Z"
+  };
+
+  const searchMockClient = {
+    rpc: async (fn, args) => {
+      if (args.p_search === "Cholera") {
+        return { data: [targetRow], error: null };
+      }
+      return {
+        data: Array.from({ length: 100 }, (_, i) => ({
+          ...targetRow,
+          id: `d1000000-0000-4000-b000-${String(i).padStart(12, "0")}`,
+          title: `General Health Report ${i}`,
+          source_provenance: "General Desk"
+        })),
+        error: null
+      };
+    }
+  };
+  const searchService = createNewsroomLiveCoverageService(searchMockClient);
+
+  // Default query misses target (target is row 101+)
+  const defaultList = await searchService.listCoverage({ limit: 100 });
+  assert.strictEqual(defaultList.length, 100);
+  assert.strictEqual(defaultList.some((c) => c.id === targetRow.id), false);
+
+  // Server p_search retrieves target outside 100
+  const searchedList = await searchService.listCoverage({ search: "Cholera", limit: 100 });
+  assert.strictEqual(searchedList.length, 1);
+  assert.strictEqual(searchedList[0].id, targetRow.id);
+  assert.strictEqual(searchedList[0].title, targetRow.title);
+
+  // Race safety test: stale request cannot overwrite newer request
+  let seq = 0;
+  let activeCoverage = null;
+
+  const simulateRequest = async (token, delayMs, resultData) => {
+    const currentSeq = ++seq;
+    await new Promise((r) => setTimeout(r, delayMs));
+    if (currentSeq !== seq) return;
+    activeCoverage = resultData;
+  };
+
+  const p1 = simulateRequest(1, 50, ["stale_request_1_results"]);
+  const p2 = simulateRequest(2, 10, ["fresh_request_2_results"]);
+
+  await Promise.all([p1, p2]);
+  assert.deepStrictEqual(
+    activeCoverage,
+    ["fresh_request_2_results"],
+    "Newer request results must not be overwritten by delayed earlier request"
+  );
+});
+
+test("HT-NR-05D-A-R1 Counters: truthful result-set labels and 100-record disclosure", () => {
+  const deskSource = read("src/ui/StudioLiveDesk.tsx");
+
+  // Verify truthful labels
+  assert.ok(
+    deskSource.includes("Loaded Results"),
+    "Metric counters must display 'Loaded Results'"
+  );
+  assert.ok(
+    deskSource.includes("Upcoming in Results"),
+    "Metric counters must display 'Upcoming in Results'"
+  );
+  assert.ok(
+    deskSource.includes("Live in Results"),
+    "Metric counters must display 'Live in Results'"
+  );
+  assert.ok(
+    deskSource.includes("Ended in Results"),
+    "Metric counters must display 'Ended in Results'"
+  );
+
+  // Verify disclosure
+  assert.ok(
+    deskSource.includes("Showing up to 100 server-matched coverage records."),
+    "Must display explicit disclosure copy explaining the 100 server-matched record constraint"
+  );
+  assert.ok(
+    deskSource.includes("Displayed metrics describe the current query result set."),
+    "Must clarify metrics describe the current query result set when filtered"
+  );
+
+  // Prohibit fake exhaustive labels in the metrics row
+  assert.strictEqual(
+    deskSource.includes("<Text style={styles.metricLabel}>Total Registry</Text>"),
+    false,
+    "Must not claim authoritative 'Total Registry' in metric labels"
+  );
+  assert.strictEqual(
+    deskSource.includes("<Text style={styles.metricLabel}>Currently Live</Text>"),
+    false,
+    "Must not claim 'Currently Live' in metric labels"
+  );
+  assert.strictEqual(
+    deskSource.includes("<Text style={styles.metricLabel}>Ended & Locked</Text>"),
+    false,
+    "Must not claim 'Ended & Locked' in metric labels"
+  );
+});
+
+test("HT-NR-05D-A-R1 Provenance: operational create initializes blank, rejects blank, passes trimmed input", async () => {
+  const deskSource = read("src/ui/StudioLiveDesk.tsx");
+
+  // Operational create must initialize to blank
+  assert.ok(
+    deskSource.includes('isOwnerPreview ? "HealthTimes Live Desk Operations" : ""'),
+    "newProvenance must initialize blank in operational mode and retain sample provenance only in Owner Preview"
+  );
+
+  // Prohibit hardcoded operational pre-fill
+  assert.strictEqual(
+    deskSource.includes('const [newProvenance, setNewProvenance] = useState("HealthTimes Live Desk Operations");'),
+    false,
+    "Must not unconditionally pre-fill 'HealthTimes Live Desk Operations' as initial state"
+  );
+
+  // Blank provenance cannot create
+  const blankInput = {
+    title: "Test Coverage",
+    kind: "live-blog",
+    sourceProvenance: ""
+  };
+  const valRes = validateLiveCoverageCreateInput(blankInput);
+  assert.strictEqual(valRes.valid, false);
+  assert.match(valRes.error, /source provenance/i);
+
+  const whitespaceInput = {
+    title: "Test Coverage",
+    kind: "live-blog",
+    sourceProvenance: "   "
+  };
+  assert.strictEqual(validateLiveCoverageCreateInput(whitespaceInput).valid, false);
+
+  // Valid operator input passes through trimmed
+  let capturedCreateArgs = null;
+  const mockClient = {
+    rpc: async (fn, args) => {
+      capturedCreateArgs = args;
+      return { data: "d1000000-0000-4000-b000-000000000001", error: null };
+    }
+  };
+  const service = createNewsroomLiveCoverageService(mockClient);
+
+  await service.createCoverage({
+    title: "Test Coverage",
+    kind: "live-blog",
+    sourceProvenance: "  Ministry of Health press briefing  "
+  });
+
+  // Verify trimmed pass-through
+  assert.ok(capturedCreateArgs);
+  assert.strictEqual(
+    capturedCreateArgs.p_input.source_provenance,
+    "Ministry of Health press briefing"
+  );
+});
+

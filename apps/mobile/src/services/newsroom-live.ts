@@ -150,19 +150,28 @@ export function createNewsroomLiveCoverageService(
 
   return {
     async listCoverage(options?: NewsroomLiveCoverageListOptions): Promise<NewsroomLiveCoverage[]> {
+      const trimmedSearch = typeof options?.search === "string" ? options.search.trim() : "";
       const rawRows = await callRpc<any[]>("newsroom_list_live_coverage", {
         p_status: options?.status ?? null,
         p_kind: options?.kind ?? null,
-        p_search: options?.search ?? null,
+        p_search: trimmedSearch.length > 0 ? trimmedSearch : null,
         p_limit: options?.limit ?? 100
       });
       if (!Array.isArray(rawRows)) {
         throw new Error("Invalid response from live coverage list: expected array of coverage rows.");
       }
+      if (rawRows.length === 0) {
+        return [];
+      }
       const mapped: NewsroomLiveCoverage[] = [];
       for (const r of rawRows) {
         const c = mapNewsroomLiveCoverageRow(r);
         if (c) mapped.push(c);
+      }
+      if (mapped.length === 0) {
+        throw new Error(
+          "Invalid response from live coverage list: non-empty payload contained no valid coverage rows."
+        );
       }
       return mapped;
     },

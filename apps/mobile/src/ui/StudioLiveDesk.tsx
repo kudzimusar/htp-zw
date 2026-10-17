@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -169,7 +169,9 @@ export function StudioLiveDeskView({
   const [newScheduledAt, setNewScheduledAt] = useState("");
   const [newRelatedStoryId, setNewRelatedStoryId] = useState<string | null>(null);
   const [newMediaId, setNewMediaId] = useState<string | null>(null);
-  const [newProvenance, setNewProvenance] = useState("HealthTimes Live Desk Operations");
+  const [newProvenance, setNewProvenance] = useState(
+    isOwnerPreview ? "HealthTimes Live Desk Operations" : ""
+  );
   const [createFeedback, setCreateFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [createSubmitting, setCreateSubmitting] = useState(false);
 
@@ -251,7 +253,7 @@ export function StudioLiveDeskView({
     setNewScheduledAt("");
     setNewRelatedStoryId(null);
     setNewMediaId(null);
-    setNewProvenance("HealthTimes Live Desk Operations");
+    setNewProvenance(isOwnerPreview ? "HealthTimes Live Desk Operations" : "");
     setCreateFeedback(null);
     setConfirmAction(null);
   };
@@ -431,23 +433,32 @@ export function StudioLiveDeskView({
       </View>
 
       {/* Metrics Counters */}
-      <View style={styles.metricsRow}>
+      <View style={styles.metricsRow} testID="live-desk-metrics">
         <View style={styles.metricCard}>
           <Text style={styles.metricValue}>{counts.total}</Text>
-          <Text style={styles.metricLabel}>Total Registry</Text>
+          <Text style={styles.metricLabel}>Loaded Results</Text>
         </View>
         <View style={[styles.metricCard, { borderLeftColor: colors.blue600 }]}>
           <Text style={[styles.metricValue, { color: colors.blue700 }]}>{counts.upcoming}</Text>
-          <Text style={styles.metricLabel}>Upcoming</Text>
+          <Text style={styles.metricLabel}>Upcoming in Results</Text>
         </View>
         <View style={[styles.metricCard, { borderLeftColor: colors.rose600 }]}>
           <Text style={[styles.metricValue, { color: colors.rose700 }]}>{counts.live}</Text>
-          <Text style={styles.metricLabel}>Currently Live</Text>
+          <Text style={styles.metricLabel}>Live in Results</Text>
         </View>
         <View style={[styles.metricCard, { borderLeftColor: colors.gray500 }]}>
           <Text style={[styles.metricValue, { color: colors.gray700 }]}>{counts.ended}</Text>
-          <Text style={styles.metricLabel}>Ended & Locked</Text>
+          <Text style={styles.metricLabel}>Ended in Results</Text>
         </View>
+      </View>
+
+      {/* Result Window Disclosure */}
+      <View style={styles.disclosureRow} testID="live-desk-disclosure">
+        <Text style={styles.disclosureText}>
+          Showing up to 100 server-matched coverage records.
+          {Boolean(searchQuery.trim() || statusFilter !== "all" || kindFilter !== "all") &&
+            " Displayed metrics describe the current query result set."}
+        </Text>
       </View>
 
       {/* Filter / Search Bar */}
@@ -816,7 +827,7 @@ export function StudioLiveDeskView({
                 <Text style={styles.formLabel}>Source Provenance *</Text>
                 <TextInput
                   style={styles.formInput}
-                  placeholder="e.g., HealthTimes Live Desk Operations"
+                  placeholder="e.g., Harare Central Press Briefing, MoHCC Statement"
                   placeholderTextColor={colors.gray400}
                   value={newProvenance}
                   onChangeText={setNewProvenance}
@@ -1229,10 +1240,21 @@ function StudioLiveDeskContainer() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCoverageId, setSelectedCoverageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | NewsroomLiveCoverageStatus>("all");
   const [kindFilter, setKindFilter] = useState<"all" | NewsroomLiveCoverageKind>("all");
 
-  const loadData = async () => {
+  const requestSeqRef = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadData = async (targetSearch = debouncedSearch) => {
+    const currentSeq = ++requestSeqRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -1240,13 +1262,16 @@ function StudioLiveDeskContainer() {
       const items = await services.newsroomLive.listCoverage({
         status: statusFilter === "all" ? undefined : statusFilter,
         kind: kindFilter === "all" ? undefined : kindFilter,
-        search: searchQuery.trim().length > 0 ? searchQuery.trim() : undefined
+        search: targetSearch.trim() ? targetSearch.trim() : undefined,
+        limit: 100
       });
+      if (currentSeq !== requestSeqRef.current) return;
       setCoverage(items);
 
       // Load stories
       try {
         const storyRows = await services.newsroomStories.listStories(100);
+        if (currentSeq !== requestSeqRef.current) return;
         setStories(
           storyRows.map((s) => ({
             id: s.id,
@@ -1260,6 +1285,7 @@ function StudioLiveDeskContainer() {
       // Load media
       try {
         const mediaRows = await services.newsroomMedia.listMedia(null, 50);
+        if (currentSeq !== requestSeqRef.current) return;
         setMediaAssets(
           mediaRows.map((m) => ({
             id: m.id,
@@ -1272,19 +1298,22 @@ function StudioLiveDeskContainer() {
         // Media remains optional
       }
     } catch (err: any) {
+      if (currentSeq !== requestSeqRef.current) return;
       setError(err?.message || "Failed to load live coverage registry from server.");
     } finally {
-      setLoading(false);
+      if (currentSeq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, [statusFilter, kindFilter]);
+    loadData(debouncedSearch);
+  }, [statusFilter, kindFilter, debouncedSearch]);
 
   const handleCreateCoverage = async (input: NewsroomLiveCoverageCreateInput) => {
     const newId = await services.newsroomLive.createCoverage(input);
-    await loadData();
+    await loadData(debouncedSearch);
     return newId;
   };
 
@@ -1294,19 +1323,19 @@ function StudioLiveDeskContainer() {
     patch: NewsroomLiveCoveragePatch
   ) => {
     const nextVer = await services.newsroomLive.saveCoverage(id, expectedVersion, patch);
-    await loadData();
+    await loadData(debouncedSearch);
     return nextVer;
   };
 
   const handleStartCoverage = async (id: string, expectedVersion: number) => {
     const nextVer = await services.newsroomLive.startCoverage(id, expectedVersion);
-    await loadData();
+    await loadData(debouncedSearch);
     return nextVer;
   };
 
   const handleEndCoverage = async (id: string, expectedVersion: number) => {
     const nextVer = await services.newsroomLive.endCoverage(id, expectedVersion);
-    await loadData();
+    await loadData(debouncedSearch);
     return nextVer;
   };
 
@@ -1325,7 +1354,7 @@ function StudioLiveDeskContainer() {
       onStatusFilterChange={setStatusFilter}
       kindFilter={kindFilter}
       onKindFilterChange={setKindFilter}
-      onRefresh={loadData}
+      onRefresh={() => loadData(debouncedSearch)}
       onCreateCoverage={handleCreateCoverage}
       onSaveCoverage={handleSaveCoverage}
       onStartCoverage={handleStartCoverage}
@@ -1432,6 +1461,15 @@ const styles = StyleSheet.create({
     color: colors.gray500,
     marginTop: 2,
     textTransform: "uppercase"
+  },
+  disclosureRow: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm
+  },
+  disclosureText: {
+    fontSize: 12,
+    color: colors.gray500,
+    lineHeight: 16
   },
   filterBar: {
     paddingHorizontal: spacing.md,
