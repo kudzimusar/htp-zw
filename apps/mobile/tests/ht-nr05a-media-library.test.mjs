@@ -117,13 +117,13 @@ const { buildPreviewMediaAssets, OWNER_PREVIEW_NAV_ITEMS } = previewData;
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =========================================================================
 
-test("HT-NR-05A: Migration count matches repository authority (exactly 72 at HT-NR-05D-B-R1)", () => {
+test("HT-NR-05A: Migration count matches repository authority (exactly 73 at HT-NR-06B)", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const sqlFiles = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.equal(
     sqlFiles.length,
-    72,
-    `Migration count must be exactly 72 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery + 05D-A live desk foundation + 05D-B live blog updates + 05D-B-R1 stream integrity). Found: ${sqlFiles.length}`
+    73,
+    `Migration count must be exactly 73 (62 pre-Presentation + 04B public presentation + 04B-R1 presentation safety + 05B-R1 story-media integrity + 05C video desk foundation + 05C-A-R1 video url safety + 05C-A-R2 video url port safety + 05C-B public watch delivery + 05D-A live desk foundation + 05D-B live blog updates + 05D-B-R1 stream integrity + 06B campaign read authority). Found: ${sqlFiles.length}`
   );
 });
 

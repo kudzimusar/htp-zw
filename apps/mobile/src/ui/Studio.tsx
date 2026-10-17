@@ -26,6 +26,7 @@ const modules=[
   ["Advertising","/studio/advertising"],
   ["Premium","/studio/premium"],
   ["Social Desk","/studio/social"],
+  ["Newsletter Desk","/studio/newsletters"],
   ["Audience","/studio/audience"],
   ["Search & Growth","/studio/search-growth"],
   ["Analytics & Intelligence","/studio/analytics"],

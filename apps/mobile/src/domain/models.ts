@@ -2444,4 +2444,214 @@ export function validateSocialDraftCreateInput(
   return { valid: true };
 }
 
+// ============================================================
+// HT-NR-06B: Canonical Newsletter / Campaign Desk Models & Helpers
+// ============================================================
 
+export const NEWSROOM_CAMPAIGN_PURPOSES = [
+  "NEWSLETTER",
+  "BREAKING_NEWS",
+  "MARKETING",
+  "RESEARCH_UPDATES",
+  "EVENTS",
+  "PARTNER_CONTENT"
+] as const;
+
+export type NewsroomCampaignPurpose =
+  (typeof NEWSROOM_CAMPAIGN_PURPOSES)[number];
+
+export const NEWSROOM_CAMPAIGN_STATUSES = [
+  "draft",
+  "approved",
+  "scheduled",
+  "sending",
+  "sent",
+  "failed",
+  "cancelled"
+] as const;
+
+export type NewsroomCampaignStatus =
+  (typeof NEWSROOM_CAMPAIGN_STATUSES)[number];
+
+export interface NewsroomCampaign {
+  id: string;
+  name: string;
+  purpose: NewsroomCampaignPurpose;
+  channel: "email";
+  segmentId: string | null;
+  provider: "brevo";
+  providerCampaignId: string | null;
+  status: NewsroomCampaignStatus;
+  subject: string;
+  htmlContent: string | null;
+  textContent: string | null;
+  approvedAt: string | null;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const NEWSROOM_SEGMENT_SYNC_STATES = [
+  "pending",
+  "synced",
+  "failed",
+  "not_configured"
+] as const;
+
+export type NewsroomSegmentSyncState =
+  (typeof NEWSROOM_SEGMENT_SYNC_STATES)[number];
+
+export interface NewsroomContactSegment {
+  id: string;
+  key: string;
+  name: string;
+  provider: string | null;
+  providerSegmentId: string | null;
+  syncState: NewsroomSegmentSyncState;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomCampaignCreateInput {
+  name: string;
+  purpose: NewsroomCampaignPurpose;
+  subject: string;
+  htmlContent?: string | null;
+  textContent?: string | null;
+  segmentId: string;
+}
+
+export interface NewsroomCampaignPrepareSendResult {
+  campaignId: string;
+  name: string;
+  purpose: NewsroomCampaignPurpose;
+  subject: string;
+  htmlContent: string | null;
+  textContent: string | null;
+  brevoListId: string;
+  eligibleCount: number;
+  noConsentCount: number;
+  suppressedCount: number;
+}
+
+export function validateCampaignCreateInput(
+  input: unknown
+): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return {
+      valid: false,
+      error: "Campaign create payload must be a JSON object."
+    };
+  }
+
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "name",
+    "purpose",
+    "subject",
+    "htmlContent",
+    "textContent",
+    "segmentId"
+  ]);
+
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return {
+        valid: false,
+        error: `Unknown or forbidden campaign create field: ${key}`
+      };
+    }
+  }
+
+  if (typeof record.name !== "string" || record.name.trim().length < 1) {
+    return {
+      valid: false,
+      error: "Campaign name and subject are required."
+    };
+  }
+  if (record.name.trim().length > 200) {
+    return {
+      valid: false,
+      error: "Campaign name must be 200 characters or fewer."
+    };
+  }
+
+  if (
+    typeof record.purpose !== "string" ||
+    !NEWSROOM_CAMPAIGN_PURPOSES.includes(
+      record.purpose as NewsroomCampaignPurpose
+    )
+  ) {
+    return {
+      valid: false,
+      error: "Invalid campaign purpose."
+    };
+  }
+
+  if (typeof record.subject !== "string" || record.subject.trim().length < 1) {
+    return {
+      valid: false,
+      error: "Campaign name and subject are required."
+    };
+  }
+  if (record.subject.trim().length > 300) {
+    return {
+      valid: false,
+      error: "Campaign subject must be 300 characters or fewer."
+    };
+  }
+
+  if (
+    record.htmlContent !== undefined &&
+    record.htmlContent !== null &&
+    typeof record.htmlContent !== "string"
+  ) {
+    return {
+      valid: false,
+      error: "Campaign HTML content must be a string when provided."
+    };
+  }
+
+  if (
+    record.textContent !== undefined &&
+    record.textContent !== null &&
+    typeof record.textContent !== "string"
+  ) {
+    return {
+      valid: false,
+      error: "Campaign text content must be a string when provided."
+    };
+  }
+
+  const rawHtml =
+    typeof record.htmlContent === "string" ? record.htmlContent : "";
+  const rawText =
+    typeof record.textContent === "string" ? record.textContent.trim() : "";
+  const hasMeaningfulHtml =
+    rawHtml.length >= 11 && rawHtml.trim().length >= 11;
+  const hasMeaningfulText = rawText.length >= 1;
+
+  if (!hasMeaningfulHtml && !hasMeaningfulText) {
+    return {
+      valid: false,
+      error:
+        "Campaign content is required (provide meaningful HTML content or non-empty plain text)."
+    };
+  }
+
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (
+    typeof record.segmentId !== "string" ||
+    !uuidRegex.test(record.segmentId.trim())
+  ) {
+    return {
+      valid: false,
+      error: "Canonical contact segment is required."
+    };
+  }
+
+  return { valid: true };
+}

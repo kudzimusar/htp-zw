@@ -234,13 +234,13 @@ function collectText(node, out = []) {
 // SECTION 55 — CUSTODY, INVARIANTS & FROZEN BLOBS
 // =============================================================================
 
-test("HT-NR-05D-B-R1 Section 55: Repository migration count is exactly 72", () => {
+test("HT-NR-05D-B-R1 Section 55: Repository migration count is exactly 73", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   assert.strictEqual(
     files.length,
-    72,
-    `Migration count must be exactly 72 (70 prior + 05D-B live blog updates + 05D-B-R1 stream integrity). Found ${files.length}.`
+    73,
+    `Migration count must be exactly 73 (70 prior + 05D-B live blog updates + 05D-B-R1 stream integrity + 06B campaign read authority). Found ${files.length}.`
   );
   assert.ok(
     files.includes("20261017010000_ht_nr05da_live_desk_foundation.sql"),

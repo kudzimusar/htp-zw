@@ -34,7 +34,13 @@ import {
   type NewsroomSocialAccount,
   type NewsroomSocialDraftCreateInput,
   type NewsroomSocialPost,
-  type NewsroomSocialPublicationAttempt
+  type NewsroomSocialPublicationAttempt,
+  type NewsroomCampaign,
+  type NewsroomCampaignCreateInput,
+  type NewsroomCampaignPrepareSendResult,
+  type NewsroomCampaignPurpose,
+  type NewsroomCampaignStatus,
+  type NewsroomContactSegment
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -63,6 +69,7 @@ import {
   StudioSocialDeskView,
   formatPublishPrepareFeedback
 } from "../ui/StudioSocialDesk";
+import { StudioNewsletterDeskView } from "../ui/StudioNewsletterDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -79,6 +86,9 @@ import {
   buildPreviewSocialAccounts,
   buildPreviewSocialPosts,
   buildPreviewSocialAttempts,
+  buildPreviewContactSegments,
+  buildPreviewCampaigns,
+  buildPreviewCampaignPrepareSendResult,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -1715,6 +1725,169 @@ function OwnerPreviewSocialDeskView() {
   );
 }
 
+function OwnerPreviewNewsletterDeskView() {
+  const [segments] = useState<NewsroomContactSegment[]>(() =>
+    buildPreviewContactSegments()
+  );
+  const [campaigns, setCampaigns] = useState<NewsroomCampaign[]>(() =>
+    buildPreviewCampaigns()
+  );
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
+    () => buildPreviewCampaigns()[0]?.id ?? null
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    NewsroomCampaignStatus | "all"
+  >("all");
+  const [purposeFilter, setPurposeFilter] = useState<
+    NewsroomCampaignPurpose | "all"
+  >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [preparedHandoff, setPreparedHandoff] =
+    useState<NewsroomCampaignPrepareSendResult | null>(() =>
+      buildPreviewCampaignPrepareSendResult()
+    );
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(
+    "Send handoff prepared."
+  );
+  const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(
+    null
+  );
+  const [notice, setNotice] = useState<string>(
+    "Preview state only — not saved to server. Displaying fictional sample campaigns, segment sync readiness, and aggregate eligibility counts."
+  );
+
+  const handleCreateCampaign = (input: NewsroomCampaignCreateInput) => {
+    const nowIso = new Date().toISOString();
+    const newId = `a1000000-0000-4000-a000-${String(Date.now()).slice(-12).padStart(12, "0")}`;
+    const newCampaign: NewsroomCampaign = {
+      id: newId,
+      name: input.name.trim(),
+      purpose: input.purpose,
+      channel: "email",
+      segmentId: input.segmentId.trim(),
+      provider: "brevo",
+      providerCampaignId: null,
+      status: "draft",
+      subject: input.subject.trim(),
+      htmlContent: input.htmlContent ?? null,
+      textContent: input.textContent ?? null,
+      approvedAt: null,
+      scheduledAt: null,
+      sentAt: null,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    setCampaigns((prev) => [newCampaign, ...prev]);
+    setSelectedCampaignId(newId);
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Campaign draft created in local preview."
+    );
+    setNotice(
+      "Preview state only — not saved: Simulated local draft campaign creation."
+    );
+  };
+
+  const handleApproveCampaign = (campaignId: string) => {
+    const nowIso = new Date().toISOString();
+    setCampaigns((prev) =>
+      prev.map((c) =>
+        c.id === campaignId && c.status === "draft"
+          ? {
+              ...c,
+              status: "approved",
+              approvedAt: nowIso,
+              updatedAt: nowIso
+            }
+          : c
+      )
+    );
+    setActionErrorMessage(null);
+    setFeedbackMessage(
+      "Preview state only — not saved: Campaign approved for send preparation."
+    );
+    setNotice(
+      "Preview state only — not saved: Simulated human campaign approval."
+    );
+  };
+
+  const handlePrepareSend = (campaignId: string) => {
+    const camp = campaigns.find((c) => c.id === campaignId);
+    if (!camp) return;
+    const seg = segments.find((s) => s.id === camp.segmentId);
+    if (!seg || seg.syncState !== "synced" || !seg.providerSegmentId) {
+      setPreparedHandoff(null);
+      setFeedbackMessage(null);
+      setActionErrorMessage("Brevo segment synchronization is not ready");
+      setNotice(
+        "Preview state only — not saved: Simulated server rejection for unsynced segment."
+      );
+      return;
+    }
+
+    const simulatedResult: NewsroomCampaignPrepareSendResult = {
+      campaignId: camp.id,
+      name: camp.name,
+      purpose: camp.purpose,
+      subject: camp.subject,
+      htmlContent: camp.htmlContent,
+      textContent: camp.textContent,
+      brevoListId: seg.providerSegmentId,
+      eligibleCount: 1420,
+      noConsentCount: 94,
+      suppressedCount: 18
+    };
+    setPreparedHandoff(simulatedResult);
+    setActionErrorMessage(null);
+    setFeedbackMessage("Send handoff prepared.");
+    setNotice(
+      "Preview state only — not saved: Simulated consented send handoff preparation."
+    );
+  };
+
+  return (
+    <View
+      style={styles.sectionStack}
+      testID="owner-preview-newsletter-desk-view"
+    >
+      <View
+        style={styles.previewNoticeBanner}
+        testID="preview-newsletter-desk-notice"
+      >
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioNewsletterDeskView
+        campaigns={campaigns}
+        segments={segments}
+        selectedCampaignId={selectedCampaignId}
+        onSelectCampaign={(id) => {
+          setSelectedCampaignId(id);
+          setActionErrorMessage(null);
+        }}
+        statusFilter={statusFilter}
+        onChangeStatusFilter={setStatusFilter}
+        purposeFilter={purposeFilter}
+        onChangePurposeFilter={setPurposeFilter}
+        searchQuery={searchQuery}
+        onChangeSearchQuery={setSearchQuery}
+        capabilities={{
+          canCreate: true,
+          canApprove: true,
+          canSend: true,
+          canViewAnalytics: true
+        }}
+        previewMode={true}
+        feedbackMessage={feedbackMessage}
+        actionErrorMessage={actionErrorMessage}
+        preparedHandoff={preparedHandoff}
+        onCreateCampaign={handleCreateCampaign}
+        onApproveCampaign={handleApproveCampaign}
+        onPrepareSend={handlePrepareSend}
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -1831,6 +2004,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Story-linked social draft composition, editorial approval (social.approve), and provider publication handoff preparation (social.publish)."
         >
           <OwnerPreviewSocialDeskView />
+        </OwnerPreviewShell>
+      );
+    case "newsletters":
+      return (
+        <OwnerPreviewShell
+          activeKey="newsletters"
+          title="Newsletter Desk & Consented Campaign Control Plane (Owner Visual Preview)"
+          subtitle="Editorial newsletter composition (marketing.create), human approval (marketing.approve), and consented Brevo send preparation handoff (marketing.send)."
+        >
+          <OwnerPreviewNewsletterDeskView />
         </OwnerPreviewShell>
       );
     default:

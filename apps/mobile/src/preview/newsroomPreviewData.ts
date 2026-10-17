@@ -16,6 +16,9 @@ import type {
   NewsroomSocialAccount,
   NewsroomSocialPost,
   NewsroomSocialPublicationAttempt,
+  NewsroomCampaign,
+  NewsroomContactSegment,
+  NewsroomCampaignPrepareSendResult,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -40,6 +43,7 @@ export type OwnerPreviewModuleKey =
   | "video-desk"
   | "live-desk"
   | "social"
+  | "newsletters"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -1513,6 +1517,165 @@ export function buildPreviewSocialAttempts(): Record<
   };
 }
 
+export function buildPreviewContactSegments(): NewsroomContactSegment[] {
+  return [
+    {
+      id: "a0000000-0000-4000-a000-000000000001",
+      key: "weekly-public-health-digest",
+      name: "Weekly Public Health & Clinical Digest (Preview)",
+      provider: "brevo",
+      providerSegmentId: "brevo_list_401",
+      syncState: "synced",
+      createdAt: "2026-10-10T08:00:00.000Z",
+      updatedAt: "2026-10-16T07:30:00.000Z"
+    },
+    {
+      id: "a0000000-0000-4000-a000-000000000002",
+      key: "maternal-research-fellowship",
+      name: "Maternal & Pediatric Research Cohort (Preview)",
+      provider: "brevo",
+      providerSegmentId: null,
+      syncState: "pending",
+      createdAt: "2026-10-12T11:00:00.000Z",
+      updatedAt: "2026-10-16T08:00:00.000Z"
+    },
+    {
+      id: "a0000000-0000-4000-a000-000000000003",
+      key: "regional-symposium-delegates",
+      name: "Regional Health Policy Symposium Alerts (Preview)",
+      provider: "brevo",
+      providerSegmentId: null,
+      syncState: "not_configured",
+      createdAt: "2026-10-13T09:15:00.000Z",
+      updatedAt: "2026-10-15T16:40:00.000Z"
+    }
+  ];
+}
 
+export function buildPreviewCampaigns(): NewsroomCampaign[] {
+  return [
+    {
+      id: "a1000000-0000-4000-a000-000000000001",
+      name: "PREVIEW — Harare Cholera & Maternal Vaccination Weekly Briefing",
+      purpose: "NEWSLETTER",
+      channel: "email",
+      segmentId: "a0000000-0000-4000-a000-000000000001",
+      provider: "brevo",
+      providerCampaignId: null,
+      status: "approved",
+      subject:
+        "PREVIEW EDITION: 18-Hour Municipal Water Lab Turnaround & Q4 Cold-Chain Rollout",
+      htmlContent:
+        "<article><h1>HealthTimes Weekly Clinical Briefing (Preview)</h1><p>Metropolitan Harare polyclinics have cut municipal water microbiology turnaround to 18 hours while expanding oral rehydration buffer stocks across 16 high-density catchment wards.</p><p>In provincial maternal health news, solar-backed cold-chain telemetry units are now live ahead of the Q4 pediatric immunization drive.</p></article>",
+      textContent:
+        "HealthTimes Weekly Clinical Briefing (Preview)\n\nMetropolitan Harare polyclinics have cut municipal water microbiology turnaround to 18 hours while expanding oral rehydration buffer stocks across 16 high-density catchment wards.\n\nIn provincial maternal health news, solar-backed cold-chain telemetry units are now live ahead of the Q4 pediatric immunization drive.",
+      approvedAt: "2026-10-16T09:10:00.000Z",
+      scheduledAt: null,
+      sentAt: null,
+      createdAt: "2026-10-16T08:00:00.000Z",
+      updatedAt: "2026-10-16T09:10:00.000Z"
+    },
+    {
+      id: "a1000000-0000-4000-a000-000000000002",
+      name: "PREVIEW — Friday Primary Care & Essential Medicines Dispatch",
+      purpose: "NEWSLETTER",
+      channel: "email",
+      segmentId: "a0000000-0000-4000-a000-000000000001",
+      provider: "brevo",
+      providerCampaignId: null,
+      status: "draft",
+      subject:
+        "PREVIEW DRAFT: Essential Medicines Buffer Stock Audit & Rural Clinic Solar Grid",
+      htmlContent:
+        "<article><h1>Friday Primary Care Dispatch (Preview Draft)</h1><p>Editorial draft reviewing provincial pharmacy depot dispatch timelines and district hospital laboratory reagent inventories.</p></article>",
+      textContent:
+        "Friday Primary Care Dispatch (Preview Draft)\n\nEditorial draft reviewing provincial pharmacy depot dispatch timelines and district hospital laboratory reagent inventories.",
+      approvedAt: null,
+      scheduledAt: null,
+      sentAt: null,
+      createdAt: "2026-10-16T09:45:00.000Z",
+      updatedAt: "2026-10-16T09:45:00.000Z"
+    },
+    {
+      id: "a1000000-0000-4000-a000-000000000003",
+      name: "PREVIEW — Maternal & Neonatal Outcomes Quarterly Research Digest",
+      purpose: "RESEARCH_UPDATES",
+      channel: "email",
+      segmentId: "a0000000-0000-4000-a000-000000000002",
+      provider: "brevo",
+      providerCampaignId: null,
+      status: "approved",
+      subject:
+        "PREVIEW RESEARCH: Neonatal Triage Protocols & District Telemetry Findings",
+      htmlContent:
+        "<article><h1>Maternal &amp; Neonatal Research Digest (Preview)</h1><p>Summary of peer-reviewed clinical audit findings across provincial maternity wards. Segment synchronization is currently pending Brevo list provisioning.</p></article>",
+      textContent:
+        "Maternal & Neonatal Research Digest (Preview)\n\nSummary of peer-reviewed clinical audit findings across provincial maternity wards. Segment synchronization is currently pending Brevo list provisioning.",
+      approvedAt: "2026-10-16T08:40:00.000Z",
+      scheduledAt: null,
+      sentAt: null,
+      createdAt: "2026-10-15T17:20:00.000Z",
+      updatedAt: "2026-10-16T08:40:00.000Z"
+    },
+    {
+      id: "a1000000-0000-4000-a000-000000000004",
+      name: "PREVIEW — National Malaria Vector Control Flash Bulletin",
+      purpose: "BREAKING_NEWS",
+      channel: "email",
+      segmentId: "a0000000-0000-4000-a000-000000000001",
+      provider: "brevo",
+      providerCampaignId: "brevo_camp_20261015_881",
+      status: "sent",
+      subject:
+        "PREVIEW BULLETIN: Indoor Residual Spraying Mobilization Across Lowveld Districts",
+      htmlContent:
+        "<article><h1>Malaria Vector Surveillance Bulletin (Preview)</h1><p>Provincial environmental health teams have completed phase-one indoor residual spraying across priority lowveld wards.</p></article>",
+      textContent:
+        "Malaria Vector Surveillance Bulletin (Preview)\n\nProvincial environmental health teams have completed phase-one indoor residual spraying across priority lowveld wards.",
+      approvedAt: "2026-10-15T11:00:00.000Z",
+      scheduledAt: null,
+      sentAt: "2026-10-15T11:30:00.000Z",
+      createdAt: "2026-10-15T10:15:00.000Z",
+      updatedAt: "2026-10-15T11:30:00.000Z"
+    },
+    {
+      id: "a1000000-0000-4000-a000-000000000005",
+      name: "PREVIEW — Annual Health Financing Roundtable Invitation",
+      purpose: "EVENTS",
+      channel: "email",
+      segmentId: "a0000000-0000-4000-a000-000000000003",
+      provider: "brevo",
+      providerCampaignId: null,
+      status: "failed",
+      subject:
+        "PREVIEW EVENT: Southern Africa Public Health Financing Convening Notice",
+      htmlContent:
+        "<article><h1>Health Financing Roundtable (Preview)</h1><p>Provider worker recorded a delivery handoff failure because the target regional events segment was not configured in Brevo.</p></article>",
+      textContent:
+        "Health Financing Roundtable (Preview)\n\nProvider worker recorded a delivery handoff failure because the target regional events segment was not configured in Brevo.",
+      approvedAt: "2026-10-14T15:00:00.000Z",
+      scheduledAt: null,
+      sentAt: null,
+      createdAt: "2026-10-14T14:00:00.000Z",
+      updatedAt: "2026-10-14T15:20:00.000Z"
+    }
+  ];
+}
 
-
+export function buildPreviewCampaignPrepareSendResult(): NewsroomCampaignPrepareSendResult {
+  return {
+    campaignId: "a1000000-0000-4000-a000-000000000001",
+    name: "PREVIEW — Harare Cholera & Maternal Vaccination Weekly Briefing",
+    purpose: "NEWSLETTER",
+    subject:
+      "PREVIEW EDITION: 18-Hour Municipal Water Lab Turnaround & Q4 Cold-Chain Rollout",
+    htmlContent:
+      "<article><h1>HealthTimes Weekly Clinical Briefing (Preview)</h1><p>Metropolitan Harare polyclinics have cut municipal water microbiology turnaround to 18 hours while expanding oral rehydration buffer stocks across 16 high-density catchment wards.</p></article>",
+    textContent:
+      "HealthTimes Weekly Clinical Briefing (Preview)\n\nMetropolitan Harare polyclinics have cut municipal water microbiology turnaround to 18 hours while expanding oral rehydration buffer stocks across 16 high-density catchment wards.",
+    brevoListId: "brevo_list_401",
+    eligibleCount: 1420,
+    noConsentCount: 94,
+    suppressedCount: 18
+  };
+}

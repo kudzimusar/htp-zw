@@ -70,7 +70,9 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "homepage",
     "media",
     "video-desk",
-    "live-desk"
+    "live-desk",
+    "social",
+    "newsletters"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -361,6 +363,8 @@ test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from 
   const homepageSource = read("src/ui/StudioHomepage.tsx");
   const mediaSource = read("src/ui/StudioMediaLibrary.tsx");
   const videoSource = read("src/ui/StudioVideoDesk.tsx");
+  const socialSource = read("src/ui/StudioSocialDesk.tsx");
+  const newsletterSource = read("src/ui/StudioNewsletterDesk.tsx");
 
   assert.ok(storiesSource.includes("export function StudioStoriesView"));
   assert.ok(storiesSource.includes("export function StudioStories"));
@@ -388,6 +392,12 @@ test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from 
 
   assert.ok(videoSource.includes("export function StudioVideoDeskView"));
   assert.ok(videoSource.includes("export function StudioVideoDesk"));
+
+  assert.ok(socialSource.includes("export function StudioSocialDeskView"));
+  assert.ok(socialSource.includes("export function StudioSocialDesk"));
+
+  assert.ok(newsletterSource.includes("export function StudioNewsletterDeskView"));
+  assert.ok(newsletterSource.includes("export function StudioNewsletterDesk"));
 });
 
 test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Studio views without duplicate UI", () => {
@@ -419,6 +429,12 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   assert.ok(studioPreviewSource.includes("StudioVideoDeskView"));
   assert.ok(studioPreviewSource.includes("<StudioVideoDeskView"));
 
+  assert.ok(studioPreviewSource.includes("StudioSocialDeskView"));
+  assert.ok(studioPreviewSource.includes("<StudioSocialDeskView"));
+
+  assert.ok(studioPreviewSource.includes("StudioNewsletterDeskView"));
+  assert.ok(studioPreviewSource.includes("<StudioNewsletterDeskView"));
+
   // OwnerPreviewStoryWorkspace imports and renders shared view
   assert.ok(workspacePreviewSource.includes("StudioStoryWorkspaceView"));
   assert.ok(workspacePreviewSource.includes("<StudioStoryWorkspaceView"));
@@ -433,6 +449,8 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   const homepageSource = read("src/ui/StudioHomepage.tsx");
   const mediaSource = read("src/ui/StudioMediaLibrary.tsx");
   const videoSource = read("src/ui/StudioVideoDesk.tsx");
+  const socialSource = read("src/ui/StudioSocialDesk.tsx");
+  const newsletterSource = read("src/ui/StudioNewsletterDesk.tsx");
 
   assert.ok(storiesSource.includes("services.newsroomStories"));
   assert.ok(workspaceSource.includes("services.newsroomStories"));
@@ -446,6 +464,6 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   assert.ok(homepageSource.includes("services.newsroomStories"));
   assert.ok(mediaSource.includes("services.newsroomMedia"));
   assert.ok(videoSource.includes("services.newsroomVideo"));
+  assert.ok(socialSource.includes("services.newsroomSocial"));
+  assert.ok(newsletterSource.includes("services.newsroomCampaigns"));
 });
-
-

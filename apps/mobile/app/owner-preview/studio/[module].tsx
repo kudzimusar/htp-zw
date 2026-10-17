@@ -13,7 +13,8 @@ export function generateStaticParams() {
     "media",
     "video-desk",
     "live-desk",
-    "social"
+    "social",
+    "newsletters"
   ].map((module) => ({ module }));
 }
 

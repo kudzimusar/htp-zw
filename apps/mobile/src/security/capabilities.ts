@@ -39,7 +39,11 @@ export const HEALTH_TIMES_CAPABILITIES = [
   "social.compose",
   "social.approve",
   "social.publish",
-  "social.manage_accounts"
+  "social.manage_accounts",
+  "marketing.create",
+  "marketing.approve",
+  "marketing.send",
+  "marketing.analytics"
 ] as const;
 
 export type HealthTimesCapability = (typeof HEALTH_TIMES_CAPABILITIES)[number];
@@ -49,6 +53,13 @@ export const SOCIAL_DESK_CAPABILITIES = [
   "social.approve",
   "social.publish",
   "social.manage_accounts"
+] as const satisfies readonly HealthTimesCapability[];
+
+export const NEWSLETTER_DESK_CAPABILITIES = [
+  "marketing.create",
+  "marketing.approve",
+  "marketing.send",
+  "marketing.analytics"
 ] as const satisfies readonly HealthTimesCapability[];
 
 export type AuthorizationSnapshot = {
@@ -108,5 +119,11 @@ export function hasSocialDeskAccess(
   snapshot: AuthorizationSnapshot | null | undefined
 ): boolean {
   return hasAnyServerCapability(snapshot, SOCIAL_DESK_CAPABILITIES);
+}
+
+export function hasNewsletterDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  return hasAnyServerCapability(snapshot, NEWSLETTER_DESK_CAPABILITIES);
 }
 
