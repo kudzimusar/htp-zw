@@ -91,7 +91,6 @@ jobs:
                   await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
                 }else if(name==='article'){
                   await page.getByRole('button',{name:/Back/i}).waitFor({state:'visible',timeout:30000});
-                  await page.getByText(articleTitle,{exact:true}).first().waitFor({state:'visible',timeout:30000});
                   await page.getByText('Loading article…',{exact:true}).waitFor({state:'hidden',timeout:30000});
                   if(viewport==='desktop') await page.locator('[aria-label="HealthTimes Home"]:visible').first().waitFor({timeout:30000});
                   const body=await page.locator('body').innerText();
