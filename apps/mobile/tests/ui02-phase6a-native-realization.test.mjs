@@ -27,7 +27,7 @@ test("shared Reader uses native safe areas and reserves mobile tab space",()=>{
 });
 
 test("native search retains focusable keyboard input and touch-safe controls",()=>{
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   const tokens=read("src/theme/tokens.ts");
   assert.ok(search.includes("<TextInput"));
   assert.ok(search.includes('returnKeyType="search"'));

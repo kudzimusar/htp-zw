@@ -39,7 +39,7 @@ test("shared page shell protects native top side safe areas and bottom reader co
 
 test("native search exposes keyboard-safe focus and submission semantics",()=>{
   const layout=read("src/ui/Layout.tsx");
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   assert.ok(layout.includes('keyboardShouldPersistTaps="handled"'));
   assert.ok(search.includes('accessibilityLabel="Search HealthTimes"'));
   assert.ok(search.includes('returnKeyType="search"'));

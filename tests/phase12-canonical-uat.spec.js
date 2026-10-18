@@ -80,7 +80,7 @@ async function gotoCanonical(page, route, label) {
   const failures = captureRuntimeFailures(page);
   const response = await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response && response.status(), label + ' HTTP').toBe(200);
-  await page.getByRole('button', { name: 'HealthTimes Home' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'HealthTimes Home' }).or(page.getByRole('tab', { name: 'Home' })).first().waitFor({ timeout: 30000 });
   await page.waitForFunction(() => document.body && document.body.innerText.trim().length > 80, null, { timeout: 30000 });
   return failures;
 }

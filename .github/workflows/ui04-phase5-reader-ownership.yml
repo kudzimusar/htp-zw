@@ -359,7 +359,7 @@ jobs:
             const regressionChecks=[
               ['phase1-regression-home','/','HealthTimes'],
               ['phase3-regression-explore','/explore','Explore by topic'],
-              ['phase3-regression-search','/search','Suggested searches'],
+              ['phase3-regression-search','/search','Try searching for'],
               ['phase4-regression-live','/live','No live coverage right now'],
               ['phase4-regression-watch','/watch','Featured video'],
               ['phase4-regression-listen','/listen','No audio published yet'],
