@@ -98,7 +98,14 @@ import type {
   NewsroomWhatsAppDispatchStatus,
   NewsroomEditorialIntelligence,
   NewsroomGrowthIntelligence,
-  NewsroomAudienceIntelligence
+  NewsroomAudienceIntelligence,
+  NewsroomStaffMember,
+  NewsroomStaffInvitation,
+  NewsroomRole,
+  NewsroomCapability,
+  NewsroomAuditRecord,
+  NewsroomStaffOperationsDirectory,
+  NewsroomStaffInviteInput
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -410,6 +417,23 @@ export interface NewsroomIntelligenceService {
   getAudienceIntelligence(): Promise<NewsroomAudienceIntelligence>;
 }
 
+export interface NewsroomStaffService {
+  getStaffOperationsDirectory(): Promise<NewsroomStaffOperationsDirectory>;
+  changeStaffRole(staffId: string, roleName: string): Promise<void>;
+  updateStaffStatus(
+    staffId: string,
+    status: "active" | "suspended" | "revoked" | "deactivated"
+  ): Promise<void>;
+  revokeStaffSession(
+    staffId: string,
+    providerSessionId?: string | null
+  ): Promise<number>;
+  createInvitation(
+    input: NewsroomStaffInviteInput
+  ): Promise<{ id: string; email: string; displayName: string; role: string }>;
+  cancelInvitation(invitationId: string): Promise<void>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -439,6 +463,7 @@ export interface HealthTimesServices {
   newsroomPushAlerts: NewsroomPushAlertService;
   newsroomWhatsApp: NewsroomWhatsAppService;
   newsroomIntelligence: NewsroomIntelligenceService;
+  newsroomStaff: NewsroomStaffService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

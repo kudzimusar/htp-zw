@@ -246,7 +246,7 @@ test("HT-NR-06D: resolveWhatsAppDeskCapabilityState enforces granular action gat
 // 3. MIGRATION 78 AUTHORITY & SCHEMA INTEGRITY
 // =============================================================================
 
-test("HT-NR-06D: repository migration count is at least 78 (79 at Wave B)", () => {
+test("HT-NR-06D: repository migration count is at least 78 (80 at Wave C)", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -255,8 +255,8 @@ test("HT-NR-06D: repository migration count is at least 78 (79 at Wave B)", () =
 
   assert.equal(
     migrationFiles.length,
-    79,
-    `Expected exactly 79 migrations in supabase/migrations, found ${migrationFiles.length}`
+    80,
+    `Expected exactly 80 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(

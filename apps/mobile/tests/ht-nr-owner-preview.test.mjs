@@ -77,7 +77,8 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "whatsapp",
     "analytics",
     "audience",
-    "search-growth"
+    "search-growth",
+    "staff-roles"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -85,7 +86,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 18);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 19);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -105,6 +106,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "/owner-preview/studio/analytics",
     "/owner-preview/studio/audience",
     "/owner-preview/studio/search-growth",
+    "/owner-preview/studio/staff-roles",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -321,6 +323,7 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Analytics & Intelligence",
     "Audience",
     "Search & Growth",
+    "Staff & Roles",
     "Story Workspace"
   ]);
 

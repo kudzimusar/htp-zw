@@ -3283,5 +3283,77 @@ export interface NewsroomAudienceIntelligence {
   };
 }
 
+export interface NewsroomStaffMember {
+  id: string;
+  displayName: string;
+  email: string;
+  handle: string;
+  roleId: string | null;
+  roleName: string;
+  desk: string | null;
+  beat: string | null;
+  country: string | null;
+  region: string | null;
+  status: "active" | "suspended" | "revoked" | "invited" | string;
+  mfaRequired: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  activeSessionsCount: number;
+  capabilities: string[];
+}
+
+export interface NewsroomStaffInvitation {
+  id: string;
+  invitedEmail: string;
+  displayName: string;
+  roleName: string;
+  desk: string | null;
+  country: string | null;
+  status: "pending" | "sent" | "accepted" | "cancelled" | "expired" | string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface NewsroomRole {
+  id: string;
+  name: string;
+  description: string | null;
+  capabilities: string[];
+}
+
+export interface NewsroomCapability {
+  key: string;
+  description: string;
+  category: "editorial" | "distribution" | "commercial" | "audit" | "staff_admin";
+}
+
+export interface NewsroomAuditRecord {
+  id: string;
+  action: string;
+  actorStaffId: string | null;
+  actorName: string | null;
+  targetTable: string;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface NewsroomStaffOperationsDirectory {
+  staff: NewsroomStaffMember[];
+  invitations: NewsroomStaffInvitation[];
+  roles: NewsroomRole[];
+  capabilities: NewsroomCapability[];
+  auditHistory: NewsroomAuditRecord[];
+  canManageStaff: boolean;
+}
+
+export interface NewsroomStaffInviteInput {
+  email: string;
+  displayName: string;
+  roleName: string;
+  desk?: string | null;
+  country?: string | null;
+}
+
 
 

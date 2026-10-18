@@ -86,6 +86,7 @@ import { StudioWhatsAppDeskView } from "../ui/StudioWhatsAppDesk";
 import { StudioAnalyticsDeskView } from "../ui/StudioAnalyticsDesk";
 import { StudioAudienceDeskView } from "../ui/StudioAudienceDesk";
 import { StudioSearchGrowthDeskView } from "../ui/StudioSearchGrowthDesk";
+import { StudioStaffRolesDeskView, type StaffDeskTab } from "../ui/StudioStaffRolesDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -114,6 +115,7 @@ import {
   buildPreviewEditorialIntelligence,
   buildPreviewGrowthIntelligence,
   buildPreviewAudienceIntelligence,
+  buildPreviewStaffOperationsDirectory,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2353,6 +2355,36 @@ export function OwnerPreviewSearchGrowthView() {
   );
 }
 
+export function OwnerPreviewStaffRolesView() {
+  const directory = useMemo(() => buildPreviewStaffOperationsDirectory(), []);
+  const [activeTab, setActiveTab] = useState<StaffDeskTab>("directory");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  return (
+    <StudioStaffRolesDeskView
+      directory={directory}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      statusFilter={statusFilter}
+      onChangeStatusFilter={setStatusFilter}
+      onChangeRole={async () => {}}
+      onUpdateStatus={async () => {}}
+      onRevokeSessions={async () => {}}
+      onInviteStaff={async () => {}}
+      onCancelInvite={async () => {}}
+      canManage={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2529,6 +2561,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Google Search Console authority, organic SEO audit, and academic research citations."
         >
           <OwnerPreviewSearchGrowthView />
+        </OwnerPreviewShell>
+      );
+    case "staff-roles":
+      return (
+        <OwnerPreviewShell
+          activeKey="staff-roles"
+          title="Staff & Roles Administration (Owner Visual Preview)"
+          subtitle="Newsroom staff directory, role catalog, fine-grained capabilities, status management, and immutable audit logs."
+        >
+          <OwnerPreviewStaffRolesView />
         </OwnerPreviewShell>
       );
     default:

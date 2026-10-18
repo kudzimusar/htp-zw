@@ -29,6 +29,7 @@ import type {
   NewsroomEditorialIntelligence,
   NewsroomGrowthIntelligence,
   NewsroomAudienceIntelligence,
+  NewsroomStaffOperationsDirectory,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -59,6 +60,7 @@ export type OwnerPreviewModuleKey =
   | "analytics"
   | "audience"
   | "search-growth"
+  | "staff-roles"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -91,6 +93,7 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "analytics", label: "Analytics & Intelligence", path: "/owner-preview/studio/analytics" },
   { key: "audience", label: "Audience", path: "/owner-preview/studio/audience" },
   { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" },
+  { key: "staff-roles", label: "Staff & Roles", path: "/owner-preview/studio/staff-roles" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -2070,6 +2073,319 @@ export function buildPreviewAudienceIntelligence(): NewsroomAudienceIntelligence
       status: "identity_verified_account_access_pending",
       notes: "Google Analytics 4 property identified. Awaiting Data API service account grant."
     }
+  };
+}
+
+export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsDirectory {
+  return {
+    staff: [
+      {
+        id: "prev-staff-001",
+        displayName: "Kudzai Moyo",
+        email: "kudzai.moyo@preview.healthtimes.co.zw",
+        handle: "kudzai.moyo",
+        roleId: "prev-role-001",
+        roleName: "Editor-in-Chief",
+        desk: "Editorial Executive",
+        beat: "National Health Policy",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-18T08:30:00Z",
+        createdAt: "2026-01-15T09:00:00Z",
+        activeSessionsCount: 2,
+        capabilities: [
+          "story.create",
+          "story.edit_all",
+          "story.publish",
+          "staff.manage",
+          "staff.view",
+          "security.manage"
+        ]
+      },
+      {
+        id: "prev-staff-002",
+        displayName: "Blessing Ndlovu",
+        email: "blessing.ndlovu@preview.healthtimes.co.zw",
+        handle: "blessing.ndlovu",
+        roleId: "prev-role-002",
+        roleName: "Managing Editor",
+        desk: "News Operations",
+        beat: "Healthcare Infrastructure",
+        country: "Zimbabwe",
+        region: "Bulawayo",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-18T07:45:00Z",
+        createdAt: "2026-02-01T10:00:00Z",
+        activeSessionsCount: 1,
+        capabilities: [
+          "story.create",
+          "story.edit_all",
+          "story.publish",
+          "assignment.manage",
+          "staff.view"
+        ]
+      },
+      {
+        id: "prev-staff-003",
+        displayName: "Dr. Tariro Sithole",
+        email: "dr.tariro.sithole@preview.healthtimes.co.zw",
+        handle: "tariro.sithole",
+        roleId: "prev-role-003",
+        roleName: "Health / Science Editor",
+        desk: "Clinical & Science",
+        beat: "Epidemiology & Oncology",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-17T16:20:00Z",
+        createdAt: "2026-03-10T11:00:00Z",
+        activeSessionsCount: 1,
+        capabilities: [
+          "story.health_review",
+          "story.edit_all",
+          "story.submit",
+          "analytics.view"
+        ]
+      },
+      {
+        id: "prev-staff-004",
+        displayName: "Farai Chitepo",
+        email: "farai.chitepo@preview.healthtimes.co.zw",
+        handle: "farai.chitepo",
+        roleId: "prev-role-004",
+        roleName: "Reporter / Journalist",
+        desk: "Investigations",
+        beat: "Public Procurement & Pharmaceuticals",
+        country: "Zimbabwe",
+        region: "Manicaland",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-18T09:15:00Z",
+        createdAt: "2026-04-05T08:30:00Z",
+        activeSessionsCount: 1,
+        capabilities: ["story.create", "story.edit_own", "story.submit"]
+      },
+      {
+        id: "prev-staff-005",
+        displayName: "Nyasha Gumbo",
+        email: "nyasha.gumbo@preview.healthtimes.co.zw",
+        handle: "nyasha.gumbo",
+        roleId: "prev-role-005",
+        roleName: "Commercial Manager",
+        desk: "Commercial & Growth",
+        beat: "Advertising & Partnerships",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-17T14:10:00Z",
+        createdAt: "2026-05-12T13:00:00Z",
+        activeSessionsCount: 0,
+        capabilities: [
+          "ads.view",
+          "ads.approve",
+          "subscriber.manage",
+          "premium.manage"
+        ]
+      },
+      {
+        id: "prev-staff-006",
+        displayName: "Tinashe Shumba",
+        email: "tinashe.shumba@preview.healthtimes.co.zw",
+        handle: "tinashe.shumba",
+        roleId: "prev-role-006",
+        roleName: "Copy Editor",
+        desk: "Production",
+        beat: "Fact Verification",
+        country: "Zimbabwe",
+        region: "Midlands",
+        status: "suspended",
+        mfaRequired: true,
+        lastLoginAt: "2026-09-30T11:00:00Z",
+        createdAt: "2026-06-20T09:00:00Z",
+        activeSessionsCount: 0,
+        capabilities: ["story.copy_edit", "story.edit_all", "story.submit"]
+      }
+    ],
+    invitations: [
+      {
+        id: "prev-inv-001",
+        invitedEmail: "guest.writer@sample-medical.zw",
+        displayName: "Dr. Chengetai Mutasa",
+        roleName: "Contributor",
+        desk: "Guest Commentary",
+        country: "Zimbabwe",
+        status: "pending",
+        createdAt: "2026-10-16T10:00:00Z",
+        expiresAt: "2026-10-19T10:00:00Z"
+      }
+    ],
+    roles: [
+      {
+        id: "prev-role-001",
+        name: "Publisher / Owner",
+        description: "Organization executive authority; all actions remain audited.",
+        capabilities: [
+          "story.publish",
+          "staff.manage",
+          "security.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        id: "prev-role-002",
+        name: "Editor-in-Chief",
+        description: "Senior editorial review and publishing authority.",
+        capabilities: [
+          "story.publish",
+          "story.edit_all",
+          "staff.manage",
+          "staff.change_role"
+        ]
+      },
+      {
+        id: "prev-role-003",
+        name: "Managing Editor",
+        description: "Editorial operations, assignments, review, and publishing.",
+        capabilities: [
+          "story.publish",
+          "assignment.manage",
+          "distribution.manage"
+        ]
+      },
+      {
+        id: "prev-role-004",
+        name: "Reporter / Journalist",
+        description: "Create, edit own/assigned stories and submit for review.",
+        capabilities: ["story.create", "story.edit_own", "story.submit"]
+      },
+      {
+        id: "prev-role-005",
+        name: "Commercial Manager",
+        description: "Advertising, subscriber and Premium operations without editorial publishing.",
+        capabilities: ["ads.approve", "subscriber.manage", "premium.manage"]
+      },
+      {
+        id: "prev-role-006",
+        name: "Copy Editor",
+        description: "Copy-edit review and style guide verification.",
+        capabilities: ["story.copy_edit", "story.edit_all", "story.submit"]
+      },
+      {
+        id: "prev-role-007",
+        name: "Contributor",
+        description: "External or guest writer; can draft and submit stories for editorial review.",
+        capabilities: ["story.create", "story.edit_own", "story.submit"]
+      }
+    ],
+    capabilities: [
+      {
+        key: "story.create",
+        description: "Create newsroom stories",
+        category: "editorial"
+      },
+      {
+        key: "story.edit_own",
+        description: "Edit owned or assigned stories",
+        category: "editorial"
+      },
+      {
+        key: "story.edit_all",
+        description: "Edit stories across permitted desks",
+        category: "editorial"
+      },
+      {
+        key: "story.submit",
+        description: "Submit story into editorial review queue",
+        category: "editorial"
+      },
+      {
+        key: "story.publish",
+        description: "Publish story after editorial review gates",
+        category: "editorial"
+      },
+      {
+        key: "story.health_review",
+        description: "Perform clinical health and science review",
+        category: "editorial"
+      },
+      {
+        key: "story.copy_edit",
+        description: "Perform copy-editing and proofing",
+        category: "editorial"
+      },
+      {
+        key: "assignment.manage",
+        description: "Create and assign reporting tasks",
+        category: "editorial"
+      },
+      {
+        key: "distribution.manage",
+        description: "Manage newsletters, social, push, and WhatsApp distribution",
+        category: "distribution"
+      },
+      {
+        key: "ads.approve",
+        description: "Approve advertising campaigns and placements",
+        category: "commercial"
+      },
+      {
+        key: "subscriber.manage",
+        description: "Manage paid subscriber records and policies",
+        category: "commercial"
+      },
+      {
+        key: "security.manage",
+        description: "Manage security posture and session policies",
+        category: "audit"
+      },
+      {
+        key: "security.view_audit",
+        description: "View immutable newsroom audit logs",
+        category: "audit"
+      },
+      {
+        key: "staff.view",
+        description: "View staff directory and role mappings",
+        category: "staff_admin"
+      },
+      {
+        key: "staff.manage",
+        description: "Full management of staff profiles, roles, and status",
+        category: "staff_admin"
+      }
+    ],
+    auditHistory: [
+      {
+        id: "prev-audit-001",
+        action: "staff.role.changed",
+        actorStaffId: "prev-staff-001",
+        actorName: "Kudzai Moyo",
+        targetTable: "staff_profiles",
+        targetId: "prev-staff-004",
+        metadata: { previous: "Contributor", new: "Reporter / Journalist" },
+        createdAt: "2026-10-17T15:30:00Z"
+      },
+      {
+        id: "prev-audit-002",
+        action: "staff.status.suspended",
+        actorStaffId: "prev-staff-001",
+        actorName: "Kudzai Moyo",
+        targetTable: "staff_profiles",
+        targetId: "prev-staff-006",
+        metadata: {
+          previous_status: "active",
+          new_status: "suspended",
+          reason: "Annual leave security hold"
+        },
+        createdAt: "2026-10-15T09:12:00Z"
+      }
+    ],
+    canManageStaff: true
   };
 }
 

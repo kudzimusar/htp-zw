@@ -19,7 +19,8 @@ export function generateStaticParams() {
     "whatsapp",
     "analytics",
     "audience",
-    "search-growth"
+    "search-growth",
+    "staff-roles"
   ].map((module) => ({ module }));
 }
 

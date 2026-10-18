@@ -15,6 +15,7 @@ import { stagingNewsroomCampaignService } from "./newsroom-campaigns";
 import { stagingNewsroomPushAlertService } from "./newsroom-push-alerts";
 import { stagingNewsroomWhatsAppService } from "./newsroom-whatsapp";
 import { stagingNewsroomIntelligenceService } from "./newsroom-intelligence";
+import { stagingNewsroomStaffService } from "./newsroom-staff";
 
 export const serviceMode = editorialDataMode;
 
@@ -51,6 +52,7 @@ function buildServices(): HealthTimesServices {
       newsroomPushAlerts: stagingNewsroomPushAlertService,
       newsroomWhatsApp: stagingNewsroomWhatsAppService,
       newsroomIntelligence: stagingNewsroomIntelligenceService,
+      newsroomStaff: stagingNewsroomStaffService,
       platform: stagingPlatformService
     };
   }

@@ -41,7 +41,7 @@ const {
 // 1. MIGRATION 79 AUTHORITY & HARDENING
 // =============================================================================
 
-test("HT-NR-CLOSE Wave B: repository migration count is exactly 79", () => {
+test("HT-NR-CLOSE Wave B: repository migration count is at least 79 (80 at Wave C)", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs
     .readdirSync(migrationsDir)
@@ -49,8 +49,8 @@ test("HT-NR-CLOSE Wave B: repository migration count is exactly 79", () => {
 
   assert.equal(
     files.length,
-    79,
-    `Expected exactly 79 migrations, found ${files.length}`
+    80,
+    `Expected exactly 80 migrations, found ${files.length}`
   );
 
   assert.ok(

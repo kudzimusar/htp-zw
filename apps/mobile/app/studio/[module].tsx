@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View, StyleSheet } from "react-native";
 import { StudioAccessGate, StudioAnyCapabilityGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
-import { NEWSLETTER_DESK_CAPABILITIES, PUSH_DESK_CAPABILITIES, SOCIAL_DESK_CAPABILITIES, WHATSAPP_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
+import { NEWSLETTER_DESK_CAPABILITIES, PUSH_DESK_CAPABILITIES, SOCIAL_DESK_CAPABILITIES, STAFF_DESK_CAPABILITIES, WHATSAPP_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { StudioInboxPanel } from "../../src/ui/StudioInbox";
 import {
@@ -30,6 +30,7 @@ import { StudioWhatsAppDesk } from "../../src/ui/StudioWhatsAppDesk";
 import { StudioAnalyticsDesk } from "../../src/ui/StudioAnalyticsDesk";
 import { StudioAudienceDesk } from "../../src/ui/StudioAudienceDesk";
 import { StudioSearchGrowthDesk } from "../../src/ui/StudioSearchGrowthDesk";
+import { StudioStaffRolesDesk } from "../../src/ui/StudioStaffRolesDesk";
 
 export function generateStaticParams() {
   return [
@@ -74,7 +75,7 @@ const owners:Record<string,ModuleConfig>={
   "analytics":{title:"Analytics & Intelligence",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Operational Newsroom KPIs, story inventory, publishing velocity, desk mix, and verified external growth integrations.",readiness:["Canonical stories inventory and velocity authority","Strict analytics.view capability enforcement","Real review queue health and active assignment tracking","External provider status tracking (GA4, Search Console, AdSense, PageSpeed)","Zero simulated revenue or fake analytics presented as truth"]},
   "subscribers":{title:"Subscribers",owner:"AG-06",capability:"subscriber.view",description:"Subscriber records, entitlements and access are protected server data.",readiness:["Reader identity exists","Subscriber read model pending","Entitlement authority server-only"]},
   "authors":{title:"Authors",owner:"AG-04 + AG-06",capability:"staff.view",description:"Migrated authors and newsroom identity are distinct and reconciled through backend contracts.",readiness:["Author contract exists","Migration reconciliation pending AG-04","Staff mapping pending AG-06"]},
-  "staff-roles":{title:"Staff & Roles",owner:"AG-06",capability:"staff.view",description:"Roles are displayed from the server; capabilities are the authorization primitive and users cannot self-escalate.",readiness:["Capability catalogue fixed","No local role selector","Server role read model pending AG-06"]},
+  "staff-roles":{title:"Staff & Roles",owner:"HT-NR-CLOSE Wave C",capability:null,anyOfCapabilities:STAFF_DESK_CAPABILITIES,description:"Staff directory, role assignments, capabilities, status management, session revocation, and security audit trail backed by canonical newsroom RPCs.",readiness:["Canonical staff_profiles, newsroom_roles, and newsroom_capabilities authority","Strict staff.view read and staff.manage mutation enforcement","Session revocation and status lifecycle safety with self-escalation protection","Immutable audit log integration for all administrative actions"]},
   "settings":{title:"Platform Settings",owner:"AG-06",capability:"settings.manage",description:"Privileged settings require server capability enforcement and audit events.",readiness:["Route is capability-gated","No publishable-key privileged writes","Audited settings API pending AG-06"]}
 };
 
@@ -90,7 +91,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && String(module)!=="analytics" && String(module)!=="audience" && String(module)!=="search-growth" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && String(module)!=="analytics" && String(module)!=="audience" && String(module)!=="search-growth" && String(module)!=="staff-roles" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -111,6 +112,7 @@ export default function StudioModule(){
       {String(module)==="analytics" && <StudioAnalyticsDesk />}
       {String(module)==="audience" && <StudioAudienceDesk />}
       {String(module)==="search-growth" && <StudioSearchGrowthDesk />}
+      {String(module)==="staff-roles" && <StudioStaffRolesDesk />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}

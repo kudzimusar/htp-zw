@@ -20,6 +20,7 @@ import type {
   NewsroomPushAlertService,
   NewsroomWhatsAppService,
   NewsroomIntelligenceService,
+  NewsroomStaffService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -782,6 +783,37 @@ const fixtureNewsroomIntelligenceService: NewsroomIntelligenceService = {
   }
 };
 
+const FAIL_CLOSED_STAFF_MESSAGE =
+  "Newsroom staff management operations require authenticated server connection.";
+
+export const fixtureNewsroomStaffService: NewsroomStaffService = {
+  async getStaffOperationsDirectory() {
+    return {
+      staff: [],
+      invitations: [],
+      roles: [],
+      capabilities: [],
+      auditHistory: [],
+      canManageStaff: false
+    };
+  },
+  async changeStaffRole() {
+    throw new Error(FAIL_CLOSED_STAFF_MESSAGE);
+  },
+  async updateStaffStatus() {
+    throw new Error(FAIL_CLOSED_STAFF_MESSAGE);
+  },
+  async revokeStaffSession() {
+    throw new Error(FAIL_CLOSED_STAFF_MESSAGE);
+  },
+  async createInvitation() {
+    throw new Error(FAIL_CLOSED_STAFF_MESSAGE);
+  },
+  async cancelInvitation() {
+    throw new Error(FAIL_CLOSED_STAFF_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -815,6 +847,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomPushAlerts: fixtureNewsroomPushAlertService,
   newsroomWhatsApp: fixtureNewsroomWhatsAppService,
   newsroomIntelligence: fixtureNewsroomIntelligenceService,
+  newsroomStaff: fixtureNewsroomStaffService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

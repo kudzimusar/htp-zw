@@ -18,6 +18,7 @@ export const HEALTH_TIMES_CAPABILITIES = [
   "subscriber.view",
   "subscriber.manage",
   "staff.view",
+  "staff.manage",
   "staff.invite",
   "staff.change_role",
   "staff.revoke",
@@ -183,6 +184,29 @@ export function resolveWhatsAppDeskCapabilityState(
       hasServerCapability(snapshot, "story.publish"),
     canDispatch: hasServerCapability(snapshot, "story.publish")
   };
+}
+
+export const STAFF_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "staff.view",
+  "staff.manage"
+] as const;
+
+export function hasStaffDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, STAFF_DESK_CAPABILITIES);
+}
+
+export function canManageStaff(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return (
+    hasServerCapability(snapshot, "staff.manage") ||
+    hasServerCapability(snapshot, "staff.change_role") ||
+    hasServerCapability(snapshot, "staff.revoke")
+  );
 }
 
 
