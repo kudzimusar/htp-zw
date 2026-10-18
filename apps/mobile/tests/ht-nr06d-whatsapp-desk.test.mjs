@@ -525,12 +525,12 @@ test("HT-NR-06D: newsroom-whatsapp-dispatch unconfigured provider fallback recor
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.ok, true);
-  assert.equal(body.status, "unconfigured");
+  assert.equal(body.status, "approved");
   assert.equal(body.transport_status, "unconfigured");
   assert.equal(body.recipient_count, 0);
   assert.ok(recordedParams);
   assert.equal(recordedParams.p_transport_status, "unconfigured");
-  assert.equal(recordedParams.p_status, "sent");
+  assert.equal(recordedParams.p_status, "approved");
 });
 
 test("HT-NR-06D: newsroom-whatsapp-dispatch single-dispatch idempotency replays existing dispatch", async () => {

@@ -23,7 +23,7 @@ export function mapAiAssistSession(raw: any): NewsroomAiAssistSession {
   const rawSuggestions = Array.isArray(raw?.suggestions) ? raw.suggestions : [];
   const rawSafety = raw?.safety_flags ?? raw?.safetyFlags ?? {};
   return {
-    id: String(raw?.id ?? ""),
+    id: String(raw?.id ?? raw?.session_id ?? raw?.sessionId ?? ""),
     storyId: raw?.story_id ? String(raw.story_id) : (raw?.storyId ? String(raw.storyId) : null),
     storyTitle: raw?.story_title ? String(raw.story_title) : (raw?.storyTitle ? String(raw.storyTitle) : null),
     taskType: raw?.task_type ?? raw?.taskType ?? "headline_alternatives",
@@ -138,6 +138,48 @@ export function createNewsroomAiService(client?: SupabaseClient | null): Newsroo
       const sb = getClient();
       if (!sb) throw new Error("Supabase client unavailable");
 
+      // HT-NR-CLOSE-R1: Invoke Edge Function newsroom-ai-assist via functions.invoke()
+      if (typeof sb.functions?.invoke === "function") {
+        const { data, error } = await sb.functions.invoke("newsroom-ai-assist", {
+          body: {
+            task_type: input.taskType,
+            input_prompt: input.inputPrompt,
+            input_context: input.inputContext ?? null,
+            story_id: input.storyId ?? null
+          }
+        });
+
+        if (error) {
+          throw new Error(`Failed to run AI assist: ${error.message}`);
+        }
+
+        if (data && data.ok === false) {
+          return {
+            id: data.session_id ? String(data.session_id) : "",
+            storyId: input.storyId ?? null,
+            storyTitle: null,
+            taskType: input.taskType,
+            inputPrompt: input.inputPrompt,
+            inputContext: input.inputContext ?? null,
+            suggestions: [],
+            provider: String(data.provider ?? "google_gemini"),
+            providerStatus: String(data.provider_status ?? "provider_unconfigured"),
+            status: "failed",
+            safetyFlags: {
+              canPublish: false,
+              canApprove: false,
+              canBypassReview: false,
+              humanReviewRequired: true
+            },
+            createdBy: null,
+            createdAt: new Date().toISOString()
+          };
+        }
+
+        return mapAiAssistSession(data);
+      }
+
+      // Mock client fallback when functions api is not mocked
       const { data, error } = await (sb.rpc as any)("newsroom_run_ai_assist", {
         p_story_id: input.storyId ?? null,
         p_task_type: input.taskType,

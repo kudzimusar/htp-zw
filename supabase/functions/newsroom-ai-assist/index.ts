@@ -35,6 +35,7 @@ export interface AiAssistOptions {
   anonKey?: string;
   serviceRoleKey?: string;
   geminiApiKey?: string;
+  geminiModel?: string;
   fetchImpl?: typeof fetch;
   createClientFn?: any;
   userClient?: any;
@@ -55,14 +56,14 @@ export async function handleAiAssistRequest(
 
   try {
     const authHeader = req.headers.get("authorization") || "";
-    if (!authHeader) {
+    if (!authHeader.startsWith("Bearer ")) {
       return jsonResponse(401, {
         ok: false,
-        error: "Missing authorization token in request headers"
+        error: "Missing or invalid authorization token in request headers"
       });
     }
 
-    const token = authHeader.replace(/^bearer\s+/i, "");
+    const token = authHeader.replace(/^bearer\s+/i, "").trim();
     if (!token) {
       return jsonResponse(401, {
         ok: false,
@@ -70,22 +71,18 @@ export async function handleAiAssistRequest(
       });
     }
 
-    const envSupabaseUrl =
-      options.supabaseUrl ||
-      (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_URL") : process.env.SUPABASE_URL) ||
-      "";
-    const envAnonKey =
-      options.anonKey ||
-      (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_ANON_KEY") : process.env.SUPABASE_ANON_KEY) ||
-      "";
-    const envServiceRoleKey =
-      options.serviceRoleKey ||
-      (typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") : process.env.SUPABASE_SERVICE_ROLE_KEY) ||
-      "";
-    const geminiKey =
-      options.geminiApiKey ||
-      (typeof Deno !== "undefined" ? Deno.env.get("GEMINI_API_KEY") : process.env.GEMINI_API_KEY) ||
-      "";
+    const envLookup = (key: string): string | undefined => {
+      if (typeof Deno !== "undefined" && typeof (Deno as any).env?.get === "function") {
+        return (Deno as any).env.get(key);
+      }
+      return process.env[key];
+    };
+
+    const envSupabaseUrl = options.supabaseUrl || envLookup("SUPABASE_URL") || "";
+    const envAnonKey = options.anonKey || envLookup("SUPABASE_ANON_KEY") || "";
+    const envServiceRoleKey = options.serviceRoleKey || envLookup("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const geminiKey = options.geminiApiKey || envLookup("GEMINI_API_KEY") || "";
+    const geminiModel = options.geminiModel || envLookup("GEMINI_MODEL") || "gemini-2.5-flash";
 
     const createClient = await resolveCreateClient(options.createClientFn);
 
@@ -93,13 +90,13 @@ export async function handleAiAssistRequest(
       options.userClient ||
       createClient(envSupabaseUrl, envAnonKey, {
         global: { headers: { Authorization: `Bearer ${token}` } },
-        auth: { persistSession: false }
+        auth: { persistSession: false, autoRefreshToken: false }
       });
 
     const adminClient =
       options.adminClient ||
       createClient(envSupabaseUrl, envServiceRoleKey, {
-        auth: { persistSession: false }
+        auth: { persistSession: false, autoRefreshToken: false }
       });
 
     const { data: userData, error: userError } = await userClient.auth.getUser(token);
@@ -112,7 +109,7 @@ export async function handleAiAssistRequest(
 
     const userId = userData.user.id;
 
-    // Check capabilities
+    // Check editorial capabilities
     const capabilitiesToCheck = [
       "story.create",
       "story.edit_own",
@@ -144,6 +141,7 @@ export async function handleAiAssistRequest(
       return jsonResponse(400, { ok: false, error: "Invalid JSON request body." });
     }
 
+    // Supported tasks: headline_alternatives, seo_alternatives, editorial_guidance
     const taskType = body.task_type || body.taskType || "headline_alternatives";
     const inputPrompt = (body.input_prompt || body.inputPrompt || "").trim();
     const inputContext = (body.input_context || body.inputContext || "").trim();
@@ -153,15 +151,26 @@ export async function handleAiAssistRequest(
       return jsonResponse(400, { ok: false, error: "Missing required parameter: input_prompt" });
     }
 
-    let suggestions: Array<{ type: string; text: string; rationale: string }> = [];
-    let provider = "editorial_heuristics_fallback";
-    let providerStatus = "provider_unconfigured";
+    // Truthful provider check: if GEMINI_API_KEY is not configured, report unconfigured truth
+    if (!geminiKey) {
+      return jsonResponse(200, {
+        ok: false,
+        provider: "google_gemini",
+        provider_status: "provider_unconfigured",
+        error: "Google Gemini AI provider credentials (GEMINI_API_KEY) are not configured in this environment",
+        suggestions: [],
+        safety_flags: {
+          can_publish: false,
+          can_approve: false,
+          can_bypass_review: false,
+          human_review_required: true,
+          zero_direct_mutation: true
+        }
+      });
+    }
 
     const customFetch = options.fetchImpl || fetch;
-
-    if (geminiKey) {
-      try {
-        const prompt = `You are the HealthTimes Zimbabwe AI Editorial Assistant.
+    const prompt = `You are the HealthTimes Zimbabwe AI Editorial Assistant.
 You assist professional health journalists and editors.
 Principles:
 1. Strict factual grounding in public health and Zimbabwean medical context.
@@ -172,109 +181,93 @@ Task: ${taskType}
 Prompt: ${inputPrompt}
 Context: ${inputContext}
 
-Respond ONLY with a JSON array of suggestions with schema:
+Respond ONLY with a valid JSON array of suggestions conforming to schema:
 [{"type": "string", "text": "string", "rationale": "string"}]`;
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
-        const resp = await customFetch(geminiUrl, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
-          })
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
+
+    let suggestions: Array<{ type: string; text: string; rationale: string }> = [];
+
+    try {
+      const resp = await customFetch(geminiUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      if (!resp.ok) {
+        return jsonResponse(200, {
+          ok: false,
+          provider: geminiModel,
+          provider_status: "provider_failed",
+          error: `Google Gemini API returned HTTP status ${resp.status}`,
+          suggestions: [],
+          safety_flags: {
+            can_publish: false,
+            can_approve: false,
+            can_bypass_review: false,
+            human_review_required: true,
+            zero_direct_mutation: true
+          }
         });
+      }
 
-        if (resp.ok) {
-          const geminiData = await resp.json();
-          const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            suggestions = JSON.parse(rawText);
-            provider = "gemini-1.5-flash";
-            providerStatus = "active";
-          }
+      const geminiData = await resp.json();
+      const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawText) {
+        const parsed = JSON.parse(rawText);
+        suggestions = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (err: any) {
+      return jsonResponse(200, {
+        ok: false,
+        provider: geminiModel,
+        provider_status: "provider_failed",
+        error: `Google Gemini API invocation failed: ${err?.message || "Unknown error"}`,
+        suggestions: [],
+        safety_flags: {
+          can_publish: false,
+          can_approve: false,
+          can_bypass_review: false,
+          human_review_required: true,
+          zero_direct_mutation: true
         }
-      } catch {
-        // Fall back gracefully to heuristics
-      }
+      });
     }
 
-    // Heuristics fallback if Gemini is unconfigured or failed
-    if (suggestions.length === 0) {
-      if (taskType === "headline_alternatives") {
-        suggestions = [
-          {
-            type: "straight_news",
-            text: `HealthTimes Investigation: ${inputPrompt}`,
-            rationale: "Standard factual headline emphasizing public health findings"
-          },
-          {
-            type: "analytical",
-            text: `Inside Zimbabwe Health Policy: Why ${inputPrompt} Demands Immediate Action`,
-            rationale: "Analytical perspective connecting news events to systemic health impacts"
-          },
-          {
-            type: "impact_focused",
-            text: `What ${inputPrompt} Means For Healthcare Workers and Vulnerable Patients`,
-            rationale: "Human-centered framing focused on frontline clinical delivery"
-          }
-        ];
-      } else if (taskType === "seo_alternatives") {
-        suggestions = [
-          {
-            type: "meta_title",
-            text: `${inputPrompt} | Zimbabwe Health Analysis`,
-            rationale: "Optimized title under 60 characters with national keywords"
-          },
-          {
-            type: "meta_description",
-            text: `In-depth reporting on ${inputPrompt} from HealthTimes Zimbabwe. Read clinical analyses, ministry updates, and patient impact.`,
-            rationale: "Search engine snippet under 160 characters designed for high click-through"
-          }
-        ];
-      } else {
-        suggestions = [
-          {
-            type: "editorial_guidance",
-            text: `Editorial review recommendation for "${inputPrompt}": verify all primary medical claims and institutional figures before submitting for workflow review.`,
-            rationale: "Compliance with HealthTimes accuracy standards"
-          }
-        ];
-      }
-    }
-
-    // Persist session to database via admin client
+    // Persist session atomically and record canonical audit log via service-role RPC
     let sessionId = crypto.randomUUID ? crypto.randomUUID() : "sess-" + Date.now();
     try {
-      const { data: sessionRow } = await adminClient
-        .from("newsroom_ai_assist_sessions")
-        .insert({
-          story_id: storyId,
-          task_type: taskType,
-          input_prompt: inputPrompt,
-          input_context: inputContext || null,
-          suggestions,
-          provider,
-          provider_status: providerStatus,
-          status: "completed",
-          created_by: userId
-        })
-        .select("id")
-        .single();
+      const { data: recordData, error: recordErr } = await adminClient.rpc(
+        "newsroom_record_ai_assist_session",
+        {
+          p_story_id: storyId,
+          p_task_type: taskType,
+          p_input_prompt: inputPrompt,
+          p_input_context: inputContext || null,
+          p_suggestions: suggestions,
+          p_provider: geminiModel,
+          p_provider_status: "active",
+          p_actor_user_id: userId
+        }
+      );
 
-      if (sessionRow?.id) {
-        sessionId = sessionRow.id;
+      if (recordData?.session_id) {
+        sessionId = recordData.session_id;
       }
     } catch {
-      // Non-fatal if logging fails
+      // Non-fatal if session recording fails
     }
 
     return jsonResponse(200, {
       ok: true,
       session_id: sessionId,
       task_type: taskType,
-      provider,
-      provider_status: providerStatus,
+      provider: geminiModel,
+      provider_status: "active",
       suggestions,
       safety_flags: {
         can_publish: false,

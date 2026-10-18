@@ -36,8 +36,10 @@ export interface WhatsAppDispatchOptions {
   supabaseUrl?: string;
   anonKey?: string;
   serviceRoleKey?: string;
-  whatsappApiToken?: string;
+  whatsappSystemAccessToken?: string;
   whatsappPhoneNumberId?: string;
+  whatsappWabaId?: string;
+  whatsappGraphApiVersion?: string;
   fetchImpl?: typeof fetch;
   createClientFn?: any;
   userClient?: any;
@@ -72,8 +74,17 @@ export async function handleWhatsAppDispatchRequest(
     const supabaseUrl = options.supabaseUrl || envLookup("SUPABASE_URL");
     const anonKey = options.anonKey || envLookup("SUPABASE_ANON_KEY");
     const serviceRoleKey = options.serviceRoleKey || envLookup("SUPABASE_SERVICE_ROLE_KEY");
-    const whatsappApiToken = options.whatsappApiToken || envLookup("WHATSAPP_API_TOKEN");
-    const whatsappPhoneNumberId = options.whatsappPhoneNumberId || envLookup("WHATSAPP_PHONE_NUMBER_ID");
+    // Standardized secret names (HT-NR-CLOSE-R1 canonical secret contract)
+    const whatsappSystemAccessToken =
+      options.whatsappSystemAccessToken ||
+      envLookup("WHATSAPP_SYSTEM_ACCESS_TOKEN") ||
+      envLookup("WHATSAPP_API_TOKEN"); // Backward compatibility during transition
+    const whatsappPhoneNumberId =
+      options.whatsappPhoneNumberId || envLookup("WHATSAPP_PHONE_NUMBER_ID");
+    const whatsappGraphApiVersion =
+      options.whatsappGraphApiVersion ||
+      envLookup("WHATSAPP_GRAPH_API_VERSION") ||
+      "v20.0";
     const fetchFn = options.fetchImpl || fetch;
 
     if (!supabaseUrl || !serviceRoleKey) {
@@ -185,19 +196,19 @@ export async function handleWhatsAppDispatchRequest(
     const broadcast = prepareData.broadcast;
 
     // 7. Check WhatsApp Cloud API configuration
-    if (!whatsappApiToken || !whatsappPhoneNumberId) {
-      // Graceful unconfigured state
+    if (!whatsappSystemAccessToken || !whatsappPhoneNumberId) {
+      // Truthful unconfigured state: broadcast remains 'approved', transport is 'unconfigured'
       const { error: recordErr } = await admin.rpc(
         "newsroom_record_whatsapp_dispatch_result",
         {
           p_dispatch_id: dispatchId,
-          p_status: "sent",
+          p_status: "approved",
           p_transport_status: "unconfigured",
           p_recipient_count: 0,
           p_accepted_count: 0,
           p_rejected_count: 0,
           p_failure_reason:
-            "WhatsApp Cloud API credentials (WHATSAPP_API_TOKEN / WHATSAPP_PHONE_NUMBER_ID) not configured in Staging",
+            "WhatsApp Cloud API credentials (WHATSAPP_SYSTEM_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID) not configured in Staging",
           p_provider_broadcast_id: null,
           p_provider_response_envelope: {
             configured: false,
@@ -216,7 +227,7 @@ export async function handleWhatsAppDispatchRequest(
         ok: true,
         dispatch_id: dispatchId,
         broadcast_id: broadcastId.trim(),
-        status: "unconfigured",
+        status: "approved",
         transport_status: "unconfigured",
         recipient_count: 0,
         accepted_count: 0,
@@ -224,116 +235,40 @@ export async function handleWhatsAppDispatchRequest(
         delivered_count: 0,
         read_count: 0,
         failure_reason:
-          "WhatsApp Cloud API credentials (WHATSAPP_API_TOKEN / WHATSAPP_PHONE_NUMBER_ID) not configured in Staging",
+          "WhatsApp Cloud API credentials (WHATSAPP_SYSTEM_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID) not configured in Staging",
         dispatched_at: new Date().toISOString()
       });
     }
 
-    // 8. If configured: Execute real WhatsApp Cloud API dispatch
-    try {
-      const whatsappUrl = `https://graph.facebook.com/v19.0/${whatsappPhoneNumberId}/messages`;
-      const payload = {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        type: "text",
-        text: {
-          preview_url: true,
-          body: `*${broadcast.title}*\n\n${broadcast.body}`
-        }
-      };
+    // 8. Resolve consented recipients from private authority
+    const { data: recipientRows, error: recipErr } = await admin.rpc(
+      "newsroom_get_consented_whatsapp_recipients",
+      { p_broadcast_type: broadcast.broadcast_type || "breaking_alert" }
+    );
 
-      const res = await fetchFn(whatsappUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${whatsappApiToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
+    if (recipErr) {
+      return jsonResponse(500, { ok: false, error: `Failed to resolve recipients: ${recipErr.message}` });
+    }
 
-      const providerData = await res.json().catch(() => ({}));
+    const recipients: Array<{ recipient_id: string; phone: string; phone_hash: string }> =
+      Array.isArray(recipientRows) ? recipientRows : [];
 
-      if (!res.ok) {
-        const failureReason = `WhatsApp Cloud API HTTP ${res.status}: ${JSON.stringify(providerData)}`;
-        await admin.rpc("newsroom_record_whatsapp_dispatch_result", {
-          p_dispatch_id: dispatchId,
-          p_status: "sent",
-          p_transport_status: "provider-rejected",
-          p_recipient_count: 1,
-          p_accepted_count: 0,
-          p_rejected_count: 1,
-          p_failure_reason: failureReason,
-          p_provider_broadcast_id: null,
-          p_provider_response_envelope: providerData,
-          p_messages: []
-        });
-
-        return jsonResponse(200, {
-          ok: true,
-          dispatch_id: dispatchId,
-          broadcast_id: broadcastId.trim(),
-          status: "provider-rejected",
-          transport_status: "provider-rejected",
-          recipient_count: 1,
-          accepted_count: 0,
-          rejected_count: 1,
-          delivered_count: 0,
-          read_count: 0,
-          failure_reason: failureReason,
-          dispatched_at: new Date().toISOString()
-        });
-      }
-
-      const providerMessageId = providerData?.messages?.[0]?.id || null;
-      const messageReceipts = providerMessageId
-        ? [
-            {
-              provider_message_id: providerMessageId,
-              recipient_identity_hash: "channel_subscribers_digest",
-              status: "message-accepted"
-            }
-          ]
-        : [];
-
+    if (recipients.length === 0) {
+      // Zero consented recipients found: broadcast remains approved, dispatch unconfigured/ready
       await admin.rpc("newsroom_record_whatsapp_dispatch_result", {
         p_dispatch_id: dispatchId,
-        p_status: "sent",
-        p_transport_status: "provider-accepted",
-        p_recipient_count: 1,
-        p_accepted_count: 1,
-        p_rejected_count: 0,
-        p_failure_reason: null,
-        p_provider_broadcast_id: providerMessageId,
-        p_provider_response_envelope: providerData,
-        p_messages: messageReceipts
-      });
-
-      return jsonResponse(200, {
-        ok: true,
-        dispatch_id: dispatchId,
-        broadcast_id: broadcastId.trim(),
-        status: "provider-accepted",
-        transport_status: "provider-accepted",
-        recipient_count: 1,
-        accepted_count: 1,
-        rejected_count: 0,
-        delivered_count: 0,
-        read_count: 0,
-        failure_reason: null,
-        dispatched_at: new Date().toISOString()
-      });
-    } catch (netErr: any) {
-      const failureReason = `Network failure communicating with WhatsApp API: ${netErr.message || "Unknown"}`;
-      await admin.rpc("newsroom_record_whatsapp_dispatch_result", {
-        p_dispatch_id: dispatchId,
-        p_status: "sent",
-        p_transport_status: "delivery-failed",
-        p_recipient_count: 1,
+        p_status: "approved",
+        p_transport_status: "unconfigured",
+        p_recipient_count: 0,
         p_accepted_count: 0,
-        p_rejected_count: 1,
-        p_failure_reason: failureReason,
+        p_rejected_count: 0,
+        p_failure_reason: "Zero active consented WhatsApp audience endpoints found",
         p_provider_broadcast_id: null,
-        p_provider_response_envelope: { error: failureReason },
+        p_provider_response_envelope: {
+          configured: true,
+          recipients: 0,
+          note: "No consented subscribers currently enrolled in WhatsApp distribution"
+        },
         p_messages: []
       });
 
@@ -341,25 +276,133 @@ export async function handleWhatsAppDispatchRequest(
         ok: true,
         dispatch_id: dispatchId,
         broadcast_id: broadcastId.trim(),
-        status: "delivery-failed",
-        transport_status: "delivery-failed",
-        recipient_count: 1,
+        status: "approved",
+        transport_status: "unconfigured",
+        recipient_count: 0,
         accepted_count: 0,
-        rejected_count: 1,
+        rejected_count: 0,
         delivered_count: 0,
         read_count: 0,
-        failure_reason: failureReason,
+        failure_reason: "Zero active consented WhatsApp audience endpoints found",
         dispatched_at: new Date().toISOString()
       });
     }
+
+    // 9. Execute real WhatsApp Cloud API dispatch to each consented recipient
+    let acceptedCount = 0;
+    let rejectedCount = 0;
+    const messageReceipts: any[] = [];
+    const providerEnvelopes: any[] = [];
+    const whatsappUrl = `https://graph.facebook.com/${whatsappGraphApiVersion}/${whatsappPhoneNumberId}/messages`;
+
+    for (const recip of recipients) {
+      try {
+        const payload = {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: recip.phone,
+          type: "text",
+          text: {
+            preview_url: true,
+            body: `*${broadcast.title}*\n\n${broadcast.body}`
+          }
+        };
+
+        const res = await fetchFn(whatsappUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${whatsappSystemAccessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const providerData = await res.json().catch(() => ({}));
+        providerEnvelopes.push(providerData);
+
+        if (res.ok) {
+          acceptedCount++;
+          const providerMsgId = providerData?.messages?.[0]?.id || null;
+          messageReceipts.push({
+            provider_message_id: providerMsgId,
+            recipient_identity_hash: recip.phone_hash,
+            status: "message-accepted"
+          });
+        } else {
+          rejectedCount++;
+          messageReceipts.push({
+            provider_message_id: null,
+            recipient_identity_hash: recip.phone_hash,
+            status: "message-rejected",
+            error_code: String(res.status),
+            error_message: JSON.stringify(providerData)
+          });
+        }
+      } catch (err: any) {
+        rejectedCount++;
+        messageReceipts.push({
+          provider_message_id: null,
+          recipient_identity_hash: recip.phone_hash,
+          status: "message-rejected",
+          error_code: "NETWORK_ERROR",
+          error_message: err?.message || "Network exception during provider call"
+        });
+      }
+    }
+
+    // 10. Distinct state machine evaluation
+    // Broadcast status: 'sent' only if >= 1 outbound accepted; else remains 'approved'
+    const finalBroadcastStatus = acceptedCount > 0 ? "sent" : "approved";
+    const finalTransportStatus =
+      acceptedCount > 0
+        ? (rejectedCount > 0 ? "partially-accepted" : "provider-accepted")
+        : "provider-rejected";
+    const finalFailureReason =
+      acceptedCount === 0
+        ? `Provider rejected all submissions (${rejectedCount}/${recipients.length})`
+        : (rejectedCount > 0 ? `Partial provider acceptance: ${acceptedCount} accepted, ${rejectedCount} rejected` : null);
+
+    const { error: resultErr } = await admin.rpc("newsroom_record_whatsapp_dispatch_result", {
+      p_dispatch_id: dispatchId,
+      p_status: finalBroadcastStatus,
+      p_transport_status: finalTransportStatus,
+      p_recipient_count: recipients.length,
+      p_accepted_count: acceptedCount,
+      p_rejected_count: rejectedCount,
+      p_failure_reason: finalFailureReason,
+      p_provider_broadcast_id: null,
+      p_provider_response_envelope: { submissions: providerEnvelopes },
+      p_messages: messageReceipts
+    });
+
+    if (resultErr) {
+      return jsonResponse(500, { ok: false, error: resultErr.message });
+    }
+
+    // 11. Return sanitized response to Studio (zero exposed raw phones)
+    return jsonResponse(200, {
+      ok: true,
+      dispatch_id: dispatchId,
+      broadcast_id: broadcastId.trim(),
+      status: finalBroadcastStatus,
+      transport_status: finalTransportStatus,
+      recipient_count: recipients.length,
+      accepted_count: acceptedCount,
+      rejected_count: rejectedCount,
+      delivered_count: 0,
+      read_count: 0,
+      failure_reason: finalFailureReason,
+      dispatched_at: new Date().toISOString()
+    });
   } catch (err: any) {
-    return jsonResponse(500, { ok: false, error: err.message || "Internal server error" });
+    return jsonResponse(500, {
+      ok: false,
+      error: `Internal server error: ${err?.message || "Unknown error"}`
+    });
   }
 }
 
-// Supabase Edge Runtime bootstrap
-if (typeof Deno !== "undefined" && typeof (Deno as any).serve === "function") {
-  (Deno as any).serve(async (req: Request) => {
-    return handleWhatsAppDispatchRequest(req);
-  });
+if (typeof Deno !== "undefined") {
+  // @ts-ignore
+  Deno.serve((req: Request) => handleWhatsAppDispatchRequest(req));
 }
