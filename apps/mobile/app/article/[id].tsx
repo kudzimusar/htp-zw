@@ -179,8 +179,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
     const requestPromptOnce=async()=>{
       const shouldRequest=await services.reader.requestPremiumPreviewPrompt(stableStoryId);
-      if(cancelled) return;
-      if(shouldRequest) setPremiumPromptRequested(true);
+      if(!cancelled && shouldRequest) setPremiumPromptRequested(true);
     };
 
     void (async()=>{
