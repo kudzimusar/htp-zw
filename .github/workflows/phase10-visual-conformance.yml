@@ -80,7 +80,8 @@ jobs:
           const fs=require('fs');
           const path=require('path');
           const base='http://127.0.0.1:4174';
-          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const articleId='source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis';
+          const articleTitle='Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt';
           const routes=[
             ['home','/'],['explore','/explore'],['search','/search'],['article','/article/'+articleId],
             ['live','/live'],['watch','/watch'],['listen','/listen'],['saved','/saved'],
@@ -98,8 +99,15 @@ jobs:
                 const pageErrors=[];
                 page.on('pageerror',error=>pageErrors.push(String(error)));
                 const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
-                if(route==='/') await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
-                else await page.waitForTimeout(1200);
+                if(route==='/'){
+                  await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
+                }else if(name==='article'){
+                  await page.getByRole('button',{name:/Back/i}).waitFor({state:'visible',timeout:30000});
+                  await page.getByText('Loading article…',{exact:true}).waitFor({state:'hidden',timeout:30000});
+                  if(vp==='desktop') await page.locator('[aria-label="HealthTimes Home"]:visible').first().waitFor({timeout:30000});
+                }else{
+                  await page.waitForTimeout(1200);
+                }
                 if(vp==='desktop' && tabRoutes.has(route)){
                   const tabs=await page.getByRole('tab').count();
                   if(tabs!==0) throw new Error('Desktop mobile tab bar still rendered on '+route+' count='+tabs);
@@ -114,6 +122,35 @@ jobs:
                 }
                 if(name==='article'){
                   const body=await page.locator('body').innerText();
+                  if(body.includes('Loading article…')) throw new Error('Article evidence captured unresolved loading state');
+                  if(body.includes('Article not found.')) throw new Error('Article evidence captured not-found state');
+                  if(!body.includes(articleTitle)) throw new Error('Article evidence missing resolved public headline');
+                  const hero=page.locator('[data-testid="article-hero-media"]:visible').first();
+                  await hero.waitFor({state:'visible',timeout:30000});
+                  const heroLoaded=await hero.evaluate(async(element)=>{
+                    const img=element.querySelector('img');
+                    if(img){
+                      if(img.complete) return img.naturalWidth>0;
+                      return await new Promise(resolve=>{
+                        img.addEventListener('load',()=>resolve(img.naturalWidth>0),{once:true});
+                        img.addEventListener('error',()=>resolve(false),{once:true});
+                        setTimeout(()=>resolve(false),10000);
+                      });
+                    }
+                    const background=getComputedStyle(element).backgroundImage;
+                    const match=background.match(/^url\\(["']?(.*?)["']?\\)$/);
+                    if(!match) return false;
+                    const probe=new Image();
+                    probe.src=match[1];
+                    if(probe.complete) return probe.naturalWidth>0;
+                    return await new Promise(resolve=>{
+                      probe.onload=()=>resolve(probe.naturalWidth>0);
+                      probe.onerror=()=>resolve(false);
+                      setTimeout(()=>resolve(false),10000);
+                    });
+                  });
+                  if(!heroLoaded) throw new Error('Article evidence hero media did not load before capture');
+                  await page.waitForTimeout(100);
                   if(body.includes('Canonical desk')||body.includes('Legacy source taxonomy')) throw new Error('Article exposes migration-internal taxonomy labels');
                 }
                 const hydrationWarnings=pageErrors.filter((error)=>error.includes('Minified React error #418'));

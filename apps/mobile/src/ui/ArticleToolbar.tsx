@@ -21,16 +21,16 @@ function ToolbarAction({ glyph, label, onPress, selected = false }: ToolbarActio
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.action,
         focused && styles.actionFocused,
         {
-          borderColor: focused || selected ? palette.blue : palette.border,
-          backgroundColor: selected ? palette.paperMuted : palette.paper
+          borderColor: focused || selected ? palette.blue : "transparent",
+          backgroundColor: selected || pressed ? palette.paperMuted : "transparent"
         }
       ]}
     >
-      <Text style={[styles.glyph, { color: palette.ink }]}>{glyph}</Text>
+      <Text style={[styles.glyph, { color: selected ? palette.blue : palette.ink }]}>{glyph}</Text>
     </Pressable>
   );
 }
@@ -53,52 +53,73 @@ export function ArticleToolbar({
   onOffline: () => void;
 }) {
   const { palette } = useAppearance();
+  const [offlineFocused, setOfflineFocused] = useState(false);
   return (
     <View style={[styles.wrap, { borderBottomColor: palette.border }]}>
       <View style={styles.primaryRow} accessibilityRole="toolbar" accessibilityLabel="Article actions">
         <ToolbarAction glyph="←" label="Back" onPress={onBack} />
         <View style={styles.spacer} />
-        <ToolbarAction
-          glyph="Aa"
-          label={"Text size " + Math.round(textScale * 100) + "%"}
-          selected={textScale !== 1}
-          onPress={onTextScale}
-        />
-        <ToolbarAction glyph="☆" label="Save article" onPress={onSave} />
-        <ToolbarAction glyph="▶" label="Listen to article" onPress={onListen} />
-        <ToolbarAction glyph="↗" label="Share article" onPress={onShare} />
+        <View style={styles.utilityCluster}>
+          <ToolbarAction
+            glyph="Aa"
+            label={"Text size " + Math.round(textScale * 100) + "%"}
+            selected={textScale !== 1}
+            onPress={onTextScale}
+          />
+          <ToolbarAction glyph="☆" label="Save article" onPress={onSave} />
+          <ToolbarAction glyph="▶" label="Listen to article" onPress={onListen} />
+          <ToolbarAction glyph="↗" label="Share article" onPress={onShare} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Download article for offline reading"
+            accessibilityHint="Stores this eligible article on this device for offline reading"
+            onFocus={() => setOfflineFocused(true)}
+            onBlur={() => setOfflineFocused(false)}
+            onPress={onOffline}
+            style={({ pressed }) => [
+              styles.offline,
+              offlineFocused && styles.actionFocused,
+              {
+                borderColor: offlineFocused ? palette.blue : "transparent",
+                backgroundColor: pressed ? palette.paperMuted : "transparent"
+              }
+            ]}
+          >
+            <Text style={[styles.offlineText, { color: palette.inkMuted }]}>↓ Offline</Text>
+          </Pressable>
+        </View>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Download article for offline reading"
-        accessibilityHint="Stores this eligible article on this device for offline reading"
-        onPress={onOffline}
-        style={styles.offline}
-      >
-        <Text style={[styles.offlineText, { color: palette.inkMuted }]}>↓ Offline</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    gap: spacing.xs
+    width: "100%",
+    maxWidth: layout.articleMax,
+    alignSelf: "center",
+    marginTop: spacing.xs,
+    paddingBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth
   },
   primaryRow: {
     minHeight: layout.touchMin,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs
+    flexWrap: "wrap",
+    gap: 2
   },
-  spacer: { flex: 1 },
+  spacer: { flex: 1, minWidth: spacing.xs },
+  utilityCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 2
+  },
   action: {
     minHeight: layout.touchMin,
     minWidth: layout.touchMin,
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderRadius: radius.sm,
     alignItems: "center",
@@ -106,15 +127,17 @@ const styles = StyleSheet.create({
     flexDirection: "row"
   },
   actionFocused: { borderWidth: 2 },
-  glyph: { fontSize: 16, fontWeight: "900" },
+  glyph: { fontSize: 15, fontWeight: "800" },
   offline: {
-    alignSelf: "flex-end",
     minHeight: layout.touchMin,
     justifyContent: "center",
-    paddingHorizontal: spacing.xs
+    alignItems: "center",
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderRadius: radius.sm
   },
   offlineText: {
     fontSize: 11,
-    fontWeight: "800"
+    fontWeight: "700"
   }
 });
