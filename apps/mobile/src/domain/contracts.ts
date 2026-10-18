@@ -105,7 +105,12 @@ import type {
   NewsroomCapability,
   NewsroomAuditRecord,
   NewsroomStaffOperationsDirectory,
-  NewsroomStaffInviteInput
+  NewsroomStaffInviteInput,
+  NewsroomAdvertisingOverview,
+  NewsroomCreateCampaignInput,
+  NewsroomCreateCreativeInput,
+  NewsroomSubscribersDirectory,
+  NewsroomPremiumOperationsOverview
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -434,6 +439,32 @@ export interface NewsroomStaffService {
   cancelInvitation(invitationId: string): Promise<void>;
 }
 
+export interface NewsroomCommercialService {
+  getAdvertisingOverview(): Promise<NewsroomAdvertisingOverview>;
+  createAdvertiser(name: string, contactNotes?: string | null): Promise<string>;
+  createCampaign(input: NewsroomCreateCampaignInput): Promise<string>;
+  createCreative(input: NewsroomCreateCreativeInput): Promise<string>;
+  approveCampaign(campaignId: string, approved: boolean): Promise<string>;
+  updateCampaignStatus(campaignId: string, status: string): Promise<string>;
+
+  getSubscribersDirectory(options?: {
+    status?: string | null;
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomSubscribersDirectory>;
+  updateSubscriberStatus(subscriberId: string, status: string): Promise<string>;
+  grantSubscriberEntitlement(
+    subscriberId: string,
+    policyKey?: string,
+    durationDays?: number,
+    provider?: string
+  ): Promise<string>;
+
+  getPremiumOperationsOverview(): Promise<NewsroomPremiumOperationsOverview>;
+  setStoryAccess(storyId: string, accessPolicy: "public" | "premium"): Promise<string>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -464,8 +495,10 @@ export interface HealthTimesServices {
   newsroomWhatsApp: NewsroomWhatsAppService;
   newsroomIntelligence: NewsroomIntelligenceService;
   newsroomStaff: NewsroomStaffService;
+  newsroomCommercial: NewsroomCommercialService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;
   social: SocialAttributionService;
 }
+

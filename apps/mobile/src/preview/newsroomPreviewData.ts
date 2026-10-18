@@ -30,6 +30,9 @@ import type {
   NewsroomGrowthIntelligence,
   NewsroomAudienceIntelligence,
   NewsroomStaffOperationsDirectory,
+  NewsroomAdvertisingOverview,
+  NewsroomSubscribersDirectory,
+  NewsroomPremiumOperationsOverview,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -61,6 +64,9 @@ export type OwnerPreviewModuleKey =
   | "audience"
   | "search-growth"
   | "staff-roles"
+  | "advertising"
+  | "subscribers"
+  | "premium"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -94,6 +100,9 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "audience", label: "Audience", path: "/owner-preview/studio/audience" },
   { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" },
   { key: "staff-roles", label: "Staff & Roles", path: "/owner-preview/studio/staff-roles" },
+  { key: "advertising", label: "Advertising", path: "/owner-preview/studio/advertising" },
+  { key: "subscribers", label: "Subscribers", path: "/owner-preview/studio/subscribers" },
+  { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -2389,5 +2398,299 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
   };
 }
 
+export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
+  return {
+    advertisers: [
+      {
+        id: "prev-adv-001",
+        name: "HOSPAZ",
+        contactNotes: "Hospice and Palliative Care Association of Zimbabwe direct sponsorship",
+        createdAt: "2026-09-01T00:00:00Z",
+        activeCampaignsCount: 1
+      },
+      {
+        id: "prev-adv-002",
+        name: "Ministry of Health and Child Care",
+        contactNotes: "National public health immunisation and awareness partner",
+        createdAt: "2026-09-10T00:00:00Z",
+        activeCampaignsCount: 1
+      },
+      {
+        id: "prev-adv-003",
+        name: "Cimas Health Group",
+        contactNotes: "Private medical aid and wellness commercial partner",
+        createdAt: "2026-09-20T00:00:00Z",
+        activeCampaignsCount: 0
+      }
+    ],
+    campaigns: [
+      {
+        id: "prev-camp-001",
+        advertiserId: "prev-adv-001",
+        advertiserName: "HOSPAZ",
+        name: "HOSPAZ source continuity",
+        status: "continuity_captured",
+        reviewStatus: "approved",
+        startAt: "2026-09-01T00:00:00Z",
+        endAt: "2026-12-31T23:59:59Z",
+        createdBy: "prev-staff-001",
+        approvedBy: "prev-staff-001",
+        approvedAt: "2026-09-01T00:00:00Z",
+        createdAt: "2026-09-01T00:00:00Z",
+        creativesCount: 1
+      },
+      {
+        id: "prev-camp-002",
+        advertiserId: "prev-adv-002",
+        advertiserName: "Ministry of Health and Child Care",
+        name: "National Cholera Prevention Campaign",
+        status: "active",
+        reviewStatus: "approved",
+        startAt: "2026-10-01T00:00:00Z",
+        endAt: "2026-11-30T23:59:59Z",
+        createdBy: "prev-staff-001",
+        approvedBy: "prev-staff-002",
+        approvedAt: "2026-10-01T08:00:00Z",
+        createdAt: "2026-09-28T12:00:00Z",
+        creativesCount: 1
+      },
+      {
+        id: "prev-camp-003",
+        advertiserId: "prev-adv-003",
+        advertiserName: "Cimas Health Group",
+        name: "Corporate Health Screening Drive",
+        status: "draft",
+        reviewStatus: "pending",
+        startAt: "2026-11-01T00:00:00Z",
+        endAt: "2026-12-15T23:59:59Z",
+        createdBy: "prev-staff-004",
+        approvedBy: null,
+        approvedAt: null,
+        createdAt: "2026-10-16T14:20:00Z",
+        creativesCount: 1
+      }
+    ],
+    creatives: [
+      {
+        id: "prev-cr-001",
+        campaignId: "prev-camp-001",
+        campaignName: "HOSPAZ source continuity",
+        placement: "hospaz-header-direct",
+        destinationUrl: "https://hospaz.org.zw/",
+        disclosureLabel: "Advertisement",
+        status: "active",
+        createdAt: "2026-09-01T00:00:00Z"
+      },
+      {
+        id: "prev-cr-002",
+        campaignId: "prev-camp-002",
+        campaignName: "National Cholera Prevention Campaign",
+        placement: "article-mid-inline",
+        destinationUrl: "https://mohcc.gov.zw/cholera-alert",
+        disclosureLabel: "Public Health Notice",
+        status: "active",
+        createdAt: "2026-09-28T12:00:00Z"
+      },
+      {
+        id: "prev-cr-003",
+        campaignId: "prev-camp-003",
+        campaignName: "Corporate Health Screening Drive",
+        placement: "sidebar-sticky",
+        destinationUrl: "https://cimas.co.zw/wellness",
+        disclosureLabel: "Sponsored Content",
+        status: "draft",
+        createdAt: "2026-10-16T14:20:00Z"
+      }
+    ],
+    placements: [
+      {
+        id: "prev-plc-001",
+        placementKey: "hospaz-header-direct",
+        name: "Header Leaderboard Direct",
+        allowedSources: ["direct", "house"],
+        defaultSource: "direct",
+        status: "active",
+        layoutPolicy: { maxWidth: 728, maxHeight: 90, responsive: true }
+      },
+      {
+        id: "prev-plc-002",
+        placementKey: "article-mid-inline",
+        name: "Article Mid-Body Inline",
+        allowedSources: ["direct", "adsense", "house"],
+        defaultSource: "adsense",
+        status: "active",
+        layoutPolicy: { insertAfterParagraph: 4, responsive: true }
+      },
+      {
+        id: "prev-plc-003",
+        placementKey: "sidebar-sticky",
+        name: "Desktop Sidebar Sticky",
+        allowedSources: ["direct", "adsense", "house"],
+        defaultSource: "none",
+        status: "active",
+        layoutPolicy: { sticky: true, topOffset: 80 }
+      }
+    ],
+    metrics: {
+      totalAdvertisers: 3,
+      totalCampaigns: 3,
+      activeCampaigns: 2,
+      pendingReviewCampaigns: 1,
+      totalCreatives: 3,
+      totalPlacements: 3
+    }
+  };
+}
 
+export function buildPreviewSubscribersDirectory(): NewsroomSubscribersDirectory {
+  return {
+    subscribers: [
+      {
+        id: "prev-sub-001",
+        authUserId: "auth-sub-001",
+        email: "dr.nyasha@parirenyatwa.org",
+        displayName: "Dr. Nyasha Chigumba",
+        status: "active",
+        createdAt: "2026-02-14T08:30:00Z",
+        hasActivePremium: true,
+        entitlements: [
+          {
+            id: "prev-ent-001",
+            policyKey: "premium",
+            startsAt: "2026-02-14T08:30:00Z",
+            endsAt: "2027-02-14T08:30:00Z",
+            provider: "stripe",
+            providerReference: "sub_1Omqxyz982",
+            isActive: true
+          }
+        ]
+      },
+      {
+        id: "prev-sub-002",
+        authUserId: "auth-sub-002",
+        email: "sarah.chikwava@who.int",
+        displayName: "Sarah Chikwava",
+        status: "active",
+        createdAt: "2026-04-10T11:00:00Z",
+        hasActivePremium: true,
+        entitlements: [
+          {
+            id: "prev-ent-002",
+            policyKey: "premium",
+            startsAt: "2026-04-10T11:00:00Z",
+            endsAt: "2026-11-10T11:00:00Z",
+            provider: "staff_grant",
+            providerReference: "grant_who_desk",
+            isActive: true
+          }
+        ]
+      },
+      {
+        id: "prev-sub-003",
+        authUserId: "auth-sub-003",
+        email: "tafadzwa.moyo@healthtimes.co.zw",
+        displayName: "Tafadzwa Moyo",
+        status: "active",
+        createdAt: "2026-05-18T14:45:00Z",
+        hasActivePremium: false,
+        entitlements: []
+      },
+      {
+        id: "prev-sub-004",
+        authUserId: "auth-sub-004",
+        email: "blessings.mutasa@gmail.com",
+        displayName: "Blessings Mutasa",
+        status: "suspended",
+        createdAt: "2026-01-20T09:15:00Z",
+        hasActivePremium: false,
+        entitlements: [
+          {
+            id: "prev-ent-004",
+            policyKey: "premium",
+            startsAt: "2026-01-20T09:15:00Z",
+            endsAt: "2026-07-20T09:15:00Z",
+            provider: "ecocash",
+            providerReference: "txn_eco_88712",
+            isActive: false
+          }
+        ]
+      }
+    ],
+    totalCount: 428,
+    metrics: {
+      totalSubscribers: 428,
+      activeSubscribers: 395,
+      premiumSubscribers: 184,
+      suspendedSubscribers: 12,
+      canceledSubscribers: 21
+    }
+  };
+}
 
+export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperationsOverview {
+  return {
+    policies: [
+      {
+        key: "public",
+        name: "Public Open Access",
+        description: "Unrestricted reading access for all readers across Web and App platforms.",
+        isMetered: false
+      },
+      {
+        key: "premium",
+        name: "Premium Subscriber Access",
+        description: "Exclusive deep health investigative reporting, clinical analyses, and member briefings.",
+        isMetered: true
+      }
+    ],
+    teaserPolicy: {
+      authority: "AG-05 / Owner Policy",
+      enabled: true,
+      durationSeconds: 20,
+      paragraphCount: 1,
+      enforcement: "Strict server-side body truncation with timer cutoff"
+    },
+    inventoryBreakdown: {
+      totalStories: 5792,
+      premiumStoriesCount: 842,
+      publicStoriesCount: 4950
+    },
+    recentPremiumStories: [
+      {
+        id: "prev-prem-story-001",
+        title: "Inside Zimbabwe's Oncology Crisis: Radiotherapy Blackouts and Drug Procurement Holes",
+        status: "published",
+        accessPolicy: "premium",
+        publishedAt: "2026-10-15T08:00:00Z",
+        updatedAt: "2026-10-15T10:30:00Z"
+      },
+      {
+        id: "prev-prem-story-002",
+        title: "Clinical Deep Dive: Pediatric Antiretroviral Rollout In Mashonaland Central",
+        status: "published",
+        accessPolicy: "premium",
+        publishedAt: "2026-10-12T14:15:00Z",
+        updatedAt: "2026-10-12T14:15:00Z"
+      },
+      {
+        id: "prev-prem-story-003",
+        title: "Cross-Border Health Finance: The True Cost of Medical Tourism to South Africa and India",
+        status: "published",
+        accessPolicy: "premium",
+        publishedAt: "2026-10-08T09:00:00Z",
+        updatedAt: "2026-10-08T11:00:00Z"
+      }
+    ],
+    subscriberStats: {
+      totalSubscribers: 428,
+      activeEntitlementsCount: 184,
+      totalEntitledSubscribers: 184,
+      providers: [
+        { provider: "stripe", count: 112 },
+        { provider: "staff_grant", count: 42 },
+        { provider: "ecocash", count: 22 },
+        { provider: "in_app", count: 8 }
+      ]
+    }
+  };
+}

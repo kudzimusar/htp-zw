@@ -20,7 +20,10 @@ export function generateStaticParams() {
     "analytics",
     "audience",
     "search-growth",
-    "staff-roles"
+    "staff-roles",
+    "advertising",
+    "subscribers",
+    "premium"
   ].map((module) => ({ module }));
 }
 

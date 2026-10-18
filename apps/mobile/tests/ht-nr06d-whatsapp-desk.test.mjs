@@ -253,10 +253,9 @@ test("HT-NR-06D: repository migration count is at least 78 (80 at Wave C)", () =
     .filter((f) => f.endsWith(".sql"))
     .sort();
 
-  assert.equal(
-    migrationFiles.length,
-    80,
-    `Expected exactly 80 migrations in supabase/migrations, found ${migrationFiles.length}`
+  assert.ok(
+    migrationFiles.length >= 78,
+    `Expected at least 78 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(

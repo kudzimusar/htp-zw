@@ -21,6 +21,7 @@ import type {
   NewsroomWhatsAppService,
   NewsroomIntelligenceService,
   NewsroomStaffService,
+  NewsroomCommercialService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -814,6 +815,102 @@ export const fixtureNewsroomStaffService: NewsroomStaffService = {
   }
 };
 
+const FAIL_CLOSED_COMMERCIAL_MESSAGE =
+  "Commercial operations mutation is not permitted in fixture mode. Authorized server-backed session required.";
+
+export const fixtureNewsroomCommercialService: NewsroomCommercialService = {
+  async getAdvertisingOverview() {
+    return {
+      advertisers: [],
+      campaigns: [],
+      creatives: [],
+      placements: [],
+      metrics: {
+        totalAdvertisers: 0,
+        totalCampaigns: 0,
+        activeCampaigns: 0,
+        pendingReviewCampaigns: 0,
+        totalCreatives: 0,
+        totalPlacements: 0
+      }
+    };
+  },
+  async createAdvertiser() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async createCampaign() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async createCreative() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async approveCampaign() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async updateCampaignStatus() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async getSubscribersDirectory() {
+    return {
+      subscribers: [],
+      totalCount: 0,
+      metrics: {
+        totalSubscribers: 0,
+        activeSubscribers: 0,
+        premiumSubscribers: 0,
+        suspendedSubscribers: 0,
+        canceledSubscribers: 0
+      }
+    };
+  },
+  async updateSubscriberStatus() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async grantSubscriberEntitlement() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  },
+  async getPremiumOperationsOverview() {
+    return {
+      policies: [
+        {
+          key: "public",
+          name: "Public Open Access",
+          description: "Unrestricted reading access for all readers across Web and App platforms.",
+          isMetered: false
+        },
+        {
+          key: "premium",
+          name: "Premium Subscriber Access",
+          description: "Exclusive deep health investigative reporting, clinical analyses, and member briefings.",
+          isMetered: true
+        }
+      ],
+      teaserPolicy: {
+        authority: "AG-05 / Owner Policy",
+        enabled: true,
+        durationSeconds: 20,
+        paragraphCount: 1,
+        enforcement: "Strict server-side body truncation with timer cutoff"
+      },
+      inventoryBreakdown: {
+        totalStories: 0,
+        premiumStoriesCount: 0,
+        publicStoriesCount: 0
+      },
+      recentPremiumStories: [],
+      subscriberStats: {
+        totalSubscribers: 0,
+        activeEntitlementsCount: 0,
+        totalEntitledSubscribers: 0,
+        providers: []
+      }
+    };
+  },
+  async setStoryAccess() {
+    throw new Error(FAIL_CLOSED_COMMERCIAL_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -848,6 +945,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomWhatsApp: fixtureNewsroomWhatsAppService,
   newsroomIntelligence: fixtureNewsroomIntelligenceService,
   newsroomStaff: fixtureNewsroomStaffService,
+  newsroomCommercial: fixtureNewsroomCommercialService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

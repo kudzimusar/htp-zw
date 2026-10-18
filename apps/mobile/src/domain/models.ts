@@ -3355,5 +3355,158 @@ export interface NewsroomStaffInviteInput {
   country?: string | null;
 }
 
+// ============================================================================
+// Wave D — Commercial Operations Domain Models (Advertising / Subscribers / Premium)
+// ============================================================================
 
+export interface NewsroomAdvertiser {
+  id: string;
+  name: string;
+  contactNotes: string | null;
+  createdAt: string;
+  activeCampaignsCount: number;
+}
 
+export interface NewsroomAdCampaign {
+  id: string;
+  advertiserId: string;
+  advertiserName: string;
+  name: string;
+  status: "draft" | "approved" | "active" | "paused" | "archived" | "rejected" | string;
+  reviewStatus: "pending" | "under_review" | "approved" | "rejected" | string;
+  startAt: string | null;
+  endAt: string | null;
+  createdBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  creativesCount: number;
+}
+
+export interface NewsroomAdCreative {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  placement: string;
+  destinationUrl: string | null;
+  disclosureLabel: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface NewsroomAdPlacement {
+  id: string;
+  placementKey: string;
+  name: string;
+  allowedSources: string[];
+  defaultSource: string;
+  status: string;
+  layoutPolicy: Record<string, unknown>;
+}
+
+export interface NewsroomAdvertisingMetrics {
+  totalAdvertisers: number;
+  totalCampaigns: number;
+  activeCampaigns: number;
+  pendingReviewCampaigns: number;
+  totalCreatives: number;
+  totalPlacements: number;
+}
+
+export interface NewsroomAdvertisingOverview {
+  advertisers: NewsroomAdvertiser[];
+  campaigns: NewsroomAdCampaign[];
+  creatives: NewsroomAdCreative[];
+  placements: NewsroomAdPlacement[];
+  metrics: NewsroomAdvertisingMetrics;
+}
+
+export interface NewsroomCreateCampaignInput {
+  advertiserId: string;
+  name: string;
+  startAt?: string | null;
+  endAt?: string | null;
+}
+
+export interface NewsroomCreateCreativeInput {
+  campaignId: string;
+  placement: string;
+  destinationUrl?: string | null;
+  disclosureLabel?: string;
+}
+
+export interface NewsroomSubscriberEntitlement {
+  id: string;
+  policyKey: string;
+  startsAt: string;
+  endsAt: string | null;
+  provider: string | null;
+  providerReference: string | null;
+  isActive: boolean;
+}
+
+export interface NewsroomSubscriber {
+  id: string;
+  authUserId: string | null;
+  email: string;
+  displayName: string | null;
+  status: "active" | "suspended" | "canceled" | "past_due" | string;
+  createdAt: string;
+  hasActivePremium: boolean;
+  entitlements: NewsroomSubscriberEntitlement[];
+}
+
+export interface NewsroomSubscriberMetrics {
+  totalSubscribers: number;
+  activeSubscribers: number;
+  premiumSubscribers: number;
+  suspendedSubscribers: number;
+  canceledSubscribers: number;
+}
+
+export interface NewsroomSubscribersDirectory {
+  subscribers: NewsroomSubscriber[];
+  totalCount: number;
+  metrics: NewsroomSubscriberMetrics;
+}
+
+export interface NewsroomPremiumPolicy {
+  key: string;
+  name: string;
+  description: string;
+  isMetered: boolean;
+}
+
+export interface NewsroomTeaserPolicy {
+  authority: string;
+  enabled: boolean;
+  durationSeconds: number;
+  paragraphCount: number;
+  enforcement: string;
+}
+
+export interface NewsroomPremiumStoryItem {
+  id: string;
+  title: string;
+  status: string;
+  accessPolicy: string;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export interface NewsroomPremiumOperationsOverview {
+  policies: NewsroomPremiumPolicy[];
+  teaserPolicy: NewsroomTeaserPolicy;
+  inventoryBreakdown: {
+    totalStories: number;
+    premiumStoriesCount: number;
+    publicStoriesCount: number;
+  };
+  recentPremiumStories: NewsroomPremiumStoryItem[];
+  subscriberStats: {
+    totalSubscribers: number;
+    activeEntitlementsCount: number;
+    totalEntitledSubscribers: number;
+    providers: { provider: string; count: number }[];
+  };
+}

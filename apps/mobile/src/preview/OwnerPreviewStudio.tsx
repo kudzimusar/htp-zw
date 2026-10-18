@@ -87,6 +87,9 @@ import { StudioAnalyticsDeskView } from "../ui/StudioAnalyticsDesk";
 import { StudioAudienceDeskView } from "../ui/StudioAudienceDesk";
 import { StudioSearchGrowthDeskView } from "../ui/StudioSearchGrowthDesk";
 import { StudioStaffRolesDeskView, type StaffDeskTab } from "../ui/StudioStaffRolesDesk";
+import { StudioAdvertisingDeskView, type AdvertisingDeskTab } from "../ui/StudioAdvertisingDesk";
+import { StudioSubscribersDeskView } from "../ui/StudioSubscribersDesk";
+import { StudioPremiumDeskView } from "../ui/StudioPremiumDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -116,6 +119,9 @@ import {
   buildPreviewGrowthIntelligence,
   buildPreviewAudienceIntelligence,
   buildPreviewStaffOperationsDirectory,
+  buildPreviewAdvertisingOverview,
+  buildPreviewSubscribersDirectory,
+  buildPreviewPremiumOperationsOverview,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2385,6 +2391,79 @@ export function OwnerPreviewStaffRolesView() {
   );
 }
 
+export function OwnerPreviewAdvertisingView() {
+  const overview = useMemo(() => buildPreviewAdvertisingOverview(), []);
+  const [activeTab, setActiveTab] = useState<AdvertisingDeskTab>("campaigns");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  return (
+    <StudioAdvertisingDeskView
+      overview={overview}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      statusFilter={statusFilter}
+      onChangeStatusFilter={setStatusFilter}
+      onCreateAdvertiser={async () => {}}
+      onCreateCampaign={async () => {}}
+      onCreateCreative={async () => {}}
+      onApproveCampaign={async () => {}}
+      onUpdateCampaignStatus={async () => {}}
+      canCreate={true}
+      canApprove={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewSubscribersView() {
+  const directory = useMemo(() => buildPreviewSubscribersDirectory(), []);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  return (
+    <StudioSubscribersDeskView
+      directory={directory}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      statusFilter={statusFilter}
+      onChangeStatusFilter={setStatusFilter}
+      onUpdateStatus={async () => {}}
+      onGrantEntitlement={async () => {}}
+      canManage={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewPremiumView() {
+  const overview = useMemo(() => buildPreviewPremiumOperationsOverview(), []);
+
+  return (
+    <StudioPremiumDeskView
+      overview={overview}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      onSetStoryAccess={async () => {}}
+      canManage={true}
+      canAssign={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2571,6 +2650,36 @@ export function OwnerPreviewModuleScreen({
           subtitle="Newsroom staff directory, role catalog, fine-grained capabilities, status management, and immutable audit logs."
         >
           <OwnerPreviewStaffRolesView />
+        </OwnerPreviewShell>
+      );
+    case "advertising":
+      return (
+        <OwnerPreviewShell
+          activeKey="advertising"
+          title="Advertising Manager (Owner Visual Preview)"
+          subtitle="Direct advertising campaigns, creative asset review, advertiser accounts, and layout placement governance."
+        >
+          <OwnerPreviewAdvertisingView />
+        </OwnerPreviewShell>
+      );
+    case "subscribers":
+      return (
+        <OwnerPreviewShell
+          activeKey="subscribers"
+          title="Subscribers & Entitlements (Owner Visual Preview)"
+          subtitle="Verified subscriber accounts, access pass grant management, status lifecycle, and entitlement duration tracking."
+        >
+          <OwnerPreviewSubscribersView />
+        </OwnerPreviewShell>
+      );
+    case "premium":
+      return (
+        <OwnerPreviewShell
+          activeKey="premium"
+          title="Premium Policies & Monetization (Owner Visual Preview)"
+          subtitle="Editorial access policies, meter paywall governance, public teaser policy, and subscriber entitlement channel breakdown."
+        >
+          <OwnerPreviewPremiumView />
         </OwnerPreviewShell>
       );
     default:

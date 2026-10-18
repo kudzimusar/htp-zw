@@ -209,4 +209,78 @@ export function canManageStaff(
   );
 }
 
+export const ADVERTISING_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "ads.view",
+  "ads.create",
+  "ads.approve"
+] as const;
 
+export function hasAdvertisingDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, ADVERTISING_DESK_CAPABILITIES);
+}
+
+export function canCreateCampaign(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasServerCapability(snapshot, "ads.create");
+}
+
+export function canApproveCampaign(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasServerCapability(snapshot, "ads.approve");
+}
+
+export const SUBSCRIBER_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "subscriber.view",
+  "subscriber.manage"
+] as const;
+
+export function hasSubscriberDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, SUBSCRIBER_DESK_CAPABILITIES);
+}
+
+export function canManageSubscribers(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasServerCapability(snapshot, "subscriber.manage");
+}
+
+export const PREMIUM_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "premium.manage",
+  "premium.assign",
+  "subscriber.view"
+] as const;
+
+export function hasPremiumDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, PREMIUM_DESK_CAPABILITIES);
+}
+
+export function canManagePremium(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasServerCapability(snapshot, "premium.manage");
+}
+
+export function canAssignPremium(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return (
+    hasServerCapability(snapshot, "premium.manage") ||
+    hasServerCapability(snapshot, "premium.assign")
+  );
+}

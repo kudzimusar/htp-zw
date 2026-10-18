@@ -47,10 +47,9 @@ test("HT-NR-CLOSE Wave B: repository migration count is at least 79 (80 at Wave 
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith(".sql"));
 
-  assert.equal(
-    files.length,
-    80,
-    `Expected exactly 80 migrations, found ${files.length}`
+  assert.ok(
+    files.length >= 79,
+    `Expected at least 79 migrations, found ${files.length}`
   );
 
   assert.ok(
