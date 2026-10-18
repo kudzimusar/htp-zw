@@ -24,7 +24,9 @@ export function generateStaticParams() {
     "advertising",
     "subscribers",
     "premium",
-    "ai-desk"
+    "ai-desk",
+    "authors",
+    "settings"
   ].map((module) => ({ module }));
 }
 

@@ -51,7 +51,9 @@ import {
   type NewsroomWhatsAppBroadcast,
   type NewsroomWhatsAppBroadcastCreateInput,
   type NewsroomWhatsAppBroadcastStatus,
-  type NewsroomWhatsAppBroadcastType
+  type NewsroomWhatsAppBroadcastType,
+  type NewsroomAuthorItem,
+  type NewsroomSectionItem
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -91,6 +93,8 @@ import { StudioAdvertisingDeskView, type AdvertisingDeskTab } from "../ui/Studio
 import { StudioSubscribersDeskView } from "../ui/StudioSubscribersDesk";
 import { StudioPremiumDeskView } from "../ui/StudioPremiumDesk";
 import { StudioAiDeskPresentation } from "../ui/StudioAiDesk";
+import { StudioAuthorsDeskView } from "../ui/StudioAuthorsDesk";
+import { StudioSettingsDeskView } from "../ui/StudioSettingsDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -125,6 +129,9 @@ import {
   buildPreviewPremiumOperationsOverview,
   buildPreviewAiAssistOverview,
   buildPreviewCitationsDirectory,
+  buildPreviewAuthorsDirectory,
+  buildPreviewTaxonomyDirectory,
+  buildPreviewPlatformSettingsOverview,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2548,6 +2555,168 @@ export function OwnerPreviewAiDeskView() {
   );
 }
 
+export function OwnerPreviewAuthorsView() {
+  const [directory, setDirectory] = useState(() => buildPreviewAuthorsDirectory());
+  const [taxonomy, setTaxonomy] = useState(() => buildPreviewTaxonomyDirectory());
+  const [activeTab, setActiveTab] = useState<"authors" | "taxonomy">("authors");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const filteredDirectory = useMemo(() => {
+    if (!searchQuery.trim()) return directory;
+    const q = searchQuery.toLowerCase();
+    return {
+      ...directory,
+      authors: directory.authors.filter(
+        (a) =>
+          a.displayName.toLowerCase().includes(q) ||
+          a.slug.toLowerCase().includes(q) ||
+          (a.bio && a.bio.toLowerCase().includes(q))
+      )
+    };
+  }, [directory, searchQuery]);
+
+  const filteredTaxonomy = useMemo(() => {
+    if (!searchQuery.trim()) return taxonomy;
+    const q = searchQuery.toLowerCase();
+    return {
+      ...taxonomy,
+      sections: taxonomy.sections.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.slug.toLowerCase().includes(q)
+      )
+    };
+  }, [taxonomy, searchQuery]);
+
+  const handleCreateAuthor = async (displayName: string, slug?: string, bio?: string) => {
+    const newAuthor: NewsroomAuthorItem = {
+      id: `auth-${Date.now()}`,
+      displayName,
+      slug: slug || displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      bio: bio ?? null,
+      wordpressSourceId: null,
+      createdAt: new Date().toISOString(),
+      storyCount: 0,
+      boundStaffId: null,
+      boundStaffName: null,
+      boundStaffEmail: null
+    };
+    setDirectory((prev) => ({
+      ...prev,
+      metrics: {
+        ...prev.metrics,
+        totalAuthors: prev.metrics.totalAuthors + 1,
+        unboundAuthorsCount: prev.metrics.unboundAuthorsCount + 1
+      },
+      authors: [newAuthor, ...prev.authors]
+    }));
+    setActionMessage("Author created (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleUpdateAuthor = async (authorId: string, displayName: string, bio?: string) => {
+    setDirectory((prev) => ({
+      ...prev,
+      authors: prev.authors.map((a) =>
+        a.id === authorId ? { ...a, displayName, bio: bio ?? null } : a
+      )
+    }));
+    setActionMessage("Author updated (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleBindStaffAuthor = async (staffId: string, authorId: string | null) => {
+    setDirectory((prev) => ({
+      ...prev,
+      authors: prev.authors.map((a) =>
+        a.id === authorId
+          ? { ...a, boundStaffId: staffId, boundStaffName: "Linked Staff", boundStaffEmail: "staff@healthtimes.co.zw" }
+          : a.boundStaffId === staffId
+          ? { ...a, boundStaffId: null, boundStaffName: null, boundStaffEmail: null }
+          : a
+      )
+    }));
+    setActionMessage("Staff author binding updated (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleCreateSection = async (name: string, slug?: string, parentId?: string | null) => {
+    const parent = taxonomy.sections.find((s) => s.id === parentId);
+    const newSection: NewsroomSectionItem = {
+      id: `sec-${Date.now()}`,
+      name,
+      slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      parentId: parentId ?? null,
+      parentName: parent?.name ?? null,
+      wordpressSourceId: null,
+      createdAt: new Date().toISOString(),
+      storyCount: 0
+    };
+    setTaxonomy((prev) => ({
+      ...prev,
+      metrics: {
+        ...prev.metrics,
+        totalSections: prev.metrics.totalSections + 1,
+        rootSectionsCount: parentId ? prev.metrics.rootSectionsCount : prev.metrics.rootSectionsCount + 1
+      },
+      sections: [...prev.sections, newSection]
+    }));
+    setActionMessage("Section created (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  return (
+    <StudioAuthorsDeskView
+      directory={filteredDirectory}
+      taxonomy={filteredTaxonomy}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      onCreateAuthor={handleCreateAuthor}
+      onUpdateAuthor={handleUpdateAuthor}
+      onBindStaffAuthor={handleBindStaffAuthor}
+      onCreateSection={handleCreateSection}
+      canManage={true}
+      actionMessage={actionMessage}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewSettingsView() {
+  const [overview, setOverview] = useState(() => buildPreviewPlatformSettingsOverview());
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleUpdateSetting = async (key: string, value: Record<string, unknown>) => {
+    setOverview((prev) => ({
+      ...prev,
+      settings: prev.settings.map((s) =>
+        s.key === key ? { ...s, value, updatedAt: new Date().toISOString() } : s
+      )
+    }));
+    setActionMessage(`Setting '${key}' updated (Owner Visual Preview — sample data)`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  return (
+    <StudioSettingsDeskView
+      overview={overview}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      onUpdateSetting={handleUpdateSetting}
+      canManage={true}
+      actionMessage={actionMessage}
+      isMutating={false}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2774,6 +2943,26 @@ export function OwnerPreviewModuleScreen({
           subtitle="Bounded editorial research, headline drafting, fact-checking, and verified citation intelligence."
         >
           <OwnerPreviewAiDeskView />
+        </OwnerPreviewShell>
+      );
+    case "authors":
+      return (
+        <OwnerPreviewShell
+          activeKey="authors"
+          title="Authors & Taxonomy Registry (Owner Visual Preview)"
+          subtitle="Editorial author directory, WordPress author mapping, staff profile reconciliation, and hierarchical taxonomy sections."
+        >
+          <OwnerPreviewAuthorsView />
+        </OwnerPreviewShell>
+      );
+    case "settings":
+      return (
+        <OwnerPreviewShell
+          activeKey="settings"
+          title="Platform Settings & Integrations (Owner Visual Preview)"
+          subtitle="Newsroom operational governance, service integrations health, zero-secret disclosure contract, and audit log tracking."
+        >
+          <OwnerPreviewSettingsView />
         </OwnerPreviewShell>
       );
     default:

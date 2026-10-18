@@ -35,6 +35,9 @@ import type {
   NewsroomPremiumOperationsOverview,
   NewsroomAiAssistOverview,
   NewsroomCitationsDirectory,
+  NewsroomAuthorsDirectory,
+  NewsroomTaxonomyDirectory,
+  NewsroomPlatformSettingsOverview,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -70,6 +73,8 @@ export type OwnerPreviewModuleKey =
   | "subscribers"
   | "premium"
   | "ai-desk"
+  | "authors"
+  | "settings"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -107,6 +112,8 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "subscribers", label: "Subscribers", path: "/owner-preview/studio/subscribers" },
   { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" },
   { key: "ai-desk", label: "AI Desk & Citations", path: "/owner-preview/studio/ai-desk" },
+  { key: "authors", label: "Authors & Taxonomy", path: "/owner-preview/studio/authors" },
+  { key: "settings", label: "Platform Settings", path: "/owner-preview/studio/settings" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -2864,6 +2871,350 @@ export function buildPreviewCitationsDirectory(): NewsroomCitationsDirectory {
         createdAt: "2026-10-16T15:20:00Z"
       }
     ]
+  };
+}
+
+export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
+  return {
+    metrics: {
+      totalAuthors: 8,
+      migratedAuthorsCount: 5,
+      boundAuthorsCount: 4,
+      unboundAuthorsCount: 4
+    },
+    authors: [
+      {
+        id: "auth-001",
+        displayName: "Dr. Kudzai Musarurwa",
+        slug: "kudzai-musarurwa",
+        bio: "Health systems specialist and editor-in-chief covering southern African public health policy.",
+        wordpressSourceId: "wp-author-12",
+        createdAt: "2024-01-15T09:00:00Z",
+        storyCount: 42,
+        boundStaffId: "staff-001",
+        boundStaffName: "Kudzai Musarurwa",
+        boundStaffEmail: "kudzai@healthtimes.co.zw"
+      },
+      {
+        id: "auth-002",
+        displayName: "Catherine Murombedzi",
+        slug: "catherine-murombedzi",
+        bio: "Senior health journalist focusing on HIV/TB epidemiology and maternal healthcare.",
+        wordpressSourceId: "wp-author-14",
+        createdAt: "2024-02-10T10:00:00Z",
+        storyCount: 38,
+        boundStaffId: "staff-002",
+        boundStaffName: "Catherine Murombedzi",
+        boundStaffEmail: "catherine@healthtimes.co.zw"
+      },
+      {
+        id: "auth-003",
+        displayName: "Michael Gwarisa",
+        slug: "michael-gwarisa",
+        bio: "Investigative reporter reporting on pharmaceuticals, healthcare financing, and health governance.",
+        wordpressSourceId: "wp-author-19",
+        createdAt: "2024-03-01T11:00:00Z",
+        storyCount: 29,
+        boundStaffId: "staff-003",
+        boundStaffName: "Michael Gwarisa",
+        boundStaffEmail: "michael@healthtimes.co.zw"
+      },
+      {
+        id: "auth-004",
+        displayName: "Tafadzwa Chigandiwa",
+        slug: "tafadzwa-chigandiwa",
+        bio: "Desk editor and public health researcher specializing in non-communicable diseases.",
+        wordpressSourceId: "wp-author-22",
+        createdAt: "2024-04-12T08:30:00Z",
+        storyCount: 19,
+        boundStaffId: "staff-004",
+        boundStaffName: "Tafadzwa Chigandiwa",
+        boundStaffEmail: "tafadzwa@healthtimes.co.zw"
+      },
+      {
+        id: "auth-005",
+        displayName: "HealthTimes Editorial Board",
+        slug: "healthtimes-editorial-board",
+        bio: "Official institutional byline for consensus editorial positions and public health notices.",
+        wordpressSourceId: "wp-author-01",
+        createdAt: "2023-11-01T00:00:00Z",
+        storyCount: 56,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      },
+      {
+        id: "auth-006",
+        displayName: "Dr. Rutendo Mashonganyika",
+        slug: "dr-rutendo-mashonganyika",
+        bio: "Guest clinical contributor, consultant pediatrician at Parirenyatwa Group of Hospitals.",
+        wordpressSourceId: null,
+        createdAt: "2025-05-18T14:15:00Z",
+        storyCount: 7,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      },
+      {
+        id: "auth-007",
+        displayName: "Farai Muringani",
+        slug: "farai-muringani",
+        bio: "Digital content and broadcast reporter reporting from Midlands and Matabeleland.",
+        wordpressSourceId: null,
+        createdAt: "2025-08-20T11:00:00Z",
+        storyCount: 12,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      },
+      {
+        id: "auth-008",
+        displayName: "Memory Ndlovu",
+        slug: "memory-ndlovu",
+        bio: "Community reporter focusing on rural WASH access, clinic infrastructure, and nutritional health.",
+        wordpressSourceId: null,
+        createdAt: "2025-09-04T16:00:00Z",
+        storyCount: 15,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      }
+    ]
+  };
+}
+
+export function buildPreviewTaxonomyDirectory(): NewsroomTaxonomyDirectory {
+  return {
+    metrics: {
+      totalSections: 8,
+      rootSectionsCount: 6
+    },
+    sections: [
+      {
+        id: "sec-001",
+        name: "Public Health",
+        slug: "public-health",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-101",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 84
+      },
+      {
+        id: "sec-002",
+        name: "Epidemiology & Outbreaks",
+        slug: "epidemiology-outbreaks",
+        parentId: "sec-001",
+        parentName: "Public Health",
+        wordpressSourceId: "wp-cat-102",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 36
+      },
+      {
+        id: "sec-003",
+        name: "Maternal & Child Health",
+        slug: "maternal-child-health",
+        parentId: "sec-001",
+        parentName: "Public Health",
+        wordpressSourceId: "wp-cat-103",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 28
+      },
+      {
+        id: "sec-004",
+        name: "Pharmaceuticals & Supplies",
+        slug: "pharmaceuticals-supplies",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-104",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 41
+      },
+      {
+        id: "sec-005",
+        name: "Health Financing & Policy",
+        slug: "health-financing-policy",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-105",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 32
+      },
+      {
+        id: "sec-006",
+        name: "Clinical Practice",
+        slug: "clinical-practice",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-106",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 25
+      },
+      {
+        id: "sec-007",
+        name: "Mental Health",
+        slug: "mental-health",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-107",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 18
+      },
+      {
+        id: "sec-008",
+        name: "Nutrition & Food Safety",
+        slug: "nutrition-food-safety",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-108",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 21
+      }
+    ]
+  };
+}
+
+export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettingsOverview {
+  return {
+    settings: [
+      {
+        key: "editorial_require_review",
+        category: "editorial",
+        description: "Enforce two-person editorial gate before publishing",
+        value: { enabled: true, min_approvals: 1 },
+        updatedAt: "2026-10-18T00:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "paywall_hard_enforcement",
+        category: "monetization",
+        description: "Enforce meter limit across all reader devices",
+        value: { enabled: true, free_monthly_quota: 5 },
+        updatedAt: "2026-10-17T18:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "ai_editorial_assist_enabled",
+        category: "editorial",
+        description: "Allow Gemini AI assistant in story workspace",
+        value: { enabled: true, model: "gemini-2.5-flash", require_source_grounding: true },
+        updatedAt: "2026-10-18T02:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "maintenance_mode",
+        category: "infrastructure",
+        description: "Put reader public client into maintenance mode",
+        value: { enabled: false, message: null },
+        updatedAt: "2026-10-15T12:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "comment_policy",
+        category: "security",
+        description: "Moderation policy for public reader discussions",
+        value: { policy: "pre_moderated", allow_anonymous: false },
+        updatedAt: "2026-10-16T10:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "whatsapp_distribution",
+        category: "distribution",
+        description: "Meta WhatsApp Cloud API distribution configuration",
+        value: { phone_number_id: "10984729182371", waba_id: "9827361829102", default_channel: "healthtimes-daily" },
+        updatedAt: "2026-10-17T14:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "brevo_email_distribution",
+        category: "distribution",
+        description: "Brevo transactional and newsletter campaign settings",
+        value: { sender_email: "newsdesk@healthtimes.co.zw", sender_name: "HealthTimes Zimbabwe", list_id: 4 },
+        updatedAt: "2026-10-16T09:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "google_analytics_4",
+        category: "analytics",
+        description: "GA4 reader traffic measurement ID",
+        value: { measurement_id: "G-HTPZW2026", property_id: "492817291" },
+        updatedAt: "2026-10-14T11:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "search_console_growth",
+        category: "analytics",
+        description: "Google Search Console domain verification",
+        value: { site_url: "sc-domain:healthtimes.co.zw", verified: true },
+        updatedAt: "2026-10-14T11:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "push_fcm_apns",
+        category: "distribution",
+        description: "Push notification dispatch configuration",
+        value: { apns_topic: "zw.co.healthtimes.reader", fcm_project: "htp-zw-staging" },
+        updatedAt: "2026-10-17T12:00:00Z",
+        updatedBy: "staff-001"
+      }
+    ],
+    integrations: {
+      whatsapp: {
+        name: "WhatsApp Cloud API",
+        provider: "Meta Graph API",
+        status: "unconfigured",
+        secretConfigured: false,
+        phoneNumberId: "10984729182371",
+        wabaId: "9827361829102",
+        webhookUrl: "https://gcdohgbmqhqwydgaxrcr.edge.internal/functions/v1/whatsapp-webhook"
+      },
+      brevo: {
+        name: "Brevo Email API",
+        provider: "Brevo API v3",
+        status: "configured",
+        secretConfigured: true,
+        senderEmail: "newsdesk@healthtimes.co.zw",
+        senderName: "HealthTimes Zimbabwe"
+      },
+      ga4: {
+        name: "Google Analytics 4",
+        provider: "Google Analytics Data API v1beta",
+        status: "property_verified",
+        secretConfigured: false,
+        propertyId: "492817291",
+        measurementId: "G-HTPZW2026"
+      },
+      search_console: {
+        name: "Google Search Console",
+        provider: "Google Search Console API v1",
+        status: "healthy",
+        secretConfigured: false,
+        siteUrl: "sc-domain:healthtimes.co.zw",
+        verified: true
+      },
+      gemini_ai: {
+        name: "Google Gemini 2.5",
+        provider: "Google Generative AI API",
+        status: "active",
+        secretConfigured: true,
+        defaultModel: "gemini-2.5-flash",
+        edgeFunction: "newsroom-ai-assist"
+      },
+      database_backend: {
+        name: "Staging Database Cluster",
+        provider: "PostgreSQL 15 / PostgREST / GoTrue / Storage",
+        status: "healthy",
+        secretConfigured: true,
+        projectRef: "gcdohgbmqhqwydgaxrcr",
+        appliedMigrations: 83,
+        region: "ap-northeast-1"
+      }
+    },
+    auditSummary: {
+      totalAuditEvents24h: 47,
+      lastAuditAction: "platform_setting_updated",
+      lastAuditAt: "2026-10-18T03:15:00Z"
+    }
   };
 }
 

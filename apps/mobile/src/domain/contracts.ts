@@ -115,7 +115,17 @@ import type {
   NewsroomAiAssistSession,
   NewsroomRunAiAssistInput,
   NewsroomCitationsDirectory,
-  NewsroomRecordCitationInput
+  NewsroomRecordCitationInput,
+  NewsroomAuthorItem,
+  NewsroomAuthorsDirectory,
+  NewsroomCreateAuthorInput,
+  NewsroomUpdateAuthorInput,
+  NewsroomBindStaffAuthorInput,
+  NewsroomSectionItem,
+  NewsroomTaxonomyDirectory,
+  NewsroomCreateSectionInput,
+  NewsroomPlatformSettingItem,
+  NewsroomPlatformSettingsOverview
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -483,6 +493,27 @@ export interface NewsroomAiService {
   updateCitationStatus(citationId: string, status: string): Promise<{ citationId: string; status: string }>;
 }
 
+export interface NewsroomAuthorsService {
+  getAuthorsDirectory(filter?: {
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomAuthorsDirectory>;
+  createAuthor(input: NewsroomCreateAuthorInput): Promise<{ authorId: string; slug: string; created: boolean }>;
+  updateAuthor(input: NewsroomUpdateAuthorInput): Promise<{ authorId: string; updated: boolean }>;
+  bindStaffAuthor(input: NewsroomBindStaffAuthorInput): Promise<{ staffId: string; authorId: string | null; bound: boolean }>;
+  getTaxonomyDirectory(filter?: {
+    parentId?: string | null;
+    search?: string | null;
+  }): Promise<NewsroomTaxonomyDirectory>;
+  createSection(input: NewsroomCreateSectionInput): Promise<{ sectionId: string; slug: string; created: boolean }>;
+}
+
+export interface NewsroomSettingsService {
+  getPlatformSettings(): Promise<NewsroomPlatformSettingsOverview>;
+  updatePlatformSetting(key: string, value: Record<string, unknown>): Promise<{ key: string; updated: boolean }>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -515,6 +546,8 @@ export interface HealthTimesServices {
   newsroomStaff: NewsroomStaffService;
   newsroomCommercial: NewsroomCommercialService;
   newsroomAi: NewsroomAiService;
+  newsroomAuthors: NewsroomAuthorsService;
+  newsroomSettings: NewsroomSettingsService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

@@ -18,6 +18,8 @@ import { stagingNewsroomIntelligenceService } from "./newsroom-intelligence";
 import { stagingNewsroomStaffService } from "./newsroom-staff";
 import { stagingNewsroomCommercialService } from "./newsroom-commercial";
 import { stagingNewsroomAiService } from "./newsroom-ai";
+import { stagingNewsroomAuthorsService } from "./newsroom-authors";
+import { stagingNewsroomSettingsService } from "./newsroom-settings";
 
 export const serviceMode = editorialDataMode;
 
@@ -57,6 +59,8 @@ function buildServices(): HealthTimesServices {
       newsroomStaff: stagingNewsroomStaffService,
       newsroomCommercial: stagingNewsroomCommercialService,
       newsroomAi: stagingNewsroomAiService,
+      newsroomAuthors: stagingNewsroomAuthorsService,
+      newsroomSettings: stagingNewsroomSettingsService,
       platform: stagingPlatformService
     };
   }

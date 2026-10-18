@@ -334,3 +334,49 @@ export function canManageCitations(
   );
 }
 
+export const AUTHORS_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "staff.view",
+  "staff.manage",
+  "story.create",
+  "story.edit_own",
+  "story.edit_all",
+  "story.publish"
+] as const;
+
+export function hasAuthorsDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, AUTHORS_DESK_CAPABILITIES);
+}
+
+export function canManageAuthors(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return (
+    hasServerCapability(snapshot, "staff.manage") ||
+    hasServerCapability(snapshot, "story.edit_all")
+  );
+}
+
+export const SETTINGS_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "settings.manage",
+  "security.manage"
+] as const;
+
+export function hasSettingsDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, SETTINGS_DESK_CAPABILITIES);
+}
+
+export function canManageSettings(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasServerCapability(snapshot, "settings.manage");
+}
+
+

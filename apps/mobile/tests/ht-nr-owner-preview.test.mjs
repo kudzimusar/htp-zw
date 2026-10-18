@@ -82,7 +82,9 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "advertising",
     "subscribers",
     "premium",
-    "ai-desk"
+    "ai-desk",
+    "authors",
+    "settings"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -90,7 +92,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 23);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 25);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -115,6 +117,8 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "/owner-preview/studio/subscribers",
     "/owner-preview/studio/premium",
     "/owner-preview/studio/ai-desk",
+    "/owner-preview/studio/authors",
+    "/owner-preview/studio/settings",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -336,12 +340,12 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Subscribers",
     "Premium Policies",
     "AI Desk & Citations",
+    "Authors & Taxonomy",
+    "Platform Settings",
     "Story Workspace"
   ]);
 
   for (const unfinished of [
-    "Authors",
-    "Platform Settings",
     "Inbox",
     "Desks",
     "Breaking"

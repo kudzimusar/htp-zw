@@ -23,6 +23,8 @@ import type {
   NewsroomStaffService,
   NewsroomCommercialService,
   NewsroomAiService,
+  NewsroomAuthorsService,
+  NewsroomSettingsService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -991,6 +993,190 @@ export const fixtureNewsroomAiService: NewsroomAiService = {
   }
 };
 
+const FAIL_CLOSED_AUTHORS_MESSAGE = "Fail-closed: author mutations require verified server session and staff.manage.";
+
+export const fixtureNewsroomAuthorsService: NewsroomAuthorsService = {
+  async getAuthorsDirectory() {
+    return {
+      metrics: {
+        totalAuthors: 3,
+        migratedAuthorsCount: 3,
+        boundAuthorsCount: 0,
+        unboundAuthorsCount: 3
+      },
+      authors: [
+        {
+          id: "auth-1",
+          displayName: "Michael Gwarisa",
+          slug: "mike-gwarisa",
+          bio: "Editor-in-Chief and health investigative reporter.",
+          wordpressSourceId: "2",
+          createdAt: "2026-09-21T00:00:00Z",
+          storyCount: 24,
+          boundStaffId: null,
+          boundStaffName: null,
+          boundStaffEmail: null
+        },
+        {
+          id: "auth-2",
+          displayName: "Kuda Pembere",
+          slug: "kuda-pembere",
+          bio: "Senior health reporter covering policy and rural delivery.",
+          wordpressSourceId: "3",
+          createdAt: "2026-09-21T00:00:00Z",
+          storyCount: 18,
+          boundStaffId: null,
+          boundStaffName: null,
+          boundStaffEmail: null
+        },
+        {
+          id: "auth-3",
+          displayName: "healthTimesco",
+          slug: "healthtimesco",
+          bio: "Editorial institutional desk account.",
+          wordpressSourceId: "1",
+          createdAt: "2026-09-21T00:00:00Z",
+          storyCount: 5,
+          boundStaffId: null,
+          boundStaffName: null,
+          boundStaffEmail: null
+        }
+      ]
+    };
+  },
+  async createAuthor() {
+    throw new Error(FAIL_CLOSED_AUTHORS_MESSAGE);
+  },
+  async updateAuthor() {
+    throw new Error(FAIL_CLOSED_AUTHORS_MESSAGE);
+  },
+  async bindStaffAuthor() {
+    throw new Error(FAIL_CLOSED_AUTHORS_MESSAGE);
+  },
+  async getTaxonomyDirectory() {
+    return {
+      metrics: {
+        totalSections: 83,
+        rootSectionsCount: 12
+      },
+      sections: [
+        {
+          id: "sec-1",
+          name: "Health Policy & Governance",
+          slug: "health-policy",
+          parentId: null,
+          parentName: null,
+          wordpressSourceId: "101",
+          createdAt: "2026-09-21T00:00:00Z",
+          storyCount: 35
+        },
+        {
+          id: "sec-2",
+          name: "Infectious Diseases & Outbreaks",
+          slug: "infectious-diseases",
+          parentId: null,
+          parentName: null,
+          wordpressSourceId: "102",
+          createdAt: "2026-09-21T00:00:00Z",
+          storyCount: 42
+        }
+      ]
+    };
+  },
+  async createSection() {
+    throw new Error(FAIL_CLOSED_AUTHORS_MESSAGE);
+  }
+};
+
+const FAIL_CLOSED_SETTINGS_MESSAGE = "Fail-closed: platform settings mutations require verified server session and settings.manage.";
+
+export const fixtureNewsroomSettingsService: NewsroomSettingsService = {
+  async getPlatformSettings() {
+    return {
+      settings: [
+        {
+          key: "editorial_require_review",
+          category: "editorial",
+          description: "Require editorial review approval before story publication",
+          value: { enabled: true },
+          updatedAt: "2026-10-18T00:00:00Z",
+          updatedBy: "admin@healthtimes.co.zw"
+        },
+        {
+          key: "comments_default_policy",
+          category: "editorial",
+          description: "Default comment policy for newly published stories",
+          value: { policy: "open" },
+          updatedAt: "2026-10-18T00:00:00Z",
+          updatedBy: "admin@healthtimes.co.zw"
+        },
+        {
+          key: "paywall_hard_enforcement",
+          category: "monetization",
+          description: "Strict paywall enforcement for premium in-depth investigation stories",
+          value: { enabled: false },
+          updatedAt: "2026-10-18T00:00:00Z",
+          updatedBy: "admin@healthtimes.co.zw"
+        },
+        {
+          key: "maintenance_mode",
+          category: "infrastructure",
+          description: "Newsroom public maintenance mode",
+          value: { enabled: false },
+          updatedAt: "2026-10-18T00:00:00Z",
+          updatedBy: "admin@healthtimes.co.zw"
+        }
+      ],
+      integrations: {
+        whatsapp: {
+          name: "Meta WhatsApp Cloud API",
+          provider: "meta_graph_api",
+          status: "configured",
+          secretConfigured: true
+        },
+        brevo: {
+          name: "Brevo Newsletter Service",
+          provider: "brevo_v3_api",
+          status: "configured",
+          secretConfigured: true
+        },
+        google_analytics: {
+          name: "Google Analytics 4",
+          provider: "google_ga4_data_api",
+          status: "property_verified",
+          secretConfigured: false
+        },
+        search_console: {
+          name: "Google Search Console",
+          provider: "google_search_console_api",
+          status: "property_verified",
+          secretConfigured: false
+        },
+        gemini_ai: {
+          name: "Google Gemini AI",
+          provider: "gemini-1.5-flash",
+          status: "active",
+          secretConfigured: true
+        },
+        supabase: {
+          name: "Supabase Database & Edge Engine",
+          provider: "supabase_postgres_v15",
+          status: "healthy",
+          secretConfigured: true
+        }
+      },
+      auditSummary: {
+        totalAuditEvents24h: 18,
+        lastAuditAction: "platform_setting_updated",
+        lastAuditAt: new Date().toISOString()
+      }
+    };
+  },
+  async updatePlatformSetting() {
+    throw new Error(FAIL_CLOSED_SETTINGS_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -1027,6 +1213,8 @@ export const fixtureServices: HealthTimesServices = {
   newsroomStaff: fixtureNewsroomStaffService,
   newsroomCommercial: fixtureNewsroomCommercialService,
   newsroomAi: fixtureNewsroomAiService,
+  newsroomAuthors: fixtureNewsroomAuthorsService,
+  newsroomSettings: fixtureNewsroomSettingsService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

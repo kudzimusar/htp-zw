@@ -3626,3 +3626,104 @@ export interface NewsroomRecordCitationInput {
   country?: string;
 }
 
+// =============================================================================
+// WAVE F: AUTHORS, TAXONOMY & PLATFORM SETTINGS MODELS
+// =============================================================================
+
+export interface NewsroomAuthorItem {
+  id: string;
+  displayName: string;
+  slug: string;
+  bio: string | null;
+  wordpressSourceId: string | null;
+  createdAt: string;
+  storyCount: number;
+  boundStaffId: string | null;
+  boundStaffName: string | null;
+  boundStaffEmail: string | null;
+}
+
+export interface NewsroomAuthorsMetrics {
+  totalAuthors: number;
+  migratedAuthorsCount: number;
+  boundAuthorsCount: number;
+  unboundAuthorsCount: number;
+}
+
+export interface NewsroomAuthorsDirectory {
+  metrics: NewsroomAuthorsMetrics;
+  authors: NewsroomAuthorItem[];
+}
+
+export interface NewsroomCreateAuthorInput {
+  displayName: string;
+  slug?: string | null;
+  bio?: string | null;
+}
+
+export interface NewsroomUpdateAuthorInput {
+  authorId: string;
+  displayName: string;
+  bio?: string | null;
+}
+
+export interface NewsroomBindStaffAuthorInput {
+  staffId: string;
+  authorId?: string | null;
+}
+
+export interface NewsroomSectionItem {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  parentName: string | null;
+  wordpressSourceId: string | null;
+  createdAt: string;
+  storyCount: number;
+}
+
+export interface NewsroomTaxonomyMetrics {
+  totalSections: number;
+  rootSectionsCount: number;
+}
+
+export interface NewsroomTaxonomyDirectory {
+  metrics: NewsroomTaxonomyMetrics;
+  sections: NewsroomSectionItem[];
+}
+
+export interface NewsroomCreateSectionInput {
+  name: string;
+  slug?: string | null;
+  parentId?: string | null;
+}
+
+export interface NewsroomPlatformSettingItem {
+  key: string;
+  category: "distribution" | "analytics" | "editorial" | "security" | "infrastructure" | "monetization" | string;
+  description: string;
+  value: Record<string, unknown>;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
+export interface NewsroomIntegrationHealth {
+  name: string;
+  provider: string;
+  status: string;
+  secretConfigured?: boolean;
+  [key: string]: unknown;
+}
+
+export interface NewsroomPlatformSettingsOverview {
+  settings: NewsroomPlatformSettingItem[];
+  integrations: Record<string, NewsroomIntegrationHealth>;
+  auditSummary: {
+    totalAuditEvents24h: number;
+    lastAuditAction: string;
+    lastAuditAt: string | null;
+  };
+}
+
+
