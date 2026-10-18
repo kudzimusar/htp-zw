@@ -102,10 +102,10 @@ const { stagingNewsroomMediaService } = mediaServiceModule;
 // 1. INVARIANTS & INTEGRITY TESTS
 // -----------------------------------------------------------------------------
 
-test("HT-NR-05B-R1 Invariant: Migration count is exactly 76", () => {
+test("HT-NR-05B-R1 Invariant: Migration count preserves the proven 77-migration authority floor", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
-  assert.ok(files.length >= 76, `Migration count must be at least 76. Found ${files.length}.`);
+  assert.ok(files.length >= 77, `Migration count must be at least 77. Found ${files.length}.`);
 });
 
 test("HT-NR-05B Invariant: Primary repository is untouched", () => {
