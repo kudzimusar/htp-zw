@@ -3137,7 +3137,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         key: "google_analytics_4",
         category: "analytics",
         description: "GA4 reader traffic measurement ID",
-        value: { measurement_id: "G-HTPZW2026", property_id: "492817291" },
+        value: { measurement_id: "GA4-SAMPLE", property_id: "492817291" },
         updatedAt: "2026-10-14T11:00:00Z",
         updatedBy: "staff-001"
       },
@@ -3182,7 +3182,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         status: "property_verified",
         secretConfigured: false,
         propertyId: "492817291",
-        measurementId: "G-HTPZW2026"
+        measurementId: "GA4-SAMPLE"
       },
       search_console: {
         name: "Google Search Console",
