@@ -39,6 +39,14 @@ export function constantTimeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
+export async function computeStablePayloadHash(data: any): Promise<string> {
+  const str = typeof data === "string" ? data : JSON.stringify(data || {});
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(str));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+
 export async function verifyMetaSignature(
   signatureHeader: string | null,
   rawBody: string,
@@ -197,7 +205,10 @@ export async function handleWhatsAppWebhookRequest(
           const timestamp = st?.timestamp
             ? new Date(Number(st.timestamp) * 1000).toISOString()
             : new Date().toISOString();
-          const eventId = `meta_${providerMsgId}_${statusStr}_${st?.timestamp || Date.now()}`;
+          const timePart = (st?.timestamp && String(st.timestamp).trim().length > 0)
+            ? String(st.timestamp).trim()
+            : `payload_${await computeStablePayloadHash(st)}`;
+          const eventId = `meta_${providerMsgId}_${statusStr}_${timePart}`;
 
           const { data: ingestResult, error: ingestError } = await admin.rpc(
             "newsroom_ingest_whatsapp_webhook_event",
@@ -219,6 +230,31 @@ export async function handleWhatsAppWebhookRequest(
           });
         }
       }
+    }
+
+    let hasFailure = false;
+    for (const res of results) {
+      if (res.error) {
+        hasFailure = true;
+        break;
+      }
+      const ingestRes = res.result;
+      const isApplied = ingestRes?.ok === true && ingestRes?.matched === true && !ingestRes?.retryable;
+      const isDuplicate = ingestRes?.ok === true && ingestRes?.duplicate === true;
+      const isTerminalNoop = ingestRes?.ok === true && ingestRes?.regressed === false;
+      if (!isApplied && !isDuplicate && !isTerminalNoop) {
+        hasFailure = true;
+        break;
+      }
+    }
+
+    if (hasFailure) {
+      return jsonResponse(500, {
+        ok: false,
+        error: "One or more webhook events could not be durably processed or matched",
+        processed: results.length,
+        events: results
+      });
     }
 
     return jsonResponse(200, {

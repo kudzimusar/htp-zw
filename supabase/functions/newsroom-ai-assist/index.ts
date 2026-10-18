@@ -146,7 +146,7 @@ export async function handleAiAssistRequest(
     if (!geminiKey || !geminiModel) {
       return jsonResponse(200, {
         ok: false,
-        provider: geminiModel || "google_gemini",
+        provider: geminiModel || "",
         provider_status: "provider_unconfigured",
         error: "Google Gemini AI provider credentials (GEMINI_API_KEY) or model configuration (GEMINI_MODEL) are not configured in this environment",
         suggestions: [],

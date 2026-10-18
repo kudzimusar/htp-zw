@@ -93,7 +93,7 @@ export async function handleWhatsAppDispatchRequest(
       options.whatsappGraphApiVersion || envLookup("WHATSAPP_GRAPH_API_VERSION");
     const fetchFn = options.fetchImpl || fetch;
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!options.adminClient && (!supabaseUrl || !serviceRoleKey)) {
       return jsonResponse(500, { ok: false, error: "Server configuration missing" });
     }
 
@@ -173,10 +173,58 @@ export async function handleWhatsAppDispatchRequest(
       };
     }
 
-    if (broadcast && broadcast.status !== "approved") {
+    if (broadcast && broadcast.status !== "approved" && broadcast.status !== "sent") {
       return jsonResponse(400, {
         ok: false,
         error: "Broadcast must be in approved status for dispatch"
+      });
+    }
+
+    // If broadcast is already sent, it can only be an idempotent replay:
+    // Invoke prepare RPC to check same-key duplicate vs different-key conflict without calling provider.
+    if (broadcast && broadcast.status === "sent") {
+      const { data: prepareData, error: prepareError } = await admin.rpc(
+        "newsroom_prepare_whatsapp_dispatch",
+        {
+          p_broadcast_id: broadcastId.trim(),
+          p_idempotency_key: idempotencyKey,
+          p_actor_user_id: user.id
+        }
+      );
+
+      if (prepareError) {
+        return jsonResponse(409, {
+          ok: false,
+          error: `Conflict: ${prepareError.message}`
+        });
+      }
+
+      if (prepareData?.is_duplicate) {
+        const { data: existingDispatch } = await admin.rpc(
+          "newsroom_get_whatsapp_broadcast_dispatch",
+          { p_broadcast_id: broadcastId.trim() }
+        );
+
+        return jsonResponse(200, {
+          ok: true,
+          is_duplicate: true,
+          dispatch_id: prepareData.dispatch_id,
+          broadcast_id: broadcastId.trim(),
+          status: existingDispatch?.transport_status || prepareData.status,
+          transport_status: existingDispatch?.transport_status || prepareData.status,
+          recipient_count: existingDispatch?.recipient_count ?? 0,
+          accepted_count: existingDispatch?.accepted_count ?? 0,
+          rejected_count: existingDispatch?.rejected_count ?? 0,
+          delivered_count: existingDispatch?.delivered_count ?? 0,
+          read_count: existingDispatch?.read_count ?? 0,
+          failure_reason: existingDispatch?.failure_reason ?? null,
+          dispatched_at: existingDispatch?.dispatched_at || new Date().toISOString()
+        });
+      }
+
+      return jsonResponse(409, {
+        ok: false,
+        error: "Conflict: Broadcast has already been sent and cannot be re-dispatched"
       });
     }
 
@@ -268,6 +316,12 @@ export async function handleWhatsAppDispatchRequest(
         return jsonResponse(409, {
           ok: false,
           error: "Conflict: A dispatch attempt is currently in progress for this broadcast"
+        });
+      }
+      if (prepareError.code === "22023" && prepareError.message?.includes("already")) {
+        return jsonResponse(409, {
+          ok: false,
+          error: `Conflict: ${prepareError.message}`
         });
       }
       return jsonResponse(400, { ok: false, error: prepareError.message });

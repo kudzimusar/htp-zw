@@ -30,7 +30,7 @@ export function mapAiAssistSession(raw: any): NewsroomAiAssistSession {
     inputPrompt: String(raw?.input_prompt ?? raw?.inputPrompt ?? ""),
     inputContext: raw?.input_context ? String(raw.input_context) : (raw?.inputContext ? String(raw.inputContext) : null),
     suggestions: rawSuggestions.map(mapAiSuggestion),
-    provider: String(raw?.provider ?? "gemini-3.8-flash"),
+    provider: String(raw?.provider ?? ""),
     providerStatus: String(raw?.provider_status ?? raw?.providerStatus ?? "provider_unconfigured"),
     status: (raw?.status === "pending" || raw?.status === "failed") ? raw.status : "completed",
     safetyFlags: {
@@ -56,7 +56,7 @@ export function mapAiAssistOverview(data: any): NewsroomAiAssistOverview {
 
   return {
     providerStatus: String(data?.provider_status ?? data?.providerStatus ?? "provider_unconfigured"),
-    providerModel: String(data?.provider_model ?? data?.providerModel ?? "gemini-3.8-flash"),
+    providerModel: String(data?.provider_model ?? data?.providerModel ?? ""),
     safetyPolicy: {
       canPublish: false,
       canApprove: false,
@@ -162,7 +162,7 @@ export function createNewsroomAiService(client?: SupabaseClient | null): Newsroo
             inputPrompt: input.inputPrompt,
             inputContext: input.inputContext ?? null,
             suggestions: [],
-            provider: String(data.provider ?? "google_gemini"),
+            provider: String(data.provider ?? ""),
             providerStatus: String(data.provider_status ?? "provider_unconfigured"),
             status: "failed",
             safetyFlags: {
