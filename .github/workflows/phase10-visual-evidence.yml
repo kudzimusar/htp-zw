@@ -69,7 +69,8 @@ jobs:
           const { chromium } = require('@playwright/test');
           const fs=require('fs');
           const path=require('path');
-          const articleId='source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
+          const articleId='source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis';
+          const articleTitle='Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt';
           const routes=[
             ['home','/'],['explore','/explore'],['search','/search'],['article','/article/'+articleId],
             ['live','/live'],['watch','/watch'],['my-ht','/my'],['premium','/premium'],
@@ -86,8 +87,20 @@ jobs:
                 const pageErrors=[];
                 page.on('pageerror',error=>pageErrors.push(String(error)));
                 const response=await page.goto('http://127.0.0.1:4174'+route,{waitUntil:'domcontentloaded',timeout:30000});
-                if(route==='/') await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
-                else await page.waitForTimeout(1200);
+                if(route==='/'){
+                  await page.getByText('Top Stories',{exact:false}).first().waitFor({timeout:30000});
+                }else if(name==='article'){
+                  await page.getByRole('button',{name:/Back/i}).waitFor({state:'visible',timeout:30000});
+                  await page.getByText(articleTitle,{exact:true}).first().waitFor({state:'visible',timeout:30000});
+                  await page.getByText('Loading article…',{exact:true}).waitFor({state:'hidden',timeout:30000});
+                  if(viewport==='desktop') await page.locator('[aria-label="HealthTimes Home"]:visible').first().waitFor({timeout:30000});
+                  const body=await page.locator('body').innerText();
+                  if(body.includes('Loading article…')) throw new Error('Article evidence captured unresolved loading state');
+                  if(body.includes('Article not found.')) throw new Error('Article evidence captured not-found state');
+                  if(!body.includes(articleTitle)) throw new Error('Article evidence missing resolved public headline');
+                }else{
+                  await page.waitForTimeout(1200);
+                }
                 const hydrationRegenerationWarnings=pageErrors.filter(error=>error.includes('Minified React error #418'));
                 if(hydrationRegenerationWarnings.length){
                   throw new Error(viewport+' '+name+' emitted React #418: '+hydrationRegenerationWarnings.join(' | '));
