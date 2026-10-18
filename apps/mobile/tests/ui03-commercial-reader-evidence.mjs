@@ -292,16 +292,22 @@ async function sourceParityEvidence(){
     }
     const beforeOverflow=await overflow(page);
     if(beforeOverflow.overflow) throw new Error("Premium preview horizontal overflow at "+name);
+    const previewNotice=page.locator('[data-testid="premium-preview-notice"]:visible').first();
+    await previewNotice.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
     const previewFile=path.join(root,"article",name+"-premium-preview.png");
-    await page.screenshot({path:previewFile,fullPage:true});
+    await page.screenshot({path:previewFile,fullPage:false});
     if(name==="mobile"){
       fs.copyFileSync(previewFile,path.join(root,"article","premium-preview-initial.png"));
     }
 
     await waitForVisibleBodyText(page,"Your Premium preview is ending soon",20000);
     await waitForVisibleBodyText(page,"Members can continue with the full article after the preview ends.",10000);
+    const warningNotice=page.locator('[data-testid="premium-preview-notice"]:visible').first();
+    await warningNotice.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
     const warningFile=path.join(root,"article",name+"-premium-warning.png");
-    await page.screenshot({path:warningFile,fullPage:true});
+    await page.screenshot({path:warningFile,fullPage:false});
     if(name==="mobile"){
       fs.copyFileSync(warningFile,path.join(root,"article","premium-preview-warning.png"));
     }
@@ -311,6 +317,7 @@ async function sourceParityEvidence(){
     await supplementalPrompt.waitFor({state:"visible",timeout:10000});
     await waitForVisibleBodyText(page,"Keep reading with HealthTimes Premium",10000);
     await waitForVisibleBodyText(page,"Explore Premium",10000);
+    await page.waitForTimeout(700);
     const promptFile=path.join(root,"article",name+"-premium-subscription-prompt.png");
     await page.screenshot({path:promptFile,fullPage:false});
     if(name==="mobile"){
@@ -330,9 +337,13 @@ async function sourceParityEvidence(){
     if(afterBody.includes("PREMIUM PREVIEW")) throw new Error("Preview remained visible after paywall transition at "+name);
     const afterOverflow=await overflow(page);
     if(afterOverflow.overflow) throw new Error("Premium paywall horizontal overflow at "+name);
+    const paywall=page.locator('[data-testid="premium-article-paywall"]:visible').first();
+    await paywall.waitFor({state:"visible",timeout:10000});
+    await paywall.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
     const react418=assertClean("premium article "+name,diag);
     const paywallFile=path.join(root,"article",name+"-premium-paywall.png");
-    await page.screenshot({path:paywallFile,fullPage:true});
+    await page.screenshot({path:paywallFile,fullPage:false});
     if(name==="mobile"){
       fs.copyFileSync(paywallFile,path.join(root,"article","premium-paywall-expired.png"));
     }
