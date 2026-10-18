@@ -141,14 +141,14 @@ export function StudioSearchGrowthDeskView({
 
           {/* Section: Search Console Integration Details */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Google Search Console Verification</Text>
+            <Text style={styles.cardTitle}>Google Search Console Property</Text>
             <Text style={styles.cardSubtitle}>
               Authoritative search appearance and query performance.
             </Text>
 
             <View style={styles.searchConsoleBox}>
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Verified Property URL:</Text>
+                <Text style={styles.detailLabel}>Known Property URL:</Text>
                 <Text style={styles.detailValue}>{growthData.searchConsoleSummary.property}</Text>
               </View>
               <View style={styles.detailRow}>
