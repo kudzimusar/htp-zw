@@ -208,17 +208,10 @@ export async function handleWhatsAppDispatchRequest(
       if (prepareData?.is_duplicate) {
         let existingDispatch = prepareData.existing_dispatch;
         if (!existingDispatch) {
-          let readbackRes = await userClient.rpc(
+          const readbackRes = await userClient.rpc(
             "newsroom_get_whatsapp_broadcast_dispatch",
             { p_broadcast_id: broadcastId.trim() }
           );
-
-          if ((!readbackRes?.data || typeof readbackRes.data !== "object") && typeof admin?.rpc === "function") {
-            readbackRes = await admin.rpc(
-              "newsroom_get_whatsapp_broadcast_dispatch",
-              { p_broadcast_id: broadcastId.trim() }
-            );
-          }
 
           if (readbackRes?.error || !readbackRes?.data || typeof readbackRes.data !== "object") {
             return jsonResponse(500, {
@@ -360,17 +353,10 @@ export async function handleWhatsAppDispatchRequest(
     if (prepareData?.is_duplicate) {
       let existingDispatch = prepareData.existing_dispatch;
       if (!existingDispatch) {
-        let readbackRes = await userClient.rpc(
+        const readbackRes = await userClient.rpc(
           "newsroom_get_whatsapp_broadcast_dispatch",
           { p_broadcast_id: broadcastId.trim() }
         );
-
-        if ((!readbackRes?.data || typeof readbackRes.data !== "object") && typeof admin?.rpc === "function") {
-          readbackRes = await admin.rpc(
-            "newsroom_get_whatsapp_broadcast_dispatch",
-            { p_broadcast_id: broadcastId.trim() }
-          );
-        }
 
         if (readbackRes?.error || !readbackRes?.data || typeof readbackRes.data !== "object") {
           return jsonResponse(500, {
