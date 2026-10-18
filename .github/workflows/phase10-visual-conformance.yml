@@ -125,7 +125,7 @@ jobs:
                   if(body.includes('Loading article…')) throw new Error('Article evidence captured unresolved loading state');
                   if(body.includes('Article not found.')) throw new Error('Article evidence captured not-found state');
                   if(!body.includes(articleTitle)) throw new Error('Article evidence missing resolved public headline');
-                  const hero=page.getByTestId('article-hero-media');
+                  const hero=page.locator('[data-testid="article-hero-media"]:visible').first();
                   await hero.waitFor({state:'visible',timeout:30000});
                   const heroLoaded=await hero.evaluate(async(element)=>{
                     const img=element.querySelector('img');
