@@ -73,7 +73,8 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "live-desk",
     "social",
     "newsletters",
-    "push-alerts"
+    "push-alerts",
+    "whatsapp"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -81,7 +82,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 11);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 15);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -94,6 +95,10 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "/owner-preview/studio/media",
     "/owner-preview/studio/video-desk",
     "/owner-preview/studio/live-desk",
+    "/owner-preview/studio/social",
+    "/owner-preview/studio/newsletters",
+    "/owner-preview/studio/push-alerts",
+    "/owner-preview/studio/whatsapp",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -303,6 +308,10 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Media Library",
     "Video Desk",
     "Live Desk",
+    "Social Desk",
+    "Newsletter Desk",
+    "Push Alerts",
+    "WhatsApp Desk",
     "Story Workspace"
   ]);
 

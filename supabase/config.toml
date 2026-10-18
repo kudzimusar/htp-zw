@@ -1,3 +1,6 @@
 # Supabase Edge Functions Configuration
 [functions.newsroom-push-dispatch]
 verify_jwt = true
+
+[functions.newsroom-whatsapp-dispatch]
+verify_jwt = true

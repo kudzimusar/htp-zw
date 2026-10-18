@@ -2958,4 +2958,191 @@ export function validatePushDispatchStatus(
   );
 }
 
+// ============================================================================
+// HT-NR-06D: WHATSAPP DISTRIBUTION & DELIVERY LEDGER MODELS
+// ============================================================================
+
+export const NEWSROOM_WHATSAPP_BROADCAST_TYPES = [
+  "breaking_alert",
+  "daily_briefing",
+  "story_update",
+  "health_alert"
+] as const;
+
+export type NewsroomWhatsAppBroadcastType =
+  (typeof NEWSROOM_WHATSAPP_BROADCAST_TYPES)[number];
+
+export const NEWSROOM_WHATSAPP_BROADCAST_STATUSES = [
+  "draft",
+  "approved",
+  "sent",
+  "rejected"
+] as const;
+
+export type NewsroomWhatsAppBroadcastStatus =
+  (typeof NEWSROOM_WHATSAPP_BROADCAST_STATUSES)[number];
+
+export const NEWSROOM_WHATSAPP_DISPATCH_STATUSES = [
+  "submitted",
+  "provider-accepted",
+  "provider-rejected",
+  "partially-accepted",
+  "unconfigured",
+  "delivery-failed"
+] as const;
+
+export type NewsroomWhatsAppDispatchStatus =
+  (typeof NEWSROOM_WHATSAPP_DISPATCH_STATUSES)[number];
+
+export interface NewsroomWhatsAppBroadcastCreateInput {
+  title: string;
+  body: string;
+  broadcast_type: NewsroomWhatsAppBroadcastType;
+  channel_identity?: string;
+  related_story_id?: string | null;
+}
+
+export interface NewsroomWhatsAppDispatch {
+  id: string;
+  broadcastId: string;
+  transportStatus: NewsroomWhatsAppDispatchStatus;
+  provider: string;
+  providerBroadcastId?: string | null;
+  recipientCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  deliveredCount: number;
+  readCount: number;
+  failureReason?: string | null;
+  idempotencyKey?: string;
+  dispatchedAt: string;
+}
+
+export interface NewsroomWhatsAppBroadcast {
+  id: string;
+  title: string;
+  body: string;
+  broadcastType: NewsroomWhatsAppBroadcastType;
+  channelIdentity: string;
+  relatedStoryId: string | null;
+  status: NewsroomWhatsAppBroadcastStatus;
+  createdBy: string;
+  approvedBy: string | null;
+  rejectedBy: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  sentAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  dispatch?: NewsroomWhatsAppDispatch | null;
+}
+
+export interface NewsroomWhatsAppDispatchResult {
+  dispatch_id: string;
+  broadcast_id: string;
+  transport_status: NewsroomWhatsAppDispatchStatus;
+  recipient_count: number;
+  accepted_count: number;
+  rejected_count: number;
+  delivered_count: number;
+  read_count: number;
+  failure_reason?: string | null;
+  dispatched_at: string;
+}
+
+export function validateWhatsAppBroadcastType(
+  type: unknown
+): type is NewsroomWhatsAppBroadcastType {
+  return (
+    typeof type === "string" &&
+    NEWSROOM_WHATSAPP_BROADCAST_TYPES.includes(
+      type as NewsroomWhatsAppBroadcastType
+    )
+  );
+}
+
+export function validateWhatsAppBroadcastStatus(
+  status: unknown
+): status is NewsroomWhatsAppBroadcastStatus {
+  return (
+    typeof status === "string" &&
+    NEWSROOM_WHATSAPP_BROADCAST_STATUSES.includes(
+      status as NewsroomWhatsAppBroadcastStatus
+    )
+  );
+}
+
+export function validateWhatsAppDispatchStatus(
+  status: unknown
+): status is NewsroomWhatsAppDispatchStatus {
+  return (
+    typeof status === "string" &&
+    NEWSROOM_WHATSAPP_DISPATCH_STATUSES.includes(
+      status as NewsroomWhatsAppDispatchStatus
+    )
+  );
+}
+
+export function validateWhatsAppBroadcastCreateInput(
+  input: unknown
+): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { valid: false, error: "Broadcast input must be a JSON object." };
+  }
+
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "title",
+    "body",
+    "broadcast_type",
+    "channel_identity",
+    "related_story_id"
+  ]);
+
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Unexpected field in broadcast input: ${key}` };
+    }
+  }
+
+  if (typeof record.title !== "string" || record.title.trim().length < 3) {
+    return { valid: false, error: "Broadcast title must be at least 3 characters." };
+  }
+  if (record.title.trim().length > 200) {
+    return { valid: false, error: "Broadcast title cannot exceed 200 characters." };
+  }
+
+  if (typeof record.body !== "string" || record.body.trim().length < 10) {
+    return { valid: false, error: "Broadcast body must be at least 10 characters." };
+  }
+  if (record.body.trim().length > 4096) {
+    return { valid: false, error: "Broadcast body cannot exceed 4096 characters." };
+  }
+
+  if (!validateWhatsAppBroadcastType(record.broadcast_type)) {
+    return {
+      valid: false,
+      error: "Invalid broadcast type. Must be breaking_alert, daily_briefing, story_update, or health_alert."
+    };
+  }
+
+  if (
+    record.related_story_id !== null &&
+    record.related_story_id !== undefined &&
+    record.related_story_id !== ""
+  ) {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (
+      typeof record.related_story_id !== "string" ||
+      !uuidRegex.test(record.related_story_id.trim())
+    ) {
+      return { valid: false, error: "related_story_id must be a valid UUID." };
+    }
+  }
+
+  return { valid: true };
+}
+
 

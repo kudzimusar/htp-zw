@@ -138,4 +138,51 @@ export function hasPushDeskAccess(
   return hasAnyServerCapability(snapshot, PUSH_DESK_CAPABILITIES);
 }
 
+export const WHATSAPP_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "distribution.manage",
+  "story.publish"
+] as const;
+
+export function hasWhatsAppDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  return hasAnyServerCapability(snapshot, WHATSAPP_DESK_CAPABILITIES);
+}
+
+export interface WhatsAppDeskCapabilityMatrix {
+  hasDeskAccess: boolean;
+  canCreate: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+  canDispatch: boolean;
+}
+
+export function resolveWhatsAppDeskCapabilityState(
+  snapshot: AuthorizationSnapshot | null | undefined
+): WhatsAppDeskCapabilityMatrix {
+  if (
+    !snapshot ||
+    snapshot.status !== "authorized" ||
+    snapshot.source !== "server"
+  ) {
+    return {
+      hasDeskAccess: false,
+      canCreate: false,
+      canApprove: false,
+      canReject: false,
+      canDispatch: false
+    };
+  }
+
+  return {
+    hasDeskAccess: hasWhatsAppDeskAccess(snapshot),
+    canCreate: hasServerCapability(snapshot, "distribution.manage"),
+    canApprove: hasServerCapability(snapshot, "story.publish"),
+    canReject:
+      hasServerCapability(snapshot, "distribution.manage") ||
+      hasServerCapability(snapshot, "story.publish"),
+    canDispatch: hasServerCapability(snapshot, "story.publish")
+  };
+}
+
 

@@ -47,7 +47,8 @@
     "test:ht-nr06a": "node --test tests/ht-nr06a-social-desk.test.mjs",
     "test:ht-nr06b": "node --test tests/ht-nr06b-newsletter-desk.test.mjs",
     "test:ht-nr06c": "node --test tests/ht-nr06c-push-alerts.test.mjs",
-    "test:ht-nr06cb": "node --test tests/ht-nr06cb-push-provider.test.mjs"
+    "test:ht-nr06cb": "node --test tests/ht-nr06cb-push-provider.test.mjs",
+    "test:ht-nr06d": "node --test tests/ht-nr06d-whatsapp-desk.test.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

@@ -23,6 +23,9 @@ import type {
   NewsroomPushAlertPrepareResult,
   NewsroomPushDispatch,
   NewsroomPushDispatchResult,
+  NewsroomWhatsAppBroadcast,
+  NewsroomWhatsAppDispatch,
+  NewsroomWhatsAppDispatchResult,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -49,6 +52,7 @@ export type OwnerPreviewModuleKey =
   | "social"
   | "newsletters"
   | "push-alerts"
+  | "whatsapp"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -74,6 +78,10 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
   { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
   { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
+  { key: "social", label: "Social Desk", path: "/owner-preview/studio/social" },
+  { key: "newsletters", label: "Newsletter Desk", path: "/owner-preview/studio/newsletters" },
+  { key: "push-alerts", label: "Push Alerts", path: "/owner-preview/studio/push-alerts" },
+  { key: "whatsapp", label: "WhatsApp Desk", path: "/owner-preview/studio/whatsapp" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -1800,6 +1808,98 @@ export function buildPreviewPushDispatches(): Record<string, NewsroomPushDispatc
       createdAt: "2026-10-14T02:10:00.000Z",
       updatedAt: "2026-10-14T02:10:05.000Z"
     }
+  };
+}
+
+export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
+  return [
+    {
+      id: "ba000000-0000-4000-a000-000000000001",
+      title: "CHOLERA ADVISORY: Ministry of Health issues urgent water safety guidelines",
+      body: "The Ministry of Health and Child Care has updated emergency treatment protocols for Harare and Chitungwiza. Residents are urged to boil drinking water and use certified treatment tablets provided at local clinics.",
+      broadcastType: "breaking_alert",
+      channelIdentity: "healthtimes-whatsapp-channel",
+      relatedStoryId: null,
+      status: "approved",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      rejectedBy: null,
+      approvedAt: "2026-10-16T08:30:00.000Z",
+      rejectedAt: null,
+      sentAt: null,
+      rejectionReason: null,
+      createdAt: "2026-10-16T08:00:00.000Z",
+      updatedAt: "2026-10-16T08:30:00.000Z",
+      dispatch: null
+    },
+    {
+      id: "ba000000-0000-4000-a000-000000000002",
+      title: "HealthTimes Daily Briefing: National healthcare budget allocation highlights",
+      body: "Key points from yesterday's parliamentary health portfolio committee hearings: 15% Abuja declaration target progress, domestic pharmaceutical procurement guarantees, and primary care nurse retention package.",
+      broadcastType: "daily_briefing",
+      channelIdentity: "healthtimes-whatsapp-channel",
+      relatedStoryId: null,
+      status: "sent",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      rejectedBy: null,
+      approvedAt: "2026-10-15T06:00:00.000Z",
+      rejectedAt: null,
+      sentAt: "2026-10-15T06:05:00.000Z",
+      rejectionReason: null,
+      createdAt: "2026-10-15T05:30:00.000Z",
+      updatedAt: "2026-10-15T06:05:00.000Z",
+      dispatch: {
+        id: "da000000-0000-4000-a000-000000000001",
+        broadcastId: "ba000000-0000-4000-a000-000000000002",
+        transportStatus: "provider-accepted",
+        provider: "whatsapp_cloud_api",
+        providerBroadcastId: "wamid.HBgLMjYzNzc=",
+        recipientCount: 5420,
+        acceptedCount: 5418,
+        rejectedCount: 2,
+        deliveredCount: 5120,
+        readCount: 4380,
+        failureReason: null,
+        dispatchedAt: "2026-10-15T06:05:00.000Z"
+      }
+    },
+    {
+      id: "ba000000-0000-4000-a000-000000000003",
+      title: "RESEARCH WATCH: New malaria vaccine trial begins across 4 provinces",
+      body: "Phase 3 implementation studies for the R21/Matrix-M malaria vaccine are underway in high-transmission districts. Health researchers are monitoring efficacy across pediatric cohorts aged 5 to 36 months.",
+      broadcastType: "story_update",
+      channelIdentity: "healthtimes-whatsapp-channel",
+      relatedStoryId: null,
+      status: "draft",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: null,
+      rejectedBy: null,
+      approvedAt: null,
+      rejectedAt: null,
+      sentAt: null,
+      rejectionReason: null,
+      createdAt: "2026-10-16T10:00:00.000Z",
+      updatedAt: "2026-10-16T10:00:00.000Z",
+      dispatch: null
+    }
+  ];
+}
+
+export function buildPreviewWhatsAppDispatchResult(
+  broadcastId?: string
+): NewsroomWhatsAppDispatchResult {
+  return {
+    dispatch_id: "da000000-0000-4000-a000-000000000002",
+    broadcast_id: broadcastId || "ba000000-0000-4000-a000-000000000001",
+    transport_status: "provider-accepted",
+    recipient_count: 5420,
+    accepted_count: 5420,
+    rejected_count: 0,
+    delivered_count: 0,
+    read_count: 0,
+    failure_reason: null,
+    dispatched_at: new Date().toISOString()
   };
 }
 

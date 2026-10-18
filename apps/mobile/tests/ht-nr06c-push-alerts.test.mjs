@@ -95,8 +95,8 @@ test("HT-NR-06C-A-R1: repository migration count is exactly 76 at HT-NR-06C-B", 
 
   assert.equal(
     migrationFiles.length,
-    77,
-    `Expected exactly 77 migrations in supabase/migrations, found ${migrationFiles.length}`
+    78,
+    `Expected exactly 78 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(

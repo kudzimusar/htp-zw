@@ -88,7 +88,14 @@ import type {
   NewsroomPushAlertPrepareResult,
   NewsroomPushAlertStatus,
   NewsroomPushDispatch,
-  NewsroomPushDispatchResult
+  NewsroomPushDispatchResult,
+  NewsroomWhatsAppBroadcast,
+  NewsroomWhatsAppBroadcastCreateInput,
+  NewsroomWhatsAppBroadcastStatus,
+  NewsroomWhatsAppBroadcastType,
+  NewsroomWhatsAppDispatch,
+  NewsroomWhatsAppDispatchResult,
+  NewsroomWhatsAppDispatchStatus
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -377,6 +384,23 @@ export interface NewsroomPushAlertService {
   ): Promise<NewsroomPushDispatchResult>;
 }
 
+export interface NewsroomWhatsAppService {
+  listBroadcasts(options?: {
+    status?: NewsroomWhatsAppBroadcastStatus | null;
+    broadcastType?: NewsroomWhatsAppBroadcastType | null;
+    search?: string | null;
+    limit?: number;
+  }): Promise<NewsroomWhatsAppBroadcast[]>;
+  createBroadcast(input: NewsroomWhatsAppBroadcastCreateInput): Promise<string>;
+  approveBroadcast(broadcastId: string): Promise<void>;
+  rejectBroadcast(broadcastId: string, reason?: string): Promise<void>;
+  getDispatch(broadcastId: string): Promise<NewsroomWhatsAppDispatch | null>;
+  dispatchBroadcast(
+    broadcastId: string,
+    idempotencyKey?: string
+  ): Promise<NewsroomWhatsAppDispatchResult>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -404,6 +428,7 @@ export interface HealthTimesServices {
   newsroomSocial: NewsroomSocialService;
   newsroomCampaigns: NewsroomCampaignService;
   newsroomPushAlerts: NewsroomPushAlertService;
+  newsroomWhatsApp: NewsroomWhatsAppService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

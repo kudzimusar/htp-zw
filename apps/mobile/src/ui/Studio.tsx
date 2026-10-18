@@ -28,6 +28,7 @@ const modules=[
   ["Social Desk","/studio/social"],
   ["Newsletter Desk","/studio/newsletters"],
   ["Push Alerts","/studio/push-alerts"],
+  ["WhatsApp Desk","/studio/whatsapp"],
   ["Audience","/studio/audience"],
   ["Search & Growth","/studio/search-growth"],
   ["Analytics & Intelligence","/studio/analytics"],

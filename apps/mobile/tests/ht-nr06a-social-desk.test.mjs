@@ -79,8 +79,8 @@ test("HT-NR-06A Section 3/9: repository migration count is 76 at HT-NR-06C-B aut
 
   assert.equal(
     migrationFiles.length,
-    77,
-    `Expected exactly 77 migrations in supabase/migrations, found ${migrationFiles.length}`
+    78,
+    `Expected exactly 78 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes("20261017030000_ht_nr05db_r1_stream_integrity.sql")

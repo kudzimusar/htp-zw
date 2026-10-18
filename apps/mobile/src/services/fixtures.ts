@@ -18,6 +18,7 @@ import type {
   NewsroomSocialService,
   NewsroomCampaignService,
   NewsroomPushAlertService,
+  NewsroomWhatsAppService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -593,6 +594,30 @@ const fixtureNewsroomPushAlertService: NewsroomPushAlertService = {
   }
 };
 
+const FAIL_CLOSED_WHATSAPP_MESSAGE =
+  "Newsroom WhatsApp desk mutations are disabled in fixture mode. Staging or production server connection required.";
+
+const fixtureNewsroomWhatsAppService: NewsroomWhatsAppService = {
+  async listBroadcasts() {
+    return [];
+  },
+  async createBroadcast() {
+    throw new Error(FAIL_CLOSED_WHATSAPP_MESSAGE);
+  },
+  async approveBroadcast() {
+    throw new Error(FAIL_CLOSED_WHATSAPP_MESSAGE);
+  },
+  async rejectBroadcast() {
+    throw new Error(FAIL_CLOSED_WHATSAPP_MESSAGE);
+  },
+  async getDispatch() {
+    return null;
+  },
+  async dispatchBroadcast() {
+    throw new Error(FAIL_CLOSED_WHATSAPP_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -624,6 +649,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomSocial: fixtureNewsroomSocialService,
   newsroomCampaigns: fixtureNewsroomCampaignService,
   newsroomPushAlerts: fixtureNewsroomPushAlertService,
+  newsroomWhatsApp: fixtureNewsroomWhatsAppService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

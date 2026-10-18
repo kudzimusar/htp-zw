@@ -56,7 +56,7 @@ test("HT-NR-06C-B: NEWSROOM_PUSH_DISPATCH_STATUSES defines all 6 canonical trans
 // 2. MIGRATION 76 & 77 AUTHORITY & DISCIPLINE
 // =============================================================================
 
-test("HT-NR-06C-B-R1: repository migration count is exactly 77", () => {
+test("HT-NR-06C-B-R1: repository migration count is at least 77 (78 at HT-NR-06D)", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrationFiles = fs
     .readdirSync(migrationsDir)
@@ -65,8 +65,8 @@ test("HT-NR-06C-B-R1: repository migration count is exactly 77", () => {
 
   assert.equal(
     migrationFiles.length,
-    77,
-    `Expected exactly 77 migrations in supabase/migrations, found ${migrationFiles.length}`
+    78,
+    `Expected exactly 78 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes(

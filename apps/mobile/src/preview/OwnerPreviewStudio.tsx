@@ -47,7 +47,11 @@ import {
   type NewsroomPushAlertPatch,
   type NewsroomPushAlertPrepareResult,
   type NewsroomPushAlertStatus,
-  type NewsroomPushDispatch
+  type NewsroomPushDispatch,
+  type NewsroomWhatsAppBroadcast,
+  type NewsroomWhatsAppBroadcastCreateInput,
+  type NewsroomWhatsAppBroadcastStatus,
+  type NewsroomWhatsAppBroadcastType
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -78,6 +82,7 @@ import {
 } from "../ui/StudioSocialDesk";
 import { StudioNewsletterDeskView } from "../ui/StudioNewsletterDesk";
 import { StudioPushAlertDeskView } from "../ui/StudioPushAlertDesk";
+import { StudioWhatsAppDeskView } from "../ui/StudioWhatsAppDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -101,6 +106,8 @@ import {
   buildPreviewPushAlertPrepareResult,
   buildPreviewPushDispatches,
   buildPreviewPushDispatchResult,
+  buildPreviewWhatsAppBroadcasts,
+  buildPreviewWhatsAppDispatchResult,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2139,6 +2146,169 @@ function OwnerPreviewPushAlertDeskView() {
   );
 }
 
+function OwnerPreviewWhatsAppDeskView() {
+  const [broadcasts, setBroadcasts] = useState<NewsroomWhatsAppBroadcast[]>(() =>
+    buildPreviewWhatsAppBroadcasts()
+  );
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState<string | null>(
+    () => buildPreviewWhatsAppBroadcasts()[0]?.id ?? null
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    NewsroomWhatsAppBroadcastStatus | "all"
+  >("all");
+  const [typeFilter, setTypeFilter] = useState<
+    NewsroomWhatsAppBroadcastType | "all"
+  >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(
+    "WhatsApp Desk operational in Owner Visual Preview (Sample Data)."
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleCreateBroadcast = async (input: NewsroomWhatsAppBroadcastCreateInput) => {
+    setIsSubmitting(true);
+    const newId = `w1000000-0000-4000-a000-00000000000${broadcasts.length + 1}`;
+    const newBroadcast: NewsroomWhatsAppBroadcast = {
+      id: newId,
+      title: input.title,
+      body: input.body,
+      broadcastType: input.broadcast_type,
+      channelIdentity: input.channel_identity || "healthtimes-whatsapp-channel",
+      relatedStoryId: input.related_story_id || null,
+      status: "draft",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: null,
+      rejectedBy: null,
+      approvedAt: null,
+      rejectedAt: null,
+      sentAt: null,
+      rejectionReason: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      dispatch: null
+    };
+    setBroadcasts((prev) => [newBroadcast, ...prev]);
+    setSelectedBroadcastId(newId);
+    setIsCreating(false);
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast draft created in local preview.");
+  };
+
+  const handleApproveBroadcast = async (id: string) => {
+    setIsSubmitting(true);
+    setBroadcasts((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              status: "approved",
+              approvedBy: "e0000000-0000-4000-a000-000000000001",
+              approvedAt: new Date().toISOString()
+            }
+          : b
+      )
+    );
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast approved for distribution in local preview.");
+  };
+
+  const handleRejectBroadcast = async (id: string, reason?: string) => {
+    setIsSubmitting(true);
+    setBroadcasts((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              status: "rejected",
+              rejectedBy: "e0000000-0000-4000-a000-000000000001",
+              rejectedAt: new Date().toISOString(),
+              rejectionReason: reason || "Editorial rejection"
+            }
+          : b
+      )
+    );
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast rejected in local preview.");
+  };
+
+  const handleDispatchBroadcast = async (id: string) => {
+    setIsSubmitting(true);
+    const result = buildPreviewWhatsAppDispatchResult(id);
+    setBroadcasts((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              status: "sent",
+              sentAt: new Date().toISOString(),
+              dispatch: {
+                id: result.dispatch_id,
+                broadcastId: id,
+                transportStatus: result.transport_status,
+                provider: "whatsapp_cloud_api",
+                providerBroadcastId: "wamid.PREVIEW_12345",
+                recipientCount: result.recipient_count,
+                acceptedCount: result.accepted_count,
+                rejectedCount: result.rejected_count,
+                deliveredCount: result.delivered_count,
+                readCount: result.read_count,
+                failureReason: null,
+                dispatchedAt: result.dispatched_at
+              }
+            }
+          : b
+      )
+    );
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast simulated dispatch to WhatsApp Cloud API.");
+  };
+
+  return (
+    <View style={styles.sectionStack}>
+      <View
+        style={styles.previewNoticeBanner}
+        testID="preview-whatsapp-desk-notice"
+      >
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioWhatsAppDeskView
+        broadcasts={broadcasts}
+        selectedBroadcastId={selectedBroadcastId}
+        onSelectBroadcast={setSelectedBroadcastId}
+        statusFilter={statusFilter}
+        onChangeStatusFilter={setStatusFilter}
+        typeFilter={typeFilter}
+        onChangeTypeFilter={setTypeFilter}
+        searchQuery={searchQuery}
+        onChangeSearchQuery={setSearchQuery}
+        isCreating={isCreating}
+        onStartCreate={() => setIsCreating(true)}
+        onCancelCreate={() => setIsCreating(false)}
+        onCreateBroadcast={handleCreateBroadcast}
+        onApproveBroadcast={handleApproveBroadcast}
+        onRejectBroadcast={handleRejectBroadcast}
+        onDispatchBroadcast={handleDispatchBroadcast}
+        capabilities={{
+          hasDeskAccess: true,
+          canCreate: true,
+          canApprove: true,
+          canReject: true,
+          canDispatch: true
+        }}
+        isSubmitting={isSubmitting}
+        actionMessage={notice}
+        actionErrorMessage={errorMessage}
+        onDismissMessage={() => {
+          setNotice(null);
+          setErrorMessage(null);
+        }}
+      />
+    </View>
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2275,6 +2445,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Reader push alert composition, editorial approval, and notification dispatch preparation handoff backed by canonical newsroom_push_alerts."
         >
           <OwnerPreviewPushAlertDeskView />
+        </OwnerPreviewShell>
+      );
+    case "whatsapp":
+      return (
+        <OwnerPreviewShell
+          activeKey="whatsapp"
+          title="WhatsApp Desk & Distribution Ledger (Owner Visual Preview)"
+          subtitle="WhatsApp broadcast composition, editorial approval, and WhatsApp Cloud API distribution ledger backed by canonical newsroom_whatsapp_broadcasts."
+        >
+          <OwnerPreviewWhatsAppDeskView />
         </OwnerPreviewShell>
       );
     default:
