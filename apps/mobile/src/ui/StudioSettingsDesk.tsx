@@ -139,7 +139,7 @@ export function StudioSettingsDeskView({
       {/* Integration Health Section */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Connected Distribution & Growth Integrations</Text>
-        <Text style={styles.sectionSubtitle}>Verified third-party transports and measurement endpoints.</Text>
+        <Text style={styles.sectionSubtitle}>Third-party transport and measurement configuration status.</Text>
       </View>
 
       <View style={[styles.integrationsGrid, isDesktop && styles.integrationsGridDesktop]}>
