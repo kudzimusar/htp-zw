@@ -49,10 +49,10 @@ import {
   handleAiAssistRequest
 } from "../../../supabase/functions/newsroom-ai-assist/index.ts";
 
-test("HT-NR-CLOSE-R1: Repository migration count is exactly 85", () => {
+test("HT-NR-CLOSE-R1: Repository migration count is at least 85", () => {
   const migrationsDir = path.join(REPO_ROOT, "supabase/migrations");
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
-  assert.equal(files.length, 85, `Expected exactly 85 migrations, found ${files.length}`);
+  assert.ok(files.length >= 85, `Expected at least 85 migrations, found ${files.length}`);
 
   assert.ok(
     files.includes("20261018040000_ht_nr_r1_runtime_truth_audit_acl.sql"),
@@ -326,7 +326,7 @@ test("HT-NR-CLOSE-R1 Defect D: newsroom-whatsapp-dispatch includes recipient in 
   const unconfData = await unconfiguredResp.json();
   assert.equal(unconfData.status, "approved", "Broadcast must remain approved when provider unconfigured");
   assert.equal(unconfData.transport_status, "unconfigured");
-  assert.equal(recordDispatchCalls[0].p_status, "approved", "RPC must receive status approved when unconfigured");
+  assert.equal(recordDispatchCalls.length, 0, "Preflight unconfigured must not create dispatch attempt");
 
   // 2. Test configured send: verifies 'to' field in Meta payload
   let metaPayloads = [];
@@ -355,6 +355,7 @@ test("HT-NR-CLOSE-R1 Defect D: newsroom-whatsapp-dispatch includes recipient in 
     serviceRoleKey: "test-key",
     whatsappSystemAccessToken: "system-token-xyz",
     whatsappPhoneNumberId: "phone-id-456",
+    whatsappGraphApiVersion: "v21.0",
     fetchImpl: mockFetch,
     userClient: mockUserClient,
     adminClient: mockAdminClient

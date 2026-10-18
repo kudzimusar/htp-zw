@@ -54,23 +54,14 @@ export async function handleAiAssistRequest(
     return jsonResponse(405, { ok: false, error: "Method not allowed. POST required." });
   }
 
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return jsonResponse(401, { ok: false, error: "Missing bearer authorization token" });
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
   try {
-    const authHeader = req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return jsonResponse(401, {
-        ok: false,
-        error: "Missing or invalid authorization token in request headers"
-      });
-    }
-
-    const token = authHeader.replace(/^bearer\s+/i, "").trim();
-    if (!token) {
-      return jsonResponse(401, {
-        ok: false,
-        error: "Malformed Bearer token"
-      });
-    }
-
     const envLookup = (key: string): string | undefined => {
       if (typeof Deno !== "undefined" && typeof (Deno as any).env?.get === "function") {
         return (Deno as any).env.get(key);
@@ -82,7 +73,7 @@ export async function handleAiAssistRequest(
     const envAnonKey = options.anonKey || envLookup("SUPABASE_ANON_KEY") || "";
     const envServiceRoleKey = options.serviceRoleKey || envLookup("SUPABASE_SERVICE_ROLE_KEY") || "";
     const geminiKey = options.geminiApiKey || envLookup("GEMINI_API_KEY") || "";
-    const geminiModel = options.geminiModel || envLookup("GEMINI_MODEL") || "gemini-2.5-flash";
+    const geminiModel = options.geminiModel || envLookup("GEMINI_MODEL") || "";
 
     const createClient = await resolveCreateClient(options.createClientFn);
 
@@ -151,13 +142,13 @@ export async function handleAiAssistRequest(
       return jsonResponse(400, { ok: false, error: "Missing required parameter: input_prompt" });
     }
 
-    // Truthful provider check: if GEMINI_API_KEY is not configured, report unconfigured truth
-    if (!geminiKey) {
+    // Truthful provider check: if GEMINI_API_KEY or GEMINI_MODEL is not configured, report unconfigured truth
+    if (!geminiKey || !geminiModel) {
       return jsonResponse(200, {
         ok: false,
-        provider: "google_gemini",
+        provider: geminiModel || "google_gemini",
         provider_status: "provider_unconfigured",
-        error: "Google Gemini AI provider credentials (GEMINI_API_KEY) are not configured in this environment",
+        error: "Google Gemini AI provider credentials (GEMINI_API_KEY) or model configuration (GEMINI_MODEL) are not configured in this environment",
         suggestions: [],
         safety_flags: {
           can_publish: false,
@@ -184,14 +175,18 @@ Context: ${inputContext}
 Respond ONLY with a valid JSON array of suggestions conforming to schema:
 [{"type": "string", "text": "string", "rationale": "string"}]`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
+    // Strictly authenticate via x-goog-api-key header; never include API key in URL query string
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 
     let suggestions: Array<{ type: string; text: string; rationale: string }> = [];
 
     try {
       const resp = await customFetch(geminiUrl, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": geminiKey
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: "application/json" }
@@ -215,11 +210,110 @@ Respond ONLY with a valid JSON array of suggestions conforming to schema:
         });
       }
 
-      const geminiData = await resp.json();
-      const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawText) {
-        const parsed = JSON.parse(rawText);
-        suggestions = Array.isArray(parsed) ? parsed : [];
+      let geminiData: any;
+      try {
+        geminiData = await resp.json();
+      } catch {
+        return jsonResponse(200, {
+          ok: false,
+          provider: geminiModel,
+          provider_status: "provider_failed",
+          error: "Malformed provider response: unparseable JSON",
+          suggestions: [],
+          safety_flags: {
+            can_publish: false,
+            can_approve: false,
+            can_bypass_review: false,
+            human_review_required: true,
+            zero_direct_mutation: true
+          }
+        });
+      }
+
+      const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) {
+        return jsonResponse(200, {
+          ok: false,
+          provider: geminiModel,
+          provider_status: "provider_failed",
+          error: "Malformed provider response: missing candidate text",
+          suggestions: [],
+          safety_flags: {
+            can_publish: false,
+            can_approve: false,
+            can_bypass_review: false,
+            human_review_required: true,
+            zero_direct_mutation: true
+          }
+        });
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        return jsonResponse(200, {
+          ok: false,
+          provider: geminiModel,
+          provider_status: "provider_failed",
+          error: "Malformed provider response: candidate text is not valid JSON",
+          suggestions: [],
+          safety_flags: {
+            can_publish: false,
+            can_approve: false,
+            can_bypass_review: false,
+            human_review_required: true,
+            zero_direct_mutation: true
+          }
+        });
+      }
+
+      if (!Array.isArray(parsed)) {
+        return jsonResponse(200, {
+          ok: false,
+          provider: geminiModel,
+          provider_status: "provider_failed",
+          error: "Malformed provider response: suggestions must be an array",
+          suggestions: [],
+          safety_flags: {
+            can_publish: false,
+            can_approve: false,
+            can_bypass_review: false,
+            human_review_required: true,
+            zero_direct_mutation: true
+          }
+        });
+      }
+
+      suggestions = parsed
+        .filter(
+          (s: any) =>
+            s &&
+            typeof s.text === "string" &&
+            s.text.trim().length > 0 &&
+            typeof s.type === "string"
+        )
+        .map((s: any) => ({
+          type: String(s.type).trim(),
+          text: String(s.text).trim(),
+          rationale: String(s.rationale || "").trim()
+        }));
+
+      if (suggestions.length === 0) {
+        return jsonResponse(200, {
+          ok: false,
+          provider: geminiModel,
+          provider_status: "provider_failed",
+          error: "Malformed provider response: zero valid suggestions returned",
+          suggestions: [],
+          safety_flags: {
+            can_publish: false,
+            can_approve: false,
+            can_bypass_review: false,
+            human_review_required: true,
+            zero_direct_mutation: true
+          }
+        });
       }
     } catch (err: any) {
       return jsonResponse(200, {
@@ -239,32 +333,41 @@ Respond ONLY with a valid JSON array of suggestions conforming to schema:
     }
 
     // Persist session atomically and record canonical audit log via service-role RPC
-    let sessionId = crypto.randomUUID ? crypto.randomUUID() : "sess-" + Date.now();
-    try {
-      const { data: recordData, error: recordErr } = await adminClient.rpc(
-        "newsroom_record_ai_assist_session",
-        {
-          p_story_id: storyId,
-          p_task_type: taskType,
-          p_input_prompt: inputPrompt,
-          p_input_context: inputContext || null,
-          p_suggestions: suggestions,
-          p_provider: geminiModel,
-          p_provider_status: "active",
-          p_actor_user_id: userId
-        }
-      );
-
-      if (recordData?.session_id) {
-        sessionId = recordData.session_id;
+    // Fail closed if session recording fails: do not return ok: true and do not manufacture a fake session ID
+    const { data: recordData, error: recordErr } = await adminClient.rpc(
+      "newsroom_record_ai_assist_session",
+      {
+        p_story_id: storyId,
+        p_task_type: taskType,
+        p_input_prompt: inputPrompt,
+        p_input_context: inputContext || null,
+        p_suggestions: suggestions,
+        p_provider: geminiModel,
+        p_provider_status: "active",
+        p_actor_user_id: userId
       }
-    } catch {
-      // Non-fatal if session recording fails
+    );
+
+    if (recordErr || !recordData?.session_id) {
+      return jsonResponse(200, {
+        ok: false,
+        provider: geminiModel,
+        provider_status: "persistence_failed",
+        error: `Session persistence failed: ${recordErr?.message || "Could not record session in database"}`,
+        suggestions: [],
+        safety_flags: {
+          can_publish: false,
+          can_approve: false,
+          can_bypass_review: false,
+          human_review_required: true,
+          zero_direct_mutation: true
+        }
+      });
     }
 
     return jsonResponse(200, {
       ok: true,
-      session_id: sessionId,
+      session_id: recordData.session_id,
       task_type: taskType,
       provider: geminiModel,
       provider_status: "active",

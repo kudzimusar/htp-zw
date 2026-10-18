@@ -30,6 +30,15 @@ async function resolveCreateClient(injected?: any) {
   }
 }
 
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 export async function verifyMetaSignature(
   signatureHeader: string | null,
   rawBody: string,
@@ -60,7 +69,7 @@ export async function verifyMetaSignature(
       .join("")
       .toLowerCase();
 
-    return computedHash === providedHash;
+    return constantTimeEqual(computedHash, providedHash);
   } catch {
     return false;
   }
@@ -121,27 +130,32 @@ export async function handleWhatsAppWebhookRequest(
     return jsonResponse(405, { ok: false, error: "Method not allowed. GET or POST required." });
   }
 
-  try {
-    const signatureHeader = req.headers.get("x-hub-signature-256");
-    const rawBody = await req.text();
+  // Fail closed if appSecret is absent or empty:
+  // Must reject immediately without reading/parsing body, without initializing database client,
+  // and without invoking any webhook RPC.
+  if (!appSecret) {
+    return jsonResponse(500, {
+      ok: false,
+      error: "WhatsApp webhook provider unconfigured: WHATSAPP_APP_SECRET is missing"
+    });
+  }
 
-    // Verify cryptographic signature if appSecret is configured
-    if (appSecret) {
-      const isValid = await verifyMetaSignature(signatureHeader, rawBody, appSecret);
-      if (!isValid) {
-        return jsonResponse(401, {
-          ok: false,
-          error: "Unauthorized: Invalid or missing X-Hub-Signature-256"
-        });
-      }
-    } else {
-      // In staging without secret configured, reject unauthenticated mutations
-      if (!signatureHeader) {
-        return jsonResponse(401, {
-          ok: false,
-          error: "Unauthorized: Missing X-Hub-Signature-256 header"
-        });
-      }
+  const signatureHeader = req.headers.get("x-hub-signature-256");
+  if (!signatureHeader) {
+    return jsonResponse(401, {
+      ok: false,
+      error: "Unauthorized: Missing X-Hub-Signature-256 header"
+    });
+  }
+
+  try {
+    const rawBody = await req.text();
+    const isValid = await verifyMetaSignature(signatureHeader, rawBody, appSecret);
+    if (!isValid) {
+      return jsonResponse(401, {
+        ok: false,
+        error: "Unauthorized: Invalid X-Hub-Signature-256"
+      });
     }
 
     let payload: any;

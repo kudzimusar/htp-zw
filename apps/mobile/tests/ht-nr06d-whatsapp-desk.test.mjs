@@ -528,9 +528,7 @@ test("HT-NR-06D: newsroom-whatsapp-dispatch unconfigured provider fallback recor
   assert.equal(body.status, "approved");
   assert.equal(body.transport_status, "unconfigured");
   assert.equal(body.recipient_count, 0);
-  assert.ok(recordedParams);
-  assert.equal(recordedParams.p_transport_status, "unconfigured");
-  assert.equal(recordedParams.p_status, "approved");
+  assert.equal(recordedParams, null, "Preflight unconfigured must not create dispatch attempt");
 });
 
 test("HT-NR-06D: newsroom-whatsapp-dispatch single-dispatch idempotency replays existing dispatch", async () => {
@@ -549,6 +547,12 @@ test("HT-NR-06D: newsroom-whatsapp-dispatch single-dispatch idempotency replays 
 
   const adminClientDuplicateMock = {
     rpc: async (name, params) => {
+      if (name === "newsroom_get_consented_whatsapp_recipients") {
+        return {
+          data: [{ recipient_id: "r1", phone: "263771234567", phone_hash: "a".repeat(64) }],
+          error: null
+        };
+      }
       if (name === "newsroom_prepare_whatsapp_dispatch") {
         return {
           data: {
@@ -592,6 +596,9 @@ test("HT-NR-06D: newsroom-whatsapp-dispatch single-dispatch idempotency replays 
     {
       supabaseUrl: "https://mock.supabase.co",
       serviceRoleKey: "mock-service-role",
+      whatsappSystemAccessToken: "mock-token",
+      whatsappPhoneNumberId: "mock-phone-id",
+      whatsappGraphApiVersion: "v21.0",
       userClient: userClientAuthorized,
       adminClient: adminClientDuplicateMock
     }
