@@ -117,10 +117,10 @@ const { buildPreviewMediaAssets, OWNER_PREVIEW_NAV_ITEMS } = previewData;
 // 1. EXACT INVARIANTS & CUSTODY PRESERVATION
 // =========================================================================
 
-test("HT-NR-05A: Migration count matches repository authority (exactly 76 at HT-NR-06C-B)", () => {
+test("HT-NR-05A: Migration count preserves the proven 77-migration authority floor", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const sqlFiles = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
-  assert.ok(sqlFiles.length >= 76, `Migration count must be at least 76. Found: ${sqlFiles.length}`);
+  assert.ok(sqlFiles.length >= 77, `Migration count must be at least 77. Found: ${sqlFiles.length}`);
 });
 
 test("HT-NR-05A: Real /studio landing remains exact frozen parent authority", () => {
