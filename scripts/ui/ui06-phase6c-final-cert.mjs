@@ -271,7 +271,7 @@ try{
     const protectedContentRequests=requests.filter(u=>decodeURIComponent(u).toLowerCase().includes("wp-json/wp/v2")&&decodeURIComponent(u).toLowerCase().includes("content"));
     if(protectedContentRequests.length)fail("Premium security","anonymous browser requested WordPress content field: "+protectedContentRequests.join(" | "),"P0");
     const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
-    if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
+    if(await offline.count()){await offline.click({force:true});await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
     const prompt=page.getByTestId("premium-subscription-prompt");
     const promptPrimary=page.getByTestId("premium-prompt-primary");
     const promptHeading=page.getByRole("heading",{name:"Keep reading with HealthTimes Premium",exact:true});
