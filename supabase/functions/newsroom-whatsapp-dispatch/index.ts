@@ -193,6 +193,12 @@ export async function handleWhatsAppDispatchRequest(
       );
 
       if (prepareError) {
+        if (prepareError.code === "42501") {
+          return jsonResponse(403, {
+            ok: false,
+            error: `Forbidden: ${prepareError.message}`
+          });
+        }
         return jsonResponse(409, {
           ok: false,
           error: `Conflict: ${prepareError.message}`
@@ -200,25 +206,43 @@ export async function handleWhatsAppDispatchRequest(
       }
 
       if (prepareData?.is_duplicate) {
-        const { data: existingDispatch } = await admin.rpc(
-          "newsroom_get_whatsapp_broadcast_dispatch",
-          { p_broadcast_id: broadcastId.trim() }
-        );
+        let existingDispatch = prepareData.existing_dispatch;
+        if (!existingDispatch) {
+          let readbackRes = await userClient.rpc(
+            "newsroom_get_whatsapp_broadcast_dispatch",
+            { p_broadcast_id: broadcastId.trim() }
+          );
+
+          if ((!readbackRes?.data || typeof readbackRes.data !== "object") && typeof admin?.rpc === "function") {
+            readbackRes = await admin.rpc(
+              "newsroom_get_whatsapp_broadcast_dispatch",
+              { p_broadcast_id: broadcastId.trim() }
+            );
+          }
+
+          if (readbackRes?.error || !readbackRes?.data || typeof readbackRes.data !== "object") {
+            return jsonResponse(500, {
+              ok: false,
+              error: `Failed to retrieve authoritative persisted dispatch state for replay: ${readbackRes?.error?.message || "Not found"}`
+            });
+          }
+          existingDispatch = readbackRes.data;
+        }
 
         return jsonResponse(200, {
           ok: true,
           is_duplicate: true,
-          dispatch_id: prepareData.dispatch_id,
+          dispatch_id: prepareData.dispatch_id || existingDispatch.id,
           broadcast_id: broadcastId.trim(),
-          status: existingDispatch?.transport_status || prepareData.status,
-          transport_status: existingDispatch?.transport_status || prepareData.status,
-          recipient_count: existingDispatch?.recipient_count ?? 0,
-          accepted_count: existingDispatch?.accepted_count ?? 0,
-          rejected_count: existingDispatch?.rejected_count ?? 0,
-          delivered_count: existingDispatch?.delivered_count ?? 0,
-          read_count: existingDispatch?.read_count ?? 0,
-          failure_reason: existingDispatch?.failure_reason ?? null,
-          dispatched_at: existingDispatch?.dispatched_at || new Date().toISOString()
+          status: existingDispatch.transport_status || prepareData.status,
+          transport_status: existingDispatch.transport_status || prepareData.status,
+          recipient_count: existingDispatch.recipient_count ?? prepareData.recipient_count,
+          accepted_count: existingDispatch.accepted_count ?? prepareData.accepted_count,
+          rejected_count: existingDispatch.rejected_count ?? prepareData.rejected_count,
+          delivered_count: existingDispatch.delivered_count ?? 0,
+          read_count: existingDispatch.read_count ?? 0,
+          failure_reason: existingDispatch.failure_reason ?? null,
+          dispatched_at: existingDispatch.dispatched_at || null
         });
       }
 
@@ -324,30 +348,53 @@ export async function handleWhatsAppDispatchRequest(
           error: `Conflict: ${prepareError.message}`
         });
       }
+      if (prepareError.code === "42501") {
+        return jsonResponse(403, {
+          ok: false,
+          error: `Forbidden: ${prepareError.message}`
+        });
+      }
       return jsonResponse(400, { ok: false, error: prepareError.message });
     }
 
     if (prepareData?.is_duplicate) {
-      // Idempotent replay of existing attempt: retrieve existing dispatch status and sanitized counts
-      const { data: existingDispatch } = await admin.rpc(
-        "newsroom_get_whatsapp_broadcast_dispatch",
-        { p_broadcast_id: broadcastId.trim() }
-      );
+      let existingDispatch = prepareData.existing_dispatch;
+      if (!existingDispatch) {
+        let readbackRes = await userClient.rpc(
+          "newsroom_get_whatsapp_broadcast_dispatch",
+          { p_broadcast_id: broadcastId.trim() }
+        );
+
+        if ((!readbackRes?.data || typeof readbackRes.data !== "object") && typeof admin?.rpc === "function") {
+          readbackRes = await admin.rpc(
+            "newsroom_get_whatsapp_broadcast_dispatch",
+            { p_broadcast_id: broadcastId.trim() }
+          );
+        }
+
+        if (readbackRes?.error || !readbackRes?.data || typeof readbackRes.data !== "object") {
+          return jsonResponse(500, {
+            ok: false,
+            error: `Failed to retrieve authoritative persisted dispatch state for replay: ${readbackRes?.error?.message || "Not found"}`
+          });
+        }
+        existingDispatch = readbackRes.data;
+      }
 
       return jsonResponse(200, {
         ok: true,
         is_duplicate: true,
-        dispatch_id: prepareData.dispatch_id,
+        dispatch_id: prepareData.dispatch_id || existingDispatch.id,
         broadcast_id: broadcastId.trim(),
-        status: existingDispatch?.transport_status || prepareData.status,
-        transport_status: existingDispatch?.transport_status || prepareData.status,
-        recipient_count: existingDispatch?.recipient_count ?? 0,
-        accepted_count: existingDispatch?.accepted_count ?? 0,
-        rejected_count: existingDispatch?.rejected_count ?? 0,
-        delivered_count: existingDispatch?.delivered_count ?? 0,
-        read_count: existingDispatch?.read_count ?? 0,
-        failure_reason: existingDispatch?.failure_reason ?? null,
-        dispatched_at: existingDispatch?.dispatched_at || new Date().toISOString()
+        status: existingDispatch.transport_status || prepareData.status,
+        transport_status: existingDispatch.transport_status || prepareData.status,
+        recipient_count: existingDispatch.recipient_count ?? prepareData.recipient_count,
+        accepted_count: existingDispatch.accepted_count ?? prepareData.accepted_count,
+        rejected_count: existingDispatch.rejected_count ?? prepareData.rejected_count,
+        delivered_count: existingDispatch.delivered_count ?? 0,
+        read_count: existingDispatch.read_count ?? 0,
+        failure_reason: existingDispatch.failure_reason ?? null,
+        dispatched_at: existingDispatch.dispatched_at || null
       });
     }
 
