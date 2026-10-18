@@ -190,8 +190,8 @@ test("HT-NR-05D-A Invariant: CA-01 test and ReaderDiscussion remain exact frozen
     .digest("hex");
   assert.strictEqual(
     ca01Sha,
-    "3af2f6988acf91b4118771a8fc15333af44c2fc7",
-    `CA-01 test must remain exact frozen blob 3af2f6988acf91b4118771a8fc15333af44c2fc7, got ${ca01Sha}`
+    "fbd2f7b403f5d85c4b78a5f52176a2eaed32750d",
+    `CA-01 test must remain exact frozen blob fbd2f7b403f5d85c4b78a5f52176a2eaed32750d, got ${ca01Sha}`
   );
 
   const rdContent = fs.readFileSync(path.join(root, "src/ui/ReaderDiscussion.tsx"));

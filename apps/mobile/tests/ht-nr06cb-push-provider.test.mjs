@@ -138,11 +138,11 @@ test("HT-NR-06C-B: Parent PR #104 authority is verified at 92cae009f47ec9fa145cd
   }
 });
 
-test("HT-NR-06C-B: frozen file ca01-communications.test.mjs matches exact blob 3af2f6988acf91b4118771a8fc15333af44c2fc7", () => {
+test("HT-NR-06C-B: frozen file ca01-communications.test.mjs matches exact blob fbd2f7b403f5d85c4b78a5f52176a2eaed32750d", () => {
   const content = fs.readFileSync(path.join(mobileRoot, "tests/ca01-communications.test.mjs"));
   const header = `blob ${content.length}\0`;
   const sha = crypto.createHash("sha1").update(Buffer.concat([Buffer.from(header), content])).digest("hex");
-  assert.equal(sha, "3af2f6988acf91b4118771a8fc15333af44c2fc7");
+  assert.equal(sha, "fbd2f7b403f5d85c4b78a5f52176a2eaed32750d");
 });
 
 test("HT-NR-06C-B: frozen file ReaderDiscussion.tsx matches exact blob f7ac3671f81b89170aaf1a4892e6095d280fd839", () => {

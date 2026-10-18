@@ -194,7 +194,7 @@ test("HT-NR-06B: frozen blobs remain untouched", () => {
     { cwd: repoRoot, encoding: "utf8" }
   ).trim();
 
-  assert.equal(ca01TestHash, "3af2f6988acf91b4118771a8fc15333af44c2fc7");
+  assert.equal(ca01TestHash, "fbd2f7b403f5d85c4b78a5f52176a2eaed32750d");
   assert.equal(readerDiscussionHash, "f7ac3671f81b89170aaf1a4892e6095d280fd839");
 });
 

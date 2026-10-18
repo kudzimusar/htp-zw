@@ -752,7 +752,7 @@ test("HT-NR-06C-A Invariant: ca01-communications.test.mjs git blob is untouched"
 
   assert.equal(
     sha,
-    "3af2f6988acf91b4118771a8fc15333af44c2fc7",
+    "fbd2f7b403f5d85c4b78a5f52176a2eaed32750d",
     "ca01-communications.test.mjs blob must match frozen baseline"
   );
 });

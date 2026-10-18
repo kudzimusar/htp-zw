@@ -542,7 +542,26 @@ test("HT-NR-06D: newsroom-whatsapp-dispatch single-dispatch idempotency replays 
         error: null
       })
     },
-    rpc: async () => ({ data: true, error: null })
+    rpc: async (name, params) => {
+      if (name === "newsroom_get_whatsapp_broadcast_dispatch") {
+        return {
+          data: {
+            id: dispatchId,
+            broadcast_id: broadcastId,
+            transport_status: "provider-accepted",
+            recipient_count: 5400,
+            accepted_count: 5400,
+            rejected_count: 0,
+            delivered_count: 5000,
+            read_count: 4200,
+            failure_reason: null,
+            dispatched_at: "2026-10-16T10:00:00.000Z"
+          },
+          error: null
+        };
+      }
+      return { data: true, error: null };
+    }
   };
 
   const adminClientDuplicateMock = {

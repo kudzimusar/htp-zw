@@ -258,8 +258,12 @@ try{
     const requests=[];page.on("request",r=>requests.push(r.url()));
     await installPremiumTeaserAuthority(page,premiumTeaserAuthority);
     await open(page,"/article/"+premiumArticleId,"Premium journey");
-    const journeyPreview=page.getByText("PREMIUM PREVIEW",{exact:true}).first();
-    if(await journeyPreview.isVisible().catch(()=>false)){
+    const resolvedEntry=await anyText(
+      page,
+      ["PREMIUM PREVIEW","Continue reading with HealthTimes Premium"],
+      "Premium journey entry state"
+    );
+    if(resolvedEntry==="PREMIUM PREVIEW"){
       await bodyText(page,"Continue reading with HealthTimes Premium","Premium preview-to-lock boundary",45000);
     }else{
       await bodyText(page,"Continue reading with HealthTimes Premium","Premium locked boundary",30000);

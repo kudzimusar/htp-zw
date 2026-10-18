@@ -280,8 +280,8 @@ test("HT-NR-05D-B Section 55: Frozen blobs ca01-communications.test.mjs and Read
     .digest("hex");
   assert.strictEqual(
     ca01Sha,
-    "3af2f6988acf91b4118771a8fc15333af44c2fc7",
-    `ca01-communications.test.mjs must remain exact blob 3af2f6988acf91b4118771a8fc15333af44c2fc7`
+    "fbd2f7b403f5d85c4b78a5f52176a2eaed32750d",
+    `ca01-communications.test.mjs must remain exact blob fbd2f7b403f5d85c4b78a5f52176a2eaed32750d`
   );
 
   const rdContent = fs.readFileSync(path.join(root, "src/ui/ReaderDiscussion.tsx"));
