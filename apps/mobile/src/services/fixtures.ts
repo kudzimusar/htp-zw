@@ -19,6 +19,7 @@ import type {
   NewsroomCampaignService,
   NewsroomPushAlertService,
   NewsroomWhatsAppService,
+  NewsroomIntelligenceService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -618,6 +619,169 @@ const fixtureNewsroomWhatsAppService: NewsroomWhatsAppService = {
   }
 };
 
+const fixtureNewsroomIntelligenceService: NewsroomIntelligenceService = {
+  async getEditorialIntelligence() {
+    return {
+      generatedAt: new Date().toISOString(),
+      storyInventory: {
+        total: 5792,
+        published: 5789,
+        draft: 3,
+        review: 3,
+        scheduled: 0,
+        archived: 0
+      },
+      publishingVelocity: {
+        last24Hours: 0,
+        last7Days: 0,
+        last30Days: 7
+      },
+      reviewQueue: {
+        inReviewCount: 3,
+        avgAgeHours: 24.5,
+        oldestAgeHours: 48.0
+      },
+      assignments: {
+        total: 0,
+        active: 0,
+        overdue: 0,
+        completed: 0
+      },
+      deskMix: [
+        { desk: "Public Health", count: 2400 },
+        { desk: "Policy", count: 1500 },
+        { desk: "Clinical", count: 989 },
+        { desk: "Investigations", count: 900 }
+      ],
+      distributionReach: {
+        socialPostsCount: 0,
+        newsletterCampaignsCount: 0,
+        pushAlertsCount: 0,
+        whatsappBroadcastsCount: 0
+      }
+    };
+  },
+
+  async getGrowthIntelligence() {
+    return {
+      generatedAt: new Date().toISOString(),
+      integrations: [
+        {
+          id: "int-ga4-001",
+          provider: "google_analytics",
+          integrationKey: "public_web",
+          status: "identity_verified_account_access_pending",
+          externalAccountId: "137814020",
+          externalPropertyId: "359235319",
+          externalMeasurementId: null,
+          lastSuccessAt: null,
+          lastErrorAt: null,
+          lastError: null,
+          notes: "Property identified; awaiting service account authorization"
+        },
+        {
+          id: "int-gsc-001",
+          provider: "search_console",
+          integrationKey: "public_search",
+          status: "property_known_account_access_pending",
+          externalAccountId: null,
+          externalPropertyId: "https://healthtimes.co.zw/",
+          externalMeasurementId: null,
+          lastSuccessAt: null,
+          lastErrorAt: null,
+          lastError: null,
+          notes: "Domain property identified; awaiting Search Console API access"
+        },
+        {
+          id: "int-ads-001",
+          provider: "adsense",
+          integrationKey: "public_ads",
+          status: "identity_verified_reporting_access_pending",
+          externalAccountId: null,
+          externalPropertyId: "pub-8744434739998394",
+          externalMeasurementId: null,
+          lastSuccessAt: null,
+          lastErrorAt: null,
+          lastError: null,
+          notes: "Publisher ID verified; awaiting reporting API grant"
+        },
+        {
+          id: "int-cit-001",
+          provider: "citations",
+          integrationKey: "external_references",
+          status: "provider_not_connected",
+          externalAccountId: null,
+          externalPropertyId: null,
+          externalMeasurementId: null,
+          lastSuccessAt: null,
+          lastErrorAt: null,
+          lastError: null,
+          notes: "Citation tracking provider unconfigured"
+        }
+      ],
+      analyticsDailySummary: {
+        rowsRecorded: 0,
+        totalPageViews: 0,
+        totalUsers: 0,
+        totalSessions: 0,
+        status: "pending_ingestion"
+      },
+      searchConsoleSummary: {
+        property: "https://healthtimes.co.zw/",
+        rowsRecorded: 0,
+        totalClicks: 0,
+        totalImpressions: 0,
+        status: "pending_ingestion"
+      },
+      seoHealth: {
+        totalStories: 5792,
+        withSeoTitle: 5780,
+        withSeoDescription: 5780,
+        withCanonicalUrl: 5792
+      },
+      citationsSummary: {
+        status: "provider_not_connected",
+        verifiedCitationsCount: 0,
+        institutionalReferencesCount: 0,
+        governmentNgoMentionsCount: 0,
+        notes: "Production citation tracking requires academic/cross-ref indexer API integration."
+      }
+    };
+  },
+
+  async getAudienceIntelligence() {
+    return {
+      generatedAt: new Date().toISOString(),
+      contacts: {
+        totalProfiles: 0,
+        consentedContacts: 0
+      },
+      segments: {
+        totalSegments: 0,
+        totalMemberships: 0
+      },
+      pushSubscribers: {
+        registeredDevices: 0,
+        activeDevices: 0
+      },
+      whatsappDistribution: {
+        totalBroadcasts: 0,
+        sentBroadcasts: 0
+      },
+      subscribers: {
+        totalSubscribers: 0,
+        activeSubscribers: 0
+      },
+      ga4AudienceStatus: {
+        propertyId: "359235319",
+        accountId: "137814020",
+        status: "identity_verified_account_access_pending",
+        notes: "Google Analytics 4 property identified. Awaiting Data API service account grant."
+      }
+    };
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -650,6 +814,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomCampaigns: fixtureNewsroomCampaignService,
   newsroomPushAlerts: fixtureNewsroomPushAlertService,
   newsroomWhatsApp: fixtureNewsroomWhatsAppService,
+  newsroomIntelligence: fixtureNewsroomIntelligenceService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {

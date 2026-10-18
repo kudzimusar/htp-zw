@@ -16,7 +16,10 @@ export function generateStaticParams() {
     "social",
     "newsletters",
     "push-alerts",
-    "whatsapp"
+    "whatsapp",
+    "analytics",
+    "audience",
+    "search-growth"
   ].map((module) => ({ module }));
 }
 

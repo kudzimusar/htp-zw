@@ -83,6 +83,9 @@ import {
 import { StudioNewsletterDeskView } from "../ui/StudioNewsletterDesk";
 import { StudioPushAlertDeskView } from "../ui/StudioPushAlertDesk";
 import { StudioWhatsAppDeskView } from "../ui/StudioWhatsAppDesk";
+import { StudioAnalyticsDeskView } from "../ui/StudioAnalyticsDesk";
+import { StudioAudienceDeskView } from "../ui/StudioAudienceDesk";
+import { StudioSearchGrowthDeskView } from "../ui/StudioSearchGrowthDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -108,6 +111,9 @@ import {
   buildPreviewPushDispatchResult,
   buildPreviewWhatsAppBroadcasts,
   buildPreviewWhatsAppDispatchResult,
+  buildPreviewEditorialIntelligence,
+  buildPreviewGrowthIntelligence,
+  buildPreviewAudienceIntelligence,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2309,6 +2315,44 @@ function OwnerPreviewWhatsAppDeskView() {
   );
 }
 
+export function OwnerPreviewAnalyticsView() {
+  const editorialData = useMemo(() => buildPreviewEditorialIntelligence(), []);
+  const growthData = useMemo(() => buildPreviewGrowthIntelligence(), []);
+  return (
+    <StudioAnalyticsDeskView
+      editorialData={editorialData}
+      growthData={growthData}
+      loading={false}
+      error={null}
+      previewMode={true}
+    />
+  );
+}
+
+export function OwnerPreviewAudienceView() {
+  const audienceData = useMemo(() => buildPreviewAudienceIntelligence(), []);
+  return (
+    <StudioAudienceDeskView
+      audienceData={audienceData}
+      loading={false}
+      error={null}
+      previewMode={true}
+    />
+  );
+}
+
+export function OwnerPreviewSearchGrowthView() {
+  const growthData = useMemo(() => buildPreviewGrowthIntelligence(), []);
+  return (
+    <StudioSearchGrowthDeskView
+      growthData={growthData}
+      loading={false}
+      error={null}
+      previewMode={true}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2455,6 +2499,36 @@ export function OwnerPreviewModuleScreen({
           subtitle="WhatsApp broadcast composition, editorial approval, and WhatsApp Cloud API distribution ledger backed by canonical newsroom_whatsapp_broadcasts."
         >
           <OwnerPreviewWhatsAppDeskView />
+        </OwnerPreviewShell>
+      );
+    case "analytics":
+      return (
+        <OwnerPreviewShell
+          activeKey="analytics"
+          title="Analytics & Intelligence (Owner Visual Preview)"
+          subtitle="Truthful first-party editorial inventory, publishing velocity, and external growth integrations."
+        >
+          <OwnerPreviewAnalyticsView />
+        </OwnerPreviewShell>
+      );
+    case "audience":
+      return (
+        <OwnerPreviewShell
+          activeKey="audience"
+          title="Audience Intelligence (Owner Visual Preview)"
+          subtitle="Verified first-party reader audience, consented contacts, and multi-channel reach."
+        >
+          <OwnerPreviewAudienceView />
+        </OwnerPreviewShell>
+      );
+    case "search-growth":
+      return (
+        <OwnerPreviewShell
+          activeKey="search-growth"
+          title="Search & Growth (Owner Visual Preview)"
+          subtitle="Google Search Console authority, organic SEO audit, and academic research citations."
+        >
+          <OwnerPreviewSearchGrowthView />
         </OwnerPreviewShell>
       );
     default:

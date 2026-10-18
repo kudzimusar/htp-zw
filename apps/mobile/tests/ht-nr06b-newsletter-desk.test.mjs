@@ -154,8 +154,8 @@ test("HT-NR-06B: repository migration count is exactly 76 at HT-NR-06C-B authori
 
   assert.equal(
     migrationFiles.length,
-    78,
-    `Expected exactly 78 migrations in supabase/migrations, found ${migrationFiles.length}`
+    79,
+    `Expected exactly 79 migrations in supabase/migrations, found ${migrationFiles.length}`
   );
   assert.ok(
     migrationFiles.includes("20261017020000_ht_nr06b_campaign_read_authority.sql"),

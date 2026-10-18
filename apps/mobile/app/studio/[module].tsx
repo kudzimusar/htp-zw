@@ -27,6 +27,9 @@ import { StudioSocialDesk } from "../../src/ui/StudioSocialDesk";
 import { StudioNewsletterDesk } from "../../src/ui/StudioNewsletterDesk";
 import { StudioPushAlertDesk } from "../../src/ui/StudioPushAlertDesk";
 import { StudioWhatsAppDesk } from "../../src/ui/StudioWhatsAppDesk";
+import { StudioAnalyticsDesk } from "../../src/ui/StudioAnalyticsDesk";
+import { StudioAudienceDesk } from "../../src/ui/StudioAudienceDesk";
+import { StudioSearchGrowthDesk } from "../../src/ui/StudioSearchGrowthDesk";
 
 export function generateStaticParams() {
   return [
@@ -66,9 +69,9 @@ const owners:Record<string,ModuleConfig>={
   "newsletters":{title:"Newsletter Desk",owner:"HT-NR-06B",capability:null,anyOfCapabilities:NEWSLETTER_DESK_CAPABILITIES,description:"Newsletter and consented campaign composition, human approval, and Brevo send preparation handoff backed by canonical audience_campaigns and contact_segments.",readiness:["Canonical audience_campaigns and contact_segments authority","Scoped marketing.create, marketing.approve, marketing.send, and marketing.analytics enforcement","Distinct human approval vs consented send preparation handoff","Aggregate eligibility summary only; zero recipient email exposure","Service-role provider completion remains server-only"]},
   "push-alerts":{title:"Push Alert Desk",owner:"HT-NR-06C-A",capability:null,anyOfCapabilities:PUSH_DESK_CAPABILITIES,description:"Reader push alert composition, editorial approval, and notification dispatch preparation backed by canonical newsroom_push_alerts and reader_push_devices.",readiness:["Canonical newsroom_push_alerts and reader_push_devices authority","Scoped distribution.manage and story.publish enforcement","Distinct editorial approval vs dispatch preparation handoff","Aggregate eligibility summary only; zero push token or reader identity exposure","Native push dispatch provider completion remains server-only"]},
   "whatsapp":{title:"WhatsApp Desk",owner:"HT-NR-06D",capability:null,anyOfCapabilities:WHATSAPP_DESK_CAPABILITIES,description:"WhatsApp broadcast composition, editorial approval, and WhatsApp Cloud API distribution ledger backed by canonical newsroom_whatsapp_broadcasts and newsroom_whatsapp_dispatches.",readiness:["Canonical newsroom_whatsapp_broadcasts and newsroom_whatsapp_dispatches authority","Scoped distribution.manage and story.publish enforcement","Distinct editorial approval vs dispatch execution handoff","Aggregate recipient & delivery counters; zero phone number exposure","WhatsApp Cloud API provider completion with single-dispatch idempotency"]},
-  "audience":{title:"Audience",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Audience intelligence uses real first-party and GA4-derived aggregates only.",readiness:["No fabricated audience totals","Verified aggregates pending AG-05","Access policy pending AG-06"]},
-  "search-growth":{title:"Search & Growth",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Search Console, SEO and growth evidence comes from verified external identities and ingestion.",readiness:["Search UI ready","Privacy-safe analytics taxonomy ready","External ingestion pending AG-05"]},
-  "analytics":{title:"Analytics & Intelligence",owner:"AG-05 + AG-06",capability:"analytics.view",description:"KPI cards remain empty until AnalyticsService supplies verified metrics. No sample revenue is shown as truth.",readiness:["KPI component language ready","No sample metrics presented as truth","Analytics service pending AG-05"]},
+  "audience":{title:"Audience",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Audience intelligence uses real first-party subscriber counts, registered push devices, and GA4 property authority.",readiness:["Canonical contact_profiles, reader_push_devices and subscriber counts","GA4 property 359235319 authority verified","Truthful unconfigured states for pending Data API access","Zero fabricated audience metrics"]},
+  "search-growth":{title:"Search & Growth",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Search Console, SEO health audit, and global health research citations backed by canonical server intelligence RPCs.",readiness:["Google Search Console property https://healthtimes.co.zw/ verified","Server-backed SEO health audit over 5,792 stories","Truthful unconfigured state for pending OAuth query ingestion","Zero fabricated search impressions or revenue"]},
+  "analytics":{title:"Analytics & Intelligence",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Operational Newsroom KPIs, story inventory, publishing velocity, desk mix, and verified external growth integrations.",readiness:["Canonical stories inventory and velocity authority","Strict analytics.view capability enforcement","Real review queue health and active assignment tracking","External provider status tracking (GA4, Search Console, AdSense, PageSpeed)","Zero simulated revenue or fake analytics presented as truth"]},
   "subscribers":{title:"Subscribers",owner:"AG-06",capability:"subscriber.view",description:"Subscriber records, entitlements and access are protected server data.",readiness:["Reader identity exists","Subscriber read model pending","Entitlement authority server-only"]},
   "authors":{title:"Authors",owner:"AG-04 + AG-06",capability:"staff.view",description:"Migrated authors and newsroom identity are distinct and reconciled through backend contracts.",readiness:["Author contract exists","Migration reconciliation pending AG-04","Staff mapping pending AG-06"]},
   "staff-roles":{title:"Staff & Roles",owner:"AG-06",capability:"staff.view",description:"Roles are displayed from the server; capabilities are the authorization primitive and users cannot self-escalate.",readiness:["Capability catalogue fixed","No local role selector","Server role read model pending AG-06"]},
@@ -87,7 +90,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && String(module)!=="analytics" && String(module)!=="audience" && String(module)!=="search-growth" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -105,6 +108,9 @@ export default function StudioModule(){
       {String(module)==="newsletters" && <StudioNewsletterDesk />}
       {String(module)==="push-alerts" && <StudioPushAlertDesk />}
       {String(module)==="whatsapp" && <StudioWhatsAppDesk />}
+      {String(module)==="analytics" && <StudioAnalyticsDesk />}
+      {String(module)==="audience" && <StudioAudienceDesk />}
+      {String(module)==="search-growth" && <StudioSearchGrowthDesk />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}

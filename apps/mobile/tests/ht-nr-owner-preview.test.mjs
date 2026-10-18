@@ -74,7 +74,10 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "social",
     "newsletters",
     "push-alerts",
-    "whatsapp"
+    "whatsapp",
+    "analytics",
+    "audience",
+    "search-growth"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -82,7 +85,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 15);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 18);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -99,6 +102,9 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "/owner-preview/studio/newsletters",
     "/owner-preview/studio/push-alerts",
     "/owner-preview/studio/whatsapp",
+    "/owner-preview/studio/analytics",
+    "/owner-preview/studio/audience",
+    "/owner-preview/studio/search-growth",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -312,12 +318,14 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Newsletter Desk",
     "Push Alerts",
     "WhatsApp Desk",
+    "Analytics & Intelligence",
+    "Audience",
+    "Search & Growth",
     "Story Workspace"
   ]);
 
   for (const unfinished of [
     "Advertising",
-    "Analytics",
     "Subscribers"
   ]) {
     assert.equal(

@@ -95,7 +95,10 @@ import type {
   NewsroomWhatsAppBroadcastType,
   NewsroomWhatsAppDispatch,
   NewsroomWhatsAppDispatchResult,
-  NewsroomWhatsAppDispatchStatus
+  NewsroomWhatsAppDispatchStatus,
+  NewsroomEditorialIntelligence,
+  NewsroomGrowthIntelligence,
+  NewsroomAudienceIntelligence
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -401,6 +404,12 @@ export interface NewsroomWhatsAppService {
   ): Promise<NewsroomWhatsAppDispatchResult>;
 }
 
+export interface NewsroomIntelligenceService {
+  getEditorialIntelligence(): Promise<NewsroomEditorialIntelligence>;
+  getGrowthIntelligence(): Promise<NewsroomGrowthIntelligence>;
+  getAudienceIntelligence(): Promise<NewsroomAudienceIntelligence>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -429,6 +438,7 @@ export interface HealthTimesServices {
   newsroomCampaigns: NewsroomCampaignService;
   newsroomPushAlerts: NewsroomPushAlertService;
   newsroomWhatsApp: NewsroomWhatsAppService;
+  newsroomIntelligence: NewsroomIntelligenceService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

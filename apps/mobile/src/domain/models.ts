@@ -3145,4 +3145,143 @@ export function validateWhatsAppBroadcastCreateInput(
   return { valid: true };
 }
 
+// =============================================================================
+// WAVE B — NEWSROOM INTELLIGENCE, ANALYTICS & GROWTH MODELS
+// =============================================================================
+
+export interface NewsroomStoryInventory {
+  total: number;
+  published: number;
+  draft: number;
+  review: number;
+  scheduled: number;
+  archived: number;
+}
+
+export interface NewsroomPublishingVelocity {
+  last24Hours: number;
+  last7Days: number;
+  last30Days: number;
+}
+
+export interface NewsroomReviewQueueMetrics {
+  inReviewCount: number;
+  avgAgeHours: number;
+  oldestAgeHours: number;
+}
+
+export interface NewsroomAssignmentsMetrics {
+  total: number;
+  active: number;
+  overdue: number;
+  completed: number;
+}
+
+export interface NewsroomDeskMixEntry {
+  desk: string;
+  count: number;
+}
+
+export interface NewsroomDistributionReach {
+  socialPostsCount: number;
+  newsletterCampaignsCount: number;
+  pushAlertsCount: number;
+  whatsappBroadcastsCount: number;
+}
+
+export interface NewsroomEditorialIntelligence {
+  generatedAt: string;
+  storyInventory: NewsroomStoryInventory;
+  publishingVelocity: NewsroomPublishingVelocity;
+  reviewQueue: NewsroomReviewQueueMetrics;
+  assignments: NewsroomAssignmentsMetrics;
+  deskMix: NewsroomDeskMixEntry[];
+  distributionReach: NewsroomDistributionReach;
+}
+
+export interface NewsroomAnalyticsIntegration {
+  id: string;
+  provider: string;
+  integrationKey: string;
+  status: string;
+  externalAccountId: string | null;
+  externalPropertyId: string | null;
+  externalMeasurementId: string | null;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastError: string | null;
+  notes: string | null;
+}
+
+export interface NewsroomAnalyticsDailySummary {
+  rowsRecorded: number;
+  totalPageViews: number;
+  totalUsers: number;
+  totalSessions: number;
+  status: "active" | "pending_ingestion";
+}
+
+export interface NewsroomSearchConsoleSummary {
+  property: string;
+  rowsRecorded: number;
+  totalClicks: number;
+  totalImpressions: number;
+  status: "active" | "pending_ingestion";
+}
+
+export interface NewsroomSeoHealth {
+  totalStories: number;
+  withSeoTitle: number;
+  withSeoDescription: number;
+  withCanonicalUrl: number;
+}
+
+export interface NewsroomCitationsSummary {
+  status: string;
+  verifiedCitationsCount: number;
+  institutionalReferencesCount: number;
+  governmentNgoMentionsCount: number;
+  notes: string;
+}
+
+export interface NewsroomGrowthIntelligence {
+  generatedAt: string;
+  integrations: NewsroomAnalyticsIntegration[];
+  analyticsDailySummary: NewsroomAnalyticsDailySummary;
+  searchConsoleSummary: NewsroomSearchConsoleSummary;
+  seoHealth: NewsroomSeoHealth;
+  citationsSummary: NewsroomCitationsSummary;
+}
+
+export interface NewsroomAudienceIntelligence {
+  generatedAt: string;
+  contacts: {
+    totalProfiles: number;
+    consentedContacts: number;
+  };
+  segments: {
+    totalSegments: number;
+    totalMemberships: number;
+  };
+  pushSubscribers: {
+    registeredDevices: number;
+    activeDevices: number;
+  };
+  whatsappDistribution: {
+    totalBroadcasts: number;
+    sentBroadcasts: number;
+  };
+  subscribers: {
+    totalSubscribers: number;
+    activeSubscribers: number;
+  };
+  ga4AudienceStatus: {
+    propertyId: string;
+    accountId: string;
+    status: string;
+    notes: string;
+  };
+}
+
+
 
