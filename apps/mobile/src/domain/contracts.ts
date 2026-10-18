@@ -110,7 +110,12 @@ import type {
   NewsroomCreateCampaignInput,
   NewsroomCreateCreativeInput,
   NewsroomSubscribersDirectory,
-  NewsroomPremiumOperationsOverview
+  NewsroomPremiumOperationsOverview,
+  NewsroomAiAssistOverview,
+  NewsroomAiAssistSession,
+  NewsroomRunAiAssistInput,
+  NewsroomCitationsDirectory,
+  NewsroomRecordCitationInput
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -465,6 +470,19 @@ export interface NewsroomCommercialService {
   setStoryAccess(storyId: string, accessPolicy: "public" | "premium"): Promise<string>;
 }
 
+export interface NewsroomAiService {
+  getOverview(): Promise<NewsroomAiAssistOverview>;
+  runAssist(input: NewsroomRunAiAssistInput): Promise<NewsroomAiAssistSession>;
+  getCitationsDirectory(options?: {
+    status?: string | null;
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomCitationsDirectory>;
+  recordCitation(input: NewsroomRecordCitationInput): Promise<{ citationId: string; status: string }>;
+  updateCitationStatus(citationId: string, status: string): Promise<{ citationId: string; status: string }>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -496,6 +514,7 @@ export interface HealthTimesServices {
   newsroomIntelligence: NewsroomIntelligenceService;
   newsroomStaff: NewsroomStaffService;
   newsroomCommercial: NewsroomCommercialService;
+  newsroomAi: NewsroomAiService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;

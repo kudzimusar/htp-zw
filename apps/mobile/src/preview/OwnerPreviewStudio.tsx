@@ -90,6 +90,7 @@ import { StudioStaffRolesDeskView, type StaffDeskTab } from "../ui/StudioStaffRo
 import { StudioAdvertisingDeskView, type AdvertisingDeskTab } from "../ui/StudioAdvertisingDesk";
 import { StudioSubscribersDeskView } from "../ui/StudioSubscribersDesk";
 import { StudioPremiumDeskView } from "../ui/StudioPremiumDesk";
+import { StudioAiDeskPresentation } from "../ui/StudioAiDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -122,6 +123,8 @@ import {
   buildPreviewAdvertisingOverview,
   buildPreviewSubscribersDirectory,
   buildPreviewPremiumOperationsOverview,
+  buildPreviewAiAssistOverview,
+  buildPreviewCitationsDirectory,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2464,6 +2467,87 @@ export function OwnerPreviewPremiumView() {
   );
 }
 
+export function OwnerPreviewAiDeskView() {
+  const [overview] = useState(() => buildPreviewAiAssistOverview());
+  const [citationsDir, setCitationsDir] = useState(() => buildPreviewCitationsDirectory());
+  const [selectedTask, setSelectedTask] = useState<any>("headline_alternatives");
+  const [promptText, setPromptText] = useState("Harare municipal water supply and regional typhoid containment");
+  const [contextText, setContextText] = useState("Testing local water treatment chemical shortages.");
+  const [runningAssist, setRunningAssist] = useState(false);
+  const [currentResult, setCurrentResult] = useState<any>(() => overview.recentSessions[0] ?? null);
+  const [activeTab, setActiveTab] = useState<"assistant" | "sessions" | "citations">("assistant");
+  const [citationFilter, setCitationFilter] = useState("all");
+  const [citationSearch, setCitationSearch] = useState("");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const filteredCitations = useMemo(() => {
+    let list = citationsDir.citations;
+    if (citationFilter !== "all") {
+      list = list.filter((c) => c.status === citationFilter);
+    }
+    if (citationSearch.trim()) {
+      const q = citationSearch.toLowerCase();
+      list = list.filter((c) => c.title.toLowerCase().includes(q) || c.sourceName.toLowerCase().includes(q));
+    }
+    return {
+      ...citationsDir,
+      citations: list
+    };
+  }, [citationsDir, citationFilter, citationSearch]);
+
+  const handleRunAssist = () => {
+    setRunningAssist(true);
+    setTimeout(() => {
+      setRunningAssist(false);
+      setActionMessage({ text: "Simulated assist complete (Owner Visual Preview — non-persistent)", type: "success" });
+    }, 400);
+  };
+
+  const handleCopy = (_text: string, index: number) => {
+    setCopiedIndex(index);
+    setActionMessage({ text: "Copied to clipboard (sample suggestion)", type: "success" });
+    setTimeout(() => setCopiedIndex(null), 2500);
+  };
+
+  const handleStatusUpdate = (citId: string, status: string) => {
+    setCitationsDir((prev) => ({
+      ...prev,
+      citations: prev.citations.map((c) => (c.id === citId ? { ...c, status: status as any } : c))
+    }));
+    setActionMessage({ text: `Simulated citation status updated to ${status} (Owner Preview only)`, type: "success" });
+  };
+
+  return (
+    <StudioAiDeskPresentation
+      overview={overview}
+      citationsDir={filteredCitations}
+      selectedTask={selectedTask}
+      onSelectTask={setSelectedTask}
+      promptText={promptText}
+      onChangePromptText={setPromptText}
+      contextText={contextText}
+      onChangeContextText={setContextText}
+      onRunAssist={handleRunAssist}
+      runningAssist={runningAssist}
+      currentResult={currentResult}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      citationFilter={citationFilter}
+      onChangeCitationFilter={setCitationFilter}
+      citationSearch={citationSearch}
+      onChangeCitationSearch={setCitationSearch}
+      onOpenRecordModal={() => setActionMessage({ text: "Record citation modal is simulated in preview mode", type: "success" })}
+      onUpdateCitationStatus={handleStatusUpdate}
+      copiedIndex={copiedIndex}
+      onCopySuggestion={handleCopy}
+      canExecuteAssist={true}
+      canVerifyCitation={true}
+      actionMessage={actionMessage}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2680,6 +2764,16 @@ export function OwnerPreviewModuleScreen({
           subtitle="Editorial access policies, meter paywall governance, public teaser policy, and subscriber entitlement channel breakdown."
         >
           <OwnerPreviewPremiumView />
+        </OwnerPreviewShell>
+      );
+    case "ai-desk":
+      return (
+        <OwnerPreviewShell
+          activeKey="ai-desk"
+          title="AI Editorial Assistant & Citations Desk (Owner Visual Preview)"
+          subtitle="Bounded editorial research, headline drafting, fact-checking, and verified citation intelligence."
+        >
+          <OwnerPreviewAiDeskView />
         </OwnerPreviewShell>
       );
     default:

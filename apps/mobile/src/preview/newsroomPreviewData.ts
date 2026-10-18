@@ -33,6 +33,8 @@ import type {
   NewsroomAdvertisingOverview,
   NewsroomSubscribersDirectory,
   NewsroomPremiumOperationsOverview,
+  NewsroomAiAssistOverview,
+  NewsroomCitationsDirectory,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -67,6 +69,7 @@ export type OwnerPreviewModuleKey =
   | "advertising"
   | "subscribers"
   | "premium"
+  | "ai-desk"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -103,6 +106,7 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "advertising", label: "Advertising", path: "/owner-preview/studio/advertising" },
   { key: "subscribers", label: "Subscribers", path: "/owner-preview/studio/subscribers" },
   { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" },
+  { key: "ai-desk", label: "AI Desk & Citations", path: "/owner-preview/studio/ai-desk" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -2694,3 +2698,172 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
     }
   };
 }
+
+export function buildPreviewAiAssistOverview(): NewsroomAiAssistOverview {
+  return {
+    providerStatus: "active",
+    providerModel: "HealthTimes Editorial Heuristics / Gemini 1.5 Assistant",
+    safetyPolicy: {
+      canPublish: false,
+      canApprove: false,
+      canBypassReview: false,
+      humanReviewRequired: true,
+      principle: "AI is restricted to reviewable suggestions and drafting assistance. Direct story publication or silent mutation is strictly prohibited."
+    },
+    supportedTasks: [
+      { id: "headline_alternatives", name: "Headline Alternatives", description: "Generate engaging, punchy, and policy-accurate news headlines" },
+      { id: "seo_alternatives", name: "SEO Alternatives", description: "Generate search-optimized titles and meta descriptions" },
+      { id: "summary", name: "Executive Summary", description: "Condense complex medical or public health copy into clear standfirsts" },
+      { id: "evidence_gap", name: "Evidence Gap Detection", description: "Analyze copy for missing sources, statistics, or balance" },
+      { id: "citation_suggestion", name: "Citation Suggestions", description: "Identify potential academic, WHO, or MOHCC citations" },
+      { id: "interview_questions", name: "Interview Questions", description: "Generate targeted questions for public health officials and experts" },
+      { id: "claim_fact_check", name: "Fact-Check Claim Flagging", description: "Highlight claims requiring independent evidence verification" }
+    ],
+    metrics: {
+      totalSessions: 18,
+      taskCounts: {
+        headline_alternatives: 8,
+        seo_alternatives: 4,
+        evidence_gap: 3,
+        citation_suggestion: 2,
+        summary: 1
+      }
+    },
+    recentSessions: [
+      {
+        id: "prev-ai-sess-001",
+        storyId: "prev-story-001",
+        storyTitle: "Harare Water Treatment Chemical Stockpiles Fall Below Reserve Thresholds",
+        taskType: "headline_alternatives",
+        inputPrompt: "Harare water treatment chemical supply and waterborne disease risks",
+        inputContext: "City council reports 12-day stockpile of chlorine gas and aluminum sulphate.",
+        suggestions: [
+          {
+            type: "straight_news",
+            text: "Harare Water Crisis: Chemical Reserves Dwindle Below Minimum Safe Thresholds",
+            rationale: "Factual news lead prioritizing municipal supply vulnerability"
+          },
+          {
+            type: "analytical",
+            text: "Why Capital Water Shortages Threaten National Typhoid and Cholera Containment",
+            rationale: "Systemic epidemiological framing connecting utility deficits to clinical risks"
+          },
+          {
+            type: "impact_focused",
+            text: "What Two-Week Chemical Buffer Means for Two Million Harare Residents",
+            rationale: "Citizen-focused framing translating tonnage into human health exposure"
+          }
+        ],
+        provider: "editorial_heuristics_fallback",
+        providerStatus: "active",
+        status: "completed",
+        safetyFlags: {
+          canPublish: false,
+          canApprove: false,
+          canBypassReview: false,
+          humanReviewRequired: true
+        },
+        createdBy: "prev-staff-001",
+        createdAt: "2026-10-17T14:30:00Z"
+      },
+      {
+        id: "prev-ai-sess-002",
+        storyId: "prev-story-002",
+        storyTitle: "NatPharm Expedited Antibiotic Procurement Reaches Provincial Referral Hospitals",
+        taskType: "evidence_gap",
+        inputPrompt: "Checking NatPharm delivery figures against hospital pharmacy receipts",
+        inputContext: "Ministry press release announces 400 metric tonnes delivered nationwide.",
+        suggestions: [
+          {
+            type: "gap_identification",
+            text: "Triangulate central warehouse dispatch manifests with district hospital store ledgers in Matabeleland South.",
+            rationale: "Verification against last-mile delivery discrepancies"
+          },
+          {
+            type: "source_balance",
+            text: "Include perspective from Hospital Doctors Association regarding cold-chain integrity during distribution.",
+            rationale: "Ensures frontline clinical feedback on medication efficacy"
+          }
+        ],
+        provider: "editorial_heuristics_fallback",
+        providerStatus: "active",
+        status: "completed",
+        safetyFlags: {
+          canPublish: false,
+          canApprove: false,
+          canBypassReview: false,
+          humanReviewRequired: true
+        },
+        createdBy: "prev-staff-002",
+        createdAt: "2026-10-17T11:15:00Z"
+      }
+    ]
+  };
+}
+
+export function buildPreviewCitationsDirectory(): NewsroomCitationsDirectory {
+  return {
+    metrics: {
+      totalCitations: 24,
+      verifiedCount: 16,
+      unverifiedCount: 5,
+      flaggedCount: 2,
+      rejectedCount: 1,
+      academicCount: 14
+    },
+    citations: [
+      {
+        id: "prev-cit-001",
+        storyId: "prev-story-001",
+        storyTitle: "Harare Water Treatment Chemical Stockpiles Fall Below Reserve Thresholds",
+        storySlug: "harare-water-treatment-stockpiles",
+        referenceType: "academic",
+        sourceName: "Central African Journal of Medicine",
+        sourceUrl: "https://doi.org/10.1052/cajm.2025.04.12",
+        title: "Vibrio cholerae Transmission Dynamics Across Urban Harare Wetlands (2022-2025)",
+        citedAt: "2026-10-12",
+        country: "Zimbabwe",
+        authorityScore: 92,
+        provider: "crossref",
+        providerReference: "10.1052/cajm.2025.04.12",
+        status: "verified",
+        createdAt: "2026-10-12T10:00:00Z"
+      },
+      {
+        id: "prev-cit-002",
+        storyId: "prev-story-002",
+        storyTitle: "NatPharm Expedited Antibiotic Procurement Reaches Provincial Referral Hospitals",
+        storySlug: "natpharm-expedited-procurement",
+        referenceType: "institutional",
+        sourceName: "Ministry of Health and Child Care (MoHCC)",
+        sourceUrl: "https://www.mohcc.gov.zw/reports/essential-medicines-2026-q3.pdf",
+        title: "National Essential Medicines List and Standard Treatment Guidelines (6th Edition)",
+        citedAt: "2026-10-14",
+        country: "Zimbabwe",
+        authorityScore: 98,
+        provider: "gov_repository",
+        providerReference: "MOHCC-EML-2026-03",
+        status: "verified",
+        createdAt: "2026-10-14T08:30:00Z"
+      },
+      {
+        id: "prev-cit-003",
+        storyId: null,
+        storyTitle: null,
+        storySlug: null,
+        referenceType: "ngo",
+        sourceName: "Doctors Without Borders (MSF)",
+        sourceUrl: "https://www.msf.org/zimbabwe-maternal-health-review-2025",
+        title: "Community-Led Maternal Health Delivery in Rural Epworth and Chipinge",
+        citedAt: "2026-10-16",
+        country: "Zimbabwe",
+        authorityScore: 85,
+        provider: "msf_index",
+        providerReference: "MSF-ZW-2025-08",
+        status: "unverified",
+        createdAt: "2026-10-16T15:20:00Z"
+      }
+    ]
+  };
+}
+

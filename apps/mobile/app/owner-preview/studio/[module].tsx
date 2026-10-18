@@ -23,7 +23,8 @@ export function generateStaticParams() {
     "staff-roles",
     "advertising",
     "subscribers",
-    "premium"
+    "premium",
+    "ai-desk"
   ].map((module) => ({ module }));
 }
 

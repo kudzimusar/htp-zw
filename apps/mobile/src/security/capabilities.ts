@@ -284,3 +284,53 @@ export function canAssignPremium(
     hasServerCapability(snapshot, "premium.assign")
   );
 }
+
+export const AI_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "story.create",
+  "story.edit_own",
+  "story.edit_all",
+  "story.copy_edit",
+  "story.fact_check",
+  "story.health_review",
+  "story.publish"
+] as const;
+
+export function hasAiDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, AI_DESK_CAPABILITIES);
+}
+
+export function canRunAiAssist(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, AI_DESK_CAPABILITIES);
+}
+
+export const CITATIONS_DESK_CAPABILITIES: readonly HealthTimesCapability[] = [
+  "analytics.view",
+  "story.edit_own",
+  "story.edit_all",
+  "story.publish"
+] as const;
+
+export function hasCitationsDeskAccess(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return hasAnyServerCapability(snapshot, CITATIONS_DESK_CAPABILITIES);
+}
+
+export function canManageCitations(
+  snapshot: AuthorizationSnapshot | null | undefined
+): boolean {
+  if (!snapshot) return false;
+  return (
+    hasServerCapability(snapshot, "story.edit_all") ||
+    hasServerCapability(snapshot, "story.publish") ||
+    hasServerCapability(snapshot, "analytics.view")
+  );
+}
+

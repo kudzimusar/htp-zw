@@ -32,6 +32,7 @@ const modules=[
   ["Audience","/studio/audience"],
   ["Search & Growth","/studio/search-growth"],
   ["Analytics & Intelligence","/studio/analytics"],
+  ["AI Desk & Citations","/studio/ai-desk"],
   ["Subscribers","/studio/subscribers"],
   ["Authors","/studio/authors"],
   ["Staff & Roles","/studio/staff-roles"],

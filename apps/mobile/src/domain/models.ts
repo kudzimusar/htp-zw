@@ -3510,3 +3510,119 @@ export interface NewsroomPremiumOperationsOverview {
     providers: { provider: string; count: number }[];
   };
 }
+
+// =============================================================================
+// HT-NR-CLOSE Wave E: AI Desk & Citations / Research Models
+// =============================================================================
+
+export type NewsroomAiTaskType =
+  | "headline_alternatives"
+  | "seo_alternatives"
+  | "summary"
+  | "evidence_gap"
+  | "citation_suggestion"
+  | "interview_questions"
+  | "claim_fact_check"
+  | "custom_prompt";
+
+export interface NewsroomAiSuggestion {
+  type: string;
+  text: string;
+  rationale: string;
+}
+
+export interface NewsroomAiSafetyPolicy {
+  canPublish: boolean;
+  canApprove: boolean;
+  canBypassReview: boolean;
+  humanReviewRequired: boolean;
+  principle: string;
+}
+
+export interface NewsroomAiTaskDefinition {
+  id: NewsroomAiTaskType;
+  name: string;
+  description: string;
+}
+
+export interface NewsroomAiAssistSession {
+  id: string;
+  storyId: string | null;
+  storyTitle: string | null;
+  taskType: NewsroomAiTaskType;
+  inputPrompt: string;
+  inputContext: string | null;
+  suggestions: NewsroomAiSuggestion[];
+  provider: string;
+  providerStatus: string;
+  status: "pending" | "completed" | "failed";
+  safetyFlags: {
+    canPublish: boolean;
+    canApprove: boolean;
+    canBypassReview: boolean;
+    humanReviewRequired: boolean;
+  };
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface NewsroomAiAssistOverview {
+  providerStatus: string;
+  providerModel: string;
+  safetyPolicy: NewsroomAiSafetyPolicy;
+  supportedTasks: NewsroomAiTaskDefinition[];
+  metrics: {
+    totalSessions: number;
+    taskCounts: Record<string, number>;
+  };
+  recentSessions: NewsroomAiAssistSession[];
+}
+
+export interface NewsroomRunAiAssistInput {
+  storyId?: string | null;
+  taskType: NewsroomAiTaskType;
+  inputPrompt: string;
+  inputContext?: string | null;
+}
+
+export interface NewsroomCitationReference {
+  id: string;
+  storyId: string | null;
+  storyTitle: string | null;
+  storySlug: string | null;
+  referenceType: string;
+  sourceName: string;
+  sourceUrl: string | null;
+  title: string;
+  citedAt: string | null;
+  country: string | null;
+  authorityScore: number | null;
+  provider: string | null;
+  providerReference: string | null;
+  status: "verified" | "unverified" | "flagged" | "rejected";
+  createdAt: string;
+}
+
+export interface NewsroomCitationsMetrics {
+  totalCitations: number;
+  verifiedCount: number;
+  unverifiedCount: number;
+  flaggedCount: number;
+  rejectedCount: number;
+  academicCount: number;
+}
+
+export interface NewsroomCitationsDirectory {
+  metrics: NewsroomCitationsMetrics;
+  citations: NewsroomCitationReference[];
+}
+
+export interface NewsroomRecordCitationInput {
+  storyId: string;
+  referenceType: string;
+  sourceName: string;
+  sourceUrl?: string;
+  title?: string;
+  country?: string;
+}
+

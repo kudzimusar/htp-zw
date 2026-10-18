@@ -22,6 +22,7 @@ import type {
   NewsroomIntelligenceService,
   NewsroomStaffService,
   NewsroomCommercialService,
+  NewsroomAiService,
   ReaderDiscussionService,
   PremiumService,
   PlatformService,
@@ -911,6 +912,85 @@ export const fixtureNewsroomCommercialService: NewsroomCommercialService = {
   }
 };
 
+const FAIL_CLOSED_AI_MESSAGE = "Fail-closed: real AI actions require certified server RPC and credentials.";
+
+export const fixtureNewsroomAiService: NewsroomAiService = {
+  async getOverview() {
+    return {
+      providerStatus: "provider_unconfigured",
+      providerModel: "HealthTimes Editorial Heuristics / Gemini 1.5 Assistant",
+      safetyPolicy: {
+        canPublish: false,
+        canApprove: false,
+        canBypassReview: false,
+        humanReviewRequired: true,
+        principle: "AI is restricted to reviewable suggestions and drafting assistance. Direct story publication or silent mutation is strictly prohibited."
+      },
+      supportedTasks: [
+        { id: "headline_alternatives", name: "Headline Alternatives", description: "Generate engaging news headlines" },
+        { id: "seo_alternatives", name: "SEO Alternatives", description: "Generate search-optimized titles and descriptions" },
+        { id: "summary", name: "Executive Summary", description: "Condense complex medical copy into clear standfirsts" },
+        { id: "evidence_gap", name: "Evidence Gap Detection", description: "Analyze copy for missing sources or balance" },
+        { id: "citation_suggestion", name: "Citation Suggestions", description: "Identify potential academic or official citations" },
+        { id: "interview_questions", name: "Interview Questions", description: "Generate targeted questions for experts" },
+        { id: "claim_fact_check", name: "Fact-Check Claim Flagging", description: "Highlight claims requiring independent verification" }
+      ],
+      metrics: {
+        totalSessions: 0,
+        taskCounts: {}
+      },
+      recentSessions: []
+    };
+  },
+  async runAssist(input) {
+    return {
+      id: "fixture-ai-session-001",
+      storyId: input.storyId ?? null,
+      storyTitle: null,
+      taskType: input.taskType,
+      inputPrompt: input.inputPrompt,
+      inputContext: input.inputContext ?? null,
+      suggestions: [
+        {
+          type: "heuristic_suggestion",
+          text: `[Editorial Guidance] Suggestion for ${input.taskType}: ${input.inputPrompt}`,
+          rationale: "Automated heuristic suggestion for newsroom preview"
+        }
+      ],
+      provider: "editorial_heuristics_fallback",
+      providerStatus: "provider_unconfigured",
+      status: "completed",
+      safetyFlags: {
+        canPublish: false,
+        canApprove: false,
+        canBypassReview: false,
+        humanReviewRequired: true
+      },
+      createdBy: null,
+      createdAt: new Date().toISOString()
+    };
+  },
+  async getCitationsDirectory() {
+    return {
+      metrics: {
+        totalCitations: 0,
+        verifiedCount: 0,
+        unverifiedCount: 0,
+        flaggedCount: 0,
+        rejectedCount: 0,
+        academicCount: 0
+      },
+      citations: []
+    };
+  },
+  async recordCitation() {
+    throw new Error(FAIL_CLOSED_AI_MESSAGE);
+  },
+  async updateCitationStatus() {
+    throw new Error(FAIL_CLOSED_AI_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -946,6 +1026,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomIntelligence: fixtureNewsroomIntelligenceService,
   newsroomStaff: fixtureNewsroomStaffService,
   newsroomCommercial: fixtureNewsroomCommercialService,
+  newsroomAi: fixtureNewsroomAiService,
   taxonomy: certifiedTaxonomyFixtureService,
   publication: {
     async getProfile() {
