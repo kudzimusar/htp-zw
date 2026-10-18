@@ -23,6 +23,21 @@ import type {
   NewsroomPushAlertPrepareResult,
   NewsroomPushDispatch,
   NewsroomPushDispatchResult,
+  NewsroomWhatsAppBroadcast,
+  NewsroomWhatsAppDispatch,
+  NewsroomWhatsAppDispatchResult,
+  NewsroomEditorialIntelligence,
+  NewsroomGrowthIntelligence,
+  NewsroomAudienceIntelligence,
+  NewsroomStaffOperationsDirectory,
+  NewsroomAdvertisingOverview,
+  NewsroomSubscribersDirectory,
+  NewsroomPremiumOperationsOverview,
+  NewsroomAiAssistOverview,
+  NewsroomCitationsDirectory,
+  NewsroomAuthorsDirectory,
+  NewsroomTaxonomyDirectory,
+  NewsroomPlatformSettingsOverview,
   StoryMediaPromotionItem
 } from "../domain/models";
 
@@ -49,6 +64,17 @@ export type OwnerPreviewModuleKey =
   | "social"
   | "newsletters"
   | "push-alerts"
+  | "whatsapp"
+  | "analytics"
+  | "audience"
+  | "search-growth"
+  | "staff-roles"
+  | "advertising"
+  | "subscribers"
+  | "premium"
+  | "ai-desk"
+  | "authors"
+  | "settings"
   | "create-edit";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
@@ -74,6 +100,20 @@ export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
   { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
   { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
+  { key: "social", label: "Social Desk", path: "/owner-preview/studio/social" },
+  { key: "newsletters", label: "Newsletter Desk", path: "/owner-preview/studio/newsletters" },
+  { key: "push-alerts", label: "Push Alerts", path: "/owner-preview/studio/push-alerts" },
+  { key: "whatsapp", label: "WhatsApp Desk", path: "/owner-preview/studio/whatsapp" },
+  { key: "analytics", label: "Analytics & Intelligence", path: "/owner-preview/studio/analytics" },
+  { key: "audience", label: "Audience", path: "/owner-preview/studio/audience" },
+  { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" },
+  { key: "staff-roles", label: "Staff & Roles", path: "/owner-preview/studio/staff-roles" },
+  { key: "advertising", label: "Advertising", path: "/owner-preview/studio/advertising" },
+  { key: "subscribers", label: "Subscribers", path: "/owner-preview/studio/subscribers" },
+  { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" },
+  { key: "ai-desk", label: "AI Desk & Citations", path: "/owner-preview/studio/ai-desk" },
+  { key: "authors", label: "Authors & Taxonomy", path: "/owner-preview/studio/authors" },
+  { key: "settings", label: "Platform Settings", path: "/owner-preview/studio/settings" },
   {
     key: "create-edit",
     label: "Story Workspace",
@@ -1803,4 +1843,1378 @@ export function buildPreviewPushDispatches(): Record<string, NewsroomPushDispatc
   };
 }
 
+export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
+  return [
+    {
+      id: "ba000000-0000-4000-a000-000000000001",
+      title: "CHOLERA ADVISORY: Ministry of Health issues urgent water safety guidelines",
+      body: "The Ministry of Health and Child Care has updated emergency treatment protocols for Harare and Chitungwiza. Residents are urged to boil drinking water and use certified treatment tablets provided at local clinics.",
+      broadcastType: "breaking_alert",
+      channelIdentity: "healthtimes-whatsapp-channel",
+      relatedStoryId: null,
+      status: "approved",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      rejectedBy: null,
+      approvedAt: "2026-10-16T08:30:00.000Z",
+      rejectedAt: null,
+      sentAt: null,
+      rejectionReason: null,
+      createdAt: "2026-10-16T08:00:00.000Z",
+      updatedAt: "2026-10-16T08:30:00.000Z",
+      dispatch: null
+    },
+    {
+      id: "ba000000-0000-4000-a000-000000000002",
+      title: "HealthTimes Daily Briefing: National healthcare budget allocation highlights",
+      body: "Key points from yesterday's parliamentary health portfolio committee hearings: 15% Abuja declaration target progress, domestic pharmaceutical procurement guarantees, and primary care nurse retention package.",
+      broadcastType: "daily_briefing",
+      channelIdentity: "healthtimes-whatsapp-channel",
+      relatedStoryId: null,
+      status: "sent",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      rejectedBy: null,
+      approvedAt: "2026-10-15T06:00:00.000Z",
+      rejectedAt: null,
+      sentAt: "2026-10-15T06:05:00.000Z",
+      rejectionReason: null,
+      createdAt: "2026-10-15T05:30:00.000Z",
+      updatedAt: "2026-10-15T06:05:00.000Z",
+      dispatch: {
+        id: "da000000-0000-4000-a000-000000000001",
+        broadcastId: "ba000000-0000-4000-a000-000000000002",
+        transportStatus: "provider-accepted",
+        provider: "whatsapp_cloud_api",
+        providerBroadcastId: "wamid.HBgLMjYzNzc=",
+        recipientCount: 5420,
+        acceptedCount: 5418,
+        rejectedCount: 2,
+        deliveredCount: 5120,
+        readCount: 4380,
+        failureReason: null,
+        dispatchedAt: "2026-10-15T06:05:00.000Z"
+      }
+    },
+    {
+      id: "ba000000-0000-4000-a000-000000000003",
+      title: "RESEARCH WATCH: New malaria vaccine trial begins across 4 provinces",
+      body: "Phase 3 implementation studies for the R21/Matrix-M malaria vaccine are underway in high-transmission districts. Health researchers are monitoring efficacy across pediatric cohorts aged 5 to 36 months.",
+      broadcastType: "story_update",
+      channelIdentity: "healthtimes-whatsapp-channel",
+      relatedStoryId: null,
+      status: "draft",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: null,
+      rejectedBy: null,
+      approvedAt: null,
+      rejectedAt: null,
+      sentAt: null,
+      rejectionReason: null,
+      createdAt: "2026-10-16T10:00:00.000Z",
+      updatedAt: "2026-10-16T10:00:00.000Z",
+      dispatch: null
+    }
+  ];
+}
+
+export function buildPreviewWhatsAppDispatchResult(
+  broadcastId?: string
+): NewsroomWhatsAppDispatchResult {
+  return {
+    dispatch_id: "da000000-0000-4000-a000-000000000002",
+    broadcast_id: broadcastId || "ba000000-0000-4000-a000-000000000001",
+    transport_status: "provider-accepted",
+    recipient_count: 5420,
+    accepted_count: 5420,
+    rejected_count: 0,
+    delivered_count: 0,
+    read_count: 0,
+    failure_reason: null,
+    dispatched_at: new Date().toISOString()
+  };
+}
+
+export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligence {
+  return {
+    generatedAt: new Date().toISOString(),
+    storyInventory: {
+      total: 5792,
+      published: 5789,
+      draft: 3,
+      review: 3,
+      scheduled: 0,
+      archived: 0
+    },
+    publishingVelocity: {
+      last24Hours: 0,
+      last7Days: 0,
+      last30Days: 7
+    },
+    reviewQueue: {
+      inReviewCount: 3,
+      avgAgeHours: 24.5,
+      oldestAgeHours: 48.0
+    },
+    assignments: {
+      total: 0,
+      active: 0,
+      overdue: 0,
+      completed: 0
+    },
+    deskMix: [
+      { desk: "Public Health", count: 2400 },
+      { desk: "Policy", count: 1500 },
+      { desk: "Clinical", count: 989 },
+      { desk: "Investigations", count: 900 }
+    ],
+    distributionReach: {
+      socialPostsCount: 0,
+      newsletterCampaignsCount: 0,
+      pushAlertsCount: 0,
+      whatsappBroadcastsCount: 0
+    }
+  };
+}
+
+export function buildPreviewGrowthIntelligence(): NewsroomGrowthIntelligence {
+  return {
+    generatedAt: new Date().toISOString(),
+    integrations: [
+      {
+        id: "preview-ga4",
+        provider: "google_analytics",
+        integrationKey: "public_web",
+        status: "identity_verified_account_access_pending",
+        externalAccountId: "137814020",
+        externalPropertyId: "359235319",
+        externalMeasurementId: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+        notes: "Property identified; awaiting service account authorization"
+      },
+      {
+        id: "preview-gsc",
+        provider: "search_console",
+        integrationKey: "public_search",
+        status: "property_known_account_access_pending",
+        externalAccountId: null,
+        externalPropertyId: "https://healthtimes.co.zw/",
+        externalMeasurementId: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+        notes: "Domain property identified; awaiting Search Console API access"
+      },
+      {
+        id: "preview-ads",
+        provider: "adsense",
+        integrationKey: "public_ads",
+        status: "identity_verified_reporting_access_pending",
+        externalAccountId: null,
+        externalPropertyId: "pub-8744434739998394",
+        externalMeasurementId: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+        notes: "Publisher ID verified; awaiting reporting API grant"
+      },
+      {
+        id: "preview-cit",
+        provider: "citations",
+        integrationKey: "external_references",
+        status: "provider_not_connected",
+        externalAccountId: null,
+        externalPropertyId: null,
+        externalMeasurementId: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+        notes: "Citation tracking provider unconfigured"
+      }
+    ],
+    analyticsDailySummary: {
+      rowsRecorded: 0,
+      totalPageViews: 0,
+      totalUsers: 0,
+      totalSessions: 0,
+      status: "pending_ingestion"
+    },
+    searchConsoleSummary: {
+      property: "https://healthtimes.co.zw/",
+      rowsRecorded: 0,
+      totalClicks: 0,
+      totalImpressions: 0,
+      status: "pending_ingestion"
+    },
+    seoHealth: {
+      totalStories: 5792,
+      withSeoTitle: 5780,
+      withSeoDescription: 5780,
+      withCanonicalUrl: 5792
+    },
+    citationsSummary: {
+      status: "provider_not_connected",
+      verifiedCitationsCount: 0,
+      institutionalReferencesCount: 0,
+      governmentNgoMentionsCount: 0,
+      notes: "Production citation tracking requires academic/cross-ref indexer API integration."
+    }
+  };
+}
+
+export function buildPreviewAudienceIntelligence(): NewsroomAudienceIntelligence {
+  return {
+    generatedAt: new Date().toISOString(),
+    contacts: {
+      totalProfiles: 0,
+      consentedContacts: 0
+    },
+    segments: {
+      totalSegments: 0,
+      totalMemberships: 0
+    },
+    pushSubscribers: {
+      registeredDevices: 0,
+      activeDevices: 0
+    },
+    whatsappDistribution: {
+      totalBroadcasts: 0,
+      sentBroadcasts: 0
+    },
+    subscribers: {
+      totalSubscribers: 0,
+      activeSubscribers: 0
+    },
+    ga4AudienceStatus: {
+      propertyId: "359235319",
+      accountId: "137814020",
+      status: "identity_verified_account_access_pending",
+      notes: "Google Analytics 4 property identified. Awaiting Data API service account grant."
+    }
+  };
+}
+
+export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsDirectory {
+  return {
+    staff: [
+      {
+        id: "prev-staff-001",
+        displayName: "Kudzai Moyo",
+        email: "kudzai.moyo@preview.healthtimes.co.zw",
+        handle: "kudzai.moyo",
+        roleId: "prev-role-001",
+        roleName: "Editor-in-Chief",
+        desk: "Editorial Executive",
+        beat: "National Health Policy",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-18T08:30:00Z",
+        createdAt: "2026-01-15T09:00:00Z",
+        activeSessionsCount: 2,
+        capabilities: [
+          "story.create",
+          "story.edit_all",
+          "story.publish",
+          "staff.manage",
+          "staff.view",
+          "security.manage"
+        ]
+      },
+      {
+        id: "prev-staff-002",
+        displayName: "Blessing Ndlovu",
+        email: "blessing.ndlovu@preview.healthtimes.co.zw",
+        handle: "blessing.ndlovu",
+        roleId: "prev-role-002",
+        roleName: "Managing Editor",
+        desk: "News Operations",
+        beat: "Healthcare Infrastructure",
+        country: "Zimbabwe",
+        region: "Bulawayo",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-18T07:45:00Z",
+        createdAt: "2026-02-01T10:00:00Z",
+        activeSessionsCount: 1,
+        capabilities: [
+          "story.create",
+          "story.edit_all",
+          "story.publish",
+          "assignment.manage",
+          "staff.view"
+        ]
+      },
+      {
+        id: "prev-staff-003",
+        displayName: "Dr. Tariro Sithole",
+        email: "dr.tariro.sithole@preview.healthtimes.co.zw",
+        handle: "tariro.sithole",
+        roleId: "prev-role-003",
+        roleName: "Health / Science Editor",
+        desk: "Clinical & Science",
+        beat: "Epidemiology & Oncology",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-17T16:20:00Z",
+        createdAt: "2026-03-10T11:00:00Z",
+        activeSessionsCount: 1,
+        capabilities: [
+          "story.health_review",
+          "story.edit_all",
+          "story.submit",
+          "analytics.view"
+        ]
+      },
+      {
+        id: "prev-staff-004",
+        displayName: "Farai Chitepo",
+        email: "farai.chitepo@preview.healthtimes.co.zw",
+        handle: "farai.chitepo",
+        roleId: "prev-role-004",
+        roleName: "Reporter / Journalist",
+        desk: "Investigations",
+        beat: "Public Procurement & Pharmaceuticals",
+        country: "Zimbabwe",
+        region: "Manicaland",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-18T09:15:00Z",
+        createdAt: "2026-04-05T08:30:00Z",
+        activeSessionsCount: 1,
+        capabilities: ["story.create", "story.edit_own", "story.submit"]
+      },
+      {
+        id: "prev-staff-005",
+        displayName: "Nyasha Gumbo",
+        email: "nyasha.gumbo@preview.healthtimes.co.zw",
+        handle: "nyasha.gumbo",
+        roleId: "prev-role-005",
+        roleName: "Commercial Manager",
+        desk: "Commercial & Growth",
+        beat: "Advertising & Partnerships",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-17T14:10:00Z",
+        createdAt: "2026-05-12T13:00:00Z",
+        activeSessionsCount: 0,
+        capabilities: [
+          "ads.view",
+          "ads.approve",
+          "subscriber.manage",
+          "premium.manage"
+        ]
+      },
+      {
+        id: "prev-staff-006",
+        displayName: "Tinashe Shumba",
+        email: "tinashe.shumba@preview.healthtimes.co.zw",
+        handle: "tinashe.shumba",
+        roleId: "prev-role-006",
+        roleName: "Copy Editor",
+        desk: "Production",
+        beat: "Fact Verification",
+        country: "Zimbabwe",
+        region: "Midlands",
+        status: "suspended",
+        mfaRequired: true,
+        lastLoginAt: "2026-09-30T11:00:00Z",
+        createdAt: "2026-06-20T09:00:00Z",
+        activeSessionsCount: 0,
+        capabilities: ["story.copy_edit", "story.edit_all", "story.submit"]
+      }
+    ],
+    invitations: [
+      {
+        id: "prev-inv-001",
+        invitedEmail: "guest.writer@sample-medical.zw",
+        displayName: "Dr. Chengetai Mutasa",
+        roleName: "Contributor",
+        desk: "Guest Commentary",
+        country: "Zimbabwe",
+        status: "pending",
+        createdAt: "2026-10-16T10:00:00Z",
+        expiresAt: "2026-10-19T10:00:00Z"
+      }
+    ],
+    roles: [
+      {
+        id: "prev-role-001",
+        name: "Publisher / Owner",
+        description: "Organization executive authority; all actions remain audited.",
+        capabilities: [
+          "story.publish",
+          "staff.manage",
+          "security.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        id: "prev-role-002",
+        name: "Editor-in-Chief",
+        description: "Senior editorial review and publishing authority.",
+        capabilities: [
+          "story.publish",
+          "story.edit_all",
+          "staff.manage",
+          "staff.change_role"
+        ]
+      },
+      {
+        id: "prev-role-003",
+        name: "Managing Editor",
+        description: "Editorial operations, assignments, review, and publishing.",
+        capabilities: [
+          "story.publish",
+          "assignment.manage",
+          "distribution.manage"
+        ]
+      },
+      {
+        id: "prev-role-004",
+        name: "Reporter / Journalist",
+        description: "Create, edit own/assigned stories and submit for review.",
+        capabilities: ["story.create", "story.edit_own", "story.submit"]
+      },
+      {
+        id: "prev-role-005",
+        name: "Commercial Manager",
+        description: "Advertising, subscriber and Premium operations without editorial publishing.",
+        capabilities: ["ads.approve", "subscriber.manage", "premium.manage"]
+      },
+      {
+        id: "prev-role-006",
+        name: "Copy Editor",
+        description: "Copy-edit review and style guide verification.",
+        capabilities: ["story.copy_edit", "story.edit_all", "story.submit"]
+      },
+      {
+        id: "prev-role-007",
+        name: "Contributor",
+        description: "External or guest writer; can draft and submit stories for editorial review.",
+        capabilities: ["story.create", "story.edit_own", "story.submit"]
+      }
+    ],
+    capabilities: [
+      {
+        key: "story.create",
+        description: "Create newsroom stories",
+        category: "editorial"
+      },
+      {
+        key: "story.edit_own",
+        description: "Edit owned or assigned stories",
+        category: "editorial"
+      },
+      {
+        key: "story.edit_all",
+        description: "Edit stories across permitted desks",
+        category: "editorial"
+      },
+      {
+        key: "story.submit",
+        description: "Submit story into editorial review queue",
+        category: "editorial"
+      },
+      {
+        key: "story.publish",
+        description: "Publish story after editorial review gates",
+        category: "editorial"
+      },
+      {
+        key: "story.health_review",
+        description: "Perform clinical health and science review",
+        category: "editorial"
+      },
+      {
+        key: "story.copy_edit",
+        description: "Perform copy-editing and proofing",
+        category: "editorial"
+      },
+      {
+        key: "assignment.manage",
+        description: "Create and assign reporting tasks",
+        category: "editorial"
+      },
+      {
+        key: "distribution.manage",
+        description: "Manage newsletters, social, push, and WhatsApp distribution",
+        category: "distribution"
+      },
+      {
+        key: "ads.approve",
+        description: "Approve advertising campaigns and placements",
+        category: "commercial"
+      },
+      {
+        key: "subscriber.manage",
+        description: "Manage paid subscriber records and policies",
+        category: "commercial"
+      },
+      {
+        key: "security.manage",
+        description: "Manage security posture and session policies",
+        category: "audit"
+      },
+      {
+        key: "security.view_audit",
+        description: "View immutable newsroom audit logs",
+        category: "audit"
+      },
+      {
+        key: "staff.view",
+        description: "View staff directory and role mappings",
+        category: "staff_admin"
+      },
+      {
+        key: "staff.manage",
+        description: "Full management of staff profiles, roles, and status",
+        category: "staff_admin"
+      }
+    ],
+    auditHistory: [
+      {
+        id: "prev-audit-001",
+        action: "staff.role.changed",
+        actorStaffId: "prev-staff-001",
+        actorName: "Kudzai Moyo",
+        targetTable: "staff_profiles",
+        targetId: "prev-staff-004",
+        metadata: { previous: "Contributor", new: "Reporter / Journalist" },
+        createdAt: "2026-10-17T15:30:00Z"
+      },
+      {
+        id: "prev-audit-002",
+        action: "staff.status.suspended",
+        actorStaffId: "prev-staff-001",
+        actorName: "Kudzai Moyo",
+        targetTable: "staff_profiles",
+        targetId: "prev-staff-006",
+        metadata: {
+          previous_status: "active",
+          new_status: "suspended",
+          reason: "Annual leave security hold"
+        },
+        createdAt: "2026-10-15T09:12:00Z"
+      }
+    ],
+    canManageStaff: true
+  };
+}
+
+export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
+  return {
+    advertisers: [
+      {
+        id: "prev-adv-001",
+        name: "HOSPAZ",
+        contactNotes: "Hospice and Palliative Care Association of Zimbabwe direct sponsorship",
+        createdAt: "2026-09-01T00:00:00Z",
+        activeCampaignsCount: 1
+      },
+      {
+        id: "prev-adv-002",
+        name: "Ministry of Health and Child Care",
+        contactNotes: "National public health immunisation and awareness partner",
+        createdAt: "2026-09-10T00:00:00Z",
+        activeCampaignsCount: 1
+      },
+      {
+        id: "prev-adv-003",
+        name: "Cimas Health Group",
+        contactNotes: "Private medical aid and wellness commercial partner",
+        createdAt: "2026-09-20T00:00:00Z",
+        activeCampaignsCount: 0
+      }
+    ],
+    campaigns: [
+      {
+        id: "prev-camp-001",
+        advertiserId: "prev-adv-001",
+        advertiserName: "HOSPAZ",
+        name: "HOSPAZ source continuity",
+        status: "continuity_captured",
+        reviewStatus: "approved",
+        startAt: "2026-09-01T00:00:00Z",
+        endAt: "2026-12-31T23:59:59Z",
+        createdBy: "prev-staff-001",
+        approvedBy: "prev-staff-001",
+        approvedAt: "2026-09-01T00:00:00Z",
+        createdAt: "2026-09-01T00:00:00Z",
+        creativesCount: 1
+      },
+      {
+        id: "prev-camp-002",
+        advertiserId: "prev-adv-002",
+        advertiserName: "Ministry of Health and Child Care",
+        name: "National Cholera Prevention Campaign",
+        status: "active",
+        reviewStatus: "approved",
+        startAt: "2026-10-01T00:00:00Z",
+        endAt: "2026-11-30T23:59:59Z",
+        createdBy: "prev-staff-001",
+        approvedBy: "prev-staff-002",
+        approvedAt: "2026-10-01T08:00:00Z",
+        createdAt: "2026-09-28T12:00:00Z",
+        creativesCount: 1
+      },
+      {
+        id: "prev-camp-003",
+        advertiserId: "prev-adv-003",
+        advertiserName: "Cimas Health Group",
+        name: "Corporate Health Screening Drive",
+        status: "draft",
+        reviewStatus: "pending",
+        startAt: "2026-11-01T00:00:00Z",
+        endAt: "2026-12-15T23:59:59Z",
+        createdBy: "prev-staff-004",
+        approvedBy: null,
+        approvedAt: null,
+        createdAt: "2026-10-16T14:20:00Z",
+        creativesCount: 1
+      }
+    ],
+    creatives: [
+      {
+        id: "prev-cr-001",
+        campaignId: "prev-camp-001",
+        campaignName: "HOSPAZ source continuity",
+        placement: "hospaz-header-direct",
+        destinationUrl: "https://hospaz.org.zw/",
+        disclosureLabel: "Advertisement",
+        status: "active",
+        createdAt: "2026-09-01T00:00:00Z"
+      },
+      {
+        id: "prev-cr-002",
+        campaignId: "prev-camp-002",
+        campaignName: "National Cholera Prevention Campaign",
+        placement: "article-mid-inline",
+        destinationUrl: "https://mohcc.gov.zw/cholera-alert",
+        disclosureLabel: "Public Health Notice",
+        status: "active",
+        createdAt: "2026-09-28T12:00:00Z"
+      },
+      {
+        id: "prev-cr-003",
+        campaignId: "prev-camp-003",
+        campaignName: "Corporate Health Screening Drive",
+        placement: "sidebar-sticky",
+        destinationUrl: "https://cimas.co.zw/wellness",
+        disclosureLabel: "Sponsored Content",
+        status: "draft",
+        createdAt: "2026-10-16T14:20:00Z"
+      }
+    ],
+    placements: [
+      {
+        id: "prev-plc-001",
+        placementKey: "hospaz-header-direct",
+        name: "Header Leaderboard Direct",
+        allowedSources: ["direct", "house"],
+        defaultSource: "direct",
+        status: "active",
+        layoutPolicy: { maxWidth: 728, maxHeight: 90, responsive: true }
+      },
+      {
+        id: "prev-plc-002",
+        placementKey: "article-mid-inline",
+        name: "Article Mid-Body Inline",
+        allowedSources: ["direct", "adsense", "house"],
+        defaultSource: "adsense",
+        status: "active",
+        layoutPolicy: { insertAfterParagraph: 4, responsive: true }
+      },
+      {
+        id: "prev-plc-003",
+        placementKey: "sidebar-sticky",
+        name: "Desktop Sidebar Sticky",
+        allowedSources: ["direct", "adsense", "house"],
+        defaultSource: "none",
+        status: "active",
+        layoutPolicy: { sticky: true, topOffset: 80 }
+      }
+    ],
+    metrics: {
+      totalAdvertisers: 3,
+      totalCampaigns: 3,
+      activeCampaigns: 2,
+      pendingReviewCampaigns: 1,
+      totalCreatives: 3,
+      totalPlacements: 3
+    }
+  };
+}
+
+export function buildPreviewSubscribersDirectory(): NewsroomSubscribersDirectory {
+  return {
+    subscribers: [
+      {
+        id: "prev-sub-001",
+        authUserId: "auth-sub-001",
+        email: "dr.nyasha@parirenyatwa.org",
+        displayName: "Dr. Nyasha Chigumba",
+        status: "active",
+        createdAt: "2026-02-14T08:30:00Z",
+        hasActivePremium: true,
+        entitlements: [
+          {
+            id: "prev-ent-001",
+            policyKey: "premium",
+            startsAt: "2026-02-14T08:30:00Z",
+            endsAt: "2027-02-14T08:30:00Z",
+            provider: "stripe",
+            providerReference: "sub_1Omqxyz982",
+            isActive: true
+          }
+        ]
+      },
+      {
+        id: "prev-sub-002",
+        authUserId: "auth-sub-002",
+        email: "sarah.chikwava@who.int",
+        displayName: "Sarah Chikwava",
+        status: "active",
+        createdAt: "2026-04-10T11:00:00Z",
+        hasActivePremium: true,
+        entitlements: [
+          {
+            id: "prev-ent-002",
+            policyKey: "premium",
+            startsAt: "2026-04-10T11:00:00Z",
+            endsAt: "2026-11-10T11:00:00Z",
+            provider: "staff_grant",
+            providerReference: "grant_who_desk",
+            isActive: true
+          }
+        ]
+      },
+      {
+        id: "prev-sub-003",
+        authUserId: "auth-sub-003",
+        email: "tafadzwa.moyo@healthtimes.co.zw",
+        displayName: "Tafadzwa Moyo",
+        status: "active",
+        createdAt: "2026-05-18T14:45:00Z",
+        hasActivePremium: false,
+        entitlements: []
+      },
+      {
+        id: "prev-sub-004",
+        authUserId: "auth-sub-004",
+        email: "blessings.mutasa@gmail.com",
+        displayName: "Blessings Mutasa",
+        status: "suspended",
+        createdAt: "2026-01-20T09:15:00Z",
+        hasActivePremium: false,
+        entitlements: [
+          {
+            id: "prev-ent-004",
+            policyKey: "premium",
+            startsAt: "2026-01-20T09:15:00Z",
+            endsAt: "2026-07-20T09:15:00Z",
+            provider: "ecocash",
+            providerReference: "txn_eco_88712",
+            isActive: false
+          }
+        ]
+      }
+    ],
+    totalCount: 428,
+    metrics: {
+      totalSubscribers: 428,
+      activeSubscribers: 395,
+      premiumSubscribers: 184,
+      suspendedSubscribers: 12,
+      canceledSubscribers: 21
+    }
+  };
+}
+
+export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperationsOverview {
+  return {
+    policies: [
+      {
+        key: "public",
+        name: "Public Open Access",
+        description: "Unrestricted reading access for all readers across Web and App platforms.",
+        isMetered: false
+      },
+      {
+        key: "premium",
+        name: "Premium Subscriber Access",
+        description: "Exclusive deep health investigative reporting, clinical analyses, and member briefings.",
+        isMetered: true
+      }
+    ],
+    teaserPolicy: {
+      authority: "AG-05 / Owner Policy",
+      enabled: true,
+      durationSeconds: 20,
+      paragraphCount: 1,
+      enforcement: "Strict server-side body truncation with timer cutoff"
+    },
+    inventoryBreakdown: {
+      totalStories: 5792,
+      premiumStoriesCount: 842,
+      publicStoriesCount: 4950
+    },
+    recentPremiumStories: [
+      {
+        id: "prev-prem-story-001",
+        title: "Inside Zimbabwe's Oncology Crisis: Radiotherapy Blackouts and Drug Procurement Holes",
+        status: "published",
+        accessPolicy: "premium",
+        publishedAt: "2026-10-15T08:00:00Z",
+        updatedAt: "2026-10-15T10:30:00Z"
+      },
+      {
+        id: "prev-prem-story-002",
+        title: "Clinical Deep Dive: Pediatric Antiretroviral Rollout In Mashonaland Central",
+        status: "published",
+        accessPolicy: "premium",
+        publishedAt: "2026-10-12T14:15:00Z",
+        updatedAt: "2026-10-12T14:15:00Z"
+      },
+      {
+        id: "prev-prem-story-003",
+        title: "Cross-Border Health Finance: The True Cost of Medical Tourism to South Africa and India",
+        status: "published",
+        accessPolicy: "premium",
+        publishedAt: "2026-10-08T09:00:00Z",
+        updatedAt: "2026-10-08T11:00:00Z"
+      }
+    ],
+    subscriberStats: {
+      totalSubscribers: 428,
+      activeEntitlementsCount: 184,
+      totalEntitledSubscribers: 184,
+      providers: [
+        { provider: "stripe", count: 112 },
+        { provider: "staff_grant", count: 42 },
+        { provider: "ecocash", count: 22 },
+        { provider: "in_app", count: 8 }
+      ]
+    }
+  };
+}
+
+export function buildPreviewAiAssistOverview(): NewsroomAiAssistOverview {
+  return {
+    providerStatus: "active",
+    providerModel: "HealthTimes Editorial Heuristics / Gemini 1.5 Assistant",
+    safetyPolicy: {
+      canPublish: false,
+      canApprove: false,
+      canBypassReview: false,
+      humanReviewRequired: true,
+      principle: "AI is restricted to reviewable suggestions and drafting assistance. Direct story publication or silent mutation is strictly prohibited."
+    },
+    supportedTasks: [
+      { id: "headline_alternatives", name: "Headline Alternatives", description: "Generate engaging, punchy, and policy-accurate news headlines" },
+      { id: "seo_alternatives", name: "SEO Alternatives", description: "Generate search-optimized titles and meta descriptions" },
+      { id: "summary", name: "Executive Summary", description: "Condense complex medical or public health copy into clear standfirsts" },
+      { id: "evidence_gap", name: "Evidence Gap Detection", description: "Analyze copy for missing sources, statistics, or balance" },
+      { id: "citation_suggestion", name: "Citation Suggestions", description: "Identify potential academic, WHO, or MOHCC citations" },
+      { id: "interview_questions", name: "Interview Questions", description: "Generate targeted questions for public health officials and experts" },
+      { id: "claim_fact_check", name: "Fact-Check Claim Flagging", description: "Highlight claims requiring independent evidence verification" }
+    ],
+    metrics: {
+      totalSessions: 18,
+      taskCounts: {
+        headline_alternatives: 8,
+        seo_alternatives: 4,
+        evidence_gap: 3,
+        citation_suggestion: 2,
+        summary: 1
+      }
+    },
+    recentSessions: [
+      {
+        id: "prev-ai-sess-001",
+        storyId: "prev-story-001",
+        storyTitle: "Harare Water Treatment Chemical Stockpiles Fall Below Reserve Thresholds",
+        taskType: "headline_alternatives",
+        inputPrompt: "Harare water treatment chemical supply and waterborne disease risks",
+        inputContext: "City council reports 12-day stockpile of chlorine gas and aluminum sulphate.",
+        suggestions: [
+          {
+            type: "straight_news",
+            text: "Harare Water Crisis: Chemical Reserves Dwindle Below Minimum Safe Thresholds",
+            rationale: "Factual news lead prioritizing municipal supply vulnerability"
+          },
+          {
+            type: "analytical",
+            text: "Why Capital Water Shortages Threaten National Typhoid and Cholera Containment",
+            rationale: "Systemic epidemiological framing connecting utility deficits to clinical risks"
+          },
+          {
+            type: "impact_focused",
+            text: "What Two-Week Chemical Buffer Means for Two Million Harare Residents",
+            rationale: "Citizen-focused framing translating tonnage into human health exposure"
+          }
+        ],
+        provider: "editorial_heuristics_fallback",
+        providerStatus: "active",
+        status: "completed",
+        safetyFlags: {
+          canPublish: false,
+          canApprove: false,
+          canBypassReview: false,
+          humanReviewRequired: true
+        },
+        createdBy: "prev-staff-001",
+        createdAt: "2026-10-17T14:30:00Z"
+      },
+      {
+        id: "prev-ai-sess-002",
+        storyId: "prev-story-002",
+        storyTitle: "NatPharm Expedited Antibiotic Procurement Reaches Provincial Referral Hospitals",
+        taskType: "evidence_gap",
+        inputPrompt: "Checking NatPharm delivery figures against hospital pharmacy receipts",
+        inputContext: "Ministry press release announces 400 metric tonnes delivered nationwide.",
+        suggestions: [
+          {
+            type: "gap_identification",
+            text: "Triangulate central warehouse dispatch manifests with district hospital store ledgers in Matabeleland South.",
+            rationale: "Verification against last-mile delivery discrepancies"
+          },
+          {
+            type: "source_balance",
+            text: "Include perspective from Hospital Doctors Association regarding cold-chain integrity during distribution.",
+            rationale: "Ensures frontline clinical feedback on medication efficacy"
+          }
+        ],
+        provider: "editorial_heuristics_fallback",
+        providerStatus: "active",
+        status: "completed",
+        safetyFlags: {
+          canPublish: false,
+          canApprove: false,
+          canBypassReview: false,
+          humanReviewRequired: true
+        },
+        createdBy: "prev-staff-002",
+        createdAt: "2026-10-17T11:15:00Z"
+      }
+    ]
+  };
+}
+
+export function buildPreviewCitationsDirectory(): NewsroomCitationsDirectory {
+  return {
+    metrics: {
+      totalCitations: 24,
+      verifiedCount: 16,
+      unverifiedCount: 5,
+      flaggedCount: 2,
+      rejectedCount: 1,
+      academicCount: 14
+    },
+    citations: [
+      {
+        id: "prev-cit-001",
+        storyId: "prev-story-001",
+        storyTitle: "Harare Water Treatment Chemical Stockpiles Fall Below Reserve Thresholds",
+        storySlug: "harare-water-treatment-stockpiles",
+        referenceType: "academic",
+        sourceName: "Central African Journal of Medicine",
+        sourceUrl: "https://doi.org/10.1052/cajm.2025.04.12",
+        title: "Vibrio cholerae Transmission Dynamics Across Urban Harare Wetlands (2022-2025)",
+        citedAt: "2026-10-12",
+        country: "Zimbabwe",
+        authorityScore: 92,
+        provider: "crossref",
+        providerReference: "10.1052/cajm.2025.04.12",
+        status: "verified",
+        createdAt: "2026-10-12T10:00:00Z"
+      },
+      {
+        id: "prev-cit-002",
+        storyId: "prev-story-002",
+        storyTitle: "NatPharm Expedited Antibiotic Procurement Reaches Provincial Referral Hospitals",
+        storySlug: "natpharm-expedited-procurement",
+        referenceType: "institutional",
+        sourceName: "Ministry of Health and Child Care (MoHCC)",
+        sourceUrl: "https://www.mohcc.gov.zw/reports/essential-medicines-2026-q3.pdf",
+        title: "National Essential Medicines List and Standard Treatment Guidelines (6th Edition)",
+        citedAt: "2026-10-14",
+        country: "Zimbabwe",
+        authorityScore: 98,
+        provider: "gov_repository",
+        providerReference: "MOHCC-EML-2026-03",
+        status: "verified",
+        createdAt: "2026-10-14T08:30:00Z"
+      },
+      {
+        id: "prev-cit-003",
+        storyId: null,
+        storyTitle: null,
+        storySlug: null,
+        referenceType: "ngo",
+        sourceName: "Doctors Without Borders (MSF)",
+        sourceUrl: "https://www.msf.org/zimbabwe-maternal-health-review-2025",
+        title: "Community-Led Maternal Health Delivery in Rural Epworth and Chipinge",
+        citedAt: "2026-10-16",
+        country: "Zimbabwe",
+        authorityScore: 85,
+        provider: "msf_index",
+        providerReference: "MSF-ZW-2025-08",
+        status: "unverified",
+        createdAt: "2026-10-16T15:20:00Z"
+      }
+    ]
+  };
+}
+
+export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
+  return {
+    metrics: {
+      totalAuthors: 8,
+      migratedAuthorsCount: 5,
+      boundAuthorsCount: 4,
+      unboundAuthorsCount: 4
+    },
+    authors: [
+      {
+        id: "auth-001",
+        displayName: "Dr. Kudzai Musarurwa",
+        slug: "kudzai-musarurwa",
+        bio: "Health systems specialist and editor-in-chief covering southern African public health policy.",
+        wordpressSourceId: "wp-author-12",
+        createdAt: "2024-01-15T09:00:00Z",
+        storyCount: 42,
+        boundStaffId: "staff-001",
+        boundStaffName: "Kudzai Musarurwa",
+        boundStaffEmail: "kudzai@healthtimes.co.zw"
+      },
+      {
+        id: "auth-002",
+        displayName: "Catherine Murombedzi",
+        slug: "catherine-murombedzi",
+        bio: "Senior health journalist focusing on HIV/TB epidemiology and maternal healthcare.",
+        wordpressSourceId: "wp-author-14",
+        createdAt: "2024-02-10T10:00:00Z",
+        storyCount: 38,
+        boundStaffId: "staff-002",
+        boundStaffName: "Catherine Murombedzi",
+        boundStaffEmail: "catherine@healthtimes.co.zw"
+      },
+      {
+        id: "auth-003",
+        displayName: "Michael Gwarisa",
+        slug: "michael-gwarisa",
+        bio: "Investigative reporter reporting on pharmaceuticals, healthcare financing, and health governance.",
+        wordpressSourceId: "wp-author-19",
+        createdAt: "2024-03-01T11:00:00Z",
+        storyCount: 29,
+        boundStaffId: "staff-003",
+        boundStaffName: "Michael Gwarisa",
+        boundStaffEmail: "michael@healthtimes.co.zw"
+      },
+      {
+        id: "auth-004",
+        displayName: "Tafadzwa Chigandiwa",
+        slug: "tafadzwa-chigandiwa",
+        bio: "Desk editor and public health researcher specializing in non-communicable diseases.",
+        wordpressSourceId: "wp-author-22",
+        createdAt: "2024-04-12T08:30:00Z",
+        storyCount: 19,
+        boundStaffId: "staff-004",
+        boundStaffName: "Tafadzwa Chigandiwa",
+        boundStaffEmail: "tafadzwa@healthtimes.co.zw"
+      },
+      {
+        id: "auth-005",
+        displayName: "HealthTimes Editorial Board",
+        slug: "healthtimes-editorial-board",
+        bio: "Official institutional byline for consensus editorial positions and public health notices.",
+        wordpressSourceId: "wp-author-01",
+        createdAt: "2023-11-01T00:00:00Z",
+        storyCount: 56,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      },
+      {
+        id: "auth-006",
+        displayName: "Dr. Rutendo Mashonganyika",
+        slug: "dr-rutendo-mashonganyika",
+        bio: "Guest clinical contributor, consultant pediatrician at Parirenyatwa Group of Hospitals.",
+        wordpressSourceId: null,
+        createdAt: "2025-05-18T14:15:00Z",
+        storyCount: 7,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      },
+      {
+        id: "auth-007",
+        displayName: "Farai Muringani",
+        slug: "farai-muringani",
+        bio: "Digital content and broadcast reporter reporting from Midlands and Matabeleland.",
+        wordpressSourceId: null,
+        createdAt: "2025-08-20T11:00:00Z",
+        storyCount: 12,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      },
+      {
+        id: "auth-008",
+        displayName: "Memory Ndlovu",
+        slug: "memory-ndlovu",
+        bio: "Community reporter focusing on rural WASH access, clinic infrastructure, and nutritional health.",
+        wordpressSourceId: null,
+        createdAt: "2025-09-04T16:00:00Z",
+        storyCount: 15,
+        boundStaffId: null,
+        boundStaffName: null,
+        boundStaffEmail: null
+      }
+    ]
+  };
+}
+
+export function buildPreviewTaxonomyDirectory(): NewsroomTaxonomyDirectory {
+  return {
+    metrics: {
+      totalSections: 8,
+      rootSectionsCount: 6
+    },
+    sections: [
+      {
+        id: "sec-001",
+        name: "Public Health",
+        slug: "public-health",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-101",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 84
+      },
+      {
+        id: "sec-002",
+        name: "Epidemiology & Outbreaks",
+        slug: "epidemiology-outbreaks",
+        parentId: "sec-001",
+        parentName: "Public Health",
+        wordpressSourceId: "wp-cat-102",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 36
+      },
+      {
+        id: "sec-003",
+        name: "Maternal & Child Health",
+        slug: "maternal-child-health",
+        parentId: "sec-001",
+        parentName: "Public Health",
+        wordpressSourceId: "wp-cat-103",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 28
+      },
+      {
+        id: "sec-004",
+        name: "Pharmaceuticals & Supplies",
+        slug: "pharmaceuticals-supplies",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-104",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 41
+      },
+      {
+        id: "sec-005",
+        name: "Health Financing & Policy",
+        slug: "health-financing-policy",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-105",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 32
+      },
+      {
+        id: "sec-006",
+        name: "Clinical Practice",
+        slug: "clinical-practice",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-106",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 25
+      },
+      {
+        id: "sec-007",
+        name: "Mental Health",
+        slug: "mental-health",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-107",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 18
+      },
+      {
+        id: "sec-008",
+        name: "Nutrition & Food Safety",
+        slug: "nutrition-food-safety",
+        parentId: null,
+        parentName: null,
+        wordpressSourceId: "wp-cat-108",
+        createdAt: "2024-01-01T00:00:00Z",
+        storyCount: 21
+      }
+    ]
+  };
+}
+
+export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettingsOverview {
+  return {
+    settings: [
+      {
+        key: "editorial_require_review",
+        category: "editorial",
+        description: "Enforce two-person editorial gate before publishing",
+        value: { enabled: true, min_approvals: 1 },
+        updatedAt: "2026-10-18T00:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "paywall_hard_enforcement",
+        category: "monetization",
+        description: "Enforce meter limit across all reader devices",
+        value: { enabled: true, free_monthly_quota: 5 },
+        updatedAt: "2026-10-17T18:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "ai_editorial_assist_enabled",
+        category: "editorial",
+        description: "Allow Gemini AI assistant in story workspace",
+        value: { enabled: true, model: "gemini-2.5-flash", require_source_grounding: true },
+        updatedAt: "2026-10-18T02:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "maintenance_mode",
+        category: "infrastructure",
+        description: "Put reader public client into maintenance mode",
+        value: { enabled: false, message: null },
+        updatedAt: "2026-10-15T12:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "comment_policy",
+        category: "security",
+        description: "Moderation policy for public reader discussions",
+        value: { policy: "pre_moderated", allow_anonymous: false },
+        updatedAt: "2026-10-16T10:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "whatsapp_distribution",
+        category: "distribution",
+        description: "Meta WhatsApp Cloud API distribution configuration",
+        value: { phone_number_id: "10984729182371", waba_id: "9827361829102", default_channel: "healthtimes-daily" },
+        updatedAt: "2026-10-17T14:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "brevo_email_distribution",
+        category: "distribution",
+        description: "Brevo transactional and newsletter campaign settings",
+        value: { sender_email: "newsdesk@healthtimes.co.zw", sender_name: "HealthTimes Zimbabwe", list_id: 4 },
+        updatedAt: "2026-10-16T09:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "google_analytics_4",
+        category: "analytics",
+        description: "GA4 reader traffic measurement ID",
+        value: { measurement_id: "GA4-SAMPLE", property_id: "492817291" },
+        updatedAt: "2026-10-14T11:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "search_console_growth",
+        category: "analytics",
+        description: "Google Search Console domain verification",
+        value: { site_url: "sc-domain:healthtimes.co.zw", verified: true },
+        updatedAt: "2026-10-14T11:00:00Z",
+        updatedBy: "staff-001"
+      },
+      {
+        key: "push_fcm_apns",
+        category: "distribution",
+        description: "Push notification dispatch configuration",
+        value: { apns_topic: "zw.co.healthtimes.reader", fcm_project: "htp-zw-staging" },
+        updatedAt: "2026-10-17T12:00:00Z",
+        updatedBy: "staff-001"
+      }
+    ],
+    integrations: {
+      whatsapp: {
+        name: "WhatsApp Cloud API",
+        provider: "Meta Graph API",
+        status: "unconfigured",
+        secretConfigured: false,
+        phoneNumberId: "10984729182371",
+        wabaId: "9827361829102",
+        webhookUrl: "https://gcdohgbmqhqwydgaxrcr.edge.internal/functions/v1/whatsapp-webhook"
+      },
+      brevo: {
+        name: "Brevo Email API",
+        provider: "Brevo API v3",
+        status: "configured",
+        secretConfigured: true,
+        senderEmail: "newsdesk@healthtimes.co.zw",
+        senderName: "HealthTimes Zimbabwe"
+      },
+      ga4: {
+        name: "Google Analytics 4",
+        provider: "Google Analytics Data API v1beta",
+        status: "property_verified",
+        secretConfigured: false,
+        propertyId: "492817291",
+        measurementId: "GA4-SAMPLE"
+      },
+      search_console: {
+        name: "Google Search Console",
+        provider: "Google Search Console API v1",
+        status: "healthy",
+        secretConfigured: false,
+        siteUrl: "sc-domain:healthtimes.co.zw",
+        verified: true
+      },
+      gemini_ai: {
+        name: "Google Gemini 2.5",
+        provider: "Google Generative AI API",
+        status: "active",
+        secretConfigured: true,
+        defaultModel: "gemini-2.5-flash",
+        edgeFunction: "newsroom-ai-assist"
+      },
+      database_backend: {
+        name: "Staging Database Cluster",
+        provider: "PostgreSQL 15 / PostgREST / GoTrue / Storage",
+        status: "healthy",
+        secretConfigured: true,
+        projectRef: "gcdohgbmqhqwydgaxrcr",
+        appliedMigrations: 83,
+        region: "ap-northeast-1"
+      }
+    },
+    auditSummary: {
+      totalAuditEvents24h: 47,
+      lastAuditAction: "platform_setting_updated",
+      lastAuditAt: "2026-10-18T03:15:00Z"
+    }
+  };
+}
 

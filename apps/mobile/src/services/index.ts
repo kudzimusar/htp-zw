@@ -13,6 +13,13 @@ import { stagingNewsroomLiveCoverageService } from "./newsroom-live";
 import { stagingNewsroomSocialService } from "./newsroom-social";
 import { stagingNewsroomCampaignService } from "./newsroom-campaigns";
 import { stagingNewsroomPushAlertService } from "./newsroom-push-alerts";
+import { stagingNewsroomWhatsAppService } from "./newsroom-whatsapp";
+import { stagingNewsroomIntelligenceService } from "./newsroom-intelligence";
+import { stagingNewsroomStaffService } from "./newsroom-staff";
+import { stagingNewsroomCommercialService } from "./newsroom-commercial";
+import { stagingNewsroomAiService } from "./newsroom-ai";
+import { stagingNewsroomAuthorsService } from "./newsroom-authors";
+import { stagingNewsroomSettingsService } from "./newsroom-settings";
 
 export const serviceMode = editorialDataMode;
 
@@ -47,6 +54,13 @@ function buildServices(): HealthTimesServices {
       newsroomSocial: stagingNewsroomSocialService,
       newsroomCampaigns: stagingNewsroomCampaignService,
       newsroomPushAlerts: stagingNewsroomPushAlertService,
+      newsroomWhatsApp: stagingNewsroomWhatsAppService,
+      newsroomIntelligence: stagingNewsroomIntelligenceService,
+      newsroomStaff: stagingNewsroomStaffService,
+      newsroomCommercial: stagingNewsroomCommercialService,
+      newsroomAi: stagingNewsroomAiService,
+      newsroomAuthors: stagingNewsroomAuthorsService,
+      newsroomSettings: stagingNewsroomSettingsService,
       platform: stagingPlatformService
     };
   }

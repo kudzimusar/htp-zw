@@ -73,7 +73,18 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "live-desk",
     "social",
     "newsletters",
-    "push-alerts"
+    "push-alerts",
+    "whatsapp",
+    "analytics",
+    "audience",
+    "search-growth",
+    "staff-roles",
+    "advertising",
+    "subscribers",
+    "premium",
+    "ai-desk",
+    "authors",
+    "settings"
   ]) {
     assert.ok(
       moduleRouteSource.includes(`"${slug}"`),
@@ -81,7 +92,7 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     );
   }
 
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 11);
+  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 25);
   const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
   assert.deepEqual(navPaths, [
     "/owner-preview/studio",
@@ -94,6 +105,20 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
     "/owner-preview/studio/media",
     "/owner-preview/studio/video-desk",
     "/owner-preview/studio/live-desk",
+    "/owner-preview/studio/social",
+    "/owner-preview/studio/newsletters",
+    "/owner-preview/studio/push-alerts",
+    "/owner-preview/studio/whatsapp",
+    "/owner-preview/studio/analytics",
+    "/owner-preview/studio/audience",
+    "/owner-preview/studio/search-growth",
+    "/owner-preview/studio/staff-roles",
+    "/owner-preview/studio/advertising",
+    "/owner-preview/studio/subscribers",
+    "/owner-preview/studio/premium",
+    "/owner-preview/studio/ai-desk",
+    "/owner-preview/studio/authors",
+    "/owner-preview/studio/settings",
     "/owner-preview/studio/create-edit"
   ]);
 });
@@ -303,13 +328,27 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
     "Media Library",
     "Video Desk",
     "Live Desk",
+    "Social Desk",
+    "Newsletter Desk",
+    "Push Alerts",
+    "WhatsApp Desk",
+    "Analytics & Intelligence",
+    "Audience",
+    "Search & Growth",
+    "Staff & Roles",
+    "Advertising",
+    "Subscribers",
+    "Premium Policies",
+    "AI Desk & Citations",
+    "Authors & Taxonomy",
+    "Platform Settings",
     "Story Workspace"
   ]);
 
   for (const unfinished of [
-    "Advertising",
-    "Analytics",
-    "Subscribers"
+    "Inbox",
+    "Desks",
+    "Breaking"
   ]) {
     assert.equal(
       navLabels.includes(unfinished),

@@ -2958,4 +2958,772 @@ export function validatePushDispatchStatus(
   );
 }
 
+// ============================================================================
+// HT-NR-06D: WHATSAPP DISTRIBUTION & DELIVERY LEDGER MODELS
+// ============================================================================
+
+export const NEWSROOM_WHATSAPP_BROADCAST_TYPES = [
+  "breaking_alert",
+  "daily_briefing",
+  "story_update",
+  "health_alert"
+] as const;
+
+export type NewsroomWhatsAppBroadcastType =
+  (typeof NEWSROOM_WHATSAPP_BROADCAST_TYPES)[number];
+
+export const NEWSROOM_WHATSAPP_BROADCAST_STATUSES = [
+  "draft",
+  "approved",
+  "sent",
+  "rejected"
+] as const;
+
+export type NewsroomWhatsAppBroadcastStatus =
+  (typeof NEWSROOM_WHATSAPP_BROADCAST_STATUSES)[number];
+
+export const NEWSROOM_WHATSAPP_DISPATCH_STATUSES = [
+  "submitted",
+  "provider-accepted",
+  "provider-rejected",
+  "partially-accepted",
+  "unconfigured",
+  "delivery-failed"
+] as const;
+
+export type NewsroomWhatsAppDispatchStatus =
+  (typeof NEWSROOM_WHATSAPP_DISPATCH_STATUSES)[number];
+
+export interface NewsroomWhatsAppBroadcastCreateInput {
+  title: string;
+  body: string;
+  broadcast_type: NewsroomWhatsAppBroadcastType;
+  channel_identity?: string;
+  related_story_id?: string | null;
+}
+
+export interface NewsroomWhatsAppDispatch {
+  id: string;
+  broadcastId: string;
+  transportStatus: NewsroomWhatsAppDispatchStatus;
+  provider: string;
+  providerBroadcastId?: string | null;
+  recipientCount: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  deliveredCount: number;
+  readCount: number;
+  failureReason?: string | null;
+  idempotencyKey?: string;
+  dispatchedAt: string;
+}
+
+export interface NewsroomWhatsAppBroadcast {
+  id: string;
+  title: string;
+  body: string;
+  broadcastType: NewsroomWhatsAppBroadcastType;
+  channelIdentity: string;
+  relatedStoryId: string | null;
+  status: NewsroomWhatsAppBroadcastStatus;
+  createdBy: string;
+  approvedBy: string | null;
+  rejectedBy: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  sentAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  dispatch?: NewsroomWhatsAppDispatch | null;
+}
+
+export interface NewsroomWhatsAppDispatchResult {
+  dispatch_id: string;
+  broadcast_id: string;
+  transport_status: NewsroomWhatsAppDispatchStatus;
+  recipient_count: number;
+  accepted_count: number;
+  rejected_count: number;
+  delivered_count: number;
+  read_count: number;
+  failure_reason?: string | null;
+  dispatched_at: string;
+}
+
+export function validateWhatsAppBroadcastType(
+  type: unknown
+): type is NewsroomWhatsAppBroadcastType {
+  return (
+    typeof type === "string" &&
+    NEWSROOM_WHATSAPP_BROADCAST_TYPES.includes(
+      type as NewsroomWhatsAppBroadcastType
+    )
+  );
+}
+
+export function validateWhatsAppBroadcastStatus(
+  status: unknown
+): status is NewsroomWhatsAppBroadcastStatus {
+  return (
+    typeof status === "string" &&
+    NEWSROOM_WHATSAPP_BROADCAST_STATUSES.includes(
+      status as NewsroomWhatsAppBroadcastStatus
+    )
+  );
+}
+
+export function validateWhatsAppDispatchStatus(
+  status: unknown
+): status is NewsroomWhatsAppDispatchStatus {
+  return (
+    typeof status === "string" &&
+    NEWSROOM_WHATSAPP_DISPATCH_STATUSES.includes(
+      status as NewsroomWhatsAppDispatchStatus
+    )
+  );
+}
+
+export function validateWhatsAppBroadcastCreateInput(
+  input: unknown
+): { valid: boolean; error?: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { valid: false, error: "Broadcast input must be a JSON object." };
+  }
+
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "title",
+    "body",
+    "broadcast_type",
+    "channel_identity",
+    "related_story_id"
+  ]);
+
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      return { valid: false, error: `Unexpected field in broadcast input: ${key}` };
+    }
+  }
+
+  if (typeof record.title !== "string" || record.title.trim().length < 3) {
+    return { valid: false, error: "Broadcast title must be at least 3 characters." };
+  }
+  if (record.title.trim().length > 200) {
+    return { valid: false, error: "Broadcast title cannot exceed 200 characters." };
+  }
+
+  if (typeof record.body !== "string" || record.body.trim().length < 10) {
+    return { valid: false, error: "Broadcast body must be at least 10 characters." };
+  }
+  if (record.body.trim().length > 4096) {
+    return { valid: false, error: "Broadcast body cannot exceed 4096 characters." };
+  }
+
+  if (!validateWhatsAppBroadcastType(record.broadcast_type)) {
+    return {
+      valid: false,
+      error: "Invalid broadcast type. Must be breaking_alert, daily_briefing, story_update, or health_alert."
+    };
+  }
+
+  if (
+    record.related_story_id !== null &&
+    record.related_story_id !== undefined &&
+    record.related_story_id !== ""
+  ) {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (
+      typeof record.related_story_id !== "string" ||
+      !uuidRegex.test(record.related_story_id.trim())
+    ) {
+      return { valid: false, error: "related_story_id must be a valid UUID." };
+    }
+  }
+
+  return { valid: true };
+}
+
+// =============================================================================
+// WAVE B — NEWSROOM INTELLIGENCE, ANALYTICS & GROWTH MODELS
+// =============================================================================
+
+export interface NewsroomStoryInventory {
+  total: number;
+  published: number;
+  draft: number;
+  review: number;
+  scheduled: number;
+  archived: number;
+}
+
+export interface NewsroomPublishingVelocity {
+  last24Hours: number;
+  last7Days: number;
+  last30Days: number;
+}
+
+export interface NewsroomReviewQueueMetrics {
+  inReviewCount: number;
+  avgAgeHours: number;
+  oldestAgeHours: number;
+}
+
+export interface NewsroomAssignmentsMetrics {
+  total: number;
+  active: number;
+  overdue: number;
+  completed: number;
+}
+
+export interface NewsroomDeskMixEntry {
+  desk: string;
+  count: number;
+}
+
+export interface NewsroomDistributionReach {
+  socialPostsCount: number;
+  newsletterCampaignsCount: number;
+  pushAlertsCount: number;
+  whatsappBroadcastsCount: number;
+}
+
+export interface NewsroomEditorialIntelligence {
+  generatedAt: string;
+  storyInventory: NewsroomStoryInventory;
+  publishingVelocity: NewsroomPublishingVelocity;
+  reviewQueue: NewsroomReviewQueueMetrics;
+  assignments: NewsroomAssignmentsMetrics;
+  deskMix: NewsroomDeskMixEntry[];
+  distributionReach: NewsroomDistributionReach;
+}
+
+export interface NewsroomAnalyticsIntegration {
+  id: string;
+  provider: string;
+  integrationKey: string;
+  status: string;
+  externalAccountId: string | null;
+  externalPropertyId: string | null;
+  externalMeasurementId: string | null;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastError: string | null;
+  notes: string | null;
+}
+
+export interface NewsroomAnalyticsDailySummary {
+  rowsRecorded: number;
+  totalPageViews: number;
+  totalUsers: number;
+  totalSessions: number;
+  status: "active" | "pending_ingestion";
+}
+
+export interface NewsroomSearchConsoleSummary {
+  property: string;
+  rowsRecorded: number;
+  totalClicks: number;
+  totalImpressions: number;
+  status: "active" | "pending_ingestion";
+}
+
+export interface NewsroomSeoHealth {
+  totalStories: number;
+  withSeoTitle: number;
+  withSeoDescription: number;
+  withCanonicalUrl: number;
+}
+
+export interface NewsroomCitationsSummary {
+  status: string;
+  verifiedCitationsCount: number;
+  institutionalReferencesCount: number;
+  governmentNgoMentionsCount: number;
+  notes: string;
+}
+
+export interface NewsroomGrowthIntelligence {
+  generatedAt: string;
+  integrations: NewsroomAnalyticsIntegration[];
+  analyticsDailySummary: NewsroomAnalyticsDailySummary;
+  searchConsoleSummary: NewsroomSearchConsoleSummary;
+  seoHealth: NewsroomSeoHealth;
+  citationsSummary: NewsroomCitationsSummary;
+}
+
+export interface NewsroomAudienceIntelligence {
+  generatedAt: string;
+  contacts: {
+    totalProfiles: number;
+    consentedContacts: number;
+  };
+  segments: {
+    totalSegments: number;
+    totalMemberships: number;
+  };
+  pushSubscribers: {
+    registeredDevices: number;
+    activeDevices: number;
+  };
+  whatsappDistribution: {
+    totalBroadcasts: number;
+    sentBroadcasts: number;
+  };
+  subscribers: {
+    totalSubscribers: number;
+    activeSubscribers: number;
+  };
+  ga4AudienceStatus: {
+    propertyId: string;
+    accountId: string;
+    status: string;
+    notes: string;
+  };
+}
+
+export interface NewsroomStaffMember {
+  id: string;
+  displayName: string;
+  email: string;
+  handle: string;
+  roleId: string | null;
+  roleName: string;
+  desk: string | null;
+  beat: string | null;
+  country: string | null;
+  region: string | null;
+  status: "active" | "suspended" | "revoked" | "invited" | string;
+  mfaRequired: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  activeSessionsCount: number;
+  capabilities: string[];
+}
+
+export interface NewsroomStaffInvitation {
+  id: string;
+  invitedEmail: string;
+  displayName: string;
+  roleName: string;
+  desk: string | null;
+  country: string | null;
+  status: "pending" | "sent" | "accepted" | "cancelled" | "expired" | string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface NewsroomRole {
+  id: string;
+  name: string;
+  description: string | null;
+  capabilities: string[];
+}
+
+export interface NewsroomCapability {
+  key: string;
+  description: string;
+  category: "editorial" | "distribution" | "commercial" | "audit" | "staff_admin";
+}
+
+export interface NewsroomAuditRecord {
+  id: string;
+  action: string;
+  actorStaffId: string | null;
+  actorName: string | null;
+  targetTable: string;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface NewsroomStaffOperationsDirectory {
+  staff: NewsroomStaffMember[];
+  invitations: NewsroomStaffInvitation[];
+  roles: NewsroomRole[];
+  capabilities: NewsroomCapability[];
+  auditHistory: NewsroomAuditRecord[];
+  canManageStaff: boolean;
+}
+
+export interface NewsroomStaffInviteInput {
+  email: string;
+  displayName: string;
+  roleName: string;
+  desk?: string | null;
+  country?: string | null;
+}
+
+// ============================================================================
+// Wave D — Commercial Operations Domain Models (Advertising / Subscribers / Premium)
+// ============================================================================
+
+export interface NewsroomAdvertiser {
+  id: string;
+  name: string;
+  contactNotes: string | null;
+  createdAt: string;
+  activeCampaignsCount: number;
+}
+
+export interface NewsroomAdCampaign {
+  id: string;
+  advertiserId: string;
+  advertiserName: string;
+  name: string;
+  status: "draft" | "approved" | "active" | "paused" | "archived" | "rejected" | string;
+  reviewStatus: "pending" | "under_review" | "approved" | "rejected" | string;
+  startAt: string | null;
+  endAt: string | null;
+  createdBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  creativesCount: number;
+}
+
+export interface NewsroomAdCreative {
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  placement: string;
+  destinationUrl: string | null;
+  disclosureLabel: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface NewsroomAdPlacement {
+  id: string;
+  placementKey: string;
+  name: string;
+  allowedSources: string[];
+  defaultSource: string;
+  status: string;
+  layoutPolicy: Record<string, unknown>;
+}
+
+export interface NewsroomAdvertisingMetrics {
+  totalAdvertisers: number;
+  totalCampaigns: number;
+  activeCampaigns: number;
+  pendingReviewCampaigns: number;
+  totalCreatives: number;
+  totalPlacements: number;
+}
+
+export interface NewsroomAdvertisingOverview {
+  advertisers: NewsroomAdvertiser[];
+  campaigns: NewsroomAdCampaign[];
+  creatives: NewsroomAdCreative[];
+  placements: NewsroomAdPlacement[];
+  metrics: NewsroomAdvertisingMetrics;
+}
+
+export interface NewsroomCreateCampaignInput {
+  advertiserId: string;
+  name: string;
+  startAt?: string | null;
+  endAt?: string | null;
+}
+
+export interface NewsroomCreateCreativeInput {
+  campaignId: string;
+  placement: string;
+  destinationUrl?: string | null;
+  disclosureLabel?: string;
+}
+
+export interface NewsroomSubscriberEntitlement {
+  id: string;
+  policyKey: string;
+  startsAt: string;
+  endsAt: string | null;
+  provider: string | null;
+  providerReference: string | null;
+  isActive: boolean;
+}
+
+export interface NewsroomSubscriber {
+  id: string;
+  authUserId: string | null;
+  email: string;
+  displayName: string | null;
+  status: "active" | "suspended" | "canceled" | "past_due" | string;
+  createdAt: string;
+  hasActivePremium: boolean;
+  entitlements: NewsroomSubscriberEntitlement[];
+}
+
+export interface NewsroomSubscriberMetrics {
+  totalSubscribers: number;
+  activeSubscribers: number;
+  premiumSubscribers: number;
+  suspendedSubscribers: number;
+  canceledSubscribers: number;
+}
+
+export interface NewsroomSubscribersDirectory {
+  subscribers: NewsroomSubscriber[];
+  totalCount: number;
+  metrics: NewsroomSubscriberMetrics;
+}
+
+export interface NewsroomPremiumPolicy {
+  key: string;
+  name: string;
+  description: string;
+  isMetered: boolean;
+}
+
+export interface NewsroomTeaserPolicy {
+  authority: string;
+  enabled: boolean;
+  durationSeconds: number;
+  paragraphCount: number;
+  enforcement: string;
+}
+
+export interface NewsroomPremiumStoryItem {
+  id: string;
+  title: string;
+  status: string;
+  accessPolicy: string;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export interface NewsroomPremiumOperationsOverview {
+  policies: NewsroomPremiumPolicy[];
+  teaserPolicy: NewsroomTeaserPolicy;
+  inventoryBreakdown: {
+    totalStories: number;
+    premiumStoriesCount: number;
+    publicStoriesCount: number;
+  };
+  recentPremiumStories: NewsroomPremiumStoryItem[];
+  subscriberStats: {
+    totalSubscribers: number;
+    activeEntitlementsCount: number;
+    totalEntitledSubscribers: number;
+    providers: { provider: string; count: number }[];
+  };
+}
+
+// =============================================================================
+// HT-NR-CLOSE Wave E: AI Desk & Citations / Research Models
+// =============================================================================
+
+export type NewsroomAiTaskType =
+  | "headline_alternatives"
+  | "seo_alternatives"
+  | "summary"
+  | "evidence_gap"
+  | "citation_suggestion"
+  | "interview_questions"
+  | "claim_fact_check"
+  | "custom_prompt";
+
+export interface NewsroomAiSuggestion {
+  type: string;
+  text: string;
+  rationale: string;
+}
+
+export interface NewsroomAiSafetyPolicy {
+  canPublish: boolean;
+  canApprove: boolean;
+  canBypassReview: boolean;
+  humanReviewRequired: boolean;
+  principle: string;
+}
+
+export interface NewsroomAiTaskDefinition {
+  id: NewsroomAiTaskType;
+  name: string;
+  description: string;
+}
+
+export interface NewsroomAiAssistSession {
+  id: string;
+  storyId: string | null;
+  storyTitle: string | null;
+  taskType: NewsroomAiTaskType;
+  inputPrompt: string;
+  inputContext: string | null;
+  suggestions: NewsroomAiSuggestion[];
+  provider: string;
+  providerStatus: string;
+  status: "pending" | "completed" | "failed";
+  safetyFlags: {
+    canPublish: boolean;
+    canApprove: boolean;
+    canBypassReview: boolean;
+    humanReviewRequired: boolean;
+  };
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface NewsroomAiAssistOverview {
+  providerStatus: string;
+  providerModel: string;
+  safetyPolicy: NewsroomAiSafetyPolicy;
+  supportedTasks: NewsroomAiTaskDefinition[];
+  metrics: {
+    totalSessions: number;
+    taskCounts: Record<string, number>;
+  };
+  recentSessions: NewsroomAiAssistSession[];
+}
+
+export interface NewsroomRunAiAssistInput {
+  storyId?: string | null;
+  taskType: NewsroomAiTaskType;
+  inputPrompt: string;
+  inputContext?: string | null;
+}
+
+export interface NewsroomCitationReference {
+  id: string;
+  storyId: string | null;
+  storyTitle: string | null;
+  storySlug: string | null;
+  referenceType: string;
+  sourceName: string;
+  sourceUrl: string | null;
+  title: string;
+  citedAt: string | null;
+  country: string | null;
+  authorityScore: number | null;
+  provider: string | null;
+  providerReference: string | null;
+  status: "verified" | "unverified" | "flagged" | "rejected";
+  createdAt: string;
+}
+
+export interface NewsroomCitationsMetrics {
+  totalCitations: number;
+  verifiedCount: number;
+  unverifiedCount: number;
+  flaggedCount: number;
+  rejectedCount: number;
+  academicCount: number;
+}
+
+export interface NewsroomCitationsDirectory {
+  metrics: NewsroomCitationsMetrics;
+  citations: NewsroomCitationReference[];
+}
+
+export interface NewsroomRecordCitationInput {
+  storyId: string;
+  referenceType: string;
+  sourceName: string;
+  sourceUrl?: string;
+  title?: string;
+  country?: string;
+}
+
+// =============================================================================
+// WAVE F: AUTHORS, TAXONOMY & PLATFORM SETTINGS MODELS
+// =============================================================================
+
+export interface NewsroomAuthorItem {
+  id: string;
+  displayName: string;
+  slug: string;
+  bio: string | null;
+  wordpressSourceId: string | null;
+  createdAt: string;
+  storyCount: number;
+  boundStaffId: string | null;
+  boundStaffName: string | null;
+  boundStaffEmail: string | null;
+}
+
+export interface NewsroomAuthorsMetrics {
+  totalAuthors: number;
+  migratedAuthorsCount: number;
+  boundAuthorsCount: number;
+  unboundAuthorsCount: number;
+}
+
+export interface NewsroomAuthorsDirectory {
+  metrics: NewsroomAuthorsMetrics;
+  authors: NewsroomAuthorItem[];
+}
+
+export interface NewsroomCreateAuthorInput {
+  displayName: string;
+  slug?: string | null;
+  bio?: string | null;
+}
+
+export interface NewsroomUpdateAuthorInput {
+  authorId: string;
+  displayName: string;
+  bio?: string | null;
+}
+
+export interface NewsroomBindStaffAuthorInput {
+  staffId: string;
+  authorId?: string | null;
+}
+
+export interface NewsroomSectionItem {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  parentName: string | null;
+  wordpressSourceId: string | null;
+  createdAt: string;
+  storyCount: number;
+}
+
+export interface NewsroomTaxonomyMetrics {
+  totalSections: number;
+  rootSectionsCount: number;
+}
+
+export interface NewsroomTaxonomyDirectory {
+  metrics: NewsroomTaxonomyMetrics;
+  sections: NewsroomSectionItem[];
+}
+
+export interface NewsroomCreateSectionInput {
+  name: string;
+  slug?: string | null;
+  parentId?: string | null;
+}
+
+export interface NewsroomPlatformSettingItem {
+  key: string;
+  category: "distribution" | "analytics" | "editorial" | "security" | "infrastructure" | "monetization" | string;
+  description: string;
+  value: Record<string, unknown>;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
+export interface NewsroomIntegrationHealth {
+  name: string;
+  provider: string;
+  status: string;
+  secretConfigured?: boolean;
+  [key: string]: unknown;
+}
+
+export interface NewsroomPlatformSettingsOverview {
+  settings: NewsroomPlatformSettingItem[];
+  integrations: Record<string, NewsroomIntegrationHealth>;
+  auditSummary: {
+    totalAuditEvents24h: number;
+    lastAuditAction: string;
+    lastAuditAt: string | null;
+  };
+}
+
 

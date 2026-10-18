@@ -47,7 +47,13 @@ import {
   type NewsroomPushAlertPatch,
   type NewsroomPushAlertPrepareResult,
   type NewsroomPushAlertStatus,
-  type NewsroomPushDispatch
+  type NewsroomPushDispatch,
+  type NewsroomWhatsAppBroadcast,
+  type NewsroomWhatsAppBroadcastCreateInput,
+  type NewsroomWhatsAppBroadcastStatus,
+  type NewsroomWhatsAppBroadcastType,
+  type NewsroomAuthorItem,
+  type NewsroomSectionItem
 } from "../domain/models";
 
 import { breakpoints, colors, radius, spacing } from "../theme/tokens";
@@ -78,6 +84,17 @@ import {
 } from "../ui/StudioSocialDesk";
 import { StudioNewsletterDeskView } from "../ui/StudioNewsletterDesk";
 import { StudioPushAlertDeskView } from "../ui/StudioPushAlertDesk";
+import { StudioWhatsAppDeskView } from "../ui/StudioWhatsAppDesk";
+import { StudioAnalyticsDeskView } from "../ui/StudioAnalyticsDesk";
+import { StudioAudienceDeskView } from "../ui/StudioAudienceDesk";
+import { StudioSearchGrowthDeskView } from "../ui/StudioSearchGrowthDesk";
+import { StudioStaffRolesDeskView, type StaffDeskTab } from "../ui/StudioStaffRolesDesk";
+import { StudioAdvertisingDeskView, type AdvertisingDeskTab } from "../ui/StudioAdvertisingDesk";
+import { StudioSubscribersDeskView } from "../ui/StudioSubscribersDesk";
+import { StudioPremiumDeskView } from "../ui/StudioPremiumDesk";
+import { StudioAiDeskPresentation } from "../ui/StudioAiDesk";
+import { StudioAuthorsDeskView } from "../ui/StudioAuthorsDesk";
+import { StudioSettingsDeskView } from "../ui/StudioSettingsDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
@@ -101,6 +118,20 @@ import {
   buildPreviewPushAlertPrepareResult,
   buildPreviewPushDispatches,
   buildPreviewPushDispatchResult,
+  buildPreviewWhatsAppBroadcasts,
+  buildPreviewWhatsAppDispatchResult,
+  buildPreviewEditorialIntelligence,
+  buildPreviewGrowthIntelligence,
+  buildPreviewAudienceIntelligence,
+  buildPreviewStaffOperationsDirectory,
+  buildPreviewAdvertisingOverview,
+  buildPreviewSubscribersDirectory,
+  buildPreviewPremiumOperationsOverview,
+  buildPreviewAiAssistOverview,
+  buildPreviewCitationsDirectory,
+  buildPreviewAuthorsDirectory,
+  buildPreviewTaxonomyDirectory,
+  buildPreviewPlatformSettingsOverview,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -2139,6 +2170,553 @@ function OwnerPreviewPushAlertDeskView() {
   );
 }
 
+function OwnerPreviewWhatsAppDeskView() {
+  const [broadcasts, setBroadcasts] = useState<NewsroomWhatsAppBroadcast[]>(() =>
+    buildPreviewWhatsAppBroadcasts()
+  );
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState<string | null>(
+    () => buildPreviewWhatsAppBroadcasts()[0]?.id ?? null
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    NewsroomWhatsAppBroadcastStatus | "all"
+  >("all");
+  const [typeFilter, setTypeFilter] = useState<
+    NewsroomWhatsAppBroadcastType | "all"
+  >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(
+    "WhatsApp Desk operational in Owner Visual Preview (Sample Data)."
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleCreateBroadcast = async (input: NewsroomWhatsAppBroadcastCreateInput) => {
+    setIsSubmitting(true);
+    const newId = `w1000000-0000-4000-a000-00000000000${broadcasts.length + 1}`;
+    const newBroadcast: NewsroomWhatsAppBroadcast = {
+      id: newId,
+      title: input.title,
+      body: input.body,
+      broadcastType: input.broadcast_type,
+      channelIdentity: input.channel_identity || "healthtimes-whatsapp-channel",
+      relatedStoryId: input.related_story_id || null,
+      status: "draft",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: null,
+      rejectedBy: null,
+      approvedAt: null,
+      rejectedAt: null,
+      sentAt: null,
+      rejectionReason: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      dispatch: null
+    };
+    setBroadcasts((prev) => [newBroadcast, ...prev]);
+    setSelectedBroadcastId(newId);
+    setIsCreating(false);
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast draft created in local preview.");
+  };
+
+  const handleApproveBroadcast = async (id: string) => {
+    setIsSubmitting(true);
+    setBroadcasts((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              status: "approved",
+              approvedBy: "e0000000-0000-4000-a000-000000000001",
+              approvedAt: new Date().toISOString()
+            }
+          : b
+      )
+    );
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast approved for distribution in local preview.");
+  };
+
+  const handleRejectBroadcast = async (id: string, reason?: string) => {
+    setIsSubmitting(true);
+    setBroadcasts((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              status: "rejected",
+              rejectedBy: "e0000000-0000-4000-a000-000000000001",
+              rejectedAt: new Date().toISOString(),
+              rejectionReason: reason || "Editorial rejection"
+            }
+          : b
+      )
+    );
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast rejected in local preview.");
+  };
+
+  const handleDispatchBroadcast = async (id: string) => {
+    setIsSubmitting(true);
+    const result = buildPreviewWhatsAppDispatchResult(id);
+    setBroadcasts((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              status: "sent",
+              sentAt: new Date().toISOString(),
+              dispatch: {
+                id: result.dispatch_id,
+                broadcastId: id,
+                transportStatus: result.transport_status,
+                provider: "whatsapp_cloud_api",
+                providerBroadcastId: "wamid.PREVIEW_12345",
+                recipientCount: result.recipient_count,
+                acceptedCount: result.accepted_count,
+                rejectedCount: result.rejected_count,
+                deliveredCount: result.delivered_count,
+                readCount: result.read_count,
+                failureReason: null,
+                dispatchedAt: result.dispatched_at
+              }
+            }
+          : b
+      )
+    );
+    setIsSubmitting(false);
+    setNotice("Preview state: Broadcast simulated dispatch to WhatsApp Cloud API.");
+  };
+
+  return (
+    <View style={styles.sectionStack}>
+      <View
+        style={styles.previewNoticeBanner}
+        testID="preview-whatsapp-desk-notice"
+      >
+        <Text style={styles.previewNoticeText}>{notice}</Text>
+      </View>
+      <StudioWhatsAppDeskView
+        broadcasts={broadcasts}
+        selectedBroadcastId={selectedBroadcastId}
+        onSelectBroadcast={setSelectedBroadcastId}
+        statusFilter={statusFilter}
+        onChangeStatusFilter={setStatusFilter}
+        typeFilter={typeFilter}
+        onChangeTypeFilter={setTypeFilter}
+        searchQuery={searchQuery}
+        onChangeSearchQuery={setSearchQuery}
+        isCreating={isCreating}
+        onStartCreate={() => setIsCreating(true)}
+        onCancelCreate={() => setIsCreating(false)}
+        onCreateBroadcast={handleCreateBroadcast}
+        onApproveBroadcast={handleApproveBroadcast}
+        onRejectBroadcast={handleRejectBroadcast}
+        onDispatchBroadcast={handleDispatchBroadcast}
+        capabilities={{
+          hasDeskAccess: true,
+          canCreate: true,
+          canApprove: true,
+          canReject: true,
+          canDispatch: true
+        }}
+        isSubmitting={isSubmitting}
+        actionMessage={notice}
+        actionErrorMessage={errorMessage}
+        onDismissMessage={() => {
+          setNotice(null);
+          setErrorMessage(null);
+        }}
+      />
+    </View>
+  );
+}
+
+export function OwnerPreviewAnalyticsView() {
+  const editorialData = useMemo(() => buildPreviewEditorialIntelligence(), []);
+  const growthData = useMemo(() => buildPreviewGrowthIntelligence(), []);
+  return (
+    <StudioAnalyticsDeskView
+      editorialData={editorialData}
+      growthData={growthData}
+      loading={false}
+      error={null}
+      previewMode={true}
+    />
+  );
+}
+
+export function OwnerPreviewAudienceView() {
+  const audienceData = useMemo(() => buildPreviewAudienceIntelligence(), []);
+  return (
+    <StudioAudienceDeskView
+      audienceData={audienceData}
+      loading={false}
+      error={null}
+      previewMode={true}
+    />
+  );
+}
+
+export function OwnerPreviewSearchGrowthView() {
+  const growthData = useMemo(() => buildPreviewGrowthIntelligence(), []);
+  return (
+    <StudioSearchGrowthDeskView
+      growthData={growthData}
+      loading={false}
+      error={null}
+      previewMode={true}
+    />
+  );
+}
+
+export function OwnerPreviewStaffRolesView() {
+  const directory = useMemo(() => buildPreviewStaffOperationsDirectory(), []);
+  const [activeTab, setActiveTab] = useState<StaffDeskTab>("directory");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  return (
+    <StudioStaffRolesDeskView
+      directory={directory}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      statusFilter={statusFilter}
+      onChangeStatusFilter={setStatusFilter}
+      onChangeRole={async () => {}}
+      onUpdateStatus={async () => {}}
+      onRevokeSessions={async () => {}}
+      onInviteStaff={async () => {}}
+      onCancelInvite={async () => {}}
+      canManage={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewAdvertisingView() {
+  const overview = useMemo(() => buildPreviewAdvertisingOverview(), []);
+  const [activeTab, setActiveTab] = useState<AdvertisingDeskTab>("campaigns");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  return (
+    <StudioAdvertisingDeskView
+      overview={overview}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      statusFilter={statusFilter}
+      onChangeStatusFilter={setStatusFilter}
+      onCreateAdvertiser={async () => {}}
+      onCreateCampaign={async () => {}}
+      onCreateCreative={async () => {}}
+      onApproveCampaign={async () => {}}
+      onUpdateCampaignStatus={async () => {}}
+      canCreate={true}
+      canApprove={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewSubscribersView() {
+  const directory = useMemo(() => buildPreviewSubscribersDirectory(), []);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  return (
+    <StudioSubscribersDeskView
+      directory={directory}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      statusFilter={statusFilter}
+      onChangeStatusFilter={setStatusFilter}
+      onUpdateStatus={async () => {}}
+      onGrantEntitlement={async () => {}}
+      canManage={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewPremiumView() {
+  const overview = useMemo(() => buildPreviewPremiumOperationsOverview(), []);
+
+  return (
+    <StudioPremiumDeskView
+      overview={overview}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      onSetStoryAccess={async () => {}}
+      canManage={true}
+      canAssign={true}
+      actionMessage={null}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewAiDeskView() {
+  const [overview] = useState(() => buildPreviewAiAssistOverview());
+  const [citationsDir, setCitationsDir] = useState(() => buildPreviewCitationsDirectory());
+  const [selectedTask, setSelectedTask] = useState<any>("headline_alternatives");
+  const [promptText, setPromptText] = useState("Harare municipal water supply and regional typhoid containment");
+  const [contextText, setContextText] = useState("Testing local water treatment chemical shortages.");
+  const [runningAssist, setRunningAssist] = useState(false);
+  const [currentResult, setCurrentResult] = useState<any>(() => overview.recentSessions[0] ?? null);
+  const [activeTab, setActiveTab] = useState<"assistant" | "sessions" | "citations">("assistant");
+  const [citationFilter, setCitationFilter] = useState("all");
+  const [citationSearch, setCitationSearch] = useState("");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const filteredCitations = useMemo(() => {
+    let list = citationsDir.citations;
+    if (citationFilter !== "all") {
+      list = list.filter((c) => c.status === citationFilter);
+    }
+    if (citationSearch.trim()) {
+      const q = citationSearch.toLowerCase();
+      list = list.filter((c) => c.title.toLowerCase().includes(q) || c.sourceName.toLowerCase().includes(q));
+    }
+    return {
+      ...citationsDir,
+      citations: list
+    };
+  }, [citationsDir, citationFilter, citationSearch]);
+
+  const handleRunAssist = () => {
+    setRunningAssist(true);
+    setTimeout(() => {
+      setRunningAssist(false);
+      setActionMessage({ text: "Simulated assist complete (Owner Visual Preview — non-persistent)", type: "success" });
+    }, 400);
+  };
+
+  const handleCopy = (_text: string, index: number) => {
+    setCopiedIndex(index);
+    setActionMessage({ text: "Copied to clipboard (sample suggestion)", type: "success" });
+    setTimeout(() => setCopiedIndex(null), 2500);
+  };
+
+  const handleStatusUpdate = (citId: string, status: string) => {
+    setCitationsDir((prev) => ({
+      ...prev,
+      citations: prev.citations.map((c) => (c.id === citId ? { ...c, status: status as any } : c))
+    }));
+    setActionMessage({ text: `Simulated citation status updated to ${status} (Owner Preview only)`, type: "success" });
+  };
+
+  return (
+    <StudioAiDeskPresentation
+      overview={overview}
+      citationsDir={filteredCitations}
+      selectedTask={selectedTask}
+      onSelectTask={setSelectedTask}
+      promptText={promptText}
+      onChangePromptText={setPromptText}
+      contextText={contextText}
+      onChangeContextText={setContextText}
+      onRunAssist={handleRunAssist}
+      runningAssist={runningAssist}
+      currentResult={currentResult}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      citationFilter={citationFilter}
+      onChangeCitationFilter={setCitationFilter}
+      citationSearch={citationSearch}
+      onChangeCitationSearch={setCitationSearch}
+      onOpenRecordModal={() => setActionMessage({ text: "Record citation modal is simulated in preview mode", type: "success" })}
+      onUpdateCitationStatus={handleStatusUpdate}
+      copiedIndex={copiedIndex}
+      onCopySuggestion={handleCopy}
+      canExecuteAssist={true}
+      canVerifyCitation={true}
+      actionMessage={actionMessage}
+    />
+  );
+}
+
+export function OwnerPreviewAuthorsView() {
+  const [directory, setDirectory] = useState(() => buildPreviewAuthorsDirectory());
+  const [taxonomy, setTaxonomy] = useState(() => buildPreviewTaxonomyDirectory());
+  const [activeTab, setActiveTab] = useState<"authors" | "taxonomy">("authors");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const filteredDirectory = useMemo(() => {
+    if (!searchQuery.trim()) return directory;
+    const q = searchQuery.toLowerCase();
+    return {
+      ...directory,
+      authors: directory.authors.filter(
+        (a) =>
+          a.displayName.toLowerCase().includes(q) ||
+          a.slug.toLowerCase().includes(q) ||
+          (a.bio && a.bio.toLowerCase().includes(q))
+      )
+    };
+  }, [directory, searchQuery]);
+
+  const filteredTaxonomy = useMemo(() => {
+    if (!searchQuery.trim()) return taxonomy;
+    const q = searchQuery.toLowerCase();
+    return {
+      ...taxonomy,
+      sections: taxonomy.sections.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.slug.toLowerCase().includes(q)
+      )
+    };
+  }, [taxonomy, searchQuery]);
+
+  const handleCreateAuthor = async (displayName: string, slug?: string, bio?: string) => {
+    const newAuthor: NewsroomAuthorItem = {
+      id: `auth-${Date.now()}`,
+      displayName,
+      slug: slug || displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      bio: bio ?? null,
+      wordpressSourceId: null,
+      createdAt: new Date().toISOString(),
+      storyCount: 0,
+      boundStaffId: null,
+      boundStaffName: null,
+      boundStaffEmail: null
+    };
+    setDirectory((prev) => ({
+      ...prev,
+      metrics: {
+        ...prev.metrics,
+        totalAuthors: prev.metrics.totalAuthors + 1,
+        unboundAuthorsCount: prev.metrics.unboundAuthorsCount + 1
+      },
+      authors: [newAuthor, ...prev.authors]
+    }));
+    setActionMessage("Author created (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleUpdateAuthor = async (authorId: string, displayName: string, bio?: string) => {
+    setDirectory((prev) => ({
+      ...prev,
+      authors: prev.authors.map((a) =>
+        a.id === authorId ? { ...a, displayName, bio: bio ?? null } : a
+      )
+    }));
+    setActionMessage("Author updated (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleBindStaffAuthor = async (staffId: string, authorId: string | null) => {
+    setDirectory((prev) => ({
+      ...prev,
+      authors: prev.authors.map((a) =>
+        a.id === authorId
+          ? { ...a, boundStaffId: staffId, boundStaffName: "Linked Staff", boundStaffEmail: "staff@healthtimes.co.zw" }
+          : a.boundStaffId === staffId
+          ? { ...a, boundStaffId: null, boundStaffName: null, boundStaffEmail: null }
+          : a
+      )
+    }));
+    setActionMessage("Staff author binding updated (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleCreateSection = async (name: string, slug?: string, parentId?: string | null) => {
+    const parent = taxonomy.sections.find((s) => s.id === parentId);
+    const newSection: NewsroomSectionItem = {
+      id: `sec-${Date.now()}`,
+      name,
+      slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      parentId: parentId ?? null,
+      parentName: parent?.name ?? null,
+      wordpressSourceId: null,
+      createdAt: new Date().toISOString(),
+      storyCount: 0
+    };
+    setTaxonomy((prev) => ({
+      ...prev,
+      metrics: {
+        ...prev.metrics,
+        totalSections: prev.metrics.totalSections + 1,
+        rootSectionsCount: parentId ? prev.metrics.rootSectionsCount : prev.metrics.rootSectionsCount + 1
+      },
+      sections: [...prev.sections, newSection]
+    }));
+    setActionMessage("Section created (Owner Visual Preview — sample data)");
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  return (
+    <StudioAuthorsDeskView
+      directory={filteredDirectory}
+      taxonomy={filteredTaxonomy}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      searchQuery={searchQuery}
+      onChangeSearchQuery={setSearchQuery}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
+      onCreateAuthor={handleCreateAuthor}
+      onUpdateAuthor={handleUpdateAuthor}
+      onBindStaffAuthor={handleBindStaffAuthor}
+      onCreateSection={handleCreateSection}
+      canManage={true}
+      actionMessage={actionMessage}
+      isMutating={false}
+    />
+  );
+}
+
+export function OwnerPreviewSettingsView() {
+  const [overview, setOverview] = useState(() => buildPreviewPlatformSettingsOverview());
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleUpdateSetting = async (key: string, value: Record<string, unknown>) => {
+    setOverview((prev) => ({
+      ...prev,
+      settings: prev.settings.map((s) =>
+        s.key === key ? { ...s, value, updatedAt: new Date().toISOString() } : s
+      )
+    }));
+    setActionMessage(`Setting '${key}' updated (Owner Visual Preview — sample data)`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  return (
+    <StudioSettingsDeskView
+      overview={overview}
+      isLoading={false}
+      error={null}
+      onRefresh={async () => {}}
+      onUpdateSetting={handleUpdateSetting}
+      canManage={true}
+      actionMessage={actionMessage}
+      isMutating={false}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2275,6 +2853,116 @@ export function OwnerPreviewModuleScreen({
           subtitle="Reader push alert composition, editorial approval, and notification dispatch preparation handoff backed by canonical newsroom_push_alerts."
         >
           <OwnerPreviewPushAlertDeskView />
+        </OwnerPreviewShell>
+      );
+    case "whatsapp":
+      return (
+        <OwnerPreviewShell
+          activeKey="whatsapp"
+          title="WhatsApp Desk & Distribution Ledger (Owner Visual Preview)"
+          subtitle="WhatsApp broadcast composition, editorial approval, and WhatsApp Cloud API distribution ledger backed by canonical newsroom_whatsapp_broadcasts."
+        >
+          <OwnerPreviewWhatsAppDeskView />
+        </OwnerPreviewShell>
+      );
+    case "analytics":
+      return (
+        <OwnerPreviewShell
+          activeKey="analytics"
+          title="Analytics & Intelligence (Owner Visual Preview)"
+          subtitle="Truthful first-party editorial inventory, publishing velocity, and external growth integrations."
+        >
+          <OwnerPreviewAnalyticsView />
+        </OwnerPreviewShell>
+      );
+    case "audience":
+      return (
+        <OwnerPreviewShell
+          activeKey="audience"
+          title="Audience Intelligence (Owner Visual Preview)"
+          subtitle="Verified first-party reader audience, consented contacts, and multi-channel reach."
+        >
+          <OwnerPreviewAudienceView />
+        </OwnerPreviewShell>
+      );
+    case "search-growth":
+      return (
+        <OwnerPreviewShell
+          activeKey="search-growth"
+          title="Search & Growth (Owner Visual Preview)"
+          subtitle="Google Search Console authority, organic SEO audit, and academic research citations."
+        >
+          <OwnerPreviewSearchGrowthView />
+        </OwnerPreviewShell>
+      );
+    case "staff-roles":
+      return (
+        <OwnerPreviewShell
+          activeKey="staff-roles"
+          title="Staff & Roles Administration (Owner Visual Preview)"
+          subtitle="Newsroom staff directory, role catalog, fine-grained capabilities, status management, and immutable audit logs."
+        >
+          <OwnerPreviewStaffRolesView />
+        </OwnerPreviewShell>
+      );
+    case "advertising":
+      return (
+        <OwnerPreviewShell
+          activeKey="advertising"
+          title="Advertising Manager (Owner Visual Preview)"
+          subtitle="Direct advertising campaigns, creative asset review, advertiser accounts, and layout placement governance."
+        >
+          <OwnerPreviewAdvertisingView />
+        </OwnerPreviewShell>
+      );
+    case "subscribers":
+      return (
+        <OwnerPreviewShell
+          activeKey="subscribers"
+          title="Subscribers & Entitlements (Owner Visual Preview)"
+          subtitle="Verified subscriber accounts, access pass grant management, status lifecycle, and entitlement duration tracking."
+        >
+          <OwnerPreviewSubscribersView />
+        </OwnerPreviewShell>
+      );
+    case "premium":
+      return (
+        <OwnerPreviewShell
+          activeKey="premium"
+          title="Premium Policies & Monetization (Owner Visual Preview)"
+          subtitle="Editorial access policies, meter paywall governance, public teaser policy, and subscriber entitlement channel breakdown."
+        >
+          <OwnerPreviewPremiumView />
+        </OwnerPreviewShell>
+      );
+    case "ai-desk":
+      return (
+        <OwnerPreviewShell
+          activeKey="ai-desk"
+          title="AI Editorial Assistant & Citations Desk (Owner Visual Preview)"
+          subtitle="Bounded editorial research, headline drafting, fact-checking, and verified citation intelligence."
+        >
+          <OwnerPreviewAiDeskView />
+        </OwnerPreviewShell>
+      );
+    case "authors":
+      return (
+        <OwnerPreviewShell
+          activeKey="authors"
+          title="Authors & Taxonomy Registry (Owner Visual Preview)"
+          subtitle="Editorial author directory, WordPress author mapping, staff profile reconciliation, and hierarchical taxonomy sections."
+        >
+          <OwnerPreviewAuthorsView />
+        </OwnerPreviewShell>
+      );
+    case "settings":
+      return (
+        <OwnerPreviewShell
+          activeKey="settings"
+          title="Platform Settings & Integrations (Owner Visual Preview)"
+          subtitle="Newsroom operational governance, service integrations health, zero-secret disclosure contract, and audit log tracking."
+        >
+          <OwnerPreviewSettingsView />
         </OwnerPreviewShell>
       );
     default:

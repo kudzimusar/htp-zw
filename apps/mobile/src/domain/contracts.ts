@@ -88,7 +88,44 @@ import type {
   NewsroomPushAlertPrepareResult,
   NewsroomPushAlertStatus,
   NewsroomPushDispatch,
-  NewsroomPushDispatchResult
+  NewsroomPushDispatchResult,
+  NewsroomWhatsAppBroadcast,
+  NewsroomWhatsAppBroadcastCreateInput,
+  NewsroomWhatsAppBroadcastStatus,
+  NewsroomWhatsAppBroadcastType,
+  NewsroomWhatsAppDispatch,
+  NewsroomWhatsAppDispatchResult,
+  NewsroomWhatsAppDispatchStatus,
+  NewsroomEditorialIntelligence,
+  NewsroomGrowthIntelligence,
+  NewsroomAudienceIntelligence,
+  NewsroomStaffMember,
+  NewsroomStaffInvitation,
+  NewsroomRole,
+  NewsroomCapability,
+  NewsroomAuditRecord,
+  NewsroomStaffOperationsDirectory,
+  NewsroomStaffInviteInput,
+  NewsroomAdvertisingOverview,
+  NewsroomCreateCampaignInput,
+  NewsroomCreateCreativeInput,
+  NewsroomSubscribersDirectory,
+  NewsroomPremiumOperationsOverview,
+  NewsroomAiAssistOverview,
+  NewsroomAiAssistSession,
+  NewsroomRunAiAssistInput,
+  NewsroomCitationsDirectory,
+  NewsroomRecordCitationInput,
+  NewsroomAuthorItem,
+  NewsroomAuthorsDirectory,
+  NewsroomCreateAuthorInput,
+  NewsroomUpdateAuthorInput,
+  NewsroomBindStaffAuthorInput,
+  NewsroomSectionItem,
+  NewsroomTaxonomyDirectory,
+  NewsroomCreateSectionInput,
+  NewsroomPlatformSettingItem,
+  NewsroomPlatformSettingsOverview
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -377,6 +414,106 @@ export interface NewsroomPushAlertService {
   ): Promise<NewsroomPushDispatchResult>;
 }
 
+export interface NewsroomWhatsAppService {
+  listBroadcasts(options?: {
+    status?: NewsroomWhatsAppBroadcastStatus | null;
+    broadcastType?: NewsroomWhatsAppBroadcastType | null;
+    search?: string | null;
+    limit?: number;
+  }): Promise<NewsroomWhatsAppBroadcast[]>;
+  createBroadcast(input: NewsroomWhatsAppBroadcastCreateInput): Promise<string>;
+  approveBroadcast(broadcastId: string): Promise<void>;
+  rejectBroadcast(broadcastId: string, reason?: string): Promise<void>;
+  getDispatch(broadcastId: string): Promise<NewsroomWhatsAppDispatch | null>;
+  dispatchBroadcast(
+    broadcastId: string,
+    idempotencyKey?: string
+  ): Promise<NewsroomWhatsAppDispatchResult>;
+}
+
+export interface NewsroomIntelligenceService {
+  getEditorialIntelligence(): Promise<NewsroomEditorialIntelligence>;
+  getGrowthIntelligence(): Promise<NewsroomGrowthIntelligence>;
+  getAudienceIntelligence(): Promise<NewsroomAudienceIntelligence>;
+}
+
+export interface NewsroomStaffService {
+  getStaffOperationsDirectory(): Promise<NewsroomStaffOperationsDirectory>;
+  changeStaffRole(staffId: string, roleName: string): Promise<void>;
+  updateStaffStatus(
+    staffId: string,
+    status: "active" | "suspended" | "revoked" | "deactivated"
+  ): Promise<void>;
+  revokeStaffSession(
+    staffId: string,
+    providerSessionId?: string | null
+  ): Promise<number>;
+  createInvitation(
+    input: NewsroomStaffInviteInput
+  ): Promise<{ id: string; email: string; displayName: string; role: string }>;
+  cancelInvitation(invitationId: string): Promise<void>;
+}
+
+export interface NewsroomCommercialService {
+  getAdvertisingOverview(): Promise<NewsroomAdvertisingOverview>;
+  createAdvertiser(name: string, contactNotes?: string | null): Promise<string>;
+  createCampaign(input: NewsroomCreateCampaignInput): Promise<string>;
+  createCreative(input: NewsroomCreateCreativeInput): Promise<string>;
+  approveCampaign(campaignId: string, approved: boolean): Promise<string>;
+  updateCampaignStatus(campaignId: string, status: string): Promise<string>;
+
+  getSubscribersDirectory(options?: {
+    status?: string | null;
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomSubscribersDirectory>;
+  updateSubscriberStatus(subscriberId: string, status: string): Promise<string>;
+  grantSubscriberEntitlement(
+    subscriberId: string,
+    policyKey?: string,
+    durationDays?: number,
+    provider?: string
+  ): Promise<string>;
+
+  getPremiumOperationsOverview(): Promise<NewsroomPremiumOperationsOverview>;
+  setStoryAccess(storyId: string, accessPolicy: "public" | "premium"): Promise<string>;
+}
+
+export interface NewsroomAiService {
+  getOverview(): Promise<NewsroomAiAssistOverview>;
+  runAssist(input: NewsroomRunAiAssistInput): Promise<NewsroomAiAssistSession>;
+  getCitationsDirectory(options?: {
+    status?: string | null;
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomCitationsDirectory>;
+  recordCitation(input: NewsroomRecordCitationInput): Promise<{ citationId: string; status: string }>;
+  updateCitationStatus(citationId: string, status: string): Promise<{ citationId: string; status: string }>;
+}
+
+export interface NewsroomAuthorsService {
+  getAuthorsDirectory(filter?: {
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomAuthorsDirectory>;
+  createAuthor(input: NewsroomCreateAuthorInput): Promise<{ authorId: string; slug: string; created: boolean }>;
+  updateAuthor(input: NewsroomUpdateAuthorInput): Promise<{ authorId: string; updated: boolean }>;
+  bindStaffAuthor(input: NewsroomBindStaffAuthorInput): Promise<{ staffId: string; authorId: string | null; bound: boolean }>;
+  getTaxonomyDirectory(filter?: {
+    parentId?: string | null;
+    search?: string | null;
+  }): Promise<NewsroomTaxonomyDirectory>;
+  createSection(input: NewsroomCreateSectionInput): Promise<{ sectionId: string; slug: string; created: boolean }>;
+}
+
+export interface NewsroomSettingsService {
+  getPlatformSettings(): Promise<NewsroomPlatformSettingsOverview>;
+  updatePlatformSetting(key: string, value: Record<string, unknown>): Promise<{ key: string; updated: boolean }>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -404,8 +541,16 @@ export interface HealthTimesServices {
   newsroomSocial: NewsroomSocialService;
   newsroomCampaigns: NewsroomCampaignService;
   newsroomPushAlerts: NewsroomPushAlertService;
+  newsroomWhatsApp: NewsroomWhatsAppService;
+  newsroomIntelligence: NewsroomIntelligenceService;
+  newsroomStaff: NewsroomStaffService;
+  newsroomCommercial: NewsroomCommercialService;
+  newsroomAi: NewsroomAiService;
+  newsroomAuthors: NewsroomAuthorsService;
+  newsroomSettings: NewsroomSettingsService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;
   social: SocialAttributionService;
 }
+

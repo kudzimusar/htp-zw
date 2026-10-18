@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View, StyleSheet } from "react-native";
 import { StudioAccessGate, StudioAnyCapabilityGate, StudioAuthorityGate, StudioPlaceholder, StudioShell } from "../../src/ui/Studio";
-import { NEWSLETTER_DESK_CAPABILITIES, PUSH_DESK_CAPABILITIES, SOCIAL_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
+import { NEWSLETTER_DESK_CAPABILITIES, PUSH_DESK_CAPABILITIES, SOCIAL_DESK_CAPABILITIES, STAFF_DESK_CAPABILITIES, WHATSAPP_DESK_CAPABILITIES, type HealthTimesCapability } from "../../src/security/capabilities";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { StudioInboxPanel } from "../../src/ui/StudioInbox";
 import {
@@ -26,11 +26,30 @@ import { StudioLiveDesk } from "../../src/ui/StudioLiveDesk";
 import { StudioSocialDesk } from "../../src/ui/StudioSocialDesk";
 import { StudioNewsletterDesk } from "../../src/ui/StudioNewsletterDesk";
 import { StudioPushAlertDesk } from "../../src/ui/StudioPushAlertDesk";
+import { StudioWhatsAppDesk } from "../../src/ui/StudioWhatsAppDesk";
+import { StudioAnalyticsDesk } from "../../src/ui/StudioAnalyticsDesk";
+import { StudioAudienceDesk } from "../../src/ui/StudioAudienceDesk";
+import { StudioSearchGrowthDesk } from "../../src/ui/StudioSearchGrowthDesk";
+import { StudioStaffRolesDesk } from "../../src/ui/StudioStaffRolesDesk";
+import { StudioAdvertisingDesk } from "../../src/ui/StudioAdvertisingDesk";
+import { StudioSubscribersDesk } from "../../src/ui/StudioSubscribersDesk";
+import { StudioPremiumDesk } from "../../src/ui/StudioPremiumDesk";
+import { StudioAiDesk } from "../../src/ui/StudioAiDesk";
+import { StudioAuthorsDesk } from "../../src/ui/StudioAuthorsDesk";
+import { StudioSettingsDesk } from "../../src/ui/StudioSettingsDesk";
+import {
+  ADVERTISING_DESK_CAPABILITIES,
+  SUBSCRIBER_DESK_CAPABILITIES,
+  PREMIUM_DESK_CAPABILITIES,
+  AI_DESK_CAPABILITIES,
+  AUTHORS_DESK_CAPABILITIES,
+  SETTINGS_DESK_CAPABILITIES
+} from "../../src/security/capabilities";
 
 export function generateStaticParams() {
   return [
-    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "homepage", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social", "newsletters", "push-alerts",
-    "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings"
+    "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "homepage", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social", "newsletters", "push-alerts", "whatsapp",
+    "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings", "ai-desk"
   ].map((module) => ({ module }));
 }
 
@@ -59,18 +78,20 @@ const owners:Record<string,ModuleConfig>={
   "live-desk":{title:"Live Desk",owner:"HT-NR-05D-A",capability:"story.publish" as const,description:"Canonical live coverage control-plane, scheduling, related story association, and public Live projection.",readiness:["Canonical newsroom_live_coverage authority","Strict story.publish capability enforcement","Optimistic concurrency via lock_version","Upcoming, Live, and Ended lifecycle","Related story and verified public media projection"]},
   "video-desk":{title:"Video Desk",owner:"HT-NR-05C-A",capability:"media.manage" as const,description:"Canonical video desk registry, editorial metadata and readiness operations backed by server video RPCs.",readiness:["Canonical newsroom_videos authority","Strict media.manage capability enforcement","Optimistic concurrency via lock_version","Draft and Ready editorial lifecycle","Related story association and verified destination metadata"]},
   "media":{title:"Media Library",owner:"HT-NR-05A",capability:"media.manage" as const,description:"Canonical media library and metadata operations backed by server media RPCs (newsroom_list_media, newsroom_get_media_preview, newsroom_update_story_media_metadata).",readiness:["Canonical newsroom_list_media authority","Strict media.manage capability enforcement","Authoritative metadata updates via newsroom_update_story_media_metadata","Full mime type classification & storage custody transparency","Safe preview isolation & deep story usage handoff"]},
-  "advertising":{title:"Advertising Manager",owner:"AG-05 + AG-06",capability:"ads.view",description:"Campaigns, creatives, placements and approval capabilities stay separate from editorial authority.",readiness:["Reader placements declared","Native provider IDs not certified","Campaign authority pending AG-06"]},
-  "premium":{title:"Premium",owner:"AG-05 + AG-06",capability:"premium.manage",description:"Commercial configuration and subscriber entitlements are server enforced; no client-side authority.",readiness:["Store UI fail-closed","Verified native products pending AG-05","Entitlement authority pending AG-06"]},
+  "advertising":{title:"Advertising Manager",owner:"HT-NR-CLOSE Wave D",capability:null,anyOfCapabilities:ADVERTISING_DESK_CAPABILITIES,description:"Direct advertising campaigns, creative asset review, advertiser accounts, and layout placement governance backed by canonical server RPCs.",readiness:["Canonical advertisers, ad_campaigns, ad_creatives, and ad_placements authority","Strict ads.view read and ads.create/ads.approve mutation enforcement","Distinct creation vs editorial approval vs activation lifecycle","Immutable audit trail logging for all commercial mutations"]},
+  "premium":{title:"Premium Policies & Monetization",owner:"HT-NR-CLOSE Wave D",capability:null,anyOfCapabilities:PREMIUM_DESK_CAPABILITIES,description:"Editorial access policies, meter paywall governance, AG-05 teaser authority, and subscriber entitlement channel breakdown.",readiness:["Canonical stories.access_policy and premium_entitlements authority","AG-05 teaser rule certified: exactly 1 paragraph for 20 seconds","Strict premium.assign and premium.manage capability enforcement","Real story inventory metrics: public open access vs premium subscriber works"]},
   "social":{title:"Social Desk",owner:"HT-NR-06A",capability:null,anyOfCapabilities:SOCIAL_DESK_CAPABILITIES,description:"Story-linked social draft composition, editorial approval, and provider publication handoff backed by canonical social_accounts, social_posts, and social_publication_attempts.",readiness:["Canonical social_accounts, social_posts, and social_publication_attempts authority","Scoped social.compose, social.approve, social.publish, and social.manage_accounts enforcement","Distinct editorial approval vs publication preparation handoff","Service-role provider completion remains server-only","Zero fabricated provider accounts in operational runtime"]},
   "newsletters":{title:"Newsletter Desk",owner:"HT-NR-06B",capability:null,anyOfCapabilities:NEWSLETTER_DESK_CAPABILITIES,description:"Newsletter and consented campaign composition, human approval, and Brevo send preparation handoff backed by canonical audience_campaigns and contact_segments.",readiness:["Canonical audience_campaigns and contact_segments authority","Scoped marketing.create, marketing.approve, marketing.send, and marketing.analytics enforcement","Distinct human approval vs consented send preparation handoff","Aggregate eligibility summary only; zero recipient email exposure","Service-role provider completion remains server-only"]},
   "push-alerts":{title:"Push Alert Desk",owner:"HT-NR-06C-A",capability:null,anyOfCapabilities:PUSH_DESK_CAPABILITIES,description:"Reader push alert composition, editorial approval, and notification dispatch preparation backed by canonical newsroom_push_alerts and reader_push_devices.",readiness:["Canonical newsroom_push_alerts and reader_push_devices authority","Scoped distribution.manage and story.publish enforcement","Distinct editorial approval vs dispatch preparation handoff","Aggregate eligibility summary only; zero push token or reader identity exposure","Native push dispatch provider completion remains server-only"]},
-  "audience":{title:"Audience",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Audience intelligence uses real first-party and GA4-derived aggregates only.",readiness:["No fabricated audience totals","Verified aggregates pending AG-05","Access policy pending AG-06"]},
-  "search-growth":{title:"Search & Growth",owner:"AG-05 + AG-06",capability:"analytics.view",description:"Search Console, SEO and growth evidence comes from verified external identities and ingestion.",readiness:["Search UI ready","Privacy-safe analytics taxonomy ready","External ingestion pending AG-05"]},
-  "analytics":{title:"Analytics & Intelligence",owner:"AG-05 + AG-06",capability:"analytics.view",description:"KPI cards remain empty until AnalyticsService supplies verified metrics. No sample revenue is shown as truth.",readiness:["KPI component language ready","No sample metrics presented as truth","Analytics service pending AG-05"]},
-  "subscribers":{title:"Subscribers",owner:"AG-06",capability:"subscriber.view",description:"Subscriber records, entitlements and access are protected server data.",readiness:["Reader identity exists","Subscriber read model pending","Entitlement authority server-only"]},
-  "authors":{title:"Authors",owner:"AG-04 + AG-06",capability:"staff.view",description:"Migrated authors and newsroom identity are distinct and reconciled through backend contracts.",readiness:["Author contract exists","Migration reconciliation pending AG-04","Staff mapping pending AG-06"]},
-  "staff-roles":{title:"Staff & Roles",owner:"AG-06",capability:"staff.view",description:"Roles are displayed from the server; capabilities are the authorization primitive and users cannot self-escalate.",readiness:["Capability catalogue fixed","No local role selector","Server role read model pending AG-06"]},
-  "settings":{title:"Platform Settings",owner:"AG-06",capability:"settings.manage",description:"Privileged settings require server capability enforcement and audit events.",readiness:["Route is capability-gated","No publishable-key privileged writes","Audited settings API pending AG-06"]}
+  "whatsapp":{title:"WhatsApp Desk",owner:"HT-NR-06D",capability:null,anyOfCapabilities:WHATSAPP_DESK_CAPABILITIES,description:"WhatsApp broadcast composition, editorial approval, and WhatsApp Cloud API distribution ledger backed by canonical newsroom_whatsapp_broadcasts and newsroom_whatsapp_dispatches.",readiness:["Canonical newsroom_whatsapp_broadcasts and newsroom_whatsapp_dispatches authority","Scoped distribution.manage and story.publish enforcement","Distinct editorial approval vs dispatch execution handoff","Aggregate recipient & delivery counters; zero phone number exposure","WhatsApp Cloud API provider completion with single-dispatch idempotency"]},
+  "audience":{title:"Audience",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Audience intelligence uses real first-party subscriber counts, registered push devices, and GA4 property authority.",readiness:["Canonical contact_profiles, reader_push_devices and subscriber counts","GA4 property 359235319 authority verified","Truthful unconfigured states for pending Data API access","Zero fabricated audience metrics"]},
+  "search-growth":{title:"Search & Growth",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Search Console, SEO health audit, and global health research citations backed by canonical server intelligence RPCs.",readiness:["Google Search Console property https://healthtimes.co.zw/ verified","Server-backed SEO health audit over 5,792 stories","Truthful unconfigured state for pending OAuth query ingestion","Zero fabricated search impressions or revenue"]},
+  "analytics":{title:"Analytics & Intelligence",owner:"HT-NR-CLOSE Wave B",capability:"analytics.view",description:"Operational Newsroom KPIs, story inventory, publishing velocity, desk mix, and verified external growth integrations.",readiness:["Canonical stories inventory and velocity authority","Strict analytics.view capability enforcement","Real review queue health and active assignment tracking","External provider status tracking (GA4, Search Console, AdSense, PageSpeed)","Zero simulated revenue or fake analytics presented as truth"]},
+  "subscribers":{title:"Subscribers & Entitlements",owner:"HT-NR-CLOSE Wave D",capability:null,anyOfCapabilities:SUBSCRIBER_DESK_CAPABILITIES,description:"Verified reader subscriber registry, access pass grant management, status lifecycle, and entitlement duration tracking backed by canonical server RPCs.",readiness:["Canonical subscribers and premium_entitlements database authority","Strict subscriber.view read and subscriber.manage mutation enforcement","Verified active vs expired access pass calculations","Immutable audit trail logging for subscriber status updates and grants"]},
+  "authors":{title:"Authors & Taxonomy Desk",owner:"HT-NR-CLOSE Wave F",capability:null,anyOfCapabilities:AUTHORS_DESK_CAPABILITIES,description:"Public byline registry, WordPress migration provenance, staff profile reconciliation, and hierarchical taxonomy sections.",readiness:["Canonical authors, sections, and staff_profiles authority","Strict staff.view read and staff.manage mutation enforcement","Migrated WordPress author provenance and story counts","Staff profile byline binding without duplicate identities"]},
+  "staff-roles":{title:"Staff & Roles",owner:"HT-NR-CLOSE Wave C",capability:null,anyOfCapabilities:STAFF_DESK_CAPABILITIES,description:"Staff directory, role assignments, capabilities, status management, session revocation, and security audit trail backed by canonical newsroom RPCs.",readiness:["Canonical staff_profiles, newsroom_roles, and newsroom_capabilities authority","Strict staff.view read and staff.manage mutation enforcement","Session revocation and status lifecycle safety with self-escalation protection","Immutable audit log integration for all administrative actions"]},
+  "ai-desk":{title:"AI Editorial Assistant & Citations Desk",owner:"HT-NR-CLOSE Wave E",capability:null,anyOfCapabilities:AI_DESK_CAPABILITIES,description:"Editorial research assistance, headline alternatives, evidence gap detection, and verified citation intelligence.",readiness:["Canonical newsroom_ai_assist_sessions and citation_references authority","Strict zero direct publishing authority principle enforced","Human-in-the-loop review required for all generated copy suggestions","Audited execution logging for all assistant tasks and citation verifications"]},
+  "settings":{title:"Platform & Integration Settings",owner:"HT-NR-CLOSE Wave F",capability:null,anyOfCapabilities:SETTINGS_DESK_CAPABILITIES,description:"Centralized newsroom integrations, distribution transports, editorial guardrails, and environment health.",readiness:["Canonical platform_settings database authority","Strict settings.manage and security.manage capability enforcement","Zero raw secret tokens exposed to client application","Operational toggles for review enforcement, comments, and paywall","Tamper-evident audit logging on all setting modifications"]}
 };
 
 export default function StudioModule(){
@@ -85,7 +106,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && String(module)!=="analytics" && String(module)!=="audience" && String(module)!=="search-growth" && String(module)!=="staff-roles" && String(module)!=="advertising" && String(module)!=="subscribers" && String(module)!=="premium" && String(module)!=="ai-desk" && String(module)!=="authors" && String(module)!=="settings" && String(module)!=="inbox" && String(module)!=="assignments" && String(module)!=="desks" && String(module)!=="breaking" && String(module)!=="moderation" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -102,6 +123,17 @@ export default function StudioModule(){
       {String(module)==="social" && <StudioSocialDesk />}
       {String(module)==="newsletters" && <StudioNewsletterDesk />}
       {String(module)==="push-alerts" && <StudioPushAlertDesk />}
+      {String(module)==="whatsapp" && <StudioWhatsAppDesk />}
+      {String(module)==="analytics" && <StudioAnalyticsDesk />}
+      {String(module)==="audience" && <StudioAudienceDesk />}
+      {String(module)==="search-growth" && <StudioSearchGrowthDesk />}
+      {String(module)==="staff-roles" && <StudioStaffRolesDesk />}
+      {String(module)==="advertising" && <StudioAdvertisingDesk />}
+      {String(module)==="subscribers" && <StudioSubscribersDesk />}
+      {String(module)==="premium" && <StudioPremiumDesk />}
+      {String(module)==="ai-desk" && <StudioAiDesk />}
+      {String(module)==="authors" && <StudioAuthorsDesk />}
+      {String(module)==="settings" && <StudioSettingsDesk />}
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}

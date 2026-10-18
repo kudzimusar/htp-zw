@@ -15,7 +15,18 @@ export function generateStaticParams() {
     "live-desk",
     "social",
     "newsletters",
-    "push-alerts"
+    "push-alerts",
+    "whatsapp",
+    "analytics",
+    "audience",
+    "search-growth",
+    "staff-roles",
+    "advertising",
+    "subscribers",
+    "premium",
+    "ai-desk",
+    "authors",
+    "settings"
   ].map((module) => ({ module }));
 }
 
