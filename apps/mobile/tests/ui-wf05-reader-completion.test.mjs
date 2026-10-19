@@ -208,7 +208,8 @@ test("CONTROLLED_UNIT_FIXTURE: Direct-ad projection maps a supplied synthetic KN
   assert.deepEqual(unknownProjected.schedule, { state: "UNKNOWN", value: null });
   assert.deepEqual(unknownProjected.placementConditions, { state: "UNKNOWN", value: null });
   const unknownDecision = directAdModule.directDecisionFromHospazCapability(unknownProjected, "hospaz-header-direct");
-  assert.equal(unknownDecision.destinationUrl, null);
+  assert.equal("destinationUrl" in unknownDecision, false);
+  assert.equal(unknownDecision.destinationUrl, undefined);
   assert.equal(unknownDecision.personalization, "none");
 
   // 6. Mismatched placement key fails closed to source "none" (triggers zero-space collapse in AdSlot)
