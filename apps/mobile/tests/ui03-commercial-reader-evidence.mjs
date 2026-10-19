@@ -19,6 +19,36 @@ const viewports={
 };
 
 const mode=process.argv[2] ?? "source-parity";
+const stagingUrl=process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const stagingKey=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+
+async function stagingRpc(name,args={}){
+  if(!/^https:\/\//i.test(stagingUrl) || !stagingKey){
+    throw new Error("Staging public configuration is unavailable for "+name);
+  }
+  const response=await fetch(stagingUrl.replace(/\/$/,"")+"/rest/v1/rpc/"+encodeURIComponent(name),{
+    method:"POST",
+    headers:{
+      apikey:stagingKey,
+      Authorization:"Bearer "+stagingKey,
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify(args)
+  });
+  const body=await response.text();
+  if(!response.ok) throw new Error(name+" returned HTTP "+response.status+": "+body);
+  return body ? JSON.parse(body) : null;
+}
+
+function commercialState(value){
+  const normalized=String(value ?? "UNKNOWN").trim().toUpperCase();
+  return normalized || "UNKNOWN";
+}
+
+function provenCommercialValue(state,value){
+  return state==="KNOWN" && value != null && String(value).trim() ? String(value).trim() : null;
+}
+
 const root="ui03-evidence";
 for(const dir of ["article","premium","advertising","dark","smoke"]){
   fs.mkdirSync(path.join(root,dir),{recursive:true});
@@ -577,6 +607,15 @@ async function sourceParityEvidence(){
 }
 
 async function stagingAdvertisingEvidence(){
+  const rawAuthority=await stagingRpc("ag05_hospaz_direct_ad_preview",{});
+  if(!rawAuthority) throw new Error("HOSPAZ staging authority is absent");
+  const destinationState=commercialState(rawAuthority.destination_url_state);
+  const scheduleState=commercialState(rawAuthority.schedule_state);
+  const placementConditionsState=commercialState(rawAuthority.placement_conditions_state);
+  const destinationUrl=provenCommercialValue(destinationState,rawAuthority.destination_url);
+  const scheduleValue=provenCommercialValue(scheduleState,rawAuthority.schedule);
+  const placementConditionsValue=provenCommercialValue(placementConditionsState,rawAuthority.placement_conditions);
+  const expectedClickable=Boolean(destinationUrl && /^https:\/\//i.test(destinationUrl));
   const browser=await chromium.launch({headless:true});
   const results=[];
   for(const [name,viewport] of Object.entries(viewports)){
@@ -588,7 +627,10 @@ async function stagingAdvertisingEvidence(){
     const container=disclosure.locator("..");
     const body=await container.innerText();
     if(!body.includes("ADVERTISEMENT")) throw new Error("Advertisement disclosure missing at "+name);
-    if(await container.locator("a").count()) throw new Error("HOSPAZ became clickable without verified destination at "+name);
+    const linkCount=await container.locator("a").count();
+    if((linkCount>0)!==expectedClickable){
+      throw new Error("HOSPAZ clickability diverged from staging destination authority at "+name);
+    }
     const creative=await imageReadiness(page,container.locator("img"),"HOSPAZ creative "+name,{boundsLocator:container});
     const ov=await overflow(page);
     if(ov.overflow) throw new Error("HOSPAZ Home overflow at "+name);
@@ -608,11 +650,14 @@ async function stagingAdvertisingEvidence(){
       creative_complete:creative.complete,
       creative_natural_width:creative.natural_width,
       creative_natural_height:creative.natural_height,
-      destination_state:"UNKNOWN",
-      destination_verified:false,
-      clickable:false,
-      schedule_state:"UNKNOWN",
-      placement_conditions_state:"UNKNOWN",
+      destination_state:destinationState,
+      destination_verified:destinationUrl!==null,
+      destination_url:destinationUrl,
+      clickable:expectedClickable,
+      schedule_state:scheduleState,
+      schedule_value:scheduleValue,
+      placement_conditions_state:placementConditionsState,
+      placement_conditions_value:placementConditionsValue,
       sensitive_health_context:true,
       personalization:"none",
       file,
@@ -629,10 +674,16 @@ async function stagingAdvertisingEvidence(){
     controlled_fixture:false,
     source_parity_article_no_decision_collapses:true,
     hospaz_authority:{
-      advertiser:"HOSPAZ",
-      placement:"hospaz-header-direct",
-      destination:null,
-      clickable:false
+      advertiser:String(rawAuthority.advertiser || "HOSPAZ"),
+      placement:String(rawAuthority.placement_key || "hospaz-header-direct"),
+      source_attachment_id:rawAuthority.current_source_attachment_id == null ? null : String(rawAuthority.current_source_attachment_id),
+      destination_state:destinationState,
+      destination:destinationUrl,
+      clickable:expectedClickable,
+      schedule_state:scheduleState,
+      schedule:scheduleValue,
+      placement_conditions_state:placementConditionsState,
+      placement_conditions:placementConditionsValue
     },
     responsive_direct_ad:results
   },null,2));
