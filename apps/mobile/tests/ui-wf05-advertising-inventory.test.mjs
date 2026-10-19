@@ -151,7 +151,7 @@ test("UI-WF-05 AdSlot preserves zero-space collapse, non-personalized sensitive-
   assert.match(config, /adMobAppId: null/);
   assert.match(config, /adMobBannerUnitId: null/);
   assert.match(directAd, /personalization:"none"/);
-  assert.match(sourceParity, /source: "none"/);
+  assert.match(sourceParity, /source:\\s*"none"/);
   assert.match(evidence, /stagingRpc\("ag05_hospaz_direct_ad_preview"/);
   assert.match(evidence, /destination_state:destinationState/);
   assert.match(evidence, /schedule_state:scheduleState/);
