@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/ui04-phase5-reader-ownership-conformance
+      - feat/ui-wf04-reader-personalization-convergence
   pull_request:
   workflow_dispatch:
 
@@ -259,6 +260,9 @@ jobs:
                 }
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-'+name+'.png');
                 await page.screenshot({path:file,fullPage:true});
+                if(viewport==='mobile' && name==='saved-populated') fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','saved-mobile.png'));
+                if(viewport==='mobile' && name==='offline-populated') fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','saved-offline-mobile.png'));
+                if(viewport==='mobile' && name==='history-populated') fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','saved-history-mobile.png'));
                 assertClean(viewport+' '+name+' post-capture',diag,await inspect(page));
                 manifest.screens.push(record(name,route,viewport,width,height,file,response,diag,state,ownershipEvidence));
               }
@@ -271,6 +275,7 @@ jobs:
                 if(studioCount!==0) throw new Error(viewport+' general Reader exposed HealthTimes Studio');
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-my-healthtimes.png');
                 await page.screenshot({path:file,fullPage:true});
+                fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','my-healthtimes-'+viewport+'.png'));
                 assertClean(viewport+' my-healthtimes post-capture',diag,await inspect(page));
                 manifest.screens.push(record('my-healthtimes','/my',viewport,width,height,file,response,diag,state,{
                   studioVisible:false,
@@ -300,6 +305,7 @@ jobs:
                 if(!progressiveDisclosure) throw new Error(viewport+' Edition did not expose bounded country/region disclosure');
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-edition.png');
                 await page.screenshot({path:file,fullPage:true});
+                fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','edition-'+viewport+'.png'));
                 assertClean(viewport+' edition post-capture',diag,await inspect(page));
                 manifest.screens.push(record('edition-collapsed','/edition',viewport,width,height,file,response,diag,state,{
                   primarySelectionRole:'radio',
@@ -315,6 +321,7 @@ jobs:
                     assertClean('mobile edition expanded',diag,expandedState);
                     const expandedFile=path.join('ui04-phase5-evidence/web','mobile-edition-expanded.png');
                     await page.screenshot({path:expandedFile,fullPage:true});
+                    fs.copyFileSync(expandedFile,path.join('ui04-phase5-evidence/web','edition-more-locations.png'));
                     manifest.screens.push(record('edition-expanded','/edition','mobile',390,844,expandedFile,response,diag,expandedState,{
                       primarySelectionRole:'radio',
                       progressiveDisclosure:true
@@ -347,6 +354,7 @@ jobs:
                 if(studioCount!==null && studioCount!==0) throw new Error('dark My HealthTimes exposed Studio');
                 const file=path.join('ui04-phase5-evidence/web',name+'.png');
                 await page.screenshot({path:file,fullPage:true});
+                fs.copyFileSync(file,path.join('ui04-phase5-evidence/web',name+'-mobile.png'));
                 assertClean('mobile '+name+' post-capture',diag,await inspect(page));
                 manifest.screens.push(record(name,route,'mobile-dark',390,844,file,response,diag,state,{
                   appearance:'dark',

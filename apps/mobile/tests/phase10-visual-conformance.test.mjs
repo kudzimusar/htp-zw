@@ -91,7 +91,8 @@ test("Phase 10 My HealthTimes leads with personal controls and omits internal re
   assert.doesNotMatch(my,/Growth & Commercial Readiness/);
   assert.doesNotMatch(my,/Payment Methods/);
   assert.doesNotMatch(my,/appEnvironment/);
-  assert.ok(my.indexOf('{groups.map') < my.indexOf('title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL"'));
+  assert.ok(my.indexOf('{groups.map') > 0);
+  assert.doesNotMatch(my, /PUBLICATION & INSTITUTIONAL/);
 });
 
 test("Phase 10 Explore and secondary surfaces use reader-facing language",()=>{
