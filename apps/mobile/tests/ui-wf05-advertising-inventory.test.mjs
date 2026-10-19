@@ -131,6 +131,7 @@ test("UI-WF-05 AdSlot preserves zero-space collapse, non-personalized sensitive-
   const config = read("src/growth/config.ts");
   const directAd = read("src/growth/direct-ad.ts");
   const sourceParity = read("src/services/source-parity.ts");
+  const evidence = read("tests/ui03-commercial-reader-evidence.mjs");
 
   assert.match(cards, /if\(!adDecision \|\| adDecision\.source === "none" \|\| !adDecision\.creativeUrl\) return null;/);
   assert.match(cards, /sensitiveHealthContext = true/);
@@ -151,4 +152,12 @@ test("UI-WF-05 AdSlot preserves zero-space collapse, non-personalized sensitive-
   assert.match(config, /adMobBannerUnitId: null/);
   assert.match(directAd, /personalization:"none"/);
   assert.match(sourceParity, /source: "none"/);
+  assert.match(evidence, /stagingRpc\("ag05_hospaz_direct_ad_preview"/);
+  assert.match(evidence, /destination_state:destinationState/);
+  assert.match(evidence, /schedule_state:scheduleState/);
+  assert.match(evidence, /placement_conditions_state:placementConditionsState/);
+  assert.match(evidence, /ad_clickable:expectedClickable/);
+  assert.doesNotMatch(evidence, /destination_state:"UNKNOWN"/);
+  assert.doesNotMatch(evidence, /schedule_state:"UNKNOWN"/);
+  assert.doesNotMatch(evidence, /placement_conditions_state:"UNKNOWN"/);
 });
