@@ -9,10 +9,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(root, p), "utf8");
 
 // ============================================================================
-// PART 1: RUNTIME BEHAVIOR PROOF (Executing real TypeScript modules)
+// PART 1: MODULE BEHAVIOR PROOF & CONTROLLED UNIT FIXTURES
+// (Executing real TypeScript modules in a controlled Node harness; distinct from
+// deployed runtime or live staging authority)
 // ============================================================================
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 15 (Analytics) — validates public events and rejects prohibited health parameters (fail-closed)", () => {
+test("MODULE_BEHAVIOR_PROOF: Screen 15 (Analytics) — validates public events and rejects prohibited health parameters (fail-closed)", () => {
   const eventsModule = loadTs("src/growth/events.ts");
 
   // 1. Valid public event succeeds
@@ -72,7 +74,7 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 15 (Analytics) — validates public events 
   );
 });
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 14 (Social & Deep Link) — canonical URL, attribution parameters, and fail-closed parser", () => {
+test("MODULE_BEHAVIOR_PROOF: Screen 14 (Social & Deep Link) — canonical URL, attribution parameters, and fail-closed parser", () => {
   const deepLinksModule = loadTs("src/growth/deepLinks.ts", {
     mocks: {
       "expo-linking": {
@@ -139,7 +141,7 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 14 (Social & Deep Link) — canonical URL, 
   assert.equal(badReferral, null, "Must reject external domain referral parsing");
 });
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 12 (Advertising) — zero-space unfulfilled inventory, sensitive health policy, and direct HOSPAZ authority", () => {
+test("CONTROLLED_UNIT_FIXTURE: Direct-ad projection maps a supplied synthetic KNOWN-state capability and preserves UNKNOWN-state fail-closed rules", () => {
   const adModule = loadTs("src/growth/advertising.ts");
   const directAdModule = loadTs("src/growth/direct-ad.ts");
 
@@ -160,8 +162,12 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 12 (Advertising) — zero-space unfulfilled
   assert.equal(noConsentDecision.source, "none");
   assert.equal(noConsentDecision.personalization, "non-personalized");
 
-  // 3. Direct HOSPAZ projection maps known states and provenance
-  const rawHospaz = {
+  // 3. Synthetic KNOWN-state unit fixture (NOT live HOSPAZ staging authority):
+  // URL ("https://hospaz.org.zw"), schedule ("2026-Q4"), and placement_conditions ("All readers")
+  // are synthetic fixture inputs used strictly to unit-test KNOWN-state projection mapping.
+  // Current live HOSPAZ staging authority has destination_url_state="UNKNOWN" (url: null),
+  // schedule_state="UNKNOWN" (value: null), and placement_conditions_state="UNKNOWN" (value: null).
+  const syntheticKnownFixture = {
     advertiser: "HOSPAZ",
     placement_key: "hospaz-header-direct",
     current_storage_object: "ads/hospaz-banner.png",
@@ -172,30 +178,50 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 12 (Advertising) — zero-space unfulfilled
     placement_conditions_state: "KNOWN",
     placement_conditions: "All readers"
   };
-  const projected = directAdModule.projectCp5HospazCapability(rawHospaz, "https://supabase.example.com");
+  const projected = directAdModule.projectCp5HospazCapability(syntheticKnownFixture, "https://supabase.example.com");
   assert.equal(projected.kind, "direct-ad");
   assert.equal(projected.advertiser, "HOSPAZ");
   assert.equal(projected.placementKey, "hospaz-header-direct");
   assert.equal(projected.destination.url, "https://hospaz.org.zw");
   assert.equal(projected.failClosed.clickTargetInvented, false);
 
-  // 4. Direct decision matches placement key
+  // 4. Direct decision from synthetic KNOWN-state fixture matches placement key
   const directDecision = directAdModule.directDecisionFromHospazCapability(projected, "hospaz-header-direct");
   assert.equal(directDecision.source, "direct");
   assert.equal(directDecision.destinationUrl, "https://hospaz.org.zw");
   assert.equal(directDecision.disclosureLabel, "Direct advertising · HOSPAZ");
 
-  // 5. Mismatched placement key fails closed to source "none" (triggers zero-space collapse in AdSlot)
+  // 5. UNKNOWN-state projection (matching current live HOSPAZ staging authority shape) fails closed to null destination/schedule/conditions
+  const unknownStateFixture = {
+    advertiser: "HOSPAZ",
+    placement_key: "hospaz-header-direct",
+    current_storage_object: "wordpress/2025/11/hospaz.jpeg",
+    destination_url_state: "UNKNOWN",
+    destination_url: "https://example.invalid/must-not-leak",
+    schedule_state: "UNKNOWN",
+    schedule: "unverified",
+    placement_conditions_state: "UNKNOWN",
+    placement_conditions: "unverified"
+  };
+  const unknownProjected = directAdModule.projectCp5HospazCapability(unknownStateFixture, "https://supabase.example.com");
+  assert.deepEqual(unknownProjected.destination, { state: "UNKNOWN", url: null });
+  assert.deepEqual(unknownProjected.schedule, { state: "UNKNOWN", value: null });
+  assert.deepEqual(unknownProjected.placementConditions, { state: "UNKNOWN", value: null });
+  const unknownDecision = directAdModule.directDecisionFromHospazCapability(unknownProjected, "hospaz-header-direct");
+  assert.equal(unknownDecision.destinationUrl, null);
+  assert.equal(unknownDecision.personalization, "none");
+
+  // 6. Mismatched placement key fails closed to source "none" (triggers zero-space collapse in AdSlot)
   const mismatchedDecision = directAdModule.directDecisionFromHospazCapability(projected, "article_end");
   assert.equal(mismatchedDecision.source, "none");
   assert.match(mismatchedDecision.policyReason, /No verified direct-ad capability is available/);
 
-  // 6. Null capability returns source "none"
+  // 7. Null capability returns source "none"
   const nullDecision = directAdModule.directDecisionFromHospazCapability(null, "hospaz-header-direct");
   assert.equal(nullDecision.source, "none");
 });
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 13B (Notification Settings) — preference storage defaults and atomic mutations", async () => {
+test("MODULE_BEHAVIOR_PROOF: Screen 13B (Notification Settings) — preference storage defaults and atomic mutations in controlled storage harness", async () => {
   const store = new Map();
   const notifPrefModule = loadTs("src/security/notification-preferences.ts", {
     mocks: {
@@ -230,7 +256,7 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 13B (Notification Settings) — preference 
   assert.deepEqual(reloaded, updated);
 });
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 11 (Premium) — dynamic commerce authority, store offers, and fail-closed entitlement lifecycle", async () => {
+test("MODULE_BEHAVIOR_PROOF: Screen 11 (Premium) — commerce authority, store offers, and fail-closed entitlement in fixture service harness", async () => {
   const store = new Map();
   const { fixtureServices: s } = loadTs("src/services/fixtures.ts", {
     mocks: {
@@ -262,7 +288,7 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 11 (Premium) — dynamic commerce authority
   assert.match(commerceAuth.message, /Web Premium checkout is unavailable/);
 });
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 13 (Notifications) — notification model categorization and unread filter semantics", async () => {
+test("MODULE_BEHAVIOR_PROOF: Screen 13 (Notifications) — notification model categorization and unread filter semantics in fixture service harness", async () => {
   const store = new Map();
   const { fixtureServices: s } = loadTs("src/services/fixtures.ts", {
     mocks: {
@@ -288,7 +314,7 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 13 (Notifications) — notification model c
   }
 });
 
-test("RUNTIME_BEHAVIOR_PROOF: Screen 18 (Onboarding) — dynamic taxonomy binding, preference persistence, and safe defaults", async () => {
+test("MODULE_BEHAVIOR_PROOF: Screen 18 (Onboarding) — taxonomy binding, preference persistence, and safe defaults in fixture service harness", async () => {
   const store = new Map();
   const { fixtureServices: s } = loadTs("src/services/fixtures.ts", {
     mocks: {
@@ -326,7 +352,7 @@ test("RUNTIME_BEHAVIOR_PROOF: Screen 18 (Onboarding) — dynamic taxonomy bindin
 });
 
 // ============================================================================
-// PART 2: SOURCE CONTRACT PROOF (Validating component structure & safety)
+// PART 2: SOURCE CONTRACT PROOF (Static source assertions on component structure & safety)
 // ============================================================================
 
 test("SOURCE_CONTRACT_PROOF: Screen 11 (Premium) — editorial value proposition, benefits, and fails closed without fabricated prices", () => {
@@ -444,10 +470,10 @@ test("SOURCE_CONTRACT_PROOF: Screen 18 (Onboarding) — clean entry experience w
 });
 
 // ============================================================================
-// PART 3: FIVE CROSS-PRODUCT USER JOURNEYS
+// PART 3: CROSS-PRODUCT CONTRACT PROOF (Source wiring continuity across surfaces)
 // ============================================================================
 
-test("CROSS_PRODUCT_JOURNEY: Journey 1 (Premium) — full acquisition, paywall, commerce, entitlement, and member state", () => {
+test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 1 (Premium) — source wiring across Home discovery, Article paywall, Premium landing, and My HealthTimes", () => {
   const home = read("app/(reader)/index.tsx");
   const article = read("app/article/[id].tsx");
   const premium = read("app/premium.tsx");
@@ -465,7 +491,7 @@ test("CROSS_PRODUCT_JOURNEY: Journey 1 (Premium) — full acquisition, paywall, 
   assert.match(my, /path:"\/premium"/);
 });
 
-test("CROSS_PRODUCT_JOURNEY: Journey 2 (Notification) — settings change, persistence, and categorized notifications", () => {
+test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 2 (Notification) — source wiring across My HealthTimes, Notification Settings, and Notifications", () => {
   const my = read("app/(reader)/my.tsx");
   const settings = read("app/notification-settings.tsx");
   const notifs = read("app/notifications.tsx");
@@ -477,7 +503,7 @@ test("CROSS_PRODUCT_JOURNEY: Journey 2 (Notification) — settings change, persi
   assert.match(notifs, /item\.destination/);
 });
 
-test("CROSS_PRODUCT_JOURNEY: Journey 3 (Share / Deep Link) — canonical attributed URL generation and deep-link routing", () => {
+test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 3 (Share / Deep Link) — source wiring across Article share, deepLinks builder/parser, and root DeepLinkBridge", () => {
   const article = read("app/article/[id].tsx");
   const deepLinks = read("src/growth/deepLinks.ts");
   const layout = read("app/_layout.tsx");
@@ -488,7 +514,7 @@ test("CROSS_PRODUCT_JOURNEY: Journey 3 (Share / Deep Link) — canonical attribu
   assert.match(layout, /router\.push\(\("\/article\/" \+ encodeURIComponent\(destination\.articleId\)\) as never\)/);
 });
 
-test("CROSS_PRODUCT_JOURNEY: Journey 4 (Advertising) — inventory placements, direct HOSPAZ authority, and zero-space unfilled", () => {
+test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 4 (Advertising) — source wiring across Home, Article, Watch, Live, and AdSlot zero-space guard", () => {
   const home = read("app/(reader)/index.tsx");
   const article = read("app/article/[id].tsx");
   const watch = read("app/(reader)/watch.tsx");
@@ -503,7 +529,7 @@ test("CROSS_PRODUCT_JOURNEY: Journey 4 (Advertising) — inventory placements, d
   assert.match(cards, /if\(!adDecision \|\| adDecision\.source === "none" \|\| !adDecision\.creativeUrl\) return null;/);
 });
 
-test("CROSS_PRODUCT_JOURNEY: Journey 5 (Onboarding) — entry, step progression, preferences persistence, and Home entry", () => {
+test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 5 (Onboarding) — source wiring across Onboarding preference persistence, account sign-in, and Home entry", () => {
   const onboarding = read("app/onboarding.tsx");
 
   assert.match(onboarding, /router\.replace\("\/" as never\)/);

@@ -55,6 +55,7 @@ jobs:
           npm --prefix apps/mobile run test:premium-hospaz
           npm --prefix apps/mobile run test:growth-commercial
           npm --prefix apps/mobile run test:ui03
+          npm --prefix apps/mobile run test:ui-wf05
           node --test apps/mobile/tests/ui-wf02c-premium-landing.test.mjs
           npm --prefix apps/mobile run test:nm05-premium-consumer
           npm --prefix apps/mobile run test:nm05-premium-live
