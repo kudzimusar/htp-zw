@@ -154,6 +154,25 @@ async function resolvedPremiumJournalism(page,label){
   await region.waitFor({state:"visible",timeout:30000});
   const count=await region.getByRole("link").count();
   if(count<1) throw new Error(label+" resolved without source-backed Premium journalism");
+  const images=region.locator("img:visible");
+  const imageCount=await images.count();
+  for(let index=0;index<imageCount;index+=1){
+    const image=images.nth(index);
+    await image.waitFor({state:"visible",timeout:30000});
+    const handle=await image.elementHandle();
+    if(!handle) throw new Error(label+" Premium journalism image handle unavailable at index "+index);
+    try{
+      await page.waitForFunction(
+        img=>img.complete===true && img.naturalWidth>0 && img.naturalHeight>0,
+        handle,
+        {timeout:30000}
+      );
+    }catch{
+      throw new Error(label+" Premium journalism image did not settle at index "+index);
+    }finally{
+      await handle.dispose();
+    }
+  }
   return count;
 }
 

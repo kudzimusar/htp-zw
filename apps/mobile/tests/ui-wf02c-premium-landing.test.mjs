@@ -67,4 +67,5 @@ test("UI-WF-02C R1 evidence harness captures mobile, tablet, desktop, and dark-m
   assert.match(evidence, /premium-commerce-unavailable/);
   assert.match(evidence, /"premium-"\+name\+"\.png"/);
   assert.match(evidence, /premium-dark-mobile\.png/);
+  assert.match(evidence, /Premium journalism image did not settle/);
 });
