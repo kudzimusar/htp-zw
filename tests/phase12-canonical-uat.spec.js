@@ -187,7 +187,8 @@ test('current public comparator renders Reader actions without Premium lock', as
 test('Premium landing exposes access truth without fabricated commerce success', async ({ page }) => {
   const failures = await gotoCanonical(page, '/premium', 'Premium landing');
   await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).waitFor({ timeout: 30000 });
-  await expect(page.getByText('Your membership', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('premium-member-access-card')).toBeVisible();
+  await expect(page.getByText('Already a member?', { exact: true })).toBeVisible();
   const body = await page.locator('body').innerText();
   expect(body).not.toContain('Payment successful');
   expect(body).not.toContain('Purchase complete');
