@@ -29,41 +29,32 @@ export default function MyHealthTimesScreen(){
     Boolean(authorization.data.staffProfileId);
   const paymentAvailable=store.data?.status==="available";
 
-  const groups:{title:string;items:MenuItem[]}[]=[
-    {title:"Account",items:[
-      {label:"My Profile",path:"/account-access"},
-      {label:"Countries & Interests",path:"/edition"}
+  const groups:{title:string;eyebrow:string;items:MenuItem[]}[]=[
+    {title:"Account",eyebrow:"PROFILE & EDITION",items:[
+      {label:"My Profile",path:"/account-access",detail:"Account access and sign-in"},
+      {label:"Countries & Interests",path:"/edition",detail:"Primary edition and followed topics"}
     ]},
-    {title:"Reading",items:[
+    {title:"Reading",eyebrow:"LIBRARY & ALERTS",items:[
       {label:"Saved",path:"/saved?tab=saved",detail:"Bookmarked stories"},
       {label:"Downloads",path:"/saved?tab=offline",detail:"Stories stored for offline reading"},
       {label:"Reading History",path:"/saved?tab=history",detail:"Recently read stories"},
-      {label:"Notifications",path:"/notifications"}
+      {label:"Notifications",path:"/notifications",detail:"Breaking and followed alerts"}
     ]},
-    {title:"Membership",items:[
+    {title:"Membership",eyebrow:"HEALTHTIMES PREMIUM",items:[
       {label:"My Subscriptions",path:"/premium",detail:paymentAvailable ? "Membership status and available payment options" : "Membership status"}
     ]},
-    {title:"Settings",items:[
-      {label:"Notification Settings",path:"/notification-settings"},
-      {label:"Appearance / Theme",path:"/appearance"},
+    {title:"Settings",eyebrow:"PREFERENCES & SECURITY",items:[
+      {label:"Notification Settings",path:"/notification-settings",detail:"Alert categories"},
+      {label:"Appearance / Theme",path:"/appearance",detail:"System, Light or Dark"},
       {label:"Devices & Sessions",path:"/devices-sessions",detail:"Current device session"},
       {label:"Account deletion status",path:"/devices-sessions",detail:"Server-managed availability"}
     ]},
-    {title:"Help",items:[
+    {title:"Help",eyebrow:"SUPPORT & EDITORIAL TRUST",items:[
       publication.data?.contactUrl
-        ? {label:"Help & Support",url:publication.data.contactUrl}
-        : {label:"Help & Support",detail:"Support contact is not available here yet"}
+        ? {label:"Help & Support",url:publication.data.contactUrl,detail:"Reader support"}
+        : {label:"Help & Support",detail:"Support contact is not available here yet"},
+      {label:"About HealthTimes",path:"/about",detail:"Editorial standards, corrections and contact"}
     ]}
-  ];
-
-  const publicationItems:MenuItem[]=[
-    {label:"About HealthTimes",path:"/about"},
-    {label:"Authors",path:"/authors"},
-    {label:"Corrections & Editorial Standards",path:"/about",detail:"Editorial standards and contact"},
-    ...(publication.data?.sourceLinks ?? []).map((link)=>({
-      label:link.label,
-      url:link.url
-    }))
   ];
 
   const signOut=async()=>{
@@ -75,22 +66,67 @@ export default function MyHealthTimesScreen(){
 
   return (
     <Page title="My HealthTimes">
-      <View style={[styles.profile,{borderBottomColor:palette.border}]}>
-        <View style={[styles.avatar,{backgroundColor:palette.ink}]}><Text style={[styles.avatarText,{color:palette.paper}]}>HT</Text></View>
+      <View
+        testID="my-ht-identity-card"
+        style={[
+          styles.profileCard,
+          {borderColor:palette.border,backgroundColor:palette.paper}
+        ]}
+      >
+        <View style={[styles.avatar,{backgroundColor:palette.navy}]}>
+          <Text style={styles.avatarText}>HT</Text>
+        </View>
         <View style={styles.profileCopy}>
-          <Text style={[styles.name,{color:palette.ink}]}>{profile.data?.displayName ?? "Reader"}</Text>
-          <Text style={[styles.membership,{color:palette.inkMuted}]}>{membershipLabel}</Text>
+          <View style={styles.identityHeaderRow}>
+            <Text style={[styles.name,{color:palette.ink}]}>{profile.data?.displayName ?? "Reader"}</Text>
+            <View
+              style={[
+                styles.membershipBadge,
+                {
+                  borderColor:membership==="premium" ? palette.premium : palette.border,
+                  backgroundColor:palette.paperMuted
+                }
+              ]}
+            >
+              <Text
+                style={[
+                  styles.membershipBadgeText,
+                  {color:membership==="premium" ? palette.premium : palette.inkMuted}
+                ]}
+              >
+                {membershipLabel}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.membershipSubtext,{color:palette.inkMuted}]}>
+            {membership==="premium"
+              ? "Active HealthTimes Premium member access across your reading library."
+              : "Manage your edition preferences, personal reading library, and account settings."}
+          </Text>
         </View>
       </View>
 
       <Pressable
-        style={[styles.premiumCard,{backgroundColor:palette.navy,borderRadius:radius.md}]}
+        testID="my-ht-premium-card"
+        style={({ pressed, focused }: any)=>[
+          styles.premiumCard,
+          {
+            backgroundColor:palette.navy,
+            borderColor:palette.premium,
+            borderRadius:radius.md
+          },
+          focused && [styles.actionFocused,{borderColor:palette.blue}],
+          pressed && styles.actionPressed
+        ]}
         onPress={()=>router.push("/premium" as never)}
         accessibilityRole="button"
         accessibilityLabel={membership==="premium" ? "View HealthTimes Premium membership" : "Explore HealthTimes Premium"}
       >
         <View style={styles.premiumCopy}>
-          <Text style={styles.premiumEyebrow}>HEALTHTIMES PREMIUM</Text>
+          <View style={styles.premiumIdentityRow}>
+            <Text style={styles.premiumCrown}>✦</Text>
+            <Text style={styles.premiumEyebrow}>HEALTHTIMES PREMIUM</Text>
+          </View>
           <Text style={styles.premiumTitle}>{membership==="premium" ? "Premium access active" : "Make more of HealthTimes"}</Text>
           <Text style={styles.premiumText}>
             {membership==="premium"
@@ -98,14 +134,16 @@ export default function MyHealthTimesScreen(){
               : "See Premium stories and any membership options currently available to your account."}
           </Text>
         </View>
-        <Text style={styles.premiumAction}>{membership==="premium" ? "View membership →" : "Explore Premium →"}</Text>
+        <View style={styles.premiumActionPill}>
+          <Text style={styles.premiumAction}>{membership==="premium" ? "View membership →" : "Explore Premium →"}</Text>
+        </View>
       </Pressable>
 
       {groups.map((group)=>(
         <Section key={group.title}>
-          <SectionHeader title={group.title} />
-          <View>
-            {group.items.map((item)=>(
+          <SectionHeader title={group.title} eyebrow={group.eyebrow} />
+          <View style={[styles.groupCard,{borderColor:palette.border,backgroundColor:palette.paper}]}>
+            {group.items.map((item,index)=>(
               <Pressable
                 key={item.label}
                 disabled={!item.path && !item.url}
@@ -113,7 +151,13 @@ export default function MyHealthTimesScreen(){
                   if(item.path) return router.push(item.path as never);
                   if(item.url) return void Linking.openURL(item.url);
                 }}
-                style={[styles.row,{borderBottomColor:palette.border},!item.path&&!item.url&&styles.rowDisabled]}
+                style={({ pressed, focused }: any)=>[
+                  styles.row,
+                  index<group.items.length-1 && {borderBottomWidth:1,borderBottomColor:palette.border},
+                  !item.path&&!item.url&&styles.rowDisabled,
+                  focused && [styles.actionFocused,{borderColor:palette.blue}],
+                  pressed && (item.path || item.url) && styles.actionPressed
+                ]}
                 accessibilityRole={item.url ? "link" : "button"}
                 accessibilityLabel={item.detail ? item.label+". "+item.detail : item.label}
                 accessibilityState={{disabled:!item.path&&!item.url}}
@@ -131,42 +175,22 @@ export default function MyHealthTimesScreen(){
       ))}
 
       <Section>
-        <SectionHeader title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL" />
-        <View>
-          {publicationItems.map((item)=>(
-            <Pressable
-              key={item.label}
-              disabled={!item.path && !item.url}
-              onPress={()=>{
-                if(item.path) return router.push(item.path as never);
-                if(item.url) return void Linking.openURL(item.url);
-              }}
-              style={[styles.row,{borderBottomColor:palette.border},!item.path&&!item.url&&styles.rowDisabled]}
-              accessibilityRole={item.url ? "link" : "button"}
-              accessibilityLabel={item.detail ? item.label+". "+item.detail : item.label}
-              accessibilityState={{disabled:!item.path&&!item.url}}
-            >
-              <Text style={[styles.rowText,{color:palette.ink}]}>{item.label}</Text>
-              <View style={styles.rowEnd}>
-                {!!item.detail && <Text style={[styles.detail,{color:palette.inkMuted}]}>{item.detail}</Text>}
-                {!!item.path && <Text style={[styles.chevron,{color:palette.inkMuted}]}>›</Text>}
-                {!!item.url && <Text style={[styles.chevron,{color:palette.inkMuted}]}>↗</Text>}
-              </View>
-            </Pressable>
-          ))}
+        <SectionHeader title="Sign Out" eyebrow="DEVICE SESSION" />
+        <View style={[styles.signOutCard,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed, focused }: any)=>[
+              styles.signOut,
+              {borderColor:palette.border,backgroundColor:palette.paper},
+              focused && [styles.actionFocused,{borderColor:palette.blue}],
+              pressed && styles.actionPressed
+            ]}
+            onPress={()=>void signOut()}
+          >
+            <Text style={[styles.signOutText,{color:palette.ink}]}>Sign out this device</Text>
+          </Pressable>
+          {!!signOutStatus && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{signOutStatus}</Text>}
         </View>
-      </Section>
-
-      <Section>
-        <SectionHeader title="Sign Out" />
-        <Pressable
-          accessibilityRole="button"
-          style={[styles.signOut,{borderColor:palette.border}]}
-          onPress={()=>void signOut()}
-        >
-          <Text style={[styles.signOutText,{color:palette.ink}]}>Sign out this device</Text>
-        </Pressable>
-        {!!signOutStatus && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{signOutStatus}</Text>}
       </Section>
 
       {staffAuthorized && (
@@ -187,28 +211,105 @@ export default function MyHealthTimesScreen(){
 }
 
 const styles=StyleSheet.create({
-  profile:{marginTop:spacing.xl,flexDirection:"row",alignItems:"center",gap:spacing.md,paddingBottom:spacing.xl,borderBottomWidth:1,flexWrap:"wrap"},
-  avatar:{width:56,height:56,borderRadius:28,alignItems:"center",justifyContent:"center"},
-  avatarText:{fontWeight:"900"},
-  profileCopy:{flex:1,minWidth:180},
+  profileCard:{
+    marginTop:spacing.md,
+    borderWidth:1,
+    borderRadius:radius.md,
+    padding:spacing.lg,
+    flexDirection:"row",
+    alignItems:"center",
+    gap:spacing.md,
+    flexWrap:"wrap"
+  },
+  avatar:{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center"},
+  avatarText:{fontWeight:"900",color:"#FFFFFF",fontSize:16},
+  profileCopy:{flex:1,minWidth:180,gap:4},
+  identityHeaderRow:{
+    flexDirection:"row",
+    alignItems:"center",
+    flexWrap:"wrap",
+    gap:spacing.sm
+  },
   name:{fontSize:20,fontWeight:"900"},
-  membership:{fontSize:13,marginTop:2},
-  premiumCard:{marginTop:spacing.xl,padding:spacing.xl,gap:spacing.lg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"},
-  premiumCopy:{flex:1,minWidth:230,gap:6},
-  premiumEyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1.2,color:"#8ED7FF"},
-  premiumTitle:{fontSize:22,fontWeight:"900",color:"#FFFFFF"},
-  premiumText:{fontSize:14,lineHeight:21,color:"#C9D5E1",maxWidth:700},
+  membershipBadge:{
+    borderWidth:1,
+    borderRadius:radius.sm,
+    paddingHorizontal:8,
+    paddingVertical:2
+  },
+  membershipBadgeText:{
+    fontSize:11,
+    fontWeight:"800",
+    letterSpacing:0.4
+  },
+  membershipSubtext:{
+    fontSize:13,
+    lineHeight:19
+  },
+  premiumCard:{
+    marginTop:spacing.lg,
+    padding:spacing.lg,
+    borderWidth:1,
+    borderLeftWidth:3,
+    gap:spacing.md,
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    flexWrap:"wrap"
+  },
+  premiumCopy:{flex:1,minWidth:220,gap:4},
+  premiumIdentityRow:{flexDirection:"row",alignItems:"center",gap:6},
+  premiumCrown:{fontSize:13,fontWeight:"900",color:"#E6C16A"},
+  premiumEyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1.2,color:"#E6C16A"},
+  premiumTitle:{fontSize:20,fontWeight:"900",color:"#FFFFFF"},
+  premiumText:{fontSize:13,lineHeight:20,color:"#C9D5E1",maxWidth:680},
+  premiumActionPill:{
+    borderWidth:1,
+    borderColor:"#E6C16A",
+    borderRadius:radius.sm,
+    paddingHorizontal:12,
+    paddingVertical:8
+  },
   premiumAction:{fontSize:13,fontWeight:"900",color:"#FFFFFF"},
-  row:{minHeight:58,borderBottomWidth:1,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md,flexWrap:"wrap"},
+  groupCard:{
+    borderWidth:1,
+    borderRadius:radius.md,
+    overflow:"hidden"
+  },
+  row:{
+    minHeight:56,
+    paddingHorizontal:spacing.md,
+    paddingVertical:spacing.sm,
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:spacing.md,
+    flexWrap:"wrap"
+  },
   rowDisabled:{opacity:.65},
-  rowText:{fontSize:16,fontWeight:"700",flex:1},
+  rowText:{fontSize:15,fontWeight:"800",flex:1},
   rowEnd:{flexDirection:"row",alignItems:"center",gap:spacing.sm,maxWidth:"52%",minWidth:0,flexShrink:1},
-  detail:{fontSize:11,textAlign:"right",lineHeight:16,flexShrink:1},
-  chevron:{fontSize:24},
-  signOut:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:16,borderWidth:1,borderRadius:radius.sm},
-  signOutText:{fontWeight:"900"},
-  status:{fontSize:13,lineHeight:20,marginTop:spacing.sm},
-  studio:{padding:spacing.xl,gap:spacing.sm},
-  studioTitle:{fontSize:20,fontWeight:"900",color:"#FFFFFF"},
-  studioText:{fontSize:14,lineHeight:21,color:"#C9D5E1"}
+  detail:{fontSize:12,textAlign:"right",lineHeight:16,flexShrink:1},
+  chevron:{fontSize:20,fontWeight:"700"},
+  signOutCard:{
+    borderWidth:1,
+    borderRadius:radius.md,
+    padding:spacing.md,
+    gap:spacing.sm
+  },
+  signOut:{
+    minHeight:layout.touchMin,
+    alignSelf:"flex-start",
+    justifyContent:"center",
+    paddingHorizontal:16,
+    borderWidth:1,
+    borderRadius:radius.sm
+  },
+  signOutText:{fontWeight:"900",fontSize:14},
+  status:{fontSize:13,lineHeight:20},
+  studio:{padding:spacing.lg,gap:spacing.xs},
+  studioTitle:{fontSize:18,fontWeight:"900",color:"#FFFFFF"},
+  studioText:{fontSize:13,lineHeight:20,color:"#C9D5E1"},
+  actionFocused:{borderWidth:2},
+  actionPressed:{opacity:0.86}
 });
