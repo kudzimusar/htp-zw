@@ -55,6 +55,7 @@ test("UI-WF-02C R1 Premium landing preserves commerce, entitlement, restore, and
     premium,
     /configuration-required|on this build|approved store|secure member service|when secure web checkout is configured|MOST POPULAR|Most Popular|\$\d|US\$|ZW\$|7-day trial|free trial|20% OFF/i
   );
+  assert.doesNotMatch(premium, /store\.data\?\.offers\[0\]/, "must not silently select the first store offer as a recommended/default plan");
   assert.doesNotMatch(premium, /event\("subscription_completed"/);
 });
 

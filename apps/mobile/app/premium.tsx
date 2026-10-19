@@ -73,8 +73,6 @@ export default function PremiumScreen(){
     store.data?.status==="available" &&
     store.data.offers.length
   );
-  const primaryStoreOffer=storeOffersAvailable ? (store.data?.offers[0] ?? null) : null;
-
   useEffect(()=>{
     if(previewTracked.current) return;
     previewTracked.current=true;
@@ -422,21 +420,6 @@ export default function PremiumScreen(){
                 onPress={()=>void startWebCheckout()}
               >
                 <Text style={[styles.ctaText,{color:palette.paper}]}>Become Premium</Text>
-              </Pressable>
-            )}
-            {primaryStoreOffer && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Continue with store"
-                style={({ pressed, focused }: any)=>[
-                  styles.cta,
-                  {backgroundColor:palette.blue,marginTop:0},
-                  focused && [styles.actionFocused,{borderColor:palette.ink}],
-                  pressed && styles.actionPressed
-                ]}
-                onPress={()=>void purchase(primaryStoreOffer.storeProductId,primaryStoreOffer.productKey)}
-              >
-                <Text style={[styles.ctaText,{color:palette.paper}]}>Continue with store</Text>
               </Pressable>
             )}
             {!webCommerce && (
