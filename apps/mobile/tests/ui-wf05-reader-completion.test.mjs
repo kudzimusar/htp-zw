@@ -3,11 +3,333 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadTs } from "./ts-module-loader.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(root, p), "utf8");
 
-test("Screen 11 (Premium): enforces editorial value proposition, benefits, and fails closed without fabricated prices", () => {
+// ============================================================================
+// PART 1: RUNTIME BEHAVIOR PROOF (Executing real TypeScript modules)
+// ============================================================================
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 15 (Analytics) — validates public events and rejects prohibited health parameters (fail-closed)", () => {
+  const eventsModule = loadTs("src/growth/events.ts");
+
+  // 1. Valid public event succeeds
+  const validEvent = eventsModule.event("page_view", { surface: "home", section: "top_stories" });
+  assert.equal(validEvent.eventName, "page_view");
+  assert.equal(validEvent.eventVersion, "2026-09-09");
+  assert.equal(validEvent.parameters.surface, "home");
+
+  // 2. All 24 public event names are recognized
+  assert.equal(eventsModule.HEALTH_TIMES_PUBLIC_EVENTS.length, 24);
+  for (const name of eventsModule.HEALTH_TIMES_PUBLIC_EVENTS) {
+    assert.equal(eventsModule.isPublicAnalyticsEventName(name), true, `Must recognize ${name}`);
+  }
+
+  // 3. Prohibited health attribute fragments FAIL CLOSED by throwing Error
+  const prohibitedFragments = [
+    "diagnosis",
+    "disease",
+    "condition",
+    "medication",
+    "prescription",
+    "symptom",
+    "patient",
+    "medical_record",
+    "health_profile"
+  ];
+
+  for (const frag of prohibitedFragments) {
+    assert.throws(
+      () => eventsModule.event("article_view", { [`user_${frag}_type`]: "sensitive" }),
+      (err) => {
+        assert.match(err.message, /Sensitive health attribute .* is prohibited from public analytics payloads/);
+        return true;
+      },
+      `Must throw fail-closed error for prohibited health fragment "${frag}"`
+    );
+  }
+
+  // 4. Unsupported event name throws error
+  assert.throws(
+    () => eventsModule.validatePublicAnalyticsEvent({
+      eventName: "unsupported_event_xyz",
+      eventVersion: "2026-09-09",
+      parameters: {}
+    }),
+    /Unsupported public analytics event: unsupported_event_xyz/
+  );
+
+  // 5. Invalid version throws error
+  assert.throws(
+    () => eventsModule.validatePublicAnalyticsEvent({
+      eventName: "page_view",
+      eventVersion: "1999-01-01",
+      parameters: {}
+    }),
+    /Analytics event version must be 2026-09-09/
+  );
+});
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 14 (Social & Deep Link) — canonical URL, attribution parameters, and fail-closed parser", () => {
+  const deepLinksModule = loadTs("src/growth/deepLinks.ts", {
+    mocks: {
+      "expo-linking": {
+        createURL: (p) => "healthtimes://" + p,
+        parse: (url) => {
+          if (url.startsWith("healthtimes://")) {
+            return { path: url.replace("healthtimes://", "").split("?")[0] };
+          }
+          return { path: "" };
+        }
+      }
+    }
+  });
+
+  const article = { id: "art-zimbabwe-debt-001", slug: "zimbabwe-debt-crisis" };
+
+  // 1. Canonical Article URL is strictly on healthtimes.co.zw
+  const canonical = deepLinksModule.canonicalArticleUrl(article);
+  assert.equal(canonical, "https://healthtimes.co.zw/zimbabwe-debt-crisis/");
+
+  // 2. Attributed share URL appends article ID and UTM parameters
+  const shareUrl = deepLinksModule.attributedShareUrl(article, "whatsapp");
+  const parsedShare = new URL(shareUrl);
+  assert.equal(parsedShare.origin, "https://healthtimes.co.zw");
+  assert.equal(parsedShare.searchParams.get("ht_article_id"), "art-zimbabwe-debt-001");
+  assert.equal(parsedShare.searchParams.get("utm_source"), "healthtimes_share");
+  assert.equal(parsedShare.searchParams.get("utm_medium"), "whatsapp");
+  assert.equal(parsedShare.searchParams.get("utm_campaign"), "organic_share");
+
+  // 3. Native deep link resolution
+  const nativeParsed = deepLinksModule.parseHealthTimesDeepLink("healthtimes://article/art-zimbabwe-debt-001");
+  assert.deepEqual(nativeParsed, { type: "article", articleId: "art-zimbabwe-debt-001" });
+
+  // 4. Web deep link resolution on allowed host
+  const webParsed = deepLinksModule.parseHealthTimesDeepLink("https://healthtimes.co.zw/story/?ht_article_id=art-zimbabwe-debt-001");
+  assert.deepEqual(webParsed, { type: "article", articleId: "art-zimbabwe-debt-001" });
+
+  const wwwParsed = deepLinksModule.parseHealthTimesDeepLink("https://www.healthtimes.co.zw/story/?ht_article_id=art-zimbabwe-debt-001");
+  assert.deepEqual(wwwParsed, { type: "article", articleId: "art-zimbabwe-debt-001" });
+
+  // 5. Fail-closed: Untrusted host returns null
+  const untrustedHost = deepLinksModule.parseHealthTimesDeepLink("https://attacker.org/phish/?ht_article_id=art-zimbabwe-debt-001");
+  assert.equal(untrustedHost, null, "Must reject untrusted domains");
+
+  // 6. Fail-closed: Missing article ID returns null
+  const missingId = deepLinksModule.parseHealthTimesDeepLink("https://healthtimes.co.zw/story/");
+  assert.equal(missingId, null, "Must return null when ht_article_id is absent");
+
+  // 7. Fail-closed: Unsupported route (e.g. edition) returns null
+  const unsupportedRoute = deepLinksModule.parseHealthTimesDeepLink("healthtimes://edition");
+  assert.equal(unsupportedRoute, null, "Must reject non-article deep links");
+
+  // 8. Social referral parsing
+  const referral = deepLinksModule.parseSocialReferral("https://healthtimes.co.zw/investigation/?utm_source=twitter&utm_medium=social&utm_campaign=spring2026");
+  assert.deepEqual(referral, {
+    source: "twitter",
+    medium: "social",
+    campaign: "spring2026",
+    content: null,
+    canonicalPath: "/investigation/"
+  });
+
+  const badReferral = deepLinksModule.parseSocialReferral("https://other-domain.com/?utm_source=twitter");
+  assert.equal(badReferral, null, "Must reject external domain referral parsing");
+});
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 12 (Advertising) — zero-space unfulfilled inventory, sensitive health policy, and direct HOSPAZ authority", () => {
+  const adModule = loadTs("src/growth/advertising.ts");
+  const directAdModule = loadTs("src/growth/direct-ad.ts");
+
+  // 1. Sensitive health context returns source "none"
+  const sensitiveDecision = adModule.decideFixtureAd("hospaz-header-direct", {
+    consentForPersonalizedAds: true,
+    sensitiveHealthContext: true
+  });
+  assert.equal(sensitiveDecision.source, "none");
+  assert.equal(sensitiveDecision.personalization, "none");
+  assert.match(sensitiveDecision.policyReason, /Sensitive health context/);
+
+  // 2. Absence of consent returns source "none"
+  const noConsentDecision = adModule.decideFixtureAd("home_after_live", {
+    consentForPersonalizedAds: false,
+    sensitiveHealthContext: false
+  });
+  assert.equal(noConsentDecision.source, "none");
+  assert.equal(noConsentDecision.personalization, "non-personalized");
+
+  // 3. Direct HOSPAZ projection maps known states and provenance
+  const rawHospaz = {
+    advertiser: "HOSPAZ",
+    placement_key: "hospaz-header-direct",
+    current_storage_object: "ads/hospaz-banner.png",
+    destination_url_state: "KNOWN",
+    destination_url: "https://hospaz.org.zw",
+    schedule_state: "KNOWN",
+    schedule: "2026-Q4",
+    placement_conditions_state: "KNOWN",
+    placement_conditions: "All readers"
+  };
+  const projected = directAdModule.projectCp5HospazCapability(rawHospaz, "https://supabase.example.com");
+  assert.equal(projected.kind, "direct-ad");
+  assert.equal(projected.advertiser, "HOSPAZ");
+  assert.equal(projected.placementKey, "hospaz-header-direct");
+  assert.equal(projected.destination.url, "https://hospaz.org.zw");
+  assert.equal(projected.failClosed.clickTargetInvented, false);
+
+  // 4. Direct decision matches placement key
+  const directDecision = directAdModule.directDecisionFromHospazCapability(projected, "hospaz-header-direct");
+  assert.equal(directDecision.source, "direct");
+  assert.equal(directDecision.destinationUrl, "https://hospaz.org.zw");
+  assert.equal(directDecision.disclosureLabel, "Direct advertising · HOSPAZ");
+
+  // 5. Mismatched placement key fails closed to source "none" (triggers zero-space collapse in AdSlot)
+  const mismatchedDecision = directAdModule.directDecisionFromHospazCapability(projected, "article_end");
+  assert.equal(mismatchedDecision.source, "none");
+  assert.match(mismatchedDecision.policyReason, /No verified direct-ad capability is available/);
+
+  // 6. Null capability returns source "none"
+  const nullDecision = directAdModule.directDecisionFromHospazCapability(null, "hospaz-header-direct");
+  assert.equal(nullDecision.source, "none");
+});
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 13B (Notification Settings) — preference storage defaults and atomic mutations", async () => {
+  const store = new Map();
+  const notifPrefModule = loadTs("src/security/notification-preferences.ts", {
+    mocks: {
+      "@react-native-async-storage/async-storage": {
+        getItem: async (key) => store.get(key) ?? null,
+        setItem: async (key, val) => { store.set(key, val); }
+      }
+    }
+  });
+
+  // 1. Default preferences when storage is empty
+  const defaults = await notifPrefModule.getNotificationPreferences();
+  assert.deepEqual(defaults, {
+    breaking: true,
+    live: true,
+    followedTopics: true,
+    premium: true,
+    system: true
+  });
+
+  // 2. Modifying preferences persists and round-trips correctly
+  const updated = {
+    breaking: true,
+    live: false,
+    followedTopics: true,
+    premium: false,
+    system: true
+  };
+  await notifPrefModule.saveNotificationPreferences(updated);
+
+  const reloaded = await notifPrefModule.getNotificationPreferences();
+  assert.deepEqual(reloaded, updated);
+});
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 11 (Premium) — dynamic commerce authority, store offers, and fail-closed entitlement lifecycle", async () => {
+  const store = new Map();
+  const { fixtureServices: s } = loadTs("src/services/fixtures.ts", {
+    mocks: {
+      "@react-native-async-storage/async-storage": {
+        getItem: async (key) => store.get(key) ?? null,
+        setItem: async (key, val) => { store.set(key, val); }
+      },
+      "expo-linking": { createURL: (p) => p, parse: (u) => ({ path: u }) },
+      "react-native": { Platform: { OS: "web" } }
+    }
+  });
+
+  // 1. Entitlement check fails closed when unauthenticated / unentitled
+  const hasEntitlement = await s.premium.hasEntitlement();
+  assert.equal(hasEntitlement, false, "Must return false when entitlement has not been granted");
+
+  // 2. Store offers state fails closed without fabricated product IDs or fake discounts
+  const storeState = await s.premiumStore.getState();
+  assert.equal(storeState.status, "configuration-required");
+  assert.deepEqual(storeState.offers, []);
+  assert.match(storeState.message, /Native storefront products are not configured/);
+
+  // 3. Web commerce authority fails closed without fabricated prices or trial periods
+  const commerceAuth = await s.premiumCommerce.getAuthority();
+  assert.equal(commerceAuth.status, "configuration-required");
+  assert.equal(commerceAuth.price, null);
+  assert.equal(commerceAuth.currency, null);
+  assert.equal(commerceAuth.entitlementGranted, false);
+  assert.match(commerceAuth.message, /Web Premium checkout is unavailable/);
+});
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 13 (Notifications) — notification model categorization and unread filter semantics", async () => {
+  const store = new Map();
+  const { fixtureServices: s } = loadTs("src/services/fixtures.ts", {
+    mocks: {
+      "@react-native-async-storage/async-storage": {
+        getItem: async (key) => store.get(key) ?? null,
+        setItem: async (key, val) => { store.set(key, val); }
+      },
+      "expo-linking": { createURL: (p) => p, parse: (u) => ({ path: u }) },
+      "react-native": { Platform: { OS: "web" } }
+    }
+  });
+
+  const notifs = await s.notifications.list();
+  assert.ok(Array.isArray(notifs), "Notifications list must be an array");
+  assert.ok(notifs.length > 0, "Must contain seed notifications");
+
+  for (const item of notifs) {
+    assert.ok(["breaking", "live", "topic", "premium", "system"].includes(item.category), `Category must be valid: ${item.category}`);
+    assert.equal(typeof item.id, "string");
+    assert.equal(typeof item.title, "string");
+    assert.equal(typeof item.description, "string");
+    assert.equal(typeof item.read, "boolean");
+  }
+});
+
+test("RUNTIME_BEHAVIOR_PROOF: Screen 18 (Onboarding) — dynamic taxonomy binding, preference persistence, and safe defaults", async () => {
+  const store = new Map();
+  const { fixtureServices: s } = loadTs("src/services/fixtures.ts", {
+    mocks: {
+      "@react-native-async-storage/async-storage": {
+        getItem: async (key) => store.get(key) ?? null,
+        setItem: async (key, val) => { store.set(key, val); }
+      },
+      "expo-linking": { createURL: (p) => p, parse: (u) => ({ path: u }) },
+      "react-native": { Platform: { OS: "web" } }
+    }
+  });
+
+  // 1. Taxonomy returns geographic zones for edition selection
+  const snapshot = await s.taxonomy.getSnapshot();
+  assert.ok(Array.isArray(snapshot.geographicZones), "Geographic zones must be an array");
+  const zoneNames = snapshot.geographicZones.map((z) => z.name);
+  assert.ok(zoneNames.includes("Global"), "Must include Global zone");
+  assert.ok(zoneNames.includes("Zimbabwe"), "Must include Zimbabwe zone");
+
+  // 2. Reader preferences default to Global edition
+  const defaultPref = await s.reader.getPreferences();
+  assert.equal(defaultPref.primaryEdition, "Global");
+
+  // 3. Reader preferences can be updated and retrieved
+  await s.reader.savePreferences({
+    primaryEdition: "Zimbabwe",
+    followedCountries: ["Zimbabwe"],
+    followedTopics: ["Public Health"]
+  });
+
+  const updatedPref = await s.reader.getPreferences();
+  assert.equal(updatedPref.primaryEdition, "Zimbabwe");
+  assert.deepEqual(updatedPref.followedCountries, ["Zimbabwe"]);
+  assert.deepEqual(updatedPref.followedTopics, ["Public Health"]);
+});
+
+// ============================================================================
+// PART 2: SOURCE CONTRACT PROOF (Validating component structure & safety)
+// ============================================================================
+
+test("SOURCE_CONTRACT_PROOF: Screen 11 (Premium) — editorial value proposition, benefits, and fails closed without fabricated prices", () => {
   const premium = read("app/premium.tsx");
 
   assert.match(premium, /HEALTHTIMES PREMIUM/);
@@ -24,7 +346,7 @@ test("Screen 11 (Premium): enforces editorial value proposition, benefits, and f
   assert.doesNotMatch(premium, /\$4\.99|\$9\.99|7-day trial|20% OFF|MOST POPULAR/i);
 });
 
-test("Screen 12 (Advertising): respects sensitive health context, zero-space unfulfilled inventory, and verified destinations", () => {
+test("SOURCE_CONTRACT_PROOF: Screen 12 (Advertising) — respects sensitive health context, zero-space unfulfilled inventory, and verified destinations", () => {
   const cards = read("src/ui/Cards.tsx");
   const models = read("src/domain/models.ts");
   const corpus = read("src/services/migrated-corpus.ts");
@@ -40,7 +362,7 @@ test("Screen 12 (Advertising): respects sensitive health context, zero-space unf
   assert.match(corpus, /hospaz-header-direct/);
 });
 
-test("Screen 13 (Notifications & Settings): category filtering, read/unread states, and persistent reader choice", () => {
+test("SOURCE_CONTRACT_PROOF: Screen 13 (Notifications & Settings) — category filtering, read/unread states, and persistent reader choice", () => {
   const notifs = read("app/notifications.tsx");
   const settings = read("app/notification-settings.tsx");
 
@@ -50,15 +372,17 @@ test("Screen 13 (Notifications & Settings): category filtering, read/unread stat
   }
   assert.match(notifs, /new Date\(item\.createdAt\)\.toLocaleString\(\)/);
   assert.match(notifs, /No notifications/);
+  assert.match(notifs, /accessibilityRole=\{item\.destination \? "link" : "none"\}/);
 
   assert.match(settings, /title="Notification Settings"/);
   assert.match(settings, /getNotificationPreferences/);
   assert.match(settings, /saveNotificationPreferences/);
   assert.match(settings, /Enable native push/);
   assert.match(settings, /AG-06 supplies a server registration and revocation endpoint/);
+  assert.match(settings, /accessibilityRole="switch"/);
 });
 
-test("Screen 14 (Social & Deep Link): canonical attributed URLs, host validation, and deep-link parsing", () => {
+test("SOURCE_CONTRACT_PROOF: Screen 14 (Social & Deep Link) — canonical attributed URLs, host validation, and deep-link parsing", () => {
   const deepLinks = read("src/growth/deepLinks.ts");
   const layout = read("app/_layout.tsx");
 
@@ -75,7 +399,7 @@ test("Screen 14 (Social & Deep Link): canonical attributed URLs, host validation
   assert.match(layout, /Linking\.addEventListener\("url"/);
 });
 
-test("Screen 15 (Analytics & Safety Boundary): prohibits sensitive health attributes and exposes real diagnostic status", () => {
+test("SOURCE_CONTRACT_PROOF: Screen 15 (Analytics & Safety Boundary) — prohibits sensitive health attributes and exposes real diagnostic status", () => {
   const events = read("src/growth/events.ts");
   const growth = read("app/growth-status.tsx");
   const system = read("app/system-status.tsx");
@@ -104,7 +428,7 @@ test("Screen 15 (Analytics & Safety Boundary): prohibits sensitive health attrib
   assert.match(system, /EDITORIAL DATA/);
 });
 
-test("Screen 18 (Onboarding): clean entry experience with minimal chrome, step sequence, and preference persistence", () => {
+test("SOURCE_CONTRACT_PROOF: Screen 18 (Onboarding) — clean entry experience with minimal chrome, step sequence, and preference persistence", () => {
   const onboarding = read("app/onboarding.tsx");
 
   assert.match(onboarding, /Page chrome=\{false\}/);
@@ -116,9 +440,14 @@ test("Screen 18 (Onboarding): clean entry experience with minimal chrome, step s
   assert.match(onboarding, /Existing account\? Sign in/);
   assert.match(onboarding, /services\.reader\.savePreferences/);
   assert.match(onboarding, /services\.deviceSecurity\.saveNotificationPreferences/);
+  assert.match(onboarding, /accessibilityRole="button"/);
 });
 
-test("Cross-Product Journey 1 (Premium): full acquisition, paywall, commerce, entitlement, and member state", () => {
+// ============================================================================
+// PART 3: FIVE CROSS-PRODUCT USER JOURNEYS
+// ============================================================================
+
+test("CROSS_PRODUCT_JOURNEY: Journey 1 (Premium) — full acquisition, paywall, commerce, entitlement, and member state", () => {
   const home = read("app/(reader)/index.tsx");
   const article = read("app/article/[id].tsx");
   const premium = read("app/premium.tsx");
@@ -136,7 +465,7 @@ test("Cross-Product Journey 1 (Premium): full acquisition, paywall, commerce, en
   assert.match(my, /path:"\/premium"/);
 });
 
-test("Cross-Product Journey 2 (Notification): settings change, persistence, and categorized notifications", () => {
+test("CROSS_PRODUCT_JOURNEY: Journey 2 (Notification) — settings change, persistence, and categorized notifications", () => {
   const my = read("app/(reader)/my.tsx");
   const settings = read("app/notification-settings.tsx");
   const notifs = read("app/notifications.tsx");
@@ -148,7 +477,7 @@ test("Cross-Product Journey 2 (Notification): settings change, persistence, and 
   assert.match(notifs, /item\.destination/);
 });
 
-test("Cross-Product Journey 3 (Share / Deep Link): canonical attributed URL generation and deep-link routing", () => {
+test("CROSS_PRODUCT_JOURNEY: Journey 3 (Share / Deep Link) — canonical attributed URL generation and deep-link routing", () => {
   const article = read("app/article/[id].tsx");
   const deepLinks = read("src/growth/deepLinks.ts");
   const layout = read("app/_layout.tsx");
@@ -159,7 +488,7 @@ test("Cross-Product Journey 3 (Share / Deep Link): canonical attributed URL gene
   assert.match(layout, /router\.push\(\("\/article\/" \+ encodeURIComponent\(destination\.articleId\)\) as never\)/);
 });
 
-test("Cross-Product Journey 4 (Advertising): inventory placements, direct HOSPAZ authority, and zero-space unfilled", () => {
+test("CROSS_PRODUCT_JOURNEY: Journey 4 (Advertising) — inventory placements, direct HOSPAZ authority, and zero-space unfilled", () => {
   const home = read("app/(reader)/index.tsx");
   const article = read("app/article/[id].tsx");
   const watch = read("app/(reader)/watch.tsx");
@@ -174,7 +503,7 @@ test("Cross-Product Journey 4 (Advertising): inventory placements, direct HOSPAZ
   assert.match(cards, /if\(!adDecision \|\| adDecision\.source === "none" \|\| !adDecision\.creativeUrl\) return null;/);
 });
 
-test("Cross-Product Journey 5 (Onboarding): entry, step progression, preferences persistence, and Home entry", () => {
+test("CROSS_PRODUCT_JOURNEY: Journey 5 (Onboarding) — entry, step progression, preferences persistence, and Home entry", () => {
   const onboarding = read("app/onboarding.tsx");
 
   assert.match(onboarding, /router\.replace\("\/" as never\)/);
@@ -182,4 +511,3 @@ test("Cross-Product Journey 5 (Onboarding): entry, step progression, preferences
   assert.match(onboarding, /services\.reader\.savePreferences/);
   assert.match(onboarding, /services\.deviceSecurity\.saveNotificationPreferences/);
 });
-
