@@ -645,7 +645,7 @@ async function stagingAdvertisingEvidence(){
       ad_source:"direct",
       disclosure:true,
       ad_disclosure:true,
-      ad_clickable:false,
+      ad_clickable:expectedClickable,
       creative_url:creative.url,
       creative_complete:creative.complete,
       creative_natural_width:creative.natural_width,
