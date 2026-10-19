@@ -394,6 +394,73 @@ export function AudioCard({ item }: { item: AudioItem }) {
   );
 }
 
+export type AdPlacementFamily =
+  | "direct_header"
+  | "home_feed"
+  | "media_feed"
+  | "article_after_intro"
+  | "article_end";
+
+export type AdViewportVariant =
+  | "mobile_banner"
+  | "tablet_banner"
+  | "desktop_leaderboard"
+  | "mobile_feed_banner"
+  | "tablet_in_content"
+  | "desktop_in_content"
+  | "mobile_media_feed"
+  | "tablet_media_feed"
+  | "desktop_media_feed"
+  | "mobile_in_article_rectangle"
+  | "tablet_in_article"
+  | "desktop_in_article"
+  | "mobile_article_end"
+  | "tablet_article_end"
+  | "desktop_article_end";
+
+export function resolveAdPlacementPresentation(placement: AdPlacementKey, width: number): {
+  family: AdPlacementFamily;
+  variant: AdViewportVariant;
+  fallbackAspect: number;
+} {
+  const desktop=width>=breakpoints.desktop;
+  const tablet=width>=breakpoints.tablet && !desktop;
+
+  if(placement==="hospaz-header-direct" || placement==="home_top"){
+    return {
+      family:"direct_header",
+      variant:desktop ? "desktop_leaderboard" : tablet ? "tablet_banner" : "mobile_banner",
+      fallbackAspect:desktop ? 8/1 : tablet ? 6/1 : 16/3
+    };
+  }
+  if(placement==="article_after_intro"){
+    return {
+      family:"article_after_intro",
+      variant:desktop ? "desktop_in_article" : tablet ? "tablet_in_article" : "mobile_in_article_rectangle",
+      fallbackAspect:width<breakpoints.tablet ? 6/5 : desktop ? 6/1 : 5/1
+    };
+  }
+  if(placement==="article_end"){
+    return {
+      family:"article_end",
+      variant:desktop ? "desktop_article_end" : tablet ? "tablet_article_end" : "mobile_article_end",
+      fallbackAspect:desktop ? 8/1 : tablet ? 6/1 : 16/4
+    };
+  }
+  if(placement==="watch_feed" || placement==="live_feed"){
+    return {
+      family:"media_feed",
+      variant:desktop ? "desktop_media_feed" : tablet ? "tablet_media_feed" : "mobile_media_feed",
+      fallbackAspect:desktop ? 7/1 : tablet ? 5/1 : 16/5
+    };
+  }
+  return {
+    family:"home_feed",
+    variant:desktop ? "desktop_in_content" : tablet ? "tablet_in_content" : "mobile_feed_banner",
+    fallbackAspect:desktop ? 8/1 : tablet ? 6/1 : 16/5
+  };
+}
+
 export function AdSlot({
   placement,
   sensitiveHealthContext = true
@@ -402,7 +469,7 @@ export function AdSlot({
   sensitiveHealthContext?: boolean;
 }) {
   const { palette }=useAppearance();
-  const { width }=useWindowDimensions();
+  const width=useHydratedCardWidth();
   const impressionKey=useRef("");
   const [creativeAspect,setCreativeAspect]=useState<number|null>(null);
   const decision=useAsync(
@@ -437,9 +504,13 @@ export function AdSlot({
   const clickable=/^https:\/\//i.test(destination);
   const desktop=width>=breakpoints.desktop;
   const tablet=width>=breakpoints.tablet && !desktop;
-  const inArticle=placement==="article_after_intro";
-  const articleEnd=placement==="article_end";
-  const fallbackAspect=inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 8/1 : tablet ? 6/1 : 16/3;
+  const presentation=resolveAdPlacementPresentation(placement,width);
+  const { family, fallbackAspect }=presentation;
+  const directHeader=family==="direct_header";
+  const homeFeed=family==="home_feed";
+  const mediaFeed=family==="media_feed";
+  const inArticle=family==="article_after_intro";
+  const articleEnd=family==="article_end";
 
   const openDestination=()=>{
     if(!clickable) return;
@@ -471,14 +542,26 @@ export function AdSlot({
 
   return (
     <View
+      testID={"ad-slot-"+placement}
       style={[
         styles.adSlot,
         {backgroundColor:palette.paperMuted,borderColor:palette.border},
+        directHeader && styles.adSlotDirectHeader,
+        directHeader && desktop && styles.adSlotDirectHeaderDesktop,
+        homeFeed && styles.adSlotHomeFeed,
+        homeFeed && width<breakpoints.tablet && styles.adSlotMobileFeedBanner,
+        homeFeed && tablet && styles.adSlotTablet,
+        homeFeed && desktop && styles.adSlotDesktop,
+        mediaFeed && styles.adSlotMediaFeed,
+        mediaFeed && width<breakpoints.tablet && styles.adSlotMobileFeedBanner,
+        mediaFeed && tablet && styles.adSlotTablet,
+        mediaFeed && desktop && styles.adSlotDesktop,
         inArticle && styles.adSlotInArticle,
         inArticle && width<breakpoints.tablet && styles.adSlotMobileRectangle,
         inArticle && tablet && styles.adSlotTablet,
         inArticle && desktop && styles.adSlotDesktop,
-        articleEnd && styles.adSlotArticleEnd
+        articleEnd && styles.adSlotArticleEnd,
+        articleEnd && desktop && styles.adSlotArticleEndDesktop
       ]}
       accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
     >
@@ -597,11 +680,17 @@ const styles=StyleSheet.create({
   audioTitle:{fontSize:17,fontWeight:"900",lineHeight:22},
   audioUnavailable:{fontSize:10,fontWeight:"800",letterSpacing:.4,textTransform:"uppercase"},
   adSlot:{width:"100%",borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
-  adSlotInArticle:{alignSelf:"center",maxWidth:760},
-  adSlotMobileRectangle:{maxWidth:360,paddingVertical:spacing.lg},
-  adSlotTablet:{maxWidth:640},
-  adSlotDesktop:{maxWidth:900},
-  adSlotArticleEnd:{maxWidth:980,alignSelf:"center"},
+  adSlotDirectHeader:{alignSelf:"center",maxWidth:1180,borderWidth:1,borderRadius:radius.sm,paddingVertical:spacing.md,paddingHorizontal:spacing.md},
+  adSlotDirectHeaderDesktop:{paddingHorizontal:spacing.lg},
+  adSlotHomeFeed:{alignSelf:"center",maxWidth:960,borderRadius:radius.sm},
+  adSlotMediaFeed:{alignSelf:"center",maxWidth:920,marginVertical:spacing.md,borderWidth:1,borderRadius:radius.sm},
+  adSlotMobileFeedBanner:{maxWidth:440,paddingVertical:spacing.sm},
+  adSlotInArticle:{alignSelf:"center",maxWidth:760,borderWidth:1,borderRadius:radius.sm},
+  adSlotMobileRectangle:{maxWidth:336,paddingVertical:spacing.md},
+  adSlotTablet:{maxWidth:680},
+  adSlotDesktop:{maxWidth:760},
+  adSlotArticleEnd:{maxWidth:760,alignSelf:"center",marginTop:spacing.md,borderWidth:1,borderRadius:radius.sm,paddingVertical:spacing.md},
+  adSlotArticleEndDesktop:{maxWidth:880},
   adLabel:{fontSize:9,fontWeight:"900",letterSpacing:1.4},
   adPlacement:{fontSize:12,fontWeight:"800",textAlign:"center"},
   adCreativePressable:{width:"100%"},

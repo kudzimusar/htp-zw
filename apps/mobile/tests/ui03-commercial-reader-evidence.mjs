@@ -595,6 +595,7 @@ async function stagingAdvertisingEvidence(){
     const react418=assertClean("HOSPAZ "+name,diag);
     const file=path.join(root,"advertising",name+"-hospaz-direct.png");
     await page.screenshot({path:file,fullPage:true});
+    fs.copyFileSync(file,path.join(root,"advertising","hospaz-"+name+".png"));
     results.push({
       viewport:name,...viewport,status,
       placement:"hospaz-header-direct",
@@ -607,8 +608,11 @@ async function stagingAdvertisingEvidence(){
       creative_complete:creative.complete,
       creative_natural_width:creative.natural_width,
       creative_natural_height:creative.natural_height,
+      destination_state:"UNKNOWN",
       destination_verified:false,
       clickable:false,
+      schedule_state:"UNKNOWN",
+      placement_conditions_state:"UNKNOWN",
       sensitive_health_context:true,
       personalization:"none",
       file,
