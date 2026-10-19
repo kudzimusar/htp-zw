@@ -33,7 +33,8 @@
     "test:ui05": "node --test tests/ui05-phase6b-quality.test.mjs",
     "test:ui-wf01b-r2": "node --test tests/ui-wf01b-r2-home.test.mjs",
     "test:ui-wf02a": "node --test tests/ui-wf02a-search.test.mjs",
-    "test:ui-wf03": "node --test tests/ui-wf03-media.test.mjs"
+    "test:ui-wf03": "node --test tests/ui-wf03-media.test.mjs",
+    "test:ui-wf05": "node --test tests/ui-wf05-reader-completion.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
