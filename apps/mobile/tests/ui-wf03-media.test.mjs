@@ -77,20 +77,8 @@ test("Screen 7 (Listen) preserves fail-closed audio authority without fake playb
   assert.doesNotMatch(cards, /audioButton:/);
 });
 
-test("Additive MediaComponents module exports typed wireframe-faithful components", () => {
-  assert.equal(existsSync(join(root, "src/ui/MediaComponents.tsx")), true);
-  const media = read("src/ui/MediaComponents.tsx");
-
-  assert.match(media, /export function LiveFeaturedCard/);
-  assert.match(media, /export function LiveRowItem/);
-  assert.match(media, /export function WatchVideoRow/);
-  assert.match(media, /export function ListenPlayerSurface/);
-  assert.match(media, /export function ListenAudioRow/);
-  assert.match(media, /Playback unavailable/);
-  assert.match(media, /Watch on YouTube/);
-});
-
 test("Upstream frozen routes remain untouched", () => {
+  assert.equal(existsSync(join(root, "src/ui/MediaComponents.tsx")), false, "Unused duplicate MediaComponents module must not exist");
   const home = read("app/(reader)/index.tsx");
   const search = read("app/(reader)/search.tsx");
   const article = read("app/article/[id].tsx");
