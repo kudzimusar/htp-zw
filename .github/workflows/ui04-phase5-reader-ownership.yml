@@ -236,7 +236,7 @@ jobs:
                 if(name==='saved-populated'){
                   if(await page.getByText('Nothing saved yet',{exact:true}).count()) throw new Error(viewport+' Saved did not populate');
                   if(seededHeroAlt){
-                    const hero=page.getByLabel(seededHeroAlt,{exact:true}).first();
+                    const hero=page.locator('[aria-label="'+seededHeroAlt.replace(/"/g,'\\"')+'"]:visible').first();
                     await hero.waitFor({state:'visible',timeout:30000});
                     await page.waitForFunction((alt)=>{
                       const candidates=[...document.querySelectorAll('[aria-label]')].filter((element)=>element.getAttribute('aria-label')===alt);
