@@ -306,17 +306,98 @@ async function loadFeedDocuments(limit = FEED_LIMIT) {
   return articles;
 }
 
-async function loadContext(kind: "category" | "tag" | "author", slug: string) {
-  const context = await rpc<ContextDocument | null>("ag05_public_context_document", {
-    p_path: "/" + kind + "/" + encodeURIComponent(slug) + "/"
-  });
-  if (!context?.items) return [];
+const CONTEXT_LIMIT = 50;
+
+async function loadContext(kind: "category" | "tag" | "author", slug: string): Promise<ArticleDetail[]> {
+  const normalizedSlug = slug.trim().toLowerCase();
+  if (!normalizedSlug) return [];
+
+  let legacyDoc: ContextDocument | null = null;
+  let legacyFailed = false;
+
+  try {
+    legacyDoc = await rpc<ContextDocument | null>("ag05_public_context_document", {
+      p_path: "/" + kind + "/" + encodeURIComponent(normalizedSlug) + "/"
+    });
+  } catch {
+    legacyFailed = true;
+  }
+
+  let nativeDoc: ContextDocument | null = null;
+  let nativeFailed = false;
+
+  if (kind === "category" || kind === "author") {
+    try {
+      nativeDoc = await rpc<ContextDocument | null>("newsroom_public_context_document", {
+        p_kind: kind === "category" ? "section" : kind,
+        p_slug: normalizedSlug,
+        p_limit: CONTEXT_LIMIT
+      });
+    } catch {
+      try {
+        nativeDoc = await rpc<ContextDocument | null>("newsroom_public_context_document", {
+          p_path: "/" + kind + "/" + encodeURIComponent(normalizedSlug) + "/"
+        });
+      } catch {
+        nativeFailed = true;
+      }
+    }
+  }
+
+  if (legacyFailed && (kind === "tag" || nativeFailed)) {
+    throw new Error(`Dual context resolution failed closed for ${kind}:${slug}`);
+  }
+
+  const legacyItems = legacyDoc?.items ?? [];
+  const nativeItems = nativeDoc?.items ?? [];
+
+  if (legacyItems.length === 0 && nativeItems.length === 0) {
+    return [];
+  }
+
+  const urls = [
+    ...legacyItems.map((item) => item.canonical_url ?? null),
+    ...nativeItems.map((item) => item.canonical_url ?? null)
+  ].filter((url): url is string => Boolean(url));
+
+  const uniqueUrls = Array.from(new Set(urls));
+
   const mapped = await mapInBatches(
-    context.items.map((item) => item.canonical_url ?? null),
+    uniqueUrls,
     DETAIL_BATCH_SIZE,
     storyForCanonicalUrl
   );
-  return mapped.filter((article): article is ArticleDetail => Boolean(article));
+
+  const articles = mapped.filter((article): article is ArticleDetail => Boolean(article));
+
+  const seenKeys = new Set<string>();
+  const seenPaths = new Set<string>();
+
+  const deduped = articles.filter((article) => {
+    const storyKey = article.canonicalStoryId
+      ? "story:" + article.canonicalStoryId
+      : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+    const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
+
+    if (seenKeys.has(storyKey)) return false;
+    if (pathKey && seenPaths.has(pathKey)) return false;
+
+    seenKeys.add(storyKey);
+    if (pathKey) seenPaths.add(pathKey);
+    return true;
+  });
+
+  deduped.sort((a, b) => {
+    const timeA = publishedTime(a.publishedAt);
+    const timeB = publishedTime(b.publishedAt);
+    if (timeA !== timeB) return timeB - timeA;
+    const modA = publishedTime(a.modifiedAt);
+    const modB = publishedTime(b.modifiedAt);
+    if (modA !== modB) return modB - modA;
+    return (a.canonicalStoryId || a.id).localeCompare(b.canonicalStoryId || b.id);
+  });
+
+  return deduped.slice(0, CONTEXT_LIMIT);
 }
 
 async function resolveIdentity(id: string) {
@@ -574,6 +655,7 @@ export const migratedCorpusStatus = {
   ] as const,
   nativePublicFunctions: [
     "newsroom_public_story_document",
-    "newsroom_public_published_stories"
+    "newsroom_public_published_stories",
+    "newsroom_public_context_document"
   ] as const
 };
