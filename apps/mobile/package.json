@@ -35,7 +35,8 @@
     "test:ui-wf02a": "node --test tests/ui-wf02a-search.test.mjs",
     "test:ui-wf03": "node --test tests/ui-wf03-media.test.mjs",
     "test:ui-wf05": "node --test tests/ui-wf05-reader-completion.test.mjs",
-    "test:ui-nr-native-discovery": "node --test tests/ui-nr-native-discovery.test.mjs"
+    "test:ui-nr-native-discovery": "node --test tests/ui-nr-native-discovery.test.mjs",
+    "test:ui-nr-native-context": "node --test tests/ui-nr-native-context.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.10",
