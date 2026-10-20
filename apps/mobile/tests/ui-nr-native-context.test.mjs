@@ -31,16 +31,22 @@ const headers = {
 // SECTION 28: SECURITY CONTRACT & MIGRATION VERIFICATION
 // =========================================================================
 
-test("SECURITY CONTRACT: migration file exists and enforces strict public boundary", () => {
-  const migrationPath = "supabase/migrations/20261020041108_ui_nr_conv02_native_context_discovery.sql";
-  assert.equal(existsSync(join(repoRoot, migrationPath)), true, "Migration file must exist");
-  const sql = readRepo(migrationPath);
+test("SECURITY CONTRACT: migration files exist and enforce strict public and HTTPS media boundary", () => {
+  const conv02Migration = "supabase/migrations/20261020041108_ui_nr_conv02_native_context_discovery.sql";
+  const r1HttpsMigration = "supabase/migrations/20261020042423_ui_nr_conv02_r1_context_media_https_boundary.sql";
+  assert.equal(existsSync(join(repoRoot, conv02Migration)), true, "CONV-02 migration file must exist");
+  assert.equal(existsSync(join(repoRoot, r1HttpsMigration)), true, "R1 HTTPS hardening migration file must exist");
+  const sql = readRepo(conv02Migration);
+  const r1Sql = readRepo(r1HttpsMigration);
 
-  // Function signature & mode
+  // Function signature & mode across both migrations
   assert.match(sql, /create or replace function public\.newsroom_public_context_document\s*\(\s*p_kind text,\s*p_slug text,\s*p_limit integer default 50\s*\)/i);
   assert.match(sql, /create or replace function public\.newsroom_public_context_document\s*\(\s*p_path text\s*\)/i);
   assert.match(sql, /security definer/i, "Must use security definer");
   assert.match(sql, /set search_path\s*=\s*public/i, "Must pin search_path to public");
+
+  // R1 migration enforces explicit HTTPS predicate
+  assert.match(r1Sql, /ma\.public_url\s*~\*\s*'\^https:\/\/'/i, "R1 migration must enforce explicit HTTPS predicate");
 
   // Whitelist of allowed kinds & fail-closed behaviour
   assert.match(sql, /v_kind in \('category',\s*'section'\)/i, "Must explicitly allow category and section");
@@ -67,8 +73,9 @@ test("SECURITY CONTRACT: migration file exists and enforces strict public bounda
   assert.match(sql, /revoke all on function public\.newsroom_public_context_document\(text\)\s*from public/i);
   assert.match(sql, /grant execute on function public\.newsroom_public_context_document\(text\)\s*to anon,\s*authenticated,\s*service_role/i);
 
-  // No direct table grants modified
+  // No direct table grants introduced by CONV-02
   assert.doesNotMatch(sql, /grant (select|insert|update|delete) on (public\.)?(stories|sections|authors|media_assets) to anon/i, "Must not grant direct table access to anon");
+  assert.doesNotMatch(r1Sql, /grant (select|insert|update|delete) on (public\.)?(stories|sections|authors|media_assets) to anon/i, "R1 must not grant direct table access to anon");
 });
 
 test("SOURCE CONTRACT: migrated-corpus.ts implements dual-authority context convergence", () => {
@@ -333,4 +340,15 @@ test("20. LIVE STAGING RPC: newsroom_public_context_document live readback on gc
 
   // Zero-state condition verified truthfully
   assert.equal(categoryDoc.items.length, 0, "Current staging contains 0 published native stories (STAGING_DATA_CONDITION)");
+
+  // Inherited table ACL & RLS verification
+  const authorsRes = await fetch(`${url}/rest/v1/authors?select=id`, { headers });
+  assert.equal(authorsRes.ok, true);
+  const authorsRows = await authorsRes.json();
+  assert.equal(Array.isArray(authorsRows) && authorsRows.length === 0, true, "RLS must ensure 0 authors visible to anon");
+
+  const sectionsRes = await fetch(`${url}/rest/v1/sections?select=id`, { headers });
+  assert.equal(sectionsRes.ok, true);
+  const sectionsRows = await sectionsRes.json();
+  assert.equal(Array.isArray(sectionsRows) && sectionsRows.length === 0, true, "RLS must ensure 0 sections visible to anon");
 });
