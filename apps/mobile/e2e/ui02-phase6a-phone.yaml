@@ -263,6 +263,11 @@ appId: zw.co.healthtimes.app.dev
             text: "Appearance / Theme.*"
           direction: DOWN
           timeout: 20000
+          centerElement: true
+          visibilityPercentage: 100
+      - waitForAnimationToEnd
+      - assertVisible: "Appearance / Theme.*"
+      - takeScreenshot: my-appearance-target-ios
       - tapOn: "Appearance / Theme.*"
 - runFlow:
     when:

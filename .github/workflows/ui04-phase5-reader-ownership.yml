@@ -193,6 +193,7 @@ jobs:
               const article=await context.newPage();
               let seededArticleTitle='';
               let seededHeroAlt='';
+              let seededHeroUrl='';
               {
                 const seed=await navigateClean(article,viewport+' ownership-seed','/article/'+articleId,null);
                 const save=article.getByRole('button',{name:'Save article'});
@@ -208,11 +209,13 @@ jobs:
                   const downloads=raw ? JSON.parse(raw) : {};
                   return {
                     title:String(downloads?.[id]?.title ?? '').trim(),
-                    heroAlt:String(downloads?.[id]?.heroMedia?.altText ?? '').trim()
+                    heroAlt:String(downloads?.[id]?.heroMedia?.altText ?? '').trim(),
+                    heroUrl:String(downloads?.[id]?.heroMedia?.publicUrl ?? '').trim()
                   };
                 },articleId);
                 seededArticleTitle=seededArticle.title;
                 seededHeroAlt=seededArticle.heroAlt;
+                seededHeroUrl=seededArticle.heroUrl;
                 if(!seededArticleTitle) throw new Error(viewport+' seeded article title was not persisted with the download');
                 await article.evaluate((id)=>{
                   localStorage.setItem('ht:nm04:reader:history:v1',JSON.stringify([id]));
@@ -235,24 +238,46 @@ jobs:
                 let ownershipEvidence={ownershipState:'populated'};
                 if(name==='saved-populated'){
                   if(await page.getByText('Nothing saved yet',{exact:true}).count()) throw new Error(viewport+' Saved did not populate');
-                  if(seededHeroAlt){
-                    const hero=page.getByLabel(seededHeroAlt,{exact:true}).first();
-                    await hero.waitFor({state:'visible',timeout:30000});
-                    await page.waitForFunction((alt)=>{
-                      const candidates=[...document.querySelectorAll('[aria-label]')].filter((element)=>element.getAttribute('aria-label')===alt);
-                      const visible=candidates.find((element)=>{
-                        const rect=element.getBoundingClientRect();
-                        const style=getComputedStyle(element);
-                        return rect.width>0 && rect.height>0 && style.visibility!=='hidden' && style.display!=='none';
-                      });
-                      if(!visible) return false;
-                      if(visible instanceof HTMLImageElement) return visible.complete && visible.naturalWidth>0;
-                      const img=visible.querySelector('img');
-                      if(img) return img.complete && img.naturalWidth>0;
-                      const background=getComputedStyle(visible).backgroundImage;
-                      return Boolean(background && background!=='none');
-                    },seededHeroAlt,{timeout:30000});
-                  }
+                  const savedCard=page.locator('[role="link"][aria-label="'+seededArticleTitle.replace(/"/g,'\\"')+'"]:visible').first();
+                  await savedCard.waitFor({state:'visible',timeout:30000});
+                  if(!seededHeroUrl) throw new Error(viewport+' persisted Article expected hero media URL');
+                  await page.waitForFunction(({title,expectedUrl})=>{
+                    const links=[...document.querySelectorAll('[role="link"][aria-label]')].filter((el)=>el.getAttribute('aria-label')===title);
+                    const card=links.find((el)=>{
+                      const rect=el.getBoundingClientRect();
+                      const style=getComputedStyle(el);
+                      return rect.width>0 && rect.height>0 && style.visibility!=='hidden' && style.display!=='none';
+                    });
+                    if(!card) return false;
+                    let urlToken=expectedUrl;
+                    try{ urlToken=new URL(expectedUrl).pathname.split('/').filter(Boolean).pop()||expectedUrl; }catch{}
+                    const imgs=[...card.querySelectorAll('img')];
+                    for(const img of imgs){
+                      const rect=img.getBoundingClientRect();
+                      const src=img.currentSrc||img.src||'';
+                      if(rect.width>0 && rect.height>0 && img.complete && img.naturalWidth>0 && (src===expectedUrl || src.includes(urlToken))){
+                        return true;
+                      }
+                    }
+                    const bgNodes=[card,...card.querySelectorAll('*')];
+                    for(const node of bgNodes){
+                      const rect=node.getBoundingClientRect();
+                      if(rect.width<=0 || rect.height<=0) continue;
+                      const bg=getComputedStyle(node).backgroundImage||'';
+                      if(bg && bg!=='none' && (bg.includes(expectedUrl) || bg.includes(urlToken))){
+                        return true;
+                      }
+                    }
+                    return false;
+                  },{title:seededArticleTitle,expectedUrl:seededHeroUrl},{timeout:30000});
+                  ownershipEvidence={
+                    ownershipState:'populated',
+                    seededArticleTitle,
+                    seededHeroAlt,
+                    seededHeroUrl,
+                    savedCardVisible:true,
+                    savedMediaLoaded:true
+                  };
                 }
                 if(name==='offline-populated'){
                   await page.getByText('Remove download',{exact:true}).first().waitFor({timeout:30000});

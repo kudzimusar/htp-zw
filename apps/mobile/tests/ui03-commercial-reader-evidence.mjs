@@ -5,7 +5,7 @@ import path from "node:path";
 const base="http://127.0.0.1:4174";
 const candidateSha=process.env.EXPECTED_SHA ?? "";
 const baseSha=process.env.UI03_BASE_SHA ?? "";
-const branch=process.env.BRANCH_NAME ?? "feat/ui-wf02b-premium-paywall-ad-convergence";
+const branch=process.env.BRANCH_NAME ?? "feat/ui-wf02c-premium-landing-convergence";
 const previewSeconds=20;
 const publicId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
 const publicTitle="Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt";
@@ -154,6 +154,25 @@ async function resolvedPremiumJournalism(page,label){
   await region.waitFor({state:"visible",timeout:30000});
   const count=await region.getByRole("link").count();
   if(count<1) throw new Error(label+" resolved without source-backed Premium journalism");
+  const images=region.locator("img:visible");
+  const imageCount=await images.count();
+  for(let index=0;index<imageCount;index+=1){
+    const image=images.nth(index);
+    await image.waitFor({state:"visible",timeout:30000});
+    const handle=await image.elementHandle();
+    if(!handle) throw new Error(label+" Premium journalism image handle unavailable at index "+index);
+    try{
+      await page.waitForFunction(
+        img=>img.complete===true && img.naturalWidth>0 && img.naturalHeight>0,
+        handle,
+        {timeout:30000}
+      );
+    }catch{
+      throw new Error(label+" Premium journalism image did not settle at index "+index);
+    }finally{
+      await handle.dispose();
+    }
+  }
   return count;
 }
 
@@ -393,8 +412,13 @@ async function sourceParityEvidence(){
     const diag=diagnostics(page);
     const status=await open(page,"/premium","premium landing "+name);
     await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
+    await page.locator('[data-testid="premium-landing-masthead"]:visible').first().waitFor({state:"visible",timeout:10000});
+    await page.locator('[data-testid="premium-member-access-card"]:visible').first().waitFor({state:"visible",timeout:10000});
+    await page.locator('[data-testid="premium-commerce-unavailable"]:visible').first().waitFor({state:"visible",timeout:10000});
     await waitForVisibleBodyText(page,"Membership options aren't available here yet",10000);
     await waitForBodyTextAbsent(page,"Checking member access…",30000);
+    await waitForVisibleBodyText(page,"Already a member?",10000);
+    await waitForVisibleBodyText(page,"Sign in as existing member",10000);
     const premiumStoryCount=await resolvedPremiumJournalism(page,"premium landing "+name);
     const body=await page.locator("body").innerText();
     for(const forbidden of ["on this build","approved store","secure member service","configuration-required"]){
@@ -410,6 +434,7 @@ async function sourceParityEvidence(){
     const react418=assertClean("premium landing "+name,diag);
     const file=path.join(root,"premium",name+".png");
     await page.screenshot({path:file,fullPage:true});
+    fs.copyFileSync(file,path.join(root,"premium","premium-"+name+".png"));
     premiumLanding.push({
       viewport:name,...viewport,status,file,
       premium_stories_loading:false,
@@ -470,6 +495,10 @@ async function sourceParityEvidence(){
     const react418=assertClean("dark "+name,diag);
     const file=path.join(root,"dark",name+"-mobile.png");
     await page.screenshot({path:file,fullPage:true});
+    if(name==="premium-landing"){
+      fs.copyFileSync(file,path.join(root,"premium","premium-dark-mobile.png"));
+      fs.copyFileSync(file,path.join(root,"dark","premium-dark-mobile.png"));
+    }
     dark.push({
       name,file,viewport:"mobile",...viewports.mobile,
       appearance_preference:appearancePreference,
