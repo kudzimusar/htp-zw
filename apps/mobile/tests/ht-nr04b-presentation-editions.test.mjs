@@ -459,6 +459,15 @@ test("HT-NR-04B: Reader Home connects to services.presentation and preserves zer
     /presentationState = useAsync\(async \(\) => \{\s*try \{\s*return await services\.presentation\.getPublicHomepagePresentations\(resolvedEditionSlug\);\s*\} catch \{\s*return \[\];\s*\}\s*\}, \[resolvedEditionSlug\]\);/,
     "Reader home must safely catch and fall back to [] when presentation service errors"
   );
+
+  // React Rules of Hooks invariant: presentationState useAsync must execute before loading/error early returns
+  const presentationHookIndex = readerHomeContent.indexOf("const presentationState = useAsync");
+  const loadingReturnIndex = readerHomeContent.indexOf("if (home.loading) return");
+  assert.ok(presentationHookIndex > -1 && loadingReturnIndex > -1, "Both presentationState hook and loading guard must exist");
+  assert.ok(
+    presentationHookIndex < loadingReturnIndex,
+    "presentationState useAsync must be called unconditionally before home.loading early return"
+  );
 });
 
 // ---------------------------------------------------------------------------

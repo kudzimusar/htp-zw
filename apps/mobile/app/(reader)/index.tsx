@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { ArticleSummary, EditionPreference, PublicationLink } from "../../src/domain/models";
+import type {
+  ArticleSummary,
+  CuratedHomepageSectionKey,
+  EditionPreference,
+  PublicationLink,
+  PublicHomepagePresentation
+} from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
 import { EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
@@ -17,6 +23,10 @@ function publishedTime(story:ArticleSummary){
 
 function normalized(value:string){
   return value.trim().toLowerCase();
+}
+
+function storyIdentity(story: ArticleSummary): string {
+  return story.canonicalStoryId || story.slug || story.id;
 }
 
 function sourceTerms(story:ArticleSummary){
@@ -59,6 +69,57 @@ function uniqueStories(stories:ArticleSummary[]){
     seen.add(story.id);
     return true;
   });
+}
+
+function overlayCuratedSection(
+  sectionKey: CuratedHomepageSectionKey,
+  naturalList: ArticleSummary[],
+  presentations: PublicHomepagePresentation[],
+  excludedIdentities: Set<string>
+): ArticleSummary[] {
+  if (!presentations.length) return naturalList;
+
+  const curatedByRank = new Map<number, ArticleSummary>();
+  for (let rank = 1; rank <= 6; rank++) {
+    const editionItem = presentations.find(
+      (p) => p.editionPlacement?.section === sectionKey && p.editionPlacement.rank === rank && p.editionPlacement.active
+    );
+    if (editionItem) {
+      curatedByRank.set(rank, editionItem.article);
+    } else {
+      const globalItem = presentations.find(
+        (p) => p.globalPlacement?.section === sectionKey && p.globalPlacement.rank === rank && p.globalPlacement.active
+      );
+      if (globalItem) {
+        curatedByRank.set(rank, globalItem.article);
+      }
+    }
+  }
+
+  if (curatedByRank.size === 0) return naturalList;
+
+  const result: ArticleSummary[] = [];
+  const localSeen = new Set<string>();
+
+  const sortedRanks = Array.from(curatedByRank.keys()).sort((a, b) => a - b);
+  for (const rank of sortedRanks) {
+    const item = curatedByRank.get(rank)!;
+    const id = storyIdentity(item);
+    if (!excludedIdentities.has(id) && !localSeen.has(id)) {
+      result.push(item);
+      localSeen.add(id);
+    }
+  }
+
+  for (const item of naturalList) {
+    const id = storyIdentity(item);
+    if (!excludedIdentities.has(id) && !localSeen.has(id)) {
+      result.push(item);
+      localSeen.add(id);
+    }
+  }
+
+  return result;
 }
 
 function EditorialSection({
@@ -117,11 +178,6 @@ export default function HomeScreen() {
   const preferences=useAsync(() => services.reader.getPreferences(), []);
   const taxonomy=useAsync(() => services.taxonomy.getSnapshot(), []);
 
-  if (home.loading) return <Page><LoadingBlock label="Loading Home…" /></Page>;
-  if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
-  if (!home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
-
-  const source=[...home.data].sort((a,b)=>publishedTime(b)-publishedTime(a));
   const preferenceState=preferences.data ?? {primaryEdition:"Global",followedCountries:[],followedTopics:[]};
   const edition=preferenceState.primaryEdition?.trim() || "Global";
 
@@ -133,6 +189,21 @@ export default function HomeScreen() {
     );
     return match?.slug ?? null;
   })();
+
+  const presentationState = useAsync(async () => {
+    try {
+      return await services.presentation.getPublicHomepagePresentations(resolvedEditionSlug);
+    } catch {
+      return [];
+    }
+  }, [resolvedEditionSlug]);
+  const presentations = presentationState.data ?? [];
+
+  if (home.loading) return <Page><LoadingBlock label="Loading Home…" /></Page>;
+  if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
+  if (!home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
+
+  const source=[...home.data].sort((a,b)=>publishedTime(b)-publishedTime(a));
   const editionStories=edition.toLowerCase()==="global"
     ? source.filter(isWorldStory)
     : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
@@ -149,39 +220,96 @@ export default function HomeScreen() {
     return matches.length ? matches : source;
   })();
 
-  const presentationState = useAsync(async () => {
-    try {
-      return await services.presentation.getPublicHomepagePresentations(resolvedEditionSlug);
-    } catch {
-      return [];
-    }
-  }, [resolvedEditionSlug]);
-  const presentations = presentationState.data ?? [];
-
   const [naturalHero, ...filteredRemainder] = filteredStories;
-  const hero = naturalHero;
-  const topStories = filteredRemainder.slice(0, 6);
+  let hero = naturalHero;
+  let topStories = filteredRemainder.slice(0, 6);
+
+  if (activeFilter === "for-you") {
+    const editionHero = presentations.find(
+      (p) => p.editionPlacement?.section === "hero" && p.editionPlacement.active
+    );
+    const globalHero = presentations.find(
+      (p) => p.globalPlacement?.section === "hero" && p.globalPlacement.active
+    );
+    const curatedHero = editionHero?.article ?? globalHero?.article ?? null;
+
+    if (curatedHero) {
+      hero = curatedHero;
+    }
+
+    const curatedTopByRank = new Map<number, ArticleSummary>();
+    for (let rank = 1; rank <= 6; rank++) {
+      const editionItem = presentations.find(
+        (p) => p.editionPlacement?.section === "top-stories" && p.editionPlacement.rank === rank && p.editionPlacement.active
+      );
+      if (editionItem) {
+        curatedTopByRank.set(rank, editionItem.article);
+      } else {
+        const globalItem = presentations.find(
+          (p) => p.globalPlacement?.section === "top-stories" && p.globalPlacement.rank === rank && p.globalPlacement.active
+        );
+        if (globalItem) {
+          curatedTopByRank.set(rank, globalItem.article);
+        }
+      }
+    }
+
+    if (curatedHero || curatedTopByRank.size > 0) {
+      const placedIds = new Set<string>();
+      if (hero) placedIds.add(storyIdentity(hero));
+
+      const effectiveTop: ArticleSummary[] = [];
+      let remIdx = 0;
+      for (let rank = 1; rank <= 6; rank++) {
+        if (curatedTopByRank.has(rank)) {
+          const curated = curatedTopByRank.get(rank)!;
+          const cid = storyIdentity(curated);
+          if (!placedIds.has(cid)) {
+            effectiveTop.push(curated);
+            placedIds.add(cid);
+            continue;
+          }
+        }
+        while (remIdx < filteredStories.length) {
+          const candidate = filteredStories[remIdx++];
+          if (!candidate) continue;
+          const candidateId = storyIdentity(candidate);
+          if (!placedIds.has(candidateId)) {
+            effectiveTop.push(candidate);
+            placedIds.add(candidateId);
+            break;
+          }
+        }
+      }
+      topStories = effectiveTop;
+    }
+  }
+
+  const excludedFromSections = new Set<string>();
+  if (hero) excludedFromSections.add(storyIdentity(hero));
+  for (const s of topStories) excludedFromSections.add(storyIdentity(s));
+
   const immediateIds=new Set<string>(topStories.map((story)=>story.id));
   if(hero) immediateIds.add(hero.id);
   const latest=source.filter((story)=>!immediateIds.has(story.id)).slice(0,6);
-  const features=source.filter((story)=>hasSourceTerm(story,"Features"));
-  const research=source.filter((story)=>
+  const features=overlayCuratedSection("features",source.filter((story)=>hasSourceTerm(story,"Features")),presentations,excludedFromSections);
+  const research=overlayCuratedSection("research",source.filter((story)=>
     story.primarySection?.slug==="research" ||
     hasSourceTerm(story,"Research & Findings","Reseach Findings","Academic & Research")
-  );
-  const financing=source.filter((story)=>
+  ),presentations,excludedFromSections);
+  const financing=overlayCuratedSection("health-business",source.filter((story)=>
     story.primarySection?.slug==="health-business" ||
     hasSourceTerm(story,"Health Financing")
-  );
-  const hiv=source.filter((story)=>hasSourceTerm(story,"HIV/AIDS"));
-  const globalHealth=source.filter((story)=>
+  ),presentations,excludedFromSections);
+  const hiv=overlayCuratedSection("hiv-aids",source.filter((story)=>hasSourceTerm(story,"HIV/AIDS")),presentations,excludedFromSections);
+  const globalHealth=overlayCuratedSection("global-health",source.filter((story)=>
     story.primarySection?.slug==="global-health" ||
     story.geography.some((zone)=>zone.slug==="global")
-  );
-  const publicHealth=source.filter((story)=>
+  ),presentations,excludedFromSections);
+  const publicHealth=overlayCuratedSection("public-health",source.filter((story)=>
     story.primarySection?.slug==="public-health" &&
     !hasSourceTerm(story,"Features","Health Financing","HIV/AIDS")
-  );
+  ),presentations,excludedFromSections);
   const premium=premiumStories;
   const featuredVideos=video.data?.slice(0,4) ?? [];
   const liveItems=live.data?.length ? live.data.filter((item)=>item.status==="live") : [];
@@ -358,8 +486,8 @@ const styles=StyleSheet.create({
   watchGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xl},
   watchItem:{minWidth:260,flex:1},
   opportunityGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.md},
-  opportunityCard:{minWidth:220,flexGrow:1,flexBasis:220,borderWidth:1,borderRadius:radius.md,padding:spacing.lg,gap:spacing.sm},
-  opportunityEyebrow:{fontSize:9,fontWeight:"900",letterSpacing:1.1},
-  opportunityTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
-  opportunityAction:{fontSize:12,lineHeight:18}
+  opportunityCard:{minWidth:200,flexGrow:1,flexBasis:220,borderWidth:1,borderRadius:radius.sm,padding:spacing.md,gap:spacing.xs},
+  opportunityEyebrow:{fontSize:9,fontWeight:"900",letterSpacing:1},
+  opportunityTitle:{fontSize:14,lineHeight:19,fontWeight:"800"},
+  opportunityAction:{fontSize:11,fontWeight:"800",marginTop:2}
 });
