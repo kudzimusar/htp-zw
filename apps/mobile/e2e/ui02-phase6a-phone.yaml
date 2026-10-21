@@ -223,7 +223,6 @@ appId: zw.co.healthtimes.app.dev
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
-- hideKeyboard
 - extendedWaitUntil:
     visible: "Africa primary edition"
     timeout: 10000
