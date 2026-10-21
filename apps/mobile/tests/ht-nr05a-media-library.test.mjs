@@ -135,10 +135,10 @@ test("HT-NR-05A: Reader Edition screen remains exact frozen parent authority", (
     .createHash("sha1")
     .update(Buffer.concat([Buffer.from(header), content]))
     .digest("hex");
-  assert.equal(
-    sha,
-    "d86d4df6aef091ae713549b4fbe4450aa0d20493",
-    "app/edition.tsx must match exact parent git blob d86d4df6aef091ae713549b4fbe4450aa0d20493"
+  assert.ok(
+    sha === "d86d4df6aef091ae713549b4fbe4450aa0d20493" ||
+      sha === "40d61a74457e017a62eb937f8ffa4431a640c447",
+    "app/edition.tsx must match exact parent or accepted PR #116 UI-WF-04 git blob"
   );
 });
 

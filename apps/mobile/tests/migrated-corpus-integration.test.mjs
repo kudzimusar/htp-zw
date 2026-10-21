@@ -161,7 +161,7 @@ test("9 byline date and accepted section provenance survive without invented geo
 test("10 Search Explore category and author paths use migrated authoritative records",()=>{
   const adapter=read("src/services/migrated-corpus.ts");
   const explore=read("app/(reader)/explore.tsx");
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   assert.match(adapter,/const searchService: SearchService/);
   assert.match(adapter,/loadContext\("category"/);
   assert.match(adapter,/loadContext\("author"/);

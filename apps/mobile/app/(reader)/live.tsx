@@ -607,7 +607,7 @@ export default function LiveScreen(){
                   )
                 ) : (
                   <EmptyState
-                    title={active==="upcoming" ? "No scheduled coverage" : active==="blog" ? "No live blogs right now" : "No active live coverage"}
+                    title={active==="upcoming" ? "No scheduled coverage" : active==="blog" ? "No live blogs right now" : "No live coverage right now"}
                     message={active==="upcoming"
                       ? "Scheduled HealthTimes live coverage will appear here when it is published."
                       : "Choose another Live view or return when new coverage begins."}

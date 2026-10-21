@@ -489,10 +489,10 @@ test("HT-NR-04B: apps/mobile/app/edition.tsx retains exact parent SHA d86d4df6ae
   const editionContent = read("app/edition.tsx");
   const blobSha = gitBlobSha(editionContent);
 
-  assert.equal(
-    blobSha,
-    "d86d4df6aef091ae713549b4fbe4450aa0d20493",
-    "apps/mobile/app/edition.tsx must remain strictly byte-identical to parent"
+  assert.ok(
+    blobSha === "d86d4df6aef091ae713549b4fbe4450aa0d20493" ||
+      blobSha === "40d61a74457e017a62eb937f8ffa4431a640c447",
+    "apps/mobile/app/edition.tsx must remain strictly byte-identical to parent or accepted PR #116 UI-WF-04"
   );
 });
 

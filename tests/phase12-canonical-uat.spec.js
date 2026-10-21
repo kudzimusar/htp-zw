@@ -80,7 +80,7 @@ async function gotoCanonical(page, route, label) {
   const failures = captureRuntimeFailures(page);
   const response = await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response && response.status(), label + ' HTTP').toBe(200);
-  await page.getByRole('button', { name: 'HealthTimes Home' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'HealthTimes Home' }).or(page.getByRole('tab', { name: 'Home' })).first().waitFor({ timeout: 30000 });
   await page.waitForFunction(() => document.body && document.body.innerText.trim().length > 80, null, { timeout: 30000 });
   return failures;
 }
@@ -187,7 +187,8 @@ test('current public comparator renders Reader actions without Premium lock', as
 test('Premium landing exposes access truth without fabricated commerce success', async ({ page }) => {
   const failures = await gotoCanonical(page, '/premium', 'Premium landing');
   await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).waitFor({ timeout: 30000 });
-  await expect(page.getByText('Your membership', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('premium-member-access-card')).toBeVisible();
+  await expect(page.getByText('Already a member?', { exact: true })).toBeVisible();
   const body = await page.locator('body').innerText();
   expect(body).not.toContain('Payment successful');
   expect(body).not.toContain('Purchase complete');

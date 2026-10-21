@@ -91,13 +91,24 @@ export default function OnboardingScreen(){
         )}
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={saving ? "Saving preferences" : step < steps.length - 1 ? "Continue to next step" : "Open HealthTimes"}
           style={[styles.cta,{backgroundColor:palette.blue}]}
           disabled={saving}
           onPress={()=>step<steps.length-1?setStep(step+1):void finish()}
         >
           <Text style={[styles.ctaText,{color:palette.paper}]}>{saving?"Saving…":step<steps.length-1?"Continue":"Open HealthTimes"}</Text>
         </Pressable>
-        {step===0 && <Pressable style={styles.secondary} onPress={()=>router.push("/account-access" as never)}><Text style={[styles.signin,{color:palette.inkMuted}]}>Existing account? Sign in</Text></Pressable>}
+        {step===0 && (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Existing account? Sign in"
+            style={styles.secondary}
+            onPress={()=>router.push("/account-access" as never)}
+          >
+            <Text style={[styles.signin,{color:palette.inkMuted}]}>Existing account? Sign in</Text>
+          </Pressable>
+        )}
       </View>
     </Page>
   );

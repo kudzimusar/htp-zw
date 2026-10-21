@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/ui04-phase5-reader-ownership-conformance
+      - feat/ui-wf04-reader-personalization-convergence
   pull_request:
   workflow_dispatch:
 
@@ -191,6 +192,8 @@ jobs:
               const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1});
               const article=await context.newPage();
               let seededArticleTitle='';
+              let seededHeroAlt='';
+              let seededHeroUrl='';
               {
                 const seed=await navigateClean(article,viewport+' ownership-seed','/article/'+articleId,null);
                 const save=article.getByRole('button',{name:'Save article'});
@@ -201,11 +204,18 @@ jobs:
                 await offline.waitFor({timeout:30000});
                 await offline.click();
                 await article.getByText('Available offline',{exact:true}).waitFor({timeout:10000});
-                seededArticleTitle=await article.evaluate((id)=>{
+                const seededArticle=await article.evaluate((id)=>{
                   const raw=localStorage.getItem('ht:nm04:reader:downloads:v1');
                   const downloads=raw ? JSON.parse(raw) : {};
-                  return String(downloads?.[id]?.title ?? '').trim();
+                  return {
+                    title:String(downloads?.[id]?.title ?? '').trim(),
+                    heroAlt:String(downloads?.[id]?.heroMedia?.altText ?? '').trim(),
+                    heroUrl:String(downloads?.[id]?.heroMedia?.publicUrl ?? '').trim()
+                  };
                 },articleId);
+                seededArticleTitle=seededArticle.title;
+                seededHeroAlt=seededArticle.heroAlt;
+                seededHeroUrl=seededArticle.heroUrl;
                 if(!seededArticleTitle) throw new Error(viewport+' seeded article title was not persisted with the download');
                 await article.evaluate((id)=>{
                   localStorage.setItem('ht:nm04:reader:history:v1',JSON.stringify([id]));
@@ -226,7 +236,49 @@ jobs:
                 const {diag,response}=await navigateClean(page,viewport+' '+name,route,ready);
                 let state=await inspect(page);
                 let ownershipEvidence={ownershipState:'populated'};
-                if(name==='saved-populated' && await page.getByText('Nothing saved yet',{exact:true}).count()) throw new Error(viewport+' Saved did not populate');
+                if(name==='saved-populated'){
+                  if(await page.getByText('Nothing saved yet',{exact:true}).count()) throw new Error(viewport+' Saved did not populate');
+                  const savedCard=page.locator('[role="link"][aria-label="'+seededArticleTitle.replace(/"/g,'\\"')+'"]:visible').first();
+                  await savedCard.waitFor({state:'visible',timeout:30000});
+                  if(!seededHeroUrl) throw new Error(viewport+' persisted Article expected hero media URL');
+                  await page.waitForFunction(({title,expectedUrl})=>{
+                    const links=[...document.querySelectorAll('[role="link"][aria-label]')].filter((el)=>el.getAttribute('aria-label')===title);
+                    const card=links.find((el)=>{
+                      const rect=el.getBoundingClientRect();
+                      const style=getComputedStyle(el);
+                      return rect.width>0 && rect.height>0 && style.visibility!=='hidden' && style.display!=='none';
+                    });
+                    if(!card) return false;
+                    let urlToken=expectedUrl;
+                    try{ urlToken=new URL(expectedUrl).pathname.split('/').filter(Boolean).pop()||expectedUrl; }catch{}
+                    const imgs=[...card.querySelectorAll('img')];
+                    for(const img of imgs){
+                      const rect=img.getBoundingClientRect();
+                      const src=img.currentSrc||img.src||'';
+                      if(rect.width>0 && rect.height>0 && img.complete && img.naturalWidth>0 && (src===expectedUrl || src.includes(urlToken))){
+                        return true;
+                      }
+                    }
+                    const bgNodes=[card,...card.querySelectorAll('*')];
+                    for(const node of bgNodes){
+                      const rect=node.getBoundingClientRect();
+                      if(rect.width<=0 || rect.height<=0) continue;
+                      const bg=getComputedStyle(node).backgroundImage||'';
+                      if(bg && bg!=='none' && (bg.includes(expectedUrl) || bg.includes(urlToken))){
+                        return true;
+                      }
+                    }
+                    return false;
+                  },{title:seededArticleTitle,expectedUrl:seededHeroUrl},{timeout:30000});
+                  ownershipEvidence={
+                    ownershipState:'populated',
+                    seededArticleTitle,
+                    seededHeroAlt,
+                    seededHeroUrl,
+                    savedCardVisible:true,
+                    savedMediaLoaded:true
+                  };
+                }
                 if(name==='offline-populated'){
                   await page.getByText('Remove download',{exact:true}).first().waitFor({timeout:30000});
                   if(await page.getByText('No offline stories',{exact:true}).count()) throw new Error(viewport+' Offline did not populate');
@@ -259,6 +311,9 @@ jobs:
                 }
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-'+name+'.png');
                 await page.screenshot({path:file,fullPage:true});
+                if(viewport==='mobile' && name==='saved-populated') fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','saved-mobile.png'));
+                if(viewport==='mobile' && name==='offline-populated') fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','saved-offline-mobile.png'));
+                if(viewport==='mobile' && name==='history-populated') fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','saved-history-mobile.png'));
                 assertClean(viewport+' '+name+' post-capture',diag,await inspect(page));
                 manifest.screens.push(record(name,route,viewport,width,height,file,response,diag,state,ownershipEvidence));
               }
@@ -271,6 +326,7 @@ jobs:
                 if(studioCount!==0) throw new Error(viewport+' general Reader exposed HealthTimes Studio');
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-my-healthtimes.png');
                 await page.screenshot({path:file,fullPage:true});
+                fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','my-healthtimes-'+viewport+'.png'));
                 assertClean(viewport+' my-healthtimes post-capture',diag,await inspect(page));
                 manifest.screens.push(record('my-healthtimes','/my',viewport,width,height,file,response,diag,state,{
                   studioVisible:false,
@@ -300,6 +356,7 @@ jobs:
                 if(!progressiveDisclosure) throw new Error(viewport+' Edition did not expose bounded country/region disclosure');
                 const file=path.join('ui04-phase5-evidence/web',viewport+'-edition.png');
                 await page.screenshot({path:file,fullPage:true});
+                fs.copyFileSync(file,path.join('ui04-phase5-evidence/web','edition-'+viewport+'.png'));
                 assertClean(viewport+' edition post-capture',diag,await inspect(page));
                 manifest.screens.push(record('edition-collapsed','/edition',viewport,width,height,file,response,diag,state,{
                   primarySelectionRole:'radio',
@@ -315,6 +372,7 @@ jobs:
                     assertClean('mobile edition expanded',diag,expandedState);
                     const expandedFile=path.join('ui04-phase5-evidence/web','mobile-edition-expanded.png');
                     await page.screenshot({path:expandedFile,fullPage:true});
+                    fs.copyFileSync(expandedFile,path.join('ui04-phase5-evidence/web','edition-more-locations.png'));
                     manifest.screens.push(record('edition-expanded','/edition','mobile',390,844,expandedFile,response,diag,expandedState,{
                       primarySelectionRole:'radio',
                       progressiveDisclosure:true
@@ -347,6 +405,7 @@ jobs:
                 if(studioCount!==null && studioCount!==0) throw new Error('dark My HealthTimes exposed Studio');
                 const file=path.join('ui04-phase5-evidence/web',name+'.png');
                 await page.screenshot({path:file,fullPage:true});
+                fs.copyFileSync(file,path.join('ui04-phase5-evidence/web',name+'-mobile.png'));
                 assertClean('mobile '+name+' post-capture',diag,await inspect(page));
                 manifest.screens.push(record(name,route,'mobile-dark',390,844,file,response,diag,state,{
                   appearance:'dark',
@@ -359,7 +418,7 @@ jobs:
             const regressionChecks=[
               ['phase1-regression-home','/','HealthTimes'],
               ['phase3-regression-explore','/explore','Explore by topic'],
-              ['phase3-regression-search','/search','Suggested searches'],
+              ['phase3-regression-search','/search','Try searching for'],
               ['phase4-regression-live','/live','No live coverage right now'],
               ['phase4-regression-watch','/watch','Featured video'],
               ['phase4-regression-listen','/listen','No audio published yet'],
