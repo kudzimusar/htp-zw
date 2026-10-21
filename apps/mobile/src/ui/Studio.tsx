@@ -272,8 +272,18 @@ export function StudioShell({ children, title }: PropsWithChildren<{ title: stri
 
             {/* 7-Domain Grouped Navigation Scroll */}
             <ScrollView contentContainerStyle={styles.navScroll} showsVerticalScrollIndicator={false}>
-              {STUDIO_DOMAINS.map((domain) => {
+              {STUDIO_DOMAINS.filter((domain) => {
+                if (domain.key === "my-work") return true;
+                if (!snapshot || snapshot.status !== "authorized") return true;
+                const role = (snapshot.role ?? "").toLowerCase();
+                if (role.includes("owner") || role.includes("publisher") || role.includes("admin")) return true;
+                return !domain.requiredCapabilities || hasAnyServerCapability(snapshot, domain.requiredCapabilities);
+              }).map((domain) => {
+                const isExecutiveRole = (snapshot?.role ?? "").toLowerCase().includes("owner") ||
+                  (snapshot?.role ?? "").toLowerCase().includes("publisher") ||
+                  (snapshot?.role ?? "").toLowerCase().includes("admin");
                 const domainAllowed =
+                  isExecutiveRole ||
                   !domain.requiredCapabilities ||
                   (snapshot ? hasAnyServerCapability(snapshot, domain.requiredCapabilities) : false);
 
@@ -287,7 +297,11 @@ export function StudioShell({ children, title }: PropsWithChildren<{ title: stri
                     </View>
 
                     <View style={styles.domainItems}>
-                      {domain.items.map((item) => {
+                      {domain.items.filter((item) => {
+                        if (!snapshot || snapshot.status !== "authorized") return true;
+                        if (isExecutiveRole) return true;
+                        return !item.requiredCapability || hasServerCapability(snapshot, item.requiredCapability);
+                      }).map((item) => {
                         const itemAllowed =
                           domainAllowed &&
                           (!item.requiredCapability ||

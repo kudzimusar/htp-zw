@@ -3324,7 +3324,7 @@ export interface NewsroomRole {
 export interface NewsroomCapability {
   key: string;
   description: string;
-  category: "editorial" | "distribution" | "commercial" | "audit" | "staff_admin";
+  category: "editorial" | "distribution" | "commercial" | "audit" | "staff_admin" | "finance" | "audience" | "executive_admin";
 }
 
 export interface NewsroomAuditRecord {
@@ -4035,6 +4035,152 @@ export interface NewsroomFinanceStatements {
     currency: string;
     totalAmount: number;
     count: number;
+  }>;
+}
+
+export interface NewsroomChartOfAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+  description: string | null;
+  isActive: boolean;
+  currency: string;
+  createdAt: string;
+}
+
+export interface NewsroomFiscalPeriod {
+  id: string;
+  periodName: string;
+  startDate: string;
+  endDate: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+  lockedAt: string | null;
+  lockedBy: string | null;
+  createdAt: string;
+}
+
+export interface NewsroomJournalLine {
+  id?: string;
+  lineNumber: number;
+  accountId: string;
+  accountCode?: string;
+  accountName?: string;
+  debit: number;
+  credit: number;
+  description: string;
+  createdAt?: string;
+}
+
+export interface NewsroomJournalEntry {
+  id: string;
+  entryNumber: string;
+  entryDate: string;
+  periodId: string | null;
+  status: "draft" | "posted" | "reversed";
+  source: "invoice" | "payment" | "expense" | "expense_payment" | "credit_note" | "manual";
+  sourceId: string | null;
+  currency: string;
+  memo: string;
+  postedAt: string | null;
+  createdAt: string;
+  lines: NewsroomJournalLine[];
+}
+
+export interface NewsroomCreditNote {
+  id: string;
+  creditNoteNumber: string;
+  customerId: string;
+  customerName?: string;
+  invoiceId: string;
+  invoiceNumber?: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: "draft" | "issued" | "void";
+  issuedAt: string;
+  issuedBy: string | null;
+  createdAt: string;
+}
+
+export interface NewsroomTrialBalance {
+  periodId: string | null;
+  currency: string;
+  accounts: Array<{
+    accountId: string;
+    accountCode: string;
+    accountName: string;
+    accountType: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+    debitTotal: number;
+    creditTotal: number;
+    netBalance: number;
+  }>;
+  totalDebits: number;
+  totalCredits: number;
+  isBalanced: boolean;
+}
+
+export interface NewsroomProfitAndLoss {
+  fromDate: string;
+  toDate: string;
+  currency: string;
+  revenues: Array<{
+    accountCode: string;
+    accountName: string;
+    amount: number;
+  }>;
+  totalRevenue: number;
+  expenses: Array<{
+    accountCode: string;
+    accountName: string;
+    amount: number;
+  }>;
+  totalExpenses: number;
+  netOperatingSurplus: number;
+}
+
+export interface NewsroomBalanceSheet {
+  asOfDate: string;
+  currency: string;
+  assets: Array<{
+    accountCode: string;
+    accountName: string;
+    amount: number;
+  }>;
+  totalAssets: number;
+  liabilities: Array<{
+    accountCode: string;
+    accountName: string;
+    amount: number;
+  }>;
+  totalLiabilities: number;
+  equity: Array<{
+    accountCode: string;
+    accountName: string;
+    amount: number;
+  }>;
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  isBalanced: boolean;
+}
+
+export interface NewsroomCustomerStatement {
+  customerId: string;
+  customerName: string;
+  currency: string;
+  fromDate: string;
+  toDate: string;
+  openingBalance: number;
+  totalInvoiced: number;
+  totalPaid: number;
+  totalCredits: number;
+  closingBalance: number;
+  activity: Array<{
+    type: "invoice" | "payment" | "credit_note";
+    reference: string;
+    activityDate: string;
+    amount: number;
+    memo: string;
   }>;
 }
 

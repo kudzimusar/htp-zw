@@ -63,6 +63,49 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   sent: { bg: "#E0F2FE", text: "#075985" }
 };
 
+export type CapabilityDomainKey = "editorial" | "commercial" | "finance" | "audience" | "executive_admin";
+
+export const CAPABILITY_DOMAINS_ORDER: CapabilityDomainKey[] = [
+  "editorial",
+  "commercial",
+  "finance",
+  "audience",
+  "executive_admin"
+];
+
+export const CAPABILITY_DOMAIN_META: Record<CapabilityDomainKey, { title: string; subtitle: string }> = {
+  editorial: {
+    title: "1. Editorial Domain",
+    subtitle: "Story authoring, review queue gates, copy-editing, assignments, clinical fact-checking, and newsroom desks."
+  },
+  commercial: {
+    title: "2. Commercial Domain",
+    subtitle: "Advertising campaign approvals, direct booking orders, subscriber management, and premium content entitlements."
+  },
+  finance: {
+    title: "3. Finance & Accounting Domain",
+    subtitle: "Double-entry general ledger, commercial invoicing, payment receipts, expense approvals, and GAAP financial statements."
+  },
+  audience: {
+    title: "4. Audience & Marketing Domain",
+    subtitle: "Multi-channel distribution across Social (X/Bluesky), WhatsApp broadcasts, push alerts, and contact segments."
+  },
+  executive_admin: {
+    title: "5. Executive & Admin Domain",
+    subtitle: "RBAC staff governance, active session revocation, security audits, platform settings, and KPI intelligence."
+  }
+};
+
+export function resolveCapabilityDomain(cap: NewsroomCapability): CapabilityDomainKey {
+  const k = cap.key.toLowerCase();
+  const prefix = k.split(".")[0] ?? "";
+  if (prefix === "finance") return "finance";
+  if (prefix === "ads" || prefix === "commercial" || prefix === "subscriber" || prefix === "premium") return "commercial";
+  if (prefix === "social" || prefix === "marketing" || prefix === "distribution") return "audience";
+  if (prefix === "staff" || prefix === "security" || prefix === "settings" || prefix === "analytics") return "executive_admin";
+  return "editorial"; // story, assignment, media, comment, communication, communications
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   editorial: "Editorial",
   distribution: "Distribution",
@@ -136,14 +179,19 @@ export function StudioStaffRolesDeskView({
     });
   }, [directory?.staff, statusFilter, searchQuery]);
 
-  // Grouped capabilities
-  const groupedCapabilities = useMemo(() => {
-    if (!directory?.capabilities) return {};
-    const groups: Record<string, NewsroomCapability[]> = {};
+  // Grouped capabilities by the 5 Core Newsroom Domains
+  const domainGroupedCapabilities = useMemo(() => {
+    const groups: Record<CapabilityDomainKey, NewsroomCapability[]> = {
+      editorial: [],
+      commercial: [],
+      finance: [],
+      audience: [],
+      executive_admin: []
+    };
+    if (!directory?.capabilities) return groups;
     for (const cap of directory.capabilities) {
-      const list = groups[cap.category] ?? [];
-      list.push(cap);
-      groups[cap.category] = list;
+      const domain = resolveCapabilityDomain(cap);
+      groups[domain].push(cap);
     }
     return groups;
   }, [directory?.capabilities]);
@@ -572,26 +620,33 @@ export function StudioStaffRolesDeskView({
 
             <View style={styles.divider} />
 
-            <Text style={styles.sectionHeader}>Master Capability Matrix</Text>
+            <Text style={styles.sectionHeader}>Master Capability Matrix (74 Operations · 5 Domains)</Text>
             <Text style={styles.sectionSub}>
-              Fine-grained privileges governing newsroom operations across domains.
+              Fine-grained privileges governing newsroom operations partitioned cleanly across the 5 core operating domains.
             </Text>
 
-            {Object.entries(groupedCapabilities).map(([category, caps]) => (
-              <View key={category} style={styles.categoryBlock}>
-                <Text style={styles.categoryTitle}>
-                  {CATEGORY_LABELS[category] ?? category} ({caps.length})
-                </Text>
-                <View style={styles.capsList}>
-                  {caps.map((cap) => (
-                    <View key={cap.key} style={styles.capItem}>
-                      <Text style={styles.capKey}>{cap.key}</Text>
-                      <Text style={styles.capDesc}>{cap.description}</Text>
-                    </View>
-                  ))}
+            {CAPABILITY_DOMAINS_ORDER.map((domainKey) => {
+              const caps = domainGroupedCapabilities[domainKey];
+              const meta = CAPABILITY_DOMAIN_META[domainKey];
+              return (
+                <View key={domainKey} style={styles.categoryBlock}>
+                  <View style={{ marginBottom: spacing.xs }}>
+                    <Text style={styles.categoryTitle}>
+                      {meta.title} ({caps.length} capabilities)
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.inkMuted, marginTop: 2 }}>{meta.subtitle}</Text>
+                  </View>
+                  <View style={styles.capsList}>
+                    {caps.map((cap) => (
+                      <View key={cap.key} style={styles.capItem}>
+                        <Text style={styles.capKey}>{cap.key}</Text>
+                        <Text style={styles.capDesc}>{cap.description}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 

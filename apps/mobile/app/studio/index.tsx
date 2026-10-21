@@ -4,6 +4,7 @@ import { StudioPlaceholder, StudioShell, STUDIO_DOMAINS } from "../../src/ui/Stu
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
+import { hasAnyServerCapability } from "../../src/security/capabilities";
 
 const actions = [
   ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"],
@@ -112,7 +113,13 @@ export default function StudioToday() {
       </View>
 
       <View style={styles.grid}>
-        {STUDIO_DOMAINS.map((domain) => {
+        {STUDIO_DOMAINS.filter((domain) => {
+          if (domain.key === "my-work") return true;
+          if (!snapshot || snapshot.status !== "authorized") return true;
+          const role = (snapshot.role ?? "").toLowerCase();
+          if (role.includes("owner") || role.includes("publisher") || role.includes("admin")) return true;
+          return !domain.requiredCapabilities || hasAnyServerCapability(snapshot, domain.requiredCapabilities);
+        }).map((domain) => {
           const defaultPath = domain.items[0]?.path ?? "/studio";
           return (
             <Pressable

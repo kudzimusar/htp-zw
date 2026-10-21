@@ -24,8 +24,24 @@ import type {
   NewsroomExpenseItem,
   NewsroomExpenseCategory,
   NewsroomFinanceOverview,
-  NewsroomFinanceStatements
+  NewsroomFinanceStatements,
+  NewsroomTrialBalance,
+  NewsroomProfitAndLoss,
+  NewsroomBalanceSheet,
+  NewsroomCustomerStatement,
+  NewsroomJournalEntry,
+  NewsroomChartOfAccount,
+  NewsroomFiscalPeriod
 } from "../domain/models";
+import {
+  buildPreviewTrialBalance,
+  buildPreviewProfitAndLoss,
+  buildPreviewBalanceSheet,
+  buildPreviewCustomerStatement,
+  buildPreviewJournals,
+  buildPreviewChartOfAccounts,
+  buildPreviewFiscalPeriods
+} from "../preview/newsroomPreviewData";
 
 export type FinanceTab =
   | "overview"
@@ -33,6 +49,10 @@ export type FinanceTab =
   | "aging"
   | "payments"
   | "expenses"
+  | "trial-balance"
+  | "pnl"
+  | "balance-sheet"
+  | "journals"
   | "statements"
   | "customers";
 
@@ -47,6 +67,11 @@ interface StudioFinanceDeskProps {
   previewExpenses?: NewsroomExpenseItem[];
   previewOrders?: NewsroomCommercialOrder[];
   previewCustomers?: NewsroomCustomer[];
+  previewTrialBalance?: NewsroomTrialBalance;
+  previewProfitAndLoss?: NewsroomProfitAndLoss;
+  previewBalanceSheet?: NewsroomBalanceSheet;
+  previewCustomerStatement?: NewsroomCustomerStatement;
+  previewJournals?: NewsroomJournalEntry[];
 }
 
 export function StudioFinanceDeskView({
@@ -59,7 +84,12 @@ export function StudioFinanceDeskView({
   previewPayments = [],
   previewExpenses = [],
   previewOrders = [],
-  previewCustomers = []
+  previewCustomers = [],
+  previewTrialBalance,
+  previewProfitAndLoss,
+  previewBalanceSheet,
+  previewCustomerStatement,
+  previewJournals = []
 }: StudioFinanceDeskProps) {
   const [activeTab, setActiveTab] = useState<FinanceTab>(initialTab);
   const [currencyFilter, setCurrencyFilter] = useState<string>("USD");
@@ -121,6 +151,26 @@ export function StudioFinanceDeskView({
     [refreshKey, isOwnerPreview]
   );
 
+  const liveTrialBalance = useAsync(
+    () => (isOwnerPreview ? Promise.resolve(previewTrialBalance ?? buildPreviewTrialBalance()) : services.newsroomFinance.getTrialBalance()),
+    [refreshKey, isOwnerPreview]
+  );
+
+  const liveProfitAndLoss = useAsync(
+    () => (isOwnerPreview ? Promise.resolve(previewProfitAndLoss ?? buildPreviewProfitAndLoss()) : services.newsroomFinance.getProfitAndLoss()),
+    [refreshKey, isOwnerPreview]
+  );
+
+  const liveBalanceSheet = useAsync(
+    () => (isOwnerPreview ? Promise.resolve(previewBalanceSheet ?? buildPreviewBalanceSheet()) : services.newsroomFinance.getBalanceSheet()),
+    [refreshKey, isOwnerPreview]
+  );
+
+  const liveJournals = useAsync(
+    () => (isOwnerPreview ? Promise.resolve(previewJournals.length > 0 ? previewJournals : buildPreviewJournals()) : services.newsroomFinance.listJournals()),
+    [refreshKey, isOwnerPreview]
+  );
+
   const overviewData = isOwnerPreview ? previewOverview : liveOverview.data;
   const invoicesData = isOwnerPreview ? previewInvoices : liveInvoices.data ?? [];
   const agingData = isOwnerPreview ? previewAging : liveAging.data;
@@ -129,6 +179,10 @@ export function StudioFinanceDeskView({
   const statementsData = isOwnerPreview ? previewStatements : liveStatements.data;
   const customersData = isOwnerPreview ? previewCustomers : liveCustomers.data ?? [];
   const ordersData = isOwnerPreview ? previewOrders : liveOrders.data ?? [];
+  const trialBalanceData = isOwnerPreview ? (previewTrialBalance ?? buildPreviewTrialBalance()) : liveTrialBalance.data;
+  const pnlData = isOwnerPreview ? (previewProfitAndLoss ?? buildPreviewProfitAndLoss()) : liveProfitAndLoss.data;
+  const balanceSheetData = isOwnerPreview ? (previewBalanceSheet ?? buildPreviewBalanceSheet()) : liveBalanceSheet.data;
+  const journalsData = isOwnerPreview ? (previewJournals.length > 0 ? previewJournals : buildPreviewJournals()) : liveJournals.data ?? [];
 
   // Form States for Modals
   const [newInvCustomerId, setNewInvCustomerId] = useState<string>("");
@@ -149,6 +203,31 @@ export function StudioFinanceDeskView({
   const [expAmount, setExpAmount] = useState<string>("");
   const [expCurrency, setExpCurrency] = useState<string>("USD");
   const [expDept, setExpDept] = useState<string>("Editorial");
+
+  // Credit Note Modal State
+  const [isCreditNoteModalOpen, setIsCreditNoteModalOpen] = useState(false);
+  const [creditNoteInvoice, setCreditNoteInvoice] = useState<NewsroomInvoiceItem | null>(null);
+  const [creditNoteAmount, setCreditNoteAmount] = useState<string>("");
+  const [creditNoteReason, setCreditNoteReason] = useState<string>("Adjustment / Disputed billing concession");
+
+  // Printable Invoice Modal State
+  const [isPrintInvoiceModalOpen, setIsPrintInvoiceModalOpen] = useState(false);
+  const [printInvoiceItem, setPrintInvoiceItem] = useState<NewsroomInvoiceItem | null>(null);
+
+  // Printable Receipt Modal State
+  const [isPrintReceiptModalOpen, setIsPrintReceiptModalOpen] = useState(false);
+  const [printPaymentItem, setPrintPaymentItem] = useState<NewsroomPaymentItem | null>(null);
+
+  // Customer Statement Modal State
+  const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
+  const [statementCustomer, setStatementCustomer] = useState<NewsroomCustomer | null>(null);
+  const [customerStatementData, setCustomerStatementData] = useState<NewsroomCustomerStatement | null>(null);
+  const [statementLoading, setStatementLoading] = useState(false);
+
+  // Reverse Journal Modal State
+  const [isReverseJournalModalOpen, setIsReverseJournalModalOpen] = useState(false);
+  const [reverseJournalEntry, setReverseJournalEntry] = useState<NewsroomJournalEntry | null>(null);
+  const [reverseReason, setReverseReason] = useState<string>("Correction of posting error");
 
   function notify(msg: string) {
     setActionMessage(msg);
@@ -327,6 +406,75 @@ export function StudioFinanceDeskView({
     }
   }
 
+  async function handleCreateCreditNote() {
+    if (!creditNoteInvoice) return;
+    const amt = parseFloat(creditNoteAmount);
+    if (isNaN(amt) || amt <= 0) {
+      notifyError(new Error("Credit amount must be greater than zero."));
+      return;
+    }
+    if (amt > creditNoteInvoice.total) {
+      notifyError(new Error(`Credit amount (${amt}) cannot exceed invoice total (${creditNoteInvoice.total}).`));
+      return;
+    }
+    if (isOwnerPreview) {
+      notify(`Owner Preview: Credit Note issued for ${creditNoteInvoice.currency} ${amt.toFixed(2)}.`);
+      setIsCreditNoteModalOpen(false);
+      return;
+    }
+    try {
+      await services.newsroomFinance.createCreditNote(creditNoteInvoice.id, amt, creditNoteReason);
+      notify(`Credit Note issued successfully against ${creditNoteInvoice.invoiceNumber}. GL revenue adjustment journal posted.`);
+      setIsCreditNoteModalOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      notifyError(e);
+    }
+  }
+
+  async function handleReverseJournal() {
+    if (!reverseJournalEntry) return;
+    if (isOwnerPreview) {
+      notify(`Owner Preview: Journal entry ${reverseJournalEntry.entryNumber} reversed.`);
+      setIsReverseJournalModalOpen(false);
+      return;
+    }
+    try {
+      await services.newsroomFinance.reverseJournalEntry(reverseJournalEntry.id, reverseReason);
+      notify(`Journal entry ${reverseJournalEntry.entryNumber} reversed. Offsetting reversal entry posted.`);
+      setIsReverseJournalModalOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      notifyError(e);
+    }
+  }
+
+  async function handleOpenCustomerStatement(cust: NewsroomCustomer) {
+    setStatementCustomer(cust);
+    setIsStatementModalOpen(true);
+    setStatementLoading(true);
+    try {
+      if (isOwnerPreview) {
+        setCustomerStatementData(buildPreviewCustomerStatement(cust.id));
+      } else {
+        const stmt = await services.newsroomFinance.getCustomerStatement(cust.id);
+        setCustomerStatementData(stmt);
+      }
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      setStatementLoading(false);
+    }
+  }
+
+  function handlePrintDocument() {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.print();
+    } else {
+      notify("Document ready for printing.");
+    }
+  }
+
   // Active currency overview figures
   const activeCurrencyOverview = useMemo(() => {
     if (!overviewData?.byCurrency) return null;
@@ -448,6 +596,42 @@ export function StudioFinanceDeskView({
           </Pressable>
 
           <Pressable
+            style={[styles.tabBtn, activeTab === "trial-balance" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("trial-balance")}
+          >
+            <Text style={[styles.tabBtnText, activeTab === "trial-balance" && styles.tabBtnTextActive]}>
+              Trial Balance
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.tabBtn, activeTab === "pnl" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("pnl")}
+          >
+            <Text style={[styles.tabBtnText, activeTab === "pnl" && styles.tabBtnTextActive]}>
+              Profit & Loss
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.tabBtn, activeTab === "balance-sheet" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("balance-sheet")}
+          >
+            <Text style={[styles.tabBtnText, activeTab === "balance-sheet" && styles.tabBtnTextActive]}>
+              Balance Sheet
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.tabBtn, activeTab === "journals" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("journals")}
+          >
+            <Text style={[styles.tabBtnText, activeTab === "journals" && styles.tabBtnTextActive]}>
+              GL Journals ({journalsData.length})
+            </Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.tabBtn, activeTab === "statements" && styles.tabBtnActive]}
             onPress={() => setActiveTab("statements")}
           >
@@ -459,7 +643,7 @@ export function StudioFinanceDeskView({
             onPress={() => setActiveTab("customers")}
           >
             <Text style={[styles.tabBtnText, activeTab === "customers" && styles.tabBtnTextActive]}>
-              Orders & Customers ({ordersData.length})
+              Orders & Customers ({customersData.length})
             </Text>
           </Pressable>
         </ScrollView>
@@ -597,7 +781,7 @@ export function StudioFinanceDeskView({
                   <Text style={[styles.th, { width: 100, textAlign: "right" }]}>TOTAL</Text>
                   <Text style={[styles.th, { width: 110, textAlign: "right" }]}>BALANCE DUE</Text>
                   <Text style={[styles.th, { width: 120, textAlign: "center" }]}>STATUS</Text>
-                  <Text style={[styles.th, { width: 220 }]}>ACTIONS</Text>
+                  <Text style={[styles.th, { width: 320 }]}>ACTIONS</Text>
                 </View>
 
                 {invoicesData.map((inv) => (
@@ -625,7 +809,16 @@ export function StudioFinanceDeskView({
                         <Text style={styles.badgeText}>{inv.effectiveStatus.toUpperCase()}</Text>
                       </View>
                     </View>
-                    <View style={[styles.tdCell, styles.rowActions, { width: 220 }]}>
+                    <View style={[styles.tdCell, styles.rowActions, { width: 320 }]}>
+                      <Pressable
+                        style={styles.miniBtn}
+                        onPress={() => {
+                          setPrintInvoiceItem(inv);
+                          setIsPrintInvoiceModalOpen(true);
+                        }}
+                      >
+                        <Text style={styles.miniBtnText}>Print</Text>
+                      </Pressable>
                       {inv.status === "draft" && (
                         <Pressable style={styles.miniBtn} onPress={() => handleApproveInvoice(inv.id)}>
                           <Text style={styles.miniBtnText}>Approve</Text>
@@ -646,6 +839,18 @@ export function StudioFinanceDeskView({
                           }}
                         >
                           <Text style={styles.miniBtnSuccessText}>Pay</Text>
+                        </Pressable>
+                      )}
+                      {(inv.status === "issued" || inv.status === "partially_paid" || inv.status === "paid") && (
+                        <Pressable
+                          style={styles.miniBtn}
+                          onPress={() => {
+                            setCreditNoteInvoice(inv);
+                            setCreditNoteAmount(inv.balanceDue > 0 ? inv.balanceDue.toString() : inv.total.toString());
+                            setIsCreditNoteModalOpen(true);
+                          }}
+                        >
+                          <Text style={styles.miniBtnText}>Credit</Text>
                         </Pressable>
                       )}
                       {inv.amountPaid === 0 && inv.status !== "void" && (
@@ -774,6 +979,7 @@ export function StudioFinanceDeskView({
                   <Text style={[styles.th, { width: 120 }]}>REFERENCE</Text>
                   <Text style={[styles.th, { width: 110, textAlign: "right" }]}>AMOUNT</Text>
                   <Text style={[styles.th, { width: 160 }]}>RECORDED BY</Text>
+                  <Text style={[styles.th, { width: 100 }]}>ACTIONS</Text>
                 </View>
                 {paymentsData.map((p) => (
                   <View key={p.id} style={styles.tableRow}>
@@ -787,6 +993,17 @@ export function StudioFinanceDeskView({
                       {p.currency} {p.amount.toFixed(2)}
                     </Text>
                     <Text style={[styles.td, { width: 160 }]}>{p.recordedByName ?? p.recordedBy ?? "Staff"}</Text>
+                    <View style={[styles.tdCell, { width: 100 }]}>
+                      <Pressable
+                        style={styles.miniBtn}
+                        onPress={() => {
+                          setPrintPaymentItem(p);
+                          setIsPrintReceiptModalOpen(true);
+                        }}
+                      >
+                        <Text style={styles.miniBtnText}>Receipt</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -955,6 +1172,330 @@ export function StudioFinanceDeskView({
         </View>
       )}
 
+      {/* TRIAL BALANCE TAB */}
+      {activeTab === "trial-balance" && (
+        <View style={styles.tabContent}>
+          <View style={styles.glBanner}>
+            <View style={styles.glBannerLeft}>
+              <Text style={styles.glBannerEyebrow}>GAAP GENERAL LEDGER · DOUBLE ENTRY</Text>
+              <Text style={styles.glBannerTitle}>General Ledger Trial Balance</Text>
+              <Text style={styles.glBannerSub}>
+                Period: {trialBalanceData?.periodId ? "FY2026-Q4 (Oct–Dec 2026)" : "Current Fiscal Year"} · Currency: {trialBalanceData?.currency ?? "USD"}
+              </Text>
+            </View>
+            <View style={[styles.balanceBadge, trialBalanceData?.isBalanced ? styles.balanceBadgeOk : styles.balanceBadgeWarn]}>
+              <Text style={[styles.balanceBadgeText, trialBalanceData?.isBalanced ? styles.balanceBadgeTextOk : styles.balanceBadgeTextWarn]}>
+                {trialBalanceData?.isBalanced ? "✓ LEDGER BALANCED" : "⚠️ UNBALANCED"}
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView horizontal style={styles.tableScroll}>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.th, { width: 90 }]}>CODE</Text>
+                <Text style={[styles.th, { width: 240 }]}>ACCOUNT NAME</Text>
+                <Text style={[styles.th, { width: 110 }]}>TYPE</Text>
+                <Text style={[styles.th, { width: 140, textAlign: "right" }]}>TOTAL DEBIT</Text>
+                <Text style={[styles.th, { width: 140, textAlign: "right" }]}>TOTAL CREDIT</Text>
+                <Text style={[styles.th, { width: 140, textAlign: "right" }]}>NET BALANCE</Text>
+              </View>
+
+              {(trialBalanceData?.accounts ?? []).map((acc) => (
+                <View key={acc.accountId} style={styles.tableRow}>
+                  <Text style={[styles.td, styles.codeText, { width: 90 }]}>{acc.accountCode}</Text>
+                  <Text style={[styles.td, { width: 240, fontWeight: "600" }]}>{acc.accountName}</Text>
+                  <Text style={[styles.td, { width: 110, fontSize: 11, color: colors.inkMuted }]}>{acc.accountType}</Text>
+                  <Text style={[styles.td, { width: 140, textAlign: "right" }]}>
+                    {acc.debitTotal > 0 ? acc.debitTotal.toFixed(2) : "—"}
+                  </Text>
+                  <Text style={[styles.td, { width: 140, textAlign: "right" }]}>
+                    {acc.creditTotal > 0 ? acc.creditTotal.toFixed(2) : "—"}
+                  </Text>
+                  <Text style={[styles.td, { width: 140, textAlign: "right", fontWeight: "700" }]}>
+                    {acc.netBalance.toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+
+              <View style={[styles.tableRow, styles.totalsRow]}>
+                <Text style={[styles.td, { width: 440, fontWeight: "900" }]}>TOTAL TRIAL BALANCE</Text>
+                <Text style={[styles.td, { width: 140, textAlign: "right", fontWeight: "900" }]}>
+                  {trialBalanceData?.currency ?? "USD"} {(trialBalanceData?.totalDebits ?? 0).toFixed(2)}
+                </Text>
+                <Text style={[styles.td, { width: 140, textAlign: "right", fontWeight: "900" }]}>
+                  {trialBalanceData?.currency ?? "USD"} {(trialBalanceData?.totalCredits ?? 0).toFixed(2)}
+                </Text>
+                <Text style={[styles.td, { width: 140, textAlign: "right", fontWeight: "900", color: colors.success }]}>
+                  {trialBalanceData?.isBalanced ? "BALANCED ✓" : "DIFF"}
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* PROFIT & LOSS TAB */}
+      {activeTab === "pnl" && (
+        <View style={styles.tabContent}>
+          <View style={styles.glBanner}>
+            <View style={styles.glBannerLeft}>
+              <Text style={styles.glBannerEyebrow}>GAAP STATEMENT OF COMPREHENSIVE INCOME</Text>
+              <Text style={styles.glBannerTitle}>Operating Profit & Loss Statement</Text>
+              <Text style={styles.glBannerSub}>
+                Period: {pnlData?.fromDate ?? "2026-10-01"} to {pnlData?.toDate ?? "2026-10-31"} · Reporting Currency: {pnlData?.currency ?? "USD"}
+              </Text>
+            </View>
+            <View style={styles.surplusBox}>
+              <Text style={styles.surplusLabel}>NET OPERATING SURPLUS</Text>
+              <Text style={[styles.surplusValue, (pnlData?.netOperatingSurplus ?? 0) >= 0 ? styles.textSuccess : styles.textDanger]}>
+                {pnlData?.currency ?? "USD"} {(pnlData?.netOperatingSurplus ?? 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Operating Revenue Section */}
+          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Operating Revenues (4000 Series)</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { width: 100 }]}>ACCOUNT</Text>
+              <Text style={[styles.th, { width: 340 }]}>REVENUE SOURCE</Text>
+              <Text style={[styles.th, { width: 180, textAlign: "right" }]}>AMOUNT ({pnlData?.currency ?? "USD"})</Text>
+            </View>
+            {(pnlData?.revenues ?? []).map((r) => (
+              <View key={r.accountCode} style={styles.tableRow}>
+                <Text style={[styles.td, styles.codeText, { width: 100 }]}>{r.accountCode}</Text>
+                <Text style={[styles.td, { width: 340, fontWeight: "600" }]}>{r.accountName}</Text>
+                <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "700" }]}>
+                  {r.amount.toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            <View style={[styles.tableRow, styles.subtotalRow]}>
+              <Text style={[styles.td, { width: 440, fontWeight: "800" }]}>Total Operating Revenues</Text>
+              <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "900", color: colors.success }]}>
+                {pnlData?.currency ?? "USD"} {(pnlData?.totalRevenue ?? 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Operating Expenses Section */}
+          <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Operating Expenses (5000 Series)</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { width: 100 }]}>ACCOUNT</Text>
+              <Text style={[styles.th, { width: 340 }]}>EXPENSE CATEGORY</Text>
+              <Text style={[styles.th, { width: 180, textAlign: "right" }]}>AMOUNT ({pnlData?.currency ?? "USD"})</Text>
+            </View>
+            {(pnlData?.expenses ?? []).map((e) => (
+              <View key={e.accountCode} style={styles.tableRow}>
+                <Text style={[styles.td, styles.codeText, { width: 100 }]}>{e.accountCode}</Text>
+                <Text style={[styles.td, { width: 340, fontWeight: "600" }]}>{e.accountName}</Text>
+                <Text style={[styles.td, { width: 180, textAlign: "right" }]}>
+                  {e.amount.toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            <View style={[styles.tableRow, styles.subtotalRow]}>
+              <Text style={[styles.td, { width: 440, fontWeight: "800" }]}>Total Operating Expenses</Text>
+              <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "900", color: colors.live }]}>
+                {pnlData?.currency ?? "USD"} {(pnlData?.totalExpenses ?? 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Bottom Net Line */}
+          <View style={styles.netOperatingLine}>
+            <Text style={styles.netOperatingLineTitle}>NET OPERATING SURPLUS / (DEFICIT)</Text>
+            <Text style={[styles.netOperatingLineVal, (pnlData?.netOperatingSurplus ?? 0) >= 0 ? styles.textSuccess : styles.textDanger]}>
+              {pnlData?.currency ?? "USD"} {(pnlData?.netOperatingSurplus ?? 0).toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* BALANCE SHEET TAB */}
+      {activeTab === "balance-sheet" && (
+        <View style={styles.tabContent}>
+          <View style={styles.glBanner}>
+            <View style={styles.glBannerLeft}>
+              <Text style={styles.glBannerEyebrow}>GAAP STATEMENT OF FINANCIAL POSITION</Text>
+              <Text style={styles.glBannerTitle}>Balance Sheet Statement</Text>
+              <Text style={styles.glBannerSub}>
+                As of: {balanceSheetData?.asOfDate ?? "2026-10-31"} · Reporting Currency: {balanceSheetData?.currency ?? "USD"}
+              </Text>
+            </View>
+            <View style={[styles.balanceBadge, balanceSheetData?.isBalanced ? styles.balanceBadgeOk : styles.balanceBadgeWarn]}>
+              <Text style={[styles.balanceBadgeText, balanceSheetData?.isBalanced ? styles.balanceBadgeTextOk : styles.balanceBadgeTextWarn]}>
+                {balanceSheetData?.isBalanced ? "✓ EQUATION VERIFIED" : "⚠️ UNBALANCED"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Assets Section */}
+          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Assets (1000 Series)</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { width: 100 }]}>ACCOUNT</Text>
+              <Text style={[styles.th, { width: 340 }]}>CURRENT ASSET</Text>
+              <Text style={[styles.th, { width: 180, textAlign: "right" }]}>AMOUNT ({balanceSheetData?.currency ?? "USD"})</Text>
+            </View>
+            {(balanceSheetData?.assets ?? []).map((a) => (
+              <View key={a.accountCode} style={styles.tableRow}>
+                <Text style={[styles.td, styles.codeText, { width: 100 }]}>{a.accountCode}</Text>
+                <Text style={[styles.td, { width: 340, fontWeight: "600" }]}>{a.accountName}</Text>
+                <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "700" }]}>
+                  {a.amount.toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            <View style={[styles.tableRow, styles.subtotalRow]}>
+              <Text style={[styles.td, { width: 440, fontWeight: "800" }]}>Total Assets</Text>
+              <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "900", color: colors.ink }]}>
+                {balanceSheetData?.currency ?? "USD"} {(balanceSheetData?.totalAssets ?? 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Liabilities Section */}
+          <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Liabilities (2000 Series)</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { width: 100 }]}>ACCOUNT</Text>
+              <Text style={[styles.th, { width: 340 }]}>CURRENT LIABILITY</Text>
+              <Text style={[styles.th, { width: 180, textAlign: "right" }]}>AMOUNT ({balanceSheetData?.currency ?? "USD"})</Text>
+            </View>
+            {(balanceSheetData?.liabilities ?? []).map((l) => (
+              <View key={l.accountCode} style={styles.tableRow}>
+                <Text style={[styles.td, styles.codeText, { width: 100 }]}>{l.accountCode}</Text>
+                <Text style={[styles.td, { width: 340, fontWeight: "600" }]}>{l.accountName}</Text>
+                <Text style={[styles.td, { width: 180, textAlign: "right" }]}>
+                  {l.amount.toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            <View style={[styles.tableRow, styles.subtotalRow]}>
+              <Text style={[styles.td, { width: 440, fontWeight: "800" }]}>Total Liabilities</Text>
+              <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "900", color: colors.ink }]}>
+                {balanceSheetData?.currency ?? "USD"} {(balanceSheetData?.totalLiabilities ?? 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Equity Section */}
+          <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Equity & Retained Surplus (3000 Series)</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { width: 100 }]}>ACCOUNT</Text>
+              <Text style={[styles.th, { width: 340 }]}>EQUITY & RESERVES</Text>
+              <Text style={[styles.th, { width: 180, textAlign: "right" }]}>AMOUNT ({balanceSheetData?.currency ?? "USD"})</Text>
+            </View>
+            {(balanceSheetData?.equity ?? []).map((e) => (
+              <View key={e.accountCode} style={styles.tableRow}>
+                <Text style={[styles.td, styles.codeText, { width: 100 }]}>{e.accountCode}</Text>
+                <Text style={[styles.td, { width: 340, fontWeight: "600" }]}>{e.accountName}</Text>
+                <Text style={[styles.td, { width: 180, textAlign: "right" }]}>
+                  {e.amount.toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            <View style={[styles.tableRow, styles.subtotalRow]}>
+              <Text style={[styles.td, { width: 440, fontWeight: "800" }]}>Total Equity</Text>
+              <Text style={[styles.td, { width: 180, textAlign: "right", fontWeight: "900", color: colors.ink }]}>
+                {balanceSheetData?.currency ?? "USD"} {(balanceSheetData?.totalEquity ?? 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Equation Check Footer */}
+          <View style={styles.netOperatingLine}>
+            <Text style={styles.netOperatingLineTitle}>TOTAL LIABILITIES & EQUITY (MUST EQUAL ASSETS)</Text>
+            <Text style={[styles.netOperatingLineVal, { color: colors.ink }]}>
+              {balanceSheetData?.currency ?? "USD"} {(balanceSheetData?.totalLiabilitiesAndEquity ?? 0).toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* GL JOURNALS TAB */}
+      {activeTab === "journals" && (
+        <View style={styles.tabContent}>
+          <View style={styles.toolbar}>
+            <View>
+              <Text style={styles.sectionTitle}>General Ledger Journal Entries</Text>
+              <Text style={styles.sectionSub}>
+                Immutable double-entry audit records. Every operational invoice, cash receipt, and approved expense posts debit/credit entries here.
+              </Text>
+            </View>
+          </View>
+
+          {journalsData.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Zero Journal Entries</Text>
+              <Text style={styles.emptySub}>No journal entries recorded yet.</Text>
+            </View>
+          ) : (
+            <View style={{ gap: spacing.md }}>
+              {journalsData.map((j) => (
+                <View key={j.id} style={styles.journalCard}>
+                  <View style={styles.journalCardHeader}>
+                    <View style={{ gap: 2 }}>
+                      <Text style={styles.journalCardNum}>{j.entryNumber}</Text>
+                      <Text style={styles.journalCardDate}>
+                        Date: {j.entryDate} · Source: {j.source.toUpperCase()} · Status: {j.status.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}>
+                      <View style={[styles.badge, j.status === "posted" ? styles.badgeSuccess : styles.badgeMuted]}>
+                        <Text style={styles.badgeText}>{j.status.toUpperCase()}</Text>
+                      </View>
+                      {j.status === "posted" && (
+                        <Pressable
+                          style={styles.miniBtnDanger}
+                          onPress={() => {
+                            setReverseJournalEntry(j);
+                            setIsReverseJournalModalOpen(true);
+                          }}
+                        >
+                          <Text style={styles.miniBtnDangerText}>Reverse Entry</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.journalCardMemo}>{j.memo}</Text>
+
+                  {/* Lines Table */}
+                  <View style={[styles.table, { marginTop: spacing.sm }]}>
+                    <View style={styles.tableHeader}>
+                      <Text style={[styles.th, { width: 80 }]}>LINE #</Text>
+                      <Text style={[styles.th, { width: 90 }]}>ACCOUNT</Text>
+                      <Text style={[styles.th, { width: 220 }]}>NAME</Text>
+                      <Text style={[styles.th, { width: 120, textAlign: "right" }]}>DEBIT ({j.currency})</Text>
+                      <Text style={[styles.th, { width: 120, textAlign: "right" }]}>CREDIT ({j.currency})</Text>
+                      <Text style={[styles.th, { width: 180 }]}>DESCRIPTION</Text>
+                    </View>
+                    {j.lines.map((l) => (
+                      <View key={l.lineNumber} style={styles.tableRow}>
+                        <Text style={[styles.td, { width: 80 }]}>{l.lineNumber}</Text>
+                        <Text style={[styles.td, styles.codeText, { width: 90 }]}>{l.accountCode ?? "—"}</Text>
+                        <Text style={[styles.td, { width: 220 }]} numberOfLines={1}>{l.accountName ?? "—"}</Text>
+                        <Text style={[styles.td, { width: 120, textAlign: "right", fontWeight: l.debit > 0 ? "700" : "400" }]}>
+                          {l.debit > 0 ? l.debit.toFixed(2) : "—"}
+                        </Text>
+                        <Text style={[styles.td, { width: 120, textAlign: "right", fontWeight: l.credit > 0 ? "700" : "400" }]}>
+                          {l.credit > 0 ? l.credit.toFixed(2) : "—"}
+                        </Text>
+                        <Text style={[styles.td, { width: 180 }]} numberOfLines={1}>{l.description}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
       {/* 7. ORDERS & CUSTOMERS TAB */}
       {activeTab === "customers" && (
         <View style={styles.tabContent}>
@@ -1004,17 +1545,26 @@ export function StudioFinanceDeskView({
             <View style={styles.tableHeader}>
               <Text style={[styles.th, { width: 220 }]}>NAME</Text>
               <Text style={[styles.th, { width: 200 }]}>BILLING EMAIL</Text>
-              <Text style={[styles.th, { width: 90 }]}>CURR</Text>
-              <Text style={[styles.th, { width: 100 }]}>TERMS</Text>
-              <Text style={[styles.th, { width: 120 }]}>TAX #</Text>
+              <Text style={[styles.th, { width: 80 }]}>CURR</Text>
+              <Text style={[styles.th, { width: 90 }]}>TERMS</Text>
+              <Text style={[styles.th, { width: 110 }]}>TAX #</Text>
+              <Text style={[styles.th, { width: 110 }]}>ACTIONS</Text>
             </View>
             {customersData.map((cust) => (
               <View key={cust.id} style={styles.tableRow}>
                 <Text style={[styles.td, { width: 220, fontWeight: "600" }]}>{cust.name}</Text>
                 <Text style={[styles.td, { width: 200 }]}>{cust.billingEmail}</Text>
-                <Text style={[styles.td, { width: 90 }]}>{cust.currency}</Text>
-                <Text style={[styles.td, { width: 100 }]}>{cust.paymentTermsDays} days</Text>
-                <Text style={[styles.td, { width: 120 }]}>{cust.taxNumber ?? "—"}</Text>
+                <Text style={[styles.td, { width: 80 }]}>{cust.currency}</Text>
+                <Text style={[styles.td, { width: 90 }]}>{cust.paymentTermsDays} days</Text>
+                <Text style={[styles.td, { width: 110 }]}>{cust.taxNumber ?? "—"}</Text>
+                <View style={[styles.tdCell, { width: 110 }]}>
+                  <Pressable
+                    style={styles.miniBtnPrimary}
+                    onPress={() => handleOpenCustomerStatement(cust)}
+                  >
+                    <Text style={styles.miniBtnPrimaryText}>Statement</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </View>
@@ -1224,6 +1774,382 @@ export function StudioFinanceDeskView({
                 <Text style={styles.modalSubmitText}>Submit Claim</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: ISSUE CREDIT NOTE */}
+      <Modal visible={isCreditNoteModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Issue Credit Note</Text>
+            <Text style={styles.modalSub}>
+              Issue an authorized credit adjustment against invoice {creditNoteInvoice?.invoiceNumber}. This posts a General Ledger revenue adjustment journal.
+            </Text>
+
+            <ScrollView style={styles.modalForm}>
+              <Text style={styles.formLabel}>Invoice Reference</Text>
+              <View style={styles.disabledInputBox}>
+                <Text style={styles.disabledInputText}>{creditNoteInvoice?.invoiceNumber} ({creditNoteInvoice?.customerName})</Text>
+              </View>
+
+              <Text style={styles.formLabel}>Invoice Total / Remaining Balance</Text>
+              <View style={styles.disabledInputBox}>
+                <Text style={styles.disabledInputText}>
+                  {creditNoteInvoice?.currency} {creditNoteInvoice?.total.toFixed(2)} (Balance Due: {creditNoteInvoice?.balanceDue.toFixed(2)})
+                </Text>
+              </View>
+
+              <Text style={styles.formLabel}>Credit Amount ({creditNoteInvoice?.currency ?? "USD"})</Text>
+              <TextInput
+                style={styles.input}
+                value={creditNoteAmount}
+                onChangeText={setCreditNoteAmount}
+                keyboardType="numeric"
+                placeholder="0.00"
+              />
+
+              <Text style={styles.formLabel}>Reason / Audit Memo</Text>
+              <TextInput
+                style={styles.input}
+                value={creditNoteReason}
+                onChangeText={setCreditNoteReason}
+                placeholder="Adjustment reason"
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsCreditNoteModalOpen(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateCreditNote}>
+                <Text style={styles.modalSubmitText}>Issue Credit Note</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: REVERSE JOURNAL ENTRY */}
+      <Modal visible={isReverseJournalModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Reverse General Ledger Entry</Text>
+            <Text style={styles.modalSub}>
+              Reverse journal {reverseJournalEntry?.entryNumber}. Per double-entry standards, the original journal is preserved immutably and an exact offsetting reversal entry is posted.
+            </Text>
+
+            <ScrollView style={styles.modalForm}>
+              <Text style={styles.formLabel}>Journal Entry</Text>
+              <View style={styles.disabledInputBox}>
+                <Text style={styles.disabledInputText}>{reverseJournalEntry?.entryNumber} — {reverseJournalEntry?.memo}</Text>
+              </View>
+
+              <Text style={styles.formLabel}>Reversal Reason / Audit Justification</Text>
+              <TextInput
+                style={styles.input}
+                value={reverseReason}
+                onChangeText={setReverseReason}
+                placeholder="Reason for reversing entry"
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsReverseJournalModalOpen(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalSubmitBtn, { backgroundColor: colors.live }]} onPress={handleReverseJournal}>
+                <Text style={styles.modalSubmitText}>Post Reversal Entry</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: PRINTABLE INVOICE DOCUMENT */}
+      <Modal visible={isPrintInvoiceModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, styles.documentModalContainer]}>
+            <View style={styles.docActionsTop}>
+              <Pressable style={styles.printActionBtn} onPress={handlePrintDocument}>
+                <Text style={styles.printActionBtnText}>🖨️ Print / Save PDF</Text>
+              </Pressable>
+              <Pressable style={styles.docCloseBtn} onPress={() => setIsPrintInvoiceModalOpen(false)}>
+                <Text style={styles.docCloseBtnText}>✕ Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.documentSheet} showsVerticalScrollIndicator={false}>
+              {/* Document Header */}
+              <View style={styles.docHeader}>
+                <View>
+                  <Text style={styles.docOrgName}>HealthTimes Zimbabwe</Text>
+                  <Text style={styles.docOrgSub}>National Health & Science Newsroom OS</Text>
+                  <Text style={styles.docOrgAddress}>Harare, Zimbabwe · info@healthtimes.co.zw</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.docTypeTitle}>TAX INVOICE</Text>
+                  <Text style={styles.docNumber}>{printInvoiceItem?.invoiceNumber}</Text>
+                  <View style={[styles.badge, getStatusBadgeStyle(printInvoiceItem?.effectiveStatus ?? "draft"), { marginTop: 4 }]}>
+                    <Text style={styles.badgeText}>{(printInvoiceItem?.effectiveStatus ?? "draft").toUpperCase()}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.docDivider} />
+
+              {/* Billed To / Dates Meta */}
+              <View style={styles.docMetaRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.docMetaHeading}>BILLED TO:</Text>
+                  <Text style={styles.docCustomerName}>{printInvoiceItem?.customerName}</Text>
+                  <Text style={styles.docCustomerSub}>Corporate Advertiser Account</Text>
+                  <Text style={styles.docCustomerSub}>Currency: {printInvoiceItem?.currency ?? "USD"}</Text>
+                </View>
+                <View style={{ width: 200, alignItems: "flex-end" }}>
+                  <Text style={styles.docMetaText}><Text style={styles.docMetaBold}>Issue Date: </Text>{printInvoiceItem?.issueDate ?? printInvoiceItem?.createdAt.slice(0, 10)}</Text>
+                  <Text style={styles.docMetaText}><Text style={styles.docMetaBold}>Due Date: </Text>{printInvoiceItem?.dueDate ?? "Upon Receipt"}</Text>
+                  <Text style={styles.docMetaText}><Text style={styles.docMetaBold}>Terms: </Text>{printInvoiceItem?.paymentTermsDays ?? 30} Days</Text>
+                </View>
+              </View>
+
+              {/* Line Items Table */}
+              <View style={[styles.table, { marginTop: spacing.md }]}>
+                <View style={styles.docTableHeader}>
+                  <Text style={[styles.th, { width: 40 }]}>#</Text>
+                  <Text style={[styles.th, { flex: 1 }]}>DESCRIPTION / PLACEMENT</Text>
+                  <Text style={[styles.th, { width: 70, textAlign: "right" }]}>QTY</Text>
+                  <Text style={[styles.th, { width: 100, textAlign: "right" }]}>UNIT PRICE</Text>
+                  <Text style={[styles.th, { width: 80, textAlign: "right" }]}>TAX</Text>
+                  <Text style={[styles.th, { width: 110, textAlign: "right" }]}>AMOUNT</Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text style={[styles.td, { width: 40 }]}>1</Text>
+                  <Text style={[styles.td, { flex: 1, fontWeight: "600" }]}>
+                    {printInvoiceItem?.notes ? printInvoiceItem.notes : "Digital Banner Placement & Editorial Campaign"}
+                  </Text>
+                  <Text style={[styles.td, { width: 70, textAlign: "right" }]}>1</Text>
+                  <Text style={[styles.td, { width: 100, textAlign: "right" }]}>
+                    {printInvoiceItem?.currency} {(printInvoiceItem?.subtotal ?? 0).toFixed(2)}
+                  </Text>
+                  <Text style={[styles.td, { width: 80, textAlign: "right" }]}>15%</Text>
+                  <Text style={[styles.td, { width: 110, textAlign: "right", fontWeight: "700" }]}>
+                    {printInvoiceItem?.currency} {(printInvoiceItem?.total ?? 0).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Totals Summary */}
+              <View style={styles.docTotalsSection}>
+                <View style={styles.docRemittanceBox}>
+                  <Text style={styles.docRemitTitle}>REMITTANCE INSTRUCTIONS</Text>
+                  <Text style={styles.docRemitText}>Bank: Stanbic Bank Zimbabwe</Text>
+                  <Text style={styles.docRemitText}>Account: 9140003482910</Text>
+                  <Text style={styles.docRemitText}>Swift: SBICZWHX</Text>
+                  <Text style={styles.docRemitText}>Reference: {printInvoiceItem?.invoiceNumber}</Text>
+                </View>
+                <View style={styles.docTotalsBox}>
+                  <View style={styles.docTotalRow}>
+                    <Text style={styles.docTotalLabel}>Subtotal:</Text>
+                    <Text style={styles.docTotalVal}>{printInvoiceItem?.currency} {(printInvoiceItem?.subtotal ?? 0).toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.docTotalRow}>
+                    <Text style={styles.docTotalLabel}>VAT (15%):</Text>
+                    <Text style={styles.docTotalVal}>{printInvoiceItem?.currency} {(printInvoiceItem?.taxTotal ?? 0).toFixed(2)}</Text>
+                  </View>
+                  <View style={[styles.docTotalRow, styles.docTotalRowGrand]}>
+                    <Text style={styles.docGrandLabel}>TOTAL DUE:</Text>
+                    <Text style={styles.docGrandVal}>{printInvoiceItem?.currency} {(printInvoiceItem?.total ?? 0).toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.docTotalRow}>
+                    <Text style={styles.docTotalLabel}>Amount Paid:</Text>
+                    <Text style={[styles.docTotalVal, { color: colors.success }]}>
+                      {printInvoiceItem?.currency} {(printInvoiceItem?.amountPaid ?? 0).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={[styles.docTotalRow, { borderTopWidth: 1, borderTopColor: "#DDDDDD", paddingTop: 4 }]}>
+                    <Text style={[styles.docTotalLabel, { fontWeight: "800" }]}>Balance Due:</Text>
+                    <Text style={[styles.docTotalVal, { fontWeight: "900", color: (printInvoiceItem?.balanceDue ?? 0) > 0 ? colors.live : colors.success }]}>
+                      {printInvoiceItem?.currency} {(printInvoiceItem?.balanceDue ?? 0).toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.docFootnote}>Thank you for supporting independent public health journalism in Zimbabwe.</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: PRINTABLE RECEIPT */}
+      <Modal visible={isPrintReceiptModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, styles.documentModalContainer]}>
+            <View style={styles.docActionsTop}>
+              <Pressable style={styles.printActionBtn} onPress={handlePrintDocument}>
+                <Text style={styles.printActionBtnText}>🖨️ Print / Save PDF</Text>
+              </Pressable>
+              <Pressable style={styles.docCloseBtn} onPress={() => setIsPrintReceiptModalOpen(false)}>
+                <Text style={styles.docCloseBtnText}>✕ Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.documentSheet} showsVerticalScrollIndicator={false}>
+              <View style={styles.docHeader}>
+                <View>
+                  <Text style={styles.docOrgName}>HealthTimes Zimbabwe</Text>
+                  <Text style={styles.docOrgSub}>Official Payment Receipt</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.docTypeTitle}>CASH RECEIPT</Text>
+                  <Text style={styles.docNumber}>{printPaymentItem?.paymentNumber}</Text>
+                  <View style={[styles.badge, styles.badgeSuccess, { marginTop: 4 }]}>
+                    <Text style={styles.badgeText}>VERIFIED PAYMENT</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.docDivider} />
+
+              <View style={{ gap: spacing.md, marginVertical: spacing.md }}>
+                <View style={styles.docReceiptRow}>
+                  <Text style={styles.docReceiptLabel}>Received From:</Text>
+                  <Text style={styles.docReceiptVal}>{printPaymentItem?.customerName}</Text>
+                </View>
+                <View style={styles.docReceiptRow}>
+                  <Text style={styles.docReceiptLabel}>Applied to Invoice:</Text>
+                  <Text style={[styles.docReceiptVal, styles.codeText]}>{printPaymentItem?.invoiceNumber}</Text>
+                </View>
+                <View style={styles.docReceiptRow}>
+                  <Text style={styles.docReceiptLabel}>Payment Date:</Text>
+                  <Text style={styles.docReceiptVal}>{printPaymentItem?.paymentDate}</Text>
+                </View>
+                <View style={styles.docReceiptRow}>
+                  <Text style={styles.docReceiptLabel}>Payment Method:</Text>
+                  <Text style={styles.docReceiptVal}>{printPaymentItem?.paymentMethod.replace("_", " ").toUpperCase()}</Text>
+                </View>
+                <View style={styles.docReceiptRow}>
+                  <Text style={styles.docReceiptLabel}>External Reference:</Text>
+                  <Text style={[styles.docReceiptVal, styles.codeText]}>{printPaymentItem?.reference ?? "Direct settlement"}</Text>
+                </View>
+                <View style={styles.docReceiptRow}>
+                  <Text style={styles.docReceiptLabel}>Recorded By:</Text>
+                  <Text style={styles.docReceiptVal}>{printPaymentItem?.recordedByName ?? "Staff Member"}</Text>
+                </View>
+              </View>
+
+              <View style={styles.docReceiptAmountBox}>
+                <Text style={styles.docReceiptAmountLabel}>AMOUNT RECEIVED</Text>
+                <Text style={styles.docReceiptAmountVal}>
+                  {printPaymentItem?.currency} {(printPaymentItem?.amount ?? 0).toFixed(2)}
+                </Text>
+              </View>
+
+              <Text style={styles.docFootnote}>This document serves as authoritative proof of settlement. Recorded in Newsroom General Ledger.</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: CUSTOMER STATEMENT */}
+      <Modal visible={isStatementModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, styles.documentModalContainer]}>
+            <View style={styles.docActionsTop}>
+              <Pressable style={styles.printActionBtn} onPress={handlePrintDocument}>
+                <Text style={styles.printActionBtnText}>🖨️ Print / Save PDF</Text>
+              </Pressable>
+              <Pressable style={styles.docCloseBtn} onPress={() => setIsStatementModalOpen(false)}>
+                <Text style={styles.docCloseBtnText}>✕ Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.documentSheet} showsVerticalScrollIndicator={false}>
+              <View style={styles.docHeader}>
+                <View>
+                  <Text style={styles.docOrgName}>HealthTimes Zimbabwe</Text>
+                  <Text style={styles.docOrgSub}>Commercial Finance & Accounting</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.docTypeTitle}>STATEMENT OF ACCOUNT</Text>
+                  <Text style={styles.docCustomerName}>{statementCustomer?.name}</Text>
+                </View>
+              </View>
+
+              <View style={styles.docDivider} />
+
+              {statementLoading ? (
+                <ActivityIndicator size="large" color={colors.blue} style={{ padding: spacing.xxl }} />
+              ) : (
+                <>
+                  {/* Summary Bar */}
+                  <View style={styles.statementSummaryStrip}>
+                    <View style={styles.statementStat}>
+                      <Text style={styles.statementStatLabel}>OPENING</Text>
+                      <Text style={styles.statementStatVal}>
+                        {customerStatementData?.currency ?? "USD"} {(customerStatementData?.openingBalance ?? 0).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.statementStat}>
+                      <Text style={styles.statementStatLabel}>INVOICED</Text>
+                      <Text style={styles.statementStatVal}>
+                        {customerStatementData?.currency ?? "USD"} {(customerStatementData?.totalInvoiced ?? 0).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.statementStat}>
+                      <Text style={styles.statementStatLabel}>PAID</Text>
+                      <Text style={[styles.statementStatVal, { color: colors.success }]}>
+                        {customerStatementData?.currency ?? "USD"} {(customerStatementData?.totalPaid ?? 0).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.statementStat}>
+                      <Text style={styles.statementStatLabel}>CREDITS</Text>
+                      <Text style={styles.statementStatVal}>
+                        {customerStatementData?.currency ?? "USD"} {(customerStatementData?.totalCredits ?? 0).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={[styles.statementStat, { borderRightWidth: 0 }]}>
+                      <Text style={styles.statementStatLabel}>CLOSING DUE</Text>
+                      <Text style={[styles.statementStatVal, (customerStatementData?.closingBalance ?? 0) > 0 ? styles.textDanger : styles.textSuccess]}>
+                        {customerStatementData?.currency ?? "USD"} {(customerStatementData?.closingBalance ?? 0).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Activity Ledger Table */}
+                  <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Chronological Account Activity</Text>
+                  <View style={styles.table}>
+                    <View style={styles.docTableHeader}>
+                      <Text style={[styles.th, { width: 100 }]}>DATE</Text>
+                      <Text style={[styles.th, { width: 80 }]}>TYPE</Text>
+                      <Text style={[styles.th, { width: 130 }]}>REFERENCE</Text>
+                      <Text style={[styles.th, { flex: 1 }]}>MEMO / DESCRIPTION</Text>
+                      <Text style={[styles.th, { width: 120, textAlign: "right" }]}>AMOUNT</Text>
+                    </View>
+                    {(customerStatementData?.activity ?? []).map((act, idx) => (
+                      <View key={act.reference + idx} style={styles.tableRow}>
+                        <Text style={[styles.td, { width: 100 }]}>{act.activityDate}</Text>
+                        <Text style={[styles.td, { width: 80, textTransform: "uppercase", fontSize: 10, fontWeight: "700" }]}>
+                          {act.type.replace("_", " ")}
+                        </Text>
+                        <Text style={[styles.td, styles.codeText, { width: 130 }]}>{act.reference}</Text>
+                        <Text style={[styles.td, { flex: 1 }]} numberOfLines={1}>{act.memo}</Text>
+                        <Text
+                          style={[
+                            styles.td,
+                            { width: 120, textAlign: "right", fontWeight: "700" },
+                            act.type === "payment" || act.type === "credit_note" ? { color: colors.success } : {}
+                          ]}
+                        >
+                          {act.type === "payment" || act.type === "credit_note" ? `-${act.amount.toFixed(2)}` : act.amount.toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1820,5 +2746,399 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: "#FFFFFF"
+  },
+  glBanner: {
+    backgroundColor: "#132332",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "#203A4E",
+    padding: spacing.lg,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md
+  },
+  glBannerLeft: {
+    gap: 4
+  },
+  glBannerEyebrow: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    color: "#70D1D1"
+  },
+  glBannerTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#FFFFFF"
+  },
+  glBannerSub: {
+    fontSize: 12,
+    color: "#9FB3C8"
+  },
+  balanceBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1
+  },
+  balanceBadgeOk: {
+    backgroundColor: "#064E3B",
+    borderColor: "#10B981"
+  },
+  balanceBadgeWarn: {
+    backgroundColor: "#7F1D1D",
+    borderColor: "#EF4444"
+  },
+  balanceBadgeText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.6
+  },
+  balanceBadgeTextOk: {
+    color: "#6EE7B7"
+  },
+  balanceBadgeTextWarn: {
+    color: "#FCA5A5"
+  },
+  surplusBox: {
+    alignItems: "flex-end",
+    backgroundColor: "#0D1821",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "#203A4E"
+  },
+  surplusLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#9FB3C8",
+    letterSpacing: 0.8
+  },
+  surplusValue: {
+    fontSize: 18,
+    fontWeight: "900"
+  },
+  textSuccess: {
+    color: "#10B981"
+  },
+  textDanger: {
+    color: "#EF4444"
+  },
+  totalsRow: {
+    backgroundColor: "#F1F5F9",
+    borderTopWidth: 2,
+    borderTopColor: colors.ink
+  },
+  subtotalRow: {
+    backgroundColor: "#F8FAFC",
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  netOperatingLine: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: "#132332",
+    borderRadius: radius.sm,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  netOperatingLineTitle: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.8
+  },
+  netOperatingLineVal: {
+    fontSize: 18,
+    fontWeight: "900"
+  },
+  journalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md
+  },
+  journalCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  journalCardNum: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.ink,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace"
+  },
+  journalCardDate: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  journalCardMemo: {
+    fontSize: 13,
+    color: colors.ink,
+    marginTop: 4,
+    fontWeight: "500"
+  },
+  badgeSuccess: {
+    backgroundColor: "#DCFCE7"
+  },
+  badgeMuted: {
+    backgroundColor: "#F1F5F9"
+  },
+  disabledInputBox: {
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    padding: spacing.sm
+  },
+  disabledInputText: {
+    fontSize: 12,
+    color: colors.ink,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace"
+  },
+  documentModalContainer: {
+    maxWidth: 720,
+    backgroundColor: "#F8FAFC"
+  },
+  docActionsTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xs
+  },
+  printActionBtn: {
+    backgroundColor: colors.blue,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: radius.sm
+  },
+  printActionBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 12
+  },
+  docCloseBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6
+  },
+  docCloseBtnText: {
+    color: colors.inkMuted,
+    fontWeight: "700",
+    fontSize: 12
+  },
+  documentSheet: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.xl
+  },
+  docHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start"
+  },
+  docOrgName: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#132332"
+  },
+  docOrgSub: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.blue
+  },
+  docOrgAddress: {
+    fontSize: 10,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  docTypeTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#132332",
+    letterSpacing: 1
+  },
+  docNumber: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.ink,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace"
+  },
+  docDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.md
+  },
+  docMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  docMetaHeading: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    color: colors.inkMuted
+  },
+  docCustomerName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.ink,
+    marginTop: 2
+  },
+  docCustomerSub: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  docMetaText: {
+    fontSize: 11,
+    color: colors.ink,
+    lineHeight: 18
+  },
+  docMetaBold: {
+    fontWeight: "700",
+    color: colors.inkMuted
+  },
+  docTableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#F1F5F9",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm
+  },
+  docTotalsSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  docRemittanceBox: {
+    flex: 1,
+    paddingRight: spacing.lg
+  },
+  docRemitTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: colors.inkMuted,
+    letterSpacing: 0.8,
+    marginBottom: 4
+  },
+  docRemitText: {
+    fontSize: 11,
+    color: colors.ink,
+    lineHeight: 16
+  },
+  docTotalsBox: {
+    width: 240,
+    gap: 4
+  },
+  docTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  docTotalLabel: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  docTotalVal: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  docTotalRowGrand: {
+    borderTopWidth: 2,
+    borderTopColor: colors.ink,
+    paddingTop: 4,
+    marginTop: 4
+  },
+  docGrandLabel: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  docGrandVal: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  docFootnote: {
+    fontSize: 10,
+    color: colors.inkMuted,
+    textAlign: "center",
+    marginTop: spacing.xl,
+    fontStyle: "italic"
+  },
+  docReceiptRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9"
+  },
+  docReceiptLabel: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    fontWeight: "600"
+  },
+  docReceiptVal: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  docReceiptAmountBox: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    alignItems: "center",
+    marginTop: spacing.md
+  },
+  docReceiptAmountLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+    color: "#166534"
+  },
+  docReceiptAmountVal: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#166534",
+    marginTop: 2
+  },
+  statementSummaryStrip: {
+    flexDirection: "row",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    marginVertical: spacing.md
+  },
+  statementStat: {
+    flex: 1,
+    padding: spacing.sm,
+    alignItems: "center",
+    borderRightWidth: 1,
+    borderRightColor: colors.border
+  },
+  statementStatLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    color: colors.inkMuted
+  },
+  statementStatVal: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: colors.ink,
+    marginTop: 2
   }
 });
