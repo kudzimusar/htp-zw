@@ -54,18 +54,32 @@ export function mapRole(raw: Record<string, unknown>): NewsroomRole {
   };
 }
 
+export function inferCapabilityCategory(key: string): NewsroomCapability["category"] {
+  const prefix = key.split(".")[0]?.toLowerCase() ?? "";
+  if (prefix === "finance") return "finance";
+  if (prefix === "ads" || prefix === "commercial" || prefix === "subscriber" || prefix === "premium") return "commercial";
+  if (prefix === "social" || prefix === "marketing" || prefix === "distribution") return "audience";
+  if (prefix === "staff" || prefix === "security" || prefix === "settings" || prefix === "analytics") return "executive_admin";
+  return "editorial";
+}
+
 export function mapCapability(raw: Record<string, unknown>): NewsroomCapability {
+  const key = String(raw.key ?? "");
   const categoryRaw = String(raw.category ?? "");
   const category: NewsroomCapability["category"] =
     categoryRaw === "editorial" ||
     categoryRaw === "distribution" ||
     categoryRaw === "commercial" ||
-    categoryRaw === "audit"
-      ? categoryRaw
-      : "staff_admin";
+    categoryRaw === "audit" ||
+    categoryRaw === "staff_admin" ||
+    categoryRaw === "finance" ||
+    categoryRaw === "audience" ||
+    categoryRaw === "executive_admin"
+      ? (categoryRaw as NewsroomCapability["category"])
+      : inferCapabilityCategory(key);
 
   return {
-    key: String(raw.key ?? ""),
+    key,
     description: String(raw.description ?? ""),
     category
   };
@@ -222,6 +236,73 @@ export function createNewsroomStaffService(
           `Failed to cancel staff invitation: ${error.message} (code ${error.code})`
         );
       }
+    },
+
+    async bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
+      const client = getClient();
+      const { data, error } = await (client as any).rpc("newsroom_bootstrap_owner");
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      const res = data as Record<string, unknown> | null;
+      return {
+        success: Boolean(res?.success),
+        staffId: res?.staff_id ? String(res.staff_id) : undefined,
+        role: res?.role ? String(res.role) : undefined,
+        error: res?.error ? String(res.error) : undefined
+      };
+    },
+
+    async activateOwner(password: string): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
+      const client = getClient();
+      const ownerEmail = "kudzimusar@gmail.com";
+      const invitationId = "3c277c48-5319-429f-a2c3-1bf2dbae4c2a";
+
+      // 1. Attempt Sign Up first
+      const signUpResult = await client.auth.signUp({
+        email: ownerEmail,
+        password: password,
+        options: {
+          data: {
+            display_name: "Kudzi Musarurwa",
+            role: "Publisher / Owner",
+            invitation_id: invitationId
+          }
+        }
+      });
+
+      // If user already registered, sign in directly
+      if (signUpResult.error) {
+        if (
+          signUpResult.error.message.toLowerCase().includes("already registered") ||
+          signUpResult.error.message.toLowerCase().includes("user already exists")
+        ) {
+          const signInResult = await client.auth.signInWithPassword({
+            email: ownerEmail,
+            password: password
+          });
+          if (signInResult.error) {
+            throw new Error(`Authentication failed: ${signInResult.error.message}`);
+          }
+        } else {
+          throw new Error(signUpResult.error.message);
+        }
+      }
+
+      // 2. Invoke parameterless bootstrap RPC
+      const rpcResult = await (client as any).rpc("newsroom_bootstrap_owner");
+      if (rpcResult.error) {
+        if (!rpcResult.error.message.includes("already provisioned")) {
+          throw new Error(`Bootstrap failed: ${rpcResult.error.message}`);
+        }
+      }
+
+      const res = rpcResult.data as Record<string, unknown> | null;
+      return {
+        success: true,
+        staffId: res?.staff_id ? String(res.staff_id) : undefined,
+        role: res?.role ? String(res.role) : "Publisher / Owner"
+      };
     }
   };
 }

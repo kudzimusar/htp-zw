@@ -143,6 +143,10 @@ import {
   buildPreviewExpenses,
   buildPreviewCommercialOrders,
   buildPreviewCustomers,
+  buildPreviewTrialBalance,
+  buildPreviewProfitAndLoss,
+  buildPreviewBalanceSheet,
+  buildPreviewJournals,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -209,6 +213,10 @@ export const OWNER_PREVIEW_DOMAINS = [
       { key: "finance-aging", label: "Receivables Aging", path: "/owner-preview/studio/finance-aging" },
       { key: "finance-payments", label: "Payments Ledger", path: "/owner-preview/studio/finance-payments" },
       { key: "finance-expenses", label: "Expense Claims", path: "/owner-preview/studio/finance-expenses" },
+      { key: "finance-trial-balance", label: "Trial Balance", path: "/owner-preview/studio/finance-trial-balance" },
+      { key: "finance-pnl", label: "Profit & Loss", path: "/owner-preview/studio/finance-pnl" },
+      { key: "finance-balance-sheet", label: "Balance Sheet", path: "/owner-preview/studio/finance-balance-sheet" },
+      { key: "finance-journals", label: "GL Journals", path: "/owner-preview/studio/finance-journals" },
       { key: "finance-statements", label: "Financial Statements", path: "/owner-preview/studio/finance-statements" },
       { key: "finance-customers", label: "Billing Customers", path: "/owner-preview/studio/finance-customers" }
     ]
@@ -2982,6 +2990,10 @@ export function OwnerPreviewFinanceView({ initialTab = "overview" }: { initialTa
   const expenses = useMemo(() => buildPreviewExpenses(), []);
   const orders = useMemo(() => buildPreviewCommercialOrders(), []);
   const customers = useMemo(() => buildPreviewCustomers(), []);
+  const trialBalance = useMemo(() => buildPreviewTrialBalance(), []);
+  const pnl = useMemo(() => buildPreviewProfitAndLoss(), []);
+  const balanceSheet = useMemo(() => buildPreviewBalanceSheet(), []);
+  const journals = useMemo(() => buildPreviewJournals(), []);
 
   return (
     <StudioFinanceDeskView
@@ -2995,6 +3007,10 @@ export function OwnerPreviewFinanceView({ initialTab = "overview" }: { initialTa
       previewExpenses={expenses}
       previewOrders={orders}
       previewCustomers={customers}
+      previewTrialBalance={trialBalance}
+      previewProfitAndLoss={pnl}
+      previewBalanceSheet={balanceSheet}
+      previewJournals={journals}
     />
   );
 }
@@ -3055,6 +3071,46 @@ export function OwnerPreviewModuleScreen({
           subtitle="Field reporting, travel, freelance photojournalism, and office supplies reimbursement ledger."
         >
           <OwnerPreviewFinanceView initialTab="expenses" />
+        </OwnerPreviewShell>
+      );
+    case "finance-trial-balance":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-trial-balance"
+          title="General Ledger Trial Balance (Owner Visual Preview)"
+          subtitle="Double-entry debit and credit verification across chart of accounts with automated equality validation."
+        >
+          <OwnerPreviewFinanceView initialTab="trial-balance" />
+        </OwnerPreviewShell>
+      );
+    case "finance-pnl":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-pnl"
+          title="Operating Profit & Loss Statement (Owner Visual Preview)"
+          subtitle="GAAP income statement extracted from posted journals showing billed advertising revenues, operational expenses, and net surplus."
+        >
+          <OwnerPreviewFinanceView initialTab="pnl" />
+        </OwnerPreviewShell>
+      );
+    case "finance-balance-sheet":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-balance-sheet"
+          title="Statement of Financial Position / Balance Sheet (Owner Visual Preview)"
+          subtitle="Assets, liabilities, reserves, and retained operational surplus verifying the fundamental accounting equation."
+        >
+          <OwnerPreviewFinanceView initialTab="balance-sheet" />
+        </OwnerPreviewShell>
+      );
+    case "finance-journals":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-journals"
+          title="General Ledger Journal Entries (Owner Visual Preview)"
+          subtitle="Immutable chronological audit ledger of double-entry operational and manual journals with reversal controls."
+        >
+          <OwnerPreviewFinanceView initialTab="journals" />
         </OwnerPreviewShell>
       );
     case "my-expenses":

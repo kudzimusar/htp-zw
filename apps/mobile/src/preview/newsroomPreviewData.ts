@@ -46,7 +46,15 @@ import type {
   NewsroomReceivablesAging,
   NewsroomExpenseItem,
   NewsroomFinanceOverview,
-  NewsroomFinanceStatements
+  NewsroomFinanceStatements,
+  NewsroomChartOfAccount,
+  NewsroomFiscalPeriod,
+  NewsroomJournalEntry,
+  NewsroomCreditNote,
+  NewsroomTrialBalance,
+  NewsroomProfitAndLoss,
+  NewsroomBalanceSheet,
+  NewsroomCustomerStatement
 } from "../domain/models";
 
 export interface OwnerPreviewPersona {
@@ -174,6 +182,10 @@ export type OwnerPreviewModuleKey =
   | "finance-payments"
   | "finance-expenses"
   | "my-expenses"
+  | "finance-trial-balance"
+  | "finance-pnl"
+  | "finance-balance-sheet"
+  | "finance-journals"
   | "finance-statements"
   | "finance-customers"
   | "orders";
@@ -3740,6 +3752,151 @@ export function buildPreviewFinanceStatements(): NewsroomFinanceStatements {
       { category: "office", currency: "USD", totalAmount: 65.0, count: 1 }
     ]
   };
+}
+
+export function buildPreviewChartOfAccounts(): NewsroomChartOfAccount[] {
+  return [
+    { id: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", description: "Main operational bank accounts", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", description: "Trade receivables from advertising and sponsors", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-2000", accountCode: "2000", accountName: "Accounts Payable (Trade)", accountType: "LIABILITY", description: "Trade payables to vendors, contributors, stringers", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax Payable", accountType: "LIABILITY", description: "15% Zimbabwe VAT collected on advertising invoices", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-3000", accountCode: "3000", accountName: "Retained Earnings / Initial Capital", accountType: "EQUITY", description: "Accumulated operational surplus", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-4000", accountCode: "4000", accountName: "Direct Advertising Revenue", accountType: "REVENUE", description: "Direct banner, display, and bespoke campaigns", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-4100", accountCode: "4100", accountName: "Subscription & Reader Revenue", accountType: "REVENUE", description: "Direct reader premium recurring subscriptions", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-5000", accountCode: "5000", accountName: "Editorial & Reporting Expenses", accountType: "EXPENSE", description: "Stringer fees, story commissioning, fact-checking", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-5100", accountCode: "5100", accountName: "Travel & Field Investigation", accountType: "EXPENSE", description: "Provincial clinic visits, field travel, transport", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-5200", accountCode: "5200", accountName: "Technology & Platform Hosting", accountType: "EXPENSE", description: "Cloud database, Cloud Run, Vercel, Expo EAS, telephony", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-5300", accountCode: "5300", accountName: "Marketing & Audience Acquisition", accountType: "EXPENSE", description: "WhatsApp push, newsletters, social campaigns", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "coa-5400", accountCode: "5400", accountName: "Administrative & Office Expenses", accountType: "EXPENSE", description: "Newsroom workspace, utilities, legal, compliance", isActive: true, currency: "USD", createdAt: "2026-01-01T00:00:00Z" }
+  ];
+}
+
+export function buildPreviewFiscalPeriods(): NewsroomFiscalPeriod[] {
+  return [
+    { id: "fp-2026-q4", periodName: "FY2026-Q4", startDate: "2026-10-01", endDate: "2026-12-31", status: "OPEN", lockedAt: null, lockedBy: null, createdAt: "2026-01-01T00:00:00Z" },
+    { id: "fp-2026-q3", periodName: "FY2026-Q3", startDate: "2026-07-01", endDate: "2026-09-30", status: "CLOSED", lockedAt: null, lockedBy: null, createdAt: "2026-01-01T00:00:00Z" },
+    { id: "fp-2026-q2", periodName: "FY2026-Q2", startDate: "2026-04-01", endDate: "2026-06-30", status: "LOCKED", lockedAt: "2026-07-15T00:00:00Z", lockedBy: "Publisher / Owner", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "fp-2026-q1", periodName: "FY2026-Q1", startDate: "2026-01-01", endDate: "2026-03-31", status: "LOCKED", lockedAt: "2026-04-15T00:00:00Z", lockedBy: "Publisher / Owner", createdAt: "2026-01-01T00:00:00Z" }
+  ];
+}
+
+export function buildPreviewTrialBalance(): NewsroomTrialBalance {
+  return {
+    periodId: "fp-2026-q4",
+    currency: "USD",
+    accounts: [
+      { accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", debitTotal: 2125.0, creditTotal: 45.0, netBalance: 2080.0 },
+      { accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", debitTotal: 3410.0, creditTotal: 2125.0, netBalance: 1285.0 },
+      { accountId: "coa-2000", accountCode: "2000", accountName: "Accounts Payable (Trade)", accountType: "LIABILITY", debitTotal: 45.0, creditTotal: 165.0, netBalance: 120.0 },
+      { accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax Payable", accountType: "LIABILITY", debitTotal: 0.0, creditTotal: 444.78, netBalance: 444.78 },
+      { accountId: "coa-4000", accountCode: "4000", accountName: "Direct Advertising Revenue", accountType: "REVENUE", debitTotal: 0.0, creditTotal: 2965.22, netBalance: 2965.22 },
+      { accountId: "coa-5000", accountCode: "5000", accountName: "Editorial & Reporting Expenses", accountType: "EXPENSE", debitTotal: 120.0, creditTotal: 0.0, netBalance: 120.0 },
+      { accountId: "coa-5100", accountCode: "5100", accountName: "Travel & Field Investigation", accountType: "EXPENSE", debitTotal: 45.0, creditTotal: 0.0, netBalance: 45.0 }
+    ],
+    totalDebits: 5745.0,
+    totalCredits: 5745.0,
+    isBalanced: true
+  };
+}
+
+export function buildPreviewProfitAndLoss(): NewsroomProfitAndLoss {
+  return {
+    fromDate: "2026-10-01",
+    toDate: "2026-10-31",
+    currency: "USD",
+    revenues: [
+      { accountCode: "4000", accountName: "Direct Advertising Revenue", amount: 2965.22 }
+    ],
+    totalRevenue: 2965.22,
+    expenses: [
+      { accountCode: "5000", accountName: "Editorial & Reporting Expenses", amount: 120.0 },
+      { accountCode: "5100", accountName: "Travel & Field Investigation", amount: 45.0 }
+    ],
+    totalExpenses: 165.0,
+    netOperatingSurplus: 2800.22
+  };
+}
+
+export function buildPreviewBalanceSheet(): NewsroomBalanceSheet {
+  return {
+    asOfDate: "2026-10-31",
+    currency: "USD",
+    assets: [
+      { accountCode: "1000", accountName: "Operating Cash / Bank", amount: 2080.0 },
+      { accountCode: "1200", accountName: "Accounts Receivable (Trade)", amount: 1285.0 }
+    ],
+    totalAssets: 3365.0,
+    liabilities: [
+      { accountCode: "2000", accountName: "Accounts Payable (Trade)", amount: 120.0 },
+      { accountCode: "2100", accountName: "VAT Output Tax Payable", amount: 444.78 }
+    ],
+    totalLiabilities: 564.78,
+    equity: [
+      { accountCode: "3999", accountName: "Current Period Operating Surplus / Retained Earnings", amount: 2800.22 }
+    ],
+    totalEquity: 2800.22,
+    totalLiabilitiesAndEquity: 3365.0,
+    isBalanced: true
+  };
+}
+
+export function buildPreviewCustomerStatement(customerId?: string): NewsroomCustomerStatement {
+  return {
+    customerId: customerId ?? "cust-sample-1",
+    customerName: "Health Corp Zimbabwe Ltd",
+    currency: "USD",
+    fromDate: "2026-10-01",
+    toDate: "2026-10-31",
+    openingBalance: 0.0,
+    totalInvoiced: 2125.0,
+    totalPaid: 2125.0,
+    totalCredits: 0.0,
+    closingBalance: 0.0,
+    activity: [
+      { type: "invoice", reference: "INV-2026-0001", activityDate: "2026-10-02", amount: 2125.0, memo: "Cholera Awareness Campaign Masthead Sponsorship" },
+      { type: "payment", reference: "PAY-2026-0001", activityDate: "2026-10-08", amount: 2125.0, memo: "Settlement via Bank Wire Ref #BW-8829" }
+    ]
+  };
+}
+
+export function buildPreviewJournals(): NewsroomJournalEntry[] {
+  return [
+    {
+      id: "jrn-sample-1",
+      entryNumber: "JRN-2026-0001",
+      entryDate: "2026-10-02",
+      periodId: "fp-2026-q4",
+      status: "posted",
+      source: "invoice",
+      sourceId: "inv-sample-1",
+      currency: "USD",
+      memo: "Operational Invoice Issued: INV-2026-0001",
+      postedAt: "2026-10-02T10:00:00Z",
+      createdAt: "2026-10-02T10:00:00Z",
+      lines: [
+        { lineNumber: 1, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 2125.0, credit: 0.0, description: "Customer receivable for INV-2026-0001" },
+        { lineNumber: 2, accountId: "coa-4000", accountCode: "4000", accountName: "Advertising Revenue", debit: 0.0, credit: 1847.83, description: "Net advertising revenue" },
+        { lineNumber: 3, accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax", debit: 0.0, credit: 277.17, description: "15% VAT output tax" }
+      ]
+    },
+    {
+      id: "jrn-sample-2",
+      entryNumber: "JRN-2026-0002",
+      entryDate: "2026-10-08",
+      periodId: "fp-2026-q4",
+      status: "posted",
+      source: "payment",
+      sourceId: "pay-sample-1",
+      currency: "USD",
+      memo: "Customer Payment: PAY-2026-0001 (INV-2026-0001)",
+      postedAt: "2026-10-08T14:30:00Z",
+      createdAt: "2026-10-08T14:30:00Z",
+      lines: [
+        { lineNumber: 1, accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", debit: 2125.0, credit: 0.0, description: "Cash receipt for INV-2026-0001" },
+        { lineNumber: 2, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 0.0, credit: 2125.0, description: "Clear AR via PAY-2026-0001" }
+      ]
+    }
+  ];
 }
 
 

@@ -17,7 +17,16 @@ import type {
   NewsroomExpenseCategory,
   NewsroomCreateExpenseInput,
   NewsroomFinanceOverview,
-  NewsroomFinanceStatements
+  NewsroomFinanceStatements,
+  NewsroomChartOfAccount,
+  NewsroomFiscalPeriod,
+  NewsroomJournalLine,
+  NewsroomJournalEntry,
+  NewsroomCreditNote,
+  NewsroomTrialBalance,
+  NewsroomProfitAndLoss,
+  NewsroomBalanceSheet,
+  NewsroomCustomerStatement
 } from "../domain/models";
 import { getStagingSupabaseClient } from "../platform/supabase";
 
@@ -277,6 +286,178 @@ export function mapFinanceStatements(raw: Record<string, unknown>): NewsroomFina
       currency: String(item.currency ?? "USD"),
       totalAmount: Number(item.total_amount ?? 0),
       count: Number(item.count ?? 0)
+    }))
+  };
+}
+
+export function mapChartOfAccount(raw: Record<string, unknown>): NewsroomChartOfAccount {
+  return {
+    id: String(raw.id ?? ""),
+    accountCode: String(raw.account_code ?? ""),
+    accountName: String(raw.account_name ?? ""),
+    accountType: (raw.account_type as NewsroomChartOfAccount["accountType"]) ?? "ASSET",
+    description: raw.description ? String(raw.description) : null,
+    isActive: Boolean(raw.is_active ?? true),
+    currency: String(raw.currency ?? "USD"),
+    createdAt: String(raw.created_at ?? new Date().toISOString())
+  };
+}
+
+export function mapFiscalPeriod(raw: Record<string, unknown>): NewsroomFiscalPeriod {
+  return {
+    id: String(raw.id ?? ""),
+    periodName: String(raw.period_name ?? ""),
+    startDate: String(raw.start_date ?? ""),
+    endDate: String(raw.end_date ?? ""),
+    status: (raw.status as NewsroomFiscalPeriod["status"]) ?? "OPEN",
+    lockedAt: raw.locked_at ? String(raw.locked_at) : null,
+    lockedBy: raw.locked_by ? String(raw.locked_by) : null,
+    createdAt: String(raw.created_at ?? new Date().toISOString())
+  };
+}
+
+export function mapJournalLine(raw: Record<string, unknown>): NewsroomJournalLine {
+  return {
+    id: raw.id ? String(raw.id) : undefined,
+    lineNumber: Number(raw.line_number ?? 1),
+    accountId: String(raw.account_id ?? ""),
+    accountCode: raw.account_code ? String(raw.account_code) : undefined,
+    accountName: raw.account_name ? String(raw.account_name) : undefined,
+    debit: Number(raw.debit ?? 0),
+    credit: Number(raw.credit ?? 0),
+    description: String(raw.description ?? ""),
+    createdAt: raw.created_at ? String(raw.created_at) : undefined
+  };
+}
+
+export function mapJournalEntry(raw: Record<string, unknown>): NewsroomJournalEntry {
+  const linesRaw = Array.isArray(raw.lines) ? raw.lines : [];
+  return {
+    id: String(raw.id ?? ""),
+    entryNumber: String(raw.entry_number ?? ""),
+    entryDate: String(raw.entry_date ?? ""),
+    periodId: raw.period_id ? String(raw.period_id) : null,
+    status: (raw.status as NewsroomJournalEntry["status"]) ?? "draft",
+    source: (raw.source as NewsroomJournalEntry["source"]) ?? "manual",
+    sourceId: raw.source_id ? String(raw.source_id) : null,
+    currency: String(raw.currency ?? "USD"),
+    memo: String(raw.memo ?? ""),
+    postedAt: raw.posted_at ? String(raw.posted_at) : null,
+    createdAt: String(raw.created_at ?? new Date().toISOString()),
+    lines: linesRaw.map((line) => mapJournalLine(line as Record<string, unknown>))
+  };
+}
+
+export function mapCreditNote(raw: Record<string, unknown>): NewsroomCreditNote {
+  return {
+    id: String(raw.id ?? ""),
+    creditNoteNumber: String(raw.credit_note_number ?? ""),
+    customerId: String(raw.customer_id ?? ""),
+    customerName: raw.customer_name ? String(raw.customer_name) : undefined,
+    invoiceId: String(raw.invoice_id ?? ""),
+    invoiceNumber: raw.invoice_number ? String(raw.invoice_number) : undefined,
+    amount: Number(raw.amount ?? 0),
+    currency: String(raw.currency ?? "USD"),
+    reason: String(raw.reason ?? ""),
+    status: (raw.status as NewsroomCreditNote["status"]) ?? "issued",
+    issuedAt: String(raw.issued_at ?? raw.created_at ?? new Date().toISOString()),
+    issuedBy: raw.issued_by ? String(raw.issued_by) : null,
+    createdAt: String(raw.created_at ?? new Date().toISOString())
+  };
+}
+
+export function mapTrialBalance(raw: Record<string, unknown>): NewsroomTrialBalance {
+  const accountsRaw = Array.isArray(raw.accounts) ? raw.accounts : [];
+  return {
+    periodId: raw.period_id ? String(raw.period_id) : null,
+    currency: String(raw.currency ?? "USD"),
+    accounts: accountsRaw.map((acc: Record<string, unknown>) => ({
+      accountId: String(acc.account_id ?? ""),
+      accountCode: String(acc.account_code ?? ""),
+      accountName: String(acc.account_name ?? ""),
+      accountType: (acc.account_type as NewsroomChartOfAccount["accountType"]) ?? "ASSET",
+      debitTotal: Number(acc.debit_total ?? 0),
+      creditTotal: Number(acc.credit_total ?? 0),
+      netBalance: Number(acc.net_balance ?? 0)
+    })),
+    totalDebits: Number(raw.total_debits ?? 0),
+    totalCredits: Number(raw.total_credits ?? 0),
+    isBalanced: Boolean(raw.is_balanced ?? false)
+  };
+}
+
+export function mapProfitAndLoss(raw: Record<string, unknown>): NewsroomProfitAndLoss {
+  const revenuesRaw = Array.isArray(raw.revenues) ? raw.revenues : [];
+  const expensesRaw = Array.isArray(raw.expenses) ? raw.expenses : [];
+  return {
+    fromDate: String(raw.from_date ?? ""),
+    toDate: String(raw.to_date ?? ""),
+    currency: String(raw.currency ?? "USD"),
+    revenues: revenuesRaw.map((rev: Record<string, unknown>) => ({
+      accountCode: String(rev.account_code ?? ""),
+      accountName: String(rev.account_name ?? ""),
+      amount: Number(rev.amount ?? 0)
+    })),
+    totalRevenue: Number(raw.total_revenue ?? 0),
+    expenses: expensesRaw.map((exp: Record<string, unknown>) => ({
+      accountCode: String(exp.account_code ?? ""),
+      accountName: String(exp.account_name ?? ""),
+      amount: Number(exp.amount ?? 0)
+    })),
+    totalExpenses: Number(raw.total_expenses ?? 0),
+    netOperatingSurplus: Number(raw.net_operating_surplus ?? 0)
+  };
+}
+
+export function mapBalanceSheet(raw: Record<string, unknown>): NewsroomBalanceSheet {
+  const assetsRaw = Array.isArray(raw.assets) ? raw.assets : [];
+  const liabilitiesRaw = Array.isArray(raw.liabilities) ? raw.liabilities : [];
+  const equityRaw = Array.isArray(raw.equity) ? raw.equity : [];
+  return {
+    asOfDate: String(raw.as_of_date ?? ""),
+    currency: String(raw.currency ?? "USD"),
+    assets: assetsRaw.map((a: Record<string, unknown>) => ({
+      accountCode: String(a.account_code ?? ""),
+      accountName: String(a.account_name ?? ""),
+      amount: Number(a.amount ?? 0)
+    })),
+    totalAssets: Number(raw.total_assets ?? 0),
+    liabilities: liabilitiesRaw.map((l: Record<string, unknown>) => ({
+      accountCode: String(l.account_code ?? ""),
+      accountName: String(l.account_name ?? ""),
+      amount: Number(l.amount ?? 0)
+    })),
+    totalLiabilities: Number(raw.total_liabilities ?? 0),
+    equity: equityRaw.map((e: Record<string, unknown>) => ({
+      accountCode: String(e.account_code ?? ""),
+      accountName: String(e.account_name ?? ""),
+      amount: Number(e.amount ?? 0)
+    })),
+    totalEquity: Number(raw.total_equity ?? 0),
+    totalLiabilitiesAndEquity: Number(raw.total_liabilities_and_equity ?? 0),
+    isBalanced: Boolean(raw.is_balanced ?? false)
+  };
+}
+
+export function mapCustomerStatement(raw: Record<string, unknown>): NewsroomCustomerStatement {
+  const activityRaw = Array.isArray(raw.activity) ? raw.activity : [];
+  return {
+    customerId: String(raw.customer_id ?? ""),
+    customerName: String(raw.customer_name ?? ""),
+    currency: String(raw.currency ?? "USD"),
+    fromDate: String(raw.from_date ?? ""),
+    toDate: String(raw.to_date ?? ""),
+    openingBalance: Number(raw.opening_balance ?? 0),
+    totalInvoiced: Number(raw.total_invoiced ?? 0),
+    totalPaid: Number(raw.total_paid ?? 0),
+    totalCredits: Number(raw.total_credits ?? 0),
+    closingBalance: Number(raw.closing_balance ?? 0),
+    activity: activityRaw.map((act: Record<string, unknown>) => ({
+      type: (act.type as "invoice" | "payment" | "credit_note") ?? "invoice",
+      reference: String(act.reference ?? ""),
+      activityDate: String(act.activity_date ?? ""),
+      amount: Number(act.amount ?? 0),
+      memo: String(act.memo ?? "")
     }))
   };
 }
@@ -588,6 +769,126 @@ export function createNewsroomFinanceService(
         throw new Error(`Failed to upsert customer: ${error.message} (code ${error.code})`);
       }
       return mapCustomer((data as Record<string, unknown>) ?? {});
+    },
+
+    async getTrialBalance(periodId?: string | null, currency?: string): Promise<NewsroomTrialBalance> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_get_trial_balance", {
+        p_period_id: periodId ?? null,
+        p_currency: currency ?? "USD"
+      });
+      if (error) {
+        throw new Error(`Failed to get trial balance: ${error.message} (code ${error.code})`);
+      }
+      return mapTrialBalance((data as Record<string, unknown>) ?? {});
+    },
+
+    async getProfitAndLoss(fromDate?: string | null, toDate?: string | null, currency?: string): Promise<NewsroomProfitAndLoss> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_get_profit_and_loss", {
+        p_from_date: fromDate ?? null,
+        p_to_date: toDate ?? null,
+        p_currency: currency ?? "USD"
+      });
+      if (error) {
+        throw new Error(`Failed to get profit and loss statement: ${error.message} (code ${error.code})`);
+      }
+      return mapProfitAndLoss((data as Record<string, unknown>) ?? {});
+    },
+
+    async getBalanceSheet(asOfDate?: string | null, currency?: string): Promise<NewsroomBalanceSheet> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_get_balance_sheet", {
+        p_as_of_date: asOfDate ?? null,
+        p_currency: currency ?? "USD"
+      });
+      if (error) {
+        throw new Error(`Failed to get balance sheet: ${error.message} (code ${error.code})`);
+      }
+      return mapBalanceSheet((data as Record<string, unknown>) ?? {});
+    },
+
+    async getCustomerStatement(customerId: string, fromDate?: string | null, toDate?: string | null, currency?: string): Promise<NewsroomCustomerStatement> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_get_customer_statement", {
+        p_customer_id: customerId,
+        p_from_date: fromDate ?? null,
+        p_to_date: toDate ?? null,
+        p_currency: currency ?? "USD"
+      });
+      if (error) {
+        throw new Error(`Failed to get customer statement: ${error.message} (code ${error.code})`);
+      }
+      return mapCustomerStatement((data as Record<string, unknown>) ?? {});
+    },
+
+    async createCreditNote(invoiceId: string, amount: number, reason: string): Promise<{ id: string; creditNoteNumber: string; amount: number }> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_create_credit_note", {
+        p_invoice_id: invoiceId,
+        p_amount: amount,
+        p_reason: reason
+      });
+      if (error) {
+        throw new Error(`Failed to create credit note: ${error.message} (code ${error.code})`);
+      }
+      const raw = (data as Record<string, unknown>) ?? {};
+      return {
+        id: String(raw.id ?? ""),
+        creditNoteNumber: String(raw.credit_note_number ?? ""),
+        amount: Number(raw.amount ?? amount)
+      };
+    },
+
+    async reverseJournalEntry(entryId: string, reason: string): Promise<{ id: string; status: string; reversalEntryId: string }> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_reverse_journal_entry", {
+        p_entry_id: entryId,
+        p_reason: reason
+      });
+      if (error) {
+        throw new Error(`Failed to reverse journal entry: ${error.message} (code ${error.code})`);
+      }
+      const raw = (data as Record<string, unknown>) ?? {};
+      return {
+        id: String(raw.id ?? entryId),
+        status: String(raw.status ?? "reversed"),
+        reversalEntryId: String(raw.reversal_entry_id ?? "")
+      };
+    },
+
+    async listJournals(periodId?: string | null, statusFilter?: string | null, limit?: number): Promise<NewsroomJournalEntry[]> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_list_journal_entries", {
+        p_period_id: periodId ?? null,
+        p_status: statusFilter ?? null,
+        p_limit: limit ?? 100
+      });
+      if (error) {
+        throw new Error(`Failed to list journal entries: ${error.message} (code ${error.code})`);
+      }
+      const list = Array.isArray(data) ? data : [];
+      return list.map((item) => mapJournalEntry(item as Record<string, unknown>));
+    },
+
+    async listChartOfAccounts(): Promise<NewsroomChartOfAccount[]> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_list_chart_of_accounts");
+      if (error) {
+        throw new Error(`Failed to list chart of accounts: ${error.message} (code ${error.code})`);
+      }
+      const list = Array.isArray(data) ? data : [];
+      return list.map((item) => mapChartOfAccount(item as Record<string, unknown>));
+    },
+
+    async listFiscalPeriods(): Promise<NewsroomFiscalPeriod[]> {
+      const client = getClient();
+      const { data, error } = await client.rpc("finance_list_fiscal_periods");
+      if (error) {
+        throw new Error(`Failed to list fiscal periods: ${error.message} (code ${error.code})`);
+      }
+      const list = Array.isArray(data) ? data : [];
+      return list.map((item) => mapFiscalPeriod(item as Record<string, unknown>));
     }
   };
 }

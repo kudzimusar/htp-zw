@@ -141,7 +141,15 @@ import type {
   NewsroomExpenseCategory,
   NewsroomCreateExpenseInput,
   NewsroomFinanceOverview,
-  NewsroomFinanceStatements
+  NewsroomFinanceStatements,
+  NewsroomChartOfAccount,
+  NewsroomFiscalPeriod,
+  NewsroomJournalEntry,
+  NewsroomCreditNote,
+  NewsroomTrialBalance,
+  NewsroomProfitAndLoss,
+  NewsroomBalanceSheet,
+  NewsroomCustomerStatement
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -468,6 +476,8 @@ export interface NewsroomStaffService {
     input: NewsroomStaffInviteInput
   ): Promise<{ id: string; email: string; displayName: string; role: string }>;
   cancelInvitation(invitationId: string): Promise<void>;
+  bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
+  activateOwner(password: string): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
 }
 
 export interface NewsroomCommercialService {
@@ -554,6 +564,15 @@ export interface NewsroomFinanceService {
   approveOrder(orderId: string): Promise<void>;
   listCustomers(): Promise<NewsroomCustomer[]>;
   upsertCustomer(input: NewsroomUpsertCustomerInput): Promise<NewsroomCustomer>;
+  getTrialBalance(periodId?: string | null, currency?: string): Promise<NewsroomTrialBalance>;
+  getProfitAndLoss(fromDate?: string | null, toDate?: string | null, currency?: string): Promise<NewsroomProfitAndLoss>;
+  getBalanceSheet(asOfDate?: string | null, currency?: string): Promise<NewsroomBalanceSheet>;
+  getCustomerStatement(customerId: string, fromDate?: string | null, toDate?: string | null, currency?: string): Promise<NewsroomCustomerStatement>;
+  createCreditNote(invoiceId: string, amount: number, reason: string): Promise<{ id: string; creditNoteNumber: string; amount: number }>;
+  reverseJournalEntry(entryId: string, reason: string): Promise<{ id: string; status: string; reversalEntryId: string }>;
+  listJournals(periodId?: string | null, statusFilter?: string | null, limit?: number): Promise<NewsroomJournalEntry[]>;
+  listChartOfAccounts(): Promise<NewsroomChartOfAccount[]>;
+  listFiscalPeriods(): Promise<NewsroomFiscalPeriod[]>;
 }
 
 export interface HealthTimesServices {

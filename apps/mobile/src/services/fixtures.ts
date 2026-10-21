@@ -816,6 +816,12 @@ export const fixtureNewsroomStaffService: NewsroomStaffService = {
   },
   async cancelInvitation() {
     throw new Error(FAIL_CLOSED_STAFF_MESSAGE);
+  },
+  async bootstrapOwner() {
+    return { success: true, staffId: "fixture-owner", role: "Publisher / Owner" };
+  },
+  async activateOwner() {
+    return { success: true, staffId: "fixture-owner", role: "Publisher / Owner" };
   }
 };
 
@@ -1339,6 +1345,92 @@ export const fixtureNewsroomFinanceService: NewsroomFinanceService = {
   },
   async upsertCustomer() {
     throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async getTrialBalance(periodId, currency = "USD") {
+    return {
+      periodId: periodId ?? null,
+      currency,
+      accounts: [
+        { accountId: "acc-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", debitTotal: 2950, creditTotal: 620, netBalance: 2330 },
+        { accountId: "acc-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", debitTotal: 4250, creditTotal: 2950, netBalance: 1300 },
+        { accountId: "acc-2000", accountCode: "2000", accountName: "Accounts Payable (Trade)", accountType: "LIABILITY", debitTotal: 620, creditTotal: 840, netBalance: 220 },
+        { accountId: "acc-4000", accountCode: "4000", accountName: "Advertising Revenue", accountType: "REVENUE", debitTotal: 0, creditTotal: 4250, netBalance: 4250 },
+        { accountId: "acc-5000", accountCode: "5000", accountName: "Editorial & Reporting Expense", accountType: "EXPENSE", debitTotal: 840, creditTotal: 0, netBalance: 840 }
+      ],
+      totalDebits: 5090,
+      totalCredits: 5090,
+      isBalanced: true
+    };
+  },
+  async getProfitAndLoss(fromDate, toDate, currency = "USD") {
+    return {
+      fromDate: fromDate ?? "2026-10-01",
+      toDate: toDate ?? "2026-10-31",
+      currency,
+      revenues: [
+        { accountCode: "4000", accountName: "Advertising Revenue", amount: 4250 }
+      ],
+      totalRevenue: 4250,
+      expenses: [
+        { accountCode: "5000", accountName: "Editorial & Reporting Expense", amount: 840 }
+      ],
+      totalExpenses: 840,
+      netOperatingSurplus: 3410
+    };
+  },
+  async getBalanceSheet(asOfDate, currency = "USD") {
+    return {
+      asOfDate: asOfDate ?? "2026-10-31",
+      currency,
+      assets: [
+        { accountCode: "1000", accountName: "Operating Cash / Bank", amount: 2330 },
+        { accountCode: "1200", accountName: "Accounts Receivable (Trade)", amount: 1300 }
+      ],
+      totalAssets: 3630,
+      liabilities: [
+        { accountCode: "2000", accountName: "Accounts Payable (Trade)", amount: 220 }
+      ],
+      totalLiabilities: 220,
+      equity: [
+        { accountCode: "3999", accountName: "Current Period Operating Surplus / Retained Earnings", amount: 3410 }
+      ],
+      totalEquity: 3410,
+      totalLiabilitiesAndEquity: 3630,
+      isBalanced: true
+    };
+  },
+  async getCustomerStatement(customerId, fromDate, toDate, currency = "USD") {
+    return {
+      customerId,
+      customerName: "Health Corp Zimbabwe",
+      currency,
+      fromDate: fromDate ?? "2026-10-01",
+      toDate: toDate ?? "2026-10-31",
+      openingBalance: 0,
+      totalInvoiced: 2500,
+      totalPaid: 1550,
+      totalCredits: 0,
+      closingBalance: 950,
+      activity: [
+        { type: "invoice", reference: "INV-2026-0001", activityDate: "2026-10-05", amount: 2500, memo: "Q4 Sponsorship Banner Campaign" },
+        { type: "payment", reference: "PAY-2026-0001", activityDate: "2026-10-12", amount: 1550, memo: "Bank Transfer receipt" }
+      ]
+    };
+  },
+  async createCreditNote() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async reverseJournalEntry() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async listJournals() {
+    return [];
+  },
+  async listChartOfAccounts() {
+    return [];
+  },
+  async listFiscalPeriods() {
+    return [];
   }
 };
 
