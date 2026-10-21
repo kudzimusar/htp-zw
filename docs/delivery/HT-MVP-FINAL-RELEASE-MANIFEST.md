@@ -5,7 +5,7 @@
 - **Governing Standard:** 11-11 Tech Universal Digital Platform Capability Standard — UDPCS 1.0
 - **Programme:** HealthTimes 2.0 (Reader + Newsroom OS + Commercial + Finance + Distribution + Platform)
 - **Release Candidate Branch:** `release/ht-mvp-rc02-final-unified-candidate`
-- **Exact Unified Head SHA:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`
+- **Exact Unified Head SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f` (PR #118)
 - **Reader Authority SHA:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d` (PR #116)
 - **Launch Control Parent SHA:** `a57b2748a4aaa46478028ac3857f0f84fbeae5f2` (PR #119)
@@ -25,7 +25,7 @@ Prior to this release candidate, the separately approved Reader authority (PR #1
 UNIFIED RELEASE CANDIDATE METRICS
 ================================================================
 Branch:                release/ht-mvp-rc02-final-unified-candidate
-Head SHA:              bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01
+Head SHA:              641b20267f6b6b0fbcb80044b5c271400c12bda1
 Merge Base vs Base:    d5af42d6b7018dfd3451ac9d621482e0edf9664f (PR #118)
 Merged Lineage:        c4e779dbbc2b65232c90b4e69b74551b62f1910d (PR #116)
 Single Head Exists:    YES
@@ -49,7 +49,7 @@ Migration Tip:         20261021050000_ht_nr_rc01_owner_auth_email_verification.s
 | **Double-Entry General Ledger** | `feat/ht-nr-ui02-launch-hardening-accounting-auth` | PR #118 | `d5af42d6b7018dfd3451ac9d621482e0edf9664f` | **PRESERVED** |
 | **First-Owner Bootstrap Security** | `release/ht-mvp-rc02-final-unified-candidate` | PR #119 | `a57b2748a4aaa46478028ac3857f0f84fbeae5f2` | **PRESERVED** |
 | **Launch Governance & Runbooks** | `release/ht-mvp-rc02-final-unified-candidate` | PR #119 | `a57b2748a4aaa46478028ac3857f0f84fbeae5f2` | **PRESERVED** |
-| **Unified Release Assembly** | `release/ht-mvp-rc02-final-unified-candidate` | PR #120 | `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01` | **ACTIVE CANDIDATE** |
+| **Unified Release Assembly** | `release/ht-mvp-rc02-final-unified-candidate` | PR #120 | `641b20267f6b6b0fbcb80044b5c271400c12bda1` | **ACTIVE CANDIDATE** |
 
 ---
 

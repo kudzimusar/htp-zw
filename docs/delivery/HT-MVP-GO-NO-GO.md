@@ -3,7 +3,7 @@
 
 - **Document ID:** `HT-MVP-GO-NO-GO`
 - **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
-- **Exact Head SHA:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`
+- **Exact Head SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f` (PR #118)
 - **Reader Authority SHA:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d` (PR #116)
 - **Launch Control Parent SHA:** `a57b2748a4aaa46478028ac3857f0f84fbeae5f2` (PR #119)
@@ -29,7 +29,7 @@ Under UDPCS 1.0 Section 15, defects and operational gaps are strictly partitione
 | ID | Title | Status | Remediation & Proof |
 | :--- | :--- | :---: | :--- |
 | **P0-SEC-01** | First-Owner Auth Unconfirmed Email Privilege Escalation Risk | **RESOLVED** | Fixed via additive Migration 96 (`20261021050000_ht_nr_rc01_owner_auth_email_verification.sql`). 6/6 transactional tests pass in `supabase/tests/ht_nr_rc01_owner_auth_assurance_tests.sql`. |
-| **P0-REL-01** | Parallel Branches Divergence (Reader PR #116 vs Newsroom PR #118) | **RESOLVED** | Unified onto `release/ht-mvp-rc02-final-unified-candidate` (`bdbfa4d4`). Single releasable head exists (`SINGLE_RELEASABLE_HEAD_EXISTS=YES`). 466 Newsroom + 74 Reader unit tests pass, TypeScript compiles with 0 errors. |
+| **P0-REL-01** | Parallel Branches Divergence (Reader PR #116 vs Newsroom PR #118) | **RESOLVED** | Unified onto `release/ht-mvp-rc02-final-unified-candidate` (`641b2026`). Single releasable head exists (`SINGLE_RELEASABLE_HEAD_EXISTS=YES`). 466 Newsroom + 74 Reader unit tests pass, TypeScript compiles with 0 errors. |
 
 *Active P0 Blockers Remaining:* **0**
 
@@ -81,7 +81,7 @@ Under UDPCS 1.0, capability assessment is evaluated across the **Five Operating 
 | Board Role | Representative | Disposition | Comments & Conditions |
 | :--- | :--- | :---: | :--- |
 | **Executive Owner** | Kudzai Musarurwa | **PENDING OWNER UAT** | Single releasable head `release/ht-mvp-rc02-final-unified-candidate` prepared for physical walkthrough. Activation URL available at `/studio/activate`. |
-| **Technical Lead** | Lead Architect | **GO FOR OWNER UAT** | Codebase passes TypeScript strict check (0 errors); 466 Newsroom + 74 Reader unit tests pass (100%). Single releasable head created (`bdbfa4d4`). Staging migration tip 96 verified. |
+| **Technical Lead** | Lead Architect | **GO FOR OWNER UAT** | Codebase passes TypeScript strict check (0 errors); 466 Newsroom + 74 Reader unit tests pass (100%). Single releasable head created (`641b2026`). Staging migration tip 96 verified. |
 | **Security & Privacy Lead** | SecOps Officer | **GO FOR OWNER UAT** | Migration 96 resolved first-owner bootstrap vulnerability. `OWNER_BOOTSTRAP_SECURITY=STAGING_RUNTIME_PROVEN`. RLS active across 100% of public tables. Zero plain secrets. Physical activation pending (`OWNER_ACTION_REQUIRED`). |
 | **Financial Controller** | Finance Lead | **GO FOR OWNER UAT** | General Ledger engine enforces double-entry invariant at database engine level. 19-account chart of accounts verified. Trial balance verified. |
 | **Client Delivery Lead** | Delivery Manager | **GO FOR OWNER UAT** | Runbooks, evidence registers, and handoff documentation complete. Delivery pack unified on RC-02. System ready for Owner UAT & Client Dry-Run. |
@@ -106,7 +106,7 @@ FINAL_DECISION = READY_FOR_FINAL_OWNER_UAT
 RATIONALE:
 1. SINGLE_RELEASABLE_HEAD_EXISTS=YES:
    Reader (PR #116) and Newsroom (PR #118) lines are fully unified on
-   release/ht-mvp-rc02-final-unified-candidate (bdbfa4d4).
+   release/ht-mvp-rc02-final-unified-candidate (641b2026).
 2. Zero active P0 defects remain. P0-REL-01 and P0-SEC-01 are fully resolved.
 3. Automated test suite passes 100% (466 Newsroom unit tests + 74 Reader tests).
 4. TypeScript compiles with 0 errors (npx tsc --noEmit).
@@ -118,6 +118,6 @@ RATIONALE:
 
 CONDITIONS FOR CLIENT MVP HANDOFF (24 OCTOBER 2026):
 1. Owner executes physical authentication and walkthrough via /studio/activate.
-2. Final Owner UAT sign-off recorded on candidate head bdbfa4d4.
+2. Final Owner UAT sign-off recorded on candidate head 641b2026.
 3. Client executes formal acknowledgment of external provider prerequisites (Meta, Brevo, Apple).
 ```

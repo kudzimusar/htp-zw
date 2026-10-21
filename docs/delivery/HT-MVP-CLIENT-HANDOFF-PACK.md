@@ -3,7 +3,7 @@
 
 - **Document ID:** `HT-MVP-CLIENT-HANDOFF-PACK`
 - **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
-- **Exact Head SHA:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`
+- **Exact Head SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
 - **Reader Authority SHA:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Sections 43, 44, 48, 50, 51
@@ -54,7 +54,7 @@ In accordance with UDPCS 1.0 Section 48 (Claim Discipline & Honest Disclosure), 
    - *Disclosure:* While all outbound dispatch workflows (WhatsApp, Brevo, Push) are fully functional in code and validated in database staging queues, live delivery to external consumer phone numbers and email inboxes requires client-provisioned API credentials (Meta System User Token, Brevo v3 Key).
    - *Impact:* Staging dry run operates in validated mock/sandbox mode.
 2. **Unified Release Candidate Assembly:**
-   - *Disclosure:* All accepted Reader subsystems (PR #116) and Newsroom OS subsystems (PR #118) are fully unified into **ONE releasable exact git head** on candidate branch `release/ht-mvp-rc02-final-unified-candidate` (`bdbfa4d4`).
+   - *Disclosure:* All accepted Reader subsystems (PR #116) and Newsroom OS subsystems (PR #118) are fully unified into **ONE releasable exact git head** on candidate branch `release/ht-mvp-rc02-final-unified-candidate` (`641b2026`).
    - *Status:* `SINGLE_RELEASABLE_HEAD_EXISTS=YES`. Zero merge conflicts, clean TypeScript build, and 100% test pass across all 466 Newsroom and 74 Reader tests.
 3. **Owner Physical Authentication Activation:**
    - *Disclosure:* Migration 96 runtime security is fully proven on Staging, with zero unconfirmed email privilege escalation. Physical activation of the primary Owner profile requires Kudzi Musarurwa to access `/studio/activate` using `kudzimusar@gmail.com` (`OWNER_ACTION_REQUIRED`).

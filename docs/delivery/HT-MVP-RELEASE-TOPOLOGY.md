@@ -7,7 +7,7 @@
 - **Audit Date:** 2026-10-21  
 - **Auditor:** HealthTimes Final MVP Release Integration Lead  
 - **Current Classification:** `SINGLE_RELEASABLE_HEAD_EXISTS=YES` (`P0-REL-01=RESOLVED`)  
-- **Unified Release Candidate Head:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`  
+- **Unified Release Candidate Head:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`  
 - **Unified Release Candidate Branch:** `release/ht-mvp-rc02-final-unified-candidate`  
 
 ---
@@ -26,7 +26,7 @@ P0-REL-01=RESOLVED
 Under candidate branch `release/ht-mvp-rc02-final-unified-candidate`, the separately certified authorities are now fully unified into **ONE releasable exact git head**:
 
 ```text
-HEAD: bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01
+HEAD: 641b20267f6b6b0fbcb80044b5c271400c12bda1
 Merge Parents:
   Parent 1: a57b2748a4aaa46478028ac3857f0f84fbeae5f2 (PR #119 Launch Control on PR #118 Newsroom)
   Parent 2: c4e779dbbc2b65232c90b4e69b74551b62f1910d (PR #116 Accepted Reader Authority)
@@ -51,7 +51,7 @@ This unified commit simultaneously provides:
 | **Newsroom OS (7 Domains)** | `feat/ht-nr-ui01-role-operating-system-convergence` | PR `#117` | `cd2bc75dd6fcd03b9afc869bd25ccda3067bd435` | Accepted Role Architecture |
 | **Newsroom Hardening & GL** | `feat/ht-nr-ui02-launch-hardening-accounting-auth` | PR `#118` | `d5af42d6b7018dfd3451ac9d621482e0edf9664f` | **Accepted Newsroom Final Authority** |
 | **MVP Launch Control** | `release/ht-mvp-rc02-final-unified-candidate` | PR `#119` | `a57b2748a4aaa46478028ac3857f0f84fbeae5f2` | Launch Governance Stack |
-| **Unified Final Release Candidate** | `release/ht-mvp-rc02-final-unified-candidate` | PR `#120` | `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01` | **UNIFIED CONTROLLING RELEASE HEAD** |
+| **Unified Final Release Candidate** | `release/ht-mvp-rc02-final-unified-candidate` | PR `#120` | `641b20267f6b6b0fbcb80044b5c271400c12bda1` | **UNIFIED CONTROLLING RELEASE HEAD** |
 
 ---
 
@@ -75,14 +75,14 @@ gitGraph
    commit id: "PR #119 (RC-01 Governance @ a57b274)"
    branch UnifiedRelease
    checkout UnifiedRelease
-   merge ReaderTrack id: "RC-02 Unified Candidate @ bdbfa4d"
+   merge ReaderTrack id: "RC-02 Unified Candidate @ 641b202"
 ```
 
 ---
 
 ## 4. Subsystem Distribution Across Release Lineage
 
-| Subsystem / Capability | Present on PR #116 (Reader)? | Present on PR #118 (Newsroom)? | Present on RC-02 Unified Head (`bdbfa4d`)? |
+| Subsystem / Capability | Present on PR #116 (Reader)? | Present on PR #118 (Newsroom)? | Present on RC-02 Unified Head (`641b202`)? |
 |---|:---:|:---:|:---:|
 | **Universal Reader UI (Screens 1–12)** | **YES** | Older Snapshot | **YES (PR #116 Preserved)** |
 | **Native Dual-Feed Story Discovery** | **YES** | No | **YES (Merged & Active)** |
@@ -99,7 +99,7 @@ gitGraph
 
 ## 5. Verification Proof on Unified Worktree
 
-The unified candidate worktree (`bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`) was subjected to complete local verification prior to candidate cut:
+The unified candidate worktree (`641b20267f6b6b0fbcb80044b5c271400c12bda1`) was subjected to complete local verification prior to candidate cut:
 
 1. **TypeScript Typecheck:**
    ```bash

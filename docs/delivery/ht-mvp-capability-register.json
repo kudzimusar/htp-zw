@@ -4,7 +4,7 @@
   "programme": "HealthTimes 2.0 / Reader + Newsroom OS + Commercial + Finance + Distribution + Platform",
   "documentId": "HT-MVP-CAPABILITY-REGISTER-JSON",
   "releaseCandidate": "release/ht-mvp-rc02-final-unified-candidate",
-  "exactHeadSha": "bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01",
+  "exactHeadSha": "641b20267f6b6b0fbcb80044b5c271400c12bda1",
   "controllingBaseSha": "d5af42d6b7018dfd3451ac9d621482e0edf9664f",
   "readerAuthoritySha": "c4e779dbbc2b65232c90b4e69b74551b62f1910d",
   "launchControlParentSha": "a57b2748a4aaa46478028ac3857f0f84fbeae5f2",

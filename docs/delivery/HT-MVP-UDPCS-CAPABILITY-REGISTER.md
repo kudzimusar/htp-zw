@@ -71,9 +71,9 @@ OPERATIONS_EVIDENCE: PWA offline caching, responsive navigation, dark/light them
 SUPPORT_MODEL: Help Desk / Contact Editor route
 RECOVERY_MODEL: Client-side cache clear & Edge network failover
 EVIDENCE_REFERENCES: apps/mobile/tests/reader-product.test.mjs, phase10-visual-conformance.test.mjs
-OPEN_GAPS: None. Unified with Newsroom OS on release/ht-mvp-rc02-final-unified-candidate (bdbfa4d4).
+OPEN_GAPS: None. Unified with Newsroom OS on release/ht-mvp-rc02-final-unified-candidate (641b2026).
 SEVERITY: P2_DISCLOSE_AND_DEFER
-CLIENT_DISCLOSURE: Full 12-screen reader certified and unified with Newsroom OS on exact candidate head bdbfa4d4.
+CLIENT_DISCLOSURE: Full 12-screen reader certified and unified with Newsroom OS on exact candidate head 641b2026.
 NEXT_VERSION_ACTION: Native push notification personalization.
 --------------------------------------------------------------------------------
 DOMAIN_ID: IAM-01
@@ -186,9 +186,9 @@ OPERATIONS_EVIDENCE: Safe health query sanitization (no health attribute trackin
 SUPPORT_MODEL: Editorial taxonomy adjustments
 RECOVERY_MODEL: Database index rebuild
 EVIDENCE_REFERENCES: apps/mobile/tests/search-ranking.test.mjs, ui-nr-conv-02 test evidence
-OPEN_GAPS: None. Unified with Newsroom OS on release/ht-mvp-rc02-final-unified-candidate (bdbfa4d4).
+OPEN_GAPS: None. Unified with Newsroom OS on release/ht-mvp-rc02-final-unified-candidate (641b2026).
 SEVERITY: P2_DISCLOSE_AND_DEFER
-CLIENT_DISCLOSURE: Context discovery certified and unified with Newsroom OS on exact candidate head bdbfa4d4.
+CLIENT_DISCLOSURE: Context discovery certified and unified with Newsroom OS on exact candidate head 641b2026.
 NEXT_VERSION_ACTION: Semantic vector search for clinical terms.
 --------------------------------------------------------------------------------
 DOMAIN_ID: MSG-01
@@ -736,9 +736,9 @@ OPERATIONS_EVIDENCE: Preflight script verification, zero-downtime database migra
 SUPPORT_MODEL: Release manager
 RECOVERY_MODEL: Pinned SHA rollback procedure
 EVIDENCE_REFERENCES: docs/delivery/HT-MVP-RELEASE-TOPOLOGY.md, scripts/release/ht-mvp-preflight.mjs
-OPEN_GAPS: None. Branch integration resolved on release/ht-mvp-rc02-final-unified-candidate (bdbfa4d4).
+OPEN_GAPS: None. Branch integration resolved on release/ht-mvp-rc02-final-unified-candidate (641b2026).
 SEVERITY: P2_DISCLOSE_AND_DEFER
-CLIENT_DISCLOSURE: Unified release candidate assembled on exact candidate head bdbfa4d4 with 100% test pass.
+CLIENT_DISCLOSURE: Unified release candidate assembled on exact candidate head 641b2026 with 100% test pass.
 NEXT_VERSION_ACTION: Automated Fastlane App Store upload pipeline.
 --------------------------------------------------------------------------------
 DOMAIN_ID: DOC-01

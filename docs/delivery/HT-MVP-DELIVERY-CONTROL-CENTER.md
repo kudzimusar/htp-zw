@@ -7,7 +7,7 @@
 **Document Owner:** HealthTimes Final MVP Release Integration Lead  
 **Last Verified At:** 2026-10-21  
 **Target Release Candidate Head:** `release/ht-mvp-rc02-final-unified-candidate`  
-**Exact Unified Commit SHA:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`  
+**Exact Unified Commit SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`  
 **Controlling Base Commit:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f` (PR #118)  
 **Reader Authority Commit:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d` (PR #116)  
 **Staging Environment:** Supabase Postgres 17.6 (`gcdohgbmqhqwydgaxrcr`)  
@@ -82,12 +82,12 @@ gitGraph
    commit id: "PR #119 (a57b274 - RC-01)"
    branch UnifiedRelease
    checkout UnifiedRelease
-   merge ReaderTrack id: "RC-02 Unified Candidate (bdbfa4d)"
+   merge ReaderTrack id: "RC-02 Unified Candidate (641b202)"
 ```
 
 ### Topology Status:
 - `SINGLE_RELEASABLE_HEAD_EXISTS=YES`
-- `UNIFIED_RELEASE_HEAD=bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`
+- `UNIFIED_RELEASE_HEAD=641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - `FINAL_READER_AUTHORITY=PR #116 (c4e779dbbc2b65232c90b4e69b74551b62f1910d) [MERGED]`
 - `FINAL_NEWSROOM_AUTHORITY=PR #118 (d5af42d6b7018dfd3451ac9d621482e0edf9664f) [MERGED]`
 - `RELEASE_INTEGRATION_BLOCKER=RESOLVED`
@@ -155,7 +155,7 @@ In accordance with UDPCS 1.0 governance, the following 7 capabilities are explic
 
 ### P0 Blockers (Launch Critical):
 *None remaining.*
-- **P0-REL-01 (Branch Divergence):** **RESOLVED** via candidate branch `release/ht-mvp-rc02-final-unified-candidate` (`bdbfa4d4`).
+- **P0-REL-01 (Branch Divergence):** **RESOLVED** via candidate branch `release/ht-mvp-rc02-final-unified-candidate` (`641b2026`).
 - **P0-SEC-01 (Owner Auth Escalation):** **RESOLVED** via additive Migration 96 (`20261021050000_ht_nr_rc01_owner_auth_email_verification.sql`).
 
 ### P1 Pre-Handoff Tasks:

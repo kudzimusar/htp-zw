@@ -3,7 +3,7 @@
 
 - **Document ID:** `HT-MVP-SECURITY-PRIVACY-LEGAL-REGISTER`
 - **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
-- **Exact Head SHA:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`
+- **Exact Head SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
 - **Reader Authority SHA:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Sections 25–27, 38–40
