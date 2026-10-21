@@ -3726,4 +3726,317 @@ export interface NewsroomPlatformSettingsOverview {
   };
 }
 
+// ============================================================================
+// HT-NR-UI-01: Finance & Accounting Models
+// ============================================================================
+
+export interface NewsroomCustomer {
+  id: string;
+  advertiserId: string | null;
+  name: string;
+  legalName: string | null;
+  billingEmail: string;
+  billingPhone: string | null;
+  billingAddress: string | null;
+  taxNumber: string | null;
+  currency: string;
+  paymentTermsDays: number;
+  status: "active" | "inactive" | "suspended" | string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomUpsertCustomerInput {
+  customerId?: string | null;
+  advertiserId?: string | null;
+  name: string;
+  legalName?: string | null;
+  billingEmail: string;
+  billingPhone?: string | null;
+  billingAddress?: string | null;
+  taxNumber?: string | null;
+  currency?: string;
+  paymentTermsDays?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NewsroomCommercialOrder {
+  id: string;
+  orderNumber: string;
+  customerId: string;
+  customerName?: string;
+  campaignId: string | null;
+  campaignName?: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  currency: string;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+  status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "completed" | string;
+  billingStatus: "unbilled" | "partially_billed" | "billed" | string;
+  notes: string | null;
+  submittedBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomCreateOrderInput {
+  customerId: string;
+  campaignId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  currency?: string;
+  subtotal: number;
+  taxAmount?: number;
+  discountAmount?: number;
+  notes?: string | null;
+}
+
+export interface NewsroomInvoiceLine {
+  id?: string;
+  lineNumber?: number;
+  description: string;
+  category?: string | null;
+  placement?: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate?: number;
+  discount?: number;
+  lineTotal?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NewsroomInvoiceItem {
+  id: string;
+  invoiceNumber: string;
+  customerId: string;
+  customerName: string;
+  orderId: string | null;
+  orderNumber: string | null;
+  status: "draft" | "submitted" | "approved" | "issued" | "partially_paid" | "paid" | "void" | string;
+  effectiveStatus: "draft" | "submitted" | "approved" | "issued" | "overdue" | "partially_paid" | "paid" | "void" | string;
+  issueDate: string | null;
+  dueDate: string | null;
+  currency: string;
+  subtotal: number;
+  taxTotal: number;
+  discountTotal: number;
+  total: number;
+  amountPaid: number;
+  balanceDue: number;
+  daysOverdue: number;
+  paymentTermsDays: number;
+  paymentCount: number;
+  notes: string | null;
+  createdBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomInvoiceDetail extends NewsroomInvoiceItem {
+  lines: NewsroomInvoiceLine[];
+  payments: NewsroomPaymentItem[];
+}
+
+export interface NewsroomCreateInvoiceInput {
+  customerId: string;
+  orderId?: string | null;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  currency?: string;
+  lines: Array<{
+    description: string;
+    category?: string | null;
+    placement?: string | null;
+    quantity: number;
+    unitPrice: number;
+    taxRate?: number;
+    discount?: number;
+    metadata?: Record<string, unknown>;
+  }>;
+  notes?: string | null;
+  terms?: string | null;
+}
+
+export interface NewsroomPaymentItem {
+  id: string;
+  paymentNumber: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  currency: string;
+  paymentDate: string;
+  paymentMethod: "bank_transfer" | "cash" | "ecocash" | "card" | "stripe" | "paynow" | string;
+  reference: string | null;
+  notes: string | null;
+  recordedBy: string | null;
+  recordedByName?: string | null;
+  createdAt: string;
+}
+
+export interface NewsroomRecordPaymentInput {
+  invoiceId: string;
+  amount: number;
+  currency: string;
+  paymentDate?: string;
+  paymentMethod: "bank_transfer" | "cash" | "ecocash" | "card" | "stripe" | "paynow" | string;
+  reference?: string | null;
+  notes?: string | null;
+  idempotencyKey?: string | null;
+}
+
+export interface NewsroomPaymentResult {
+  id: string;
+  paymentNumber: string;
+  invoiceId: string;
+  amount: number;
+  currency: string;
+  replayed: boolean;
+  status: string;
+  balanceDue: number;
+}
+
+export interface NewsroomReceivablesAgingBucket {
+  currency: string;
+  notDue: number;
+  d1_30: number;
+  d31_60: number;
+  d61_90: number;
+  d90Plus: number;
+  totalOutstanding: number;
+}
+
+export interface NewsroomReceivablesAgingCustomer {
+  customerId: string;
+  customerName: string;
+  currency: string;
+  notDue: number;
+  d1_30: number;
+  d31_60: number;
+  d61_90: number;
+  d90Plus: number;
+  totalOutstanding: number;
+  invoiceCount: number;
+}
+
+export interface NewsroomReceivablesAging {
+  totals: NewsroomReceivablesAgingBucket[];
+  customers: NewsroomReceivablesAgingCustomer[];
+}
+
+export interface NewsroomExpenseCategory {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+export interface NewsroomExpenseItem {
+  id: string;
+  expenseNumber: string;
+  expenseDate: string;
+  vendorName: string;
+  category: string;
+  description: string;
+  department: string | null;
+  storyId: string | null;
+  amount: number;
+  currency: string;
+  taxAmount: number;
+  receiptReference: string | null;
+  receiptUrl: string | null;
+  status: "draft" | "submitted" | "approved" | "rejected" | "paid" | string;
+  paymentStatus: "unpaid" | "paid" | string;
+  paidAt: string | null;
+  paymentReference: string | null;
+  rejectionReason: string | null;
+  submittedBy: string | null;
+  submittedByName?: string | null;
+  approvedBy: string | null;
+  approvedByName?: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsroomCreateExpenseInput {
+  expenseDate?: string;
+  vendorName: string;
+  category: string;
+  description: string;
+  department?: string | null;
+  storyId?: string | null;
+  amount: number;
+  currency?: string;
+  taxAmount?: number;
+  receiptReference?: string | null;
+  receiptUrl?: string | null;
+  submitImmediately?: boolean;
+}
+
+export interface NewsroomFinanceOverview {
+  byCurrency: Array<{
+    currency: string;
+    invoicedTotal: number;
+    revenueCollected: number;
+    receivablesOutstanding: number;
+    receivablesOverdue: number;
+    expensesApproved: number;
+    expensesPaid: number;
+    operatingCashNet: number;
+    openInvoicesCount: number;
+    overdueInvoicesCount: number;
+  }>;
+  counts: {
+    openInvoices: number;
+    overdueInvoices: number;
+    pendingExpenses: number;
+    approvedUnpaidExpenses: number;
+    activeCustomers: number;
+    pendingOrders: number;
+  };
+}
+
+export interface NewsroomFinanceStatements {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  balanceSheet: string; // Explains 'NOT AVAILABLE UNTIL GENERAL LEDGER AUTHORITY EXISTS'
+  incomeStatement: Array<{
+    currency: string;
+    revenue: number;
+    expenses: number;
+    netOperatingSurplus: number;
+  }>;
+  revenueByPlacement: Array<{
+    placement: string;
+    currency: string;
+    revenue: number;
+  }>;
+  cashReceipts: Array<{
+    method: string;
+    currency: string;
+    totalAmount: number;
+    receiptsCount: number;
+  }>;
+  expenseSummary: Array<{
+    category: string;
+    currency: string;
+    totalAmount: number;
+    count: number;
+  }>;
+}
+
+
 

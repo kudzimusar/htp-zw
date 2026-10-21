@@ -26,7 +26,16 @@ export function generateStaticParams() {
     "premium",
     "ai-desk",
     "authors",
-    "settings"
+    "settings",
+    "finance",
+    "finance-invoices",
+    "finance-aging",
+    "finance-payments",
+    "finance-expenses",
+    "my-expenses",
+    "finance-statements",
+    "finance-customers",
+    "orders"
   ].map((module) => ({ module }));
 }
 

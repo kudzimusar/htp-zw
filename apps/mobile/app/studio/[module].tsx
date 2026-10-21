@@ -37,19 +37,22 @@ import { StudioPremiumDesk } from "../../src/ui/StudioPremiumDesk";
 import { StudioAiDesk } from "../../src/ui/StudioAiDesk";
 import { StudioAuthorsDesk } from "../../src/ui/StudioAuthorsDesk";
 import { StudioSettingsDesk } from "../../src/ui/StudioSettingsDesk";
+import { StudioFinanceDeskView } from "../../src/ui/StudioFinanceDesk";
 import {
   ADVERTISING_DESK_CAPABILITIES,
   SUBSCRIBER_DESK_CAPABILITIES,
   PREMIUM_DESK_CAPABILITIES,
   AI_DESK_CAPABILITIES,
   AUTHORS_DESK_CAPABILITIES,
-  SETTINGS_DESK_CAPABILITIES
+  SETTINGS_DESK_CAPABILITIES,
+  FINANCE_DESK_CAPABILITIES
 } from "../../src/security/capabilities";
 
 export function generateStaticParams() {
   return [
     "inbox", "assignments", "planning", "calendar", "stories", "create-edit", "review-queue", "homepage", "live-desk", "video-desk", "desks", "breaking", "moderation", "media", "advertising", "premium", "social", "newsletters", "push-alerts", "whatsapp",
-    "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings", "ai-desk"
+    "audience", "search-growth", "analytics", "subscribers", "authors", "staff-roles", "settings", "ai-desk",
+    "finance", "finance-invoices", "finance-aging", "finance-payments", "finance-expenses", "my-expenses", "finance-statements", "finance-customers", "orders"
   ].map((module) => ({ module }));
 }
 
@@ -91,7 +94,16 @@ const owners:Record<string,ModuleConfig>={
   "authors":{title:"Authors & Taxonomy Desk",owner:"HT-NR-CLOSE Wave F",capability:null,anyOfCapabilities:AUTHORS_DESK_CAPABILITIES,description:"Public byline registry, WordPress migration provenance, staff profile reconciliation, and hierarchical taxonomy sections.",readiness:["Canonical authors, sections, and staff_profiles authority","Strict staff.view read and staff.manage mutation enforcement","Migrated WordPress author provenance and story counts","Staff profile byline binding without duplicate identities"]},
   "staff-roles":{title:"Staff & Roles",owner:"HT-NR-CLOSE Wave C",capability:null,anyOfCapabilities:STAFF_DESK_CAPABILITIES,description:"Staff directory, role assignments, capabilities, status management, session revocation, and security audit trail backed by canonical newsroom RPCs.",readiness:["Canonical staff_profiles, newsroom_roles, and newsroom_capabilities authority","Strict staff.view read and staff.manage mutation enforcement","Session revocation and status lifecycle safety with self-escalation protection","Immutable audit log integration for all administrative actions"]},
   "ai-desk":{title:"AI Editorial Assistant & Citations Desk",owner:"HT-NR-CLOSE Wave E",capability:null,anyOfCapabilities:AI_DESK_CAPABILITIES,description:"Editorial research assistance, headline alternatives, evidence gap detection, and verified citation intelligence.",readiness:["Canonical newsroom_ai_assist_sessions and citation_references authority","Strict zero direct publishing authority principle enforced","Human-in-the-loop review required for all generated copy suggestions","Audited execution logging for all assistant tasks and citation verifications"]},
-  "settings":{title:"Platform & Integration Settings",owner:"HT-NR-CLOSE Wave F",capability:null,anyOfCapabilities:SETTINGS_DESK_CAPABILITIES,description:"Centralized newsroom integrations, distribution transports, editorial guardrails, and environment health.",readiness:["Canonical platform_settings database authority","Strict settings.manage and security.manage capability enforcement","Zero raw secret tokens exposed to client application","Operational toggles for review enforcement, comments, and paywall","Tamper-evident audit logging on all setting modifications"]}
+  "settings":{title:"Platform & Integration Settings",owner:"HT-NR-CLOSE Wave F",capability:null,anyOfCapabilities:SETTINGS_DESK_CAPABILITIES,description:"Centralized newsroom integrations, distribution transports, editorial guardrails, and environment health.",readiness:["Canonical platform_settings database authority","Strict settings.manage and security.manage capability enforcement","Zero raw secret tokens exposed to client application","Operational toggles for review enforcement, comments, and paywall","Tamper-evident audit logging on all setting modifications"]},
+  "finance":{title:"Financial Overview & KPIs",owner:"HT-NR-UI-01",capability:"finance.view" as const,description:"Operational finance overview, multi-currency invoicing, accounts receivable, and cash metrics.",readiness:["Canonical finance_invoices, finance_payments, and finance_expenses database authority","Strict finance.view capability enforcement","Exact numeric(18,2) multi-currency accounting without client-side floating point math","Immutable audit log integration for all financial transactions"]},
+  "finance-invoices":{title:"Invoices & Billing",owner:"HT-NR-UI-01",capability:"finance.invoice.create" as const,description:"Commercial advertising invoicing, invoice status lifecycle, approvals, and issuance.",readiness:["Canonical finance_invoices and finance_invoice_lines authority","Strict separation of duties: creator cannot approve invoice","Sequential INV-YYYY-NNNN numbering","Status lifecycle: draft -> approved -> issued -> partially_paid -> paid / void"]},
+  "finance-aging":{title:"Accounts Receivable Aging",owner:"HT-NR-UI-01",capability:"finance.receivable.view" as const,description:"Aged debtor analysis across standard aging buckets: Not Due, 1-30, 31-60, 61-90, and 90+ days.",readiness:["Real-time overdue day calculations from issue_date and payment terms","Separated per-customer balances and multi-currency totals","Zero fabricated aging numbers"]},
+  "finance-payments":{title:"Payments & Cash Ledger",owner:"HT-NR-UI-01",capability:"finance.payment.record" as const,description:"Immutable payment ledger, idempotency keys, overpayment guards, and cash receipt reconciliation.",readiness:["Immutable payment rows: update and delete prohibited via database trigger","Enforced unique idempotency keys per invoice payment attempt","Overpayment prevention: payments exceeding balance due fail-closed","Sequential PAY-YYYY-NNNN numbering"]},
+  "finance-expenses":{title:"Newsroom Expense Claims",owner:"HT-NR-UI-01",capability:"finance.expense.view" as const,description:"Operational editorial, field reporting, freelance, and department expense claims.",readiness:["Canonical finance_expenses and finance_expense_categories authority","Strict separation of duties: submitter cannot approve own expense","Sequential EXP-YYYY-NNNN numbering","Status lifecycle: draft -> submitted -> approved / rejected -> paid"]},
+  "my-expenses":{title:"My Filed Expense Claims",owner:"HT-NR-UI-01",capability:null,description:"Personal expense claims and reimbursement status for the active staff member.",readiness:["Scoped to current authenticated staff member profile","Submit field reporting costs, travel, and freelance expenses","Real-time approval and payment status tracking"]},
+  "finance-statements":{title:"Operational Financial Statements",owner:"HT-NR-UI-01",capability:"finance.statement.view" as const,description:"Operating income statement, placement revenue breakdown, cash receipts, and expense summaries.",readiness:["Truthful operational reporting per ISO currency without FX conversion","Explicitly declares Balance Sheet unavailable until full General Ledger phase","Deterministic revenue by placement aggregation"]},
+  "finance-customers":{title:"Billing Customers & Directory",owner:"HT-NR-UI-01",capability:"finance.view" as const,description:"Commercial advertiser billing profiles, payment terms, currency preferences, and tax identification numbers.",readiness:["Canonical finance_customers database authority","Strict corporate profile validation","Foreign key linkage to commercial advertisers"]},
+  "orders":{title:"Commercial Orders & Bookings",owner:"HT-NR-UI-01",capability:"commercial.order.create" as const,description:"Commercial advertising insertion orders, campaign bookings, and billing status.",readiness:["Canonical commercial_orders database authority","Sequential ORD-YYYY-NNNN numbering","Separation of duties: order submitter cannot self-approve","Billing status tracking: unbilled -> partially_billed -> billed"]}
 };
 
 export default function StudioModule(){
@@ -106,7 +118,7 @@ export default function StudioModule(){
 
   const content=(
     <>
-      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && String(module)!=="analytics" && String(module)!=="audience" && String(module)!=="search-growth" && String(module)!=="staff-roles" && String(module)!=="advertising" && String(module)!=="subscribers" && String(module)!=="premium" && String(module)!=="ai-desk" && String(module)!=="authors" && String(module)!=="settings" && String(module)!=="inbox" && String(module)!=="assignments" && String(module)!=="desks" && String(module)!=="breaking" && String(module)!=="moderation" && (
+      {String(module)!=="stories" && String(module)!=="create-edit" && String(module)!=="review-queue" && String(module)!=="planning" && String(module)!=="calendar" && String(module)!=="homepage" && String(module)!=="media" && String(module)!=="video-desk" && String(module)!=="live-desk" && String(module)!=="social" && String(module)!=="newsletters" && String(module)!=="push-alerts" && String(module)!=="whatsapp" && String(module)!=="analytics" && String(module)!=="audience" && String(module)!=="search-growth" && String(module)!=="staff-roles" && String(module)!=="advertising" && String(module)!=="subscribers" && String(module)!=="premium" && String(module)!=="ai-desk" && String(module)!=="authors" && String(module)!=="settings" && String(module)!=="inbox" && String(module)!=="assignments" && String(module)!=="desks" && String(module)!=="breaking" && String(module)!=="moderation" && String(module)!=="finance" && String(module)!=="finance-invoices" && String(module)!=="finance-aging" && String(module)!=="finance-payments" && String(module)!=="finance-expenses" && String(module)!=="my-expenses" && String(module)!=="finance-statements" && String(module)!=="finance-customers" && String(module)!=="orders" && (
         <StudioPlaceholder owner={config.owner} description={config.description} />
       )}
       {String(module)==="inbox" && <StudioInboxPanel />}
@@ -137,6 +149,15 @@ export default function StudioModule(){
       {String(module)==="desks" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : deskId ? <StudioDeskThreadsPanel deskId={String(deskId)} /> : <StudioDesksPanel />)}
       {String(module)==="breaking" && (threadId ? <StudioThreadPanel threadId={String(threadId)} /> : <StudioBreakingPanel />)}
       {String(module)==="moderation" && <StudioModerationPanel />}
+      {String(module)==="finance" && <StudioFinanceDeskView initialTab="overview" />}
+      {String(module)==="finance-invoices" && <StudioFinanceDeskView initialTab="invoices" />}
+      {String(module)==="finance-aging" && <StudioFinanceDeskView initialTab="aging" />}
+      {String(module)==="finance-payments" && <StudioFinanceDeskView initialTab="payments" />}
+      {String(module)==="finance-expenses" && <StudioFinanceDeskView initialTab="expenses" />}
+      {String(module)==="my-expenses" && <StudioFinanceDeskView initialTab="expenses" />}
+      {String(module)==="finance-statements" && <StudioFinanceDeskView initialTab="statements" />}
+      {String(module)==="finance-customers" && <StudioFinanceDeskView initialTab="customers" />}
+      {String(module)==="orders" && <StudioFinanceDeskView initialTab="customers" />}
       <View style={styles.readiness}>
         <Text style={styles.readinessTitle}>Implementation readiness</Text>
         {config.readiness.map((item)=><View style={styles.readinessRow} key={item}><View style={styles.dot} /><Text style={styles.readinessText}>{item}</Text></View>)}
