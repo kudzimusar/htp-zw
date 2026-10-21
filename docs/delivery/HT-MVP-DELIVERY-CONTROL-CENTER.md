@@ -4,13 +4,15 @@
 **Governing Standard:** 11-11 Tech Universal Digital Platform Capability Standard — UDPCS 1.0  
 **Programme:** HealthTimes 2.0 (Reader + Newsroom OS + Commercial + Finance + Distribution + Platform)  
 **Target Client Handoff:** 24 October 2026  
-**Document Owner:** HealthTimes MVP Release Assurance / Client Delivery Lead  
+**Document Owner:** HealthTimes Final MVP Release Integration Lead  
 **Last Verified At:** 2026-10-21  
-**Target Release Candidate Head:** `release/ht-mvp-rc01-udpcs-launch-control`  
+**Target Release Candidate Head:** `release/ht-mvp-rc02-final-unified-candidate`  
+**Exact Unified Commit SHA:** `bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`  
 **Controlling Base Commit:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f` (PR #118)  
+**Reader Authority Commit:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d` (PR #116)  
 **Staging Environment:** Supabase Postgres 17.6 (`gcdohgbmqhqwydgaxrcr`)  
 **Staging Migration Level:** Migration 96 (`20261021050000_ht_nr_rc01_owner_auth_email_verification.sql`)  
-**Overall Decision:** `GO_FOR_CLIENT_DRY_RUN` (Conditional on final release branch integration)
+**Overall Decision:** `READY_FOR_FINAL_OWNER_UAT`
 
 ---
 
@@ -60,37 +62,36 @@ flowchart TD
 
 ## 3. Controlling Release Topology & Branch Lineage
 
-An exhaustive audit of the git ancestry reveals that HealthTimes currently possesses two fully certified parallel lines of development diverged from canonical `main` (`6994aa18d37e2189dbc1d3f8efc76a638ee0971c`):
-
-1. **Reader Authority Line (PR #116 @ `c4e779db`):** Contains the accepted UI-WF-01 through UI-WF-05 Reader screens, UI-NR-CONV-01 native story mapper, and UI-NR-CONV-02 native context discovery RPC.
-2. **Newsroom Authority Line (PR #118 @ `d5af42d6`):** Contains the accepted PR #106 Newsroom OS foundation, HT-NR-UI-01 7-domain operating system, and HT-NR-UI-02 launch hardening, double-entry GL, and first-owner auth.
+The previous branch divergence between Reader authority (PR #116) and Newsroom authority (PR #118) has been completely resolved. All accepted subsystems are merged into **ONE releasable exact git head** on branch `release/ht-mvp-rc02-final-unified-candidate`:
 
 ```mermaid
 gitGraph
    commit id: "main (6994aa1)"
-   branch integration/ui-nr-native-context-discovery
-   checkout integration/ui-nr-native-context-discovery
+   branch ReaderTrack
+   checkout ReaderTrack
    commit id: "PR #115 (8e07fda)"
    commit id: "PR #116 (c4e779d - Reader Authority)"
    checkout main
-   branch feat/ht-nr-close-operational-completion
+   branch NewsroomTrack
+   checkout NewsroomTrack
    commit id: "PR #106 (d1b4912 - Newsroom Base)"
-   branch feat/ht-nr-ui01-role-operating-system-convergence
    commit id: "PR #117 (cd2bc75 - UI-01)"
-   branch feat/ht-nr-ui02-launch-hardening-accounting-auth
    commit id: "PR #118 (d5af42d - Newsroom Authority)"
-   branch release/ht-mvp-rc01-udpcs-launch-control
-   commit id: "RC-01 (Current Candidate Head)"
+   branch LaunchControl
+   checkout LaunchControl
+   commit id: "PR #119 (a57b274 - RC-01)"
+   branch UnifiedRelease
+   checkout UnifiedRelease
+   merge ReaderTrack id: "RC-02 Unified Candidate (bdbfa4d)"
 ```
 
 ### Topology Status:
-- `SINGLE_RELEASABLE_HEAD_EXISTS=NO`
-- `FINAL_READER_AUTHORITY=PR #116 (c4e779dbbc2b65232c90b4e69b74551b62f1910d)`
-- `FINAL_NEWSROOM_AUTHORITY=PR #118 (d5af42d6b7018dfd3451ac9d621482e0edf9664f)`
-- `RELEASE_INTEGRATION_BLOCKER=P0_RELEASE_INTEGRATION_REQUIRED`
-
-> [!IMPORTANT]
-> To produce a single production release binary and hosted deployment, the Newsroom authority (`release/ht-mvp-rc01-udpcs-launch-control`) and Reader authority (`integration/ui-nr-native-context-discovery`) must be merged in a governed wave prior to final production cut. Full details and the safe step-by-step merge order are set forth in [HT-MVP-RELEASE-TOPOLOGY.md](HT-MVP-RELEASE-TOPOLOGY.md).
+- `SINGLE_RELEASABLE_HEAD_EXISTS=YES`
+- `UNIFIED_RELEASE_HEAD=bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01`
+- `FINAL_READER_AUTHORITY=PR #116 (c4e779dbbc2b65232c90b4e69b74551b62f1910d) [MERGED]`
+- `FINAL_NEWSROOM_AUTHORITY=PR #118 (d5af42d6b7018dfd3451ac9d621482e0edf9664f) [MERGED]`
+- `RELEASE_INTEGRATION_BLOCKER=RESOLVED`
+- `P0-REL-01=RESOLVED`
 
 ---
 
@@ -101,6 +102,8 @@ gitGraph
 - **Total Applied Migrations:** 96 migrations recorded in `supabase_migrations.schema_migrations`
 - **Migration Tip:** `20261021050000_ht_nr_rc01_owner_auth_email_verification.sql` (Migration 96)
 - **Data Integrity:** Clean staging zero-state. Zero synthetic ad invoices, fake payments, or fictional news stories persisted outside test transaction envelopes.
+- **Owner Bootstrap Security:** `OWNER_BOOTSTRAP_SECURITY=STAGING_RUNTIME_PROVEN`
+- **Owner Physical Auth Status:** `OWNER_PHYSICAL_AUTH=OWNER_ACTION_REQUIRED` (`OWNER_AUTH_USER_COUNT=0`, `OWNER_ACTIVE_STAFF_COUNT=0`). Owner activation available at `/studio/activate`.
 - **Production Environment:** Strictly unauthorized. Zero production database access or external provider dispatches.
 
 ---
@@ -131,37 +134,40 @@ The core application code, UI desks, validation rules, and database functions ar
 1. **Meta WhatsApp Business API:** Requires client production WABA (WhatsApp Business Account) credentials and verified Meta Business Manager for live subscriber broadcasts. (Staging fallback: mock provider simulation).
 2. **Brevo (Sendinblue) Transactional Email:** Requires client production API keys for external newsletter and subscriber emails. (Staging fallback: mock delivery simulator).
 3. **Apple Developer & Google Play Console:** Requires client provisioning profiles and production keys for native App Store and Play Store app publishing. (Staging fallback: Expo local build & simulator).
-4. **Google AdSense / Direct Ad Server:** Ad inventory slots (`home_leaderboard`, `article_inline`) are built and compliant with health advertising policy; client ad network IDs to be inserted at cutover.
+4. **Google AdSense / Direct Ad Server:** Ad inventory slots (`hospaz-header-direct`, `home_after_live`, `article_after_intro`, `article_end`, `watch_feed`, `live_feed`) are built and compliant with health advertising policy; client ad network IDs to be inserted at cutover.
 
 ---
 
-## 7. What Remains Deferred (Controlled V1.1 Roadmap)
+## 7. What Remains Deferred (Controlled V1.1/V1.2 Roadmap)
 
-In accordance with UDPCS 1.0 governance, the following capabilities are explicitly classified as `FUTURE_V1_1`:
-- **Public Developer Portal / External API Console:** (Internal RPCs are fully secured; public 3rd-party developer APIs deferred to V1.1).
-- **Public MCP / External Agent Gateway:** (Newsroom AI fact-checking assistant is operational; external agent gateways deferred to V1.1).
-- **Automated Multi-Region Disaster Recovery Failover:** (Manual point-in-time recovery runbooks documented; automated multi-cloud failover deferred to V1.1).
-- **Corporate HR & Procurement Consoles:** (Staff directory and RBAC operational; corporate payroll/HR remains an external manual process).
+In accordance with UDPCS 1.0 governance, the following 7 capabilities are explicitly classified as `DEFERRED_V1_1`:
+1. **Public Developer Portal / External REST API (DEV-01):** Internal context RPCs are fully secured; public 3rd-party developer APIs deferred to V1.1.
+2. **Model Context Protocol (MCP) & Autonomous AI Copilot (MCP-01):** Human journalists author directly; human desk editors review in Review Queue; external MCP gateways deferred to V1.2.
+3. **Self-Service Advertiser Portal & Card Payment Checkout (COR-01 / PRT-01):** Direct campaign booking in Commercial Desk; GL invoice & payment posting active.
+4. **Real-Time Multi-Cursor Collaborative Article Editing (CMS-01):** Optimistic locking, sequential workflow, and revision history active; CRDTs deferred to V2.0.
+5. **Offline Audio Background Download Queue (EXP-01 / A11Y-01):** Real-time audio streaming active; article text and images 100% offline-cached.
+6. **Corporate Human Resources & Automated Payroll (CTL-01 / FIN-01):** Staff RBAC managed in Staff Desk; contributor payments tracked as GL expenses.
+7. **Automated Electronic ZIMRA Tax Return Filing (LEG-01 / FIN-01):** Balance Sheet, P&L, and VAT Payable ledger export active for accountant portal filing.
 
 ---
 
 ## 8. Current Blocker & Issue Inventory (P0 / P1 / P2)
 
 ### P0 Blockers (Launch Critical):
-1. **P0-1: `P0_RELEASE_INTEGRATION_REQUIRED`**  
-   *Description:* The Reader authority (PR #116) and Newsroom authority (PR #118) currently live on parallel branches diverged from `main`. A single unified release candidate must be created before final production deployment.  
-   *Mitigation:* Detailed in [HT-MVP-RELEASE-TOPOLOGY.md](HT-MVP-RELEASE-TOPOLOGY.md). Does NOT block internal rehearsal or Owner Preview demonstration.
+*None remaining.*
+- **P0-REL-01 (Branch Divergence):** **RESOLVED** via candidate branch `release/ht-mvp-rc02-final-unified-candidate` (`bdbfa4d4`).
+- **P0-SEC-01 (Owner Auth Escalation):** **RESOLVED** via additive Migration 96 (`20261021050000_ht_nr_rc01_owner_auth_email_verification.sql`).
 
 ### P1 Pre-Handoff Tasks:
 1. **P1-1: Physical Owner Authentication Activation Ceremony**  
-   *Description:* Kudzi Musarurwa must navigate to `/studio/activate`, sign up, confirm email ownership, and activate the live Publisher/Owner role on Staging.  
+   *Description:* Kudzi Musarurwa must navigate to `/studio/activate`, sign up, confirm email ownership, and activate the live Publisher/Owner role on Staging (`OWNER_ACTION_REQUIRED`).  
 2. **P1-2: Pre-Flight Script Run on Clean Environment**  
-   *Description:* Execute `scripts/release/ht-mvp-preflight.mjs` to verify all 16 delivery documents, 96 migrations, and git hashes.  
+   *Description:* Execute `scripts/release/ht-mvp-preflight.mjs` to verify all 18 delivery documents, 96 migrations, and git hashes.  
 3. **P1-3: Internal Client Dry-Run Rehearsal**  
    *Description:* Conduct the 30–45 minute dry-run script with the internal team prior to the client demonstration.
 
 ### P2 Disclosed & Deferred Items:
-- All 14 items listed in the [HT-MVP-V1.1-DEFERRED-REGISTER.md](HT-MVP-V1.1-DEFERRED-REGISTER.md) (external vendor keys, advanced analytics, self-service developer portal).
+- All 7 formal deferrals listed in [HT-MVP-V1.1-DEFERRED-REGISTER.md](HT-MVP-V1.1-DEFERRED-REGISTER.md).
 
 ---
 
@@ -172,11 +178,12 @@ All delivery documentation is consolidated in `docs/delivery/`:
 | Document Name | File Path | Purpose |
 |---|---|---|
 | **Delivery Control Center** | [HT-MVP-DELIVERY-CONTROL-CENTER.md](HT-MVP-DELIVERY-CONTROL-CENTER.md) | Master front door and executive status overview |
+| **Final Release Manifest** | [HT-MVP-FINAL-RELEASE-MANIFEST.md](HT-MVP-FINAL-RELEASE-MANIFEST.md) | Authoritative manifest of unified release candidate |
 | **UDPCS Capability Register** | [HT-MVP-UDPCS-CAPABILITY-REGISTER.md](HT-MVP-UDPCS-CAPABILITY-REGISTER.md) | Exhaustive 35-domain assessment across all 5 planes |
 | **Feature Completeness Gates** | [HT-MVP-FEATURE-COMPLETENESS-GATES.md](HT-MVP-FEATURE-COMPLETENESS-GATES.md) | 9-dimension gate analysis for all material capabilities |
 | **Capability Mirror** | [HT-MVP-CAPABILITY-MIRROR.md](HT-MVP-CAPABILITY-MIRROR.md) | 15-question architectural mirror for core workflows |
 | **Evidence Register** | [HT-MVP-EVIDENCE-REGISTER.md](HT-MVP-EVIDENCE-REGISTER.md) | Truthful claim-to-evidence mapping with evidence classes |
-| **Release Topology** | [HT-MVP-RELEASE-TOPOLOGY.md](HT-MVP-RELEASE-TOPOLOGY.md) | Git ancestry graph and safe branch integration order |
+| **Release Topology** | [HT-MVP-RELEASE-TOPOLOGY.md](HT-MVP-RELEASE-TOPOLOGY.md) | Git ancestry graph and unified branch integration proof |
 | **Go / No-Go Board** | [HT-MVP-GO-NO-GO.md](HT-MVP-GO-NO-GO.md) | Comprehensive launch decision matrix and scoring |
 | **Client Dry Run Guide** | [HT-MVP-CLIENT-DRY-RUN.md](HT-MVP-CLIENT-DRY-RUN.md) | Complete 30–45 minute presentation flow and script |
 | **Owner UAT Guide** | [HT-MVP-OWNER-UAT.md](HT-MVP-OWNER-UAT.md) | Hands-on walkthrough across all 7 staff personas |

@@ -3,340 +3,356 @@
   "standard": "11-11 Tech Universal Digital Platform Capability Standard (UDPCS 1.0)",
   "programme": "HealthTimes 2.0 / Reader + Newsroom OS + Commercial + Finance + Distribution + Platform",
   "documentId": "HT-MVP-CAPABILITY-REGISTER-JSON",
-  "releaseCandidate": "release/ht-mvp-rc01-udpcs-launch-control",
+  "releaseCandidate": "release/ht-mvp-rc02-final-unified-candidate",
+  "exactHeadSha": "bdbfa4d42b32c4b8b65fb4e451ea406e86db1e01",
   "controllingBaseSha": "d5af42d6b7018dfd3451ac9d621482e0edf9664f",
+  "readerAuthoritySha": "c4e779dbbc2b65232c90b4e69b74551b62f1910d",
+  "launchControlParentSha": "a57b2748a4aaa46478028ac3857f0f84fbeae5f2",
   "targetDeliveryDate": "2026-10-24",
   "summary": {
     "totalPlanes": 5,
     "totalDomains": 35,
-    "statusCounts": {
-      "PRODUCTION_READY": 30,
-      "OPERATIONAL_WITH_WORKAROUND": 5,
-      "DEFERRED_V1_1": 0,
-      "NOT_APPLICABLE": 0
+    "planeDistribution": {
+      "EXPERIENCE": 11,
+      "CONTROL": 6,
+      "PLATFORM": 6,
+      "OPERATIONS": 8,
+      "GOVERNANCE": 4
     },
-    "featureGateCounts": {
-      "FULL_PASS": 20,
-      "PARTIAL_PASS": 4,
-      "FAIL": 0
+    "statusCounts": {
+      "PRODUCTION_READY": 26,
+      "OPERATIONAL_WITH_WORKAROUND": 7,
+      "DEFERRED_V1_1": 2
     },
     "p0BlockerCount": 0,
     "p1ManagedRiskCount": 3,
-    "p2DeferredCount": 4
+    "p2DeferredCount": 7,
+    "ownerPhysicalAuth": {
+      "status": "OWNER_ACTION_REQUIRED",
+      "bootstrapSecurity": "STAGING_RUNTIME_PROVEN",
+      "ownerAuthUserCount": 0,
+      "ownerActiveStaffCount": 0,
+      "activationUrl": "/studio/activate"
+    },
+    "externalAdvisorGates": {
+      "legalCounsel": "NOT_EVIDENCED — REVIEW_REQUIRED",
+      "taxAdvisor": "NOT_EVIDENCED — REVIEW_REQUIRED",
+      "dpoCompliance": "NOT_EVIDENCED — REVIEW_REQUIRED"
+    }
   },
   "planes": [
     {
       "planeNumber": 1,
       "planeName": "EXPERIENCE",
-      "domainCount": 7,
+      "domainCount": 11,
       "domains": [
         {
-          "code": "P1.D01",
-          "name": "Customer Experience & Mobile Frontends",
+          "code": "STR-01",
+          "name": "Strategy & Business Model",
+          "status": "PRODUCTION_READY",
+          "owner": "Publisher / Owner",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "EXP-01",
+          "name": "Customer Product (Reader Experience)",
+          "status": "PRODUCTION_READY",
+          "owner": "Mobile & Web Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "IAM-01",
+          "name": "Identity, Accounts & Organizations",
+          "status": "PRODUCTION_READY",
+          "owner": "Security Administrator",
+          "evidenceClass": "STAGING_RUNTIME_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "MKT-01",
+          "name": "Audience, Marketing & Growth",
+          "status": "PRODUCTION_READY",
+          "owner": "Audience Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "COM-01",
+          "name": "Digital Commerce & Subscriptions",
+          "status": "PRODUCTION_READY",
+          "owner": "Commercial Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "CMS-01",
+          "name": "Content Management & Story Authoring",
+          "status": "PRODUCTION_READY",
+          "owner": "Managing Editor",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "DSC-01",
+          "name": "Search, Discovery & Navigation",
+          "status": "PRODUCTION_READY",
+          "owner": "Discovery Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "MSG-01",
+          "name": "Multi-Channel Messaging & Alerts",
+          "status": "OPERATIONAL_WITH_WORKAROUND",
+          "owner": "Distribution Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "8/9"
+        },
+        {
+          "code": "A11Y-01",
+          "name": "Accessibility, Offline & Responsive",
           "status": "PRODUCTION_READY",
           "owner": "Frontend Specialist",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P1.D02",
-          "name": "Contextual Exploration & Topic Discovery",
-          "status": "PRODUCTION_READY",
-          "owner": "Context Integration Lead",
-          "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P1.D03",
-          "name": "Offline Resilience & Local Caching",
-          "status": "PRODUCTION_READY",
-          "owner": "Mobile Architect",
-          "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P1.D04",
-          "name": "Audio Journalism & Streaming Media",
+          "code": "GRO-01",
+          "name": "Growth Channels & Social Syndication",
           "status": "OPERATIONAL_WITH_WORKAROUND",
-          "owner": "Media Specialist",
-          "evidenceClass": "OWNER_PHYSICAL_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P1.D05",
-          "name": "Search & Information Retrieval",
-          "status": "PRODUCTION_READY",
-          "owner": "Search Specialist",
+          "owner": "Social Desk Editor",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "8/9"
         },
         {
-          "code": "P1.D06",
-          "name": "Reader Identity, Bookmarks & Preferences",
-          "status": "PRODUCTION_READY",
-          "owner": "Mobile Engineer",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P1.D07",
-          "name": "Static Legal & Informational Pages",
-          "status": "PRODUCTION_READY",
-          "owner": "Legal Specialist",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "code": "PRT-01",
+          "name": "Partners & Syndication",
+          "status": "OPERATIONAL_WITH_WORKAROUND",
+          "owner": "Commercial Lead",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "7/9"
         }
       ]
     },
     {
       "planeNumber": 2,
       "planeName": "CONTROL",
-      "domainCount": 10,
+      "domainCount": 6,
       "domains": [
         {
-          "code": "P2.D08",
-          "name": "Staff Authentication & Role-Based Newsroom Shell",
-          "status": "PRODUCTION_READY",
-          "owner": "Security & Newsroom Lead",
-          "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P2.D09",
-          "name": "Editorial Story Drafting & Authoring",
+          "code": "CTL-01",
+          "name": "Newsroom Control Room & Operations",
           "status": "PRODUCTION_READY",
           "owner": "Managing Editor",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P2.D10",
-          "name": "Peer Review, Copyediting & Publishing Queue",
+          "code": "CRM-01",
+          "name": "Editorial Review & Publishing Workflow",
           "status": "PRODUCTION_READY",
-          "owner": "Desk Editor",
+          "owner": "Chief Sub-Editor",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P2.D11",
-          "name": "Media Asset Library & CDN Management",
+          "code": "TRS-01",
+          "name": "Trust, Fact-Checking & Corrections",
           "status": "PRODUCTION_READY",
-          "owner": "Media Specialist",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "8/9"
+          "owner": "Standards Editor",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P2.D12",
-          "name": "Homepage Curation & Section Layout",
+          "code": "FIN-01",
+          "name": "Financial Management & General Ledger",
           "status": "PRODUCTION_READY",
-          "owner": "Managing Editor",
-          "evidenceClass": "OWNER_PHYSICAL_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P2.D13",
-          "name": "Commercial Ad Campaign Management",
-          "status": "PRODUCTION_READY",
-          "owner": "Commercial Manager",
-          "evidenceClass": "OWNER_PHYSICAL_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P2.D14",
-          "name": "Ad Creative Inventory & Direct Serving",
-          "status": "PRODUCTION_READY",
-          "owner": "Commercial Specialist",
-          "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P2.D15",
-          "name": "Double-Entry General Ledger & Financial Core",
-          "status": "PRODUCTION_READY",
-          "owner": "Finance Officer",
+          "owner": "Financial Controller",
           "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P2.D16",
-          "name": "Audience Distribution & Social Broadcasting",
+          "code": "COR-01",
+          "name": "Commercial & Advertising Operations",
           "status": "OPERATIONAL_WITH_WORKAROUND",
-          "owner": "Audience Specialist",
+          "owner": "Ad Operations Specialist",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "8/9"
+          "nineDimensionScore": "8/9"
         },
         {
-          "code": "P2.D17",
-          "name": "Staff Management & Role Administration",
+          "code": "EXE-01",
+          "name": "Executive, Publisher & Admin Controls",
           "status": "PRODUCTION_READY",
-          "owner": "Executive Publisher",
-          "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "owner": "Publisher",
+          "evidenceClass": "STAGING_RUNTIME_PROVEN",
+          "nineDimensionScore": "9/9"
         }
       ]
     },
     {
       "planeNumber": 3,
       "planeName": "PLATFORM",
-      "domainCount": 8,
+      "domainCount": 6,
       "domains": [
         {
-          "code": "P3.D18",
-          "name": "Identity & Access Management (IAM)",
+          "code": "DAT-01",
+          "name": "Data Platform & Storage Infrastructure",
           "status": "PRODUCTION_READY",
-          "owner": "SecOps Lead",
+          "owner": "Database Administrator",
           "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P3.D19",
-          "name": "Relational Persistence & Migration Governance",
+          "code": "BI-01",
+          "name": "Analytics & Business Intelligence",
           "status": "PRODUCTION_READY",
-          "owner": "Database Architect",
-          "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P3.D20",
-          "name": "Binary Media Storage & CDN Infrastructure",
-          "status": "PRODUCTION_READY",
-          "owner": "DevOps Specialist",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P3.D21",
-          "name": "Real-time Event Synchronization",
-          "status": "PRODUCTION_READY",
-          "owner": "Platform Engineer",
+          "owner": "Data Analyst",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P3.D22",
-          "name": "System Audit Trail & Security Logging",
+          "code": "API-01",
+          "name": "Application APIs & Integration Services",
           "status": "PRODUCTION_READY",
-          "owner": "SecOps Officer",
-          "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P3.D23",
-          "name": "Internal & Partner API Services",
-          "status": "PRODUCTION_READY",
-          "owner": "API Lead",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P3.D24",
-          "name": "Analytics & Readership Telemetry",
-          "status": "PRODUCTION_READY",
-          "owner": "BI Analyst",
+          "owner": "Backend Lead",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P3.D25",
-          "name": "Notification Infrastructure (Push/Email/SMS)",
+          "code": "DEV-01",
+          "name": "Developer Platform & Tooling",
+          "status": "DEFERRED_V1_1",
+          "owner": "Platform Architect",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "7/9"
+        },
+        {
+          "code": "MCP-01",
+          "name": "Model Context Protocol & AI Agents",
+          "status": "DEFERRED_V1_1",
+          "owner": "AI Specialist",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "6/9"
+        },
+        {
+          "code": "INT-01",
+          "name": "Third-Party & Ecosystem Integrations",
           "status": "OPERATIONAL_WITH_WORKAROUND",
-          "owner": "Platform Specialist",
+          "owner": "Integration Lead",
           "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "8/9"
+          "nineDimensionScore": "8/9"
         }
       ]
     },
     {
       "planeNumber": 4,
       "planeName": "OPERATIONS",
-      "domainCount": 5,
+      "domainCount": 8,
       "domains": [
         {
-          "code": "P4.D26",
-          "name": "Continuous Integration & Automated Testing",
+          "code": "SEC-01",
+          "name": "Security Operations & Access Control",
           "status": "PRODUCTION_READY",
-          "owner": "QA Lead",
-          "evidenceClass": "TEST_PROVEN",
-          "featureGateScore": "9/9"
+          "owner": "SecOps Lead",
+          "evidenceClass": "STAGING_RUNTIME_PROVEN",
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P4.D27",
-          "name": "Release Management & Rollback Operations",
-          "status": "PRODUCTION_READY",
-          "owner": "Release Manager",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P4.D28",
-          "name": "Observability, Telemetry & SRE Monitoring",
+          "code": "INF-01",
+          "name": "Infrastructure & Cloud Operations",
           "status": "PRODUCTION_READY",
           "owner": "DevOps Engineer",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "evidenceClass": "STAGING_RUNTIME_PROVEN",
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P4.D29",
-          "name": "Incident Management & Containment (SEV-1/2/3)",
+          "code": "ENG-01",
+          "name": "Engineering Operations & CI/CD",
           "status": "PRODUCTION_READY",
-          "owner": "Incident Commander",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "owner": "Release Assurance Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P4.D30",
-          "name": "Disaster Recovery, PITR & Backup Assurance",
-          "status": "OPERATIONAL_WITH_WORKAROUND",
+          "code": "OBS-01",
+          "name": "Observability, Telemetry & SRE",
+          "status": "PRODUCTION_READY",
+          "owner": "SRE Lead",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "INC-01",
+          "name": "Incident Management & Escalation",
+          "status": "PRODUCTION_READY",
+          "owner": "On-Call Incident Commander",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "BCD-01",
+          "name": "Business Continuity & Disaster Recovery",
+          "status": "PRODUCTION_READY",
           "owner": "Database Administrator",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "REL-01",
+          "name": "Release Management & Deployment",
+          "status": "PRODUCTION_READY",
+          "owner": "Release Manager",
+          "evidenceClass": "TEST_PROVEN",
+          "nineDimensionScore": "9/9"
+        },
+        {
+          "code": "DOC-01",
+          "name": "Operations Runbooks & Documentation",
+          "status": "PRODUCTION_READY",
+          "owner": "Technical Writer",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
         }
       ]
     },
     {
       "planeNumber": 5,
       "planeName": "GOVERNANCE",
-      "domainCount": 5,
+      "domainCount": 4,
       "domains": [
         {
-          "code": "P5.D31",
-          "name": "Data Privacy & Protection Governance",
+          "code": "PRV-01",
+          "name": "Data Privacy & Protection Compliance",
           "status": "PRODUCTION_READY",
           "owner": "Data Protection Officer",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P5.D32",
-          "name": "Legal, Media Accreditation & Defamation Defense",
-          "status": "PRODUCTION_READY",
+          "code": "LEG-01",
+          "name": "Legal, Licensing & Regulatory Compliance",
+          "status": "OPERATIONAL_WITH_WORKAROUND",
           "owner": "Legal Counsel",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "7/9"
         },
         {
-          "code": "P5.D33",
-          "name": "Editorial Ethics & Misinformation Safeguards",
+          "code": "GOV-01",
+          "name": "Corporate Governance & Policy",
           "status": "PRODUCTION_READY",
-          "owner": "Ethics Committee",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "owner": "Publisher / Board",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "9/9"
         },
         {
-          "code": "P5.D34",
-          "name": "Financial Integrity & Statutory Tax Governance",
-          "status": "PRODUCTION_READY",
-          "owner": "Financial Controller",
-          "evidenceClass": "STAGING_RUNTIME_PROVEN",
-          "featureGateScore": "9/9"
-        },
-        {
-          "code": "P5.D35",
-          "name": "Commercial Integrity & Advertising Standards",
-          "status": "PRODUCTION_READY",
-          "owner": "Commercial Director",
-          "evidenceClass": "SOURCE_PROVEN",
-          "featureGateScore": "9/9"
+          "code": "RSK-01",
+          "name": "Enterprise Risk & Audit Assurance",
+          "status": "OPERATIONAL_WITH_WORKAROUND",
+          "owner": "Audit Lead",
+          "evidenceClass": "DOC_GOVERNED",
+          "nineDimensionScore": "7/9"
         }
       ]
     }

@@ -2,7 +2,7 @@
 ## 24-Surface Operating Model, Newsroom Procedures, Support Tiers & SRE Guidelines
 
 - **Document ID:** `HT-MVP-OPERATIONS-RUNBOOK`
-- **Release Candidate:** `release/ht-mvp-rc01-udpcs-launch-control`
+- **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Sections 22–24, 31–33
 - **Target Delivery Date:** 24 October 2026
