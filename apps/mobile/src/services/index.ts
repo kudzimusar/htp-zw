@@ -17,6 +17,7 @@ import { stagingNewsroomWhatsAppService } from "./newsroom-whatsapp";
 import { stagingNewsroomIntelligenceService } from "./newsroom-intelligence";
 import { stagingNewsroomStaffService } from "./newsroom-staff";
 import { stagingNewsroomCommercialService } from "./newsroom-commercial";
+import { stagingNewsroomFinanceService } from "./newsroom-finance";
 import { stagingNewsroomAiService } from "./newsroom-ai";
 import { stagingNewsroomAuthorsService } from "./newsroom-authors";
 import { stagingNewsroomSettingsService } from "./newsroom-settings";
@@ -58,6 +59,7 @@ function buildServices(): HealthTimesServices {
       newsroomIntelligence: stagingNewsroomIntelligenceService,
       newsroomStaff: stagingNewsroomStaffService,
       newsroomCommercial: stagingNewsroomCommercialService,
+      newsroomFinance: stagingNewsroomFinanceService,
       newsroomAi: stagingNewsroomAiService,
       newsroomAuthors: stagingNewsroomAuthorsService,
       newsroomSettings: stagingNewsroomSettingsService,

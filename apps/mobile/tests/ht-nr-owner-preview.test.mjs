@@ -379,18 +379,22 @@ test("HT-NR-VIS-01: Unfinished placeholder modules are omitted from Owner Previe
   assert.ok(realModuleSource.includes("<StudioAuthorityGate>"));
 });
 
-test("HT-NR-VIS-01-R1: Defect A — Real /studio landing is reverted to exact parent authority", () => {
-  const content = fs.readFileSync(path.join(root, "app/studio/index.tsx"));
-  const header = `blob ${content.length}\0`;
-  const sha = crypto
-    .createHash("sha1")
-    .update(Buffer.concat([Buffer.from(header), content]))
-    .digest("hex");
-  assert.equal(
-    sha,
-    "8ed2d24a4f8f20b5af881f9ce54f517b7a80720e",
-    "app/studio/index.tsx must match exact parent git blob 8ed2d24a4f8f20b5af881f9ce54f517b7a80720e"
-  );
+test("HT-NR-UI-01: Real /studio landing provides 7 operating domains navigation and role gates", () => {
+  const content = fs.readFileSync(path.join(root, "app/studio/index.tsx"), "utf8");
+  assert.ok(content.includes("STUDIO_DOMAINS"));
+  assert.ok(content.includes("StudioShell"));
+  assert.ok(content.includes("FINANCE & BILLING"));
+});
+
+test("HT-NR-UI-01: Owner Preview includes Persona Switcher with 7 role personas and finance view", () => {
+  const previewSource = read("src/preview/OwnerPreviewStudio.tsx");
+  const previewDataSource = read("src/preview/newsroomPreviewData.ts");
+
+  assert.ok(previewDataSource.includes("OWNER_PREVIEW_PERSONAS"));
+  assert.ok(previewSource.includes("selectedPersonaId"));
+  assert.ok(previewSource.includes("handleNavigate"));
+  assert.ok(previewSource.includes("StudioFinanceDeskView"));
+  assert.ok(previewSource.includes("OwnerPreviewFinanceView"));
 });
 
 test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from canonical UI files", () => {

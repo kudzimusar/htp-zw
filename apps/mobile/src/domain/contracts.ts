@@ -125,7 +125,23 @@ import type {
   NewsroomTaxonomyDirectory,
   NewsroomCreateSectionInput,
   NewsroomPlatformSettingItem,
-  NewsroomPlatformSettingsOverview
+  NewsroomPlatformSettingsOverview,
+  NewsroomCustomer,
+  NewsroomUpsertCustomerInput,
+  NewsroomCommercialOrder,
+  NewsroomCreateOrderInput,
+  NewsroomInvoiceItem,
+  NewsroomInvoiceDetail,
+  NewsroomCreateInvoiceInput,
+  NewsroomPaymentItem,
+  NewsroomRecordPaymentInput,
+  NewsroomPaymentResult,
+  NewsroomReceivablesAging,
+  NewsroomExpenseItem,
+  NewsroomExpenseCategory,
+  NewsroomCreateExpenseInput,
+  NewsroomFinanceOverview,
+  NewsroomFinanceStatements
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -514,6 +530,32 @@ export interface NewsroomSettingsService {
   updatePlatformSetting(key: string, value: Record<string, unknown>): Promise<{ key: string; updated: boolean }>;
 }
 
+export interface NewsroomFinanceService {
+  getOverview(): Promise<NewsroomFinanceOverview>;
+  getStatements(startDate?: string, endDate?: string): Promise<NewsroomFinanceStatements>;
+  getReceivablesAging(): Promise<NewsroomReceivablesAging>;
+  listInvoices(statusFilter?: string | null): Promise<NewsroomInvoiceItem[]>;
+  getInvoice(invoiceId: string): Promise<NewsroomInvoiceDetail>;
+  createInvoice(input: NewsroomCreateInvoiceInput): Promise<NewsroomInvoiceDetail>;
+  approveInvoice(invoiceId: string): Promise<void>;
+  issueInvoice(invoiceId: string, issueDate?: string, dueDate?: string): Promise<void>;
+  voidInvoice(invoiceId: string, reason: string): Promise<void>;
+  recordPayment(input: NewsroomRecordPaymentInput): Promise<NewsroomPaymentResult>;
+  listPayments(invoiceId?: string): Promise<NewsroomPaymentItem[]>;
+  listExpenses(statusFilter?: string | null): Promise<NewsroomExpenseItem[]>;
+  createExpense(input: NewsroomCreateExpenseInput): Promise<NewsroomExpenseItem>;
+  submitExpense(expenseId: string): Promise<void>;
+  approveExpense(expenseId: string): Promise<void>;
+  rejectExpense(expenseId: string, reason: string): Promise<void>;
+  payExpense(expenseId: string, reference?: string): Promise<void>;
+  listExpenseCategories(): Promise<NewsroomExpenseCategory[]>;
+  listOrders(statusFilter?: string | null): Promise<NewsroomCommercialOrder[]>;
+  createOrder(input: NewsroomCreateOrderInput): Promise<NewsroomCommercialOrder>;
+  approveOrder(orderId: string): Promise<void>;
+  listCustomers(): Promise<NewsroomCustomer[]>;
+  upsertCustomer(input: NewsroomUpsertCustomerInput): Promise<NewsroomCustomer>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
   presentation: PresentationRepository;
@@ -545,6 +587,7 @@ export interface HealthTimesServices {
   newsroomIntelligence: NewsroomIntelligenceService;
   newsroomStaff: NewsroomStaffService;
   newsroomCommercial: NewsroomCommercialService;
+  newsroomFinance: NewsroomFinanceService;
   newsroomAi: NewsroomAiService;
   newsroomAuthors: NewsroomAuthorsService;
   newsroomSettings: NewsroomSettingsService;

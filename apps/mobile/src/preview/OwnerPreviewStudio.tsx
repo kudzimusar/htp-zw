@@ -95,11 +95,14 @@ import { StudioPremiumDeskView } from "../ui/StudioPremiumDesk";
 import { StudioAiDeskPresentation } from "../ui/StudioAiDesk";
 import { StudioAuthorsDeskView } from "../ui/StudioAuthorsDesk";
 import { StudioSettingsDeskView } from "../ui/StudioSettingsDesk";
+import { StudioFinanceDeskView, type FinanceTab } from "../ui/StudioFinanceDesk";
 import {
   OWNER_PREVIEW_NAV_ITEMS,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
   OWNER_PREVIEW_UNAVAILABLE_MESSAGE,
   OWNER_PREVIEW_WATERMARK,
+  OWNER_PREVIEW_PERSONAS,
+  type OwnerPreviewPersona,
   PREVIEW_PUBLIC_AUTHORS,
   PREVIEW_STAFF_DIRECTORY,
   buildPreviewAssignments,
@@ -132,10 +135,104 @@ import {
   buildPreviewAuthorsDirectory,
   buildPreviewTaxonomyDirectory,
   buildPreviewPlatformSettingsOverview,
+  buildPreviewFinanceOverview,
+  buildPreviewFinanceStatements,
+  buildPreviewReceivablesAging,
+  buildPreviewInvoices,
+  buildPreviewPayments,
+  buildPreviewExpenses,
+  buildPreviewCommercialOrders,
+  buildPreviewCustomers,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
 import { OwnerPreviewStoryWorkspace } from "./OwnerPreviewStoryWorkspace";
+
+export const OWNER_PREVIEW_DOMAINS = [
+  {
+    key: "my-work",
+    title: "1. MY WORK",
+    shortTitle: "My Work",
+    items: [
+      { key: "assignments", label: "My Assignments", path: "/owner-preview/studio/assignments" },
+      { key: "create-edit", label: "Story Workspace / Drafts", path: "/owner-preview/studio/create-edit" },
+      { key: "my-expenses", label: "My Expenses", path: "/owner-preview/studio/my-expenses" }
+    ]
+  },
+  {
+    key: "editorial",
+    title: "2. EDITORIAL",
+    shortTitle: "Editorial",
+    items: [
+      { key: "review-queue", label: "Review Queue", path: "/owner-preview/studio/review-queue" },
+      { key: "stories", label: "Story Hub", path: "/owner-preview/studio/stories" },
+      { key: "planning", label: "Planning Board", path: "/owner-preview/studio/planning" },
+      { key: "calendar", label: "Editorial Calendar", path: "/owner-preview/studio/calendar" },
+      { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
+      { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
+      { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
+      { key: "authors", label: "Authors & Taxonomy", path: "/owner-preview/studio/authors" },
+      { key: "ai-desk", label: "AI Citations Desk", path: "/owner-preview/studio/ai-desk" }
+    ]
+  },
+  {
+    key: "audience-marketing",
+    title: "3. AUDIENCE & MARKETING",
+    shortTitle: "Audience",
+    items: [
+      { key: "social", label: "Social Desk", path: "/owner-preview/studio/social" },
+      { key: "newsletters", label: "Newsletter Desk", path: "/owner-preview/studio/newsletters" },
+      { key: "push-alerts", label: "Push Alerts", path: "/owner-preview/studio/push-alerts" },
+      { key: "whatsapp", label: "WhatsApp Desk", path: "/owner-preview/studio/whatsapp" },
+      { key: "audience", label: "Audience Intelligence", path: "/owner-preview/studio/audience" },
+      { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" }
+    ]
+  },
+  {
+    key: "commercial",
+    title: "4. COMMERCIAL",
+    shortTitle: "Commercial",
+    items: [
+      { key: "advertising", label: "Ad Campaigns", path: "/owner-preview/studio/advertising" },
+      { key: "orders", label: "Commercial Orders", path: "/owner-preview/studio/orders" },
+      { key: "subscribers", label: "Subscribers Directory", path: "/owner-preview/studio/subscribers" },
+      { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" }
+    ]
+  },
+  {
+    key: "finance",
+    title: "5. FINANCE & ACCOUNTING",
+    shortTitle: "Finance",
+    items: [
+      { key: "finance", label: "Financial Overview", path: "/owner-preview/studio/finance" },
+      { key: "finance-invoices", label: "Invoices & Billing", path: "/owner-preview/studio/finance-invoices" },
+      { key: "finance-aging", label: "Receivables Aging", path: "/owner-preview/studio/finance-aging" },
+      { key: "finance-payments", label: "Payments Ledger", path: "/owner-preview/studio/finance-payments" },
+      { key: "finance-expenses", label: "Expense Claims", path: "/owner-preview/studio/finance-expenses" },
+      { key: "finance-statements", label: "Financial Statements", path: "/owner-preview/studio/finance-statements" },
+      { key: "finance-customers", label: "Billing Customers", path: "/owner-preview/studio/finance-customers" }
+    ]
+  },
+  {
+    key: "executive",
+    title: "6. PUBLISHER / EXECUTIVE",
+    shortTitle: "Executive",
+    items: [
+      { key: "today", label: "Executive Dashboard", path: "/owner-preview/studio" },
+      { key: "homepage", label: "Homepage Curation", path: "/owner-preview/studio/homepage" },
+      { key: "analytics", label: "Analytics & Intelligence", path: "/owner-preview/studio/analytics" }
+    ]
+  },
+  {
+    key: "admin",
+    title: "7. ADMINISTRATION",
+    shortTitle: "Administration",
+    items: [
+      { key: "staff-roles", label: "Staff & Roles (RBAC)", path: "/owner-preview/studio/staff-roles" },
+      { key: "settings", label: "Platform Settings", path: "/owner-preview/studio/settings" }
+    ]
+  }
+];
 
 export function OwnerPreviewShell({
   activeKey,
@@ -152,6 +249,17 @@ export function OwnerPreviewShell({
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
   const enabled = isOwnerPreviewEnabled();
+
+  // Active Role Persona state for interactive inspection
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>("owner");
+  const [roleAlert, setRoleAlert] = useState<string | null>(null);
+
+  const activePersona: OwnerPreviewPersona = useMemo(() => {
+    return (
+      OWNER_PREVIEW_PERSONAS.find((p) => p.id === selectedPersonaId) ??
+      OWNER_PREVIEW_PERSONAS[0]!
+    );
+  }, [selectedPersonaId]);
 
   if (!enabled) {
     return (
@@ -171,6 +279,18 @@ export function OwnerPreviewShell({
         </View>
       </View>
     );
+  }
+
+  function handleNavigate(path: string, domainKey: string, domainTitle: string) {
+    if (!activePersona.allowedDomains.includes(domainKey)) {
+      setRoleAlert(
+        `Role Boundary: '${activePersona.role}' does not have authority for ${domainTitle}. Switch persona via the switcher bar above to inspect this workspace.`
+      );
+      setTimeout(() => setRoleAlert(null), 5000);
+      return;
+    }
+    setRoleAlert(null);
+    router.push(path as never);
   }
 
   return (
@@ -200,11 +320,79 @@ export function OwnerPreviewShell({
         </Text>
       </View>
 
+      {/* Role Persona Switcher Bar */}
+      <View style={styles.personaBar}>
+        <View style={styles.personaBarHeader}>
+          <Text style={styles.personaBarLabel}>ROLE PERSONA SWITCHER</Text>
+          <Text style={styles.personaBarSub}>
+            Inspect Newsroom OS through the eyes of different staff roles and verify permission boundaries
+          </Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.personaPillsRow}
+        >
+          {OWNER_PREVIEW_PERSONAS.map((p) => {
+            const isSelected = p.id === selectedPersonaId;
+            return (
+              <Pressable
+                key={p.id}
+                style={[styles.personaPill, isSelected && styles.personaPillActive]}
+                onPress={() => setSelectedPersonaId(p.id)}
+              >
+                <View
+                  style={[
+                    styles.personaPillAvatar,
+                    isSelected && styles.personaPillAvatarActive
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.personaPillAvatarText,
+                      isSelected && styles.personaPillAvatarTextActive
+                    ]}
+                  >
+                    {p.initials}
+                  </Text>
+                </View>
+                <View>
+                  <Text
+                    style={[
+                      styles.personaPillName,
+                      isSelected && styles.personaPillNameActive
+                    ]}
+                  >
+                    {p.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.personaPillRole,
+                      isSelected && styles.personaPillRoleActive
+                    ]}
+                  >
+                    {p.role}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Active Persona Banner & Boundary Alert */}
+      {roleAlert && (
+        <View style={styles.roleAlertBox}>
+          <Text style={styles.roleAlertTitle}>ROLE BOUNDARY ENFORCED</Text>
+          <Text style={styles.roleAlertText}>{roleAlert}</Text>
+        </View>
+      )}
+
       {/* Top Brand Masthead */}
       <View style={styles.topHeader}>
         <View>
           <Text style={styles.brandKicker}>
-            HEALTHTIMES NEWSROOM OS · NON-PRODUCTION OWNER VISUAL PREVIEW
+            HEALTHTIMES NEWSROOM OS · 7 OPERATING DOMAINS
           </Text>
           <Text style={styles.brandTitle}>HealthTimes Studio</Text>
         </View>
@@ -218,7 +406,7 @@ export function OwnerPreviewShell({
         </View>
       </View>
 
-      {/* Mobile / Tablet Horizontal Nav Bar */}
+      {/* Mobile / Tablet 7-Domain Horizontal Navigation */}
       {!isDesktop ? (
         <View style={styles.mobileNavWrapper}>
           <ScrollView
@@ -226,27 +414,41 @@ export function OwnerPreviewShell({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.mobileNavRow}
           >
-            {OWNER_PREVIEW_NAV_ITEMS.map((item) => {
-              const active = item.key === activeKey;
+            {OWNER_PREVIEW_DOMAINS.map((domain) => {
+              const isDomainAllowed = activePersona.allowedDomains.includes(domain.key);
               return (
-                <Pressable
-                  key={item.key}
-                  style={[
-                    styles.mobileNavPill,
-                    active && styles.mobileNavPillActive
-                  ]}
-                  onPress={() => router.push(item.path as never)}
-                  testID={`owner-preview-nav-mobile-${item.key}`}
-                >
-                  <Text
-                    style={[
-                      styles.mobileNavPillText,
-                      active && styles.mobileNavPillTextActive
-                    ]}
-                  >
-                    {item.label}
+                <View key={domain.key} style={styles.mobileDomainSection}>
+                  <Text style={styles.mobileDomainLabel}>
+                    {domain.shortTitle} {!isDomainAllowed && "🔒"}
                   </Text>
-                </Pressable>
+                  <View style={styles.mobileDomainPills}>
+                    {domain.items.map((item) => {
+                      const active = item.key === activeKey;
+                      return (
+                        <Pressable
+                          key={item.key}
+                          style={[
+                            styles.mobileNavPill,
+                            active && styles.mobileNavPillActive,
+                            !isDomainAllowed && styles.mobileNavPillLocked
+                          ]}
+                          onPress={() => handleNavigate(item.path, domain.key, domain.shortTitle)}
+                          testID={`owner-preview-nav-mobile-${item.key}`}
+                        >
+                          <Text
+                            style={[
+                              styles.mobileNavPillText,
+                              active && styles.mobileNavPillTextActive,
+                              !isDomainAllowed && styles.mobileNavPillTextLocked
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
               );
             })}
           </ScrollView>
@@ -257,39 +459,93 @@ export function OwnerPreviewShell({
       <View style={styles.bodyLayout}>
         {isDesktop ? (
           <View style={styles.sidebar} testID="owner-preview-sidebar">
-            <Text style={styles.sidebarSectionTitle}>NEWSROOM OPERATIONS</Text>
-            {OWNER_PREVIEW_NAV_ITEMS.map((item) => {
-              const active = item.key === activeKey;
-              return (
-                <Pressable
-                  key={item.key}
-                  style={[
-                    styles.sidebarNavItem,
-                    active && styles.sidebarNavItemActive
-                  ]}
-                  onPress={() => router.push(item.path as never)}
-                  testID={`owner-preview-nav-${item.key}`}
-                >
-                  <Text
-                    style={[
-                      styles.sidebarNavText,
-                      active && styles.sidebarNavTextActive
-                    ]}
-                  >
-                    {item.label}
+            {/* Staff Identity Card with Persona Avatar */}
+            <View style={styles.identityCard}>
+              <View style={styles.identityRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{activePersona.initials}</Text>
+                </View>
+                <View style={styles.identityInfo}>
+                  <Text style={styles.identityName} numberOfLines={1}>
+                    {activePersona.name}
                   </Text>
-                </Pressable>
-              );
-            })}
+                  <Text style={styles.identityHandle} numberOfLines={1}>
+                    @{activePersona.handle} • {activePersona.desk}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.badgeRow}>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>{activePersona.role.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.personaScopeText}>{activePersona.description}</Text>
+            </View>
+
+            {/* 7-Domain Grouped Sidebar Navigation */}
+            <ScrollView style={styles.sidebarScroll} showsVerticalScrollIndicator={false}>
+              {OWNER_PREVIEW_DOMAINS.map((domain) => {
+                const isDomainAllowed = activePersona.allowedDomains.includes(domain.key);
+                return (
+                  <View key={domain.key} style={styles.domainSection}>
+                    <View style={styles.domainHeader}>
+                      <Text
+                        style={[
+                          styles.domainTitle,
+                          !isDomainAllowed && styles.domainTitleLocked
+                        ]}
+                      >
+                        {domain.title}
+                      </Text>
+                      {!isDomainAllowed && (
+                        <Text style={styles.domainLockedBadge}>RESTRICTED</Text>
+                      )}
+                    </View>
+
+                    <View style={styles.domainItems}>
+                      {domain.items.map((item) => {
+                        const active = item.key === activeKey;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            style={[
+                              styles.sidebarNavItem,
+                              active && styles.sidebarNavItemActive,
+                              !isDomainAllowed && styles.sidebarNavItemLocked
+                            ]}
+                            onPress={() => handleNavigate(item.path, domain.key, domain.shortTitle)}
+                            testID={`owner-preview-nav-${item.key}`}
+                          >
+                            <Text
+                              style={[
+                                styles.sidebarNavText,
+                                active && styles.sidebarNavTextActive,
+                                !isDomainAllowed && styles.sidebarNavTextLocked
+                              ]}
+                            >
+                              {item.label}
+                            </Text>
+                            {!isDomainAllowed && (
+                              <Text style={styles.itemLockIcon}>🔒</Text>
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
 
             <View style={styles.sidebarSafetyCard}>
               <Text style={styles.sidebarSafetyTitle}>
                 PREVIEW ISOLATION GUARD
               </Text>
               <Text style={styles.sidebarSafetyBody}>
-                All stories, staff, assignments, and schedules shown here are
-                non-persistent sample records. Production and Staging databases
-                are untouched.
+                All stories, invoices, staff, assignments, and schedules shown here are
+                non-persistent sample records.
               </Text>
             </View>
           </View>
@@ -2717,6 +2973,32 @@ export function OwnerPreviewSettingsView() {
   );
 }
 
+export function OwnerPreviewFinanceView({ initialTab = "overview" }: { initialTab?: FinanceTab }) {
+  const overview = useMemo(() => buildPreviewFinanceOverview(), []);
+  const statements = useMemo(() => buildPreviewFinanceStatements(), []);
+  const aging = useMemo(() => buildPreviewReceivablesAging(), []);
+  const invoices = useMemo(() => buildPreviewInvoices(), []);
+  const payments = useMemo(() => buildPreviewPayments(), []);
+  const expenses = useMemo(() => buildPreviewExpenses(), []);
+  const orders = useMemo(() => buildPreviewCommercialOrders(), []);
+  const customers = useMemo(() => buildPreviewCustomers(), []);
+
+  return (
+    <StudioFinanceDeskView
+      initialTab={initialTab}
+      isOwnerPreview={true}
+      previewOverview={overview}
+      previewStatements={statements}
+      previewAging={aging}
+      previewInvoices={invoices}
+      previewPayments={payments}
+      previewExpenses={expenses}
+      previewOrders={orders}
+      previewCustomers={customers}
+    />
+  );
+}
+
 export function OwnerPreviewModuleScreen({
   moduleSlug,
   storyId
@@ -2725,6 +3007,96 @@ export function OwnerPreviewModuleScreen({
   storyId?: string | undefined;
 }) {
   switch (moduleSlug) {
+    case "finance":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance"
+          title="Financial Overview & Operations (Owner Visual Preview)"
+          subtitle="Multi-currency invoicing, accounts receivable aging, immutable cash receipts ledger, and operational statements."
+        >
+          <OwnerPreviewFinanceView initialTab="overview" />
+        </OwnerPreviewShell>
+      );
+    case "finance-invoices":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-invoices"
+          title="Invoices & Commercial Billing (Owner Visual Preview)"
+          subtitle="Direct advertising invoicing, lifecycle status progression, approvals, and immutable payment terms."
+        >
+          <OwnerPreviewFinanceView initialTab="invoices" />
+        </OwnerPreviewShell>
+      );
+    case "finance-aging":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-aging"
+          title="Accounts Receivable Aging Breakdown (Owner Visual Preview)"
+          subtitle="Standard financial aging analysis across 1–30, 31–60, 61–90, and 90+ days past due buckets."
+        >
+          <OwnerPreviewFinanceView initialTab="aging" />
+        </OwnerPreviewShell>
+      );
+    case "finance-payments":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-payments"
+          title="Cash Receipts & Payments Ledger (Owner Visual Preview)"
+          subtitle="Immutable payment audit ledger with idempotency verification and overpayment prevention constraints."
+        >
+          <OwnerPreviewFinanceView initialTab="payments" />
+        </OwnerPreviewShell>
+      );
+    case "finance-expenses":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-expenses"
+          title="Newsroom Expense Claims & Approvals (Owner Visual Preview)"
+          subtitle="Field reporting, travel, freelance photojournalism, and office supplies reimbursement ledger."
+        >
+          <OwnerPreviewFinanceView initialTab="expenses" />
+        </OwnerPreviewShell>
+      );
+    case "my-expenses":
+      return (
+        <OwnerPreviewShell
+          activeKey="my-expenses"
+          title="My Expense Claims (Owner Visual Preview)"
+          subtitle="Individual journalist and staff member expense claims and payout status."
+        >
+          <OwnerPreviewFinanceView initialTab="expenses" />
+        </OwnerPreviewShell>
+      );
+    case "finance-statements":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-statements"
+          title="Operating Financial Statements (Owner Visual Preview)"
+          subtitle="Operational income statement, revenue by placement breakdown, cash receipts, and expense summaries."
+        >
+          <OwnerPreviewFinanceView initialTab="statements" />
+        </OwnerPreviewShell>
+      );
+    case "finance-customers":
+      return (
+        <OwnerPreviewShell
+          activeKey="finance-customers"
+          title="Billing Customers & Accounts (Owner Visual Preview)"
+          subtitle="Corporate advertiser accounts, billing profiles, payment terms, and tax registration records."
+        >
+          <OwnerPreviewFinanceView initialTab="customers" />
+        </OwnerPreviewShell>
+      );
+    case "orders":
+      return (
+        <OwnerPreviewShell
+          activeKey="orders"
+          title="Commercial Orders & Campaign Bookings (Owner Visual Preview)"
+          subtitle="Direct advertising insertion orders, booking lifecycle, and commercial billing status tracking."
+        >
+          <OwnerPreviewFinanceView initialTab="customers" />
+        </OwnerPreviewShell>
+      );
     case "stories":
       return (
         <OwnerPreviewShell
@@ -3177,7 +3549,222 @@ const styles = StyleSheet.create({
   },
   sidebarSafetyBody: {
     fontSize: 11,
-    color: "#78350F"
+    lineHeight: 16,
+    color: "#B45309"
+  },
+  personaBar: {
+    backgroundColor: "#1E293B",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#334155",
+    gap: 8
+  },
+  personaBarHeader: {
+    gap: 2
+  },
+  personaBarLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+    color: "#38BDF8"
+  },
+  personaBarSub: {
+    fontSize: 11,
+    color: "#94A3B8"
+  },
+  personaPillsRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 2
+  },
+  personaPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#334155"
+  },
+  personaPillActive: {
+    backgroundColor: "#0369A1",
+    borderColor: "#38BDF8"
+  },
+  personaPillAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  personaPillAvatarActive: {
+    backgroundColor: "#FFFFFF"
+  },
+  personaPillAvatarText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#F8FAFC"
+  },
+  personaPillAvatarTextActive: {
+    color: "#0369A1"
+  },
+  personaPillName: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#E2E8F0"
+  },
+  personaPillNameActive: {
+    color: "#FFFFFF"
+  },
+  personaPillRole: {
+    fontSize: 9,
+    color: "#94A3B8"
+  },
+  personaPillRoleActive: {
+    color: "#BAE6FD"
+  },
+  roleAlertBox: {
+    backgroundColor: "#FEF2F2",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EF4444",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+    gap: 2
+  },
+  roleAlertTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#B91C1C",
+    letterSpacing: 0.8
+  },
+  roleAlertText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#7F1D1D"
+  },
+  identityCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    gap: 6
+  },
+  identityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.navy,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  avatarText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#FFFFFF"
+  },
+  identityInfo: {
+    flex: 1
+  },
+  identityName: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.ink
+  },
+  identityHandle: {
+    fontSize: 10,
+    color: colors.inkMuted
+  },
+  roleBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: colors.navy
+  },
+  roleBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.5
+  },
+  personaScopeText: {
+    fontSize: 10,
+    color: colors.inkMuted,
+    lineHeight: 14
+  },
+  sidebarScroll: {
+    flex: 1
+  },
+  domainSection: {
+    marginBottom: spacing.md,
+    gap: 2
+  },
+  domainHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    marginBottom: 4
+  },
+  domainTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: colors.blue,
+    letterSpacing: 0.8
+  },
+  domainTitleLocked: {
+    color: colors.inkMuted
+  },
+  domainLockedBadge: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: "#B91C1C",
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4
+  },
+  domainItems: {
+    gap: 1
+  },
+  sidebarNavItemLocked: {
+    opacity: 0.4
+  },
+  sidebarNavTextLocked: {
+    color: colors.inkMuted
+  },
+  itemLockIcon: {
+    fontSize: 9
+  },
+  mobileDomainSection: {
+    gap: 4,
+    marginRight: spacing.md
+  },
+  mobileDomainLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: colors.inkMuted,
+    letterSpacing: 0.6
+  },
+  mobileDomainPills: {
+    flexDirection: "row",
+    gap: 6
+  },
+  mobileNavPillLocked: {
+    opacity: 0.45
+  },
+  mobileNavPillTextLocked: {
+    color: colors.inkMuted
   },
   mainScroll: {
     flex: 1

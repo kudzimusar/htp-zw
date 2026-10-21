@@ -38,8 +38,100 @@ import type {
   NewsroomAuthorsDirectory,
   NewsroomTaxonomyDirectory,
   NewsroomPlatformSettingsOverview,
-  StoryMediaPromotionItem
+  StoryMediaPromotionItem,
+  NewsroomCustomer,
+  NewsroomCommercialOrder,
+  NewsroomInvoiceItem,
+  NewsroomPaymentItem,
+  NewsroomReceivablesAging,
+  NewsroomExpenseItem,
+  NewsroomFinanceOverview,
+  NewsroomFinanceStatements
 } from "../domain/models";
+
+export interface OwnerPreviewPersona {
+  id: string;
+  name: string;
+  role: string;
+  desk: string;
+  handle: string;
+  initials: string;
+  description: string;
+  allowedDomains: string[];
+}
+
+export const OWNER_PREVIEW_PERSONAS: OwnerPreviewPersona[] = [
+  {
+    id: "owner",
+    name: "Kudzanai Musarurwa",
+    role: "Publisher / Owner",
+    desk: "Executive",
+    handle: "kudzimusar",
+    initials: "KM",
+    description: "Full executive newsroom authority across all 7 operational domains.",
+    allowedDomains: ["my-work", "editorial", "audience-marketing", "commercial", "finance", "executive", "admin"]
+  },
+  {
+    id: "reporter",
+    name: "Rutendo Shumba",
+    role: "Reporter / Journalist",
+    desk: "National Health",
+    handle: "rshumba",
+    initials: "RS",
+    description: "Field reporting, story drafts, assignments, pitches, and filed expense claims.",
+    allowedDomains: ["my-work", "editorial"]
+  },
+  {
+    id: "editor",
+    name: "Dr. Tawanda Chideme",
+    role: "Editor-in-Chief",
+    desk: "Executive Editorial",
+    handle: "tchideme",
+    initials: "TC",
+    description: "Review queue approval, publication gatekeeper, planning board, and editorial standards.",
+    allowedDomains: ["my-work", "editorial", "audience-marketing", "executive"]
+  },
+  {
+    id: "fmgr",
+    name: "Farai Moyo",
+    role: "Finance Manager",
+    desk: "Finance & Accounts",
+    handle: "fmoyo",
+    initials: "FM",
+    description: "Invoicing, AR aging, payment ledger, expense approvals, and financial statements.",
+    allowedDomains: ["my-work", "finance", "commercial"]
+  },
+  {
+    id: "cmgr",
+    name: "Tendai Ndebele",
+    role: "Commercial Manager",
+    desk: "Commercial & Advertising",
+    handle: "tndebele",
+    initials: "TN",
+    description: "Direct advertising campaigns, insertion orders, advertiser accounts, and subscriber revenue.",
+    allowedDomains: ["my-work", "commercial", "audience-marketing"]
+  },
+  {
+    id: "audience",
+    name: "Nyasha Sibanda",
+    role: "Audience & Growth Lead",
+    desk: "Audience & Distribution",
+    handle: "nsibanda",
+    initials: "NS",
+    description: "Social channels, email newsletters, breaking push alerts, and WhatsApp broadcasts.",
+    allowedDomains: ["my-work", "audience-marketing"]
+  },
+  {
+    id: "admin",
+    name: "Blessing Hove",
+    role: "Systems Administrator",
+    desk: "Administration & IT",
+    handle: "bhove",
+    initials: "BH",
+    description: "Staff provisioning, RBAC roles, security session revocation, and platform settings.",
+    allowedDomains: ["my-work", "admin", "executive"]
+  }
+];
 
 export const OWNER_PREVIEW_WATERMARK =
   "OWNER VISUAL PREVIEW · SAMPLE DATA · WRITES DISABLED";
@@ -75,7 +167,16 @@ export type OwnerPreviewModuleKey =
   | "ai-desk"
   | "authors"
   | "settings"
-  | "create-edit";
+  | "create-edit"
+  | "finance"
+  | "finance-invoices"
+  | "finance-aging"
+  | "finance-payments"
+  | "finance-expenses"
+  | "my-expenses"
+  | "finance-statements"
+  | "finance-customers"
+  | "orders";
 
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   key: OwnerPreviewModuleKey;
@@ -3217,4 +3318,428 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
     }
   };
 }
+
+// ============================================================================
+// Sample Finance & Accounting Data Builders (Owner Visual Preview)
+// ============================================================================
+
+export function buildPreviewCustomers(): NewsroomCustomer[] {
+  return [
+    {
+      id: "cust-sample-1",
+      advertiserId: "adv-1",
+      name: "Health Corp Zimbabwe Ltd",
+      legalName: "Health Corporation of Zimbabwe Private Limited",
+      billingEmail: "accounts@healthcorp.co.zw",
+      billingPhone: "+263 242 700100",
+      billingAddress: "124 Samora Machel Ave, Harare, Zimbabwe",
+      taxNumber: "TIN-ZW-20019283",
+      currency: "USD",
+      paymentTermsDays: 30,
+      status: "active",
+      metadata: { sample: true },
+      createdAt: "2026-09-01T08:00:00Z",
+      updatedAt: "2026-10-15T10:00:00Z"
+    },
+    {
+      id: "cust-sample-2",
+      advertiserId: "adv-2",
+      name: "PharmaCare International",
+      legalName: "PharmaCare Global Holdings Inc",
+      billingEmail: "finance@pharmacare.co.zw",
+      billingPhone: "+263 242 880200",
+      billingAddress: "45 Borrowdale Rd, Harare, Zimbabwe",
+      taxNumber: "TIN-ZW-99201123",
+      currency: "USD",
+      paymentTermsDays: 30,
+      status: "active",
+      metadata: { sample: true },
+      createdAt: "2026-09-10T09:00:00Z",
+      updatedAt: "2026-10-18T12:00:00Z"
+    },
+    {
+      id: "cust-sample-3",
+      advertiserId: "adv-3",
+      name: "UNICEF Zimbabwe Public Health",
+      legalName: "United Nations Children's Fund - Harare Country Office",
+      billingEmail: "zw-billing@unicef.org",
+      billingPhone: "+263 242 703941",
+      billingAddress: "6 Fairbridge Ave, Belgravia, Harare, Zimbabwe",
+      taxNumber: "UN-DIPLOMATIC-EXEMPT",
+      currency: "USD",
+      paymentTermsDays: 60,
+      status: "active",
+      metadata: { sample: true },
+      createdAt: "2026-09-15T11:00:00Z",
+      updatedAt: "2026-10-20T14:00:00Z"
+    }
+  ];
+}
+
+export function buildPreviewCommercialOrders(): NewsroomCommercialOrder[] {
+  return [
+    {
+      id: "ord-sample-1",
+      orderNumber: "ORD-2026-0001",
+      customerId: "cust-sample-1",
+      customerName: "Health Corp Zimbabwe Ltd",
+      campaignId: "camp-1",
+      campaignName: "National Vaccination Awareness Q4",
+      startDate: "2026-10-01",
+      endDate: "2026-10-31",
+      currency: "USD",
+      subtotal: 1500.0,
+      taxAmount: 225.0,
+      discountAmount: 100.0,
+      total: 1625.0,
+      status: "approved",
+      billingStatus: "billed",
+      notes: "Masthead banner + weekly newsletter sponsorship slot.",
+      submittedBy: "staff-commercial-1",
+      approvedBy: "staff-owner-1",
+      approvedAt: "2026-09-28T10:00:00Z",
+      createdAt: "2026-09-25T08:00:00Z",
+      updatedAt: "2026-09-28T10:00:00Z"
+    },
+    {
+      id: "ord-sample-2",
+      orderNumber: "ORD-2026-0002",
+      customerId: "cust-sample-2",
+      customerName: "PharmaCare International",
+      campaignId: "camp-2",
+      campaignName: "Essential Medicines Directory Campaign",
+      startDate: "2026-10-15",
+      endDate: "2026-11-15",
+      currency: "USD",
+      subtotal: 900.0,
+      taxAmount: 135.0,
+      discountAmount: 0.0,
+      total: 1035.0,
+      status: "approved",
+      billingStatus: "billed",
+      notes: "Sponsored content in-article placements across policy and pharma desks.",
+      submittedBy: "staff-commercial-1",
+      approvedBy: "staff-owner-1",
+      approvedAt: "2026-10-12T14:30:00Z",
+      createdAt: "2026-10-10T11:00:00Z",
+      updatedAt: "2026-10-12T14:30:00Z"
+    }
+  ];
+}
+
+export function buildPreviewInvoices(): NewsroomInvoiceItem[] {
+  return [
+    {
+      id: "inv-sample-1",
+      invoiceNumber: "INV-2026-0001",
+      customerId: "cust-sample-1",
+      customerName: "Health Corp Zimbabwe Ltd",
+      orderId: "ord-sample-1",
+      orderNumber: "ORD-2026-0001",
+      status: "paid",
+      effectiveStatus: "paid",
+      issueDate: "2026-10-01",
+      dueDate: "2026-10-31",
+      currency: "USD",
+      subtotal: 1500.0,
+      taxTotal: 225.0,
+      discountTotal: 100.0,
+      total: 1625.0,
+      amountPaid: 1625.0,
+      balanceDue: 0.0,
+      daysOverdue: 0,
+      paymentTermsDays: 30,
+      paymentCount: 1,
+      notes: "Settled in full via Stanbic RTGS/USD transfer.",
+      createdBy: "staff-accounts-1",
+      approvedBy: "staff-fmgr-1",
+      approvedAt: "2026-10-01T09:00:00Z",
+      createdAt: "2026-10-01T08:30:00Z",
+      updatedAt: "2026-10-05T11:00:00Z"
+    },
+    {
+      id: "inv-sample-2",
+      invoiceNumber: "INV-2026-0002",
+      customerId: "cust-sample-2",
+      customerName: "PharmaCare International",
+      orderId: "ord-sample-2",
+      orderNumber: "ORD-2026-0002",
+      status: "partially_paid",
+      effectiveStatus: "partially_paid",
+      issueDate: "2026-10-10",
+      dueDate: "2026-11-09",
+      currency: "USD",
+      subtotal: 900.0,
+      taxTotal: 135.0,
+      discountTotal: 0.0,
+      total: 1035.0,
+      amountPaid: 500.0,
+      balanceDue: 535.0,
+      daysOverdue: 0,
+      paymentTermsDays: 30,
+      paymentCount: 1,
+      notes: "50% upfront deposit received.",
+      createdBy: "staff-accounts-1",
+      approvedBy: "staff-fmgr-1",
+      approvedAt: "2026-10-10T10:00:00Z",
+      createdAt: "2026-10-10T09:15:00Z",
+      updatedAt: "2026-10-15T16:00:00Z"
+    },
+    {
+      id: "inv-sample-3",
+      invoiceNumber: "INV-2026-0003",
+      customerId: "cust-sample-3",
+      customerName: "UNICEF Zimbabwe Public Health",
+      orderId: null,
+      orderNumber: null,
+      status: "issued",
+      effectiveStatus: "overdue",
+      issueDate: "2026-08-15",
+      dueDate: "2026-09-15",
+      currency: "USD",
+      subtotal: 750.0,
+      taxTotal: 0.0,
+      discountTotal: 0.0,
+      total: 750.0,
+      amountPaid: 0.0,
+      balanceDue: 750.0,
+      daysOverdue: 36,
+      paymentTermsDays: 30,
+      paymentCount: 0,
+      notes: "Public Health Bulletin joint sponsorship (36 days overdue).",
+      createdBy: "staff-accounts-1",
+      approvedBy: "staff-fmgr-1",
+      approvedAt: "2026-08-15T10:00:00Z",
+      createdAt: "2026-08-15T09:00:00Z",
+      updatedAt: "2026-09-16T00:00:00Z"
+    }
+  ];
+}
+
+export function buildPreviewPayments(): NewsroomPaymentItem[] {
+  return [
+    {
+      id: "pay-sample-1",
+      paymentNumber: "PAY-2026-0001",
+      invoiceId: "inv-sample-1",
+      invoiceNumber: "INV-2026-0001",
+      customerId: "cust-sample-1",
+      customerName: "Health Corp Zimbabwe Ltd",
+      amount: 1625.0,
+      currency: "USD",
+      paymentDate: "2026-10-05",
+      paymentMethod: "bank_transfer",
+      reference: "STANBIC-TRF-90281",
+      notes: "Full payment for INV-2026-0001",
+      recordedBy: "staff-accounts-1",
+      recordedByName: "Accounts Officer",
+      createdAt: "2026-10-05T11:00:00Z"
+    },
+    {
+      id: "pay-sample-2",
+      paymentNumber: "PAY-2026-0002",
+      invoiceId: "inv-sample-2",
+      invoiceNumber: "INV-2026-0002",
+      customerId: "cust-sample-2",
+      customerName: "PharmaCare International",
+      amount: 500.0,
+      currency: "USD",
+      paymentDate: "2026-10-15",
+      paymentMethod: "bank_transfer",
+      reference: "CABS-USD-11928",
+      notes: "Initial deposit for INV-2026-0002",
+      recordedBy: "staff-accounts-1",
+      recordedByName: "Accounts Officer",
+      createdAt: "2026-10-15T16:00:00Z"
+    }
+  ];
+}
+
+export function buildPreviewExpenses(): NewsroomExpenseItem[] {
+  return [
+    {
+      id: "exp-sample-1",
+      expenseNumber: "EXP-2026-0001",
+      expenseDate: "2026-10-14",
+      vendorName: "Harare Express Cabs",
+      category: "travel",
+      description: "Field reporting travel to Parirenyatwa General Hospital",
+      department: "Editorial",
+      storyId: null,
+      amount: 45.0,
+      currency: "USD",
+      taxAmount: 0.0,
+      receiptReference: "RCPT-HC-1092",
+      receiptUrl: null,
+      status: "paid",
+      paymentStatus: "paid",
+      paidAt: "2026-10-16T12:00:00Z",
+      paymentReference: "CASH-DISB-082",
+      rejectionReason: null,
+      submittedBy: "staff-reporter-1",
+      submittedByName: "Rutendo Shumba",
+      approvedBy: "staff-fmgr-1",
+      approvedByName: "Farai Moyo",
+      approvedAt: "2026-10-15T09:00:00Z",
+      createdAt: "2026-10-14T17:00:00Z",
+      updatedAt: "2026-10-16T12:00:00Z"
+    },
+    {
+      id: "exp-sample-2",
+      expenseNumber: "EXP-2026-0002",
+      expenseDate: "2026-10-18",
+      vendorName: "Freelance Photojournalist (K. Ndlovu)",
+      category: "freelance",
+      description: "Photo essay on rural clinic solar power installations in Manicaland",
+      department: "Editorial",
+      storyId: null,
+      amount: 120.0,
+      currency: "USD",
+      taxAmount: 0.0,
+      receiptReference: "INV-NDLOVU-04",
+      receiptUrl: null,
+      status: "approved",
+      paymentStatus: "unpaid",
+      paidAt: null,
+      paymentReference: null,
+      rejectionReason: null,
+      submittedBy: "staff-editor-1",
+      submittedByName: "Dr. Tawanda Chideme",
+      approvedBy: "staff-fmgr-1",
+      approvedByName: "Farai Moyo",
+      approvedAt: "2026-10-19T10:00:00Z",
+      createdAt: "2026-10-18T14:00:00Z",
+      updatedAt: "2026-10-19T10:00:00Z"
+    },
+    {
+      id: "exp-sample-3",
+      expenseNumber: "EXP-2026-0003",
+      expenseDate: "2026-10-20",
+      vendorName: "Stationery Depot Harare",
+      category: "office",
+      description: "Newsroom printer toner cartridges & reporting notepads",
+      department: "Finance",
+      storyId: null,
+      amount: 65.0,
+      currency: "USD",
+      taxAmount: 9.75,
+      receiptReference: "REC-SD-9921",
+      receiptUrl: null,
+      status: "submitted",
+      paymentStatus: "unpaid",
+      paidAt: null,
+      paymentReference: null,
+      rejectionReason: null,
+      submittedBy: "staff-accounts-1",
+      submittedByName: "Accounts Officer",
+      approvedBy: null,
+      approvedByName: null,
+      approvedAt: null,
+      createdAt: "2026-10-20T11:00:00Z",
+      updatedAt: "2026-10-20T11:00:00Z"
+    }
+  ];
+}
+
+export function buildPreviewReceivablesAging(): NewsroomReceivablesAging {
+  return {
+    totals: [
+      {
+        currency: "USD",
+        notDue: 535.0,
+        d1_30: 0.0,
+        d31_60: 750.0,
+        d61_90: 0.0,
+        d90Plus: 0.0,
+        totalOutstanding: 1285.0
+      }
+    ],
+    customers: [
+      {
+        customerId: "cust-sample-2",
+        customerName: "PharmaCare International",
+        currency: "USD",
+        notDue: 535.0,
+        d1_30: 0.0,
+        d31_60: 0.0,
+        d61_90: 0.0,
+        d90Plus: 0.0,
+        totalOutstanding: 535.0,
+        invoiceCount: 1
+      },
+      {
+        customerId: "cust-sample-3",
+        customerName: "UNICEF Zimbabwe Public Health",
+        currency: "USD",
+        notDue: 0.0,
+        d1_30: 0.0,
+        d31_60: 750.0,
+        d61_90: 0.0,
+        d90Plus: 0.0,
+        totalOutstanding: 750.0,
+        invoiceCount: 1
+      }
+    ]
+  };
+}
+
+export function buildPreviewFinanceOverview(): NewsroomFinanceOverview {
+  return {
+    byCurrency: [
+      {
+        currency: "USD",
+        invoicedTotal: 3410.0,
+        revenueCollected: 2125.0,
+        receivablesOutstanding: 1285.0,
+        receivablesOverdue: 750.0,
+        expensesApproved: 165.0,
+        expensesPaid: 45.0,
+        operatingCashNet: 2080.0,
+        openInvoicesCount: 2,
+        overdueInvoicesCount: 1
+      }
+    ],
+    counts: {
+      openInvoices: 2,
+      overdueInvoices: 1,
+      pendingExpenses: 1,
+      approvedUnpaidExpenses: 1,
+      activeCustomers: 3,
+      pendingOrders: 0
+    }
+  };
+}
+
+export function buildPreviewFinanceStatements(): NewsroomFinanceStatements {
+  return {
+    period: {
+      startDate: "2026-10-01",
+      endDate: "2026-10-31"
+    },
+    balanceSheet:
+      "NOT AVAILABLE UNTIL GENERAL LEDGER AUTHORITY EXISTS (POST-LAUNCH ACCOUNTING PHASE). Operational cash receipts and approved newsroom expenditures reported truthfully.",
+    incomeStatement: [
+      {
+        currency: "USD",
+        revenue: 2660.0,
+        expenses: 230.0,
+        netOperatingSurplus: 2430.0
+      }
+    ],
+    revenueByPlacement: [
+      { placement: "masthead", currency: "USD", revenue: 1500.0 },
+      { placement: "newsletter", currency: "USD", revenue: 260.0 },
+      { placement: "sponsored_content", currency: "USD", revenue: 900.0 }
+    ],
+    cashReceipts: [
+      { method: "bank_transfer", currency: "USD", totalAmount: 2125.0, receiptsCount: 2 }
+    ],
+    expenseSummary: [
+      { category: "travel", currency: "USD", totalAmount: 45.0, count: 1 },
+      { category: "freelance", currency: "USD", totalAmount: 120.0, count: 1 },
+      { category: "office", currency: "USD", totalAmount: 65.0, count: 1 }
+    ]
+  };
+}
+
 

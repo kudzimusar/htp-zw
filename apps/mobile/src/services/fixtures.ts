@@ -22,6 +22,7 @@ import type {
   NewsroomIntelligenceService,
   NewsroomStaffService,
   NewsroomCommercialService,
+  NewsroomFinanceService,
   NewsroomAiService,
   NewsroomAuthorsService,
   NewsroomSettingsService,
@@ -1177,6 +1178,170 @@ export const fixtureNewsroomSettingsService: NewsroomSettingsService = {
   }
 };
 
+const FAIL_CLOSED_FINANCE_MESSAGE =
+  "Fail-closed: finance operations require verified server session and appropriate finance capabilities.";
+
+export const fixtureNewsroomFinanceService: NewsroomFinanceService = {
+  async getOverview() {
+    return {
+      byCurrency: [
+        {
+          currency: "USD",
+          invoicedTotal: 4250.0,
+          revenueCollected: 2950.0,
+          receivablesOutstanding: 1300.0,
+          receivablesOverdue: 350.0,
+          expensesApproved: 840.0,
+          expensesPaid: 620.0,
+          operatingCashNet: 2330.0,
+          openInvoicesCount: 3,
+          overdueInvoicesCount: 1
+        }
+      ],
+      counts: {
+        openInvoices: 3,
+        overdueInvoices: 1,
+        pendingExpenses: 2,
+        approvedUnpaidExpenses: 1,
+        activeCustomers: 5,
+        pendingOrders: 2
+      }
+    };
+  },
+  async getStatements(startDate, endDate) {
+    return {
+      period: {
+        startDate: startDate ?? "2026-10-01",
+        endDate: endDate ?? "2026-10-31"
+      },
+      balanceSheet: "NOT AVAILABLE UNTIL GENERAL LEDGER AUTHORITY EXISTS (POST-LAUNCH ACCOUNTING PHASE)",
+      incomeStatement: [
+        {
+          currency: "USD",
+          revenue: 2950.0,
+          expenses: 620.0,
+          netOperatingSurplus: 2330.0
+        }
+      ],
+      revenueByPlacement: [
+        { placement: "masthead", currency: "USD", revenue: 1500.0 },
+        { placement: "newsletter", currency: "USD", revenue: 850.0 },
+        { placement: "in_article", currency: "USD", revenue: 600.0 }
+      ],
+      cashReceipts: [
+        { method: "bank_transfer", currency: "USD", totalAmount: 2200.0, receiptsCount: 4 },
+        { method: "cash", currency: "USD", totalAmount: 750.0, receiptsCount: 2 }
+      ],
+      expenseSummary: [
+        { category: "travel", currency: "USD", totalAmount: 280.0, count: 3 },
+        { category: "freelance", currency: "USD", totalAmount: 240.0, count: 2 },
+        { category: "office", currency: "USD", totalAmount: 100.0, count: 1 }
+      ]
+    };
+  },
+  async getReceivablesAging() {
+    return {
+      totals: [
+        {
+          currency: "USD",
+          notDue: 950.0,
+          d1_30: 0.0,
+          d31_60: 350.0,
+          d61_90: 0.0,
+          d90Plus: 0.0,
+          totalOutstanding: 1300.0
+        }
+      ],
+      customers: [
+        {
+          customerId: "cust-1",
+          customerName: "Health Corp Zimbabwe",
+          currency: "USD",
+          notDue: 950.0,
+          d1_30: 0.0,
+          d31_60: 0.0,
+          d61_90: 0.0,
+          d90Plus: 0.0,
+          totalOutstanding: 950.0,
+          invoiceCount: 2
+        },
+        {
+          customerId: "cust-2",
+          customerName: "PharmaCare International",
+          currency: "USD",
+          notDue: 0.0,
+          d1_30: 0.0,
+          d31_60: 350.0,
+          d61_90: 0.0,
+          d90Plus: 0.0,
+          totalOutstanding: 350.0,
+          invoiceCount: 1
+        }
+      ]
+    };
+  },
+  async listInvoices() {
+    return [];
+  },
+  async getInvoice() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async createInvoice() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async approveInvoice() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async issueInvoice() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async voidInvoice() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async recordPayment() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async listPayments() {
+    return [];
+  },
+  async listExpenses() {
+    return [];
+  },
+  async createExpense() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async submitExpense() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async approveExpense() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async rejectExpense() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async payExpense() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async listExpenseCategories() {
+    return [];
+  },
+  async listOrders() {
+    return [];
+  },
+  async createOrder() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async approveOrder() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  },
+  async listCustomers() {
+    return [];
+  },
+  async upsertCustomer() {
+    throw new Error(FAIL_CLOSED_FINANCE_MESSAGE);
+  }
+};
+
 export const fixtureServices: HealthTimesServices = {
   articles: articleRepository,
   presentation: {
@@ -1212,6 +1377,7 @@ export const fixtureServices: HealthTimesServices = {
   newsroomIntelligence: fixtureNewsroomIntelligenceService,
   newsroomStaff: fixtureNewsroomStaffService,
   newsroomCommercial: fixtureNewsroomCommercialService,
+  newsroomFinance: fixtureNewsroomFinanceService,
   newsroomAi: fixtureNewsroomAiService,
   newsroomAuthors: fixtureNewsroomAuthorsService,
   newsroomSettings: fixtureNewsroomSettingsService,

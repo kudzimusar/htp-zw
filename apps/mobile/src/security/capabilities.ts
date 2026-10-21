@@ -44,7 +44,21 @@ export const HEALTH_TIMES_CAPABILITIES = [
   "marketing.create",
   "marketing.approve",
   "marketing.send",
-  "marketing.analytics"
+  "marketing.analytics",
+  "finance.view",
+  "finance.invoice.create",
+  "finance.invoice.approve",
+  "finance.invoice.issue",
+  "finance.payment.record",
+  "finance.receivable.view",
+  "finance.expense.view",
+  "finance.expense.create",
+  "finance.expense.approve",
+  "finance.expense.pay",
+  "finance.statement.view",
+  "finance.settings.manage",
+  "commercial.order.create",
+  "commercial.order.approve"
 ] as const;
 
 export type HealthTimesCapability = (typeof HEALTH_TIMES_CAPABILITIES)[number];
@@ -68,6 +82,78 @@ export const PUSH_DESK_CAPABILITIES = [
   "story.publish"
 ] as const satisfies readonly HealthTimesCapability[];
 
+export const FINANCE_DESK_CAPABILITIES = [
+  "finance.view",
+  "finance.invoice.create",
+  "finance.invoice.approve",
+  "finance.invoice.issue",
+  "finance.payment.record",
+  "finance.receivable.view",
+  "finance.expense.view",
+  "finance.expense.create",
+  "finance.expense.approve",
+  "finance.expense.pay",
+  "finance.statement.view",
+  "finance.settings.manage"
+] as const satisfies readonly HealthTimesCapability[];
+
+export const COMMERCIAL_DESK_CAPABILITIES = [
+  "ads.view",
+  "ads.create",
+  "ads.approve",
+  "subscriber.view",
+  "subscriber.manage",
+  "commercial.order.create",
+  "commercial.order.approve"
+] as const satisfies readonly HealthTimesCapability[];
+
+export const EDITORIAL_DESK_CAPABILITIES = [
+  "story.create",
+  "story.edit_own",
+  "story.edit_all",
+  "story.submit",
+  "story.fact_check",
+  "story.health_review",
+  "story.copy_edit",
+  "story.publish",
+  "story.correct",
+  "assignment.create",
+  "assignment.manage",
+  "media.manage",
+  "communication.desk.manage"
+] as const satisfies readonly HealthTimesCapability[];
+
+export const AUDIENCE_DESK_CAPABILITIES = [
+  "social.compose",
+  "social.approve",
+  "social.publish",
+  "marketing.create",
+  "marketing.approve",
+  "marketing.send",
+  "distribution.manage"
+] as const satisfies readonly HealthTimesCapability[];
+
+export const EXECUTIVE_DESK_CAPABILITIES = [
+  "analytics.view",
+  "story.publish",
+  "settings.manage",
+  "staff.view",
+  "finance.view",
+  "finance.statement.view"
+] as const satisfies readonly HealthTimesCapability[];
+
+export const ADMIN_DESK_CAPABILITIES = [
+  "settings.manage",
+  "security.manage",
+  "security.view_sessions",
+  "security.revoke_session",
+  "security.view_audit",
+  "staff.manage",
+  "staff.invite",
+  "staff.change_role",
+  "staff.revoke"
+] as const satisfies readonly HealthTimesCapability[];
+
 export type AuthorizationSnapshot = {
   status:
     | "anonymous"
@@ -75,6 +161,12 @@ export type AuthorizationSnapshot = {
     | "authenticated-no-staff-authority"
     | "authorized";
   staffProfileId: string | null;
+  displayName?: string | null;
+  email?: string | null;
+  handle?: string | null;
+  role?: string | null;
+  desk?: string | null;
+  sessionId?: string | null;
   capabilities: HealthTimesCapability[];
   source: "server" | "none";
   reason: string;
