@@ -223,6 +223,18 @@ appId: zw.co.healthtimes.app.dev
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Edition & Preferences"
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Africa primary edition"
     timeout: 10000
@@ -231,8 +243,24 @@ appId: zw.co.healthtimes.app.dev
     element:
       text: "Save Preferences"
     direction: DOWN
+    visibilityPercentage: 100
     timeout: 20000
+- waitForAnimationToEnd
 - tapOn: "Save Preferences"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: "Preferences saved on this device."
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Save Preferences"
+          direction: DOWN
+          visibilityPercentage: 100
+          timeout: 10000
+      - waitForAnimationToEnd
+      - tapOn: "Save Preferences"
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       text: "Preferences saved on this device."
