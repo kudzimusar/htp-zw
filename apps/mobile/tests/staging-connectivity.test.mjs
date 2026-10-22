@@ -10,6 +10,26 @@ const env = eas.build?.staging?.env ?? {};
 const url = env.EXPO_PUBLIC_SUPABASE_URL;
 const key = env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+test("staging Expo public config exposes deterministic runtime Supabase public config", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const raw = execFileSync("npx", ["expo", "config", "--type", "public", "--json"], {
+    cwd: root,
+    env: {
+      ...process.env,
+      APP_ENV: "staging",
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: "staging",
+      EXPO_PUBLIC_SUPABASE_URL: url,
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key
+    },
+    encoding: "utf8"
+  });
+  const parsed = JSON.parse(raw);
+  assert.equal(parsed.extra?.environment, "staging");
+  assert.equal(parsed.extra?.stagingSupabaseUrl, "https://gcdohgbmqhqwydgaxrcr.supabase.co");
+  assert.equal(typeof parsed.extra?.stagingSupabasePublishableKey, "string");
+  assert.equal(parsed.extra.stagingSupabasePublishableKey.startsWith("sb_publishable_"), true);
+});
+
 assert.equal(typeof url, "string");
 assert.equal(typeof key, "string");
 assert.match(url, /^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
