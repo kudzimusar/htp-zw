@@ -77,13 +77,13 @@ test("2. MAPPER CONTRACT: native-story-mapper maps CMS-native stories with healt
     },
     featured_storage_bucket: "newsroom-public",
     featured_storage_object: "stories/hero-cholera.jpg",
-    featured_public_url: "https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/public/newsroom-public/stories/hero-cholera.jpg",
+    featured_public_url: "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/newsroom-public/stories/hero-cholera.jpg",
     featured_alt_text: "Health workers in Harare",
     featured_caption: "Rapid response teams at work",
     featured_credit: "HealthTimes / Photo"
   };
 
-  const article = mapNativeStoryDocument(doc, "https://gcdohgbmqhqwydgaxrcr.supabase.co");
+  const article = mapNativeStoryDocument(doc, "https://bzuvntbkevvuhfhqhkua.supabase.co");
 
   // Provenance must NEVER be labeled as WordPress
   assert.equal(article.sourceProvenance?.system, "healthtimes-native");
@@ -98,7 +98,7 @@ test("2. MAPPER CONTRACT: native-story-mapper maps CMS-native stories with healt
   assert.equal(article.status, "published");
   assert.equal(article.author?.displayName, "Tinashe Moyo");
   assert.equal(article.primarySection?.name, "Public Health");
-  assert.equal(article.heroMedia?.publicUrl, "https://gcdohgbmqhqwydgaxrcr.supabase.co/storage/v1/object/public/newsroom-public/stories/hero-cholera.jpg");
+  assert.equal(article.heroMedia?.publicUrl, "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/newsroom-public/stories/hero-cholera.jpg");
   assert.equal(article.contentIntegrity, "verified");
 });
 
@@ -118,7 +118,7 @@ test("3. SECURITY CONTRACT: Premium native stories fail closed and withhold body
 });
 
 test("4. SECURITY CONTRACT: Media mapper rejects private, signed, and untrusted storage URLs", () => {
-  const baseOrigin = "https://gcdohgbmqhqwydgaxrcr.supabase.co";
+  const baseOrigin = "https://bzuvntbkevvuhfhqhkua.supabase.co";
 
   // Public bucket: allowed
   assert.notEqual(

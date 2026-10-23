@@ -179,7 +179,7 @@ async function resolvedPremiumJournalism(page,label){
 async function loadAcceptedPremiumTeaserAuthority(){
   const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/,"");
   const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "");
-  if(!/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/.test(url)) throw new Error("Accepted teaser Supabase URL unavailable");
+  if(!/^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/.test(url)) throw new Error("Accepted teaser Supabase URL unavailable");
   if(!/^sb_publishable_/.test(key)) throw new Error("Accepted teaser publishable key unavailable");
 
   const response=await fetch(url+"/rest/v1/rpc/ag05_public_story_teaser_document",{
@@ -216,7 +216,7 @@ async function installPremiumAuthorityRoutes(page,payload){
       body:"[]"
     });
   });
-  await page.route("https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
+  await page.route("https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
     await route.fulfill({
       status:200,
       contentType:"application/json",
