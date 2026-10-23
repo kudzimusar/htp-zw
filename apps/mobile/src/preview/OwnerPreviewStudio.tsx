@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -7,7 +7,7 @@ import {
   View,
   useWindowDimensions
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { HealthTimesBrand } from "../ui/Brand";
 
 import {
@@ -98,7 +98,10 @@ import { StudioAuthorsDeskView } from "../ui/StudioAuthorsDesk";
 import { StudioSettingsDeskView } from "../ui/StudioSettingsDesk";
 import { StudioFinanceDeskView, type FinanceTab } from "../ui/StudioFinanceDesk";
 import {
-  OWNER_PREVIEW_NAV_ITEMS,
+  OWNER_PREVIEW_DOMAINS as OWNER_PREVIEW_DOMAIN_DATA,
+  getOwnerPreviewDomainForModuleKey,
+  getOwnerPreviewDomainForPath,
+  isOwnerPreviewDomainAllowed,
   OWNER_PREVIEW_NOTICE_SUBTITLE,
   OWNER_PREVIEW_UNAVAILABLE_MESSAGE,
   OWNER_PREVIEW_WATERMARK,
@@ -153,95 +156,31 @@ import {
 } from "./newsroomPreviewData";
 import { OwnerPreviewStoryWorkspace } from "./OwnerPreviewStoryWorkspace";
 
-export const OWNER_PREVIEW_DOMAINS = [
-  {
-    key: "my-work",
-    title: "1. MY WORK",
-    shortTitle: "My Work",
-    items: [
-      { key: "assignments", label: "My Assignments", path: "/owner-preview/studio/assignments" },
-      { key: "create-edit", label: "Story Workspace / Drafts", path: "/owner-preview/studio/create-edit" },
-      { key: "my-expenses", label: "My Expenses", path: "/owner-preview/studio/my-expenses" }
-    ]
-  },
-  {
-    key: "editorial",
-    title: "2. EDITORIAL",
-    shortTitle: "Editorial",
-    items: [
-      { key: "review-queue", label: "Review Queue", path: "/owner-preview/studio/review-queue" },
-      { key: "stories", label: "Story Hub", path: "/owner-preview/studio/stories" },
-      { key: "planning", label: "Planning Board", path: "/owner-preview/studio/planning" },
-      { key: "calendar", label: "Editorial Calendar", path: "/owner-preview/studio/calendar" },
-      { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
-      { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
-      { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
-      { key: "authors", label: "Authors & Taxonomy", path: "/owner-preview/studio/authors" },
-      { key: "ai-desk", label: "AI Citations Desk", path: "/owner-preview/studio/ai-desk" }
-    ]
-  },
-  {
-    key: "audience-marketing",
-    title: "3. AUDIENCE & MARKETING",
-    shortTitle: "Audience",
-    items: [
-      { key: "social", label: "Social Desk", path: "/owner-preview/studio/social" },
-      { key: "newsletters", label: "Newsletter Desk", path: "/owner-preview/studio/newsletters" },
-      { key: "push-alerts", label: "Push Alerts", path: "/owner-preview/studio/push-alerts" },
-      { key: "whatsapp", label: "WhatsApp Desk", path: "/owner-preview/studio/whatsapp" },
-      { key: "audience", label: "Audience Intelligence", path: "/owner-preview/studio/audience" },
-      { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" }
-    ]
-  },
-  {
-    key: "commercial",
-    title: "4. COMMERCIAL",
-    shortTitle: "Commercial",
-    items: [
-      { key: "advertising", label: "Ad Campaigns", path: "/owner-preview/studio/advertising" },
-      { key: "orders", label: "Commercial Orders", path: "/owner-preview/studio/orders" },
-      { key: "subscribers", label: "Subscribers Directory", path: "/owner-preview/studio/subscribers" },
-      { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" }
-    ]
-  },
-  {
-    key: "finance",
-    title: "5. FINANCE & ACCOUNTING",
-    shortTitle: "Finance",
-    items: [
-      { key: "finance", label: "Financial Overview", path: "/owner-preview/studio/finance" },
-      { key: "finance-invoices", label: "Invoices & Billing", path: "/owner-preview/studio/finance-invoices" },
-      { key: "finance-aging", label: "Receivables Aging", path: "/owner-preview/studio/finance-aging" },
-      { key: "finance-payments", label: "Payments Ledger", path: "/owner-preview/studio/finance-payments" },
-      { key: "finance-expenses", label: "Expense Claims", path: "/owner-preview/studio/finance-expenses" },
-      { key: "finance-trial-balance", label: "Trial Balance", path: "/owner-preview/studio/finance-trial-balance" },
-      { key: "finance-pnl", label: "Profit & Loss", path: "/owner-preview/studio/finance-pnl" },
-      { key: "finance-balance-sheet", label: "Balance Sheet", path: "/owner-preview/studio/finance-balance-sheet" },
-      { key: "finance-journals", label: "GL Journals", path: "/owner-preview/studio/finance-journals" },
-      { key: "finance-statements", label: "Financial Statements", path: "/owner-preview/studio/finance-statements" },
-      { key: "finance-customers", label: "Billing Customers", path: "/owner-preview/studio/finance-customers" }
-    ]
-  },
-  {
-    key: "executive",
-    title: "6. PUBLISHER / EXECUTIVE",
-    shortTitle: "Executive",
-    items: [
-      { key: "today", label: "Executive Dashboard", path: "/owner-preview/studio" },
-      { key: "homepage", label: "Homepage Curation", path: "/owner-preview/studio/homepage" },
-      { key: "analytics", label: "Analytics & Intelligence", path: "/owner-preview/studio/analytics" }
-    ]
-  },
-  {
-    key: "admin",
-    title: "7. ADMINISTRATION",
-    shortTitle: "Administration",
-    items: [
-      { key: "staff-roles", label: "Staff & Roles (RBAC)", path: "/owner-preview/studio/staff-roles" },
-      { key: "settings", label: "Platform Settings", path: "/owner-preview/studio/settings" }
-    ]
+export const OWNER_PREVIEW_DOMAINS = OWNER_PREVIEW_DOMAIN_DATA;
+
+type OwnerPreviewNavigationTarget =
+  | string
+  | {
+      pathname: string;
+      params?: Record<string, string>;
+    };
+
+interface OwnerPreviewNavigationContextValue {
+  activePersona: OwnerPreviewPersona;
+  previewNavigate: (target: OwnerPreviewNavigationTarget) => boolean;
+  selectPersona: (personaId: string) => void;
+}
+
+const OwnerPreviewNavigationContext =
+  createContext<OwnerPreviewNavigationContextValue | null>(null);
+
+function useOwnerPreviewNavigation() {
+  const context = useContext(OwnerPreviewNavigationContext);
+  if (!context) {
+    throw new Error("Owner Preview navigation must render inside OwnerPreviewShell.");
   }
-];
+  return context;
+}
 
 export function OwnerPreviewShell({
   activeKey,
@@ -255,20 +194,87 @@ export function OwnerPreviewShell({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const { persona: personaParam } = useLocalSearchParams<{ persona?: string }>();
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
   const enabled = isOwnerPreviewEnabled();
+  const initialPersonaId =
+    typeof personaParam === "string" &&
+    OWNER_PREVIEW_PERSONAS.some((persona) => persona.id === personaParam)
+      ? personaParam
+      : "owner";
 
-  // Active Role Persona state for interactive inspection
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>("owner");
+  const [selectedPersonaId, setSelectedPersonaId] =
+    useState<string>(initialPersonaId);
   const [roleAlert, setRoleAlert] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      typeof personaParam === "string" &&
+      personaParam !== selectedPersonaId &&
+      OWNER_PREVIEW_PERSONAS.some((persona) => persona.id === personaParam)
+    ) {
+      setSelectedPersonaId(personaParam);
+    }
+  }, [personaParam, selectedPersonaId]);
 
   const activePersona: OwnerPreviewPersona = useMemo(() => {
     return (
-      OWNER_PREVIEW_PERSONAS.find((p) => p.id === selectedPersonaId) ??
+      OWNER_PREVIEW_PERSONAS.find((persona) => persona.id === selectedPersonaId) ??
       OWNER_PREVIEW_PERSONAS[0]!
     );
   }, [selectedPersonaId]);
+
+  const activeDomain = useMemo(
+    () => getOwnerPreviewDomainForModuleKey(activeKey),
+    [activeKey]
+  );
+  const currentRouteAllowed =
+    !activeDomain || isOwnerPreviewDomainAllowed(activePersona, activeDomain.key);
+
+  const selectPersona = useCallback(
+    (personaId: string) => {
+      const nextPersona = OWNER_PREVIEW_PERSONAS.find(
+        (persona) => persona.id === personaId
+      );
+      if (!nextPersona) return;
+      setSelectedPersonaId(nextPersona.id);
+      setRoleAlert(null);
+      router.setParams({ persona: nextPersona.id });
+    },
+    [router]
+  );
+
+  const previewNavigate = useCallback(
+    (target: OwnerPreviewNavigationTarget) => {
+      const pathname = typeof target === "string" ? target : target.pathname;
+      const targetDomain = getOwnerPreviewDomainForPath(pathname);
+
+      if (
+        targetDomain &&
+        !isOwnerPreviewDomainAllowed(activePersona, targetDomain.key)
+      ) {
+        setRoleAlert(
+          `Role Boundary: '${activePersona.role}' does not have authority for ${targetDomain.shortTitle}. Choose an allowed workspace or switch persona.`
+        );
+        return false;
+      }
+
+      setRoleAlert(null);
+      const targetParams = typeof target === "string" ? {} : target.params ?? {};
+      router.push({
+        pathname,
+        params: { ...targetParams, persona: selectedPersonaId }
+      } as never);
+      return true;
+    },
+    [activePersona, router, selectedPersonaId]
+  );
+
+  const navigationValue = useMemo(
+    () => ({ activePersona, previewNavigate, selectPersona }),
+    [activePersona, previewNavigate, selectPersona]
+  );
 
   if (!enabled) {
     return (
@@ -290,20 +296,9 @@ export function OwnerPreviewShell({
     );
   }
 
-  function handleNavigate(path: string, domainKey: string, domainTitle: string) {
-    if (!activePersona.allowedDomains.includes(domainKey)) {
-      setRoleAlert(
-        `Role Boundary: '${activePersona.role}' does not have authority for ${domainTitle}. Switch persona via the switcher bar above to inspect this workspace.`
-      );
-      setTimeout(() => setRoleAlert(null), 5000);
-      return;
-    }
-    setRoleAlert(null);
-    router.push(path as never);
-  }
-
   return (
-    <View style={styles.pageRoot} testID={`owner-preview-shell-${activeKey}`}>
+    <OwnerPreviewNavigationContext.Provider value={navigationValue}>
+      <View style={styles.pageRoot} testID={`owner-preview-shell-${activeKey}`}>
       {/* Persistent Watermark Banner (Sections 3 & 26) */}
       <View style={styles.watermarkBanner} testID="owner-preview-watermark-banner">
         <View style={styles.watermarkTopRow}>
@@ -348,7 +343,7 @@ export function OwnerPreviewShell({
               <Pressable
                 key={p.id}
                 style={[styles.personaPill, isSelected && styles.personaPillActive]}
-                onPress={() => setSelectedPersonaId(p.id)}
+                onPress={() => selectPersona(p.id)}
               >
                 <View
                   style={[
@@ -408,7 +403,7 @@ export function OwnerPreviewShell({
         <View style={styles.headerRightRow}>
           <Pressable
             style={styles.headerActionBtn}
-            onPress={() => router.push("/owner-preview/studio/create-edit")}
+            onPress={() => previewNavigate("/owner-preview/studio/create-edit")}
           >
             <Text style={styles.headerActionBtnText}>+ Open Story Workspace</Text>
           </Pressable>
@@ -424,7 +419,7 @@ export function OwnerPreviewShell({
             contentContainerStyle={styles.mobileNavRow}
           >
             {OWNER_PREVIEW_DOMAINS.map((domain) => {
-              const isDomainAllowed = activePersona.allowedDomains.includes(domain.key);
+              const isDomainAllowed = isOwnerPreviewDomainAllowed(activePersona, domain.key);
               return (
                 <View key={domain.key} style={styles.mobileDomainSection}>
                   <Text style={styles.mobileDomainLabel}>
@@ -441,7 +436,7 @@ export function OwnerPreviewShell({
                             active && styles.mobileNavPillActive,
                             !isDomainAllowed && styles.mobileNavPillLocked
                           ]}
-                          onPress={() => handleNavigate(item.path, domain.key, domain.shortTitle)}
+                          onPress={() => previewNavigate(item.path)}
                           testID={`owner-preview-nav-mobile-${item.key}`}
                         >
                           <Text
@@ -496,7 +491,7 @@ export function OwnerPreviewShell({
             {/* 7-Domain Grouped Sidebar Navigation */}
             <ScrollView style={styles.sidebarScroll} showsVerticalScrollIndicator={false}>
               {OWNER_PREVIEW_DOMAINS.map((domain) => {
-                const isDomainAllowed = activePersona.allowedDomains.includes(domain.key);
+                const isDomainAllowed = isOwnerPreviewDomainAllowed(activePersona, domain.key);
                 return (
                   <View key={domain.key} style={styles.domainSection}>
                     <View style={styles.domainHeader}>
@@ -524,7 +519,7 @@ export function OwnerPreviewShell({
                               active && styles.sidebarNavItemActive,
                               !isDomainAllowed && styles.sidebarNavItemLocked
                             ]}
-                            onPress={() => handleNavigate(item.path, domain.key, domain.shortTitle)}
+                            onPress={() => previewNavigate(item.path)}
                             testID={`owner-preview-nav-${item.key}`}
                           >
                             <Text
@@ -572,10 +567,25 @@ export function OwnerPreviewShell({
             <Text style={styles.moduleSubtitle}>{subtitle}</Text>
           </View>
 
-          {children}
+          {currentRouteAllowed ? (
+            children
+          ) : (
+            <View
+              style={styles.roleAlertBox}
+              testID="owner-preview-current-module-restricted"
+            >
+              <Text style={styles.roleAlertTitle}>WORKSPACE RESTRICTED</Text>
+              <Text style={styles.roleAlertText}>
+                {activePersona.role} does not have Preview access to{" "}
+                {activeDomain?.shortTitle ?? "this workspace"}. Choose an
+                allowed workspace or switch persona.
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </View>
-    </View>
+      </View>
+    </OwnerPreviewNavigationContext.Provider>
   );
 }
 
@@ -584,7 +594,7 @@ export function OwnerPreviewShell({
  * Genuine operational Newsroom Today view with zero programme archaeology (Sections 11, 12, 13).
  */
 export function OwnerPreviewTodayDashboard() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const stories = useMemo(() => buildPreviewStories(), []);
   const assignments = useMemo(() => buildPreviewAssignments(), []);
   const calendarItems = useMemo(
@@ -640,7 +650,7 @@ export function OwnerPreviewTodayDashboard() {
         <View style={styles.metricsGrid}>
           <Pressable
             style={[styles.metricBox, styles.metricBoxAlert]}
-            onPress={() => router.push("/owner-preview/studio/calendar")}
+            onPress={() => previewNavigate("/owner-preview/studio/calendar")}
           >
             <Text style={styles.metricValueAlert}>
               {calendarMetrics.overdueDeadlinesCount}
@@ -651,7 +661,7 @@ export function OwnerPreviewTodayDashboard() {
 
           <Pressable
             style={styles.metricBox}
-            onPress={() => router.push("/owner-preview/studio/review-queue")}
+            onPress={() => previewNavigate("/owner-preview/studio/review-queue")}
           >
             <Text style={styles.metricValue}>{reviewStories.length}</Text>
             <Text style={styles.metricLabel}>Stories in Review Queue</Text>
@@ -662,7 +672,7 @@ export function OwnerPreviewTodayDashboard() {
 
           <Pressable
             style={styles.metricBox}
-            onPress={() => router.push("/owner-preview/studio/planning")}
+            onPress={() => previewNavigate("/owner-preview/studio/planning")}
           >
             <Text style={styles.metricValue}>{urgentAssignments.length}</Text>
             <Text style={styles.metricLabel}>Urgent Assignments</Text>
@@ -671,7 +681,7 @@ export function OwnerPreviewTodayDashboard() {
 
           <Pressable
             style={styles.metricBox}
-            onPress={() => router.push("/owner-preview/studio/calendar")}
+            onPress={() => previewNavigate("/owner-preview/studio/calendar")}
           >
             <Text style={styles.metricValue}>
               {calendarMetrics.scheduledPublicationsCount}
@@ -690,43 +700,43 @@ export function OwnerPreviewTodayDashboard() {
         <View style={styles.quickActionRow}>
           <Pressable
             style={styles.primaryBtn}
-            onPress={() => router.push("/owner-preview/studio/create-edit")}
+            onPress={() => previewNavigate("/owner-preview/studio/create-edit")}
           >
             <Text style={styles.primaryBtnText}>Open Story Workspace</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => router.push("/owner-preview/studio/review-queue")}
+            onPress={() => previewNavigate("/owner-preview/studio/review-queue")}
           >
             <Text style={styles.secondaryBtnText}>Triage Review Queue</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => router.push("/owner-preview/studio/planning")}
+            onPress={() => previewNavigate("/owner-preview/studio/planning")}
           >
             <Text style={styles.secondaryBtnText}>Open News Budget & Planning</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => router.push("/owner-preview/studio/assignments")}
+            onPress={() => previewNavigate("/owner-preview/studio/assignments")}
           >
             <Text style={styles.secondaryBtnText}>My Assignments</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => router.push("/owner-preview/studio/calendar")}
+            onPress={() => previewNavigate("/owner-preview/studio/calendar")}
           >
             <Text style={styles.secondaryBtnText}>Editorial Calendar</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => router.push("/owner-preview/studio/stories")}
+            onPress={() => previewNavigate("/owner-preview/studio/stories")}
           >
             <Text style={styles.secondaryBtnText}>All Stories Index</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => router.push("/owner-preview/studio/homepage")}
+            onPress={() => previewNavigate("/owner-preview/studio/homepage")}
           >
             <Text style={styles.secondaryBtnText}>Homepage Curation</Text>
           </Pressable>
@@ -740,7 +750,7 @@ export function OwnerPreviewTodayDashboard() {
             3. TODAY’S SCHEDULE · DEADLINES & SCHEDULED PUBLICATIONS
           </Text>
           <Pressable
-            onPress={() => router.push("/owner-preview/studio/calendar")}
+            onPress={() => previewNavigate("/owner-preview/studio/calendar")}
           >
             <Text style={styles.linkText}>Open Full Calendar →</Text>
           </Pressable>
@@ -791,9 +801,12 @@ export function OwnerPreviewTodayDashboard() {
               <Pressable
                 style={styles.secondaryBtn}
                 onPress={() =>
-                  router.push(
+                  previewNavigate(
                     item.storyId
-                      ? `/owner-preview/studio/create-edit?storyId=${item.storyId}`
+                      ? {
+                          pathname: "/owner-preview/studio/create-edit",
+                          params: { storyId: item.storyId }
+                        }
                       : "/owner-preview/studio/assignments"
                   )
                 }
@@ -814,7 +827,7 @@ export function OwnerPreviewTodayDashboard() {
             4. PLANNING SUMMARY · NEWS BUDGET ASSIGNMENTS BY STAGE
           </Text>
           <Pressable
-            onPress={() => router.push("/owner-preview/studio/planning")}
+            onPress={() => previewNavigate("/owner-preview/studio/planning")}
           >
             <Text style={styles.linkText}>Open Planning Board →</Text>
           </Pressable>
@@ -824,7 +837,7 @@ export function OwnerPreviewTodayDashboard() {
             <Pressable
               key={item.status}
               style={styles.stageChipCard}
-              onPress={() => router.push("/owner-preview/studio/planning")}
+              onPress={() => previewNavigate("/owner-preview/studio/planning")}
             >
               <Text style={styles.stageChipCount}>{item.count}</Text>
               <Text style={styles.stageChipLabel}>{item.status}</Text>
@@ -841,7 +854,7 @@ export function OwnerPreviewTodayDashboard() {
  * Thin preview adapter rendering shared `StudioStoriesView` with sample stories.
  */
 export function OwnerPreviewStoriesView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
 
   return (
@@ -858,16 +871,16 @@ export function OwnerPreviewStoriesView() {
         canCreate={true}
         onRefresh={() => {}}
         onOpenReviewQueue={() =>
-          router.push("/owner-preview/studio/review-queue" as never)
+          previewNavigate("/owner-preview/studio/review-queue" as never)
         }
         onOpenStory={(storyId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
             params: { storyId }
           } as never)
         }
         onCreateStory={() =>
-          router.push("/owner-preview/studio/create-edit" as never)
+          previewNavigate("/owner-preview/studio/create-edit" as never)
         }
       />
     </View>
@@ -879,7 +892,7 @@ export function OwnerPreviewStoriesView() {
  * Thin preview adapter rendering shared `StudioReviewQueueView` with sample stories.
  */
 export function OwnerPreviewReviewQueueView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
 
   return (
@@ -896,13 +909,13 @@ export function OwnerPreviewReviewQueueView() {
         authors={PREVIEW_PUBLIC_AUTHORS}
         onRefresh={() => {}}
         onOpenWorkspace={(storyId: string) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
             params: { storyId }
           } as never)
         }
         onSwitchToStories={() =>
-          router.push("/owner-preview/studio/stories" as never)
+          previewNavigate("/owner-preview/studio/stories" as never)
         }
       />
     </View>
@@ -914,7 +927,7 @@ export function OwnerPreviewReviewQueueView() {
  * Thin preview adapter rendering shared `StudioPlanningBoardView` with sample assignments.
  */
 export function OwnerPreviewPlanningView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
   const [assignments, setAssignments] = useState<NewsroomAssignment[]>(() =>
     buildPreviewAssignments()
@@ -973,19 +986,19 @@ export function OwnerPreviewPlanningView() {
           setNotice(`Preview state only: Simulated progressing "${assignment.title}" to ${next}.`);
         }}
         onOpenStoryWorkspace={(storyId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
             params: { storyId }
           } as never)
         }
         onOpenDiscussion={(assignmentId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/assignments",
             params: { assignmentId }
           } as never)
         }
         onOpenMyAssignments={() =>
-          router.push("/owner-preview/studio/assignments" as never)
+          previewNavigate("/owner-preview/studio/assignments" as never)
         }
       />
     </View>
@@ -997,7 +1010,7 @@ export function OwnerPreviewPlanningView() {
  * Thin preview adapter rendering shared `StudioAssignmentsView` with sample assignments.
  */
 export function OwnerPreviewAssignmentsView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [assignments, setAssignments] = useState<NewsroomAssignment[]>(() =>
     buildPreviewAssignments()
   );
@@ -1028,13 +1041,13 @@ export function OwnerPreviewAssignmentsView() {
           setNotice(`Preview state only: Simulated advancing "${item.title}" to ${next}.`);
         }}
         onOpenDiscussion={(assignmentId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/assignments",
             params: { assignmentId }
           } as never)
         }
         onOpenStory={(storyId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
             params: { storyId }
           } as never)
@@ -1049,7 +1062,7 @@ export function OwnerPreviewAssignmentsView() {
  * Thin preview adapter rendering shared `StudioEditorialCalendarView` with sample events.
  */
 export function OwnerPreviewCalendarView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
   const [assignments] = useState<NewsroomAssignment[]>(() =>
     buildPreviewAssignments()
@@ -1071,29 +1084,29 @@ export function OwnerPreviewCalendarView() {
         canOpenPlanning={true}
         onRefresh={() => {}}
         onOpenStory={(storyId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
             params: { storyId }
           } as never)
         }
         onOpenAssignment={(assignmentId) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/assignments",
             params: { assignmentId }
           } as never)
         }
-        onOpenPlanning={() => router.push("/owner-preview/studio/planning" as never)}
+        onOpenPlanning={() => previewNavigate("/owner-preview/studio/planning" as never)}
         onOpenMyAssignments={() =>
-          router.push("/owner-preview/studio/assignments" as never)
+          previewNavigate("/owner-preview/studio/assignments" as never)
         }
-        onOpenStories={() => router.push("/owner-preview/studio/stories" as never)}
+        onOpenStories={() => previewNavigate("/owner-preview/studio/stories" as never)}
       />
     </View>
   );
 }
 
 export function OwnerPreviewHomepageView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [stories, setStories] = useState<NewsroomStory[]>(() => buildPreviewStories());
   const [presentationScope, setPresentationScope] = useState<"global" | "edition">("global");
   const [selectedEditionSlug, setSelectedEditionSlug] = useState<string>("zimbabwe");
@@ -1314,7 +1327,7 @@ export function OwnerPreviewHomepageView() {
         onEditionSlugChange={setSelectedEditionSlug}
         deliveryConnected={true}
         onOpenStoryWorkspace={(storyId: string) =>
-          router.push({
+          previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
             params: { storyId }
           } as never)
@@ -1325,7 +1338,7 @@ export function OwnerPreviewHomepageView() {
 }
 
 function OwnerPreviewMediaLibraryView() {
-  const router = useRouter();
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const [assets, setAssets] = useState<NewsroomMediaAsset[]>(() => buildPreviewMediaAssets());
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>(
@@ -3059,7 +3072,7 @@ export function OwnerPreviewModuleScreen({
         <OwnerPreviewShell
           activeKey="finance-payments"
           title="Cash Receipts & Payments Ledger (Owner Visual Preview)"
-          subtitle="Immutable payment audit ledger with idempotency verification and overpayment prevention constraints."
+          subtitle="Auditable payments ledger with duplicate-payment protection and controls that prevent overpayment."
         >
           <OwnerPreviewFinanceView initialTab="payments" />
         </OwnerPreviewShell>
@@ -3219,7 +3232,7 @@ export function OwnerPreviewModuleScreen({
         <OwnerPreviewShell
           activeKey="homepage"
           title="Homepage Presentation & Curation (Owner Visual Preview)"
-          subtitle="Editorial curation control plane for the HealthTimes reader home, including Hero (max 1), Top Stories (ranks 1-6), and thematic sections."
+          subtitle="Editorial homepage curation for the HealthTimes reader home, including Hero (max 1), Top Stories (ranks 1-6), and thematic sections."
         >
           <OwnerPreviewHomepageView />
         </OwnerPreviewShell>
@@ -3258,8 +3271,8 @@ export function OwnerPreviewModuleScreen({
       return (
         <OwnerPreviewShell
           activeKey="social"
-          title="Social Desk & Distribution Control Plane (Owner Visual Preview)"
-          subtitle="Story-linked social draft composition, editorial approval (social.approve), and provider publication handoff preparation (social.publish)."
+          title="Social Desk & Distribution (Owner Visual Preview)"
+          subtitle="Create story-linked social posts, review and approve them, then prepare approved posts for publication on connected social channels."
         >
           <OwnerPreviewSocialDeskView />
         </OwnerPreviewShell>
@@ -3268,8 +3281,8 @@ export function OwnerPreviewModuleScreen({
       return (
         <OwnerPreviewShell
           activeKey="newsletters"
-          title="Newsletter Desk & Consented Campaign Control Plane (Owner Visual Preview)"
-          subtitle="Editorial newsletter composition (marketing.create), human approval (marketing.approve), and consented Brevo send preparation handoff (marketing.send)."
+          title="Newsletter Desk & Campaigns (Owner Visual Preview)"
+          subtitle="Create newsletters, choose consented audiences, review and approve campaigns, then prepare them for sending through the configured email service."
         >
           <OwnerPreviewNewsletterDeskView />
         </OwnerPreviewShell>
@@ -3278,8 +3291,8 @@ export function OwnerPreviewModuleScreen({
       return (
         <OwnerPreviewShell
           activeKey="push-alerts"
-          title="Push Alert Desk & Reader Push Control Plane (Owner Visual Preview)"
-          subtitle="Reader push alert composition, editorial approval, and notification dispatch preparation handoff backed by canonical newsroom_push_alerts."
+          title="Push Alert Desk (Owner Visual Preview)"
+          subtitle="Create reader alerts, review and approve them, choose the audience, and prepare approved alerts for delivery."
         >
           <OwnerPreviewPushAlertDeskView />
         </OwnerPreviewShell>
@@ -3288,8 +3301,8 @@ export function OwnerPreviewModuleScreen({
       return (
         <OwnerPreviewShell
           activeKey="whatsapp"
-          title="WhatsApp Desk & Distribution Ledger (Owner Visual Preview)"
-          subtitle="WhatsApp broadcast composition, editorial approval, and WhatsApp Cloud API distribution ledger backed by canonical newsroom_whatsapp_broadcasts."
+          title="WhatsApp Desk & Broadcasts (Owner Visual Preview)"
+          subtitle="Create WhatsApp broadcasts, review and approve them, select the audience, and track preparation for delivery through the connected WhatsApp service."
         >
           <OwnerPreviewWhatsAppDeskView />
         </OwnerPreviewShell>
@@ -3389,7 +3402,7 @@ export function OwnerPreviewModuleScreen({
         <OwnerPreviewShell
           activeKey="settings"
           title="Platform Settings & Integrations (Owner Visual Preview)"
-          subtitle="Newsroom operational governance, service integrations health, zero-secret disclosure contract, and audit log tracking."
+          subtitle="Manage newsroom configuration, review connected-service health, protect sensitive settings, and track administrative changes."
         >
           <OwnerPreviewSettingsView />
         </OwnerPreviewShell>

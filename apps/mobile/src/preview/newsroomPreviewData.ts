@@ -190,6 +190,132 @@ export type OwnerPreviewModuleKey =
   | "finance-customers"
   | "orders";
 
+export interface OwnerPreviewDomain {
+  key: string;
+  title: string;
+  shortTitle: string;
+  items: ReadonlyArray<{
+    key: OwnerPreviewModuleKey;
+    label: string;
+    path: string;
+  }>;
+}
+
+export const OWNER_PREVIEW_DOMAINS = [
+  {
+    key: "my-work",
+    title: "1. MY WORK",
+    shortTitle: "My Work",
+    items: [
+      { key: "assignments", label: "My Assignments", path: "/owner-preview/studio/assignments" },
+      { key: "create-edit", label: "Story Workspace / Drafts", path: "/owner-preview/studio/create-edit" },
+      { key: "my-expenses", label: "My Expenses", path: "/owner-preview/studio/my-expenses" }
+    ]
+  },
+  {
+    key: "editorial",
+    title: "2. EDITORIAL",
+    shortTitle: "Editorial",
+    items: [
+      { key: "review-queue", label: "Review Queue", path: "/owner-preview/studio/review-queue" },
+      { key: "stories", label: "Story Hub", path: "/owner-preview/studio/stories" },
+      { key: "planning", label: "Planning Board", path: "/owner-preview/studio/planning" },
+      { key: "calendar", label: "Editorial Calendar", path: "/owner-preview/studio/calendar" },
+      { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
+      { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
+      { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
+      { key: "authors", label: "Authors & Taxonomy", path: "/owner-preview/studio/authors" },
+      { key: "ai-desk", label: "AI Citations Desk", path: "/owner-preview/studio/ai-desk" }
+    ]
+  },
+  {
+    key: "audience-marketing",
+    title: "3. AUDIENCE & MARKETING",
+    shortTitle: "Audience",
+    items: [
+      { key: "social", label: "Social Desk", path: "/owner-preview/studio/social" },
+      { key: "newsletters", label: "Newsletter Desk", path: "/owner-preview/studio/newsletters" },
+      { key: "push-alerts", label: "Push Alerts", path: "/owner-preview/studio/push-alerts" },
+      { key: "whatsapp", label: "WhatsApp Desk", path: "/owner-preview/studio/whatsapp" },
+      { key: "audience", label: "Audience Intelligence", path: "/owner-preview/studio/audience" },
+      { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" }
+    ]
+  },
+  {
+    key: "commercial",
+    title: "4. COMMERCIAL",
+    shortTitle: "Commercial",
+    items: [
+      { key: "advertising", label: "Ad Campaigns", path: "/owner-preview/studio/advertising" },
+      { key: "orders", label: "Commercial Orders", path: "/owner-preview/studio/orders" },
+      { key: "subscribers", label: "Subscribers Directory", path: "/owner-preview/studio/subscribers" },
+      { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" }
+    ]
+  },
+  {
+    key: "finance",
+    title: "5. FINANCE & ACCOUNTING",
+    shortTitle: "Finance",
+    items: [
+      { key: "finance", label: "Financial Overview", path: "/owner-preview/studio/finance" },
+      { key: "finance-invoices", label: "Invoices & Billing", path: "/owner-preview/studio/finance-invoices" },
+      { key: "finance-aging", label: "Receivables Aging", path: "/owner-preview/studio/finance-aging" },
+      { key: "finance-payments", label: "Payments Ledger", path: "/owner-preview/studio/finance-payments" },
+      { key: "finance-expenses", label: "Expense Claims", path: "/owner-preview/studio/finance-expenses" },
+      { key: "finance-trial-balance", label: "Trial Balance", path: "/owner-preview/studio/finance-trial-balance" },
+      { key: "finance-pnl", label: "Profit & Loss", path: "/owner-preview/studio/finance-pnl" },
+      { key: "finance-balance-sheet", label: "Balance Sheet", path: "/owner-preview/studio/finance-balance-sheet" },
+      { key: "finance-journals", label: "GL Journals", path: "/owner-preview/studio/finance-journals" },
+      { key: "finance-statements", label: "Financial Statements", path: "/owner-preview/studio/finance-statements" },
+      { key: "finance-customers", label: "Billing Customers", path: "/owner-preview/studio/finance-customers" }
+    ]
+  },
+  {
+    key: "executive",
+    title: "6. PUBLISHER / EXECUTIVE",
+    shortTitle: "Executive",
+    items: [
+      { key: "today", label: "Executive Dashboard", path: "/owner-preview/studio" },
+      { key: "homepage", label: "Homepage Curation", path: "/owner-preview/studio/homepage" },
+      { key: "analytics", label: "Analytics & Intelligence", path: "/owner-preview/studio/analytics" }
+    ]
+  },
+  {
+    key: "admin",
+    title: "7. ADMINISTRATION",
+    shortTitle: "Administration",
+    items: [
+      { key: "staff-roles", label: "Staff & Roles (RBAC)", path: "/owner-preview/studio/staff-roles" },
+      { key: "settings", label: "Platform Settings", path: "/owner-preview/studio/settings" }
+    ]
+  }
+];
+
+export const OWNER_PREVIEW_DYNAMIC_MODULE_SLUGS: readonly string[] =
+  OWNER_PREVIEW_DOMAINS.flatMap((domain) => domain.items)
+    .filter((item) => item.path !== "/owner-preview/studio")
+    .map((item) => item.path.slice("/owner-preview/studio/".length));
+
+export function getOwnerPreviewDomainForModuleKey(moduleKey: OwnerPreviewModuleKey) {
+  return OWNER_PREVIEW_DOMAINS.find((domain) =>
+    domain.items.some((item) => item.key === moduleKey)
+  );
+}
+
+export function getOwnerPreviewDomainForPath(path: string) {
+  const pathname = path.split("?")[0]?.split("#")[0] ?? path;
+  return OWNER_PREVIEW_DOMAINS.find((domain) =>
+    domain.items.some((item) => item.path === pathname)
+  );
+}
+
+export function isOwnerPreviewDomainAllowed(
+  persona: OwnerPreviewPersona,
+  domainKey: string
+) {
+  return persona.allowedDomains.includes(domainKey);
+}
+
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   key: OwnerPreviewModuleKey;
   label: string;

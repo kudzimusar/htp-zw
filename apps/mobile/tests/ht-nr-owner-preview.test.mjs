@@ -48,7 +48,7 @@ function loadTsModule(relPath, stubs = {}) {
 
 const previewData = loadTsModule("src/preview/newsroomPreviewData.ts");
 
-test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", () => {
+test("HT-NR-VIS-01: visible Owner Preview routes exactly match generated static module routes", () => {
   assert.ok(
     fs.existsSync(path.join(root, "app/owner-preview/studio/index.tsx")),
     "app/owner-preview/studio/index.tsx must exist"
@@ -59,70 +59,35 @@ test("HT-NR-VIS-01: All Owner Preview routes and static export params exist", ()
   );
 
   const moduleRouteSource = read("app/owner-preview/studio/[module].tsx");
-  assert.match(moduleRouteSource, /export function generateStaticParams/);
-  for (const slug of [
-    "stories",
-    "create-edit",
-    "review-queue",
-    "planning",
-    "assignments",
-    "calendar",
-    "homepage",
-    "media",
-    "video-desk",
-    "live-desk",
-    "social",
-    "newsletters",
-    "push-alerts",
-    "whatsapp",
-    "analytics",
-    "audience",
-    "search-growth",
-    "staff-roles",
-    "advertising",
-    "subscribers",
-    "premium",
-    "ai-desk",
-    "authors",
-    "settings"
+  assert.match(moduleRouteSource, /OWNER_PREVIEW_DYNAMIC_MODULE_SLUGS/);
+
+  const visiblePreviewRoutes = previewData.OWNER_PREVIEW_DOMAINS.flatMap(
+    (domain) => domain.items.map((item) => item.path)
+  );
+  const dynamicPreviewRoutes = visiblePreviewRoutes.filter(
+    (route) => route !== "/owner-preview/studio"
+  );
+  const dynamicPreviewSlugs = dynamicPreviewRoutes.map((route) =>
+    route.slice("/owner-preview/studio/".length)
+  );
+
+  assert.equal(visiblePreviewRoutes.length, 38);
+  assert.equal(dynamicPreviewRoutes.length, 37);
+  assert.equal(new Set(visiblePreviewRoutes).size, visiblePreviewRoutes.length);
+  assert.deepEqual(
+    previewData.OWNER_PREVIEW_DYNAMIC_MODULE_SLUGS,
+    dynamicPreviewSlugs
+  );
+
+  for (const requiredFinanceSlug of [
+    "finance-trial-balance",
+    "finance-pnl",
+    "finance-balance-sheet",
+    "finance-journals"
   ]) {
-    assert.ok(
-      moduleRouteSource.includes(`"${slug}"`),
-      `generateStaticParams must include ${slug}`
-    );
+    assert.ok(dynamicPreviewSlugs.includes(requiredFinanceSlug));
   }
-
-  assert.equal(previewData.OWNER_PREVIEW_NAV_ITEMS.length, 25);
-  const navPaths = previewData.OWNER_PREVIEW_NAV_ITEMS.map((i) => i.path);
-  assert.deepEqual(navPaths, [
-    "/owner-preview/studio",
-    "/owner-preview/studio/stories",
-    "/owner-preview/studio/review-queue",
-    "/owner-preview/studio/planning",
-    "/owner-preview/studio/assignments",
-    "/owner-preview/studio/calendar",
-    "/owner-preview/studio/homepage",
-    "/owner-preview/studio/media",
-    "/owner-preview/studio/video-desk",
-    "/owner-preview/studio/live-desk",
-    "/owner-preview/studio/social",
-    "/owner-preview/studio/newsletters",
-    "/owner-preview/studio/push-alerts",
-    "/owner-preview/studio/whatsapp",
-    "/owner-preview/studio/analytics",
-    "/owner-preview/studio/audience",
-    "/owner-preview/studio/search-growth",
-    "/owner-preview/studio/staff-roles",
-    "/owner-preview/studio/advertising",
-    "/owner-preview/studio/subscribers",
-    "/owner-preview/studio/premium",
-    "/owner-preview/studio/ai-desk",
-    "/owner-preview/studio/authors",
-    "/owner-preview/studio/settings",
-    "/owner-preview/studio/create-edit"
-  ]);
 });
-
 test("HT-NR-VIS-01: Environment & Production Guard fails closed when flag is absent or in production", () => {
   const { isOwnerPreviewEnabled, OWNER_PREVIEW_UNAVAILABLE_MESSAGE } =
     previewData;
@@ -386,17 +351,67 @@ test("HT-NR-UI-01: Real /studio landing provides 7 operating domains navigation 
   assert.ok(content.includes("FINANCE & BILLING"));
 });
 
-test("HT-NR-UI-01: Owner Preview includes Persona Switcher with 7 role personas and finance view", () => {
+test("HT-NR-UI-01: Owner Preview persona boundary uses one route-aware navigation mechanism", () => {
   const previewSource = read("src/preview/OwnerPreviewStudio.tsx");
-  const previewDataSource = read("src/preview/newsroomPreviewData.ts");
+  const byId = Object.fromEntries(
+    previewData.OWNER_PREVIEW_PERSONAS.map((persona) => [persona.id, persona])
+  );
 
-  assert.ok(previewDataSource.includes("OWNER_PREVIEW_PERSONAS"));
+  assert.equal(previewData.OWNER_PREVIEW_PERSONAS.length, 7);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.reporter, "finance"), false);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.reporter, "admin"), false);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.fmgr, "editorial"), false);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.fmgr, "finance"), true);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.cmgr, "finance"), false);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.cmgr, "commercial"), true);
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.audience, "finance"), false);
+  assert.equal(
+    previewData.isOwnerPreviewDomainAllowed(byId.audience, "audience-marketing"),
+    true
+  );
+  assert.equal(previewData.isOwnerPreviewDomainAllowed(byId.admin, "editorial"), false);
+
+  for (const domain of previewData.OWNER_PREVIEW_DOMAINS) {
+    assert.equal(
+      previewData.isOwnerPreviewDomainAllowed(byId.owner, domain.key),
+      true,
+      `Owner must retain Preview access to ${domain.key}`
+    );
+  }
+
+  // UAT04A-003 policy hold: preserve current Administrator declaration.
+  assert.deepEqual(byId.admin.allowedDomains, ["my-work", "admin", "executive"]);
+
   assert.ok(previewSource.includes("selectedPersonaId"));
-  assert.ok(previewSource.includes("handleNavigate"));
+  assert.ok(previewSource.includes("previewNavigate"));
+  assert.ok(previewSource.includes("router.setParams({ persona: nextPersona.id })"));
+  assert.ok(previewSource.includes('testID="owner-preview-current-module-restricted"'));
+  assert.equal(previewSource.includes('router.push("/owner-preview/studio/'), false);
   assert.ok(previewSource.includes("StudioFinanceDeskView"));
   assert.ok(previewSource.includes("OwnerPreviewFinanceView"));
 });
 
+test("HT-NR-UAT04A-R1: primary Preview copy uses business language instead of implementation terminology", () => {
+  const previewSource = read("src/preview/OwnerPreviewStudio.tsx").toLowerCase();
+  for (const forbidden of [
+    "social.approve",
+    "social.publish",
+    "marketing.create",
+    "marketing.approve",
+    "marketing.send",
+    "canonical newsroom_push_alerts",
+    "canonical newsroom_whatsapp_broadcasts",
+    "idempotency verification",
+    "zero-secret disclosure contract",
+    "control plane"
+  ]) {
+    assert.equal(
+      previewSource.includes(forbidden),
+      false,
+      `Primary Preview copy must not expose implementation term: ${forbidden}`
+    );
+  }
+});
 test("HT-NR-VIS-01-R1: Defect B — Shared presentation views are exported from canonical UI files", () => {
   const storiesSource = read("src/ui/StudioStories.tsx");
   const workspaceSource = read("src/ui/StudioStoryWorkspace.tsx");
