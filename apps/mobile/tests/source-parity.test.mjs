@@ -114,9 +114,24 @@ test("verified source photography is available in deterministic parity fallback"
   ]){
     assert.ok(snapshot.includes(asset),asset);
   }
-  assert.match(snapshot,/publicUrl:input\.imageUrl \?\? null/);
+  assert.match(snapshot,/publicUrl:publicMirrorForSourceMedia\(input\.imageUrl\)/);
 });
 
+
+test("cross-origin web source parity falls back to verified snapshot without disabling native/server refresh",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/function canRefreshPublicSourceFromRuntime/);
+  assert.match(service,/new URL\(sourceBase\)\.origin===runtimeLocation\.origin/);
+  assert.match(service,/if\(!canRefreshPublicSourceFromRuntime\(\)\)\{[\s\S]*sortByPublicationDesc\(sourceParityArticles\)/);
+  assert.match(service,/if\(!canRefreshPublicSourceFromRuntime\(\)\)\{[\s\S]*return boundedCurrent/);
+});
+
+test("verified lead photography uses byte-backed staging mirrors while preserving source provenance",()=>{
+  const snapshot=read("src/source-parity/snapshot.ts");
+  assert.match(snapshot,/https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co\/storage\/v1\/object\/public\/migrated-media\/wordpress\/2026\/09\/zimbabwe-social-contracting-hiv-financing-dialogue\.jpg/);
+  assert.match(snapshot,/https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co\/storage\/v1\/object\/public\/migrated-media\/wordpress\/2026\/09\/enerst-chikwati-ahf-zimbabwe-country-director\.jpeg/);
+  assert.match(snapshot,/sourceUrl:input\.imageUrl \?\? canonicalUrl/);
+});
 
 test("live public WordPress refresh can surface newly published posts without replacing the fallback snapshot",()=>{
   const service=read("src/services/source-parity.ts");
