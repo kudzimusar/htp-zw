@@ -293,8 +293,8 @@ test("Owner signup without a confirmed session returns verification-required and
   assert.equal(calls.includes("rpc"), false);
   const signUpCall = calls.find((entry) => typeof entry === "object" && entry.action === "signUp");
   assert.match(signUpCall.input.options.emailRedirectTo, /account-access\?mode=owner-activation/);
-  assert.equal("invitation_id" in signUpCall.input.options.data, false);
-  assert.equal("role" in signUpCall.input.options.data, false);
+  assert.equal("invitation_id" in (signUpCall.input.options.data ?? {}), false);
+  assert.equal("role" in (signUpCall.input.options.data ?? {}), false);
 });
 
 test("Existing unconfirmed Owner does not create another identity or bootstrap", async () => {
