@@ -8,6 +8,7 @@ import {
   useWindowDimensions
 } from "react-native";
 import { useRouter } from "expo-router";
+import { HealthTimesBrand } from "../ui/Brand";
 
 import {
   deriveHomepageCurationState,
@@ -402,7 +403,7 @@ export function OwnerPreviewShell({
           <Text style={styles.brandKicker}>
             HEALTHTIMES NEWSROOM OS · 7 OPERATING DOMAINS
           </Text>
-          <Text style={styles.brandTitle}>HealthTimes Studio</Text>
+          <HealthTimesBrand inverse studio />
         </View>
         <View style={styles.headerRightRow}>
           <Pressable

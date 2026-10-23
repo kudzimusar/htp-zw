@@ -15,6 +15,7 @@ import type {
 } from "../domain/models";
 import type { SourceException } from "../domain/source";
 import { scoreReaderSearch } from "../reader/search-ranking";
+import { sortByPublicationDesc } from "../reader/feed-order";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import {
@@ -373,8 +374,8 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
   const live=await sourceGet<WpPost[]>("/posts?per_page=50&status=publish&orderby=date&order=desc"+wpPostQuery({includeContent:false}));
   if(!live){
     cache.at=Date.now();
-    cache.articles=sourceParityArticles;
-    return sourceParityArticles;
+    cache.articles=sortByPublicationDesc(sourceParityArticles);
+    return cache.articles;
   }
   const refreshed=new Map<string,ArticleDetail>();
   for(const post of live){
@@ -382,14 +383,10 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
     refreshed.set(post.slug,mapWpPost(post,fallback));
   }
 
-  const liveArticles=Array.from(refreshed.values()).sort((a,b)=>{
-    const aTime=a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-    const bTime=b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-    return bTime-aTime;
-  });
+  const liveArticles=sortByPublicationDesc(Array.from(refreshed.values()));
   const liveSlugs=new Set(liveArticles.map((article)=>article.slug));
   const snapshotFallbacks=sourceParityArticles.filter((article)=>!liveSlugs.has(article.slug));
-  const merged=[...liveArticles,...snapshotFallbacks];
+  const merged=sortByPublicationDesc([...liveArticles,...snapshotFallbacks]);
 
   cache.at=Date.now();
   cache.articles=merged;

@@ -477,7 +477,7 @@ export interface NewsroomStaffService {
   ): Promise<{ id: string; email: string; displayName: string; role: string }>;
   cancelInvitation(invitationId: string): Promise<void>;
   bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
-  activateOwner(password: string): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
+  activateOwner(input: { email: string; password: string }): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
 }
 
 export interface NewsroomCommercialService {

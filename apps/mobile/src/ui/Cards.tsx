@@ -7,6 +7,7 @@ import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { event } from "../growth/events";
+import { resolveAdCreativeFrame } from "../growth/ad-layout";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -438,7 +439,7 @@ export function AdSlot({
   const { palette }=useAppearance();
   const { width }=useWindowDimensions();
   const impressionKey=useRef("");
-  const [creativeAspect,setCreativeAspect]=useState<number|null>(null);
+  const [creativeSize,setCreativeSize]=useState<{width:number;height:number}|null>(null);
   const decision=useAsync(
     ()=>services.advertising.getDecision(placement,{
       consentForPersonalizedAds:false,
@@ -450,7 +451,18 @@ export function AdSlot({
   const adDecision=decision.data;
 
   useEffect(()=>{
-    setCreativeAspect(null);
+    setCreativeSize(null);
+    const creativeUrl=adDecision?.creativeUrl?.trim();
+    if(!creativeUrl) return;
+    let active=true;
+    Image.getSize(
+      creativeUrl,
+      (naturalWidth,naturalHeight)=>{
+        if(active && naturalWidth>0 && naturalHeight>0) setCreativeSize({width:naturalWidth,height:naturalHeight});
+      },
+      ()=>{}
+    );
+    return ()=>{ active=false; };
   },[adDecision?.creativeUrl]);
 
   useEffect(()=>{
@@ -474,6 +486,14 @@ export function AdSlot({
   const inArticle=placement==="article_after_intro";
   const articleEnd=placement==="article_end";
   const fallbackAspect=inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 8/1 : tablet ? 6/1 : 16/3;
+  const placementMaxWidth=articleEnd ? 980 : inArticle ? (desktop ? 900 : tablet ? 640 : 360) : desktop ? 900 : tablet ? 640 : 900;
+  const creativeFrame=resolveAdCreativeFrame({
+    viewportWidth:width,
+    naturalWidth:creativeSize?.width ?? null,
+    naturalHeight:creativeSize?.height ?? null,
+    maxWidth:placementMaxWidth,
+    fallbackAspect
+  });
 
   const openDestination=()=>{
     if(!clickable) return;
@@ -490,14 +510,14 @@ export function AdSlot({
       source={{uri:adDecision.creativeUrl}}
       style={[
         styles.adCreative,
-        {backgroundColor:palette.paper,aspectRatio:creativeAspect ?? fallbackAspect}
+        {backgroundColor:palette.paper,width:creativeFrame.width,aspectRatio:creativeFrame.aspectRatio}
       ]}
       resizeMode="contain"
       onLoad={(event)=>{
         const source=event.nativeEvent.source;
         const naturalWidth=Number(source?.width ?? 0);
         const naturalHeight=Number(source?.height ?? 0);
-        if(naturalWidth>0 && naturalHeight>0) setCreativeAspect(naturalWidth/naturalHeight);
+        if(naturalWidth>0 && naturalHeight>0) setCreativeSize({width:naturalWidth,height:naturalHeight});
       }}
       accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
     />
@@ -519,7 +539,12 @@ export function AdSlot({
       <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
       {!!adDecision.disclosureLabel && <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel}</Text>}
       {clickable ? (
-        <Pressable accessibilityRole="link" accessibilityLabel={"Open "+adDecision.disclosureLabel} onPress={openDestination} style={styles.adCreativePressable}>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={"Open "+adDecision.disclosureLabel}
+          onPress={openDestination}
+          style={[styles.adCreativePressable,{width:creativeFrame.width}]}
+        >
           {creative}
         </Pressable>
       ) : creative}
@@ -638,8 +663,8 @@ const styles=StyleSheet.create({
   adSlotArticleEnd:{maxWidth:980,alignSelf:"center"},
   adLabel:{fontSize:9,fontWeight:"900",letterSpacing:1.4},
   adPlacement:{fontSize:12,fontWeight:"800",textAlign:"center"},
-  adCreativePressable:{width:"100%"},
-  adCreative:{width:"100%"},
+  adCreativePressable:{maxWidth:"100%",alignSelf:"center"},
+  adCreative:{maxWidth:"100%",alignSelf:"center"},
   adNoDestination:{fontSize:11,lineHeight:16,textAlign:"center",maxWidth:620,fontStyle:"italic"},
   premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,color:colors.premium,borderWidth:1,borderColor:colors.premium,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
   surface:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg}

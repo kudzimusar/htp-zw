@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
 const read=(path)=>readFileSync(join(root,path),"utf8");
 
@@ -67,4 +68,67 @@ test("iOS tablet route readiness still proves real Save article control",()=>{
   assert.match(flow,/Prime the scheme on Home/);
   assert.match(flow,/healthtimes:\/\/article\/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/);
   assert.match(flow,/visible: "Save article"/);
+});
+
+
+function loadTsModule(path){
+  const source=read(path);
+  const output=ts.transpileModule(source,{
+    compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
+  }).outputText;
+  const mod={exports:{}};
+  new Function("module","exports","require",output)(mod,mod.exports,(name)=>{
+    throw new Error("Unexpected runtime import "+name);
+  });
+  return mod.exports;
+}
+
+test("Latest feed is globally ordered by authoritative publication time after merge",()=>{
+  const {sortByPublicationDesc,mergeReaderFeeds}=loadTsModule("src/reader/feed-order.ts");
+  const rows=[
+    {id:"older",slug:"older",canonicalUrl:"https://example.test/older",canonicalStoryId:null,publishedAt:"2026-10-01T08:00:00Z",modifiedAt:null},
+    {id:"latest",slug:"latest",canonicalUrl:"https://example.test/latest",canonicalStoryId:null,publishedAt:"2026-10-20T08:00:00Z",modifiedAt:null},
+    {id:"middle",slug:"middle",canonicalUrl:"https://example.test/middle",canonicalStoryId:null,publishedAt:"2026-10-12T08:00:00Z",modifiedAt:null}
+  ];
+  assert.deepEqual(sortByPublicationDesc(rows).map((item)=>item.id),["latest","middle","older"]);
+  const merged=mergeReaderFeeds(
+    [{...rows[2],id:"staging-middle"}],
+    [rows[1],{...rows[2],id:"source-middle"}]
+  );
+  assert.deepEqual(merged.map((item)=>item.id),["latest","staging-middle"]);
+});
+
+test("general Home modules exclude Premium while Premium retains intentional placement",()=>{
+  const home=read("app/(reader)/index.tsx");
+  assert.match(home,/const generalStories=source\.filter\(\(story\)=>story\.accessPolicy!=="premium"\)/);
+  assert.match(home,/if\(activeFilter==="latest"\) return generalStories/);
+  assert.match(home,/const generalPresentations=presentations\.filter\(\(item\)=>item\.article\.accessPolicy!=="premium"\)/);
+  assert.match(home,/const premium=premiumStories/);
+  assert.match(home,/SectionHeader title="Premium Intelligence"/);
+});
+
+test("ad frame keeps natural proportions and never upscales known creatives across viewports",()=>{
+  const {resolveAdCreativeFrame}=loadTsModule("src/growth/ad-layout.ts");
+  const input={naturalWidth:728,naturalHeight:90,maxWidth:900,fallbackAspect:8/1};
+  const desktop=resolveAdCreativeFrame({...input,viewportWidth:1440});
+  const tablet=resolveAdCreativeFrame({...input,viewportWidth:834});
+  const phone=resolveAdCreativeFrame({...input,viewportWidth:390});
+  assert.equal(desktop.width,728);
+  assert.equal(tablet.width,728);
+  assert.ok(phone.width<728);
+  assert.equal(desktop.aspectRatio,728/90);
+  assert.equal(tablet.aspectRatio,728/90);
+  assert.equal(phone.aspectRatio,728/90);
+});
+
+test("public Pages build fails closed around real Owner activation authority",()=>{
+  const activate=read("src/ui/StudioActivate.tsx");
+  const staff=read("src/services/newsroom-staff.ts");
+  const pages=read("../../.github/workflows/pages.yml");
+  assert.match(activate,/EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW/);
+  assert.match(activate,/Owner activation is not available in this build/);
+  assert.doesNotMatch(activate+"\n"+staff,/[A-Z0-9._%+-]+@gmail\.com/i);
+  assert.doesNotMatch(activate+"\n"+staff,/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  assert.match(pages,/EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW: "1"/);
+  assert.match(pages,/EXPO_PUBLIC_HEALTHTIMES_OWNER_PREVIEW: "1"/);
 });

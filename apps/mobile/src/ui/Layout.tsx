@@ -9,6 +9,7 @@ import { environmentSummary } from "../platform/config";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
+import { HealthTimesBrand } from "./Brand";
 
 function useHydratedWindowWidth() {
   const { width } = useWindowDimensions();
@@ -195,7 +196,7 @@ export function AppHeader() {
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
       <View style={[styles.headerInner, phone && styles.phoneHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
-          <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
+          <HealthTimesBrand compact={phone} />
         </Pressable>
 
         {!phone && (
@@ -322,6 +323,7 @@ export function LoadingBlock({ label = "Loading HealthTimes…" }: { label?: str
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
     >
+      <HealthTimesBrand compact />
       <View accessible={false} style={[styles.skeletonWide, { backgroundColor: palette.paperMuted }]} />
       <View accessible={false} style={[styles.skeletonMid, { backgroundColor: palette.paperMuted }]} />
       <Text accessible={false} style={[styles.loadingText, { color: palette.inkMuted }]}>{label}</Text>

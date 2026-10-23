@@ -253,25 +253,25 @@ export function createNewsroomStaffService(
       };
     },
 
-    async activateOwner(password: string): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
+    async activateOwner(input: { email: string; password: string }): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
       const client = getClient();
-      const ownerEmail = "kudzimusar@gmail.com";
-      const invitationId = "3c277c48-5319-429f-a2c3-1bf2dbae4c2a";
+      const ownerEmail = input.email.trim();
+      if (!ownerEmail || !ownerEmail.includes("@")) {
+        throw new Error("A valid Owner email is required.");
+      }
 
-      // 1. Attempt Sign Up first
+      // Owner identity is supplied at staging runtime. Canonical invitation
+      // authority remains server-side in newsroom_bootstrap_owner.
       const signUpResult = await client.auth.signUp({
         email: ownerEmail,
-        password: password,
+        password: input.password,
         options: {
           data: {
-            display_name: "Kudzi Musarurwa",
-            role: "Publisher / Owner",
-            invitation_id: invitationId
+            role: "Publisher / Owner"
           }
         }
       });
 
-      // If user already registered, sign in directly
       if (signUpResult.error) {
         if (
           signUpResult.error.message.toLowerCase().includes("already registered") ||
@@ -279,7 +279,7 @@ export function createNewsroomStaffService(
         ) {
           const signInResult = await client.auth.signInWithPassword({
             email: ownerEmail,
-            password: password
+            password: input.password
           });
           if (signInResult.error) {
             throw new Error(`Authentication failed: ${signInResult.error.message}`);
@@ -289,7 +289,6 @@ export function createNewsroomStaffService(
         }
       }
 
-      // 2. Invoke parameterless bootstrap RPC
       const rpcResult = await (client as any).rpc("newsroom_bootstrap_owner");
       if (rpcResult.error) {
         if (!rpcResult.error.message.includes("already provisioned")) {

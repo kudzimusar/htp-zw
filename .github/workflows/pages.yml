@@ -107,6 +107,8 @@ jobs:
         env:
           APP_ENV: development
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+          EXPO_PUBLIC_HEALTHTIMES_OWNER_PREVIEW: "1"
+          EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW: "1"
           HEALTHTIMES_WEB_BASE_URL: /htp-zw
         run: npm run native:export:web
 
@@ -132,13 +134,22 @@ jobs:
           }
           const sw=fs.readFileSync(path.join(dist,"sw.js"),"utf8");
           if(!sw.includes("self.registration.scope")) throw new Error("Service worker does not derive Pages scope.");
-          const required=["explore","live","search","premium","watch","my"];
+          const required=["explore","live","search","premium","watch","my","owner-preview/studio","studio/activate"];
           const routeExists=(route)=>[
             path.join(dist,route+".html"),
             path.join(dist,route,"index.html")
           ].some(fs.existsSync);
           for(const route of required){
             if(!routeExists(route)) throw new Error("Missing canonical Reader route: /"+route);
+          }
+          const activationPath=[
+            path.join(dist,"studio","activate.html"),
+            path.join(dist,"studio","activate","index.html")
+          ].find(fs.existsSync);
+          if(!activationPath) throw new Error("Missing safe public Studio activation route.");
+          const activationHtml=fs.readFileSync(activationPath,"utf8");
+          if(!activationHtml.includes("Owner activation is not available in this build")){
+            throw new Error("Public Pages output exposed the private Owner activation surface.");
           }
           NODE
           printf '{"sha":"%s","presentation":"apps/mobile","service_mode":"source-parity","base_path":"/htp-zw"}\n' "$GITHUB_SHA" > apps/mobile/dist/build-info.json
@@ -245,6 +256,8 @@ jobs:
             "premium"
             "watch"
             "my"
+            "owner-preview/studio"
+            "studio/activate"
             "article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
           )
           for route in "${routes[@]}"; do
