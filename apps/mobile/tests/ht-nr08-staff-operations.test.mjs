@@ -12,6 +12,10 @@ const REPO_ROOT = path.resolve(__dirname, "../../..");
 
 const staffServiceModule = loadTs("src/services/newsroom-staff.ts", {
   mocks: {
+    "expo-linking": {
+      createURL: (path, options = {}) =>
+        `https://healthtimes-staging.example/${path}?mode=${options.queryParams?.mode ?? ""}`
+    },
     "../platform/supabase": {
       getStagingSupabaseClient: () => ({
         from: () => ({}),
@@ -257,6 +261,166 @@ test("HT-NR-CLOSE Wave C: createNewsroomStaffService invokes correct RPCs and ha
     fn: "newsroom_cancel_invitation",
     args: { p_invitation_id: "new-inv-1" }
   });
+});
+
+test("Owner signup without a confirmed session returns verification-required and never bootstraps", async () => {
+  const calls = [];
+  const service = createNewsroomStaffService({
+    auth: {
+      async getSession() {
+        calls.push("getSession");
+        return { data: { session: null }, error: null };
+      },
+      async signInWithPassword() {
+        calls.push("signInWithPassword");
+        return { data: { session: null }, error: { code: "invalid_credentials", message: "Invalid login credentials" } };
+      },
+      async signUp(input) {
+        calls.push({ action: "signUp", input });
+        return { data: { session: null, user: { identities: [{}] } }, error: null };
+      }
+    },
+    async rpc() {
+      calls.push("rpc");
+      return { data: null, error: null };
+    }
+  });
+
+  const result = await service.activateOwner("not-persisted-password");
+  assert.equal(result.status, "verification-required");
+  assert.equal(result.success, false);
+  assert.equal(calls.includes("rpc"), false);
+  const signUpCall = calls.find((entry) => typeof entry === "object" && entry.action === "signUp");
+  assert.match(signUpCall.input.options.emailRedirectTo, /account-access\?mode=owner-activation/);
+  assert.equal("invitation_id" in signUpCall.input.options.data, false);
+  assert.equal("role" in signUpCall.input.options.data, false);
+});
+
+test("Existing unconfirmed Owner does not create another identity or bootstrap", async () => {
+  let signUpCount = 0;
+  let rpcCount = 0;
+  const service = createNewsroomStaffService({
+    auth: {
+      async getSession() {
+        return { data: { session: null }, error: null };
+      },
+      async signInWithPassword() {
+        return {
+          data: { session: null },
+          error: { code: "email_not_confirmed", message: "Email not confirmed" }
+        };
+      },
+      async signUp() {
+        signUpCount += 1;
+        return { data: { session: null }, error: null };
+      }
+    },
+    async rpc() {
+      rpcCount += 1;
+      return { data: null, error: null };
+    }
+  });
+
+  const result = await service.activateOwner("not-persisted-password");
+  assert.equal(result.status, "verification-required");
+  assert.equal(signUpCount, 0);
+  assert.equal(rpcCount, 0);
+});
+
+test("Confirmed Owner session may bootstrap and already-provisioned success remains idempotent", async () => {
+  let rpcCount = 0;
+  const service = createNewsroomStaffService({
+    auth: {
+      async getSession() {
+        return {
+          data: {
+            session: {
+              user: {
+                email: "kudzimusar@gmail.com",
+                email_confirmed_at: "2026-10-23T00:00:00Z"
+              }
+            }
+          },
+          error: null
+        };
+      },
+      async signInWithPassword() {
+        throw new Error("sign in must not run for an existing confirmed session");
+      },
+      async signUp() {
+        throw new Error("signup must not run for an existing confirmed session");
+      }
+    },
+    async rpc(name) {
+      rpcCount += 1;
+      assert.equal(name, "newsroom_bootstrap_owner");
+      return {
+        data: {
+          success: true,
+          already_provisioned: true,
+          staff_id: "owner-staff-id",
+          role: "Publisher / Owner"
+        },
+        error: null
+      };
+    }
+  });
+
+  const result = await service.activateOwner("not-persisted-password");
+  assert.equal(result.status, "activated");
+  assert.equal(result.success, true);
+  assert.equal(result.role, "Publisher / Owner");
+  assert.equal(rpcCount, 1);
+});
+
+test("Owner activation and resend surface email rate limits without retrying", async () => {
+  let signUpCount = 0;
+  let resendCount = 0;
+  const service = createNewsroomStaffService({
+    auth: {
+      async getSession() {
+        return { data: { session: null }, error: null };
+      },
+      async signInWithPassword() {
+        return { data: { session: null }, error: { code: "invalid_credentials", message: "Invalid login credentials" } };
+      },
+      async signUp() {
+        signUpCount += 1;
+        return { data: { session: null }, error: { code: "over_email_send_rate_limit", message: "email rate limit exceeded" } };
+      },
+      async resend() {
+        resendCount += 1;
+        return { data: null, error: { code: "over_email_send_rate_limit", message: "email rate limit exceeded" } };
+      }
+    },
+    async rpc() {
+      throw new Error("bootstrap must not run while email is rate limited");
+    }
+  });
+
+  const activation = await service.activateOwner("not-persisted-password");
+  assert.equal(activation.status, "email-rate-limited");
+  assert.equal(signUpCount, 1);
+
+  const resend = await service.resendOwnerVerification();
+  assert.equal(resend.status, "email-rate-limited");
+  assert.equal(resendCount, 1);
+});
+
+test("Owner activation UI omits invitation authority and callback completes bootstrap after verification", () => {
+  const activation = fs.readFileSync(path.join(REPO_ROOT, "apps/mobile/src/ui/StudioActivate.tsx"), "utf8");
+  const staff = fs.readFileSync(path.join(REPO_ROOT, "apps/mobile/src/services/newsroom-staff.ts"), "utf8");
+  const callback = fs.readFileSync(path.join(REPO_ROOT, "apps/mobile/app/account-access.tsx"), "utf8");
+  const publicCorpus = activation + "\n" + staff;
+  const ownerActivationSource = staff.slice(staff.indexOf("async activateOwner"));
+
+  assert.equal(publicCorpus.includes("3c277c48-5319-429f-a2c3-1bf2dbae4c2a"), false);
+  assert.equal(activation.includes("INVITATION TOKEN"), false);
+  assert.equal(ownerActivationSource.includes("invitation_id"), false);
+  assert.equal(/console\.(log|info|warn|error)\([^)]*password/i.test(publicCorpus), false);
+  assert.equal(/(?:AsyncStorage|SecureStore|localStorage).*password/i.test(publicCorpus), false);
+  assert.ok(callback.includes('url.includes("mode=owner-activation")'));
+  assert.ok(callback.includes("services.newsroomStaff.bootstrapOwner()"));
 });
 
 test("HT-NR-CLOSE Wave C: Studio [module].tsx renders StudioStaffRolesDesk and omits placeholder", () => {

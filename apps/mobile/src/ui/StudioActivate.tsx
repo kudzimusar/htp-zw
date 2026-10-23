@@ -2,20 +2,25 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { services } from "../services";
-import { radius, spacing } from "../theme/tokens";
+import { colors, radius, spacing } from "../theme/tokens";
 import { HealthTimesBrand } from "./Brand";
 
 const publicClientReview = process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === "1";
 
+const CANONICAL_OWNER_EMAIL = "kudzimusar@gmail.com";
+type ActivationStage = "credentials" | "verification" | "activated";
+
 export function StudioActivate() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email] = useState(CANONICAL_OWNER_EMAIL);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [stage, setStage] = useState<ActivationStage>("credentials");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
 
   if (publicClientReview) {
     return (
@@ -44,14 +49,8 @@ export function StudioActivate() {
 
   const strongEnough = password.length >= 8;
   const passwordsMatch = password === confirmPassword;
-  const validEmail = email.trim().includes("@");
 
   const handleActivate = async () => {
-    if (!validEmail) {
-      setStatusMessage("Enter the authorized Owner email.");
-      setIsError(true);
-      return;
-    }
     if (!strongEnough) {
       setStatusMessage("Password must be at least 8 characters.");
       setIsError(true);
@@ -64,18 +63,36 @@ export function StudioActivate() {
     }
 
     setLoading(true);
-    setStatusMessage("Verifying Owner identity with the staging authorization service...");
+    setStatusMessage("Verifying authorization and activating credentials...");
     setIsError(false);
 
     try {
-      const result = await services.newsroomStaff.activateOwner({
-        email: email.trim(),
-        password
-      });
-      if (!result.success && result.error) throw new Error(result.error);
+      const result = await services.newsroomStaff.activateOwner(password);
+      if (result.status === "verification-required") {
+        setStage("verification");
+        setPassword("");
+        setConfirmPassword("");
+        setIsError(false);
+        setStatusMessage(result.error ?? "Check your email before completing Owner activation.");
+        return;
+      }
+      if (result.status === "email-rate-limited") {
+        setPassword("");
+        setConfirmPassword("");
+        setIsError(true);
+        setStatusMessage(result.error ?? "Email delivery is temporarily rate limited.");
+        return;
+      }
+      if (result.status !== "activated" || !result.success) {
+        throw new Error(result.error ?? "Owner activation could not be completed.");
+      }
+
+      setStage("activated");
       setIsSuccess(true);
-      setStatusMessage("Owner account activated successfully. Redirecting to Studio...");
-      setTimeout(() => router.replace("/studio" as never), 1500);
+      setStatusMessage("Publisher / Owner account activated successfully. Redirecting to Newsroom OS...");
+      setTimeout(() => {
+        router.replace("/studio" as never);
+      }, 1500);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setIsError(true);
@@ -85,70 +102,92 @@ export function StudioActivate() {
     }
   };
 
+  const handleResend = async () => {
+    setLoading(true);
+    setIsError(false);
+    setStatusMessage("Requesting one confirmation email...");
+    try {
+      const result = await services.newsroomStaff.resendOwnerVerification();
+      setIsError(result.status === "email-rate-limited" || result.status === "error");
+      setStatusMessage(result.error ?? "Check your email to continue.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <HealthTimesBrand inverse studio />
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>OWNER-CONTROLLED STAGING ACCESS</Text>
-          <Text style={styles.title}>Activate Publisher / Owner Access</Text>
+          <Text style={styles.eyebrow}>HEALTHTIMES NEWSROOM OS · FIRST OWNER ACTIVATION</Text>
+          <Text style={styles.title}>Activate Publisher / Owner Account</Text>
           <Text style={styles.subtitle}>
-            Enter the Owner identity supplied through the private staging UAT channel. Canonical invitation authority stays on the server and is never embedded in this client.
+            Authenticate with Kudzi Musarurwa's pre-provisioned executive credentials.
+            This single ceremony locks the initial Publisher/Owner role and unlocks
+            unrestricted operational oversight across all 7 newsroom domains.
+          </Text>
+          <Text style={styles.steps}>
+            1. Create Owner credentials   2. Verify your email   3. Complete Owner activation   4. Open Newsroom
           </Text>
         </View>
 
+        {/* Security Info */}
         <View style={styles.badgeRow}>
           <View style={[styles.securityBadge, styles.activeBadge]}>
             <Text style={[styles.securityBadgeText, styles.activeBadgeText]}>Role: Publisher / Owner</Text>
+          </View>
+          <View style={styles.securityBadge}>
+            <Text style={styles.securityBadgeText}>Domains: All 7 Newsroom OS Domains</Text>
           </View>
           <View style={styles.securityBadge}>
             <Text style={styles.securityBadgeText}>Environment: HealthTimes Staging</Text>
           </View>
         </View>
 
+        {/* Credentials Form */}
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>AUTHORIZED OWNER EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Owner email"
-              placeholderTextColor="#627D98"
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-            />
+            <Text style={styles.label}>AUTHORIZED OWNER EMAIL (CANONICAL BOUND)</Text>
+            <View style={styles.disabledInput}>
+              <Text style={styles.disabledText}>{email}</Text>
+            </View>
+            <Text style={styles.helperText}>
+              Security bound: only kudzimusar@gmail.com is permitted by staging migration 93.
+            </Text>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>SET SECURE PASSWORD (MIN 8 CHARS)</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="Enter strong password"
-              placeholderTextColor="#627D98"
-              autoCapitalize="none"
-              autoComplete="new-password"
-            />
-          </View>
+          {stage === "credentials" && (
+            <>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>SET SECURE PASSWORD (MIN 8 CHARS)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholder="Enter strong password"
+                  placeholderTextColor="#627D98"
+                  autoCapitalize="none"
+                />
+              </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>CONFIRM PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              placeholder="Repeat password"
-              placeholderTextColor="#627D98"
-              autoCapitalize="none"
-              autoComplete="new-password"
-            />
-          </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>CONFIRM PASSWORD</Text>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  placeholder="Repeat password"
+                  placeholderTextColor="#627D98"
+                  autoCapitalize="none"
+                />
+              </View>
+            </>
+          )}
 
+          {/* Status Message */}
           {statusMessage && (
             <View style={[styles.statusBox, isError ? styles.statusError : styles.statusSuccess]}>
               <Text style={[styles.statusText, isError ? styles.statusTextError : styles.statusTextSuccess]}>
@@ -157,17 +196,34 @@ export function StudioActivate() {
             </View>
           )}
 
-          <Pressable
-            style={[styles.activateButton, (!validEmail || !strongEnough || !passwordsMatch || loading) && styles.disabledButton]}
-            onPress={handleActivate}
-            disabled={!validEmail || !strongEnough || !passwordsMatch || loading || isSuccess}
-          >
-            {loading ? (
-              <ActivityIndicator color="#0D1821" />
-            ) : (
-              <Text style={styles.activateButtonText}>{isSuccess ? "Activated ✓" : "Verify and Activate →"}</Text>
-            )}
-          </Pressable>
+          {/* Action Buttons */}
+          {stage === "credentials" && (
+            <Pressable
+              style={[styles.activateButton, (!strongEnough || !passwordsMatch || loading) && styles.disabledButton]}
+              onPress={handleActivate}
+              disabled={!strongEnough || !passwordsMatch || loading || isSuccess}
+            >
+              {loading ? (
+                <ActivityIndicator color="#0D1821" />
+              ) : (
+                <Text style={styles.activateButtonText}>Create Owner Credentials →</Text>
+              )}
+            </Pressable>
+          )}
+
+          {stage === "verification" && (
+            <Pressable
+              style={[styles.activateButton, loading && styles.disabledButton]}
+              onPress={handleResend}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#0D1821" />
+              ) : (
+                <Text style={styles.activateButtonText}>Resend Confirmation Email</Text>
+              )}
+            </Pressable>
+          )}
 
           <View style={styles.footerRow}>
             <Pressable onPress={() => router.push("/studio" as never)}>
@@ -184,30 +240,164 @@ export function StudioActivate() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0D1821", justifyContent: "center", alignItems: "center", padding: spacing.lg },
-  card: { width: "100%", maxWidth: 560, backgroundColor: "#132332", borderRadius: radius.lg, borderWidth: 1, borderColor: "#203A4E", padding: spacing.xl, gap: spacing.lg },
-  header: { gap: 6 },
-  eyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2, color: "#70D1D1" },
-  title: { fontSize: 24, fontWeight: "900", color: "#FFFFFF" },
-  subtitle: { fontSize: 13, color: "#9FB3C8", lineHeight: 19 },
-  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  securityBadge: { backgroundColor: "#1A364E", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: "#203A4E" },
-  securityBadgeText: { fontSize: 10, fontWeight: "800", color: "#9FB3C8", letterSpacing: 0.5 },
-  activeBadge: { borderColor: "#70D1D1" },
-  activeBadgeText: { color: "#70D1D1" },
-  form: { gap: spacing.md },
-  fieldGroup: { gap: 4 },
-  label: { fontSize: 10, fontWeight: "800", color: "#9FB3C8", letterSpacing: 0.6 },
-  input: { backgroundColor: "#FFFFFF", borderRadius: radius.sm, borderWidth: 1, borderColor: "#D5DFE8", paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: "#102A43" },
-  statusBox: { padding: 12, borderRadius: radius.sm, borderWidth: 1 },
-  statusError: { backgroundColor: "#FFE3E3", borderColor: "#D9383A" },
-  statusSuccess: { backgroundColor: "#E3FCEF", borderColor: "#0E8A16" },
-  statusText: { fontSize: 12, fontWeight: "600", lineHeight: 16 },
-  statusTextError: { color: "#A61B1B" },
-  statusTextSuccess: { color: "#085710" },
-  activateButton: { backgroundColor: "#70D1D1", borderRadius: radius.sm, paddingVertical: 14, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
-  disabledButton: { opacity: 0.4 },
-  activateButtonText: { fontSize: 14, fontWeight: "900", color: "#0D1821", letterSpacing: 0.5 },
-  footerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.xs },
-  footerLink: { fontSize: 12, fontWeight: "700", color: "#70D1D1" }
+  container: {
+    flex: 1,
+    backgroundColor: "#0D1821",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg
+  },
+  card: {
+    width: "100%",
+    maxWidth: 560,
+    backgroundColor: "#132332",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "#203A4E",
+    padding: spacing.xl,
+    gap: spacing.lg
+  },
+  header: {
+    gap: 6
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    color: "#70D1D1"
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#FFFFFF"
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "#9FB3C8",
+    lineHeight: 18
+  },
+  steps: {
+    fontSize: 11,
+    color: "#70D1D1",
+    lineHeight: 18,
+    fontWeight: "800"
+  },
+  badgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm
+  },
+  securityBadge: {
+    backgroundColor: "#1A364E",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#203A4E"
+  },
+  securityBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#9FB3C8",
+    letterSpacing: 0.5
+  },
+  activeBadge: {
+    borderColor: "#70D1D1"
+  },
+  activeBadgeText: {
+    color: "#70D1D1"
+  },
+  form: {
+    gap: spacing.md
+  },
+  fieldGroup: {
+    gap: 4
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#9FB3C8",
+    letterSpacing: 0.6
+  },
+  disabledInput: {
+    backgroundColor: "#0F1A24",
+    borderWidth: 1,
+    borderColor: "#203A4E",
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
+  disabledText: {
+    color: "#70D1D1",
+    fontSize: 13,
+    fontFamily: "monospace"
+  },
+  helperText: {
+    fontSize: 11,
+    color: "#627D98"
+  },
+  input: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "#D5DFE8",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#102A43"
+  },
+  statusBox: {
+    padding: 12,
+    borderRadius: radius.sm,
+    borderWidth: 1
+  },
+  statusError: {
+    backgroundColor: "#FFE3E3",
+    borderColor: "#D9383A"
+  },
+  statusSuccess: {
+    backgroundColor: "#E3FCEF",
+    borderColor: "#0E8A16"
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 16
+  },
+  statusTextError: {
+    color: "#A61B1B"
+  },
+  statusTextSuccess: {
+    color: "#085710"
+  },
+  activateButton: {
+    backgroundColor: "#70D1D1",
+    borderRadius: radius.sm,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.sm
+  },
+  disabledButton: {
+    opacity: 0.4
+  },
+  activateButtonText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#0D1821",
+    letterSpacing: 0.5
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginTop: spacing.xs
+  },
+  footerLink: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#70D1D1"
+  }
 });

@@ -281,6 +281,14 @@ export type AuthActionResult = {
   message: string;
 };
 
+export type OwnerActivationResult = {
+  status: "activated" | "verification-required" | "email-rate-limited" | "error";
+  success: boolean;
+  staffId?: string;
+  role?: string;
+  error?: string;
+};
+
 export type AccountDeletionState = {
   status: "server-required" | "requested" | "unavailable";
   message: string;
