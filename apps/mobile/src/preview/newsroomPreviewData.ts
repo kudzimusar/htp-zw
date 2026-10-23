@@ -3405,7 +3405,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         secretConfigured: false,
         phoneNumberId: "10984729182371",
         wabaId: "9827361829102",
-        webhookUrl: "https://gcdohgbmqhqwydgaxrcr.edge.internal/functions/v1/whatsapp-webhook"
+        webhookUrl: "https://bzuvntbkevvuhfhqhkua.edge.internal/functions/v1/whatsapp-webhook"
       },
       brevo: {
         name: "Brevo Email API",
@@ -3444,8 +3444,8 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         provider: "PostgreSQL 15 / PostgREST / GoTrue / Storage",
         status: "healthy",
         secretConfigured: true,
-        projectRef: "gcdohgbmqhqwydgaxrcr",
-        appliedMigrations: 83,
+        projectRef: "bzuvntbkevvuhfhqhkua",
+        appliedMigrations: 96,
         region: "ap-northeast-1"
       }
     },
