@@ -16,7 +16,7 @@ const eas=JSON.parse(read("eas.json"));
 const env=eas.build?.staging?.env ?? {};
 const url=env.EXPO_PUBLIC_SUPABASE_URL;
 const key=env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-assert.match(url,/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
+assert.match(url,/^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/);
 assert.match(key,/^sb_publishable_/);
 
 async function rpc(name,args={}){

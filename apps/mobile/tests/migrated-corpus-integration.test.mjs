@@ -14,7 +14,7 @@ const key=env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 assert.equal(typeof url,"string");
 assert.equal(typeof key,"string");
-assert.match(url,/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
+assert.match(url,/^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/);
 assert.match(key,/^sb_publishable_/);
 assert.doesNotMatch(key,/service_role/i);
 

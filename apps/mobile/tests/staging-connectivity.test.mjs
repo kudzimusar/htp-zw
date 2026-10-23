@@ -25,14 +25,14 @@ test("staging Expo public config exposes deterministic runtime Supabase public c
   });
   const parsed = JSON.parse(raw);
   assert.equal(parsed.extra?.environment, "staging");
-  assert.equal(parsed.extra?.stagingSupabaseUrl, "https://gcdohgbmqhqwydgaxrcr.supabase.co");
+  assert.equal(parsed.extra?.stagingSupabaseUrl, "https://bzuvntbkevvuhfhqhkua.supabase.co");
   assert.equal(typeof parsed.extra?.stagingSupabasePublishableKey, "string");
   assert.equal(parsed.extra.stagingSupabasePublishableKey.startsWith("sb_publishable_"), true);
 });
 
 assert.equal(typeof url, "string");
 assert.equal(typeof key, "string");
-assert.match(url, /^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
+assert.match(url, /^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/);
 assert.match(key, /^sb_publishable_/);
 assert.doesNotMatch(key, /service_role/i);
 

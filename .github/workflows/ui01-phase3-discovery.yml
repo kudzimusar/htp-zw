@@ -18,10 +18,10 @@ env:
   APP_ENV: staging
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
   HEALTHTIMES_WEB_BASE_URL: ""
-  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  EXPO_PUBLIC_SUPABASE_URL: https://bzuvntbkevvuhfhqhkua.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_G82EfIFGaJeJYG-A5G2B8w_UkA7zTVZ
+  HEALTHTIMES_SUPABASE_URL: https://bzuvntbkevvuhfhqhkua.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_G82EfIFGaJeJYG-A5G2B8w_UkA7zTVZ
 
 jobs:
   discovery-web:

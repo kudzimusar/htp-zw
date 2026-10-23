@@ -17,7 +17,7 @@ const key = env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 assert.equal(typeof url, "string");
 assert.equal(typeof key, "string");
-assert.match(url, /^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
+assert.match(url, /^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/);
 assert.match(key, /^sb_publishable_/);
 assert.doesNotMatch(key, /service_role/i);
 
@@ -291,7 +291,7 @@ test("19. Bounded limit clamped safely between 1 and 100", () => {
 // SECTION 27: MINIMUM TEST CASE 20 (LIVE STAGING READ-ONLY VERIFICATION)
 // =========================================================================
 
-test("20. LIVE STAGING RPC: newsroom_public_context_document live readback on gcdohgbmqhqwydgaxrcr", async () => {
+test("20. LIVE STAGING RPC: newsroom_public_context_document live readback on bzuvntbkevvuhfhqhkua", async () => {
   async function callRpc(body) {
     const res = await fetch(`${url}/rest/v1/rpc/newsroom_public_context_document`, {
       method: "POST",

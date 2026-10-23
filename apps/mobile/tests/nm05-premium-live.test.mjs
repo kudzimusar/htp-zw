@@ -27,7 +27,7 @@ async function rpc(name,args){
 }
 
 test("live public teaser authority exposes one bounded paragraph and no Premium body",async()=>{
-  assert.match(url,/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
+  assert.match(url,/^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/);
   assert.match(key,/^sb_publishable_/);
 
   const {response,payload}=await rpc("ag05_public_story_teaser_document",{p_path:referencePath});
