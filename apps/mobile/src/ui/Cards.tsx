@@ -440,6 +440,7 @@ export function AdSlot({
   const { width }=useWindowDimensions();
   const impressionKey=useRef("");
   const [creativeSize,setCreativeSize]=useState<{width:number;height:number}|null>(null);
+  const [creativeAspect,setCreativeAspect]=useState<number|null>(null);
   const decision=useAsync(
     ()=>services.advertising.getDecision(placement,{
       consentForPersonalizedAds:false,
@@ -452,13 +453,17 @@ export function AdSlot({
 
   useEffect(()=>{
     setCreativeSize(null);
+    setCreativeAspect(null);
     const creativeUrl=adDecision?.creativeUrl?.trim();
     if(!creativeUrl) return;
     let active=true;
     Image.getSize(
       creativeUrl,
       (naturalWidth,naturalHeight)=>{
-        if(active && naturalWidth>0 && naturalHeight>0) setCreativeSize({width:naturalWidth,height:naturalHeight});
+        if(active && naturalWidth>0 && naturalHeight>0) {
+          setCreativeAspect(naturalWidth/naturalHeight);
+          setCreativeSize({width:naturalWidth,height:naturalHeight});
+        }
       },
       ()=>{}
     );
@@ -492,7 +497,7 @@ export function AdSlot({
     naturalWidth:creativeSize?.width ?? null,
     naturalHeight:creativeSize?.height ?? null,
     maxWidth:placementMaxWidth,
-    fallbackAspect
+    fallbackAspect:creativeAspect ?? fallbackAspect
   });
 
   const openDestination=()=>{
@@ -517,7 +522,10 @@ export function AdSlot({
         const source=event.nativeEvent.source;
         const naturalWidth=Number(source?.width ?? 0);
         const naturalHeight=Number(source?.height ?? 0);
-        if(naturalWidth>0 && naturalHeight>0) setCreativeSize({width:naturalWidth,height:naturalHeight});
+        if(naturalWidth>0 && naturalHeight>0) {
+          setCreativeAspect(naturalWidth/naturalHeight);
+          setCreativeSize({width:naturalWidth,height:naturalHeight});
+        }
       }}
       accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
     />

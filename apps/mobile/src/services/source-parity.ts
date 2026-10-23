@@ -15,7 +15,7 @@ import type {
 } from "../domain/models";
 import type { SourceException } from "../domain/source";
 import { scoreReaderSearch } from "../reader/search-ranking";
-import { sortByPublicationDesc } from "../reader/feed-order";
+import { comparePublicationDesc, sortByPublicationDesc } from "../reader/feed-order";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import {
@@ -383,14 +383,16 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
     refreshed.set(post.slug,mapWpPost(post,fallback));
   }
 
-  const liveArticles=sortByPublicationDesc(Array.from(refreshed.values()));
+  const liveArticles=Array.from(refreshed.values());
+  liveArticles.sort(comparePublicationDesc);
   const liveSlugs=new Set(liveArticles.map((article)=>article.slug));
   const snapshotFallbacks=sourceParityArticles.filter((article)=>!liveSlugs.has(article.slug));
-  const merged=sortByPublicationDesc([...liveArticles,...snapshotFallbacks]);
+  const merged=[...liveArticles,...snapshotFallbacks];
+  const orderedMerged=sortByPublicationDesc(merged);
 
   cache.at=Date.now();
-  cache.articles=merged;
-  return merged;
+  cache.articles=orderedMerged;
+  return orderedMerged;
 }
 
 const articleRepository:ArticleRepository={
