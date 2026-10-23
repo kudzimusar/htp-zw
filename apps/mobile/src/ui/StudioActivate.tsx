@@ -7,12 +7,11 @@ import { HealthTimesBrand } from "./Brand";
 
 const publicClientReview = process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === "1";
 
-const CANONICAL_OWNER_EMAIL = "kudzimusar@gmail.com";
 type ActivationStage = "credentials" | "verification" | "activated";
 
 export function StudioActivate() {
   const router = useRouter();
-  const [email] = useState(CANONICAL_OWNER_EMAIL);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [stage, setStage] = useState<ActivationStage>("credentials");
@@ -47,10 +46,17 @@ export function StudioActivate() {
     );
   }
 
+  const normalizedEmail = email.trim();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
   const strongEnough = password.length >= 8;
   const passwordsMatch = password === confirmPassword;
 
   const handleActivate = async () => {
+    if (!emailValid) {
+      setStatusMessage("Enter a valid authorized Owner email.");
+      setIsError(true);
+      return;
+    }
     if (!strongEnough) {
       setStatusMessage("Password must be at least 8 characters.");
       setIsError(true);
@@ -67,7 +73,10 @@ export function StudioActivate() {
     setIsError(false);
 
     try {
-      const result = await services.newsroomStaff.activateOwner(password);
+      const result = await services.newsroomStaff.activateOwner({
+        email: normalizedEmail,
+        password
+      });
       if (result.status === "verification-required") {
         setStage("verification");
         setPassword("");
@@ -107,7 +116,7 @@ export function StudioActivate() {
     setIsError(false);
     setStatusMessage("Requesting one confirmation email...");
     try {
-      const result = await services.newsroomStaff.resendOwnerVerification();
+      const result = await services.newsroomStaff.resendOwnerVerification(normalizedEmail);
       setIsError(result.status === "email-rate-limited" || result.status === "error");
       setStatusMessage(result.error ?? "Check your email to continue.");
     } finally {
@@ -123,9 +132,9 @@ export function StudioActivate() {
           <Text style={styles.eyebrow}>HEALTHTIMES NEWSROOM OS · FIRST OWNER ACTIVATION</Text>
           <Text style={styles.title}>Activate Publisher / Owner Account</Text>
           <Text style={styles.subtitle}>
-            Authenticate with Kudzi Musarurwa's pre-provisioned executive credentials.
-            This single ceremony locks the initial Publisher/Owner role and unlocks
-            unrestricted operational oversight across all 7 newsroom domains.
+            Authenticate with the authorized Owner email and private staging credentials.
+            Backend authority validates the first Publisher / Owner identity before
+            operational access is granted.
           </Text>
           <Text style={styles.steps}>
             1. Create Owner credentials   2. Verify your email   3. Complete Owner activation   4. Open Newsroom
@@ -148,12 +157,20 @@ export function StudioActivate() {
         {/* Credentials Form */}
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>AUTHORIZED OWNER EMAIL (CANONICAL BOUND)</Text>
-            <View style={styles.disabledInput}>
-              <Text style={styles.disabledText}>{email}</Text>
-            </View>
+            <Text style={styles.label}>AUTHORIZED OWNER EMAIL</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="Enter authorized Owner email"
+              placeholderTextColor="#627D98"
+              editable={stage === "credentials"}
+            />
             <Text style={styles.helperText}>
-              Security bound: only kudzimusar@gmail.com is permitted by staging migration 93.
+              Backend authorization determines whether this authenticated identity may become the first Publisher / Owner.
             </Text>
           </View>
 
@@ -199,9 +216,9 @@ export function StudioActivate() {
           {/* Action Buttons */}
           {stage === "credentials" && (
             <Pressable
-              style={[styles.activateButton, (!strongEnough || !passwordsMatch || loading) && styles.disabledButton]}
+              style={[styles.activateButton, (!emailValid || !strongEnough || !passwordsMatch || loading) && styles.disabledButton]}
               onPress={handleActivate}
-              disabled={!strongEnough || !passwordsMatch || loading || isSuccess}
+              disabled={!emailValid || !strongEnough || !passwordsMatch || loading || isSuccess}
             >
               {loading ? (
                 <ActivityIndicator color="#0D1821" />

@@ -9,6 +9,7 @@ import { loadTs } from "./ts-module-loader.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../../..");
+const TEST_OWNER_EMAIL = "owner@example.test";
 
 const staffServiceModule = loadTs("src/services/newsroom-staff.ts", {
   mocks: {
@@ -286,7 +287,7 @@ test("Owner signup without a confirmed session returns verification-required and
     }
   });
 
-  const result = await service.activateOwner("not-persisted-password");
+  const result = await service.activateOwner({ email: TEST_OWNER_EMAIL, password: "not-persisted-password" });
   assert.equal(result.status, "verification-required");
   assert.equal(result.success, false);
   assert.equal(calls.includes("rpc"), false);
@@ -321,7 +322,7 @@ test("Existing unconfirmed Owner does not create another identity or bootstrap",
     }
   });
 
-  const result = await service.activateOwner("not-persisted-password");
+  const result = await service.activateOwner({ email: TEST_OWNER_EMAIL, password: "not-persisted-password" });
   assert.equal(result.status, "verification-required");
   assert.equal(signUpCount, 0);
   assert.equal(rpcCount, 0);
@@ -336,7 +337,7 @@ test("Confirmed Owner session may bootstrap and already-provisioned success rema
           data: {
             session: {
               user: {
-                email: "kudzimusar@gmail.com",
+                email: TEST_OWNER_EMAIL,
                 email_confirmed_at: "2026-10-23T00:00:00Z"
               }
             }
@@ -366,11 +367,47 @@ test("Confirmed Owner session may bootstrap and already-provisioned success rema
     }
   });
 
-  const result = await service.activateOwner("not-persisted-password");
+  const result = await service.activateOwner({ email: TEST_OWNER_EMAIL, password: "not-persisted-password" });
   assert.equal(result.status, "activated");
   assert.equal(result.success, true);
   assert.equal(result.role, "Publisher / Owner");
   assert.equal(rpcCount, 1);
+});
+
+test("Different authenticated account fails closed before Owner bootstrap", async () => {
+  let rpcCount = 0;
+  const service = createNewsroomStaffService({
+    auth: {
+      async getSession() {
+        return {
+          data: {
+            session: {
+              user: {
+                email: "other@example.test",
+                email_confirmed_at: "2026-10-23T00:00:00Z"
+              }
+            }
+          },
+          error: null
+        };
+      },
+      async signInWithPassword() {
+        throw new Error("sign in must not run while another account is authenticated");
+      },
+      async signUp() {
+        throw new Error("signup must not run while another account is authenticated");
+      }
+    },
+    async rpc() {
+      rpcCount += 1;
+      return { data: null, error: null };
+    }
+  });
+
+  const result = await service.activateOwner({ email: TEST_OWNER_EMAIL, password: "not-persisted-password" });
+  assert.equal(result.status, "error");
+  assert.match(result.error, /another authenticated account/i);
+  assert.equal(rpcCount, 0);
 });
 
 test("Owner activation and resend surface email rate limits without retrying", async () => {
@@ -398,11 +435,11 @@ test("Owner activation and resend surface email rate limits without retrying", a
     }
   });
 
-  const activation = await service.activateOwner("not-persisted-password");
+  const activation = await service.activateOwner({ email: TEST_OWNER_EMAIL, password: "not-persisted-password" });
   assert.equal(activation.status, "email-rate-limited");
   assert.equal(signUpCount, 1);
 
-  const resend = await service.resendOwnerVerification();
+  const resend = await service.resendOwnerVerification(TEST_OWNER_EMAIL);
   assert.equal(resend.status, "email-rate-limited");
   assert.equal(resendCount, 1);
 });
@@ -419,6 +456,7 @@ test("Owner activation UI omits invitation authority and callback completes boot
   assert.equal(ownerActivationSource.includes("invitation_id"), false);
   assert.equal(/console\.(log|info|warn|error)\([^)]*password/i.test(publicCorpus), false);
   assert.equal(/(?:AsyncStorage|SecureStore|localStorage).*password/i.test(publicCorpus), false);
+  assert.equal(/[A-Z0-9._%+-]+@gmail\.com/i.test(publicCorpus), false);
   assert.ok(callback.includes('url.includes("mode=owner-activation")'));
   assert.ok(callback.includes("services.newsroomStaff.bootstrapOwner()"));
 });

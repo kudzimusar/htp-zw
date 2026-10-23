@@ -478,8 +478,8 @@ export interface NewsroomStaffService {
   ): Promise<{ id: string; email: string; displayName: string; role: string }>;
   cancelInvitation(invitationId: string): Promise<void>;
   bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
-  activateOwner(password: string): Promise<OwnerActivationResult>;
-  resendOwnerVerification(): Promise<OwnerActivationResult>;
+  activateOwner(input: { email: string; password: string }): Promise<OwnerActivationResult>;
+  resendOwnerVerification(email: string): Promise<OwnerActivationResult>;
 }
 
 export interface NewsroomCommercialService {

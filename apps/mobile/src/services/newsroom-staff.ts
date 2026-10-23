@@ -137,7 +137,6 @@ export function mapStaffOperationsDirectory(
 
 import { getStagingSupabaseClient } from "../platform/supabase";
 
-const CANONICAL_OWNER_EMAIL = "kudzimusar@gmail.com";
 
 type AuthFailure = { code?: string; message?: string } | null;
 
@@ -164,7 +163,7 @@ async function bootstrapConfirmedOwner(client: SupabaseClient): Promise<OwnerAct
   const user = sessionData.session?.user;
   const confirmedAt = (user as unknown as Record<string, unknown> | undefined)?.email_confirmed_at;
 
-  if (sessionError || !user || user.email?.toLowerCase() !== CANONICAL_OWNER_EMAIL || !confirmedAt) {
+  if (sessionError || !user || !confirmedAt) {
     return {
       status: "verification-required",
       success: false,
@@ -291,31 +290,44 @@ export function createNewsroomStaffService(
     },
 
     async bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
-      const client = getClient();
-      const { data, error } = await (client as any).rpc("newsroom_bootstrap_owner");
-      if (error) {
-        return { success: false, error: error.message };
-      }
-      const res = data as Record<string, unknown> | null;
+      const result = await bootstrapConfirmedOwner(getClient());
       return {
-        success: Boolean(res?.success),
-        staffId: res?.staff_id ? String(res.staff_id) : undefined,
-        role: res?.role ? String(res.role) : undefined,
-        error: res?.error ? String(res.error) : undefined
+        success: result.status === "activated" && result.success,
+        staffId: result.staffId,
+        role: result.role,
+        error: result.error
       };
     },
 
-    async activateOwner(password: string): Promise<OwnerActivationResult> {
+    async activateOwner(input: { email: string; password: string }): Promise<OwnerActivationResult> {
       const client = getClient();
+      const ownerEmail = input.email.trim().toLowerCase();
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
+        return { status: "error", success: false, error: "Enter a valid Owner email address." };
+      }
 
       const currentSession = await client.auth.getSession();
-      if (currentSession.data.session?.user.email?.toLowerCase() === CANONICAL_OWNER_EMAIL) {
+      if (currentSession.error) {
+        return { status: "error", success: false, error: currentSession.error.message };
+      }
+
+      const currentUser = currentSession.data.session?.user;
+      if (currentUser) {
+        const sessionEmail = currentUser.email?.trim().toLowerCase();
+        if (!sessionEmail || sessionEmail !== ownerEmail) {
+          return {
+            status: "error",
+            success: false,
+            error: "Another authenticated account is active. Sign out before continuing Owner activation."
+          };
+        }
         return bootstrapConfirmedOwner(client);
       }
 
       const signInResult = await client.auth.signInWithPassword({
-        email: CANONICAL_OWNER_EMAIL,
-        password
+        email: ownerEmail,
+        password: input.password
       });
       if (!signInResult.error) {
         return bootstrapConfirmedOwner(client);
@@ -324,17 +336,14 @@ export function createNewsroomStaffService(
         return {
           status: "verification-required",
           success: false,
-          error: "Check kudzimusar@gmail.com to confirm your email. Return here after confirmation to complete Publisher / Owner activation."
+          error: "Check your email to continue Owner activation."
         };
       }
 
       const signUpResult = await client.auth.signUp({
-        email: CANONICAL_OWNER_EMAIL,
-        password,
+        email: ownerEmail,
+        password: input.password,
         options: {
-          data: {
-            display_name: "Kudzi Musarurwa"
-          },
           emailRedirectTo: getOwnerActivationRedirectUrl()
         }
       });
@@ -357,15 +366,21 @@ export function createNewsroomStaffService(
       return {
         status: "verification-required",
         success: false,
-        error: "Check kudzimusar@gmail.com to confirm your email. Return here after confirmation to complete Publisher / Owner activation."
+        error: "Check your email to continue Owner activation."
       };
     },
 
-    async resendOwnerVerification(): Promise<OwnerActivationResult> {
+    async resendOwnerVerification(email: string): Promise<OwnerActivationResult> {
       const client = getClient();
+      const ownerEmail = email.trim().toLowerCase();
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
+        return { status: "error", success: false, error: "Enter a valid Owner email address." };
+      }
+
       const { error } = await client.auth.resend({
         type: "signup",
-        email: CANONICAL_OWNER_EMAIL,
+        email: ownerEmail,
         options: { emailRedirectTo: getOwnerActivationRedirectUrl() }
       });
 
@@ -383,7 +398,7 @@ export function createNewsroomStaffService(
       return {
         status: "verification-required",
         success: false,
-        error: "A new confirmation email was requested. Check kudzimusar@gmail.com before trying again."
+        error: "Check your email to continue Owner activation."
       };
     }
   };
