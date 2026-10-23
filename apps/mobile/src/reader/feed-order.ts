@@ -21,10 +21,8 @@ export function sortByPublicationDesc<T extends PublicationSortable>(items: read
 }
 
 function readerStoryIdentity(story: ArticleSummary): string {
-  const slug = story.slug?.trim().toLowerCase();
+  const slug = story.slug.trim().toLowerCase();
   if (slug) return "slug:" + slug;
-  const canonicalUrl = story.canonicalUrl?.trim().replace(/\/+$/, "").toLowerCase();
-  if (canonicalUrl) return "url:" + canonicalUrl;
   const canonicalStoryId = story.canonicalStoryId?.trim();
   return canonicalStoryId ? "story:" + canonicalStoryId : "id:" + story.id;
 }

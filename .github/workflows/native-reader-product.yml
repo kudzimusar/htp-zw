@@ -61,6 +61,10 @@ jobs:
         name: Reader fidelity
         continue-on-error: true
         run: npm --prefix apps/mobile run test:reader-fidelity
+      - id: ui_wf01b_r2
+        name: UI-WF-01B-R2 Home regression
+        continue-on-error: true
+        run: npm --prefix apps/mobile run test:ui-wf01b-r2
       - id: source_parity
         name: Source parity
         continue-on-error: true
@@ -115,6 +119,7 @@ jobs:
           NATIVE_CHECK: ${{ steps.native_check.outcome }}
           READER_PRODUCT: ${{ steps.reader_product.outcome }}
           READER_FIDELITY: ${{ steps.reader_fidelity.outcome }}
+          UI_WF01B_R2: ${{ steps.ui_wf01b_r2.outcome }}
           SOURCE_PARITY: ${{ steps.source_parity.outcome }}
           PREMIUM_HOSPAZ: ${{ steps.premium_hospaz.outcome }}
           GROWTH_COMMERCIAL: ${{ steps.growth_commercial.outcome }}
@@ -131,7 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           failed=0
-          for name in NATIVE_CHECK READER_PRODUCT READER_FIDELITY SOURCE_PARITY PREMIUM_HOSPAZ GROWTH_COMMERCIAL UI03 NM05_CONSUMER NM05_LIVE AG05_TEASER FOUNDATION CONTENT_CONTRACTS IDENTITY_SECURITY MIGRATED EXPORT_WEB; do
+          for name in NATIVE_CHECK READER_PRODUCT READER_FIDELITY UI_WF01B_R2 SOURCE_PARITY PREMIUM_HOSPAZ GROWTH_COMMERCIAL UI03 NM05_CONSUMER NM05_LIVE AG05_TEASER FOUNDATION CONTENT_CONTRACTS IDENTITY_SECURITY MIGRATED EXPORT_WEB; do
             value="${!name}"
             printf '%s=%s\n' "$name" "$value"
             if [[ "$value" != "success" ]]; then failed=1; fi
