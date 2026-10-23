@@ -36,7 +36,7 @@ const stagingSupabasePublishableKey =
 export const stagingConfig = {
   url: stagingSupabaseUrl,
   publishableKey: stagingSupabasePublishableKey,
-  expectedProjectRef: "gcdohgbmqhqwydgaxrcr"
+  expectedProjectRef: "bzuvntbkevvuhfhqhkua"
 } as const;
 
 export const hasStagingConfig =
