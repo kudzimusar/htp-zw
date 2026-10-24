@@ -14,6 +14,9 @@ import {
   NEWSROOM_WHATSAPP_BROADCAST_STATUSES,
   NEWSROOM_WHATSAPP_BROADCAST_TYPES,
   NEWSROOM_WHATSAPP_DISPATCH_STATUSES,
+  SUPPORTED_PREVIEW_TIMEZONES,
+  formatPreviewScheduleTimestamp,
+  parseAndFormatPreviewSchedule,
   validateWhatsAppBroadcastCreateInput,
   type NewsroomWhatsAppBroadcast,
   type NewsroomWhatsAppBroadcastCreateInput,
@@ -21,7 +24,8 @@ import {
   type NewsroomWhatsAppBroadcastType,
   type NewsroomWhatsAppDispatch,
   type NewsroomWhatsAppDispatchResult,
-  type NewsroomWhatsAppDispatchStatus
+  type NewsroomWhatsAppDispatchStatus,
+  type PreviewScheduleParseResult
 } from "../domain/models";
 import {
   hasServerCapability,
@@ -76,6 +80,25 @@ function formatTypeLabel(type: NewsroomWhatsAppBroadcastType): string {
     default:
       return type;
   }
+}
+
+export function resolveWhatsAppBroadcastScheduleInput(
+  dateStr: string | null | undefined,
+  timeStr: string | null | undefined,
+  timezoneStr: string | null | undefined = "Africa/Harare"
+): PreviewScheduleParseResult {
+  const d = (dateStr ?? "").trim();
+  const t = (timeStr ?? "").trim();
+  if ((d && !t) || (!d && t)) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Provide both a scheduled date and time, or leave both blank."
+    };
+  }
+  return parseAndFormatPreviewSchedule(d, t, timezoneStr);
 }
 
 export interface StudioWhatsAppDeskViewProps {
@@ -143,7 +166,7 @@ export function StudioWhatsAppDeskView({
   const [newTemplateName, setNewTemplateName] = useState("healthtimes_news_update");
   const [newScheduledDate, setNewScheduledDate] = useState("");
   const [newScheduledTime, setNewScheduledTime] = useState("");
-  const [newTimezone, setNewTimezone] = useState("Africa/Harare");
+  const [newTimezone, setNewTimezone] = useState("Africa/Harare (CAT, UTC+2)");
   const [createValidationMessage, setCreateValidationMessage] = useState<string | null>(null);
 
   // Dispatch confirmation dialog state
@@ -176,27 +199,39 @@ export function StudioWhatsAppDeskView({
       setCreateValidationMessage("Choose an approved template before saving this broadcast.");
       return;
     }
-    if ((newScheduledDate && !newScheduledTime) || (!newScheduledDate && newScheduledTime)) {
-      setCreateValidationMessage("Provide both a scheduled date and time, or leave both blank.");
+    const scheduleResult = resolveWhatsAppBroadcastScheduleInput(
+      newScheduledDate,
+      newScheduledTime,
+      newTimezone
+    );
+    if (!scheduleResult.valid) {
+      setCreateValidationMessage(
+        scheduleResult.error || "Invalid schedule date, time, or timezone."
+      );
       return;
     }
-    const input: NewsroomWhatsAppBroadcastCreateInput = {
+
+    const baseInput: NewsroomWhatsAppBroadcastCreateInput = {
       title: newTitle.trim(),
       body: newBody.trim(),
       broadcast_type: newType,
       channel_identity: "healthtimes-whatsapp-channel",
-      related_story_id: newStoryId.trim() ? newStoryId.trim() : null,
-      message_mode: newMessageMode,
-      template_name: newMessageMode === "approved_template" ? newTemplateName.trim() : null,
-      scheduled_at: newScheduledDate && newScheduledTime ? `${newScheduledDate}T${newScheduledTime}:00` : null,
-      timezone: newTimezone
+      related_story_id: newStoryId.trim() ? newStoryId.trim() : null
     };
 
-    const validation = validateWhatsAppBroadcastCreateInput(input);
+    const validation = validateWhatsAppBroadcastCreateInput(baseInput);
     if (!validation.valid) {
       setCreateValidationMessage(validation.error || "Invalid input");
       return;
     }
+
+    const input: NewsroomWhatsAppBroadcastCreateInput = {
+      ...baseInput,
+      message_mode: newMessageMode,
+      template_name: newMessageMode === "approved_template" ? newTemplateName.trim() : null,
+      scheduled_at: scheduleResult.utcIso,
+      timezone: scheduleResult.timezone ?? "Africa/Harare"
+    };
 
     setCreateValidationMessage(null);
     try {
@@ -209,7 +244,7 @@ export function StudioWhatsAppDeskView({
       setNewTemplateName("healthtimes_news_update");
       setNewScheduledDate("");
       setNewScheduledTime("");
-      setNewTimezone("Africa/Harare");
+      setNewTimezone("Africa/Harare (CAT, UTC+2)");
       onCancelCreate();
     } catch {
       // Error handled by parent
@@ -385,6 +420,12 @@ export function StudioWhatsAppDeskView({
                     </Text>
                     <Text style={styles.broadcastItemMeta}>
                       {formatTimestamp(b.createdAt)}
+                      {b.scheduledAt
+                        ? ` • Scheduled: ${formatPreviewScheduleTimestamp(
+                            b.scheduledAt,
+                            b.timezone ?? "Africa/Harare"
+                          )}`
+                        : ""}
                     </Text>
                     {b.dispatch && (
                       <View style={styles.dispatchSummaryRow}>
@@ -531,26 +572,56 @@ export function StudioWhatsAppDeskView({
                     style={[styles.textInput, { flex: 1, minWidth: 150 }]}
                     value={newScheduledDate}
                     onChangeText={setNewScheduledDate}
-                    placeholder="YYYY-MM-DD"
+                    placeholder="YYYY-MM-DD (e.g. 2026-10-25)"
                     placeholderTextColor={colors.inkMuted}
                     accessibilityLabel="Scheduled send date"
+                    testID="whatsapp-schedule-date-input"
                   />
                   <TextInput
                     style={[styles.textInput, { flex: 1, minWidth: 120 }]}
                     value={newScheduledTime}
                     onChangeText={setNewScheduledTime}
-                    placeholder="HH:MM"
+                    placeholder="HH:MM (e.g. 08:00)"
                     placeholderTextColor={colors.inkMuted}
                     accessibilityLabel="Scheduled send time"
+                    testID="whatsapp-schedule-time-input"
                   />
-                  <TextInput
-                    style={[styles.textInput, { flex: 1, minWidth: 150 }]}
-                    value={newTimezone}
-                    onChangeText={setNewTimezone}
-                    placeholder="Africa/Harare"
-                    placeholderTextColor={colors.inkMuted}
-                    accessibilityLabel="Scheduled send timezone"
-                  />
+                </View>
+                <View
+                  style={[styles.typeSelector, { marginTop: spacing.xs }]}
+                  accessibilityLabel="Scheduled send timezone"
+                  testID="whatsapp-schedule-timezone-selector"
+                >
+                  {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                    const active = newTimezone.startsWith(tz);
+                    const label =
+                      tz === "Africa/Harare"
+                        ? "Africa/Harare (CAT, UTC+2)"
+                        : "UTC";
+                    return (
+                      <Pressable
+                        key={tz}
+                        style={[
+                          styles.typeButton,
+                          active && styles.typeButtonSelected
+                        ]}
+                        onPress={() => setNewTimezone(label)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set schedule timezone to ${label}`}
+                        accessibilityState={{ selected: active }}
+                        testID={`whatsapp-schedule-tz-${tz.replace("/", "-")}`}
+                      >
+                        <Text
+                          style={[
+                            styles.typeButtonText,
+                            active && styles.typeButtonTextSelected
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -742,7 +813,10 @@ export function StudioWhatsAppDeskView({
                   <Text style={styles.ledgerMetaItem}>
                     • <Text style={styles.boldText}>Scheduled Delivery:</Text>{" "}
                     {selectedBroadcast.scheduledAt
-                      ? `${formatTimestamp(selectedBroadcast.scheduledAt)} (${selectedBroadcast.timezone ?? "Africa/Harare"})`
+                      ? formatPreviewScheduleTimestamp(
+                          selectedBroadcast.scheduledAt,
+                          selectedBroadcast.timezone ?? "Africa/Harare"
+                        )
                       : "Not scheduled — an authorized operator must choose when to prepare dispatch."}
                   </Text>
                   <Text style={styles.ledgerMetaItem}>

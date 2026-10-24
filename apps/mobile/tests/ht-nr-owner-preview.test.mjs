@@ -961,11 +961,12 @@ test("HT-NR-UAT04A-R2-R2: Behavioral schedule parsing and timezone differentiati
     "2026-10-25 08:00 UTC"
   );
 
-  // Verify Social, Newsletter, and Push Alert desks wire parseAndFormatPreviewSchedule and formatPreviewScheduleTimestamp
+  // Verify Social, Newsletter, Push Alert, and WhatsApp desks wire parseAndFormatPreviewSchedule and formatPreviewScheduleTimestamp
   for (const deskPath of [
     "src/ui/StudioSocialDesk.tsx",
     "src/ui/StudioNewsletterDesk.tsx",
-    "src/ui/StudioPushAlertDesk.tsx"
+    "src/ui/StudioPushAlertDesk.tsx",
+    "src/ui/StudioWhatsAppDesk.tsx"
   ]) {
     const deskSource = read(deskPath);
     assert.ok(
@@ -1494,6 +1495,129 @@ test("HT-NR-UAT04A-FINAL-R2: critical Preview controls expose accessible semanti
   assert.match(shellSource, /pageRoot:\s*\{[\s\S]*?maxWidth:\s*"100%"[\s\S]*?overflow:\s*"hidden"/);
   assert.match(shellSource, /mainScroll:\s*\{[\s\S]*?minWidth:\s*0[\s\S]*?maxWidth:\s*"100%"/);
   assert.ok(htmlSource.includes("html,body,#root{max-width:100%;overflow-x:hidden}"));
+});
+
+test("HT-FINAL-UAT-RES-01: WhatsApp Desk scheduling uses shared Preview timezone authority and rejects invalid inputs", () => {
+  const models = loadTsModule("src/domain/models.ts");
+  const whatsappModule = loadTsModule("src/ui/StudioWhatsAppDesk.tsx", {
+    react: {
+      useCallback: (fn) => fn,
+      useEffect: () => {},
+      useMemo: (fn) => fn(),
+      useState: (init) => [typeof init === "function" ? init() : init, () => {}]
+    },
+    "react-native": {
+      Platform: { OS: "web" },
+      Pressable: "Pressable",
+      ScrollView: "ScrollView",
+      StyleSheet: { create: (s) => s },
+      Text: "Text",
+      TextInput: "TextInput",
+      useWindowDimensions: () => ({ width: 1280, height: 800 }),
+      View: "View"
+    },
+    "react/jsx-runtime": {
+      jsx: () => null,
+      jsxs: () => null,
+      Fragment: "Fragment"
+    },
+    "../services": {
+      services: {}
+    }
+  });
+
+  const { resolveWhatsAppBroadcastScheduleInput } = whatsappModule;
+  const { formatPreviewScheduleTimestamp, SUPPORTED_PREVIEW_TIMEZONES } = models;
+
+  assert.equal(typeof resolveWhatsAppBroadcastScheduleInput, "function");
+  assert.deepEqual([...SUPPORTED_PREVIEW_TIMEZONES], ["Africa/Harare", "UTC"]);
+
+  // 1. Semantic proof: 2026-10-25 08:00 Africa/Harare -> 2026-10-25T06:00:00.000Z
+  const harareSchedule = resolveWhatsAppBroadcastScheduleInput(
+    "2026-10-25",
+    "08:00",
+    "Africa/Harare"
+  );
+  assert.equal(harareSchedule.valid, true);
+  assert.equal(harareSchedule.utcIso, "2026-10-25T06:00:00.000Z");
+  assert.equal(harareSchedule.timezone, "Africa/Harare");
+  assert.equal(
+    harareSchedule.displayLabel,
+    "2026-10-25 08:00 Africa/Harare (CAT, UTC+2)"
+  );
+
+  // Also prove the UI pill label "Africa/Harare (CAT, UTC+2)" resolves identically
+  const hararePillSchedule = resolveWhatsAppBroadcastScheduleInput(
+    "2026-10-25",
+    "08:00",
+    "Africa/Harare (CAT, UTC+2)"
+  );
+  assert.equal(hararePillSchedule.valid, true);
+  assert.equal(hararePillSchedule.utcIso, "2026-10-25T06:00:00.000Z");
+
+  // 2. Semantic proof: 2026-10-25 08:00 UTC -> 2026-10-25T08:00:00.000Z
+  const utcSchedule = resolveWhatsAppBroadcastScheduleInput(
+    "2026-10-25",
+    "08:00",
+    "UTC"
+  );
+  assert.equal(utcSchedule.valid, true);
+  assert.equal(utcSchedule.utcIso, "2026-10-25T08:00:00.000Z");
+  assert.equal(utcSchedule.timezone, "UTC");
+  assert.equal(utcSchedule.displayLabel, "2026-10-25 08:00 UTC");
+
+  // Those two values must not be equal
+  assert.notEqual(harareSchedule.utcIso, utcSchedule.utcIso);
+
+  // 3. Display round-trip proof using formatPreviewScheduleTimestamp
+  assert.equal(
+    formatPreviewScheduleTimestamp(harareSchedule.utcIso, harareSchedule.timezone),
+    "2026-10-25 08:00 Africa/Harare (CAT, UTC+2)"
+  );
+  assert.equal(
+    formatPreviewScheduleTimestamp(utcSchedule.utcIso, utcSchedule.timezone),
+    "2026-10-25 08:00 UTC"
+  );
+
+  // 4. Optional blank schedule allowed
+  const blankSchedule = resolveWhatsAppBroadcastScheduleInput("", "", "Africa/Harare");
+  assert.equal(blankSchedule.valid, true);
+  assert.equal(blankSchedule.utcIso, null);
+
+  // 5. Validation failures:
+  // - time with no date -> rejected
+  const timeWithoutDate = resolveWhatsAppBroadcastScheduleInput("", "08:00", "Africa/Harare");
+  assert.equal(timeWithoutDate.valid, false);
+  assert.equal(timeWithoutDate.utcIso, null);
+
+  // - date with no time -> rejected
+  const dateWithoutTime = resolveWhatsAppBroadcastScheduleInput("2026-10-25", "", "Africa/Harare");
+  assert.equal(dateWithoutTime.valid, false);
+  assert.equal(dateWithoutTime.utcIso, null);
+
+  // - invalid date -> rejected
+  const invalidDateFormat = resolveWhatsAppBroadcastScheduleInput("25-10-2026", "08:00", "Africa/Harare");
+  assert.equal(invalidDateFormat.valid, false);
+  const invalidCalendarDay = resolveWhatsAppBroadcastScheduleInput("2026-02-30", "08:00", "Africa/Harare");
+  assert.equal(invalidCalendarDay.valid, false);
+
+  // - invalid time -> rejected
+  const invalidTimeFormat = resolveWhatsAppBroadcastScheduleInput("2026-10-25", "8am", "Africa/Harare");
+  assert.equal(invalidTimeFormat.valid, false);
+  const invalidTimeBounds = resolveWhatsAppBroadcastScheduleInput("2026-10-25", "25:99", "Africa/Harare");
+  assert.equal(invalidTimeBounds.valid, false);
+
+  // - unsupported timezone -> rejected
+  const unsupportedTz = resolveWhatsAppBroadcastScheduleInput("2026-10-25", "08:00", "America/New_York");
+  assert.equal(unsupportedTz.valid, false);
+  assert.ok(unsupportedTz.error?.includes("Unsupported schedule timezone"));
+
+  // 6. Verify StudioWhatsAppDesk composer wires resolveWhatsAppBroadcastScheduleInput and SUPPORTED_PREVIEW_TIMEZONES without naive string concatenation
+  const whatsappSource = read("src/ui/StudioWhatsAppDesk.tsx");
+  assert.ok(!whatsappSource.includes("${newScheduledDate}T${newScheduledTime}:00"));
+  assert.ok(whatsappSource.includes("resolveWhatsAppBroadcastScheduleInput"));
+  assert.ok(whatsappSource.includes("SUPPORTED_PREVIEW_TIMEZONES.map"));
+  assert.ok(whatsappSource.includes("whatsapp-schedule-tz-${tz.replace(\"/\", \"-\")}"));
 });
 
 
