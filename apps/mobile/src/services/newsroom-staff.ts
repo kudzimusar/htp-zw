@@ -141,6 +141,19 @@ import { getStagingSupabaseClient } from "../platform/supabase";
 type AuthFailure = { code?: string; message?: string } | null;
 
 export function getOwnerActivationRedirectUrl(): string {
+  const runtimeLocation =
+    typeof globalThis !== "undefined"
+      ? (globalThis as typeof globalThis & { location?: { origin?: string } }).location
+      : undefined;
+  const runtimeOrigin = runtimeLocation?.origin?.trim();
+
+  if (
+    runtimeOrigin &&
+    (runtimeOrigin.startsWith("https://") || runtimeOrigin.startsWith("http://"))
+  ) {
+    return `${runtimeOrigin.replace(/\/$/, "")}/account-access?mode=owner-activation`;
+  }
+
   return Linking.createURL("account-access", {
     queryParams: { mode: "owner-activation" }
   });
