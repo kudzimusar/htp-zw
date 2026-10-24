@@ -143,11 +143,19 @@ export function StudioSettingsDeskView({
       {/* Audit Activity Summary */}
       <View style={styles.auditCard}>
         <View style={styles.auditLeft}>
-          <Text style={styles.auditLabel}>Audit Trail Activity (24h)</Text>
-          <Text style={styles.auditValue}>{audit?.totalAuditEvents24h ?? 0} audited operations</Text>
+          <Text style={styles.auditLabel}>
+            {isOwnerPreview ? "Sample Audit Activity" : "Audit Trail Activity (24h)"}
+          </Text>
+          <Text style={styles.auditValue}>
+            {isOwnerPreview
+              ? `${audit?.totalAuditEvents24h ?? 0} sample audit events`
+              : `${audit?.totalAuditEvents24h ?? 0} audited operations`}
+          </Text>
         </View>
         <View style={styles.auditRight}>
-          <Text style={styles.auditLabel}>Last Security Event</Text>
+          <Text style={styles.auditLabel}>
+            {isOwnerPreview ? "Sample Last Security Event" : "Last Security Event"}
+          </Text>
           <Text style={styles.auditAction}>{audit?.lastAuditAction ?? "none"}</Text>
           {audit?.lastAuditAt && (
             <Text style={styles.auditTime}>{new Date(audit.lastAuditAt).toLocaleTimeString()}</Text>
@@ -216,9 +224,17 @@ export function StudioSettingsDeskView({
 
               <View style={styles.secretBadgeRow}>
                 {item.secretConfigured ? (
-                  <Text style={styles.secretConfiguredText}>✓ Credentials Active in Vault</Text>
+                  <Text style={styles.secretConfiguredText}>
+                    {isOwnerPreview
+                      ? "✓ Sample configuration: credential present"
+                      : "✓ Credentials Active in Vault"}
+                  </Text>
                 ) : (
-                  <Text style={styles.secretPendingText}>⏳ Secret Configuration Pending</Text>
+                  <Text style={styles.secretPendingText}>
+                    {isOwnerPreview
+                      ? "⏳ Sample configuration: credential pending"
+                      : "⏳ Secret Configuration Pending"}
+                  </Text>
                 )}
               </View>
             </View>
@@ -230,7 +246,9 @@ export function StudioSettingsDeskView({
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Operational Guardrails & Policies</Text>
         <Text style={styles.sectionSubtitle}>
-          Real-time newsroom controls. Changes are immediately recorded in the tamper-evident audit log.
+          {isOwnerPreview
+            ? "Preview-only policy controls. Changes update local Preview memory and are not written to staging, Production, or the live security audit trail."
+            : "Real-time newsroom controls. Changes are immediately recorded in the tamper-evident audit log."}
         </Text>
       </View>
 

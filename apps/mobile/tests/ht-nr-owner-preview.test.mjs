@@ -1306,7 +1306,67 @@ test("HT-NR-FINAL-R1-03: Executive, Administration & 7-Persona Matrix boundaries
   assert.ok(byId.audience.allowedDomains.includes("audience-marketing"));
   assert.ok(!byId.audience.allowedDomains.includes("commercial"));
   // Systems Administrator has my-work, admin, executive (OWNER_POLICY_REVIEW preserved)
-  assert.deepEqual(byId.admin.allowedDomains, ["my-work", "admin", "executive"]);
+  assert.deepEqual(byId.admin.allowedDomains, ["my-work", "admin,executive".split(",")].flat());
+});
+
+test("HT-FINAL-UI-RES-01: Platform Settings Owner Preview uses sample audit, sample credential, and preview-only policy copy", () => {
+  const settingsSource = read("src/ui/StudioSettingsDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // StudioSettingsDeskView is invoked with isOwnerPreview={true} from OwnerPreviewStudio
+  assert.ok(previewStudioSource.includes("<StudioSettingsDeskView"));
+  assert.ok(previewStudioSource.includes("isOwnerPreview={true}"));
+
+  // Audit summary uses sample labels in Owner Preview
+  assert.ok(
+    settingsSource.includes(
+      'isOwnerPreview ? "Sample Audit Activity" : "Audit Trail Activity (24h)"'
+    )
+  );
+  assert.ok(
+    settingsSource.includes(
+      'isOwnerPreview ? "Sample Last Security Event" : "Last Security Event"'
+    )
+  );
+  assert.ok(settingsSource.includes("sample audit events"));
+
+  // Credential presentation uses sample configuration labels in Owner Preview
+  assert.ok(
+    settingsSource.includes("✓ Sample configuration: credential present")
+  );
+  assert.ok(
+    settingsSource.includes("⏳ Sample configuration: credential pending")
+  );
+
+  // Operational policy subtitle uses Preview-only language in Owner Preview
+  assert.ok(
+    settingsSource.includes(
+      "Preview-only policy controls. Changes update local Preview memory and are not written to staging, Production, or the live security audit trail."
+    )
+  );
+
+  // If static export exists on disk, verify exported settings.html rendered Preview copy
+  const exportedSettingsPath = path.join(
+    root,
+    "dist/owner-preview/studio/settings.html"
+  );
+  if (fs.existsSync(exportedSettingsPath)) {
+    const html = fs.readFileSync(exportedSettingsPath, "utf8");
+    assert.ok(html.includes("Sample Audit Activity"));
+    assert.ok(html.includes("Sample Last Security Event"));
+    assert.ok(html.includes("Sample configuration: credential present"));
+    assert.ok(
+      html.includes(
+        "Preview-only policy controls. Changes update local Preview memory and are not written to staging, Production, or the live security audit trail."
+      )
+    );
+    assert.ok(
+      !html.includes(
+        "Changes are immediately recorded in the tamper-evident audit log"
+      )
+    );
+    assert.ok(!html.includes("Credentials Active in Vault"));
+  }
 });
 
 
