@@ -2184,10 +2184,12 @@ export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
       body: "The Ministry of Health and Child Care has updated emergency treatment protocols for Harare and Chitungwiza. Residents are urged to boil drinking water and use certified treatment tablets provided at local clinics.",
       broadcastType: "breaking_alert",
       channelIdentity: "healthtimes-whatsapp-channel",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001001",
       status: "approved",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       rejectedBy: null,
       approvedAt: "2026-10-16T08:30:00.000Z",
       rejectedAt: null,
@@ -2203,10 +2205,12 @@ export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
       body: "Key points from yesterday's parliamentary health portfolio committee hearings: 15% Abuja declaration target progress, domestic pharmaceutical procurement guarantees, and primary care nurse retention package.",
       broadcastType: "daily_briefing",
       channelIdentity: "healthtimes-whatsapp-channel",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001002",
       status: "sent",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       rejectedBy: null,
       approvedAt: "2026-10-15T06:00:00.000Z",
       rejectedAt: null,
@@ -2235,9 +2239,10 @@ export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
       body: "Phase 3 implementation studies for the R21/Matrix-M malaria vaccine are underway in high-transmission districts. Health researchers are monitoring efficacy across pediatric cohorts aged 5 to 36 months.",
       broadcastType: "story_update",
       channelIdentity: "healthtimes-whatsapp-channel",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001003",
       status: "draft",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: null,
       rejectedBy: null,
       approvedAt: null,
@@ -2290,10 +2295,10 @@ export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligen
       oldestAgeHours: 48.0
     },
     assignments: {
-      total: 0,
-      active: 0,
-      overdue: 0,
-      completed: 0
+      total: 6,
+      active: 5,
+      overdue: 1,
+      completed: 1
     },
     deskMix: [
       { desk: "Public Health", count: 2400 },
@@ -2302,10 +2307,10 @@ export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligen
       { desk: "Investigations", count: 900 }
     ],
     distributionReach: {
-      socialPostsCount: 0,
-      newsletterCampaignsCount: 0,
-      pushAlertsCount: 0,
-      whatsappBroadcastsCount: 0
+      socialPostsCount: 4,
+      newsletterCampaignsCount: 5,
+      pushAlertsCount: 5,
+      whatsappBroadcastsCount: 3
     }
   };
 }
@@ -2401,24 +2406,24 @@ export function buildPreviewAudienceIntelligence(): NewsroomAudienceIntelligence
   return {
     generatedAt: new Date().toISOString(),
     contacts: {
-      totalProfiles: 0,
-      consentedContacts: 0
+      totalProfiles: 1532,
+      consentedContacts: 1420
     },
     segments: {
-      totalSegments: 0,
-      totalMemberships: 0
+      totalSegments: 3,
+      totalMemberships: 1420
     },
     pushSubscribers: {
-      registeredDevices: 0,
-      activeDevices: 0
+      registeredDevices: 4120,
+      activeDevices: 3840
     },
     whatsappDistribution: {
-      totalBroadcasts: 0,
-      sentBroadcasts: 0
+      totalBroadcasts: 3,
+      sentBroadcasts: 1
     },
     subscribers: {
-      totalSubscribers: 0,
-      activeSubscribers: 0
+      totalSubscribers: 428,
+      activeSubscribers: 395
     },
     ga4AudienceStatus: {
       propertyId: "359235319",
@@ -2988,11 +2993,11 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
       }
     ],
     teaserPolicy: {
-      authority: "AG-05 / Owner Policy",
+      authority: "Publisher / Editorial Access Policy",
       enabled: true,
       durationSeconds: 20,
       paragraphCount: 1,
-      enforcement: "Strict server-side body truncation with timer cutoff"
+      enforcement: "Strict reader-facing body truncation after lead paragraph and 20s preview window"
     },
     inventoryBreakdown: {
       totalStories: 5792,
@@ -3001,7 +3006,7 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
     },
     recentPremiumStories: [
       {
-        id: "prev-prem-story-001",
+        id: "00000000-0000-4000-8000-000000001001",
         title: "Inside Zimbabwe's Oncology Crisis: Radiotherapy Blackouts and Drug Procurement Holes",
         status: "published",
         accessPolicy: "premium",
@@ -3009,7 +3014,7 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
         updatedAt: "2026-10-15T10:30:00Z"
       },
       {
-        id: "prev-prem-story-002",
+        id: "00000000-0000-4000-8000-000000001002",
         title: "Clinical Deep Dive: Pediatric Antiretroviral Rollout In Mashonaland Central",
         status: "published",
         accessPolicy: "premium",
@@ -3017,7 +3022,7 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
         updatedAt: "2026-10-12T14:15:00Z"
       },
       {
-        id: "prev-prem-story-003",
+        id: "00000000-0000-4000-8000-000000001003",
         title: "Cross-Border Health Finance: The True Cost of Medical Tourism to South Africa and India",
         status: "published",
         accessPolicy: "premium",
@@ -3581,7 +3586,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         status: "healthy",
         secretConfigured: true,
         projectRef: "bzuvntbkevvuhfhqhkua",
-        appliedMigrations: 96,
+        appliedMigrations: 83,
         region: "ap-northeast-1"
       }
     },
@@ -4018,27 +4023,26 @@ export function buildPreviewFinanceStatements(): NewsroomFinanceStatements {
       endDate: "2026-10-31"
     },
     balanceSheet:
-      "NOT AVAILABLE UNTIL GENERAL LEDGER AUTHORITY EXISTS (POST-LAUNCH ACCOUNTING PHASE). Operational cash receipts and approved newsroom expenditures reported truthfully.",
+      "Reconciled with General Ledger Statement of Financial Position (Total Assets: USD 3,365.00 = Total Liabilities: USD 564.78 + Total Equity: USD 2,800.22). Sample presentation data only.",
     incomeStatement: [
       {
         currency: "USD",
-        revenue: 2660.0,
-        expenses: 230.0,
-        netOperatingSurplus: 2430.0
+        revenue: 2965.22,
+        expenses: 165.0,
+        netOperatingSurplus: 2800.22
       }
     ],
     revenueByPlacement: [
-      { placement: "masthead", currency: "USD", revenue: 1500.0 },
-      { placement: "newsletter", currency: "USD", revenue: 260.0 },
-      { placement: "sponsored_content", currency: "USD", revenue: 900.0 }
+      { placement: "masthead", currency: "USD", revenue: 1847.83 },
+      { placement: "newsletter", currency: "USD", revenue: 465.22 },
+      { placement: "sponsored_content", currency: "USD", revenue: 652.17 }
     ],
     cashReceipts: [
-      { method: "bank_transfer", currency: "USD", totalAmount: 2125.0, receiptsCount: 2 }
+      { method: "bank_transfer", currency: "USD", totalAmount: 2125.0, receiptsCount: 1 }
     ],
     expenseSummary: [
       { category: "travel", currency: "USD", totalAmount: 45.0, count: 1 },
-      { category: "freelance", currency: "USD", totalAmount: 120.0, count: 1 },
-      { category: "office", currency: "USD", totalAmount: 65.0, count: 1 }
+      { category: "freelance", currency: "USD", totalAmount: 120.0, count: 1 }
     ]
   };
 }

@@ -50,6 +50,8 @@ export interface StudioAdvertisingDeskViewProps {
   canApprove: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
+  onOpenOrders?: () => void;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -91,7 +93,9 @@ export function StudioAdvertisingDeskView({
   canCreate,
   canApprove,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false,
+  onOpenOrders
 }: StudioAdvertisingDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -175,6 +179,15 @@ export function StudioAdvertisingDeskView({
         </View>
 
         <View style={styles.headerActions}>
+          {onOpenOrders && (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={onOpenOrders}
+              testID="advertising-open-orders-btn"
+            >
+              <Text style={styles.secondaryButtonText}>Commercial Orders →</Text>
+            </Pressable>
+          )}
           <Pressable
             style={[styles.secondaryButton, isMutating && styles.disabledButton]}
             onPress={onRefresh}
@@ -195,6 +208,24 @@ export function StudioAdvertisingDeskView({
           )}
         </View>
       </View>
+
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderWidth: 1,
+            borderColor: "#FDE68A",
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md
+          }}
+          testID="advertising-preview-banner"
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Commercial Inventory (Owner Preview): Campaigns, advertisers, creatives, and placements below are sample records. Creating or approving campaigns updates local Preview memory only and does not serve live ads or bill customers.
+          </Text>
+        </View>
+      )}
 
       {/* Action / Error Banner */}
       {actionMessage && (
@@ -652,9 +683,32 @@ export function StudioAdvertisingDeskView({
               ))}
             </ScrollView>
 
+            <Text style={styles.fieldLabel}>Select Inventory Placement:</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.sm }}>
+              {(overview?.placements ?? []).map((plc) => (
+                <Pressable
+                  key={plc.id}
+                  style={[
+                    styles.pill,
+                    newCrPlacement === plc.placementKey && styles.activePill
+                  ]}
+                  onPress={() => setNewCrPlacement(plc.placementKey)}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      newCrPlacement === plc.placementKey && styles.activePillText
+                    ]}
+                  >
+                    {plc.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
             <TextInput
               style={styles.modalInput}
-              placeholder="Placement Key (e.g. hospaz-header-direct, article-mid-inline)"
+              placeholder="Placement Key (or select a placement chip above)"
               value={newCrPlacement}
               onChangeText={setNewCrPlacement}
               placeholderTextColor="#9CA3AF"

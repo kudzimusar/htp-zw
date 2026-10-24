@@ -3067,7 +3067,9 @@ export interface NewsroomWhatsAppBroadcast {
   relatedStoryId: string | null;
   status: NewsroomWhatsAppBroadcastStatus;
   createdBy: string;
+  createdByName?: string | null;
   approvedBy: string | null;
+  approvedByName?: string | null;
   rejectedBy: string | null;
   approvedAt: string | null;
   rejectedAt: string | null;

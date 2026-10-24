@@ -846,6 +846,57 @@ export function OwnerPreviewTodayDashboard() {
           ))}
         </View>
       </View>
+
+      {/* Section 5: Executive Performance & Commercial Snapshot */}
+      <View style={styles.card} testID="owner-preview-executive-snapshot">
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardSectionKicker}>
+            5. EXECUTIVE PERFORMANCE & COMMERCIAL SNAPSHOT · SAMPLE OVERVIEW
+          </Text>
+          <Pressable
+            onPress={() => previewNavigate("/owner-preview/studio/analytics")}
+          >
+            <Text style={styles.linkText}>Open Analytics & Intelligence →</Text>
+          </Pressable>
+        </View>
+        <View style={styles.metricsGrid}>
+          <Pressable
+            style={styles.metricBox}
+            onPress={() => previewNavigate("/owner-preview/studio/analytics")}
+          >
+            <Text style={styles.metricValue}>5,789</Text>
+            <Text style={styles.metricLabel}>What Is Performing</Text>
+            <Text style={styles.metricHint}>Published stories · 17 multi-channel dispatches</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.metricBox}
+            onPress={() => previewNavigate("/owner-preview/studio/advertising")}
+          >
+            <Text style={styles.metricValue}>3 Active</Text>
+            <Text style={styles.metricLabel}>Commercial Campaigns</Text>
+            <Text style={styles.metricHint}>1 campaign pending approval · 4 placements</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.metricBox}
+            onPress={() => previewNavigate("/owner-preview/studio/subscribers")}
+          >
+            <Text style={styles.metricValue}>395</Text>
+            <Text style={styles.metricLabel}>Active Subscribers</Text>
+            <Text style={styles.metricHint}>184 Premium entitled · 1,420 newsletter opt-ins</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.metricBox}
+            onPress={() => previewNavigate("/owner-preview/studio/finance")}
+          >
+            <Text style={styles.metricValue}>USD 2,080</Text>
+            <Text style={styles.metricLabel}>Operating Cash Net (Sample)</Text>
+            <Text style={styles.metricHint}>USD 3,410 billed · USD 1,285 open receivables</Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -1349,6 +1400,7 @@ export function OwnerPreviewHomepageView() {
         selectedEditionSlug={selectedEditionSlug}
         onEditionSlugChange={setSelectedEditionSlug}
         deliveryConnected={true}
+        isOwnerPreview={true}
         onOpenStoryWorkspace={(storyId: string) =>
           previewNavigate({
             pathname: "/owner-preview/studio/create-edit",
@@ -2516,6 +2568,8 @@ function OwnerPreviewPushAlertDeskView() {
 }
 
 function OwnerPreviewWhatsAppDeskView() {
+  const { previewNavigate } = useOwnerPreviewNavigation();
+  const [stories] = useState<NewsroomStory[]>(() => buildPreviewStories());
   const [broadcasts, setBroadcasts] = useState<NewsroomWhatsAppBroadcast[]>(() =>
     buildPreviewWhatsAppBroadcasts()
   );
@@ -2532,7 +2586,7 @@ function OwnerPreviewWhatsAppDeskView() {
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(
-    "WhatsApp Desk operational in Owner Visual Preview (Sample Data)."
+    "Preview state only — simulated in local preview memory: WhatsApp broadcast governance & delivery ledger (no live WhatsApp messages sent)."
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -2548,6 +2602,7 @@ function OwnerPreviewWhatsAppDeskView() {
       relatedStoryId: input.related_story_id || null,
       status: "draft",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: null,
       rejectedBy: null,
       approvedAt: null,
@@ -2562,7 +2617,7 @@ function OwnerPreviewWhatsAppDeskView() {
     setSelectedBroadcastId(newId);
     setIsCreating(false);
     setIsSubmitting(false);
-    setNotice("Preview state: Broadcast draft created in local preview.");
+    setNotice("Preview state only: Broadcast draft created in local preview memory.");
   };
 
   const handleApproveBroadcast = async (id: string) => {
@@ -2574,13 +2629,14 @@ function OwnerPreviewWhatsAppDeskView() {
               ...b,
               status: "approved",
               approvedBy: "e0000000-0000-4000-a000-000000000001",
+              approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
               approvedAt: new Date().toISOString()
             }
           : b
       )
     );
     setIsSubmitting(false);
-    setNotice("Preview state: Broadcast approved for distribution in local preview.");
+    setNotice("Preview state only: Broadcast approved for distribution in local preview memory.");
   };
 
   const handleRejectBroadcast = async (id: string, reason?: string) => {
@@ -2599,7 +2655,7 @@ function OwnerPreviewWhatsAppDeskView() {
       )
     );
     setIsSubmitting(false);
-    setNotice("Preview state: Broadcast rejected in local preview.");
+    setNotice("Preview state only: Broadcast rejected in local preview memory.");
   };
 
   const handleDispatchBroadcast = async (id: string) => {
@@ -2631,7 +2687,7 @@ function OwnerPreviewWhatsAppDeskView() {
       )
     );
     setIsSubmitting(false);
-    setNotice("Preview state: Broadcast simulated dispatch to WhatsApp Cloud API.");
+    setNotice("Preview state only: Simulated WhatsApp broadcast dispatch in local preview memory (no external WhatsApp Cloud API call executed).");
   };
 
   return (
@@ -2673,6 +2729,14 @@ function OwnerPreviewWhatsAppDeskView() {
           setNotice(null);
           setErrorMessage(null);
         }}
+        stories={stories.map((s) => ({ id: s.id, title: s.title }))}
+        onOpenStory={(storyId) =>
+          previewNavigate({
+            pathname: "/owner-preview/studio/create-edit",
+            params: { storyId }
+          } as never)
+        }
+        isOwnerPreview={true}
       />
     </View>
   );
@@ -2693,6 +2757,7 @@ export function OwnerPreviewAnalyticsView() {
 }
 
 export function OwnerPreviewAudienceView() {
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const audienceData = useMemo(() => buildPreviewAudienceIntelligence(), []);
   return (
     <StudioAudienceDeskView
@@ -2700,11 +2765,13 @@ export function OwnerPreviewAudienceView() {
       loading={false}
       error={null}
       previewMode={true}
+      onOpenDesk={(modKey) => previewNavigate(`/owner-preview/studio/${modKey}` as never)}
     />
   );
 }
 
 export function OwnerPreviewSearchGrowthView() {
+  const { previewNavigate } = useOwnerPreviewNavigation();
   const growthData = useMemo(() => buildPreviewGrowthIntelligence(), []);
   return (
     <StudioSearchGrowthDeskView
@@ -2712,15 +2779,99 @@ export function OwnerPreviewSearchGrowthView() {
       loading={false}
       error={null}
       previewMode={true}
+      onOpenDesk={(modKey) => previewNavigate(`/owner-preview/studio/${modKey}` as never)}
     />
   );
 }
 
 export function OwnerPreviewStaffRolesView() {
-  const directory = useMemo(() => buildPreviewStaffOperationsDirectory(), []);
+  const [directory, setDirectory] = useState(() => buildPreviewStaffOperationsDirectory());
   const [activeTab, setActiveTab] = useState<StaffDeskTab>("directory");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [actionMessage, setActionMessage] = useState<string | null>(
+    "Preview state only — simulated in local preview memory: Staff directory, RBAC roles, and session governance."
+  );
+
+  const handleChangeRole = async (staffId: string, roleName: string) => {
+    setDirectory((prev) => ({
+      ...prev,
+      staff: prev.staff.map((m) => (m.id === staffId ? { ...m, roleName } : m))
+    }));
+    setActionMessage(
+      `Preview state only: Assigned role "${roleName}" in local preview memory (real /studio RBAC unchanged).`
+    );
+  };
+
+  const handleUpdateStatus = async (
+    staffId: string,
+    status: "active" | "suspended" | "revoked" | "deactivated"
+  ) => {
+    setDirectory((prev) => ({
+      ...prev,
+      staff: prev.staff.map((m) =>
+        m.id === staffId
+          ? {
+              ...m,
+              status,
+              activeSessionsCount: status === "active" ? m.activeSessionsCount : 0
+            }
+          : m
+      )
+    }));
+    setActionMessage(
+      `Preview state only: Staff status updated to ${status.toUpperCase()} in local preview memory.`
+    );
+  };
+
+  const handleRevokeSessions = async (staffId: string) => {
+    setDirectory((prev) => ({
+      ...prev,
+      staff: prev.staff.map((m) =>
+        m.id === staffId ? { ...m, activeSessionsCount: 0 } : m
+      )
+    }));
+    setActionMessage(
+      "Preview state only: Active sessions revoked in local preview memory."
+    );
+  };
+
+  const handleInviteStaff = async (input: {
+    email: string;
+    displayName: string;
+    roleName: string;
+    desk?: string | null;
+    country?: string | null;
+  }) => {
+    const now = new Date();
+    const exp = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const newInvite = {
+      id: `prev-inv-${Date.now()}`,
+      invitedEmail: input.email,
+      displayName: input.displayName,
+      roleName: input.roleName,
+      desk: input.desk ?? "General Desk",
+      country: input.country ?? "Zimbabwe",
+      status: "pending" as const,
+      createdAt: now.toISOString(),
+      expiresAt: exp.toISOString()
+    };
+    setDirectory((prev) => ({
+      ...prev,
+      invitations: [newInvite, ...prev.invitations]
+    }));
+    setActionMessage(
+      `Preview state only: Staff invitation for ${input.displayName} (${input.roleName}) recorded in local preview memory (no external email sent).`
+    );
+  };
+
+  const handleCancelInvite = async (invitationId: string) => {
+    setDirectory((prev) => ({
+      ...prev,
+      invitations: prev.invitations.filter((i) => i.id !== invitationId)
+    }));
+    setActionMessage("Preview state only: Invitation cancelled in local preview memory.");
+  };
 
   return (
     <StudioStaffRolesDeskView
@@ -2734,23 +2885,137 @@ export function OwnerPreviewStaffRolesView() {
       onChangeSearchQuery={setSearchQuery}
       statusFilter={statusFilter}
       onChangeStatusFilter={setStatusFilter}
-      onChangeRole={async () => {}}
-      onUpdateStatus={async () => {}}
-      onRevokeSessions={async () => {}}
-      onInviteStaff={async () => {}}
-      onCancelInvite={async () => {}}
+      onChangeRole={handleChangeRole}
+      onUpdateStatus={handleUpdateStatus}
+      onRevokeSessions={handleRevokeSessions}
+      onInviteStaff={handleInviteStaff}
+      onCancelInvite={handleCancelInvite}
       canManage={true}
-      actionMessage={null}
+      actionMessage={actionMessage}
       isMutating={false}
+      isOwnerPreview={true}
     />
   );
 }
 
 export function OwnerPreviewAdvertisingView() {
-  const overview = useMemo(() => buildPreviewAdvertisingOverview(), []);
+  const { previewNavigate } = useOwnerPreviewNavigation();
+  const [overview, setOverview] = useState(() => buildPreviewAdvertisingOverview());
   const [activeTab, setActiveTab] = useState<AdvertisingDeskTab>("campaigns");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleCreateAdvertiser = async (name: string, notes?: string) => {
+    const newAdv = {
+      id: `prev-adv-${Date.now()}`,
+      name: name.trim(),
+      status: "active" as const,
+      contactNotes: notes?.trim() || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      activeCampaignsCount: 0
+    };
+    setOverview((prev) => ({
+      ...prev,
+      advertisers: [newAdv, ...prev.advertisers],
+      metrics: {
+        ...prev.metrics,
+        totalAdvertisers: prev.metrics.totalAdvertisers + 1
+      }
+    }));
+    setActionMessage(`Preview state only: Advertiser "${name.trim()}" registered in local preview memory.`);
+  };
+
+  const handleCreateCampaign = async (input: { name: string; advertiserId: string }) => {
+    const adv = overview.advertisers.find((a) => a.id === input.advertiserId);
+    const newCamp = {
+      id: `prev-camp-${Date.now()}`,
+      advertiserId: input.advertiserId,
+      advertiserName: adv?.name ?? "Commercial Sponsor",
+      name: input.name.trim(),
+      status: "draft" as const,
+      reviewStatus: "pending" as const,
+      startAt: new Date().toISOString(),
+      endAt: null,
+      budgetCents: null,
+      currency: "USD",
+      notes: null,
+      createdBy: "preview-persona",
+      approvedBy: null,
+      approvedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      creativesCount: 0
+    };
+    setOverview((prev) => ({
+      ...prev,
+      campaigns: [newCamp, ...prev.campaigns],
+      metrics: {
+        ...prev.metrics,
+        totalCampaigns: prev.metrics.totalCampaigns + 1,
+        pendingReviewCampaigns: prev.metrics.pendingReviewCampaigns + 1
+      }
+    }));
+    setActionMessage(`Preview state only: Campaign "${input.name.trim()}" created in local preview memory.`);
+  };
+
+  const handleCreateCreative = async (input: {
+    campaignId: string;
+    placement: string;
+    destinationUrl?: string | null;
+  }) => {
+    const camp = overview.campaigns.find((c) => c.id === input.campaignId);
+    const newCr = {
+      id: `prev-cr-${Date.now()}`,
+      campaignId: input.campaignId,
+      campaignName: camp?.name ?? "Direct Campaign",
+      placement: input.placement.trim(),
+      status: "active" as const,
+      destinationUrl: input.destinationUrl ?? null,
+      disclosureLabel: "Sponsored",
+      assetMediaId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setOverview((prev) => ({
+      ...prev,
+      creatives: [newCr, ...prev.creatives],
+      metrics: {
+        ...prev.metrics,
+        totalCreatives: prev.metrics.totalCreatives + 1
+      }
+    }));
+    setActionMessage(`Preview state only: Creative assigned to "${input.placement.trim()}" in local preview memory.`);
+  };
+
+  const handleApproveCampaign = async (campaignId: string, approved: boolean) => {
+    setOverview((prev) => ({
+      ...prev,
+      campaigns: prev.campaigns.map((c) =>
+        c.id === campaignId
+          ? {
+              ...c,
+              reviewStatus: (approved ? "approved" : "rejected") as any,
+              status: (approved ? "approved" : "rejected") as any
+            }
+          : c
+      )
+    }));
+    setActionMessage(
+      `Preview state only: Campaign ${approved ? "approved" : "rejected"} in local preview memory.`
+    );
+  };
+
+  const handleUpdateCampaignStatus = async (campaignId: string, status: string) => {
+    setOverview((prev) => ({
+      ...prev,
+      campaigns: prev.campaigns.map((c) =>
+        c.id === campaignId ? { ...c, status: status as any } : c
+      )
+    }));
+    setActionMessage(`Preview state only: Campaign status updated to ${status.toUpperCase()} in local preview memory.`);
+  };
 
   return (
     <StudioAdvertisingDeskView
@@ -2764,23 +3029,72 @@ export function OwnerPreviewAdvertisingView() {
       onChangeSearchQuery={setSearchQuery}
       statusFilter={statusFilter}
       onChangeStatusFilter={setStatusFilter}
-      onCreateAdvertiser={async () => {}}
-      onCreateCampaign={async () => {}}
-      onCreateCreative={async () => {}}
-      onApproveCampaign={async () => {}}
-      onUpdateCampaignStatus={async () => {}}
+      onCreateAdvertiser={handleCreateAdvertiser}
+      onCreateCampaign={handleCreateCampaign}
+      onCreateCreative={handleCreateCreative}
+      onApproveCampaign={handleApproveCampaign}
+      onUpdateCampaignStatus={handleUpdateCampaignStatus}
       canCreate={true}
       canApprove={true}
-      actionMessage={null}
+      actionMessage={actionMessage}
       isMutating={false}
+      isOwnerPreview={true}
+      onOpenOrders={() => previewNavigate("/owner-preview/studio/orders" as never)}
     />
   );
 }
 
 export function OwnerPreviewSubscribersView() {
-  const directory = useMemo(() => buildPreviewSubscribersDirectory(), []);
+  const { previewNavigate } = useOwnerPreviewNavigation();
+  const [directory, setDirectory] = useState(() => buildPreviewSubscribersDirectory());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleUpdateStatus = async (subscriberId: string, status: string) => {
+    setDirectory((prev) => ({
+      ...prev,
+      subscribers: prev.subscribers.map((s) =>
+        s.id === subscriberId ? { ...s, status: status as any } : s
+      )
+    }));
+    setActionMessage(`Preview state only: Subscriber account status set to ${status.toUpperCase()} in local preview memory.`);
+  };
+
+  const handleGrantEntitlement = async (
+    subscriberId: string,
+    policyKey: string,
+    durationDays: number
+  ) => {
+    const startsAt = new Date();
+    const endsAt = new Date(startsAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    setDirectory((prev) => ({
+      ...prev,
+      subscribers: prev.subscribers.map((s) =>
+        s.id === subscriberId
+          ? {
+              ...s,
+              hasActivePremium: true,
+              entitlements: [
+                {
+                  id: `prev-ent-${Date.now()}`,
+                  policyKey,
+                  startsAt: startsAt.toISOString(),
+                  endsAt: endsAt.toISOString(),
+                  provider: "staff_grant",
+                  providerReference: `preview_grant_${durationDays}d`,
+                  isActive: true
+                },
+                ...s.entitlements
+              ]
+            }
+          : s
+      )
+    }));
+    setActionMessage(
+      `Preview state only: Granted ${durationDays}-day ${policyKey.toUpperCase()} entitlement pass in local preview memory.`
+    );
+  };
 
   return (
     <StudioSubscribersDeskView
@@ -2792,17 +3106,33 @@ export function OwnerPreviewSubscribersView() {
       onChangeSearchQuery={setSearchQuery}
       statusFilter={statusFilter}
       onChangeStatusFilter={setStatusFilter}
-      onUpdateStatus={async () => {}}
-      onGrantEntitlement={async () => {}}
+      onUpdateStatus={handleUpdateStatus}
+      onGrantEntitlement={handleGrantEntitlement}
       canManage={true}
-      actionMessage={null}
+      actionMessage={actionMessage}
       isMutating={false}
+      isOwnerPreview={true}
+      onOpenPremium={() => previewNavigate("/owner-preview/studio/premium" as never)}
     />
   );
 }
 
 export function OwnerPreviewPremiumView() {
-  const overview = useMemo(() => buildPreviewPremiumOperationsOverview(), []);
+  const { previewNavigate } = useOwnerPreviewNavigation();
+  const [overview, setOverview] = useState(() => buildPreviewPremiumOperationsOverview());
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleSetStoryAccess = async (storyId: string, policy: "public" | "premium") => {
+    setOverview((prev) => ({
+      ...prev,
+      recentPremiumStories: prev.recentPremiumStories.map((st) =>
+        st.id === storyId ? { ...st, accessPolicy: policy } : st
+      )
+    }));
+    setActionMessage(
+      `Preview state only: Story access policy updated to ${policy.toUpperCase()} in local preview memory.`
+    );
+  };
 
   return (
     <StudioPremiumDeskView
@@ -2810,11 +3140,19 @@ export function OwnerPreviewPremiumView() {
       isLoading={false}
       error={null}
       onRefresh={async () => {}}
-      onSetStoryAccess={async () => {}}
+      onSetStoryAccess={handleSetStoryAccess}
       canManage={true}
       canAssign={true}
-      actionMessage={null}
+      actionMessage={actionMessage}
       isMutating={false}
+      isOwnerPreview={true}
+      onOpenSubscribers={() => previewNavigate("/owner-preview/studio/subscribers" as never)}
+      onOpenStory={(storyId) =>
+        previewNavigate({
+          pathname: "/owner-preview/studio/create-edit",
+          params: { storyId }
+        } as never)
+      }
     />
   );
 }
@@ -3104,7 +3442,7 @@ export function OwnerPreviewSettingsView() {
         s.key === key ? { ...s, value, updatedAt: new Date().toISOString() } : s
       )
     }));
-    setActionMessage(`Setting '${key}' updated (Owner Visual Preview — sample data)`);
+    setActionMessage(`Preview state only: Setting '${key}' updated in local preview memory (staging/production unchanged).`);
     setTimeout(() => setActionMessage(null), 3000);
   };
 
@@ -3118,6 +3456,7 @@ export function OwnerPreviewSettingsView() {
       canManage={true}
       actionMessage={actionMessage}
       isMutating={false}
+      isOwnerPreview={true}
     />
   );
 }

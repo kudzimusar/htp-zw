@@ -33,6 +33,7 @@ export interface StudioSettingsDeskViewProps {
   canManage: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
 }
 
 const DEFAULT_STATUS_PILL = { bg: "#FEF3C7", text: "#92400E" };
@@ -54,7 +55,8 @@ export function StudioSettingsDeskView({
   onUpdateSetting,
   canManage,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false
 }: StudioSettingsDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -106,6 +108,23 @@ export function StudioSettingsDeskView({
           In accordance with Newsroom OS security architecture, API keys, webhook signing secrets, and authentication credentials are held exclusively in server environment vaults and edge runtimes. This interface exposes configuration health, verified property identifiers, and operational toggles only.
         </Text>
       </View>
+
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderWidth: 1,
+            borderColor: "#FDE68A",
+            borderRadius: radius.md,
+            padding: spacing.md
+          }}
+          testID="settings-preview-banner"
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Platform Configuration (Owner Preview): Integration statuses and operational guardrail toggles below operate in local Preview memory only. Toggling policies here never modifies staging or production environment settings.
+          </Text>
+        </View>
+      )}
 
       {/* Action Feedback Banner */}
       {actionMessage && (
@@ -181,13 +200,13 @@ export function StudioSettingsDeskView({
                     <Text style={styles.detailValue}>{String(item.sender_email)}</Text>
                   </View>
                 )}
-                {Boolean(item.project_ref) && (
+                {!isOwnerPreview && Boolean(item.project_ref) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Supabase Ref:</Text>
                     <Text style={styles.detailValue}>{String(item.project_ref)} ({String(item.region)})</Text>
                   </View>
                 )}
-                {Boolean(item.active_migrations) && (
+                {!isOwnerPreview && Boolean(item.active_migrations) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Active Migrations:</Text>
                     <Text style={styles.detailValue}>{String(item.active_migrations)} applied</Text>

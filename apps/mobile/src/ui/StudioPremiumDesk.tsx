@@ -32,6 +32,9 @@ export interface StudioPremiumDeskViewProps {
   canAssign: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
+  onOpenSubscribers?: () => void;
+  onOpenStory?: (storyId: string) => void;
 }
 
 function formatIso(iso: string | null | undefined): string {
@@ -53,7 +56,10 @@ export function StudioPremiumDeskView({
   canManage,
   canAssign,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false,
+  onOpenSubscribers,
+  onOpenStory
 }: StudioPremiumDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -72,11 +78,11 @@ export function StudioPremiumDeskView({
   };
 
   const teaser = overview?.teaserPolicy ?? {
-    authority: "AG-05 / Owner Policy",
+    authority: "Publisher / Editorial Access Policy",
     enabled: true,
     durationSeconds: 20,
     paragraphCount: 1,
-    enforcement: "Strict server-side body truncation with timer cutoff"
+    enforcement: "Strict reader-facing body truncation after lead paragraph and 20s preview window"
   };
 
   return (
@@ -96,11 +102,20 @@ export function StudioPremiumDeskView({
           </View>
           <Text style={styles.mainTitle}>Premium Policies & Monetization</Text>
           <Text style={styles.mainSubtitle}>
-            Editorial access policies, meter paywall governance, AG-05 teaser enforcement, and subscriber entitlement coverage.
+            Editorial access policies, metered paywall governance, public teaser rules, and subscriber entitlement coverage.
           </Text>
         </View>
 
         <View style={styles.headerActions}>
+          {onOpenSubscribers && (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={onOpenSubscribers}
+              testID="premium-open-subscribers-btn"
+            >
+              <Text style={styles.secondaryButtonText}>Manage Subscribers & Passes →</Text>
+            </Pressable>
+          )}
           <Pressable
             style={[styles.secondaryButton, isMutating && styles.disabledButton]}
             onPress={onRefresh}
@@ -112,6 +127,24 @@ export function StudioPremiumDeskView({
           </Pressable>
         </View>
       </View>
+
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderWidth: 1,
+            borderColor: "#FDE68A",
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md
+          }}
+          testID="premium-preview-banner"
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Monetization & Access Policy State (Owner Preview): Payment channels (Stripe, EcoCash, Paynow) and story access toggles below operate in local Preview memory only and do not execute live billing or alter public Reader access.
+          </Text>
+        </View>
+      )}
 
       {/* Action / Error Banner */}
       {actionMessage && (
@@ -151,11 +184,11 @@ export function StudioPremiumDeskView({
         </View>
       </View>
 
-      {/* SECTION 1: Editorial Access Policies & AG-05 Teaser Authority */}
+      {/* SECTION 1: Editorial Access Policies & Teaser Authority */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Editorial Access Policies</Text>
         <Text style={styles.sectionSubtitle}>
-          HealthTimes content access levels declared in the canonical content core.
+          HealthTimes content access levels governing open public journalism and subscriber-funded reporting.
         </Text>
 
         <View style={[styles.policiesGrid, isDesktop ? styles.gridCols2 : null]}>
@@ -187,23 +220,23 @@ export function StudioPremiumDeskView({
           ))}
         </View>
 
-        {/* AG-05 Teaser Policy Callout */}
+        {/* Public Teaser Policy Callout */}
         <View style={styles.teaserCallout}>
           <View style={styles.rowBetween}>
-            <Text style={styles.teaserTitle}>AG-05 Public Teaser Policy</Text>
+            <Text style={styles.teaserTitle}>Reader Public Teaser Policy</Text>
             <View style={[styles.badge, { backgroundColor: "#FEF3C7" }]}>
               <Text style={[styles.badgeText, { color: "#92400E" }]}>
-                {teaser.authority}
+                {isOwnerPreview ? "Publisher / Editorial Access Policy" : teaser.authority}
               </Text>
             </View>
           </View>
           <Text style={styles.teaserBody}>
-            Non-subscribed readers receive exactly{" "}
-            <Text style={{ fontWeight: "700" }}>{teaser.paragraphCount} paragraph</Text> of editorial body for{" "}
-            <Text style={{ fontWeight: "700" }}>{teaser.durationSeconds} seconds</Text> before the paywall timer cuts off body visibility.
+            Non-subscribed readers receive{" "}
+            <Text style={{ fontWeight: "700" }}>{teaser.paragraphCount} lead paragraph</Text> of editorial body for{" "}
+            <Text style={{ fontWeight: "700" }}>{teaser.durationSeconds} seconds</Text> before the subscriber prompt transitions to paywall mode.
           </Text>
           <Text style={styles.teaserEnforce}>
-            Enforcement: {teaser.enforcement}
+            Reader Experience Rule: {teaser.enforcement}
           </Text>
         </View>
       </View>
@@ -242,17 +275,30 @@ export function StudioPremiumDeskView({
               </View>
 
               <View style={styles.storyActions}>
-                <View style={[styles.badge, { backgroundColor: "#DBEAFE" }]}>
-                  <Text style={[styles.badgeText, { color: "#1D4ED8" }]}>PREMIUM</Text>
+                <View style={[styles.badge, { backgroundColor: st.accessPolicy === "public" ? "#DCFCE7" : "#DBEAFE" }]}>
+                  <Text style={[styles.badgeText, { color: st.accessPolicy === "public" ? "#166534" : "#1D4ED8" }]}>
+                    {st.accessPolicy.toUpperCase()}
+                  </Text>
                 </View>
+
+                {onOpenStory && (
+                  <Pressable
+                    style={styles.smallPolicyButton}
+                    onPress={() => onOpenStory(st.id)}
+                  >
+                    <Text style={styles.smallPolicyButtonText}>Open Story →</Text>
+                  </Pressable>
+                )}
 
                 {canAssign && (
                   <Pressable
                     style={[styles.smallPolicyButton, isMutating && styles.disabledButton]}
-                    onPress={() => onSetStoryAccess(st.id, "public")}
+                    onPress={() => onSetStoryAccess(st.id, st.accessPolicy === "premium" ? "public" : "premium")}
                     disabled={isMutating}
                   >
-                    <Text style={styles.smallPolicyButtonText}>Make Public</Text>
+                    <Text style={styles.smallPolicyButtonText}>
+                      {st.accessPolicy === "premium" ? "Make Public" : "Set Premium"}
+                    </Text>
                   </Pressable>
                 )}
               </View>

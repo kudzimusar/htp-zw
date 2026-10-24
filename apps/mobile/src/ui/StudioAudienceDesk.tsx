@@ -18,6 +18,7 @@ export interface StudioAudienceDeskViewProps {
   error: string | null;
   onRefresh?: () => void;
   previewMode?: boolean;
+  onOpenDesk?: (moduleKey: "newsletters" | "push-alerts" | "whatsapp" | "subscribers") => void;
 }
 
 export function StudioAudienceDeskView({
@@ -25,7 +26,8 @@ export function StudioAudienceDeskView({
   loading,
   error,
   onRefresh,
-  previewMode = false
+  previewMode = false,
+  onOpenDesk
 }: StudioAudienceDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -42,16 +44,18 @@ export function StudioAudienceDeskView({
           <View style={styles.titleRow}>
             <Text style={styles.title}>Audience Intelligence</Text>
             <View style={styles.badgeCapability}>
-              <Text style={styles.badgeCapabilityText}>analytics.view</Text>
+              <Text style={styles.badgeCapabilityText}>
+                {previewMode ? "Audience & Growth" : "analytics.view"}
+              </Text>
             </View>
             {previewMode && (
               <View style={styles.previewBadge}>
-                <Text style={styles.previewBadgeText}>PREVIEW MODE</Text>
+                <Text style={styles.previewBadgeText}>SAMPLE PREVIEW METRICS</Text>
               </View>
             )}
           </View>
           <Text style={styles.subtitle}>
-            Verified first-party reader audience, consented contacts, and multi-channel reach.
+            Verified first-party reader audience, consented contacts, segment trends, and multi-channel reach.
           </Text>
         </View>
 
@@ -90,6 +94,23 @@ export function StudioAudienceDeskView({
 
       {audienceData && (
         <>
+          {previewMode && (
+            <View
+              style={{
+                backgroundColor: "#FFFBEB",
+                borderWidth: 1,
+                borderColor: "#FDE68A",
+                borderRadius: radius.md,
+                padding: spacing.md
+              }}
+              testID="audience-sample-analytics-banner"
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+                ℹ️ Sample Audience & Segment Figures (Owner Preview): The contact counts, segment memberships, and 30-day trends below reconcile with the sample records in Newsletter, Push, WhatsApp, and Subscriber desks. They do not represent live production analytics.
+              </Text>
+            </View>
+          )}
+
           {/* Top Audience Summary Cards */}
           <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
             <View style={styles.kpiCard}>
@@ -177,6 +198,87 @@ export function StudioAudienceDeskView({
                 <View style={styles.networkStat}>
                   <Text style={styles.networkCount}>{audienceData.whatsappDistribution.sentBroadcasts}</Text>
                   <Text style={styles.networkUnit}>Dispatches Sent</Text>
+                </View>
+              </View>
+            </View>
+            {onOpenDesk && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md }}>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("newsletters")}
+                  testID="audience-open-newsletters-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open Newsletter Segments →</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("push-alerts")}
+                  testID="audience-open-push-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open Push Alerts →</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("whatsapp")}
+                  testID="audience-open-whatsapp-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open WhatsApp Desk →</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("subscribers")}
+                  testID="audience-open-subscribers-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open Subscriber Directory →</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* Section: Audience Segments & 30-Day Growth Interpretation */}
+          <View style={styles.card} testID="audience-segments-interpretation-card">
+            <Text style={styles.cardTitle}>Audience Segments & 30-Day Engagement Trends</Text>
+            <Text style={styles.cardSubtitle}>
+              Cohort breakdown and editorial interpretation across first-party health readership segments.
+            </Text>
+
+            <View style={styles.networkList}>
+              <View style={styles.networkRow}>
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>Clinical & Healthcare Practitioners Cohort</Text>
+                  <Text style={styles.networkDetail}>
+                    High retention on clinical deep dives, oncology procurement updates, and policy briefings (+14% 30-day growth).
+                  </Text>
+                </View>
+                <View style={styles.networkStat}>
+                  <Text style={styles.networkCount}>540</Text>
+                  <Text style={styles.networkUnit}>Members</Text>
+                </View>
+              </View>
+
+              <View style={styles.networkRow}>
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>Public Health & Outbreak Advisory Readers</Text>
+                  <Text style={styles.networkDetail}>
+                    Driven by cholera, malaria vaccine, and provincial clinic coverage across WhatsApp & Push (+22% 30-day growth).
+                  </Text>
+                </View>
+                <View style={styles.networkStat}>
+                  <Text style={styles.networkCount}>620</Text>
+                  <Text style={styles.networkUnit}>Members</Text>
+                </View>
+              </View>
+
+              <View style={styles.networkRow}>
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>Health Policy, NGO & Institutional Subscribers</Text>
+                  <Text style={styles.networkDetail}>
+                    Strong weekday morning engagement with Daily Health Briefing and parliamentary budget coverage (+9% 30-day growth).
+                  </Text>
+                </View>
+                <View style={styles.networkStat}>
+                  <Text style={styles.networkCount}>260</Text>
+                  <Text style={styles.networkUnit}>Members</Text>
                 </View>
               </View>
             </View>

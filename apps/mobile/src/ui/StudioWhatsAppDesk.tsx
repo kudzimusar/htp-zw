@@ -100,6 +100,9 @@ export interface StudioWhatsAppDeskViewProps {
   actionMessage: string | null;
   actionErrorMessage: string | null;
   onDismissMessage: () => void;
+  stories?: Array<{ id: string; title: string }>;
+  onOpenStory?: (storyId: string) => void;
+  isOwnerPreview?: boolean;
 }
 
 export function StudioWhatsAppDeskView({
@@ -123,7 +126,10 @@ export function StudioWhatsAppDeskView({
   isSubmitting,
   actionMessage,
   actionErrorMessage,
-  onDismissMessage
+  onDismissMessage,
+  stories = [],
+  onOpenStory,
+  isOwnerPreview = false
 }: StudioWhatsAppDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
@@ -276,7 +282,33 @@ export function StudioWhatsAppDeskView({
                     statusFilter === st && styles.filterPillTextActive
                   ]}
                 >
-                  {st === "all" ? "All" : st.charAt(0).toUpperCase() + st.slice(1)}
+                  {st === "all" ? "All Statuses" : st.charAt(0).toUpperCase() + st.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.filterRow, { paddingTop: 0 }]}
+          >
+            {(["all", ...NEWSROOM_WHATSAPP_BROADCAST_TYPES] as const).map((tp) => (
+              <Pressable
+                key={tp}
+                style={[
+                  styles.filterPill,
+                  typeFilter === tp && styles.filterPillActive
+                ]}
+                onPress={() => onChangeTypeFilter(tp)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    typeFilter === tp && styles.filterPillTextActive
+                  ]}
+                >
+                  {tp === "all" ? "All Types" : formatTypeLabel(tp)}
                 </Text>
               </Pressable>
             ))}
@@ -432,24 +464,65 @@ export function StudioWhatsAppDeskView({
                 <Text style={styles.charCounter}>{newBody.length}/4096</Text>
               </View>
 
-              {/* Related Story ID */}
+              {/* Linked Editorial Story */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Related Story UUID (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. 11111111-1111-1111-1111-111111111111"
-                  placeholderTextColor={colors.inkMuted}
-                  value={newStoryId}
-                  onChangeText={setNewStoryId}
-                  autoCapitalize="none"
-                  testID="whatsapp-story-id-input"
-                />
+                <Text style={styles.label}>Linked Editorial Story (Optional)</Text>
+                {stories.length > 0 ? (
+                  <View style={styles.typeSelector}>
+                    <Pressable
+                      style={[
+                        styles.typeButton,
+                        !newStoryId && styles.typeButtonSelected
+                      ]}
+                      onPress={() => setNewStoryId("")}
+                    >
+                      <Text
+                        style={[
+                          styles.typeButtonText,
+                          !newStoryId && styles.typeButtonTextSelected
+                        ]}
+                      >
+                        Standalone Advisory
+                      </Text>
+                    </Pressable>
+                    {stories.slice(0, 6).map((st) => (
+                      <Pressable
+                        key={st.id}
+                        style={[
+                          styles.typeButton,
+                          newStoryId === st.id && styles.typeButtonSelected
+                        ]}
+                        onPress={() => setNewStoryId(st.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.typeButtonText,
+                            newStoryId === st.id && styles.typeButtonTextSelected
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {st.title}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Optional linked story reference"
+                    placeholderTextColor={colors.inkMuted}
+                    value={newStoryId}
+                    onChangeText={setNewStoryId}
+                    autoCapitalize="none"
+                    testID="whatsapp-story-id-input"
+                  />
+                )}
               </View>
 
               {/* Channel Identity */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Channel Identity</Text>
-                <Text style={styles.readOnlyField}>healthtimes-whatsapp-channel</Text>
+                <Text style={styles.label}>Verified Broadcast Channel</Text>
+                <Text style={styles.readOnlyField}>HealthTimes Official WhatsApp Channel (healthtimes-whatsapp-channel)</Text>
               </View>
 
               {/* Submit Buttons */}
@@ -503,12 +576,80 @@ export function StudioWhatsAppDeskView({
                   <Text style={styles.detailTitle}>{selectedBroadcast.title}</Text>
                   <Text style={styles.detailMeta}>
                     Created: {formatTimestamp(selectedBroadcast.createdAt)}
+                    {selectedBroadcast.createdByName ? ` by ${selectedBroadcast.createdByName}` : ""}
                     {selectedBroadcast.approvedAt &&
-                      ` • Approved: ${formatTimestamp(selectedBroadcast.approvedAt)}`}
+                      ` • Approved: ${formatTimestamp(selectedBroadcast.approvedAt)}${selectedBroadcast.approvedByName ? ` (${selectedBroadcast.approvedByName})` : ""}`}
                     {selectedBroadcast.sentAt &&
                       ` • Sent: ${formatTimestamp(selectedBroadcast.sentAt)}`}
                     {selectedBroadcast.rejectedAt &&
                       ` • Rejected: ${formatTimestamp(selectedBroadcast.rejectedAt)}`}
+                  </Text>
+                  {selectedBroadcast.relatedStoryId && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, flexWrap: "wrap" }}>
+                      <Text style={{ fontSize: 12, color: colors.inkMuted, fontWeight: "600" }}>
+                        Linked Story: {stories.find((s) => s.id === selectedBroadcast.relatedStoryId)?.title ?? "Editorial Coverage Item"}
+                      </Text>
+                      {onOpenStory && (
+                        <Pressable
+                          style={{
+                            paddingHorizontal: spacing.sm,
+                            paddingVertical: 4,
+                            borderRadius: radius.sm,
+                            backgroundColor: "#EFF6FF",
+                            borderWidth: 1,
+                            borderColor: "#BFDBFE"
+                          }}
+                          onPress={() => onOpenStory(selectedBroadcast.relatedStoryId!)}
+                          accessibilityRole="button"
+                          testID="whatsapp-open-linked-story-btn"
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#1D4ED8" }}>
+                            Open Linked Story Workspace →
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* WhatsApp Governance & Lifecycle State Card */}
+              <View style={styles.sectionCard} testID="whatsapp-governance-lifecycle-card">
+                <Text style={styles.sectionCardTitle}>WhatsApp Broadcast Governance & Delivery Lifecycle</Text>
+                <View style={styles.ledgerMetaList}>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>1. Outbound Draft & Preparation:</Text>{" "}
+                    {selectedBroadcast.status === "draft"
+                      ? "Currently in editorial draft preparation — awaiting senior editor review."
+                      : "Completed by Audience & Editorial Desk."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>2. Editorial Approval Gate:</Text>{" "}
+                    {selectedBroadcast.status === "approved" || selectedBroadcast.status === "sent"
+                      ? `Approved for release${selectedBroadcast.approvedByName ? ` by ${selectedBroadcast.approvedByName}` : ""}.`
+                      : selectedBroadcast.status === "rejected"
+                        ? "Rejected during editorial review."
+                        : "Pending Editor-in-Chief or Managing Editor approval."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>3. Template & Governance State:</Text>{" "}
+                    Verified Meta Business Channel Advisory ({formatTypeLabel(selectedBroadcast.broadcastType)}) • No raw subscriber contact details exposed to newsroom clients.
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>4. Audience Consent / Opt-In:</Text>{" "}
+                    Restricted to explicitly opted-in HealthTimes WhatsApp Channel subscribers (POPIA/GDPR compliant consent ledger).
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>5. Provider Dispatch & Delivery State:</Text>{" "}
+                    {selectedBroadcast.dispatch
+                      ? `${selectedBroadcast.dispatch.transportStatus.toUpperCase()} (${selectedBroadcast.dispatch.deliveredCount} delivered / ${selectedBroadcast.dispatch.readCount} read of ${selectedBroadcast.dispatch.recipientCount} recipients)${isOwnerPreview ? " — Sample / Simulated Preview Ledger" : ""}`
+                      : selectedBroadcast.status === "approved"
+                        ? "Ready for provider dispatch."
+                        : "Not yet dispatched to provider."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>6. Inbound Conversation / Reply Capability:</Text>{" "}
+                    One-way broadcast advisory channel. Reader replies and tip-offs route to the Newsroom Editorial Tip-Line inbox rather than opening unmoderated threads.
                   </Text>
                 </View>
               </View>
@@ -622,7 +763,7 @@ export function StudioWhatsAppDeskView({
                       </Pressable>
                     ) : (
                       <Text style={styles.permissionHint}>
-                        Approving requires `story.publish` capability.
+                        Approving requires editorial publishing authority (Editor-in-Chief / Managing Editor).
                       </Text>
                     )}
 
@@ -649,12 +790,16 @@ export function StudioWhatsAppDeskView({
                         testID="whatsapp-dispatch-btn"
                       >
                         <Text style={styles.dispatchButtonText}>
-                          {isSubmitting ? "Dispatching…" : "🚀 Dispatch to WhatsApp"}
+                          {isSubmitting
+                            ? "Dispatching…"
+                            : isOwnerPreview
+                              ? "🚀 Simulate WhatsApp Dispatch (Preview)"
+                              : "🚀 Dispatch to WhatsApp"}
                         </Text>
                       </Pressable>
                     ) : (
                       <Text style={styles.permissionHint}>
-                        Dispatching requires `story.publish` capability.
+                        Dispatching requires editorial publishing authority (Editor-in-Chief / Managing Editor).
                       </Text>
                     )}
 
@@ -673,7 +818,9 @@ export function StudioWhatsAppDeskView({
                 {selectedBroadcast.status === "sent" && (
                   <View style={styles.sentNotice}>
                     <Text style={styles.sentNoticeText}>
-                      ✓ This broadcast has been dispatched. Delivery status updates via webhook receipts.
+                      {isOwnerPreview
+                        ? "✓ Preview Simulation: This broadcast is marked Sent in local Preview state. No external WhatsApp Cloud API messages were transmitted."
+                        : "✓ This broadcast has been dispatched. Delivery status updates via webhook receipts."}
                     </Text>
                   </View>
                 )}
@@ -683,10 +830,13 @@ export function StudioWhatsAppDeskView({
               {confirmDispatchVisible && (
                 <View style={styles.modalOverlay}>
                   <View style={styles.modalCard}>
-                    <Text style={styles.modalTitle}>Confirm WhatsApp Broadcast</Text>
+                    <Text style={styles.modalTitle}>
+                      {isOwnerPreview ? "Simulate WhatsApp Broadcast (Preview)" : "Confirm WhatsApp Broadcast"}
+                    </Text>
                     <Text style={styles.modalBody}>
-                      Are you sure you want to broadcast "{selectedBroadcast.title}" to WhatsApp?
-                      This action will initiate irreversible provider delivery via the WhatsApp Cloud API.
+                      {isOwnerPreview
+                        ? `Simulate dispatching "${selectedBroadcast.title}" in Owner Preview? This updates local Preview delivery state only and never invokes the live WhatsApp Cloud API.`
+                        : `Are you sure you want to broadcast "${selectedBroadcast.title}" to WhatsApp? This action will initiate provider delivery via the WhatsApp Cloud API.`}
                     </Text>
                     <View style={styles.modalActions}>
                       <Pressable
@@ -694,7 +844,9 @@ export function StudioWhatsAppDeskView({
                         onPress={handleDispatchConfirmed}
                         testID="whatsapp-confirm-dispatch-btn"
                       >
-                        <Text style={styles.primaryButtonText}>Confirm & Send</Text>
+                        <Text style={styles.primaryButtonText}>
+                          {isOwnerPreview ? "Simulate Dispatch" : "Confirm & Send"}
+                        </Text>
                       </Pressable>
                       <Pressable
                         style={styles.secondaryButton}

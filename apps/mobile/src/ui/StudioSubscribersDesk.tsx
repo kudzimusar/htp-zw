@@ -40,6 +40,8 @@ export interface StudioSubscribersDeskViewProps {
   canManage: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
+  onOpenPremium?: () => void;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -72,7 +74,9 @@ export function StudioSubscribersDeskView({
   onGrantEntitlement,
   canManage,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false,
+  onOpenPremium
 }: StudioSubscribersDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -125,6 +129,15 @@ export function StudioSubscribersDeskView({
         </View>
 
         <View style={styles.headerActions}>
+          {onOpenPremium && (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={onOpenPremium}
+              testID="subscribers-open-premium-btn"
+            >
+              <Text style={styles.secondaryButtonText}>Premium Access Policies →</Text>
+            </Pressable>
+          )}
           <Pressable
             style={[styles.secondaryButton, isMutating && styles.disabledButton]}
             onPress={onRefresh}
@@ -136,6 +149,24 @@ export function StudioSubscribersDeskView({
           </Pressable>
         </View>
       </View>
+
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderWidth: 1,
+            borderColor: "#FDE68A",
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md
+          }}
+          testID="subscribers-preview-banner"
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Subscriber & Entitlement Registry (Owner Preview): Reader accounts and entitlement passes shown below are sample records. Account status (Active / Suspended) governs login standing, while Entitlement Passes govern metered Premium story access. Actions below update local Preview memory only and never charge customers.
+          </Text>
+        </View>
+      )}
 
       {/* Action / Error Banner */}
       {actionMessage && (

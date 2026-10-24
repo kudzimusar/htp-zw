@@ -51,6 +51,7 @@ export interface StudioStaffRolesDeskViewProps {
   canManage: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -142,7 +143,8 @@ export function StudioStaffRolesDeskView({
   onCancelInvite,
   canManage,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false
 }: StudioStaffRolesDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
@@ -246,9 +248,13 @@ export function StudioStaffRolesDeskView({
                 canManage ? styles.rbacBadgeTextManager : styles.rbacBadgeTextReadOnly
               ]}
             >
-              {canManage
-                ? "Full Authority (staff.manage)"
-                : "Read-Only (staff.view)"}
+              {isOwnerPreview
+                ? canManage
+                  ? "Governance Authority (Simulated)"
+                  : "Directory Viewer (Read-Only)"
+                : canManage
+                  ? "Full Authority (staff.manage)"
+                  : "Read-Only (staff.view)"}
             </Text>
           </View>
           <Pressable
@@ -262,6 +268,24 @@ export function StudioStaffRolesDeskView({
           </Pressable>
         </View>
       </View>
+
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderWidth: 1,
+            borderColor: "#FDE68A",
+            borderRadius: radius.md,
+            padding: spacing.md,
+            marginBottom: spacing.md
+          }}
+          testID="staff-roles-preview-banner"
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Staff Directory & RBAC Simulation (Owner Preview): Role assignments, account suspensions, session revocations, and invitations below update local Preview memory only. They do not alter real `/studio` authentication or send live invitation emails.
+          </Text>
+        </View>
+      )}
 
       {/* Global alert messages */}
       {error && (
@@ -865,15 +889,21 @@ export function StudioStaffRolesDeskView({
                       <Text style={styles.metaValue}>
                         {rec.actorName ?? "System / Staff"}
                       </Text>{" "}
-                      · Target:{" "}
+                      · Scope:{" "}
                       <Text style={styles.metaValue}>
-                        {rec.targetTable} ({rec.targetId ? rec.targetId.slice(0, 8) : "—"})
+                        {isOwnerPreview
+                          ? rec.targetTable.replace(/_/g, " ")
+                          : `${rec.targetTable} (${rec.targetId ? rec.targetId.slice(0, 8) : "—"})`}
                       </Text>
                     </Text>
                     {rec.metadata && Object.keys(rec.metadata).length > 0 && (
                       <View style={styles.metadataBox}>
                         <Text style={styles.metadataText}>
-                          {JSON.stringify(rec.metadata)}
+                          {isOwnerPreview
+                            ? Object.entries(rec.metadata)
+                                .map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v)}`)
+                                .join(" · ")
+                            : JSON.stringify(rec.metadata)}
                         </Text>
                       </View>
                     )}

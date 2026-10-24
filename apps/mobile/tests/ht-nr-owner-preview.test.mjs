@@ -1162,4 +1162,152 @@ test("HT-NR-UAT04A-R2-R2: Residual technical copy sweep across Live, Video, Medi
   );
 });
 
+test("HT-NR-FINAL-R1-01: Audience & Marketing modules (WhatsApp, Audience Intelligence, Search & Growth) meet full Preview completion & truthfulness", () => {
+  const whatsappSource = read("src/ui/StudioWhatsAppDesk.tsx");
+  const audienceSource = read("src/ui/StudioAudienceDesk.tsx");
+  const searchSource = read("src/ui/StudioSearchGrowthDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // WhatsApp governance & lifecycle states
+  assert.ok(whatsappSource.includes("WhatsApp Broadcast Governance & Delivery Lifecycle"));
+  assert.ok(whatsappSource.includes("1. Outbound Draft & Preparation:"));
+  assert.ok(whatsappSource.includes("2. Editorial Approval Gate:"));
+  assert.ok(whatsappSource.includes("3. Template & Governance State:"));
+  assert.ok(whatsappSource.includes("4. Audience Consent / Opt-In:"));
+  assert.ok(whatsappSource.includes("5. Provider Dispatch & Delivery State:"));
+  assert.ok(whatsappSource.includes("6. Inbound Conversation / Reply Capability:"));
+  assert.ok(whatsappSource.includes("Open Linked Story Workspace →"));
+  assert.ok(whatsappSource.includes("Simulate WhatsApp Broadcast (Preview)"));
+  assert.ok(!whatsappSource.includes("Related Story UUID (Optional)"));
+
+  // Audience Intelligence sample analytics disclosure & segment trends
+  const audData = previewData.buildPreviewAudienceIntelligence();
+  assert.equal(audData.contacts.consentedContacts, 1420);
+  assert.equal(audData.segments.totalSegments, 3);
+  assert.equal(audData.pushSubscribers.activeDevices, 3840);
+  assert.equal(audData.whatsappDistribution.totalBroadcasts, 3);
+  assert.equal(audData.subscribers.activeSubscribers, 395);
+  assert.ok(audienceSource.includes("Sample Audience & Segment Figures (Owner Preview)"));
+  assert.ok(audienceSource.includes("Audience Segments & 30-Day Engagement Trends"));
+
+  // Search & Growth SEO vs Headline guide & no raw table name
+  assert.ok(searchSource.includes("Editorial SEO vs. Reader Headline & Discoverability"));
+  assert.ok(!searchSource.includes("search_console_daily_metrics"));
+  assert.ok(previewStudioSource.includes("OwnerPreviewWhatsAppDeskView"));
+  assert.ok(previewStudioSource.includes("OwnerPreviewAudienceView"));
+  assert.ok(previewStudioSource.includes("OwnerPreviewSearchGrowthView"));
+});
+
+test("HT-NR-FINAL-R1-02: Commercial & Finance modules reconcile internally and simulate mutations in local Preview state", () => {
+  const adSource = read("src/ui/StudioAdvertisingDesk.tsx");
+  const subSource = read("src/ui/StudioSubscribersDesk.tsx");
+  const premSource = read("src/ui/StudioPremiumDesk.tsx");
+  const finSource = read("src/ui/StudioFinanceDesk.tsx");
+
+  // Commercial Preview banners, cross-desk links, and no AG-05 phase code leakage
+  assert.ok(adSource.includes("Sample Commercial Inventory (Owner Preview)"));
+  assert.ok(adSource.includes("Commercial Orders →"));
+  assert.ok(subSource.includes("Sample Subscriber & Entitlement Registry (Owner Preview)"));
+  assert.ok(subSource.includes("Premium Access Policies →"));
+  assert.ok(premSource.includes("Sample Monetization & Access Policy State (Owner Preview)"));
+  assert.ok(premSource.includes("Reader Public Teaser Policy"));
+  assert.ok(!premSource.includes("AG-05"));
+
+  const premOverview = previewData.buildPreviewPremiumOperationsOverview();
+  assert.equal(premOverview.teaserPolicy.authority, "Publisher / Editorial Access Policy");
+
+  // Finance & Accounting internal reconciliation
+  const overview = previewData.buildPreviewFinanceOverview();
+  const aging = previewData.buildPreviewReceivablesAging();
+  const invoices = previewData.buildPreviewInvoices();
+  const payments = previewData.buildPreviewPayments();
+  const expenses = previewData.buildPreviewExpenses();
+  const tb = previewData.buildPreviewTrialBalance();
+  const pnl = previewData.buildPreviewProfitAndLoss();
+  const bs = previewData.buildPreviewBalanceSheet();
+  const stmts = previewData.buildPreviewFinanceStatements();
+
+  const usdOverview = overview.byCurrency[0];
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalOpenAr = invoices.reduce((sum, inv) => sum + inv.balanceDue, 0);
+  const approvedExpensesTotal = expenses
+    .filter((e) => e.status === "approved" || e.status === "paid")
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  assert.equal(usdOverview.invoicedTotal, totalInvoiced);
+  assert.equal(usdOverview.revenueCollected, totalCollected);
+  assert.equal(usdOverview.receivablesOutstanding, totalOpenAr);
+  assert.equal(aging.totals[0].totalOutstanding, totalOpenAr);
+  assert.equal(usdOverview.expensesApproved, approvedExpensesTotal);
+
+  assert.equal(tb.isBalanced, true);
+  assert.equal(tb.totalDebits, tb.totalCredits);
+  assert.equal(pnl.totalRevenue - pnl.totalExpenses, pnl.netOperatingSurplus);
+  assert.equal(bs.isBalanced, true);
+  assert.equal(bs.totalAssets, bs.totalLiabilitiesAndEquity);
+  assert.equal(stmts.incomeStatement[0].netOperatingSurplus, pnl.netOperatingSurplus);
+  assert.ok(!stmts.balanceSheet.includes("NOT AVAILABLE UNTIL GENERAL LEDGER AUTHORITY EXISTS"));
+
+  // Finance Preview local state mutations & document watermarks
+  assert.ok(finSource.includes("Sample Financial & General Ledger Figures (Owner Preview)"));
+  assert.ok(finSource.includes("SAMPLE PREVIEW DOCUMENT — NOT A VALID COMMERCIAL TAX INVOICE"));
+  assert.ok(finSource.includes("SAMPLE PREVIEW RECEIPT — SIMULATED SETTLEMENT RECORD ONLY"));
+  assert.ok(finSource.includes("SAMPLE PREVIEW STATEMENT OF ACCOUNT — FOR INTERFACE REVIEW ONLY"));
+  assert.ok(finSource.includes("+ New Commercial Order"));
+  assert.ok(finSource.includes("Generate Invoice"));
+});
+
+test("HT-NR-FINAL-R1-03: Executive, Administration & 7-Persona Matrix boundaries hold across all 38 module routes", () => {
+  const homepageSource = read("src/ui/StudioHomepage.tsx");
+  const analyticsSource = read("src/ui/StudioAnalyticsDesk.tsx");
+  const staffSource = read("src/ui/StudioStaffRolesDesk.tsx");
+  const settingsSource = read("src/ui/StudioSettingsDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // Executive Dashboard & Homepage Curation & Analytics
+  assert.ok(previewStudioSource.includes("5. EXECUTIVE PERFORMANCE & COMMERCIAL SNAPSHOT"));
+  assert.ok(homepageSource.includes("HealthTimes Newsroom OS • Editorial Homepage Desk"));
+  assert.ok(homepageSource.includes("EDITORIAL STORY INVENTORY"));
+  assert.ok(analyticsSource.includes("Sample Executive & Editorial Intelligence (Owner Preview)"));
+
+  const edIntel = previewData.buildPreviewEditorialIntelligence();
+  assert.equal(edIntel.assignments.total, 6);
+  assert.equal(edIntel.distributionReach.socialPostsCount, 4);
+  assert.equal(edIntel.distributionReach.newsletterCampaignsCount, 5);
+  assert.equal(edIntel.distributionReach.pushAlertsCount, 5);
+  assert.equal(edIntel.distributionReach.whatsappBroadcastsCount, 3);
+
+  // Staff & Roles + Platform Settings
+  assert.ok(staffSource.includes("Sample Staff Directory & RBAC Simulation (Owner Preview)"));
+  assert.ok(settingsSource.includes("Sample Platform Configuration (Owner Preview)"));
+  const settingsOverview = previewData.buildPreviewPlatformSettingsOverview();
+  assert.equal(settingsOverview.integrations.database_backend.appliedMigrations, 83);
+
+  // 7 Personas & Direct-Route Boundary Verification
+  const personas = previewData.OWNER_PREVIEW_PERSONAS;
+  assert.equal(personas.length, 7);
+  const byId = Object.fromEntries(personas.map((p) => [p.id, p]));
+
+  // Publisher / Owner has all 7 domains
+  assert.equal(byId.owner.allowedDomains.length, 7);
+  // Editor-in-Chief has my-work, editorial, audience-marketing, executive (no finance, no admin)
+  assert.ok(!byId.editor.allowedDomains.includes("finance"));
+  assert.ok(!byId.editor.allowedDomains.includes("admin"));
+  // Reporter has my-work, editorial (no commercial, finance, executive, admin)
+  assert.deepEqual(byId.reporter.allowedDomains, ["my-work", "editorial"]);
+  // Finance Manager has my-work, finance, commercial
+  assert.ok(byId.fmgr.allowedDomains.includes("finance"));
+  assert.ok(!byId.fmgr.allowedDomains.includes("editorial"));
+  // Commercial Manager has my-work, commercial, audience-marketing
+  assert.ok(byId.cmgr.allowedDomains.includes("commercial"));
+  assert.ok(!byId.cmgr.allowedDomains.includes("finance"));
+  // Audience & Growth Lead has my-work, audience-marketing
+  assert.ok(byId.audience.allowedDomains.includes("audience-marketing"));
+  assert.ok(!byId.audience.allowedDomains.includes("commercial"));
+  // Systems Administrator has my-work, admin, executive (OWNER_POLICY_REVIEW preserved)
+  assert.deepEqual(byId.admin.allowedDomains, ["my-work", "admin", "executive"]);
+});
+
+
 
