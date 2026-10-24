@@ -31,6 +31,14 @@ export default function EditionScreen(){
   },[initialized,preferences.data]);
 
   const zones=taxonomy.data?.geographicZones ?? [];
+  const zoneMetaByName=useMemo(()=>{
+    const map=new Map<string,{level:string;code?:string|null}>();
+    for(const z of zones){
+      map.set(z.name,{level:z.level,code:z.isoCountryCode});
+    }
+    return map;
+  },[zones]);
+
   const editions=useMemo(()=>zones
     .filter((zone)=>zone.level==="global" || zone.level==="continent" || zone.level==="region" || zone.level==="country")
     .map((zone)=>zone.name),[zones]);
@@ -77,7 +85,31 @@ export default function EditionScreen(){
 
   return (
     <Page title="Edition & Preferences">
-      <Text style={[styles.lede,{color:palette.inkMuted}]}>Choose one primary edition for Home, then separately follow places and topics you want to see more often.</Text>
+      <View
+        testID="edition-active-summary"
+        style={[
+          styles.summaryCard,
+          {borderColor:palette.border,backgroundColor:palette.paper}
+        ]}
+      >
+        <Text style={[styles.lede,{color:palette.inkMuted}]}>
+          Choose one primary edition for Home, then separately follow places and topics you want to see more often.
+        </Text>
+        <View style={styles.summaryPills}>
+          <View style={[styles.summaryPill,{borderColor:palette.blue,backgroundColor:palette.paperMuted}]}>
+            <Text style={[styles.summaryPillLabel,{color:palette.inkMuted}]}>PRIMARY EDITION</Text>
+            <Text style={[styles.summaryPillValue,{color:palette.ink}]}>{primary}</Text>
+          </View>
+          <View style={[styles.summaryPill,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+            <Text style={[styles.summaryPillLabel,{color:palette.inkMuted}]}>FOLLOWED PLACES</Text>
+            <Text style={[styles.summaryPillValue,{color:palette.ink}]}>{followed.length}</Text>
+          </View>
+          <View style={[styles.summaryPill,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+            <Text style={[styles.summaryPillLabel,{color:palette.inkMuted}]}>TOPICS</Text>
+            <Text style={[styles.summaryPillValue,{color:palette.ink}]}>{selectedTopics.length}</Text>
+          </View>
+        </View>
+      </View>
 
       {(taxonomy.loading || preferences.loading) && (
         <Section>
@@ -93,100 +125,161 @@ export default function EditionScreen(){
 
       {!taxonomy.loading && !preferences.loading && !taxonomy.error && !preferences.error && (
         <>
-      <View style={[styles.searchWrap,{borderColor:palette.border,backgroundColor:palette.paper}]}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search country or region"
-          placeholderTextColor={palette.inkMuted}
-          style={[styles.search,{color:palette.ink}]}
-          accessibilityLabel="Search country or region"
-        />
-      </View>
-
-      <Section>
-        <SectionHeader title="Primary Edition" eyebrow="ONE SELECTION" />
-        <Text style={[styles.helper,{color:palette.inkMuted}]}>Your primary edition leads editorial discovery. You can change it at any time.</Text>
-        {locationChoices.length ? (
-          <View accessibilityRole="radiogroup" style={styles.primaryList}>
-            {locationChoices.map((item)=>{
-              const selected=primary===item;
-              return (
-                <Pressable
-                  key={item}
-                  testID="primary-edition-option"
-                  accessibilityRole="radio"
-                  accessibilityState={{selected}}
-                  aria-checked={selected}
-                  accessibilityLabel={item+" primary edition"}
-                  onPress={()=>setPrimary(item)}
-                  style={[styles.primaryRow,{borderColor:selected?palette.blue:palette.border,backgroundColor:selected?palette.paperMuted:palette.paper}]}
-                >
-                  <View style={[styles.radio,{borderColor:selected?palette.blue:palette.inkMuted}]}>
-                    {selected && <View style={[styles.radioDot,{backgroundColor:palette.blue}]} />}
-                  </View>
-                  <Text style={[styles.primaryLabel,{color:palette.ink}]}>{item}</Text>
-                  {selected && <Text style={[styles.selectedLabel,{color:palette.blue}]}>SELECTED</Text>}
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : <EmptyState title="No matching edition" message="Try a broader country or region name." />}
-
-        {!query.trim() && editions.length>conciseEditions.length && (
-          <Pressable
-            testID="edition-more-locations"
-            accessibilityRole="button"
-            accessibilityState={{expanded:showMoreLocations}}
-            style={styles.moreButton}
-            onPress={()=>setShowMoreLocations((value)=>!value)}
+          <View
+            testID="edition-search-wrap"
+            style={[styles.searchWrap,{borderColor:palette.border,backgroundColor:palette.paper}]}
           >
-            <Text style={[styles.moreText,{color:palette.blue}]}>{showMoreLocations ? "Show Fewer Countries/Regions" : "Show More Countries/Regions"}</Text>
-          </Pressable>
-        )}
-      </Section>
-
-      <Section>
-        <SectionHeader title="Followed Countries & Regions" />
-        <Text style={[styles.helper,{color:palette.inkMuted}]}>Followed locations add interests without changing your primary edition.</Text>
-        {followedChoices.length ? (
-          <View style={styles.chips}>
-            {followedChoices.map((item)=><Chip key={item} active={followed.includes(item)} onPress={()=>toggle(item,followed,setFollowed)}>{item}</Chip>)}
-          </View>
-        ) : <EmptyState title="No matching locations" message="Try another country or region name." />}
-      </Section>
-
-      <Section>
-        <SectionHeader title="Content Preferences" />
-        {interestOptions.length ? (
-          <>
-            <View style={styles.chips}>
-              {topicChoices.map((item)=><Chip key={item} active={selectedTopics.includes(item)} onPress={()=>toggle(item,selectedTopics,setSelectedTopics)}>{item}</Chip>)}
-            </View>
-            {interestOptions.length>TOPIC_LIMIT && (
+            <Text style={[styles.searchIcon,{color:palette.inkMuted}]}>⌕</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search country or region"
+              placeholderTextColor={palette.inkMuted}
+              style={[styles.search,{color:palette.ink}]}
+              accessibilityLabel="Search country or region"
+            />
+            {!!query.trim() && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{expanded:showMoreTopics}}
-                style={styles.moreButton}
-                onPress={()=>setShowMoreTopics((value)=>!value)}
+                accessibilityLabel="Clear location search"
+                onPress={()=>setQuery("")}
+                style={styles.clearButton}
               >
-                <Text style={[styles.moreText,{color:palette.blue}]}>{showMoreTopics ? "Show Fewer Topics" : "Show More Topics"}</Text>
+                <Text style={[styles.clearText,{color:palette.inkMuted}]}>✕</Text>
               </Pressable>
             )}
-          </>
-        ) : <EmptyState title="No topics available yet" message="HealthTimes topics will appear here as they become available." />}
-      </Section>
+          </View>
 
-      <Section>
-        <View style={[styles.note,{backgroundColor:palette.paperMuted}]}>
-          <Text style={[styles.noteTitle,{color:palette.ink}]}>Edition and billing country are different</Text>
-          <Text style={[styles.noteText,{color:palette.inkMuted}]}>Edition preferences shape editorial discovery. Residence, billing country and storefront currency are managed separately.</Text>
-        </View>
-        <Pressable accessibilityRole="button" style={[styles.save,{backgroundColor:palette.blue}]} onPress={()=>void save()}>
-          <Text style={[styles.saveText,{color:palette.paper}]}>Save Preferences</Text>
-        </Pressable>
-        {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
-      </Section>
+          <Section>
+            <SectionHeader title="Primary Edition" eyebrow="ONE SELECTION" />
+            <Text style={[styles.helper,{color:palette.inkMuted}]}>
+              Your primary edition leads editorial discovery. You can change it at any time.
+            </Text>
+            {locationChoices.length ? (
+              <View accessibilityRole="radiogroup" style={styles.primaryList}>
+                {locationChoices.map((item)=>{
+                  const selected=primary===item;
+                  const meta=zoneMetaByName.get(item);
+                  const badgeText=meta?.code ? meta.code.toUpperCase() : (meta?.level ? meta.level.toUpperCase() : "EDITION");
+                  return (
+                    <Pressable
+                      key={item}
+                      testID="primary-edition-option"
+                      accessibilityRole="radio"
+                      accessibilityState={{selected}}
+                      aria-checked={selected}
+                      accessibilityLabel={item+" primary edition"}
+                      onPress={()=>setPrimary(item)}
+                      style={({ pressed, focused }: any)=>[
+                        styles.primaryRow,
+                        {
+                          borderColor:selected?palette.blue:palette.border,
+                          backgroundColor:selected?palette.paperMuted:palette.paper
+                        },
+                        focused && [styles.actionFocused,{borderColor:palette.blue}],
+                        pressed && styles.actionPressed
+                      ]}
+                    >
+                      <View style={[styles.radio,{borderColor:selected?palette.blue:palette.inkMuted}]}>
+                        {selected && <View style={[styles.radioDot,{backgroundColor:palette.blue}]} />}
+                      </View>
+                      <View style={styles.primaryLabelWrap}>
+                        <Text style={[styles.primaryLabel,{color:palette.ink}]}>{item}</Text>
+                        <Text style={[styles.zoneBadge,{color:palette.inkMuted,borderColor:palette.border}]}>
+                          {badgeText}
+                        </Text>
+                      </View>
+                      {selected && <Text style={[styles.selectedLabel,{color:palette.blue}]}>SELECTED</Text>}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : <EmptyState title="No matching edition" message="Try a broader country or region name." />}
+
+            {!query.trim() && editions.length>conciseEditions.length && (
+              <Pressable
+                testID="edition-more-locations"
+                accessibilityRole="button"
+                accessibilityState={{expanded:showMoreLocations}}
+                style={({ pressed, focused }: any)=>[
+                  styles.moreButton,
+                  {borderColor:palette.border,backgroundColor:palette.paper},
+                  focused && [styles.actionFocused,{borderColor:palette.blue}],
+                  pressed && styles.actionPressed
+                ]}
+                onPress={()=>setShowMoreLocations((value)=>!value)}
+              >
+                <Text style={[styles.moreText,{color:palette.blue}]}>
+                  {showMoreLocations ? "Show Fewer Countries/Regions" : "Show More Countries/Regions"}
+                </Text>
+              </Pressable>
+            )}
+          </Section>
+
+          <Section>
+            <SectionHeader title="Followed Countries & Regions" eyebrow="ADDITIONAL PLACES" />
+            <Text style={[styles.helper,{color:palette.inkMuted}]}>
+              Followed locations add interests without changing your primary edition.
+            </Text>
+            {followedChoices.length ? (
+              <View style={styles.chips}>
+                {followedChoices.map((item)=><Chip key={item} active={followed.includes(item)} onPress={()=>toggle(item,followed,setFollowed)}>{item}</Chip>)}
+              </View>
+            ) : <EmptyState title="No matching locations" message="Try another country or region name." />}
+          </Section>
+
+          <Section>
+            <SectionHeader title="Content Preferences" eyebrow="TOPICS & DESKS" />
+            <Text style={[styles.helper,{color:palette.inkMuted}]}>
+              Select health topics and desks you want highlighted across your Reader feeds.
+            </Text>
+            {interestOptions.length ? (
+              <>
+                <View style={styles.chips}>
+                  {topicChoices.map((item)=><Chip key={item} active={selectedTopics.includes(item)} onPress={()=>toggle(item,selectedTopics,setSelectedTopics)}>{item}</Chip>)}
+                </View>
+                {interestOptions.length>TOPIC_LIMIT && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{expanded:showMoreTopics}}
+                    style={({ pressed, focused }: any)=>[
+                      styles.moreButton,
+                      {borderColor:palette.border,backgroundColor:palette.paper},
+                      focused && [styles.actionFocused,{borderColor:palette.blue}],
+                      pressed && styles.actionPressed
+                    ]}
+                    onPress={()=>setShowMoreTopics((value)=>!value)}
+                  >
+                    <Text style={[styles.moreText,{color:palette.blue}]}>
+                      {showMoreTopics ? "Show Fewer Topics" : "Show More Topics"}
+                    </Text>
+                  </Pressable>
+                )}
+              </>
+            ) : <EmptyState title="No topics available yet" message="HealthTimes topics will appear here as they become available." />}
+          </Section>
+
+          <Section>
+            <View style={[styles.note,{borderColor:palette.border,backgroundColor:palette.paperMuted}]}>
+              <Text style={[styles.noteTitle,{color:palette.ink}]}>Edition and billing country are different</Text>
+              <Text style={[styles.noteText,{color:palette.inkMuted}]}>
+                Edition preferences shape editorial discovery. Residence, billing country and storefront currency are managed separately.
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed, focused }: any)=>[
+                styles.save,
+                {backgroundColor:palette.blue},
+                focused && [styles.actionFocused,{borderColor:palette.ink}],
+                pressed && styles.actionPressed
+              ]}
+              onPress={()=>void save()}
+            >
+              <Text style={[styles.saveText,{color:palette.paper}]}>Save Preferences</Text>
+            </Pressable>
+            {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
+          </Section>
         </>
       )}
     </Page>
@@ -194,24 +287,119 @@ export default function EditionScreen(){
 }
 
 const styles=StyleSheet.create({
-  lede:{fontSize:15,lineHeight:23,maxWidth:760,marginTop:spacing.sm},
-  searchWrap:{marginTop:spacing.xl,borderWidth:1,borderRadius:radius.md},
-  search:{minHeight:52,paddingHorizontal:spacing.lg,fontSize:15},
-  helper:{fontSize:13,lineHeight:20,maxWidth:760,marginBottom:spacing.md},
+  summaryCard:{
+    marginTop:spacing.md,
+    borderWidth:1,
+    borderRadius:radius.md,
+    padding:spacing.lg,
+    gap:spacing.md
+  },
+  lede:{fontSize:14,lineHeight:21,maxWidth:760},
+  summaryPills:{
+    flexDirection:"row",
+    flexWrap:"wrap",
+    gap:spacing.sm
+  },
+  summaryPill:{
+    borderWidth:1,
+    borderRadius:radius.sm,
+    paddingHorizontal:12,
+    paddingVertical:8,
+    minWidth:110,
+    gap:2
+  },
+  summaryPillLabel:{
+    fontSize:9,
+    fontWeight:"900",
+    letterSpacing:0.8
+  },
+  summaryPillValue:{
+    fontSize:14,
+    fontWeight:"900"
+  },
+  searchWrap:{
+    marginTop:spacing.lg,
+    borderWidth:1,
+    borderRadius:radius.md,
+    flexDirection:"row",
+    alignItems:"center",
+    paddingHorizontal:spacing.md,
+    maxWidth:760
+  },
+  searchIcon:{fontSize:16,fontWeight:"700",marginRight:spacing.sm},
+  search:{flex:1,minHeight:50,fontSize:15},
+  clearButton:{
+    minHeight:layout.touchMin,
+    minWidth:layout.touchMin,
+    alignItems:"center",
+    justifyContent:"center"
+  },
+  clearText:{fontSize:14,fontWeight:"800"},
+  helper:{fontSize:13,lineHeight:20,maxWidth:760,marginBottom:spacing.sm},
   primaryList:{gap:spacing.sm,maxWidth:760},
-  primaryRow:{minHeight:layout.touchMin,borderWidth:1,borderRadius:radius.md,paddingHorizontal:spacing.md,paddingVertical:spacing.sm,flexDirection:"row",alignItems:"center",gap:spacing.md},
+  primaryRow:{
+    minHeight:52,
+    borderWidth:1,
+    borderRadius:radius.md,
+    paddingHorizontal:spacing.md,
+    paddingVertical:spacing.sm,
+    flexDirection:"row",
+    alignItems:"center",
+    gap:spacing.md
+  },
   radio:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:"center",justifyContent:"center"},
   radioDot:{width:10,height:10,borderRadius:5},
-  primaryLabel:{fontSize:15,fontWeight:"800",flex:1},
+  primaryLabelWrap:{
+    flex:1,
+    flexDirection:"row",
+    alignItems:"center",
+    flexWrap:"wrap",
+    gap:spacing.sm
+  },
+  primaryLabel:{fontSize:15,fontWeight:"800"},
+  zoneBadge:{
+    fontSize:9,
+    fontWeight:"800",
+    letterSpacing:0.6,
+    borderWidth:1,
+    borderRadius:radius.sm,
+    paddingHorizontal:6,
+    paddingVertical:2
+  },
   selectedLabel:{fontSize:9,fontWeight:"900",letterSpacing:.8},
   chips:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  moreButton:{minHeight:layout.touchMin,alignSelf:"flex-start",justifyContent:"center",marginTop:spacing.md},
+  moreButton:{
+    minHeight:layout.touchMin,
+    alignSelf:"flex-start",
+    justifyContent:"center",
+    paddingHorizontal:14,
+    borderWidth:1,
+    borderRadius:radius.sm,
+    marginTop:spacing.md
+  },
   moreText:{fontSize:13,fontWeight:"900"},
-  note:{padding:spacing.lg,borderRadius:radius.md,gap:spacing.sm},
-  noteTitle:{fontSize:17,fontWeight:"900"},
-  noteText:{fontSize:14,lineHeight:21},
-  save:{marginTop:spacing.lg,minHeight:52,alignSelf:"stretch",maxWidth:520,justifyContent:"center",alignItems:"center",paddingHorizontal:18,borderRadius:radius.sm},
+  note:{
+    padding:spacing.lg,
+    borderWidth:1,
+    borderRadius:radius.md,
+    gap:spacing.xs,
+    maxWidth:760
+  },
+  noteTitle:{fontSize:16,fontWeight:"900"},
+  noteText:{fontSize:13,lineHeight:20},
+  save:{
+    marginTop:spacing.lg,
+    minHeight:52,
+    alignSelf:"stretch",
+    maxWidth:520,
+    justifyContent:"center",
+    alignItems:"center",
+    paddingHorizontal:18,
+    borderRadius:radius.sm
+  },
   saveText:{fontWeight:"900",fontSize:15},
-  status:{fontSize:12,marginTop:spacing.sm},
-  stateText:{fontSize:14,lineHeight:22}
+  status:{fontSize:13,marginTop:spacing.sm},
+  stateText:{fontSize:14,lineHeight:22},
+  actionFocused:{borderWidth:2},
+  actionPressed:{opacity:0.86}
 });

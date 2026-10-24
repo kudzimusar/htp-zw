@@ -56,6 +56,10 @@ import type {
   NewsroomBalanceSheet,
   NewsroomCustomerStatement
 } from "../domain/models";
+import { FINANCE_DESK_CAPABILITIES } from "../security/capabilities";
+
+export const OWNER_PREVIEW_REFERENCE_ISO = "2026-10-24T12:00:00.000Z";
+export const OWNER_PREVIEW_REFERENCE_MS = Date.parse(OWNER_PREVIEW_REFERENCE_ISO);
 
 export interface OwnerPreviewPersona {
   id: string;
@@ -190,6 +194,132 @@ export type OwnerPreviewModuleKey =
   | "finance-customers"
   | "orders";
 
+export interface OwnerPreviewDomain {
+  key: string;
+  title: string;
+  shortTitle: string;
+  items: ReadonlyArray<{
+    key: OwnerPreviewModuleKey;
+    label: string;
+    path: string;
+  }>;
+}
+
+export const OWNER_PREVIEW_DOMAINS = [
+  {
+    key: "my-work",
+    title: "1. MY WORK",
+    shortTitle: "My Work",
+    items: [
+      { key: "assignments", label: "My Assignments", path: "/owner-preview/studio/assignments" },
+      { key: "create-edit", label: "Story Workspace / Drafts", path: "/owner-preview/studio/create-edit" },
+      { key: "my-expenses", label: "My Expenses", path: "/owner-preview/studio/my-expenses" }
+    ]
+  },
+  {
+    key: "editorial",
+    title: "2. EDITORIAL",
+    shortTitle: "Editorial",
+    items: [
+      { key: "review-queue", label: "Review Queue", path: "/owner-preview/studio/review-queue" },
+      { key: "stories", label: "Story Hub", path: "/owner-preview/studio/stories" },
+      { key: "planning", label: "Planning Board", path: "/owner-preview/studio/planning" },
+      { key: "calendar", label: "Editorial Calendar", path: "/owner-preview/studio/calendar" },
+      { key: "live-desk", label: "Live Desk", path: "/owner-preview/studio/live-desk" },
+      { key: "video-desk", label: "Video Desk", path: "/owner-preview/studio/video-desk" },
+      { key: "media", label: "Media Library", path: "/owner-preview/studio/media" },
+      { key: "authors", label: "Authors & Taxonomy", path: "/owner-preview/studio/authors" },
+      { key: "ai-desk", label: "AI Citations Desk", path: "/owner-preview/studio/ai-desk" }
+    ]
+  },
+  {
+    key: "audience-marketing",
+    title: "3. AUDIENCE & MARKETING",
+    shortTitle: "Audience",
+    items: [
+      { key: "social", label: "Social Desk", path: "/owner-preview/studio/social" },
+      { key: "newsletters", label: "Newsletter Desk", path: "/owner-preview/studio/newsletters" },
+      { key: "push-alerts", label: "Push Alerts", path: "/owner-preview/studio/push-alerts" },
+      { key: "whatsapp", label: "WhatsApp Desk", path: "/owner-preview/studio/whatsapp" },
+      { key: "audience", label: "Audience Intelligence", path: "/owner-preview/studio/audience" },
+      { key: "search-growth", label: "Search & Growth", path: "/owner-preview/studio/search-growth" }
+    ]
+  },
+  {
+    key: "commercial",
+    title: "4. COMMERCIAL",
+    shortTitle: "Commercial",
+    items: [
+      { key: "advertising", label: "Ad Campaigns", path: "/owner-preview/studio/advertising" },
+      { key: "orders", label: "Commercial Orders", path: "/owner-preview/studio/orders" },
+      { key: "subscribers", label: "Subscribers Directory", path: "/owner-preview/studio/subscribers" },
+      { key: "premium", label: "Premium Policies", path: "/owner-preview/studio/premium" }
+    ]
+  },
+  {
+    key: "finance",
+    title: "5. FINANCE & ACCOUNTING",
+    shortTitle: "Finance",
+    items: [
+      { key: "finance", label: "Financial Overview", path: "/owner-preview/studio/finance" },
+      { key: "finance-invoices", label: "Invoices & Billing", path: "/owner-preview/studio/finance-invoices" },
+      { key: "finance-aging", label: "Receivables Aging", path: "/owner-preview/studio/finance-aging" },
+      { key: "finance-payments", label: "Payments Ledger", path: "/owner-preview/studio/finance-payments" },
+      { key: "finance-expenses", label: "Expense Claims", path: "/owner-preview/studio/finance-expenses" },
+      { key: "finance-trial-balance", label: "Trial Balance", path: "/owner-preview/studio/finance-trial-balance" },
+      { key: "finance-pnl", label: "Profit & Loss", path: "/owner-preview/studio/finance-pnl" },
+      { key: "finance-balance-sheet", label: "Balance Sheet", path: "/owner-preview/studio/finance-balance-sheet" },
+      { key: "finance-journals", label: "GL Journals", path: "/owner-preview/studio/finance-journals" },
+      { key: "finance-statements", label: "Financial Statements", path: "/owner-preview/studio/finance-statements" },
+      { key: "finance-customers", label: "Billing Customers", path: "/owner-preview/studio/finance-customers" }
+    ]
+  },
+  {
+    key: "executive",
+    title: "6. PUBLISHER / EXECUTIVE",
+    shortTitle: "Executive",
+    items: [
+      { key: "today", label: "Executive Dashboard", path: "/owner-preview/studio" },
+      { key: "homepage", label: "Homepage Curation", path: "/owner-preview/studio/homepage" },
+      { key: "analytics", label: "Analytics & Intelligence", path: "/owner-preview/studio/analytics" }
+    ]
+  },
+  {
+    key: "admin",
+    title: "7. ADMINISTRATION",
+    shortTitle: "Administration",
+    items: [
+      { key: "staff-roles", label: "Staff & Roles (RBAC)", path: "/owner-preview/studio/staff-roles" },
+      { key: "settings", label: "Platform Settings", path: "/owner-preview/studio/settings" }
+    ]
+  }
+];
+
+export const OWNER_PREVIEW_DYNAMIC_MODULE_SLUGS: readonly string[] =
+  OWNER_PREVIEW_DOMAINS.flatMap((domain) => domain.items)
+    .filter((item) => item.path !== "/owner-preview/studio")
+    .map((item) => item.path.slice("/owner-preview/studio/".length));
+
+export function getOwnerPreviewDomainForModuleKey(moduleKey: OwnerPreviewModuleKey) {
+  return OWNER_PREVIEW_DOMAINS.find((domain) =>
+    domain.items.some((item) => item.key === moduleKey)
+  );
+}
+
+export function getOwnerPreviewDomainForPath(path: string) {
+  const pathname = path.split("?")[0]?.split("#")[0] ?? path;
+  return OWNER_PREVIEW_DOMAINS.find((domain) =>
+    domain.items.some((item) => item.path === pathname)
+  );
+}
+
+export function isOwnerPreviewDomainAllowed(
+  persona: OwnerPreviewPersona,
+  domainKey: string
+) {
+  return persona.allowedDomains.includes(domainKey);
+}
+
 export const OWNER_PREVIEW_NAV_ITEMS: ReadonlyArray<{
   key: OwnerPreviewModuleKey;
   label: string;
@@ -276,7 +406,7 @@ export function isOwnerPreviewEnabled(options?: {
 
 // Reference timestamp helper relative to current render so "Today", "Tomorrow", "Overdue", and "Next 7 Days"
 // always populate deterministically in the live preview.
-export function getPreviewReferenceTime(baseNowMs: number = Date.now()) {
+export function getPreviewReferenceTime(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS) {
   const now = new Date(baseNowMs);
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -420,7 +550,7 @@ export const PREVIEW_SECTIONS: NewsroomSection[] = [
   }
 ];
 
-export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomStory[] {
+export function buildPreviewStories(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS): NewsroomStory[] {
   const t = getPreviewReferenceTime(baseNowMs);
 
   return [
@@ -873,7 +1003,7 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
   ];
 }
 
-export function buildPreviewAssignments(baseNowMs: number = Date.now()): NewsroomAssignment[] {
+export function buildPreviewAssignments(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS): NewsroomAssignment[] {
   const t = getPreviewReferenceTime(baseNowMs);
 
   return [
@@ -1400,15 +1530,16 @@ export function buildPreviewVideos(): NewsroomVideo[] {
   ];
 }
 
-export function buildPreviewLiveCoverage(): NewsroomLiveCoverage[] {
+export function buildPreviewLiveCoverage(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS): NewsroomLiveCoverage[] {
+  const t = getPreviewReferenceTime(baseNowMs);
   return [
     {
       id: "d1000000-0000-4000-b000-000000000001",
       title: "LIVE: Zimbabwe National Health Summit 2026 — Keynote & Policy Announcements",
       kind: "live-blog",
       status: "live",
-      scheduledAt: "2026-10-16T08:00:00.000Z",
-      startedAt: "2026-10-16T08:15:00.000Z",
+      scheduledAt: t.imminent4hIso,
+      startedAt: t.nowIso,
       endedAt: null,
       relatedStoryId: "00000000-0000-4000-8000-000000000001",
       mediaId: "00000000-0000-4000-9000-000000000001",
@@ -1416,15 +1547,15 @@ export function buildPreviewLiveCoverage(): NewsroomLiveCoverage[] {
       lockVersion: 3,
       createdByStaffId: "00000000-0000-4000-8000-000000000010",
       updatedByStaffId: "00000000-0000-4000-8000-000000000010",
-      createdAt: "2026-10-16T07:30:00.000Z",
-      updatedAt: "2026-10-16T08:15:00.000Z"
+      createdAt: t.imminent4hIso,
+      updatedAt: t.nowIso
     },
     {
       id: "d1000000-0000-4000-b000-000000000002",
       title: "Upcoming: Cholera Taskforce Emergency Briefing & Vaccine Logistics",
       kind: "live-blog",
       status: "upcoming",
-      scheduledAt: "2026-10-18T09:30:00.000Z",
+      scheduledAt: t.tomorrowMorningIso,
       startedAt: null,
       endedAt: null,
       relatedStoryId: null,
@@ -1433,15 +1564,15 @@ export function buildPreviewLiveCoverage(): NewsroomLiveCoverage[] {
       lockVersion: 1,
       createdByStaffId: "00000000-0000-4000-8000-000000000020",
       updatedByStaffId: "00000000-0000-4000-8000-000000000020",
-      createdAt: "2026-10-16T11:00:00.000Z",
-      updatedAt: "2026-10-16T11:00:00.000Z"
+      createdAt: t.nowIso,
+      updatedAt: t.nowIso
     },
     {
       id: "d1000000-0000-4000-b000-000000000003",
       title: "Scheduled Event: WHO Regional Consultations on Maternal Health Financing",
       kind: "scheduled",
       status: "upcoming",
-      scheduledAt: "2026-10-20T10:00:00.000Z",
+      scheduledAt: t.dayPlus2Iso,
       startedAt: null,
       endedAt: null,
       relatedStoryId: "00000000-0000-4000-8000-000000000002",
@@ -1450,25 +1581,25 @@ export function buildPreviewLiveCoverage(): NewsroomLiveCoverage[] {
       lockVersion: 2,
       createdByStaffId: "00000000-0000-4000-8000-000000000030",
       updatedByStaffId: "00000000-0000-4000-8000-000000000030",
-      createdAt: "2026-10-15T14:00:00.000Z",
-      updatedAt: "2026-10-16T09:00:00.000Z"
+      createdAt: t.nowIso,
+      updatedAt: t.nowIso
     },
     {
       id: "d1000000-0000-4000-b000-000000000004",
       title: "Concluded: Parliamentary Portfolio Committee on Health Public Hearings",
       kind: "live-blog",
       status: "ended",
-      scheduledAt: "2026-10-15T09:00:00.000Z",
-      startedAt: "2026-10-15T09:10:00.000Z",
-      endedAt: "2026-10-15T17:00:00.000Z",
+      scheduledAt: t.past4dIso,
+      startedAt: t.past4dIso,
+      endedAt: t.past3dIso,
       relatedStoryId: "00000000-0000-4000-8000-000000000003",
       mediaId: "00000000-0000-4000-9000-000000000003",
       sourceProvenance: "HealthTimes parliamentary press gallery unit",
       lockVersion: 5,
       createdByStaffId: "00000000-0000-4000-8000-000000000010",
       updatedByStaffId: "00000000-0000-4000-8000-000000000010",
-      createdAt: "2026-10-14T10:00:00.000Z",
-      updatedAt: "2026-10-15T17:00:00.000Z"
+      createdAt: t.past4dIso,
+      updatedAt: t.past3dIso
     }
   ];
 }
@@ -1573,8 +1704,11 @@ export function buildPreviewSocialPosts(): NewsroomSocialPost[] {
       body: "PREVIEW SAMPLE COPY: Urban clinic cholera readiness investigation confirms 18-hour municipal water lab turnaround and expanded oral rehydration buffer stocks across 16 metropolitan clinics.",
       status: "approved",
       createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       approvedAt: "2026-10-16T09:00:00.000Z",
+      scheduledAt: "2026-10-25T14:00:00.000Z",
       publishedAt: null,
       providerPostId: null,
       createdAt: "2026-10-16T08:15:00.000Z",
@@ -1588,8 +1722,11 @@ export function buildPreviewSocialPosts(): NewsroomSocialPost[] {
       body: "PREVIEW SAMPLE COPY: Provincial maternal health clinics roll out solar-backed vaccine cold-chain telemetry ahead of the Q4 immunization catchment drive.",
       status: "draft",
       createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: null,
+      approvedByName: null,
       approvedAt: null,
+      scheduledAt: null,
       publishedAt: null,
       providerPostId: null,
       createdAt: "2026-10-16T09:20:00.000Z",
@@ -1603,8 +1740,11 @@ export function buildPreviewSocialPosts(): NewsroomSocialPost[] {
       body: "PREVIEW SAMPLE COPY: District malaria vector surveillance report highlights early indoor residual spraying milestones across lowveld wards.",
       status: "published",
       createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       approvedAt: "2026-10-15T14:00:00.000Z",
+      scheduledAt: "2026-10-15T14:30:00.000Z",
       publishedAt: "2026-10-15T14:30:00.000Z",
       providerPostId: "fb_post_20261015_9901",
       createdAt: "2026-10-15T13:15:00.000Z",
@@ -1618,8 +1758,11 @@ export function buildPreviewSocialPosts(): NewsroomSocialPost[] {
       body: "PREVIEW SAMPLE COPY: Regional antiretroviral procurement and cold-storage resilience briefing for public health supply chain directors.",
       status: "failed",
       createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       approvedAt: "2026-10-15T10:00:00.000Z",
+      scheduledAt: null,
       publishedAt: null,
       providerPostId: null,
       createdAt: "2026-10-15T09:30:00.000Z",
@@ -1721,6 +1864,10 @@ export function buildPreviewCampaigns(): NewsroomCampaign[] {
       provider: "brevo",
       providerCampaignId: null,
       status: "approved",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
+      approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       subject:
         "PREVIEW EDITION: 18-Hour Municipal Water Lab Turnaround & Q4 Cold-Chain Rollout",
       htmlContent:
@@ -1728,7 +1875,7 @@ export function buildPreviewCampaigns(): NewsroomCampaign[] {
       textContent:
         "HealthTimes Weekly Clinical Briefing (Preview)\n\nMetropolitan Harare polyclinics have cut municipal water microbiology turnaround to 18 hours while expanding oral rehydration buffer stocks across 16 high-density catchment wards.\n\nIn provincial maternal health news, solar-backed cold-chain telemetry units are now live ahead of the Q4 pediatric immunization drive.",
       approvedAt: "2026-10-16T09:10:00.000Z",
-      scheduledAt: null,
+      scheduledAt: "2026-10-26T08:00:00.000Z",
       sentAt: null,
       createdAt: "2026-10-16T08:00:00.000Z",
       updatedAt: "2026-10-16T09:10:00.000Z"
@@ -1742,6 +1889,10 @@ export function buildPreviewCampaigns(): NewsroomCampaign[] {
       provider: "brevo",
       providerCampaignId: null,
       status: "draft",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
+      approvedBy: null,
+      approvedByName: null,
       subject:
         "PREVIEW DRAFT: Essential Medicines Buffer Stock Audit & Rural Clinic Solar Grid",
       htmlContent:
@@ -1763,6 +1914,10 @@ export function buildPreviewCampaigns(): NewsroomCampaign[] {
       provider: "brevo",
       providerCampaignId: null,
       status: "approved",
+      createdBy: "00000000-0000-4000-8000-000000000101",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
+      approvedBy: "00000000-0000-4000-8000-000000000201",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       subject:
         "PREVIEW RESEARCH: Neonatal Triage Protocols & District Telemetry Findings",
       htmlContent:
@@ -1770,7 +1925,7 @@ export function buildPreviewCampaigns(): NewsroomCampaign[] {
       textContent:
         "Maternal & Neonatal Research Digest (Preview)\n\nSummary of peer-reviewed clinical audit findings across provincial maternity wards. Segment synchronization is currently pending Brevo list provisioning.",
       approvedAt: "2026-10-16T08:40:00.000Z",
-      scheduledAt: null,
+      scheduledAt: "2026-10-27T10:00:00.000Z",
       sentAt: null,
       createdAt: "2026-10-15T17:20:00.000Z",
       updatedAt: "2026-10-16T08:40:00.000Z"
@@ -1848,9 +2003,14 @@ export function buildPreviewPushAlerts(): NewsroomPushAlert[] {
       status: "draft",
       destination: "/stories/preview-harare-water-emergency",
       relatedStoryId: null,
+      priority: "normal",
+      targetSegment: "All App Readers",
+      audienceEligibility: "Devices active in last 30 days (All Wards)",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       updatedBy: "e0000000-0000-4000-a000-000000000001",
       approvedBy: null,
+      approvedByName: null,
       preparedBy: null,
       approvedAt: null,
       preparedAt: null,
@@ -1864,10 +2024,16 @@ export function buildPreviewPushAlerts(): NewsroomPushAlert[] {
       category: "live",
       status: "approved",
       destination: "/live",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001001",
+      priority: "high",
+      targetSegment: "Breaking Health Alerts",
+      audienceEligibility: "Opted-in push notification subscribers",
+      scheduledAt: "2026-10-25T10:00:00.000Z",
       createdBy: "e0000000-0000-4000-a000-000000000002",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       updatedBy: "e0000000-0000-4000-a000-000000000001",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       preparedBy: null,
       approvedAt: "2026-10-16T09:30:00.000Z",
       preparedAt: null,
@@ -1882,9 +2048,14 @@ export function buildPreviewPushAlerts(): NewsroomPushAlert[] {
       status: "prepared",
       destination: "/topics/maternal-health",
       relatedStoryId: null,
+      priority: "normal",
+      targetSegment: "Maternal Health Topic",
+      audienceEligibility: "Subscribers following Maternal Health topics",
       createdBy: "e0000000-0000-4000-a000-000000000003",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       updatedBy: "e0000000-0000-4000-a000-000000000001",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       preparedBy: "e0000000-0000-4000-a000-000000000001",
       approvedAt: "2026-10-15T14:00:00.000Z",
       preparedAt: "2026-10-15T14:15:00.000Z",
@@ -1899,14 +2070,41 @@ export function buildPreviewPushAlerts(): NewsroomPushAlert[] {
       status: "prepared",
       destination: "/settings",
       relatedStoryId: null,
+      priority: "normal",
+      targetSegment: "System Announcements",
+      audienceEligibility: "All registered active devices",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Newsroom Admin",
       updatedBy: "e0000000-0000-4000-a000-000000000001",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Publisher / Owner (Kudzanai Musarurwa)",
       preparedBy: "e0000000-0000-4000-a000-000000000001",
       approvedAt: "2026-10-14T02:00:00.000Z",
       preparedAt: "2026-10-14T02:05:00.000Z",
       createdAt: "2026-10-14T01:50:00.000Z",
       updatedAt: "2026-10-14T02:06:00.000Z"
+    },
+    {
+      id: "d1000000-0000-4000-a000-000000000005",
+      title: "PREVIEW: Expired Regional Health Advisory (Failed Delivery Sample)",
+      body: "Simulated dispatch failure demonstration due to APNs connection timeout during regional gateway transmission.",
+      category: "breaking",
+      status: "prepared",
+      destination: "/stories/preview-expired-advisory",
+      relatedStoryId: null,
+      priority: "high",
+      targetSegment: "Southern Province Region",
+      audienceEligibility: "Registered devices in Matabeleland and Midlands",
+      createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
+      updatedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
+      preparedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedAt: "2026-10-13T08:00:00.000Z",
+      preparedAt: "2026-10-13T08:05:00.000Z",
+      createdAt: "2026-10-13T07:45:00.000Z",
+      updatedAt: "2026-10-13T08:10:00.000Z"
     }
   ];
 }
@@ -1952,6 +2150,32 @@ export function buildPreviewPushDispatches(): Record<string, NewsroomPushDispatc
       failureReason: null,
       createdAt: "2026-10-14T02:10:00.000Z",
       updatedAt: "2026-10-14T02:10:05.000Z"
+    },
+    "d1000000-0000-4000-a000-000000000003": {
+      id: "e1000000-0000-4000-a000-000000000003",
+      alertId: "d1000000-0000-4000-a000-000000000003",
+      idempotencyKey: "preview-dispatch-key-003",
+      status: "dispatching",
+      eligibleDeviceCount: 3840,
+      providerAcceptedCount: 0,
+      providerRejectedCount: 0,
+      confirmedDeliveryCount: 0,
+      failureReason: null,
+      createdAt: "2026-10-15T14:15:00.000Z",
+      updatedAt: "2026-10-15T14:15:05.000Z"
+    },
+    "d1000000-0000-4000-a000-000000000005": {
+      id: "e1000000-0000-4000-a000-000000000005",
+      alertId: "d1000000-0000-4000-a000-000000000005",
+      idempotencyKey: "preview-dispatch-key-005",
+      status: "delivery-failed",
+      eligibleDeviceCount: 2100,
+      providerAcceptedCount: 450,
+      providerRejectedCount: 1650,
+      confirmedDeliveryCount: 420,
+      failureReason: "APNs connection timeout during regional gateway broadcast (504 Gateway Timeout).",
+      createdAt: "2026-10-13T08:05:00.000Z",
+      updatedAt: "2026-10-13T08:10:00.000Z"
     }
   };
 }
@@ -1964,10 +2188,12 @@ export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
       body: "The Ministry of Health and Child Care has updated emergency treatment protocols for Harare and Chitungwiza. Residents are urged to boil drinking water and use certified treatment tablets provided at local clinics.",
       broadcastType: "breaking_alert",
       channelIdentity: "healthtimes-whatsapp-channel",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001001",
       status: "approved",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       rejectedBy: null,
       approvedAt: "2026-10-16T08:30:00.000Z",
       rejectedAt: null,
@@ -1983,10 +2209,12 @@ export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
       body: "Key points from yesterday's parliamentary health portfolio committee hearings: 15% Abuja declaration target progress, domestic pharmaceutical procurement guarantees, and primary care nurse retention package.",
       broadcastType: "daily_briefing",
       channelIdentity: "healthtimes-whatsapp-channel",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001002",
       status: "sent",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: "e0000000-0000-4000-a000-000000000001",
+      approvedByName: "Editor-in-Chief (Dr. Tawanda Chideme)",
       rejectedBy: null,
       approvedAt: "2026-10-15T06:00:00.000Z",
       rejectedAt: null,
@@ -2015,9 +2243,10 @@ export function buildPreviewWhatsAppBroadcasts(): NewsroomWhatsAppBroadcast[] {
       body: "Phase 3 implementation studies for the R21/Matrix-M malaria vaccine are underway in high-transmission districts. Health researchers are monitoring efficacy across pediatric cohorts aged 5 to 36 months.",
       broadcastType: "story_update",
       channelIdentity: "healthtimes-whatsapp-channel",
-      relatedStoryId: null,
+      relatedStoryId: "00000000-0000-4000-8000-000000001003",
       status: "draft",
       createdBy: "e0000000-0000-4000-a000-000000000001",
+      createdByName: "Audience Lead (Nyasha Sibanda)",
       approvedBy: null,
       rejectedBy: null,
       approvedAt: null,
@@ -2050,7 +2279,7 @@ export function buildPreviewWhatsAppDispatchResult(
 
 export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligence {
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: OWNER_PREVIEW_REFERENCE_ISO,
     storyInventory: {
       total: 5792,
       published: 5789,
@@ -2070,10 +2299,10 @@ export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligen
       oldestAgeHours: 48.0
     },
     assignments: {
-      total: 0,
-      active: 0,
-      overdue: 0,
-      completed: 0
+      total: 6,
+      active: 5,
+      overdue: 1,
+      completed: 1
     },
     deskMix: [
       { desk: "Public Health", count: 2400 },
@@ -2082,17 +2311,17 @@ export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligen
       { desk: "Investigations", count: 900 }
     ],
     distributionReach: {
-      socialPostsCount: 0,
-      newsletterCampaignsCount: 0,
-      pushAlertsCount: 0,
-      whatsappBroadcastsCount: 0
+      socialPostsCount: 4,
+      newsletterCampaignsCount: 5,
+      pushAlertsCount: 5,
+      whatsappBroadcastsCount: 3
     }
   };
 }
 
 export function buildPreviewGrowthIntelligence(): NewsroomGrowthIntelligence {
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: OWNER_PREVIEW_REFERENCE_ISO,
     integrations: [
       {
         id: "preview-ga4",
@@ -2179,26 +2408,26 @@ export function buildPreviewGrowthIntelligence(): NewsroomGrowthIntelligence {
 
 export function buildPreviewAudienceIntelligence(): NewsroomAudienceIntelligence {
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: OWNER_PREVIEW_REFERENCE_ISO,
     contacts: {
-      totalProfiles: 0,
-      consentedContacts: 0
+      totalProfiles: 1532,
+      consentedContacts: 1420
     },
     segments: {
-      totalSegments: 0,
-      totalMemberships: 0
+      totalSegments: 3,
+      totalMemberships: 1420
     },
     pushSubscribers: {
-      registeredDevices: 0,
-      activeDevices: 0
+      registeredDevices: 4120,
+      activeDevices: 3840
     },
     whatsappDistribution: {
-      totalBroadcasts: 0,
-      sentBroadcasts: 0
+      totalBroadcasts: 3,
+      sentBroadcasts: 1
     },
     subscribers: {
-      totalSubscribers: 0,
-      activeSubscribers: 0
+      totalSubscribers: 428,
+      activeSubscribers: 395
     },
     ga4AudienceStatus: {
       propertyId: "359235319",
@@ -2342,6 +2571,24 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         createdAt: "2026-06-20T09:00:00Z",
         activeSessionsCount: 0,
         capabilities: ["story.copy_edit", "story.edit_all", "story.submit"]
+      },
+      {
+        id: "prev-staff-007",
+        displayName: "Farai Moyo",
+        email: "farai.moyo@preview.healthtimes.co.zw",
+        handle: "farai.moyo",
+        roleId: "prev-role-008",
+        roleName: "Finance Manager",
+        desk: "Finance & Accounts",
+        beat: "Billing, receivables and financial control",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-23T15:20:00Z",
+        createdAt: "2026-07-01T09:00:00Z",
+        activeSessionsCount: 1,
+        capabilities: [...FINANCE_DESK_CAPABILITIES]
       }
     ],
     invitations: [
@@ -2352,7 +2599,7 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         roleName: "Contributor",
         desk: "Guest Commentary",
         country: "Zimbabwe",
-        status: "pending",
+        status: "expired",
         createdAt: "2026-10-16T10:00:00Z",
         expiresAt: "2026-10-19T10:00:00Z"
       }
@@ -2413,6 +2660,12 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         name: "Contributor",
         description: "External or guest writer; can draft and submit stories for editorial review.",
         capabilities: ["story.create", "story.edit_own", "story.submit"]
+      },
+      {
+        id: "prev-role-008",
+        name: "Finance Manager",
+        description: "Invoices, receipts, receivables, expenses, statements, and financial controls.",
+        capabilities: [...FINANCE_DESK_CAPABILITIES]
       }
     ],
     capabilities: [
@@ -2490,7 +2743,25 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         key: "staff.manage",
         description: "Full management of staff profiles, roles, and status",
         category: "staff_admin"
-      }
+      },
+      ...FINANCE_DESK_CAPABILITIES.map((key) => ({
+        key,
+        description: ({
+          "finance.view": "View finance operations and reconciliations",
+          "finance.invoice.create": "Create customer invoices",
+          "finance.invoice.approve": "Approve customer invoices",
+          "finance.invoice.issue": "Issue approved customer invoices",
+          "finance.payment.record": "Record and reconcile customer payments",
+          "finance.receivable.view": "View accounts receivable and aging",
+          "finance.expense.view": "View staff and operational expenses",
+          "finance.expense.create": "Create expense claims",
+          "finance.expense.approve": "Approve eligible expense claims",
+          "finance.expense.pay": "Record approved expense payments",
+          "finance.statement.view": "View finance statements and ledgers",
+          "finance.settings.manage": "Manage finance operating settings"
+        } as Record<string, string>)[key] ?? key,
+        category: "finance" as const
+      }))
     ],
     auditHistory: [
       {
@@ -2603,7 +2874,11 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
         destinationUrl: "https://hospaz.org.zw/",
         disclosureLabel: "Advertisement",
         status: "active",
-        createdAt: "2026-09-01T00:00:00Z"
+        createdAt: "2026-09-01T00:00:00Z",
+        assetUrl: "https://healthtimes.co.zw/wp-content/uploads/2026/08/HOSPAZ-1.jpg",
+        mimeType: "image/jpeg",
+        width: 1200,
+        height: 400
       },
       {
         id: "prev-cr-002",
@@ -2613,7 +2888,11 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
         destinationUrl: "https://mohcc.gov.zw/cholera-alert",
         disclosureLabel: "Public Health Notice",
         status: "active",
-        createdAt: "2026-09-28T12:00:00Z"
+        createdAt: "2026-09-28T12:00:00Z",
+        assetUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+        mimeType: "image/jpeg",
+        width: 1200,
+        height: 628
       },
       {
         id: "prev-cr-003",
@@ -2623,7 +2902,11 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
         destinationUrl: "https://cimas.co.zw/wellness",
         disclosureLabel: "Sponsored Content",
         status: "draft",
-        createdAt: "2026-10-16T14:20:00Z"
+        createdAt: "2026-10-16T14:20:00Z",
+        assetUrl: null,
+        mimeType: "image/jpeg",
+        width: 600,
+        height: 900
       }
     ],
     placements: [
@@ -2658,7 +2941,7 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
     metrics: {
       totalAdvertisers: 3,
       totalCampaigns: 3,
-      activeCampaigns: 2,
+      activeCampaigns: 1,
       pendingReviewCampaigns: 1,
       totalCreatives: 3,
       totalPlacements: 3
@@ -2768,11 +3051,11 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
       }
     ],
     teaserPolicy: {
-      authority: "AG-05 / Owner Policy",
+      authority: "Publisher / Editorial Access Policy",
       enabled: true,
       durationSeconds: 20,
       paragraphCount: 1,
-      enforcement: "Strict server-side body truncation with timer cutoff"
+      enforcement: "Strict reader-facing body truncation after lead paragraph and 20s preview window"
     },
     inventoryBreakdown: {
       totalStories: 5792,
@@ -2781,7 +3064,7 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
     },
     recentPremiumStories: [
       {
-        id: "prev-prem-story-001",
+        id: "00000000-0000-4000-8000-000000001001",
         title: "Inside Zimbabwe's Oncology Crisis: Radiotherapy Blackouts and Drug Procurement Holes",
         status: "published",
         accessPolicy: "premium",
@@ -2789,7 +3072,7 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
         updatedAt: "2026-10-15T10:30:00Z"
       },
       {
-        id: "prev-prem-story-002",
+        id: "00000000-0000-4000-8000-000000001002",
         title: "Clinical Deep Dive: Pediatric Antiretroviral Rollout In Mashonaland Central",
         status: "published",
         accessPolicy: "premium",
@@ -2797,7 +3080,7 @@ export function buildPreviewPremiumOperationsOverview(): NewsroomPremiumOperatio
         updatedAt: "2026-10-12T14:15:00Z"
       },
       {
-        id: "prev-prem-story-003",
+        id: "00000000-0000-4000-8000-000000001003",
         title: "Cross-Border Health Finance: The True Cost of Medical Tourism to South Africa and India",
         status: "published",
         accessPolicy: "premium",
@@ -2938,15 +3221,22 @@ export function buildPreviewCitationsDirectory(): NewsroomCitationsDirectory {
         storyTitle: "Harare Water Treatment Chemical Stockpiles Fall Below Reserve Thresholds",
         storySlug: "harare-water-treatment-stockpiles",
         referenceType: "academic",
-        sourceName: "Central African Journal of Medicine",
-        sourceUrl: "https://doi.org/10.1052/cajm.2025.04.12",
-        title: "Vibrio cholerae Transmission Dynamics Across Urban Harare Wetlands (2022-2025)",
+        sourceName: "Central African Journal of Medicine (Sample Preview Source)",
+        sourceUrl: "https://sample-citation.preview.invalid/cajm/2025/04/12 (Sample Non-Live URL)",
+        title: "Vibrio cholerae Transmission Dynamics Across Urban Harare Wetlands (2022-2025) [Sample Study]",
         citedAt: "2026-10-12",
         country: "Zimbabwe",
         authorityScore: 92,
         provider: "crossref",
-        providerReference: "10.1052/cajm.2025.04.12",
+        providerReference: "10.1052/sample.cajm.2025.04.12",
         status: "verified",
+        verifiedBy: "Dr. Tawanda Chideme",
+        verifiedAt: "2026-10-13T14:00:00Z",
+        verificationBasis: "Sample peer-reviewed journal citation record (Volume 71 — Preview Only)",
+        excerpt: "Sample excerpt: Water sampling conducted between November 2024 and March 2025 indicated detectable Vibrio strains in 34% of unlined shallow wells in Highfield and Glen View.",
+        doi: "10.1052/sample.cajm.2025.04.12 (Sample Non-Live DOI)",
+        authorsOrOrganization: "Dr. R. Chikwanda, Prof. T. Moyo — University of Zimbabwe Public Health Unit (Sample Authors)",
+        publicationDate: "2025-04-12",
         createdAt: "2026-10-12T10:00:00Z"
       },
       {
@@ -2955,15 +3245,22 @@ export function buildPreviewCitationsDirectory(): NewsroomCitationsDirectory {
         storyTitle: "NatPharm Expedited Antibiotic Procurement Reaches Provincial Referral Hospitals",
         storySlug: "natpharm-expedited-procurement",
         referenceType: "institutional",
-        sourceName: "Ministry of Health and Child Care (MoHCC)",
-        sourceUrl: "https://www.mohcc.gov.zw/reports/essential-medicines-2026-q3.pdf",
-        title: "National Essential Medicines List and Standard Treatment Guidelines (6th Edition)",
+        sourceName: "Ministry of Health and Child Care (MoHCC — Sample Preview Bulletin)",
+        sourceUrl: "https://sample-citation.preview.invalid/mohcc/essential-medicines-2026-q3.pdf (Sample Non-Live URL)",
+        title: "National Essential Medicines List and Standard Treatment Guidelines (Sample Preview Edition)",
         citedAt: "2026-10-14",
         country: "Zimbabwe",
         authorityScore: 98,
         provider: "gov_repository",
-        providerReference: "MOHCC-EML-2026-03",
+        providerReference: "MOHCC-EML-2026-03-SAMPLE",
         status: "verified",
+        verifiedBy: "Farai Moyo",
+        verifiedAt: "2026-10-14T11:00:00Z",
+        verificationBasis: "Sample MoHCC Gazette and NatPharm delivery schedule fixture (Preview Only)",
+        excerpt: "Sample excerpt: Consolidated procurement tables show Q3 distribution of second-line injectables reached 94% coverage across provincial central medical stores.",
+        doi: "10.1000/sample.mohcc.eml.2026.03 (Sample Non-Live DOI)",
+        authorsOrOrganization: "Directorate of Pharmacy Services, Ministry of Health and Child Care (Sample Organization)",
+        publicationDate: "2026-09-30",
         createdAt: "2026-10-14T08:30:00Z"
       },
       {
@@ -2972,15 +3269,22 @@ export function buildPreviewCitationsDirectory(): NewsroomCitationsDirectory {
         storyTitle: null,
         storySlug: null,
         referenceType: "ngo",
-        sourceName: "Doctors Without Borders (MSF)",
-        sourceUrl: "https://www.msf.org/zimbabwe-maternal-health-review-2025",
-        title: "Community-Led Maternal Health Delivery in Rural Epworth and Chipinge",
+        sourceName: "Doctors Without Borders (MSF — Sample Preview Report)",
+        sourceUrl: "https://sample-citation.preview.invalid/msf/zimbabwe-maternal-health-review-2025 (Sample Non-Live URL)",
+        title: "Community-Led Maternal Health Delivery in Rural Epworth and Chipinge [Sample Report]",
         citedAt: "2026-10-16",
         country: "Zimbabwe",
         authorityScore: 85,
         provider: "msf_index",
-        providerReference: "MSF-ZW-2025-08",
+        providerReference: "MSF-ZW-2025-08-SAMPLE",
         status: "unverified",
+        verifiedBy: null,
+        verifiedAt: null,
+        verificationBasis: "Awaiting field report verification (Sample Preview Record)",
+        excerpt: "Sample excerpt: Decentralized mobile clinics operated in Manicaland demonstrated a 42% reduction in postpartum travel times for rural expectant mothers.",
+        doi: "10.5281/sample.zenodo.msf-zw-2025 (Sample Non-Live DOI)",
+        authorsOrOrganization: "MSF Southern Africa Medical Unit (Sample Organization)",
+        publicationDate: "2025-08-19",
         createdAt: "2026-10-16T15:20:00Z"
       }
     ]
@@ -3002,6 +3306,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "kudzai-musarurwa",
         bio: "Health systems specialist and editor-in-chief covering southern African public health policy.",
         wordpressSourceId: "wp-author-12",
+        role: "Editor-in-Chief",
+        desk: "Executive Editorial",
+        status: "Active",
         createdAt: "2024-01-15T09:00:00Z",
         storyCount: 42,
         boundStaffId: "staff-001",
@@ -3014,6 +3321,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "catherine-murombedzi",
         bio: "Senior health journalist focusing on HIV/TB epidemiology and maternal healthcare.",
         wordpressSourceId: "wp-author-14",
+        role: "Senior Correspondent",
+        desk: "Epidemiology & Maternal",
+        status: "Active",
         createdAt: "2024-02-10T10:00:00Z",
         storyCount: 38,
         boundStaffId: "staff-002",
@@ -3026,6 +3336,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "michael-gwarisa",
         bio: "Investigative reporter reporting on pharmaceuticals, healthcare financing, and health governance.",
         wordpressSourceId: "wp-author-19",
+        role: "Investigative Reporter",
+        desk: "Pharmaceuticals & Finance",
+        status: "Active",
         createdAt: "2024-03-01T11:00:00Z",
         storyCount: 29,
         boundStaffId: "staff-003",
@@ -3038,6 +3351,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "tafadzwa-chigandiwa",
         bio: "Desk editor and public health researcher specializing in non-communicable diseases.",
         wordpressSourceId: "wp-author-22",
+        role: "Desk Editor",
+        desk: "Non-Communicable Diseases",
+        status: "Active",
         createdAt: "2024-04-12T08:30:00Z",
         storyCount: 19,
         boundStaffId: "staff-004",
@@ -3050,6 +3366,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "healthtimes-editorial-board",
         bio: "Official institutional byline for consensus editorial positions and public health notices.",
         wordpressSourceId: "wp-author-01",
+        role: "Editorial Collective",
+        desk: "Institutional Desk",
+        status: "Active",
         createdAt: "2023-11-01T00:00:00Z",
         storyCount: 56,
         boundStaffId: null,
@@ -3062,6 +3381,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "dr-rutendo-mashonganyika",
         bio: "Guest clinical contributor, consultant pediatrician at Parirenyatwa Group of Hospitals.",
         wordpressSourceId: null,
+        role: "Guest Contributor",
+        desk: "Pediatrics & Clinical",
+        status: "External",
         createdAt: "2025-05-18T14:15:00Z",
         storyCount: 7,
         boundStaffId: null,
@@ -3074,6 +3396,9 @@ export function buildPreviewAuthorsDirectory(): NewsroomAuthorsDirectory {
         slug: "farai-muringani",
         bio: "Digital content and broadcast reporter reporting from Midlands and Matabeleland.",
         wordpressSourceId: null,
+        role: "Provincial Reporter",
+        desk: "Midlands & Matabeleland",
+        status: "Active",
         createdAt: "2025-08-20T11:00:00Z",
         storyCount: 12,
         boundStaffId: null,
@@ -3279,13 +3604,13 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         secretConfigured: false,
         phoneNumberId: "10984729182371",
         wabaId: "9827361829102",
-        webhookUrl: "https://gcdohgbmqhqwydgaxrcr.edge.internal/functions/v1/whatsapp-webhook"
+        webhookUrl: "https://bzuvntbkevvuhfhqhkua.edge.internal/functions/v1/whatsapp-webhook"
       },
       brevo: {
         name: "Brevo Email API",
         provider: "Brevo API v3",
-        status: "configured",
-        secretConfigured: true,
+        status: "prepared_dns_verification_pending",
+        secretConfigured: false,
         senderEmail: "newsdesk@healthtimes.co.zw",
         senderName: "HealthTimes Zimbabwe"
       },
@@ -3300,7 +3625,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
       search_console: {
         name: "Google Search Console",
         provider: "Google Search Console API v1",
-        status: "healthy",
+        status: "identity_verified_account_access_pending",
         secretConfigured: false,
         siteUrl: "sc-domain:healthtimes.co.zw",
         verified: true
@@ -3308,8 +3633,8 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
       gemini_ai: {
         name: "Google Gemini 2.5",
         provider: "Google Generative AI API",
-        status: "active",
-        secretConfigured: true,
+        status: "sample_simulation_only",
+        secretConfigured: false,
         defaultModel: "gemini-2.5-flash",
         edgeFunction: "newsroom-ai-assist"
       },
@@ -3318,7 +3643,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
         provider: "PostgreSQL 15 / PostgREST / GoTrue / Storage",
         status: "healthy",
         secretConfigured: true,
-        projectRef: "gcdohgbmqhqwydgaxrcr",
+        projectRef: "bzuvntbkevvuhfhqhkua",
         appliedMigrations: 83,
         region: "ap-northeast-1"
       }
@@ -3649,6 +3974,33 @@ export function buildPreviewExpenses(): NewsroomExpenseItem[] {
       approvedAt: null,
       createdAt: "2026-10-20T11:00:00Z",
       updatedAt: "2026-10-20T11:00:00Z"
+    },
+    {
+      id: "exp-sample-4",
+      expenseNumber: "EXP-2026-0004",
+      expenseDate: "2026-10-22",
+      vendorName: "Rainbow Towers Hotel",
+      category: "travel",
+      description: "Executive travel & venue hosting for Southern Africa Health Summit",
+      department: "Executive",
+      storyId: null,
+      amount: 250.0,
+      currency: "USD",
+      taxAmount: 0.0,
+      receiptReference: "RCPT-RT-8841",
+      receiptUrl: "https://healthtimes.co.zw/receipts/RT-8841.pdf",
+      status: "submitted",
+      paymentStatus: "unpaid",
+      paidAt: null,
+      paymentReference: null,
+      rejectionReason: null,
+      submittedBy: "staff-owner-1",
+      submittedByName: "Kudzanai Musarurwa",
+      approvedBy: null,
+      approvedByName: null,
+      approvedAt: null,
+      createdAt: "2026-10-22T09:30:00Z",
+      updatedAt: "2026-10-22T09:30:00Z"
     }
   ];
 }
@@ -3696,17 +4048,29 @@ export function buildPreviewReceivablesAging(): NewsroomReceivablesAging {
 }
 
 export function buildPreviewFinanceOverview(): NewsroomFinanceOverview {
+  const invoices = buildPreviewInvoices();
+  const payments = buildPreviewPayments();
+  const expenses = buildPreviewExpenses();
+  const invoicedTotal = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const revenueCollected = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const receivablesOutstanding = invoices.reduce((sum, invoice) => sum + invoice.balanceDue, 0);
+  const expensesApproved = expenses
+    .filter((expense) => ["approved", "paid"].includes(expense.status))
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const expensesPaid = expenses
+    .filter((expense) => expense.status === "paid")
+    .reduce((sum, expense) => sum + expense.amount, 0);
   return {
     byCurrency: [
       {
         currency: "USD",
-        invoicedTotal: 3410.0,
-        revenueCollected: 2125.0,
-        receivablesOutstanding: 1285.0,
+        invoicedTotal,
+        revenueCollected,
+        receivablesOutstanding,
         receivablesOverdue: 750.0,
-        expensesApproved: 165.0,
-        expensesPaid: 45.0,
-        operatingCashNet: 2080.0,
+        expensesApproved,
+        expensesPaid,
+        operatingCashNet: revenueCollected - expensesPaid,
         openInvoicesCount: 2,
         overdueInvoicesCount: 1
       }
@@ -3723,33 +4087,34 @@ export function buildPreviewFinanceOverview(): NewsroomFinanceOverview {
 }
 
 export function buildPreviewFinanceStatements(): NewsroomFinanceStatements {
+  const payments = buildPreviewPayments();
+  const cashReceiptsTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
   return {
     period: {
       startDate: "2026-10-01",
       endDate: "2026-10-31"
     },
     balanceSheet:
-      "NOT AVAILABLE UNTIL GENERAL LEDGER AUTHORITY EXISTS (POST-LAUNCH ACCOUNTING PHASE). Operational cash receipts and approved newsroom expenditures reported truthfully.",
+      "Reconciled with General Ledger Statement of Financial Position (Total Assets: USD 3,365.00 = Total Liabilities: USD 564.78 + Total Equity: USD 2,800.22). Sample presentation data only.",
     incomeStatement: [
       {
         currency: "USD",
-        revenue: 2660.0,
-        expenses: 230.0,
-        netOperatingSurplus: 2430.0
+        revenue: 2965.22,
+        expenses: 165.0,
+        netOperatingSurplus: 2800.22
       }
     ],
     revenueByPlacement: [
-      { placement: "masthead", currency: "USD", revenue: 1500.0 },
-      { placement: "newsletter", currency: "USD", revenue: 260.0 },
-      { placement: "sponsored_content", currency: "USD", revenue: 900.0 }
+      { placement: "masthead", currency: "USD", revenue: 1847.83 },
+      { placement: "newsletter", currency: "USD", revenue: 465.22 },
+      { placement: "sponsored_content", currency: "USD", revenue: 652.17 }
     ],
     cashReceipts: [
-      { method: "bank_transfer", currency: "USD", totalAmount: 2125.0, receiptsCount: 2 }
+      { method: "bank_transfer", currency: "USD", totalAmount: cashReceiptsTotal, receiptsCount: payments.length }
     ],
     expenseSummary: [
       { category: "travel", currency: "USD", totalAmount: 45.0, count: 1 },
-      { category: "freelance", currency: "USD", totalAmount: 120.0, count: 1 },
-      { category: "office", currency: "USD", totalAmount: 65.0, count: 1 }
+      { category: "freelance", currency: "USD", totalAmount: 120.0, count: 1 }
     ]
   };
 }
@@ -3781,12 +4146,16 @@ export function buildPreviewFiscalPeriods(): NewsroomFiscalPeriod[] {
 }
 
 export function buildPreviewTrialBalance(): NewsroomTrialBalance {
+  const invoices = buildPreviewInvoices();
+  const payments = buildPreviewPayments();
+  const invoicedTotal = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const paymentsTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
   return {
     periodId: "fp-2026-q4",
     currency: "USD",
     accounts: [
-      { accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", debitTotal: 2125.0, creditTotal: 45.0, netBalance: 2080.0 },
-      { accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", debitTotal: 3410.0, creditTotal: 2125.0, netBalance: 1285.0 },
+      { accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", debitTotal: paymentsTotal, creditTotal: 45.0, netBalance: paymentsTotal - 45.0 },
+      { accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", debitTotal: invoicedTotal, creditTotal: paymentsTotal, netBalance: invoicedTotal - paymentsTotal },
       { accountId: "coa-2000", accountCode: "2000", accountName: "Accounts Payable (Trade)", accountType: "LIABILITY", debitTotal: 45.0, creditTotal: 165.0, netBalance: 120.0 },
       { accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax Payable", accountType: "LIABILITY", debitTotal: 0.0, creditTotal: 444.78, netBalance: 444.78 },
       { accountId: "coa-4000", accountCode: "4000", accountName: "Direct Advertising Revenue", accountType: "REVENUE", debitTotal: 0.0, creditTotal: 2965.22, netBalance: 2965.22 },
@@ -3818,48 +4187,59 @@ export function buildPreviewProfitAndLoss(): NewsroomProfitAndLoss {
 }
 
 export function buildPreviewBalanceSheet(): NewsroomBalanceSheet {
+  const finance = buildPreviewFinanceOverview().byCurrency[0]!;
+  const pnl = buildPreviewProfitAndLoss();
+  const totalLiabilities = 564.78;
+  const totalAssets = finance.operatingCashNet + finance.receivablesOutstanding;
   return {
     asOfDate: "2026-10-31",
     currency: "USD",
     assets: [
-      { accountCode: "1000", accountName: "Operating Cash / Bank", amount: 2080.0 },
-      { accountCode: "1200", accountName: "Accounts Receivable (Trade)", amount: 1285.0 }
+      { accountCode: "1000", accountName: "Operating Cash / Bank", amount: finance.operatingCashNet },
+      { accountCode: "1200", accountName: "Accounts Receivable (Trade)", amount: finance.receivablesOutstanding }
     ],
-    totalAssets: 3365.0,
+    totalAssets,
     liabilities: [
       { accountCode: "2000", accountName: "Accounts Payable (Trade)", amount: 120.0 },
       { accountCode: "2100", accountName: "VAT Output Tax Payable", amount: 444.78 }
     ],
-    totalLiabilities: 564.78,
+    totalLiabilities,
     equity: [
-      { accountCode: "3999", accountName: "Current Period Operating Surplus / Retained Earnings", amount: 2800.22 }
+      { accountCode: "3999", accountName: "Current Period Operating Surplus / Retained Earnings", amount: pnl.netOperatingSurplus }
     ],
-    totalEquity: 2800.22,
-    totalLiabilitiesAndEquity: 3365.0,
-    isBalanced: true
+    totalEquity: pnl.netOperatingSurplus,
+    totalLiabilitiesAndEquity: totalLiabilities + pnl.netOperatingSurplus,
+    isBalanced: Math.abs(totalAssets - (totalLiabilities + pnl.netOperatingSurplus)) < 0.01
   };
 }
 
 export function buildPreviewCustomerStatement(customerId?: string): NewsroomCustomerStatement {
+  const resolvedCustomerId = customerId ?? "cust-sample-1";
+  const invoice = buildPreviewInvoices().find((item) => item.customerId === resolvedCustomerId) ?? buildPreviewInvoices()[0]!;
+  const payment = buildPreviewPayments().find((item) => item.invoiceId === invoice.id);
+  const totalPaid = payment?.amount ?? 0;
   return {
-    customerId: customerId ?? "cust-sample-1",
-    customerName: "Health Corp Zimbabwe Ltd",
+    customerId: resolvedCustomerId,
+    customerName: invoice.customerName,
     currency: "USD",
     fromDate: "2026-10-01",
     toDate: "2026-10-31",
     openingBalance: 0.0,
-    totalInvoiced: 2125.0,
-    totalPaid: 2125.0,
+    totalInvoiced: invoice.total,
+    totalPaid,
     totalCredits: 0.0,
-    closingBalance: 0.0,
+    closingBalance: invoice.total - totalPaid,
     activity: [
-      { type: "invoice", reference: "INV-2026-0001", activityDate: "2026-10-02", amount: 2125.0, memo: "Cholera Awareness Campaign Masthead Sponsorship" },
-      { type: "payment", reference: "PAY-2026-0001", activityDate: "2026-10-08", amount: 2125.0, memo: "Settlement via Bank Wire Ref #BW-8829" }
+      { type: "invoice", reference: invoice.invoiceNumber, activityDate: invoice.issueDate ?? "2026-10-02", amount: invoice.total, memo: invoice.notes ?? "Customer invoice" },
+      ...(payment ? [{ type: "payment" as const, reference: payment.paymentNumber, activityDate: payment.paymentDate, amount: payment.amount, memo: payment.notes ?? "Customer payment" }] : [])
     ]
   };
 }
 
 export function buildPreviewJournals(): NewsroomJournalEntry[] {
+  const invoice = buildPreviewInvoices().find((item) => item.invoiceNumber === "INV-2026-0001")!;
+  const payment = buildPreviewPayments().find((item) => item.paymentNumber === "PAY-2026-0001")!;
+  const netRevenue = invoice.total - invoice.taxTotal;
   return [
     {
       id: "jrn-sample-1",
@@ -3874,9 +4254,9 @@ export function buildPreviewJournals(): NewsroomJournalEntry[] {
       postedAt: "2026-10-02T10:00:00Z",
       createdAt: "2026-10-02T10:00:00Z",
       lines: [
-        { lineNumber: 1, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 2125.0, credit: 0.0, description: "Customer receivable for INV-2026-0001" },
-        { lineNumber: 2, accountId: "coa-4000", accountCode: "4000", accountName: "Advertising Revenue", debit: 0.0, credit: 1847.83, description: "Net advertising revenue" },
-        { lineNumber: 3, accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax", debit: 0.0, credit: 277.17, description: "15% VAT output tax" }
+        { lineNumber: 1, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: invoice.total, credit: 0.0, description: "Customer receivable for INV-2026-0001" },
+        { lineNumber: 2, accountId: "coa-4000", accountCode: "4000", accountName: "Advertising Revenue", debit: 0.0, credit: netRevenue, description: "Net advertising revenue" },
+        { lineNumber: 3, accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax", debit: 0.0, credit: invoice.taxTotal, description: "VAT output tax" }
       ]
     },
     {
@@ -3892,8 +4272,8 @@ export function buildPreviewJournals(): NewsroomJournalEntry[] {
       postedAt: "2026-10-08T14:30:00Z",
       createdAt: "2026-10-08T14:30:00Z",
       lines: [
-        { lineNumber: 1, accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", debit: 2125.0, credit: 0.0, description: "Cash receipt for INV-2026-0001" },
-        { lineNumber: 2, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 0.0, credit: 2125.0, description: "Clear AR via PAY-2026-0001" }
+        { lineNumber: 1, accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", debit: payment.amount, credit: 0.0, description: "Cash receipt for INV-2026-0001" },
+        { lineNumber: 2, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 0.0, credit: payment.amount, description: "Clear AR via PAY-2026-0001" }
       ]
     }
   ];

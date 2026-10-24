@@ -256,6 +256,7 @@ export type StudioPlanningBoardViewProps = {
   onOpenStoryWorkspace: (storyId: string) => void;
   onOpenDiscussion: (assignmentId: string) => void;
   onOpenMyAssignments: () => void;
+  nowMs?: number;
 };
 
 export function StudioPlanningBoardView({
@@ -274,7 +275,8 @@ export function StudioPlanningBoardView({
   onProgressAssignment,
   onOpenStoryWorkspace: handleOpenStoryWorkspace,
   onOpenDiscussion: handleOpenDiscussion,
-  onOpenMyAssignments
+  onOpenMyAssignments,
+  nowMs = Date.now()
 }: StudioPlanningBoardViewProps) {
   const { width } = useWindowDimensions();
   const isTablet = width >= breakpoints.tablet && width < breakpoints.desktop;
@@ -355,7 +357,6 @@ export function StudioPlanningBoardView({
 
   // Summary counts
   const summaryCounts = useMemo(() => {
-    const now = Date.now();
     let totalActive = 0;
     let overdue = 0;
     let imminent = 0;
@@ -368,7 +369,7 @@ export function StudioPlanningBoardView({
         continue;
       }
       totalActive++;
-      const urg = getAssignmentDeadlineUrgency(item.deadlineAt, item.status, now);
+      const urg = getAssignmentDeadlineUrgency(item.deadlineAt, item.status, nowMs);
       if (urg.isOverdue) overdue++;
       if (urg.isImminent) imminent++;
       const p = (item.priority || "").toLowerCase();
@@ -376,7 +377,7 @@ export function StudioPlanningBoardView({
     }
 
     return { totalActive, overdue, imminent, highOrUrgent, complete };
-  }, [rawAssignments]);
+  }, [nowMs, rawAssignments]);
 
   // Dynamic desks available across assignments
   const availableDesks = useMemo(() => {
@@ -406,7 +407,6 @@ export function StudioPlanningBoardView({
 
   // Filtered and Sorted assignments
   const displayedAssignments = useMemo(() => {
-    const now = Date.now();
     return rawAssignments
       .filter((item) => {
         // Status filter
@@ -434,7 +434,7 @@ export function StudioPlanningBoardView({
 
         // Overdue only toggle
         if (overdueOnly) {
-          const urg = getAssignmentDeadlineUrgency(item.deadlineAt, item.status, now);
+          const urg = getAssignmentDeadlineUrgency(item.deadlineAt, item.status, nowMs);
           if (!urg.isOverdue) return false;
         }
 
@@ -459,7 +459,7 @@ export function StudioPlanningBoardView({
       })
       .sort((a, b) => {
         if (sortMode === "urgency") {
-          return compareAssignmentsUrgency(a, b, now);
+          return compareAssignmentsUrgency(a, b, nowMs);
         }
         if (sortMode === "deadline") {
           const aComplete = a.status === "Complete";
@@ -514,7 +514,8 @@ export function StudioPlanningBoardView({
     storyLinkFilter,
     searchQuery,
     sortMode,
-    staffMap
+    staffMap,
+    nowMs
   ]);
 
   // Handlers

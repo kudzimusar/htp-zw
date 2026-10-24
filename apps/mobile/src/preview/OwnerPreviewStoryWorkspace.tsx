@@ -24,6 +24,7 @@ import type {
 } from "../domain/models";
 import {
   StudioStoryWorkspaceView,
+  STORY_WORKSPACE_TABS,
   type TabId
 } from "../ui/StudioStoryWorkspace";
 import {
@@ -55,13 +56,43 @@ export function OwnerPreviewStoryWorkspace({
   initialTab?: WorkspaceTabKey;
 }) {
   const router = useRouter();
-  const initialStories = useMemo(() => buildPreviewStories(), []);
+  const initialStories = useMemo(() => {
+    const list = buildPreviewStories();
+    if (initialStoryId === "new") {
+      const base = list[0];
+      const newDraft: NewsroomStory = {
+        ...base,
+        id: "prev-story-new",
+        title: "PREVIEW — Untitled Draft Story",
+        slug: "preview-untitled-draft-story",
+        standfirst: "Initial reporting overview for newly commissioned draft story.",
+        excerpt: "Initial reporting overview for newly commissioned draft story.",
+        bodyHtml: "<p>Start writing reporting draft here…</p>",
+        bodyJson: null,
+        status: "draft",
+        workflowStatus: "Draft",
+        accessPolicy: "public",
+        publishedAt: null,
+        scheduledAt: null,
+        authorId: PREVIEW_PUBLIC_AUTHORS[0]?.id ?? "",
+        primarySectionId: PREVIEW_SECTIONS[0]?.id ?? "",
+        lockVersion: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        modifiedAt: new Date().toISOString()
+      } as NewsroomStory;
+      return [newDraft, ...list];
+    }
+    return list;
+  }, [initialStoryId]);
   const [stories, setStories] = useState<NewsroomStory[]>(initialStories);
-  const [selectedStoryId, setSelectedStoryId] = useState<string>(
-    initialStoryId && initialStories.some((s) => s.id === initialStoryId)
-      ? initialStoryId
-      : initialStories[0]?.id ?? "00000000-0000-4000-8000-000000001001"
-  );
+  const [selectedStoryId, setSelectedStoryId] = useState<string>(() => {
+    if (initialStoryId === "new") return "prev-story-new";
+    if (initialStoryId && initialStories.some((s) => s.id === initialStoryId)) {
+      return initialStoryId;
+    }
+    return initialStories[0]?.id ?? "00000000-0000-4000-8000-000000001001";
+  });
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   const currentStory = useMemo(() => {
@@ -97,7 +128,11 @@ export function OwnerPreviewStoryWorkspace({
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "autosaving" | "saved" | "conflict" | "error"
   >("saved");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(
+    initialStoryId === "new"
+      ? "New story draft opened in local Preview memory (writes disabled). Edits are non-persistent."
+      : null
+  );
 
   // Revisions & History state
   const [revisions, setRevisions] = useState<NewsroomStoryRevision[]>(PREVIEW_STORY_REVISIONS);
@@ -281,17 +316,42 @@ export function OwnerPreviewStoryWorkspace({
     { type: "editor_review", label: "Editor Review" }
   ];
 
-  const transitionOptions = [
-    { label: "Submit for Review", status: "Submitted", allowed: true },
-    { label: "Send to Fact Check", status: "Fact check", allowed: true },
-    { label: "Send to Health Review", status: "Health / Science review", allowed: true },
-    { label: "Send to Copy Edit", status: "Copy edit", allowed: true },
-    { label: "Send to Editor Review", status: "Editor review", allowed: true },
-    { label: "Mark as Ready", status: "Ready", allowed: true },
-    { label: "Publish Now", status: "Published", allowed: true },
-    { label: "Schedule Publication", status: "Scheduled", allowed: scheduledAt.trim() !== "" },
-    { label: "Archive Story", status: "Archived", allowed: true }
-  ];
+  const curWorkflow = currentStory.workflowStatus ?? "Draft";
+  const transitionOptions = useMemo(() => {
+    const opts: Array<{ label: string; status: string; allowed: boolean }> = [];
+    if (["Draft", "Pitch", "Approved", "Assigned", "Reporting"].includes(curWorkflow)) {
+      opts.push({ label: "Submit for Review", status: "Submitted", allowed: true });
+    }
+    if (["Submitted"].includes(curWorkflow)) {
+      opts.push({ label: "Send to Fact Check", status: "Fact check", allowed: true });
+      opts.push({ label: "Send to Health Review", status: "Health / Science review", allowed: true });
+      opts.push({ label: "Send to Copy Edit", status: "Copy edit", allowed: true });
+    }
+    if (["Fact check"].includes(curWorkflow)) {
+      opts.push({ label: "Send to Health Review", status: "Health / Science review", allowed: true });
+      opts.push({ label: "Send to Copy Edit", status: "Copy edit", allowed: true });
+    }
+    if (["Health / Science review"].includes(curWorkflow)) {
+      opts.push({ label: "Send to Copy Edit", status: "Copy edit", allowed: true });
+      opts.push({ label: "Send to Editor Review", status: "Editor review", allowed: true });
+    }
+    if (["Copy edit"].includes(curWorkflow)) {
+      opts.push({ label: "Send to Editor Review", status: "Editor review", allowed: true });
+      opts.push({ label: "Mark as Ready", status: "Ready", allowed: true });
+    }
+    if (["Editor review"].includes(curWorkflow)) {
+      opts.push({ label: "Mark as Ready", status: "Ready", allowed: true });
+      opts.push({ label: "Return to Copy Edit", status: "Copy edit", allowed: true });
+    }
+    if (["Ready", "Scheduled"].includes(curWorkflow)) {
+      opts.push({ label: "Publish Now", status: "Published", allowed: true });
+      opts.push({ label: "Schedule Publication", status: "Scheduled", allowed: scheduledAt.trim() !== "" });
+    }
+    if (curWorkflow !== "Archived") {
+      opts.push({ label: "Archive Story", status: "Archived", allowed: true });
+    }
+    return opts;
+  }, [curWorkflow, scheduledAt]);
 
   const handlePostDiscussionMessage = () => {
     const text = newDiscussionText.trim();
@@ -650,16 +710,54 @@ export function OwnerPreviewStoryWorkspace({
   const topControlsSlot = (
     <View style={previewStyles.previewControlsCard} testID="owner-preview-story-controls">
       <View style={previewStyles.previewNoticeBox}>
-        <Text style={previewStyles.previewNoticeTitle}>PREVIEW STATE ONLY — NOT SAVED TO SERVER</Text>
+        <Text style={previewStyles.previewNoticeTitle}>PREVIEW STATE ONLY — NOT SAVED</Text>
         <Text style={previewStyles.previewNoticeBody}>
-          Shared presentation component `StudioStoryWorkspaceView` is rendered with non-persistent sample data.
-          All 7 tabs, workflow transitions, review records, media attachments, and revision restores are interactive locally.
+          Interactive editorial story workspace rendered with non-persistent preview data.
+          All {STORY_WORKSPACE_TABS.length} tabs, workflow transitions, review records, media attachments, and revision restores are interactive locally.
         </Text>
       </View>
 
       <View style={previewStyles.selectorRow}>
         <Text style={previewStyles.selectorLabel}>Switch Sample Story:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={previewStyles.pillsScroll}>
+          <Pressable
+            style={[
+              previewStyles.storyPill,
+              { backgroundColor: "#0284C7", borderColor: "#0369A1" }
+            ]}
+            onPress={() => {
+              const newId = `prev-story-new-${Date.now()}`;
+              const base = stories[0];
+              const newDraft: NewsroomStory = {
+                ...base,
+                id: newId,
+                title: "PREVIEW — Untitled Draft Story",
+                slug: "preview-untitled-draft-story",
+                standfirst: "Initial reporting overview for newly commissioned draft story.",
+                excerpt: "Initial reporting overview for newly commissioned draft story.",
+                bodyHtml: "<p>Start writing reporting draft here…</p>",
+                bodyJson: null,
+                status: "draft",
+                workflowStatus: "Draft",
+                accessPolicy: "public",
+                publishedAt: null,
+                scheduledAt: null,
+                authorId: PREVIEW_PUBLIC_AUTHORS[0]?.id ?? "",
+                primarySectionId: PREVIEW_SECTIONS[0]?.id ?? "",
+                lockVersion: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                modifiedAt: new Date().toISOString()
+              } as NewsroomStory;
+              setStories((prev) => [newDraft, ...prev]);
+              setSelectedStoryId(newId);
+              setStatusMessage("New story draft opened in local Preview memory (writes disabled). Edits are non-persistent.");
+            }}
+          >
+            <Text style={[previewStyles.storyPillText, { color: "#FFFFFF", fontWeight: "900" }]}>
+              + New Story Draft
+            </Text>
+          </Pressable>
           {stories.map((st) => {
             const active = st.id === selectedStoryId;
             return (
@@ -683,7 +781,7 @@ export function OwnerPreviewStoryWorkspace({
           onPress={() => {
             setSaveStatus("conflict");
             setStatusMessage(
-              `SIMULATED CONFLICT: Another staff member updated this story on the server (expected v${expectedVersion}).`
+              `Version Conflict: Another staff member updated this story. Please reload to inspect recent changes.`
             );
           }}
         >
@@ -704,6 +802,7 @@ export function OwnerPreviewStoryWorkspace({
 
   return (
     <StudioStoryWorkspaceView
+      isPreview={true}
       storyId={selectedStoryId}
       story={currentStory}
       activeTab={activeTab}

@@ -18,11 +18,10 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 45000
-- tapOn: "Search stories, people and topics"
+- tapOn: "Search articles, topics, authors…"
 - inputText: "health"
 - takeScreenshot: search-keyboard
-- hideKeyboard
-- tapOn: "Submit HealthTimes search"
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "HEALTHTIMES SEARCH"
     timeout: 20000
@@ -224,7 +223,18 @@ appId: zw.co.healthtimes.app.dev
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
-- hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Edition & Preferences"
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Africa primary edition"
     timeout: 10000
@@ -233,8 +243,24 @@ appId: zw.co.healthtimes.app.dev
     element:
       text: "Save Preferences"
     direction: DOWN
+    visibilityPercentage: 100
     timeout: 20000
+- waitForAnimationToEnd
 - tapOn: "Save Preferences"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: "Preferences saved on this device."
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Save Preferences"
+          direction: DOWN
+          visibilityPercentage: 100
+          timeout: 10000
+      - waitForAnimationToEnd
+      - tapOn: "Save Preferences"
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       text: "Preferences saved on this device."
@@ -264,6 +290,11 @@ appId: zw.co.healthtimes.app.dev
             text: "Appearance / Theme.*"
           direction: DOWN
           timeout: 20000
+          centerElement: true
+          visibilityPercentage: 100
+      - waitForAnimationToEnd
+      - assertVisible: "Appearance / Theme.*"
+      - takeScreenshot: my-appearance-target-ios
       - tapOn: "Appearance / Theme.*"
 - runFlow:
     when:

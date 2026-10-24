@@ -18,10 +18,10 @@ env:
   APP_ENV: staging
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
   HEALTHTIMES_WEB_BASE_URL: ""
-  EXPO_PUBLIC_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
-  HEALTHTIMES_SUPABASE_URL: https://gcdohgbmqhqwydgaxrcr.supabase.co
-  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Fad1xU5q53KB2uq-D1shIw_6JH0vInk
+  EXPO_PUBLIC_SUPABASE_URL: https://bzuvntbkevvuhfhqhkua.supabase.co
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_G82EfIFGaJeJYG-A5G2B8w_UkA7zTVZ
+  HEALTHTIMES_SUPABASE_URL: https://bzuvntbkevvuhfhqhkua.supabase.co
+  HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY: sb_publishable_G82EfIFGaJeJYG-A5G2B8w_UkA7zTVZ
 
 jobs:
   media-web:
@@ -273,7 +273,7 @@ jobs:
 
             const regressionChecks=[
               ['phase3-regression-explore','/explore','Explore by topic'],
-              ['phase3-regression-search','/search','Suggested searches'],
+              ['phase3-regression-search','/search','Try searching for'],
               ['phase2-regression-article','/article/'+articleId,null],
               ['phase2-regression-premium','/premium','HealthTimes Premium']
             ];
@@ -281,7 +281,7 @@ jobs:
               const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
               const diag=diagnostics(page);
               const response=await page.goto(base+route,{waitUntil:'domcontentloaded',timeout:30000});
-              await page.getByLabel('HealthTimes Home').first().waitFor({timeout:30000});
+              await page.locator('[aria-label="HealthTimes Home"]:visible').first().waitFor({timeout:30000});
               if(ready) await page.getByText(ready,{exact:false}).first().waitFor({timeout:30000});
               if(name==='phase3-regression-search'){
                 const input=page.getByRole('textbox',{name:'Search HealthTimes'});

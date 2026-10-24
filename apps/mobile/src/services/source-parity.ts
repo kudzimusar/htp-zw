@@ -15,6 +15,7 @@ import type {
 } from "../domain/models";
 import type { SourceException } from "../domain/source";
 import { scoreReaderSearch } from "../reader/search-ranking";
+import { comparePublicationDesc, sortByPublicationDesc } from "../reader/feed-order";
 import { fixtureServices } from "./fixtures";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import {
@@ -344,6 +345,19 @@ function snapshotBySlug(){
   return new Map(sourceParityArticles.map((article)=>[article.slug,article]));
 }
 
+function canRefreshPublicSourceFromRuntime(){
+  const runtimeLocation=
+    typeof globalThis!=="undefined"
+      ? (globalThis as typeof globalThis & {location?:{origin?:string}}).location
+      : undefined;
+  if(!runtimeLocation?.origin) return true;
+  try{
+    return new URL(sourceBase).origin===runtimeLocation.origin;
+  }catch{
+    return false;
+  }
+}
+
 export function legacyDatedPermalinkCandidate(article:Pick<ArticleDetail,"slug"|"publishedAt">){
   if(!article.publishedAt?.trim() || !article.slug?.trim()) return null;
   const published=new Date(article.publishedAt);
@@ -370,11 +384,16 @@ async function boundedTeaserAuthority(article:ArticleDetail){
 async function refreshedArticles():Promise<ArticleDetail[]>{
   if(cache.articles && Date.now()-cache.at<cacheMs) return cache.articles;
   const fallbackBySlug=snapshotBySlug();
+  if(!canRefreshPublicSourceFromRuntime()){
+    cache.at=Date.now();
+    cache.articles=sortByPublicationDesc(sourceParityArticles);
+    return cache.articles;
+  }
   const live=await sourceGet<WpPost[]>("/posts?per_page=50&status=publish&orderby=date&order=desc"+wpPostQuery({includeContent:false}));
   if(!live){
     cache.at=Date.now();
-    cache.articles=sourceParityArticles;
-    return sourceParityArticles;
+    cache.articles=sortByPublicationDesc(sourceParityArticles);
+    return cache.articles;
   }
   const refreshed=new Map<string,ArticleDetail>();
   for(const post of live){
@@ -382,18 +401,16 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
     refreshed.set(post.slug,mapWpPost(post,fallback));
   }
 
-  const liveArticles=Array.from(refreshed.values()).sort((a,b)=>{
-    const aTime=a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-    const bTime=b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-    return bTime-aTime;
-  });
+  const liveArticles=Array.from(refreshed.values());
+  liveArticles.sort(comparePublicationDesc);
   const liveSlugs=new Set(liveArticles.map((article)=>article.slug));
   const snapshotFallbacks=sourceParityArticles.filter((article)=>!liveSlugs.has(article.slug));
   const merged=[...liveArticles,...snapshotFallbacks];
+  const orderedMerged=sortByPublicationDesc(merged);
 
   cache.at=Date.now();
-  cache.articles=merged;
-  return merged;
+  cache.articles=orderedMerged;
+  return orderedMerged;
 }
 
 const articleRepository:ArticleRepository={
@@ -430,6 +447,13 @@ const articleRepository:ArticleRepository={
         : current;
 
     if(!detailDecision.includeWordPressContent){
+      return boundedCurrent;
+    }
+
+    // Browser builds running away from healthtimes.co.zw use the verified
+    // deterministic snapshot. This avoids cross-origin WordPress/WAF failures
+    // while native/server/same-origin source-parity refresh remains available.
+    if(!canRefreshPublicSourceFromRuntime()){
       return boundedCurrent;
     }
 

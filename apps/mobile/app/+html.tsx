@@ -45,6 +45,9 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="manifest" href={assetPath("manifest.json")} />
         <link rel="icon" href={assetPath("healthtimes-icon.svg")} />
         <ScrollViewStyleReset />
+        <style dangerouslySetInnerHTML={{
+          __html: "html,body,#root{max-width:100%;overflow-x:hidden}"
+        }} />
         <script dangerouslySetInnerHTML={{ __html: deepLinkRestoreScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRegistration }} />
       </head>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
 import { layout, radius, spacing } from "../src/theme/tokens";
@@ -9,6 +10,7 @@ import { useAppearance } from "../src/theme/AppearanceProvider";
 type Mode = "sign-in" | "register" | "recovery" | "new-password";
 
 export default function AccountAccessScreen(){
+  const router=useRouter();
   const { palette }=useAppearance();
   const [mode,setMode]=useState<Mode>("sign-in");
   const [email,setEmail]=useState("");
@@ -29,6 +31,17 @@ export default function AccountAccessScreen(){
       setStatus(result.message);
 
       if(result.status==="success"){
+        if(url.includes("mode=owner-activation")){
+          const ownerResult=await services.newsroomStaff.bootstrapOwner();
+          if(!active) return;
+          if(!ownerResult.success){
+            setStatus(ownerResult.error ?? "Owner activation could not be completed after email verification.");
+            return;
+          }
+          setStatus("Owner email confirmed. Publisher / Owner activation completed.");
+          router.replace("/studio" as never);
+          return;
+        }
         if(url.includes("mode=recovery")){
           setMode("new-password");
           setPassword("");
@@ -45,7 +58,7 @@ export default function AccountAccessScreen(){
       active=false;
       subscription.remove();
     };
-  },[]);
+  },[router]);
 
   const submit=async()=>{
     setStatus("");

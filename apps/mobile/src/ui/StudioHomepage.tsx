@@ -101,6 +101,7 @@ export type StudioHomepageViewProps = {
   selectedEditionSlug?: string;
   onEditionSlugChange?: (slug: string) => void;
   deliveryConnected?: boolean;
+  isOwnerPreview?: boolean;
 };
 
 export function StudioHomepageView({
@@ -122,7 +123,8 @@ export function StudioHomepageView({
   onScopeChange,
   selectedEditionSlug,
   onEditionSlugChange,
-  deliveryConnected = false
+  deliveryConnected = false,
+  isOwnerPreview = false
 }: StudioHomepageViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
@@ -321,7 +323,9 @@ export function StudioHomepageView({
             <View style={styles.headerTagRow}>
               <View style={styles.pulseDot} />
               <Text style={styles.headerTag}>
-                HealthTimes Newsroom OS • Distribution Control-Plane
+                {isOwnerPreview
+                  ? "HealthTimes Newsroom OS • Editorial Homepage Desk"
+                  : "HealthTimes Newsroom OS • Distribution Control-Plane"}
               </Text>
             </View>
             <Text style={styles.title}>Homepage Curation</Text>
@@ -340,9 +344,9 @@ export function StudioHomepageView({
         </View>
 
         <Text style={styles.subtitle}>
-          Authoritative editorial control-plane for HealthTimes Home. Curate
-          Hero, Top Stories, and key thematic sections with optimistic
-          concurrency and full distribution key safety.
+          {isOwnerPreview
+            ? "Editorial front-page curation for HealthTimes Home. Arrange Hero, Top Stories, and regional edition slots in local Preview state."
+            : "Authoritative editorial control-plane for HealthTimes Home. Curate Hero, Top Stories, and key thematic sections with optimistic concurrency and full distribution key safety."}
         </Text>
       </View>
 
@@ -427,7 +431,14 @@ export function StudioHomepageView({
 
       {/* Editorial Delivery Information Notice */}
       <View style={styles.deliveryNoticeBanner} testID="homepage-delivery-notice">
-        {deliveryConnected ? (
+        {isOwnerPreview ? (
+          <View style={styles.deliveryConnectedRow}>
+            <View style={styles.connectedDot} />
+            <Text style={styles.deliveryNoticeConnectedText}>
+              Owner Preview Simulation: Homepage and Edition slot assignments below update local Preview memory only and do not alter the live public Reader homepage.
+            </Text>
+          </View>
+        ) : deliveryConnected ? (
           <View style={styles.deliveryConnectedRow}>
             <View style={styles.connectedDot} />
             <Text style={styles.deliveryNoticeConnectedText}>
@@ -866,7 +877,9 @@ export function StudioHomepageView({
           <View style={styles.panelBox}>
             <View style={styles.panelHeaderRow}>
               <View>
-                <Text style={styles.panelEyebrow}>CANONICAL INVENTORY</Text>
+                <Text style={styles.panelEyebrow}>
+                  {isOwnerPreview ? "EDITORIAL STORY INVENTORY" : "CANONICAL INVENTORY"}
+                </Text>
                 <Text style={styles.panelTitle}>Candidate Story Picker</Text>
               </View>
               <Text style={styles.countBadge}>

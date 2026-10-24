@@ -7,28 +7,41 @@ import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { event } from "../growth/events";
+import { resolveAdCreativeFrame } from "../growth/ad-layout";
 
 function formatDate(value: string | null) {
   if (!value) return "";
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function useHydratedCardWidth() {
-  const { width }=useWindowDimensions();
+function useHydratedCardDimensions() {
+  const { width,height }=useWindowDimensions();
   const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
   useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
-  return responsiveReady ? width : 0;
+  return responsiveReady ? {width,height} : {width:0,height:0};
+}
+
+function useHydratedCardWidth() {
+  return useHydratedCardDimensions().width;
 }
 
 export function HeroStory({ story }: { story: ArticleSummary }) {
   const router=useRouter();
   const { palette }=useAppearance();
-  const width=useHydratedCardWidth();
+  const { width,height }=useHydratedCardDimensions();
   const phone=width < breakpoints.tablet;
   const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
   const desktop=width >= breakpoints.desktop;
-  const [mediaFailed,setMediaFailed]=useState(false);
-  const hasMedia=Boolean(story.heroMedia?.publicUrl) && !mediaFailed;
+  const shortTabletLandscape=
+    width >= breakpoints.tablet &&
+    width <= 1200 &&
+    height > 0 &&
+    width > height &&
+    height <= 820;
+  const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
+  const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
+  useEffect(()=>{ setMediaState(mediaUrl ? "loading" : "failed"); },[mediaUrl]);
+  const hasMedia=Boolean(mediaUrl) && mediaState==="ready";
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -39,30 +52,37 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         styles.hero,
         {borderBottomColor:palette.border},
         imageHeadline && styles.heroPhoneMedia,
-        tablet && styles.heroTablet,
-        desktop && styles.heroDesktop
+        hasMedia && tablet && styles.heroTablet,
+        hasMedia && desktop && styles.heroDesktop,
+        hasMedia && shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >
-      {hasMedia && story.heroMedia?.publicUrl ? (
+      {mediaUrl && mediaState!=="failed" ? (
         <Image
-          source={{ uri: story.heroMedia.publicUrl }}
-          onError={()=>setMediaFailed(true)}
-          style={[
+          testID={mediaState==="ready" ? "home-hero-media" : undefined}
+          source={{ uri: mediaUrl }}
+          resizeMode="cover"
+          onLoad={()=>setMediaState("ready")}
+          onError={()=>setMediaState("failed")}
+          accessible={mediaState==="ready"}
+          style={mediaState==="ready" ? [
             styles.heroImage,
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
-            desktop && styles.heroImageDesktop
-          ]}
-          accessibilityLabel={story.heroMedia.altText ?? story.title}
+            desktop && styles.heroImageDesktop,
+            shortTabletLandscape && styles.heroImageShortTabletLandscape
+          ] : styles.heroImageProbe}
+          accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}
       <View style={[
         styles.heroBody,
         imageHeadline && styles.heroBodyOverlay,
-        tablet && styles.heroBodyTablet,
-        desktop && styles.heroBodyDesktop
+        hasMedia && tablet && styles.heroBodyTablet,
+        hasMedia && desktop && styles.heroBodyDesktop,
+        hasMedia && shortTabletLandscape && styles.heroBodyShortTabletLandscape
       ]}>
         <View style={styles.metaRow}>
           <Text style={[styles.kicker,{color:imageHeadline?"#D9F5F3":palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
@@ -74,13 +94,22 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
             styles.heroTitle,
             {color:imageHeadline?"#FFFFFF":palette.ink},
             imageHeadline && styles.heroTitleOverlay,
-            tablet && styles.heroTitleTablet,
-            desktop && styles.heroTitleDesktop
+            hasMedia && tablet && styles.heroTitleTablet,
+            hasMedia && desktop && styles.heroTitleDesktop,
+            hasMedia && shortTabletLandscape && styles.heroTitleShortTabletLandscape
           ]}
         >
           {story.title}
         </Text>
-        {!imageHeadline && !!story.standfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{story.standfirst}</Text>}
+        {!imageHeadline && !!story.standfirst && (
+          <Text style={[
+            styles.standfirst,
+            {color:palette.inkMuted},
+            hasMedia && shortTabletLandscape && styles.standfirstShortTabletLandscape
+          ]}>
+            {story.standfirst}
+          </Text>
+        )}
         <Text style={[styles.meta,{color:imageHeadline?"#E7EDF3":palette.inkMuted}]}>
           {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
         </Text>
@@ -155,6 +184,60 @@ export function StoryList({ stories }: { stories: ArticleSummary[] }) {
 export function formatLiveUpdateCountLabel(item: LiveItem): string | null {
   if (item.kind !== "live-blog" || typeof item.updateCount !== "number") return null;
   return item.updateCount === 1 ? "1 update" : item.updateCount + " updates";
+}
+
+function TopStoryRow({ story }: { story: ArticleSummary }) {
+  const router=useRouter();
+  const { palette }=useAppearance();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={story.title}
+      accessibilityHint="Opens the full HealthTimes article"
+      style={[styles.topStoryRow,{borderBottomColor:palette.border}]}
+      onPress={() => router.push(("/article/" + story.id) as never)}
+    >
+      <View style={styles.topStoryCopy}>
+        <View style={styles.metaRow}>
+          <Text style={[styles.topStoryKicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
+          {story.accessPolicy === "premium" && <PremiumBadge />}
+        </View>
+        <Text numberOfLines={3} style={[styles.topStoryTitle,{color:palette.ink}]}>{story.title}</Text>
+        <Text style={[styles.topStoryMeta,{color:palette.inkMuted}]}>
+          {story.author?.displayName ?? "HealthTimes"} · {formatDate(story.publishedAt)}
+        </Text>
+      </View>
+      {story.heroMedia?.publicUrl ? (
+        <Image
+          source={{uri:story.heroMedia.publicUrl}}
+          style={[styles.topStoryImage,{backgroundColor:palette.paperMuted}]}
+          accessibilityLabel={story.heroMedia.altText ?? story.title}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+export function TopStoriesList({ stories }: { stories: ArticleSummary[] }) {
+  const width=useHydratedCardWidth();
+  const tablet=width >= breakpoints.tablet;
+  const desktop=width >= breakpoints.desktop;
+  return (
+    <View style={[styles.topStoriesList,tablet && styles.topStoriesListWide]}>
+      {stories.map((story)=>(
+        <View
+          key={story.id}
+          style={[
+            styles.topStoryCell,
+            tablet && styles.topStoryCellTablet,
+            desktop && styles.topStoryCellDesktop
+          ]}
+        >
+          <TopStoryRow story={story} />
+        </View>
+      ))}
+    </View>
+  );
 }
 
 export function LiveRail({ items, onSelectItem }: { items: LiveItem[]; onSelectItem?: (item: LiveItem) => void }) {
@@ -356,6 +439,7 @@ export function AdSlot({
   const { palette }=useAppearance();
   const { width }=useWindowDimensions();
   const impressionKey=useRef("");
+  const [creativeSize,setCreativeSize]=useState<{width:number;height:number}|null>(null);
   const [creativeAspect,setCreativeAspect]=useState<number|null>(null);
   const decision=useAsync(
     ()=>services.advertising.getDecision(placement,{
@@ -368,7 +452,22 @@ export function AdSlot({
   const adDecision=decision.data;
 
   useEffect(()=>{
+    setCreativeSize(null);
     setCreativeAspect(null);
+    const creativeUrl=adDecision?.creativeUrl?.trim();
+    if(!creativeUrl) return;
+    let active=true;
+    Image.getSize(
+      creativeUrl,
+      (naturalWidth,naturalHeight)=>{
+        if(active && naturalWidth>0 && naturalHeight>0) {
+          setCreativeAspect(naturalWidth/naturalHeight);
+          setCreativeSize({width:naturalWidth,height:naturalHeight});
+        }
+      },
+      ()=>{}
+    );
+    return ()=>{ active=false; };
   },[adDecision?.creativeUrl]);
 
   useEffect(()=>{
@@ -392,6 +491,14 @@ export function AdSlot({
   const inArticle=placement==="article_after_intro";
   const articleEnd=placement==="article_end";
   const fallbackAspect=inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 8/1 : tablet ? 6/1 : 16/3;
+  const placementMaxWidth=articleEnd ? 980 : inArticle ? (desktop ? 900 : tablet ? 640 : 360) : desktop ? 900 : tablet ? 640 : 900;
+  const creativeFrame=resolveAdCreativeFrame({
+    viewportWidth:width,
+    naturalWidth:creativeSize?.width ?? null,
+    naturalHeight:creativeSize?.height ?? null,
+    maxWidth:placementMaxWidth,
+    fallbackAspect:creativeAspect ?? fallbackAspect
+  });
 
   const openDestination=()=>{
     if(!clickable) return;
@@ -408,14 +515,17 @@ export function AdSlot({
       source={{uri:adDecision.creativeUrl}}
       style={[
         styles.adCreative,
-        {backgroundColor:palette.paper,aspectRatio:creativeAspect ?? fallbackAspect}
+        {backgroundColor:palette.paper,width:creativeFrame.width,aspectRatio:creativeFrame.aspectRatio}
       ]}
       resizeMode="contain"
       onLoad={(event)=>{
         const source=event.nativeEvent.source;
         const naturalWidth=Number(source?.width ?? 0);
         const naturalHeight=Number(source?.height ?? 0);
-        if(naturalWidth>0 && naturalHeight>0) setCreativeAspect(naturalWidth/naturalHeight);
+        if(naturalWidth>0 && naturalHeight>0) {
+          setCreativeAspect(naturalWidth/naturalHeight);
+          setCreativeSize({width:naturalWidth,height:naturalHeight});
+        }
       }}
       accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
     />
@@ -437,7 +547,12 @@ export function AdSlot({
       <Text style={[styles.adLabel,{color:palette.inkMuted}]}>ADVERTISEMENT</Text>
       {!!adDecision.disclosureLabel && <Text style={[styles.adPlacement,{color:palette.ink}]}>{adDecision.disclosureLabel}</Text>}
       {clickable ? (
-        <Pressable accessibilityRole="link" accessibilityLabel={"Open "+adDecision.disclosureLabel} onPress={openDestination} style={styles.adCreativePressable}>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={"Open "+adDecision.disclosureLabel}
+          onPress={openDestination}
+          style={[styles.adCreativePressable,{width:creativeFrame.width}]}
+        >
           {creative}
         </Pressable>
       ) : creative}
@@ -460,21 +575,27 @@ export function Surface({ children }: PropsWithChildren) {
 const styles=StyleSheet.create({
   hero:{borderBottomWidth:1,paddingBottom:spacing.xl,position:"relative"},
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
-  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.lg,paddingTop:spacing.md},
-  heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.lg},
+  heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.sm,minHeight:360},
+  heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xxl,paddingTop:spacing.md,minHeight:430},
+  heroShortTabletLandscape:{minHeight:0,gap:spacing.lg,paddingTop:0,paddingBottom:spacing.lg},
+  heroImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   heroImage:{width:"100%",aspectRatio:16/9},
   heroImagePhone:{aspectRatio:4/3},
-  heroImageTablet:{width:"56%",aspectRatio:4/3},
-  heroImageDesktop:{width:"59%",aspectRatio:16/10},
+  heroImageTablet:{width:"58%",aspectRatio:4/3},
+  heroImageDesktop:{width:"64%",aspectRatio:16/10},
+  heroImageShortTabletLandscape:{width:"55%",aspectRatio:16/9},
   heroBody:{paddingTop:spacing.lg,gap:spacing.sm},
-  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.76)"},
-  heroBodyTablet:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.sm},
-  heroBodyDesktop:{flex:1,paddingTop:spacing.sm,justifyContent:"center",paddingRight:spacing.lg},
+  heroBodyOverlay:{position:"absolute",left:0,right:0,bottom:0,paddingHorizontal:spacing.lg,paddingTop:spacing.xxl,paddingBottom:spacing.lg,backgroundColor:"rgba(7,26,43,0.78)"},
+  heroBodyTablet:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.md},
+  heroBodyDesktop:{flex:1,paddingTop:spacing.lg,justifyContent:"center",paddingRight:spacing.xl},
+  heroBodyShortTabletLandscape:{paddingTop:spacing.sm,paddingRight:spacing.sm,gap:spacing.xs},
   heroTitle:{fontSize:type.hero,fontWeight:"900",lineHeight:38,letterSpacing:-0.7,maxWidth:900},
-  heroTitleOverlay:{fontSize:28,lineHeight:32,letterSpacing:-0.6},
-  heroTitleTablet:{fontSize:30,lineHeight:35},
-  heroTitleDesktop:{fontSize:40,lineHeight:46,letterSpacing:-1},
+  heroTitleOverlay:{fontSize:30,lineHeight:34,letterSpacing:-0.7},
+  heroTitleTablet:{fontSize:32,lineHeight:37},
+  heroTitleDesktop:{fontSize:44,lineHeight:49,letterSpacing:-1.1},
+  heroTitleShortTabletLandscape:{fontSize:30,lineHeight:34,letterSpacing:-0.6},
   standfirst:{fontSize:type.standfirst,lineHeight:24,maxWidth:820},
+  standfirstShortTabletLandscape:{fontSize:15,lineHeight:20},
   metaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   kicker:{fontSize:type.label,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
   meta:{fontSize:type.meta},
@@ -494,6 +615,17 @@ const styles=StyleSheet.create({
   storyListDesktop:{flexDirection:"row",flexWrap:"wrap",columnGap:spacing.xl},
   storyListItem:{width:"100%"},
   storyListItemDesktop:{width:"48.8%"},
+  topStoriesList:{width:"100%",gap:spacing.md},
+  topStoriesListWide:{flexDirection:"row",flexWrap:"wrap",columnGap:spacing.xl,rowGap:spacing.md},
+  topStoryCell:{width:"100%"},
+  topStoryCellTablet:{width:"48%"},
+  topStoryCellDesktop:{width:"48.8%"},
+  topStoryRow:{minHeight:96,flexDirection:"row",alignItems:"flex-start",gap:spacing.md,borderBottomWidth:1,paddingBottom:spacing.md},
+  topStoryCopy:{flex:1,gap:4,minWidth:0},
+  topStoryKicker:{fontSize:9,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.75},
+  topStoryTitle:{fontSize:17,lineHeight:22,fontWeight:"900",letterSpacing:-0.15},
+  topStoryMeta:{fontSize:10,lineHeight:14},
+  topStoryImage:{width:104,height:72},
   rail:{gap:spacing.md,paddingRight:spacing.lg},
   liveCard:{width:300,borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
   liveImage:{width:"100%",height:148},
@@ -510,7 +642,7 @@ const styles=StyleSheet.create({
   featuredVideoBodyDesktop:{flex:1},
   featuredVideoTitle:{fontSize:28,lineHeight:34,fontWeight:"900",letterSpacing:-.5},
   featuredVideoAction:{fontSize:12,fontWeight:"900",letterSpacing:.4,marginTop:spacing.sm},
-  featuredPlayBadge:{position:"absolute",left:18,top:18,width:56,height:56,borderRadius:28,backgroundColor:"rgba(7,26,43,0.88)",alignItems:"center",justifyContent:"center"},
+  featuredPlayBadge:{position:"absolute",top:"50%",left:"50%",marginTop:-28,marginLeft:-28,width:56,height:56,borderRadius:28,backgroundColor:"rgba(7,26,43,0.88)",alignItems:"center",justifyContent:"center"},
   featuredPlayText:{color:"#FFFFFF",fontSize:20},
   videoCard:{gap:spacing.sm,position:"relative"},
   videoImage:{width:"100%",aspectRatio:16/9},
@@ -518,9 +650,9 @@ const styles=StyleSheet.create({
   videoFallbackBrand:{color:"#FFFFFF",fontSize:22,fontWeight:"900",letterSpacing:-.5},
   videoFallbackLabel:{color:"#69D1C5",fontSize:10,fontWeight:"900",letterSpacing:1.8},
   videoFallbackNote:{color:"#C9D5E1",fontSize:10,lineHeight:15,textAlign:"center",maxWidth:260,marginTop:spacing.sm},
-  playBadge:{position:"absolute",left:12,top:12,width:42,height:42,borderRadius:21,backgroundColor:"rgba(7,26,43,0.86)",alignItems:"center",justifyContent:"center"},
+  playBadge:{position:"absolute",top:"50%",left:"50%",marginTop:-21,marginLeft:-21,width:42,height:42,borderRadius:21,backgroundColor:"rgba(7,26,43,0.86)",alignItems:"center",justifyContent:"center"},
   playText:{color:"#FFFFFF",fontSize:16},
-  duration:{position:"absolute",right:8,top:8,backgroundColor:"rgba(7,26,43,0.86)",paddingHorizontal:6,paddingVertical:4,borderRadius:4},
+  duration:{position:"absolute",right:8,bottom:8,backgroundColor:"rgba(7,26,43,0.88)",paddingHorizontal:6,paddingVertical:4,borderRadius:4},
   durationText:{color:"#FFFFFF",fontSize:11,fontWeight:"800"},
   videoTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
   videoMetaRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
@@ -539,8 +671,8 @@ const styles=StyleSheet.create({
   adSlotArticleEnd:{maxWidth:980,alignSelf:"center"},
   adLabel:{fontSize:9,fontWeight:"900",letterSpacing:1.4},
   adPlacement:{fontSize:12,fontWeight:"800",textAlign:"center"},
-  adCreativePressable:{width:"100%"},
-  adCreative:{width:"100%"},
+  adCreativePressable:{maxWidth:"100%",alignSelf:"center"},
+  adCreative:{maxWidth:"100%",alignSelf:"center"},
   adNoDestination:{fontSize:11,lineHeight:16,textAlign:"center",maxWidth:620,fontStyle:"italic"},
   premiumBadge:{fontSize:10,fontWeight:"900",letterSpacing:0.8,color:colors.premium,borderWidth:1,borderColor:colors.premium,paddingHorizontal:6,paddingVertical:3,borderRadius:4},
   surface:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg}

@@ -2,7 +2,7 @@
 ## 30–45 Minute End-to-End Walkthrough of Reader, Newsroom OS, Commercial & Finance
 
 - **Document ID:** `HT-MVP-CLIENT-DRY-RUN`
-- **Release Candidate:** `release/ht-mvp-rc01-udpcs-launch-control`
+- **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Sections 17–21, 61, 67
 - **Target Delivery Date:** 24 October 2026

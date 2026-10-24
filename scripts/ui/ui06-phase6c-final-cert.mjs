@@ -4,7 +4,7 @@ import path from "node:path";
 
 const base=process.env.UI06_BASE_URL||"http://127.0.0.1:4174";
 const sha=process.env.EXPECTED_SHA||"unknown";
-const teaserEndpoint="https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document";
+const teaserEndpoint="https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document";
 const premiumReferencePath="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
 const out="ui06-phase6c-final-evidence";
 const publicArticleId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
@@ -102,7 +102,7 @@ async function bodyText(page,value,label,timeout=30000){
 async function loadPremiumTeaserAuthority(){
   const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL||"").replace(/\/$/,"");
   const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY||"");
-  if(url!=="https://gcdohgbmqhqwydgaxrcr.supabase.co")fail("Premium authority","unexpected staging URL","P0");
+  if(url!=="https://bzuvntbkevvuhfhqhkua.supabase.co")fail("Premium authority","unexpected staging URL","P0");
   if(!/^sb_publishable_/.test(key)||/service_role/i.test(key))fail("Premium authority","publishable credential unavailable","P0");
   const response=await fetch(teaserEndpoint,{
     method:"POST",

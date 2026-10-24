@@ -99,7 +99,14 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const { id }=useLocalSearchParams<{id:string}>();
   const router=useRouter();
   const { palette }=useAppearance();
-  const { width }=useWindowDimensions();
+  const { width:rawWidth }=useWindowDimensions();
+  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
+  useEffect(()=>{
+    if(Platform.OS==="web") setResponsiveReady(true);
+  },[]);
+  const width=responsiveReady ? rawWidth : 0;
+  const tablet=width >= breakpoints.tablet && width < breakpoints.desktop;
+  const desktop=width >= breakpoints.desktop;
   const previewConfig=premiumPreviewConfiguration();
   const [textScale,setTextScale]=useState(1);
   const [actionStatus,setActionStatus]=useState("");
@@ -290,8 +297,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     previewConfig.source
   ]);
 
-  if(article.loading) return <Page><LoadingBlock label="Loading article…" /></Page>;
-  if(!publicStory) return <Page title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
+  if(article.loading) return <Page chrome={desktop}><LoadingBlock label="Loading article…" /></Page>;
+  if(!publicStory) return <Page chrome={desktop} title="Article"><Text style={[styles.muted,{color:palette.inkMuted}]}>Article not found.</Text></Page>;
   const verifiedPremiumStory=
     entitlement.data===true && entitledArticle.data?.bodyHtml
       ? entitledArticle.data
@@ -304,7 +311,6 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     publicStory.accessPolicy==="premium" &&
     !verifiedPremiumStory?.bodyHtml;
   const blocks=parseArticleContent(protectedBody ? null : story.bodyHtml,story.canonicalUrl);
-  const desktop=width >= breakpoints.desktop;
   const publishedLabel=formatArticleTime(story.publishedAt);
   const modifiedLabel=formatArticleTime(story.modifiedAt);
   const showUpdated=Boolean(story.modifiedAt && story.modifiedAt!==story.publishedAt);
@@ -409,6 +415,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
   return (
     <Page
+      chrome={desktop}
       initialScrollProgress={readPosition.data ?? 0}
       onScrollProgress={persistProgress}
     >
@@ -426,37 +433,43 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       {story.heroMedia?.publicUrl && (
         <View style={styles.heroWrap}>
           <Image testID="article-hero-media" source={{uri:story.heroMedia.publicUrl}} style={[styles.hero,{backgroundColor:palette.paperMuted}]} accessibilityLabel={story.heroMedia.altText ?? story.title} />
-          {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
-          {!!displayMediaCredit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{displayMediaCredit}</Text>}
+          {(!!story.heroMedia.caption || !!displayMediaCredit) && (
+            <View style={[styles.heroCaptionWrap,{borderBottomColor:palette.border}]}>
+              {!!story.heroMedia.caption && <Text style={[styles.caption,{color:palette.inkMuted}]}>{story.heroMedia.caption}</Text>}
+              {!!displayMediaCredit && <Text style={[styles.credit,{color:palette.inkMuted}]}>{displayMediaCredit}</Text>}
+            </View>
+          )}
         </View>
       )}
 
-      <View style={styles.articleHeader}>
+      <View style={[styles.articleHeader,!story.heroMedia?.publicUrl && styles.articleHeaderNoHero]}>
         <View style={styles.metaRow}>
           <Text style={[styles.kicker,{color:palette.blue}]}>{story.primarySection?.name ?? "HealthTimes"}</Text>
           {story.accessPolicy==="premium" && <PremiumBadge />}
         </View>
-        <Text style={[styles.title,{color:palette.ink},desktop && styles.titleDesktop]}>{story.title}</Text>
-        {!!displayStandfirst && <Text style={[styles.standfirst,{color:palette.inkMuted}]}>{displayStandfirst}</Text>}
-        <View style={styles.publicationMeta}>
-          {story.author ? (
-            <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
-              <Text style={[styles.byline,{color:palette.blue}]}>By {story.author.displayName}</Text>
-            </Pressable>
-          ) : (
-            <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes</Text>
-          )}
+        <Text style={[styles.title,{color:palette.ink},tablet && styles.titleTablet,desktop && styles.titleDesktop]}>{story.title}</Text>
+        {!!displayStandfirst && <Text style={[styles.standfirst,{color:palette.inkMuted},desktop && styles.standfirstDesktop]}>{displayStandfirst}</Text>}
+        <View style={[styles.publicationMeta,{borderTopColor:palette.border,borderBottomColor:palette.border}]}>
+          <View style={styles.bylineRow}>
+            {story.author ? (
+              <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
+                <Text style={[styles.byline,{color:palette.blue}]}>By {story.author.displayName}</Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes</Text>
+            )}
+            {!!story.geography.length && (
+              <View style={styles.geography}>
+                {story.geography.map((zone)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
+              </View>
+            )}
+          </View>
           <View style={styles.readingContext}>
             {!!publishedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Published {publishedLabel}</Text>}
             {showUpdated && !!modifiedLabel && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>Updated {modifiedLabel}</Text>}
             {!!readingMinutes && <Text style={[styles.timeMeta,{color:palette.inkMuted}]}>{readingMinutes} min read</Text>}
           </View>
         </View>
-        {!!story.geography.length && (
-          <View style={styles.geography}>
-            {story.geography.map((zone)=><Text key={zone.id} style={[styles.geoLabel,{color:palette.inkMuted,borderColor:palette.border}]}>{zone.name}</Text>)}
-          </View>
-        )}
       </View>
 
       <View style={styles.body}>
@@ -507,9 +520,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
               blocks.map((block,index)=>(
                 <View key={String(index)}>
                   {block.kind==="heading" ? (
-                    <Text style={[styles.bodyHeading,{fontSize:(block.level===2?24:20)*textScale,lineHeight:(block.level===2?31:27)*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"heading-"+index,palette.blue)}</Text>
+                    <Text style={[styles.bodyHeading,{fontSize:(block.level===2?23:19)*textScale,lineHeight:(block.level===2?30:26)*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"heading-"+index,palette.blue)}</Text>
                   ) : block.kind==="blockquote" ? (
-                    <View style={[styles.quote,{borderLeftColor:palette.blue}]}><Text style={[styles.quoteText,{fontSize:19*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"quote-"+index,palette.blue)}</Text></View>
+                    <View style={[styles.quote,{borderLeftColor:palette.blue}]}><Text style={[styles.quoteText,{fontSize:18*textScale,lineHeight:28*textScale,color:palette.ink}]}>{renderInlines(block.inlines,"quote-"+index,palette.blue)}</Text></View>
                   ) : block.kind==="list" ? (
                     <View style={styles.articleList}>{block.items.map((item,itemIndex)=><View style={styles.listRow} key={"list-"+index+"-"+itemIndex}><Text style={[styles.listBullet,{color:palette.blue}]}>{block.ordered?String(itemIndex+1)+".":"•"}</Text><Text style={[styles.listText,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{renderInlines(item,"list-"+index+"-"+itemIndex,palette.blue)}</Text></View>)}</View>
                   ) : block.kind==="figure" ? (
@@ -531,18 +544,20 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         )}
       </View>
 
-      <ReaderDiscussionPanel canonicalStoryId={story.canonicalStoryId} />
+      <View style={styles.postArticle}>
+        <ReaderDiscussionPanel canonicalStoryId={story.canonicalStoryId} />
 
-      {!!(story.canonicalUrl ?? story.sourceProvenance?.sourceUrl) && (<Section><SectionHeader title="Original publication" /><View style={styles.sourceBlock}><Pressable accessibilityRole="link" style={[styles.sourceButton,{borderColor:palette.border}]} onPress={()=>void Linking.openURL((story.canonicalUrl ?? story.sourceProvenance?.sourceUrl)!)}><Text style={[styles.sourceButtonText,{color:palette.blue}]}>View article on HealthTimes.co.zw →</Text></Pressable></View></Section>)}
+        {!!(story.canonicalUrl ?? story.sourceProvenance?.sourceUrl) && (<Section><SectionHeader title="Original publication" /><View style={styles.sourceBlock}><Pressable accessibilityRole="link" style={[styles.sourceButton,{borderColor:palette.border}]} onPress={()=>void Linking.openURL((story.canonicalUrl ?? story.sourceProvenance?.sourceUrl)!)}><Text style={[styles.sourceButtonText,{color:palette.blue}]}>View article on HealthTimes.co.zw →</Text></Pressable></View></Section>)}
 
-      <Section>
-        <SectionHeader title="Related coverage" />
-        <View style={styles.related}>
-          {related.data?.map((item)=><View key={item.id} style={styles.relatedItem}><StoryCard story={item} /></View>)}
-        </View>
-      </Section>
+        <Section>
+          <SectionHeader title="Related coverage" />
+          <View style={styles.related}>
+            {related.data?.map((item)=><View key={item.id} style={styles.relatedItem}><StoryCard story={item} /></View>)}
+          </View>
+        </Section>
 
-      {showArticleEndAd && <Section><AdSlot placement="article_end" /></Section>}
+        {showArticleEndAd && <Section><AdSlot placement="article_end" /></Section>}
+      </View>
 
       <PremiumSubscriptionPrompt
         visible={
@@ -560,37 +575,43 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   );
 }
 const styles=StyleSheet.create({
-  actionStatus:{fontSize:12,fontWeight:"700",marginTop:spacing.sm},
-  heroWrap:{marginTop:spacing.lg,width:"100%",alignSelf:"center"},
-  hero:{width:"100%",aspectRatio:16/9,borderRadius:radius.sm},
-  articleHeader:{marginTop:spacing.xl,gap:spacing.md,maxWidth:layout.articleMax,alignSelf:"center",width:"100%"},
+  actionStatus:{fontSize:12,fontWeight:"700",marginTop:spacing.xs,maxWidth:layout.articleMax,width:"100%",alignSelf:"center"},
+  heroWrap:{marginTop:spacing.sm,maxWidth:layout.articleMax,width:"100%",alignSelf:"center"},
+  hero:{width:"100%",aspectRatio:16/9,borderRadius:2},
+  heroCaptionWrap:{paddingTop:spacing.xs,paddingBottom:spacing.xs,borderBottomWidth:StyleSheet.hairlineWidth,gap:2},
+  articleHeader:{marginTop:spacing.md,gap:spacing.sm,maxWidth:layout.articleMax,alignSelf:"center",width:"100%"},
+  articleHeaderNoHero:{marginTop:spacing.md},
   metaRow:{flexDirection:"row",gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
-  kicker:{fontSize:12,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.8},
-  title:{fontSize:36,lineHeight:42,fontWeight:"900",letterSpacing:-0.9},
-  titleDesktop:{fontSize:48,lineHeight:54,letterSpacing:-1.2},
-  standfirst:{fontSize:18,lineHeight:28,maxWidth:700},
-  publicationMeta:{gap:5},
+  kicker:{fontSize:11,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.9},
+  title:{fontSize:30,lineHeight:36,fontWeight:"900",letterSpacing:-0.7},
+  titleTablet:{fontSize:38,lineHeight:44,letterSpacing:-0.9},
+  titleDesktop:{fontSize:44,lineHeight:50,letterSpacing:-1.1},
+  standfirst:{fontSize:17,lineHeight:26,fontWeight:"500",maxWidth:700},
+  standfirstDesktop:{fontSize:19,lineHeight:29},
+  publicationMeta:{marginTop:2,paddingVertical:spacing.sm,borderTopWidth:StyleSheet.hairlineWidth,borderBottomWidth:StyleSheet.hairlineWidth,gap:4},
+  bylineRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:spacing.sm},
   readingContext:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   byline:{fontSize:13,fontWeight:"800"},
-  timeMeta:{fontSize:11,lineHeight:17},
-  geography:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  geoLabel:{fontSize:11,fontWeight:"700",borderWidth:1,borderRadius:radius.sm,paddingHorizontal:8,paddingVertical:5},
-  caption:{fontSize:12,lineHeight:18,marginTop:spacing.sm,maxWidth:900},
-  credit:{fontSize:11,marginTop:spacing.xs},
-  body:{maxWidth:layout.articleMax,alignSelf:"center",width:"100%",marginTop:spacing.xl},
-  paragraph:{marginBottom:spacing.xl},
-  bodyHeading:{fontWeight:"900",letterSpacing:-.4,marginTop:spacing.xl,marginBottom:spacing.md},
-  quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.xl},
+  timeMeta:{fontSize:12,lineHeight:17},
+  geography:{flexDirection:"row",flexWrap:"wrap",gap:6},
+  geoLabel:{fontSize:11,fontWeight:"600",borderWidth:0,paddingHorizontal:0,paddingVertical:0},
+  caption:{fontSize:12,lineHeight:17,maxWidth:760},
+  credit:{fontSize:11,lineHeight:15},
+  body:{maxWidth:layout.articleMax,alignSelf:"center",width:"100%",marginTop:spacing.lg},
+  postArticle:{maxWidth:layout.articleMax,alignSelf:"center",width:"100%",marginTop:spacing.md},
+  paragraph:{marginBottom:spacing.lg},
+  bodyHeading:{fontWeight:"900",letterSpacing:-0.4,marginTop:spacing.xl,marginBottom:spacing.sm},
+  quote:{borderLeftWidth:3,paddingLeft:spacing.lg,marginVertical:spacing.lg},
   quoteText:{fontWeight:"700",fontStyle:"italic"},
   articleList:{marginBottom:spacing.lg},
-  listRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,marginBottom:spacing.md},
+  listRow:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,marginBottom:spacing.sm},
   listBullet:{fontSize:18,fontWeight:"900",lineHeight:29},
   listText:{flex:1},
-  inlineFigure:{marginVertical:spacing.xl,gap:spacing.sm},
-  inlineFigureImage:{width:"100%",aspectRatio:16/9,borderRadius:radius.sm},
+  inlineFigure:{marginVertical:spacing.lg,gap:spacing.xs},
+  inlineFigureImage:{width:"100%",aspectRatio:16/9,borderRadius:2},
   inlineStrong:{fontWeight:"900"},
   inlineEmphasis:{fontStyle:"italic"},
-  inlineAd:{marginVertical:spacing.xxl},
+  inlineAd:{marginVertical:spacing.xl},
   preview:{gap:spacing.md},
   previewNotice:{borderLeftWidth:3,padding:spacing.lg,gap:spacing.xs},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.1},
@@ -603,7 +624,7 @@ const styles=StyleSheet.create({
   sourceBlock:{gap:spacing.md,maxWidth:760},
   sourceButton:{minHeight:44,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:14,borderWidth:1,borderRadius:radius.sm},
   sourceButtonText:{fontWeight:"900"},
-  related:{gap:spacing.xl},
+  related:{gap:spacing.lg},
   relatedItem:{maxWidth:520}
 });
 

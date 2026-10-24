@@ -2,7 +2,7 @@
 ## UDPCS 1.0 Nine-Dimension Assessment & Operational Release Verification
 
 - **Document ID:** `HT-MVP-FEATURE-COMPLETENESS-GATES`
-- **Release Candidate:** `release/ht-mvp-rc01-udpcs-launch-control`
+- **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
 - **Governing Standard:** 11-11 Tech Universal Digital Platform Capability Standard (UDPCS 1.0)
 - **Target Delivery Date:** 24 October 2026

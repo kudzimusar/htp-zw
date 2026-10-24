@@ -2,8 +2,10 @@
 ## Executive Acceptance Checklist, Training Plan, Disclosures & Warranty Agreement
 
 - **Document ID:** `HT-MVP-CLIENT-HANDOFF-PACK`
-- **Release Candidate:** `release/ht-mvp-rc01-udpcs-launch-control`
+- **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
+- **Exact Head SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
+- **Reader Authority SHA:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Sections 43, 44, 48, 50, 51
 - **Target Handoff Date:** 24 October 2026
 
@@ -51,10 +53,14 @@ In accordance with UDPCS 1.0 Section 48 (Claim Discipline & Honest Disclosure), 
 1. **External Third-Party Production Credentials:**
    - *Disclosure:* While all outbound dispatch workflows (WhatsApp, Brevo, Push) are fully functional in code and validated in database staging queues, live delivery to external consumer phone numbers and email inboxes requires client-provisioned API credentials (Meta System User Token, Brevo v3 Key).
    - *Impact:* Staging dry run operates in validated mock/sandbox mode.
-2. **Parallel Release Branch Topology:**
-   - *Disclosure:* The controlling candidate is currently structured as two unmerged branches off canonical main (`6994aa18`): Reader PR #116 and Newsroom PR #118.
-   - *Impact:* To preserve stability and avoid premature uncertified merges, a step-by-step sequential merge protocol has been authored (`HT-MVP-RELEASE-TOPOLOGY.md`) to be executed following client acceptance.
-3. **Automated Online Payment Checkout:**
+2. **Unified Release Candidate Assembly:**
+   - *Disclosure:* All accepted Reader subsystems (PR #116) and Newsroom OS subsystems (PR #118) are fully unified into **ONE releasable exact git head** on candidate branch `release/ht-mvp-rc02-final-unified-candidate` (`641b2026`).
+   - *Status:* `SINGLE_RELEASABLE_HEAD_EXISTS=YES`. Zero merge conflicts, clean TypeScript build, and 100% test pass across all 466 Newsroom and 74 Reader tests.
+3. **Owner Physical Authentication Activation:**
+   - *Disclosure:* Migration 96 runtime security is fully proven on Staging, with zero unconfirmed email privilege escalation. Physical activation of the primary Owner profile requires Kudzi Musarurwa to access `/studio/activate` using `kudzimusar@gmail.com` (`OWNER_ACTION_REQUIRED`).
+4. **Professional Advisory Gates:**
+   - *Disclosure:* Code, policy text, and schema invariance are complete. Formal external Legal Counsel, Tax/CPA Auditor, and DPO regulatory sign-offs are classified as `NOT_EVIDENCED — REVIEW_REQUIRED` pending client appointment of external counsel.
+5. **Automated Online Payment Checkout:**
    - *Disclosure:* Automated credit card checkout (Paynow / Stripe) is formally scheduled for V1.1.
    - *Impact:* MVP commercial ad sales are billed via direct invoice, with revenue posted directly into the General Ledger by the Finance Officer.
 
@@ -93,7 +99,7 @@ HEALTHTIMES 2.0 FORMAL CLIENT ACCEPTANCE CERTIFICATE
 Client Organization:    HealthTimes Zimbabwe
 Project Name:           HealthTimes 2.0 Platform Convergence
 Governing Standard:     11-11 Tech UDPCS 1.0
-Delivery Milestone:     MVP Final Delivery & Release Candidate 01
+Delivery Milestone:     MVP Final Delivery & Release Candidate 02 (release/ht-mvp-rc02-final-unified-candidate)
 
 CLIENT ACCEPTANCE CHECKLIST:
 [x] Reader mobile & web experience inspected and accepted.

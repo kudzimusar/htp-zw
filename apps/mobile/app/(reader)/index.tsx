@@ -8,19 +8,15 @@ import type {
   PublicationLink,
   PublicHomepagePresentation
 } from "../../src/domain/models";
-import { validateEditionSlug } from "../../src/domain/models";
-import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, VideoCard } from "../../src/ui/Cards";
-import { Chip, EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
+import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
+import { EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
+import { sortByPublicationDesc } from "../../src/reader/feed-order";
 
-type HomeFilter="for-you"|"latest"|"edition"|"world"|"health";
-
-function publishedTime(story:ArticleSummary){
-  return story.publishedAt ? new Date(story.publishedAt).getTime() : 0;
-}
+type HomeFilter="for-you"|"latest"|"zimbabwe"|"world"|"premium";
 
 function normalized(value:string){
   return value.trim().toLowerCase();
@@ -51,17 +47,24 @@ function matchesPreferences(story:ArticleSummary,preferences:EditionPreference){
   );
 }
 
-function isHealthStory(story:ArticleSummary){
-  const section=story.primarySection?.name.toLowerCase() ?? "";
-  return section.includes("health") || story.topics.some((topic)=>topic.name.toLowerCase().includes("health"));
+function isZimbabweStory(story:ArticleSummary){
+  return story.geography.some((zone)=>
+    normalized(zone.name)==="zimbabwe" || normalized(zone.slug)==="zimbabwe"
+  );
+}
+
+function isWorldStory(story:ArticleSummary){
+  return story.geography.some((zone)=>
+    normalized(zone.name)==="global" || normalized(zone.slug)==="global"
+  );
 }
 
 function uniqueStories(stories:ArticleSummary[]){
   const seen=new Set<string>();
   return stories.filter((story)=>{
-    const id = storyIdentity(story);
-    if(seen.has(id)) return false;
-    seen.add(id);
+    const identity=storyIdentity(story);
+    if(seen.has(identity)) return false;
+    seen.add(identity);
     return true;
   });
 }
@@ -198,35 +201,34 @@ export default function HomeScreen() {
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
   if (!home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
 
-  const source=[...home.data].sort((a,b)=>publishedTime(b)-publishedTime(a));
+  const source=sortByPublicationDesc(home.data);
+  const generalStories=source.filter((story)=>story.accessPolicy!=="premium");
   const editionStories=edition.toLowerCase()==="global"
-    ? source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"))
-    : source.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
+    ? generalStories.filter(isWorldStory)
+    : generalStories.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
+  const zimbabweStories=generalStories.filter(isZimbabweStory);
+  const worldStories=generalStories.filter(isWorldStory);
+  const premiumStories=source.filter((story)=>story.accessPolicy==="premium");
+  const generalPresentations=presentations.filter((item)=>item.article.accessPolicy!=="premium");
 
   const filteredStories=(()=>{
-    if(activeFilter==="latest") return source;
-    if(activeFilter==="edition") return editionStories.length ? editionStories : source;
-    if(activeFilter==="world"){
-      const matches=source.filter((item)=>item.geography.some((zone)=>zone.slug==="global"));
-      return matches.length ? matches : source;
-    }
-    if(activeFilter==="health"){
-      const matches=source.filter(isHealthStory);
-      return matches.length ? matches : source;
-    }
-    const matches=source.filter((item)=>matchesPreferences(item,preferenceState));
-    return matches.length ? matches : source;
+    if(activeFilter==="latest") return generalStories;
+    if(activeFilter==="zimbabwe") return zimbabweStories;
+    if(activeFilter==="world") return worldStories;
+    if(activeFilter==="premium") return premiumStories;
+    const matches=generalStories.filter((item)=>matchesPreferences(item,preferenceState));
+    return matches.length ? matches : generalStories;
   })();
 
   const [naturalHero, ...filteredRemainder] = filteredStories;
   let hero = naturalHero;
   let topStories = filteredRemainder.slice(0, 6);
 
-  if (activeFilter === "for-you" || activeFilter === "edition") {
-    const editionHero = presentations.find(
+  if (activeFilter === "for-you") {
+    const editionHero = generalPresentations.find(
       (p) => p.editionPlacement?.section === "hero" && p.editionPlacement.active
     );
-    const globalHero = presentations.find(
+    const globalHero = generalPresentations.find(
       (p) => p.globalPlacement?.section === "hero" && p.globalPlacement.active
     );
     const curatedHero = editionHero?.article ?? globalHero?.article ?? null;
@@ -237,13 +239,13 @@ export default function HomeScreen() {
 
     const curatedTopByRank = new Map<number, ArticleSummary>();
     for (let rank = 1; rank <= 6; rank++) {
-      const editionItem = presentations.find(
+      const editionItem = generalPresentations.find(
         (p) => p.editionPlacement?.section === "top-stories" && p.editionPlacement.rank === rank && p.editionPlacement.active
       );
       if (editionItem) {
         curatedTopByRank.set(rank, editionItem.article);
       } else {
-        const globalItem = presentations.find(
+        const globalItem = generalPresentations.find(
           (p) => p.globalPlacement?.section === "top-stories" && p.globalPlacement.rank === rank && p.globalPlacement.active
         );
         if (globalItem) {
@@ -287,51 +289,53 @@ export default function HomeScreen() {
   if (hero) excludedFromSections.add(storyIdentity(hero));
   for (const s of topStories) excludedFromSections.add(storyIdentity(s));
 
-  const latest = source.filter((story) => storyIdentity(story) !== (hero ? storyIdentity(hero) : "")).slice(0, 6);
-  const features = overlayCuratedSection("features", source.filter((story) => hasSourceTerm(story, "Features")), presentations, excludedFromSections);
-  const research = overlayCuratedSection("research", source.filter((story) =>
-    story.primarySection?.slug === "research" ||
-    hasSourceTerm(story, "Research & Findings", "Reseach Findings", "Academic & Research")
-  ), presentations, excludedFromSections);
-  const financing = overlayCuratedSection("health-business", source.filter((story) =>
-    story.primarySection?.slug === "health-business" ||
-    hasSourceTerm(story, "Health Financing")
-  ), presentations, excludedFromSections);
-  const hiv = overlayCuratedSection("hiv-aids", source.filter((story) => hasSourceTerm(story, "HIV/AIDS")), presentations, excludedFromSections);
-  const globalHealth = overlayCuratedSection("global-health", source.filter((story) =>
-    story.primarySection?.slug === "global-health" ||
-    story.geography.some((zone) => zone.slug === "global")
-  ), presentations, excludedFromSections);
-  const publicHealth = overlayCuratedSection("public-health", source.filter((story) =>
-    story.primarySection?.slug === "public-health" &&
-    !hasSourceTerm(story, "Features", "Health Financing", "HIV/AIDS")
-  ), presentations, excludedFromSections);
-  const premium = source.filter((story)=>story.accessPolicy==="premium");
-  const featuredVideos = video.data?.slice(0, 4) ?? [];
-  const liveItems = live.data?.length ? live.data.filter((item) => item.status === "live") : [];
-  const opportunityLinks = (publication.data?.sourceLinks ?? []).filter((link) =>
-    ["jobs", "fellowships-grants", "training-courses", "academic-research", "baraza-e-paper"].includes(link.key)
+  const immediateIds=new Set<string>(topStories.map((story)=>story.id));
+  if(hero) immediateIds.add(hero.id);
+  const latest=generalStories.filter((story)=>!immediateIds.has(story.id)).slice(0,6);
+  const features=overlayCuratedSection("features",generalStories.filter((story)=>hasSourceTerm(story,"Features")),generalPresentations,excludedFromSections);
+  const research=overlayCuratedSection("research",generalStories.filter((story)=>
+    story.primarySection?.slug==="research" ||
+    hasSourceTerm(story,"Research & Findings","Reseach Findings","Academic & Research")
+  ),generalPresentations,excludedFromSections);
+  const financing=overlayCuratedSection("health-business",source.filter((story)=>
+    story.primarySection?.slug==="health-business" ||
+    hasSourceTerm(story,"Health Financing")
+  ),generalPresentations,excludedFromSections);
+  const hiv=overlayCuratedSection("hiv-aids",source.filter((story)=>hasSourceTerm(story,"HIV/AIDS")),generalPresentations,excludedFromSections);
+  const globalHealth=overlayCuratedSection("global-health",source.filter((story)=>
+    story.primarySection?.slug==="global-health" ||
+    story.geography.some((zone)=>zone.slug==="global")
+  ),generalPresentations,excludedFromSections);
+  const publicHealth=overlayCuratedSection("public-health",source.filter((story)=>
+    story.primarySection?.slug==="public-health" &&
+    !hasSourceTerm(story,"Features","Health Financing","HIV/AIDS")
+  ),generalPresentations,excludedFromSections);
+  const premium=premiumStories;
+  const featuredVideos=video.data?.slice(0,4) ?? [];
+  const liveItems=live.data?.length ? live.data.filter((item)=>item.status==="live") : [];
+  const opportunityLinks=(publication.data?.sourceLinks ?? []).filter((link)=>
+    ["jobs","fellowships-grants","training-courses","academic-research","baraza-e-paper"].includes(link.key)
   );
-  const usedIds = new Set(uniqueStories([
-    ...(hero ? [hero] : []),
+  const usedIds=new Set(uniqueStories([
+    ...(hero?[hero]:[]),
     ...topStories,
-    ...latest.slice(0, 3),
-    ...features.slice(0, 3),
-    ...publicHealth.slice(0, 3),
-    ...research.slice(0, 3),
-    ...financing.slice(0, 3),
-    ...hiv.slice(0, 3),
-    ...globalHealth.slice(0, 3),
-    ...premium.slice(0, 3)
-  ]).map(storyIdentity));
-  const furtherCoverage = source.filter((story) => !usedIds.has(storyIdentity(story))).slice(0, 6);
+    ...latest.slice(0,3),
+    ...features.slice(0,3),
+    ...publicHealth.slice(0,3),
+    ...research.slice(0,3),
+    ...financing.slice(0,3),
+    ...hiv.slice(0,3),
+    ...globalHealth.slice(0,3),
+    ...premium.slice(0,3)
+  ]).map((story)=>story.id));
+  const furtherCoverage=generalStories.filter((story)=>!usedIds.has(story.id)).slice(0,6);
 
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},
     {key:"latest",label:"Latest"},
-    {key:"edition",label:edition},
+    {key:"zimbabwe",label:"Zimbabwe"},
     {key:"world",label:"World"},
-    {key:"health",label:"Health"}
+    {key:"premium",label:"Premium"}
   ];
 
   return (
@@ -343,12 +347,47 @@ export default function HomeScreen() {
         contentContainerStyle={styles.editorialFilters}
         accessibilityLabel="Editorial filters"
       >
-        {filters.map((item)=>(
-          <Chip key={item.key} active={activeFilter===item.key} onPress={()=>setActiveFilter(item.key)}>{item.label}</Chip>
-        ))}
+        {filters.map((item)=>{
+          const active=activeFilter===item.key;
+          return (
+            <Pressable
+              key={item.key}
+              accessibilityRole="button"
+              accessibilityLabel={item.label+" Home filter"}
+              accessibilityState={{selected:active}}
+              onPress={()=>setActiveFilter(item.key)}
+              style={[
+                styles.editorialFilter,
+                {borderBottomColor:active?palette.blue:"transparent"}
+              ]}
+            >
+              <Text style={[styles.editorialFilterText,{color:active?palette.ink:palette.inkMuted}]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
-      {hero ? <HeroStory story={hero} /> : null}
+      {hero ? <HeroStory story={hero} /> : (
+        <EmptyState
+          title={activeFilter==="premium" ? "HealthTimes Premium" : "No stories in this Home view"}
+          message={
+            activeFilter==="premium"
+              ? "Source-backed Premium journalism will appear here when member stories are available."
+              : activeFilter==="zimbabwe"
+                ? "No source-backed Zimbabwe stories are available in this Home feed right now."
+                : activeFilter==="world"
+                  ? "No source-backed World stories are available in this Home feed right now."
+                  : "No source-backed stories are available for this Home view right now."
+          }
+          action={activeFilter==="premium" ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Explore HealthTimes Premium" onPress={() => router.push("/premium" as never)}>
+              <Text style={[styles.premiumLink,{color:palette.blue}]}>Explore Premium →</Text>
+            </Pressable>
+          ) : undefined}
+        />
+      )}
 
       <AdSlot placement="hospaz-header-direct" sensitiveHealthContext />
 
@@ -359,14 +398,14 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <AdSlot placement="home_after_live" />
-
       <View style={styles.prioritySection}>
-        <SectionHeader title="Top Stories" eyebrow="EDITOR'S DESK" action="Explore" onAction={() => router.push("/explore" as never)} />
+        <SectionHeader title="Top Stories" action="Explore" onAction={() => router.push("/explore" as never)} />
         {topStories.length
-          ? <StoryList stories={topStories} />
+          ? <TopStoriesList stories={topStories} />
           : <EmptyState title="More reporting is on the way" message="Choose another front-page filter or explore more HealthTimes coverage." />}
       </View>
+
+      <AdSlot placement="home_after_live" />
 
       <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
       <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
@@ -436,8 +475,10 @@ export default function HomeScreen() {
 
 const styles=StyleSheet.create({
   editorialFilterRail:{marginHorizontal:-spacing.sm},
-  editorialFilters:{paddingVertical:spacing.md,paddingHorizontal:spacing.sm,flexDirection:"row",gap:spacing.sm},
-  prioritySection:{marginTop:spacing.xl},
+  editorialFilters:{paddingVertical:spacing.sm,paddingHorizontal:spacing.sm,flexDirection:"row",gap:spacing.lg,alignItems:"center"},
+  editorialFilter:{minHeight:44,justifyContent:"center",paddingHorizontal:2,borderBottomWidth:2},
+  editorialFilterText:{fontSize:12,fontWeight:"900",letterSpacing:.15},
+  prioritySection:{marginTop:spacing.lg},
   premiumLink:{minHeight:44,textAlignVertical:"center",fontSize:13,fontWeight:"900",paddingVertical:12},
   previewNotice:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:spacing.md,paddingHorizontal:spacing.lg,marginBottom:spacing.xl,flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   previewLabel:{fontSize:10,fontWeight:"900",letterSpacing:1.2},
@@ -445,8 +486,8 @@ const styles=StyleSheet.create({
   watchGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xl},
   watchItem:{minWidth:260,flex:1},
   opportunityGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.md},
-  opportunityCard:{minWidth:220,flexGrow:1,flexBasis:220,borderWidth:1,borderRadius:radius.md,padding:spacing.lg,gap:spacing.sm},
-  opportunityEyebrow:{fontSize:9,fontWeight:"900",letterSpacing:1.1},
-  opportunityTitle:{fontSize:18,fontWeight:"900",lineHeight:23},
-  opportunityAction:{fontSize:12,lineHeight:18}
+  opportunityCard:{minWidth:200,flexGrow:1,flexBasis:220,borderWidth:1,borderRadius:radius.sm,padding:spacing.md,gap:spacing.xs},
+  opportunityEyebrow:{fontSize:9,fontWeight:"900",letterSpacing:1},
+  opportunityTitle:{fontSize:14,lineHeight:19,fontWeight:"800"},
+  opportunityAction:{fontSize:11,fontWeight:"800",marginTop:2}
 });

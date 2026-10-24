@@ -18,6 +18,9 @@ import {
   type AuthorizationSnapshot
 } from "../security/capabilities";
 import {
+  SUPPORTED_PREVIEW_TIMEZONES,
+  formatPreviewScheduleTimestamp,
+  parseAndFormatPreviewSchedule,
   validateSocialDraftCreateInput,
   type NewsroomSocialAccount,
   type NewsroomSocialDraftCreateInput,
@@ -201,6 +204,9 @@ export function StudioSocialDeskView({
   const [selectedStoryId, setSelectedStoryId] = useState<string>("");
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [draftBody, setDraftBody] = useState("");
+  const [draftScheduleDate, setDraftScheduleDate] = useState("");
+  const [draftScheduleTime, setDraftScheduleTime] = useState("");
+  const [draftScheduleTz, setDraftScheduleTz] = useState("Africa/Harare (CAT)");
   const [composeError, setComposeError] = useState<string | null>(null);
 
   const activePostId =
@@ -324,11 +330,22 @@ export function StudioSocialDeskView({
       );
       return;
     }
+    const scheduleCheck = parseAndFormatPreviewSchedule(
+      draftScheduleDate,
+      draftScheduleTime,
+      draftScheduleTz
+    );
+    if (!scheduleCheck.valid) {
+      setComposeError(scheduleCheck.error || "Invalid schedule date or time.");
+      return;
+    }
+    const scheduledAt = scheduleCheck.utcIso;
     const input: NewsroomSocialDraftCreateInput = {
       storyId: selectedStoryId,
       provider: selectedAccountForCompose.provider,
       body: draftBody,
-      socialAccountId: selectedAccountForCompose.id
+      socialAccountId: selectedAccountForCompose.id,
+      scheduledAt
     };
     const check = validateSocialDraftCreateInput(input);
     if (!check.valid) {
@@ -358,7 +375,11 @@ export function StudioSocialDeskView({
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleCol}>
             <View style={styles.eyebrowRow}>
-              <Text style={styles.eyebrow}>HT-NR-06A • DISTRIBUTION CONTROL PLANE</Text>
+              <Text style={styles.eyebrow}>
+                {isPreview
+                  ? "AUDIENCE DISTRIBUTION • SOCIAL DESK"
+                  : "HT-NR-06A • DISTRIBUTION CONTROL PLANE"}
+              </Text>
               <View style={styles.authorityBadge}>
                 <Text style={styles.authorityBadgeText}>
                   {isPreview ? "OWNER PREVIEW • READ-ONLY" : "SERVER SOCIAL AUTHORITY"}
@@ -367,7 +388,9 @@ export function StudioSocialDeskView({
             </View>
             <Text style={styles.headerTitle}>Social Desk & Outbound Distribution</Text>
             <Text style={styles.headerSubtitle}>
-              Story-bound social draft composition, editorial approval, and provider publication handoff backed by canonical social_accounts, social_posts, and social_publication_attempts.
+              {isPreview
+                ? "Story-bound social draft composition, editorial approval, audience channel distribution, and scheduled broadcasting."
+                : "Story-bound social draft composition, editorial approval, and provider publication handoff backed by canonical social_accounts, social_posts, and social_publication_attempts."}
             </Text>
           </View>
           <View style={styles.headerActions}>
@@ -404,22 +427,30 @@ export function StudioSocialDeskView({
           <Text style={styles.capabilityStripLabel}>Active session capabilities:</Text>
           {capabilities.canCompose && (
             <View style={styles.capabilityChip}>
-              <Text style={styles.capabilityChipText}>social.compose</Text>
+              <Text style={styles.capabilityChipText}>
+                {isPreview ? "Compose Social Posts" : "social.compose"}
+              </Text>
             </View>
           )}
           {capabilities.canApprove && (
             <View style={styles.capabilityChip}>
-              <Text style={styles.capabilityChipText}>social.approve</Text>
+              <Text style={styles.capabilityChipText}>
+                {isPreview ? "Editorial Approval Authority" : "social.approve"}
+              </Text>
             </View>
           )}
           {capabilities.canPublish && (
             <View style={styles.capabilityChip}>
-              <Text style={styles.capabilityChipText}>social.publish</Text>
+              <Text style={styles.capabilityChipText}>
+                {isPreview ? "Channel Distribution Authority" : "social.publish"}
+              </Text>
             </View>
           )}
           {capabilities.canManageAccounts && (
             <View style={styles.capabilityChip}>
-              <Text style={styles.capabilityChipText}>social.manage_accounts</Text>
+              <Text style={styles.capabilityChipText}>
+                {isPreview ? "Account Configuration" : "social.manage_accounts"}
+              </Text>
             </View>
           )}
         </View>
@@ -469,7 +500,9 @@ export function StudioSocialDeskView({
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>PUBLISHED</Text>
           <Text style={[styles.metricValue, { color: colors.emerald700 }]}>{counters.published}</Text>
-          <Text style={styles.metricHint}>Confirmed by provider worker</Text>
+          <Text style={styles.metricHint}>
+            {isPreview ? "Confirmed channel delivery" : "Confirmed by provider worker"}
+          </Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>FAILED</Text>
@@ -545,7 +578,11 @@ export function StudioSocialDeskView({
         <View style={styles.composeCard} testID="social-desk-compose-panel">
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionEyebrow}>COMPOSE SOCIAL DRAFT • SOCIAL.COMPOSE</Text>
+              <Text style={styles.sectionEyebrow}>
+                {isPreview
+                  ? "COMPOSE SOCIAL DRAFT • EDITORIAL COMPOSER"
+                  : "COMPOSE SOCIAL DRAFT • SOCIAL.COMPOSE"}
+              </Text>
               <Text style={styles.sectionTitle}>Create Story-Linked Social Draft</Text>
             </View>
           </View>
@@ -556,14 +593,20 @@ export function StudioSocialDeskView({
                 No social provider accounts are configured.
               </Text>
               <Text style={styles.composeBlockedText}>
-                Configure a provider account before creating a social draft. Canonical server RPC communications_create_social_draft requires a registered provider account in public.social_accounts.
+                {isPreview
+                  ? "Configure a channel account before creating a social draft."
+                  : "Configure a provider account before creating a social draft. Canonical server RPC communications_create_social_draft requires a registered provider account in public.social_accounts."}
               </Text>
             </View>
           ) : (
             <>
               {/* Story Picker */}
               <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>1. Select Canonical Newsroom Story</Text>
+                <Text style={styles.fieldLabel}>
+                  {isPreview
+                    ? "1. Select Newsroom Story"
+                    : "1. Select Canonical Newsroom Story"}
+                </Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="Filter stories by headline or status…"
@@ -573,7 +616,11 @@ export function StudioSocialDeskView({
                   testID="social-compose-story-search"
                 />
                 {filteredStories.length === 0 ? (
-                  <Text style={styles.fieldHint}>No canonical stories available to link.</Text>
+                  <Text style={styles.fieldHint}>
+                    {isPreview
+                      ? "No stories available to link."
+                      : "No canonical stories available to link."}
+                  </Text>
                 ) : (
                   <ScrollView
                     horizontal
@@ -655,6 +702,64 @@ export function StudioSocialDeskView({
                 />
               </View>
 
+              {/* Scheduling Controls (UAT04A-047) */}
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>4. Distribution Scheduling (Optional)</Text>
+                <View style={styles.schedulingRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldSubLabel}>Date (YYYY-MM-DD)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 2026-10-25"
+                      placeholderTextColor={colors.gray400}
+                      value={draftScheduleDate}
+                      onChangeText={setDraftScheduleDate}
+                      testID="social-schedule-date-input"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldSubLabel}>Time (HH:MM)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. 14:00"
+                      placeholderTextColor={colors.gray400}
+                      value={draftScheduleTime}
+                      onChangeText={setDraftScheduleTime}
+                      testID="social-schedule-time-input"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldSubLabel}>Timezone</Text>
+                    <View style={styles.filterPillsRow}>
+                      {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                        const active = draftScheduleTz.startsWith(tz);
+                        return (
+                          <Pressable
+                            key={tz}
+                            style={[styles.filterPill, active && styles.filterPillActive]}
+                            onPress={() =>
+                              setDraftScheduleTz(
+                                tz === "Africa/Harare" ? "Africa/Harare (CAT)" : "UTC"
+                              )
+                            }
+                            testID={`social-schedule-tz-${tz.replace("/", "-")}`}
+                          >
+                            <Text
+                              style={[
+                                styles.filterPillText,
+                                active && styles.filterPillTextActive
+                              ]}
+                            >
+                              {tz === "Africa/Harare" ? "Africa/Harare (CAT, UTC+2)" : "UTC"}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
               {composeError && (
                 <Text style={styles.composeErrorText} testID="social-compose-error">
                   {composeError}
@@ -734,7 +839,9 @@ export function StudioSocialDeskView({
               </Text>
               <Text style={styles.emptyRegistrySub}>
                 {posts.length === 0
-                  ? "Social posts are created from canonical stories via communications_create_social_draft once a provider account is registered."
+                  ? isPreview
+                    ? "Social posts are created from stories once a channel account is configured."
+                    : "Social posts are created from canonical stories via communications_create_social_draft once a provider account is registered."
                   : "Clear the status or search filter to inspect other social posts."}
               </Text>
             </View>
@@ -797,8 +904,13 @@ export function StudioSocialDeskView({
 
                     <View style={styles.postFooterRow}>
                       <Text style={styles.postTimestamp}>
-                        Updated {formatTimestamp(post.updatedAt)}
+                        {post.createdByName ? `By: ${post.createdByName}` : `Updated ${formatTimestamp(post.updatedAt)}`}
                       </Text>
+                      {post.scheduledAt && (
+                        <Text style={styles.scheduledTag}>
+                          ⏱ Scheduled: {isPreview ? formatPreviewScheduleTimestamp(post.scheduledAt, draftScheduleTz) : formatTimestamp(post.scheduledAt)}
+                        </Text>
+                      )}
                       {post.providerPostId && (
                         <Text style={styles.providerIdTag}>
                           Ref: {post.providerPostId}
@@ -830,28 +942,31 @@ export function StudioSocialDeskView({
                     {formatProviderLabel(selectedPost.provider)} Distribution Item
                   </Text>
                 </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    selectedPost.status === "draft" && styles.statusDraft,
-                    selectedPost.status === "approved" && styles.statusApproved,
-                    selectedPost.status === "published" && styles.statusPublished,
-                    (selectedPost.status === "failed" || selectedPost.status === "cancelled") &&
-                      styles.statusFailed
-                  ]}
-                >
-                  <Text
+                <View style={styles.statusGroup}>
+                  <Text style={styles.statusSectionLabel}>Post Distribution Status:</Text>
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      selectedPost.status === "draft" && styles.statusDraftText,
-                      selectedPost.status === "approved" && styles.statusApprovedText,
-                      selectedPost.status === "published" && styles.statusPublishedText,
+                      styles.statusBadge,
+                      selectedPost.status === "draft" && styles.statusDraft,
+                      selectedPost.status === "approved" && styles.statusApproved,
+                      selectedPost.status === "published" && styles.statusPublished,
                       (selectedPost.status === "failed" || selectedPost.status === "cancelled") &&
-                        styles.statusFailedText
+                        styles.statusFailed
                     ]}
                   >
-                    {selectedPost.status.toUpperCase()}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        selectedPost.status === "draft" && styles.statusDraftText,
+                        selectedPost.status === "approved" && styles.statusApprovedText,
+                        selectedPost.status === "published" && styles.statusPublishedText,
+                        (selectedPost.status === "failed" || selectedPost.status === "cancelled") &&
+                          styles.statusFailedText
+                      ]}
+                    >
+                      {selectedPost.status.toUpperCase()}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -861,12 +976,14 @@ export function StudioSocialDeskView({
                 <Text style={styles.blockTitle}>
                   {selectedPostStory
                     ? selectedPostStory.title
+                    : isPreview
+                    ? "Linked Newsroom Story"
                     : `Canonical Story (${selectedPost.storyId})`}
                 </Text>
                 <View style={styles.storyMetaRow}>
                   {selectedPostStory && (
                     <Text style={styles.blockMeta}>
-                      Workflow: {selectedPostStory.status.toUpperCase()}
+                      Linked Story Workflow Status: {(selectedPostStory.workflowStatus || selectedPostStory.status).toUpperCase()}
                     </Text>
                   )}
                   {!isPreview && (
@@ -895,11 +1012,24 @@ export function StudioSocialDeskView({
                     : "Unassigned / Default Provider Account"}
                 </Text>
                 <Text style={styles.blockMeta}>
-                  Created: {formatTimestamp(selectedPost.createdAt)}
+                  Created: {formatTimestamp(selectedPost.createdAt)} {selectedPost.createdByName ? `by ${selectedPost.createdByName}` : ""}
                 </Text>
-                <Text style={styles.blockMeta}>
-                  Approved: {formatTimestamp(selectedPost.approvedAt)}
-                </Text>
+                {selectedPost.approvedAt && (
+                  <Text style={styles.blockMeta}>
+                    Approved: {formatTimestamp(selectedPost.approvedAt)} {selectedPost.approvedByName ? `by ${selectedPost.approvedByName}` : ""}
+                  </Text>
+                )}
+                {selectedPost.scheduledAt && (
+                  <Text style={styles.blockMeta}>
+                    Scheduled for:{" "}
+                    {isPreview
+                      ? formatPreviewScheduleTimestamp(
+                          selectedPost.scheduledAt,
+                          draftScheduleTz
+                        )
+                      : formatTimestamp(selectedPost.scheduledAt)}
+                  </Text>
+                )}
                 <Text style={styles.blockMeta}>
                   Published: {formatTimestamp(selectedPost.publishedAt)}
                 </Text>
@@ -937,20 +1067,30 @@ export function StudioSocialDeskView({
 
                   {capabilities.canPublish && selectedPost.status === "approved" && (
                     <Pressable
-                      style={[styles.publishButton, actionBusy && styles.buttonDisabled]}
+                      style={[
+                        styles.publishButton,
+                        (actionBusy || selectedPostAttempts.some((a) => (a.status as string) === "pending" || (a.status as string) === "dispatching")) &&
+                          styles.buttonDisabled
+                      ]}
                       onPress={() => onPreparePublish && onPreparePublish(selectedPost.id)}
-                      disabled={actionBusy}
+                      disabled={actionBusy || selectedPostAttempts.some((a) => (a.status as string) === "pending" || (a.status as string) === "dispatching")}
                       testID="social-prepare-publish-btn"
                     >
                       <Text style={styles.publishButtonText}>
-                        {actionBusy ? "Preparing…" : "Prepare Publication"}
+                        {actionBusy
+                          ? "Preparing…"
+                          : selectedPostAttempts.some((a) => (a.status as string) === "pending" || (a.status as string) === "dispatching")
+                          ? "Distribution In-Flight"
+                          : "Prepare Publication"}
                       </Text>
                     </Pressable>
                   )}
                 </View>
 
                 <Text style={styles.workflowNotice}>
-                  Editorial approval (social.approve) transitions a draft to approved without publishing. Publication preparation (social.publish) records a handoff attempt in social_publication_attempts; external provider completion is recorded exclusively by server worker authority.
+                  {isPreview
+                    ? "Editorial approval authorizes social copy for distribution. Publication preparation queues outbound dispatch to configured social channels with human-in-the-loop audit safeguards."
+                    : "Editorial approval (social.approve) transitions a draft to approved without publishing. Publication preparation (social.publish) records a handoff attempt in social_publication_attempts; external provider completion is recorded exclusively by server worker authority."}
                 </Text>
               </View>
 
@@ -1952,5 +2092,29 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5
+  },
+  statusGroup: {
+    alignItems: "flex-end",
+    gap: 2
+  },
+  statusSectionLabel: {
+    fontSize: 11,
+    color: colors.gray500,
+    fontWeight: "600"
+  },
+  schedulingRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: 4
+  },
+  fieldSubLabel: {
+    fontSize: 11,
+    color: colors.gray600,
+    marginBottom: 2
+  },
+  scheduledTag: {
+    fontSize: 11,
+    color: colors.blue600,
+    fontWeight: "600"
   }
 });

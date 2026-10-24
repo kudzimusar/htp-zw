@@ -51,6 +51,8 @@ export type StudioAssignmentsViewProps = {
   progressError?: string | null;
   progressConfirmation?: string | null;
   progressingId?: string | null;
+  selectedAssignmentId?: string | null;
+  onSelectAssignment?: (assignmentId: string | null) => void;
   canAdvanceAssignment: (item: NewsroomAssignment) => boolean;
   onAdvanceAssignment: (item: NewsroomAssignment) => void | Promise<void>;
   onOpenDiscussion: (assignmentId: string) => void;
@@ -64,11 +66,16 @@ export function StudioAssignmentsView({
   progressError = null,
   progressConfirmation = null,
   progressingId = null,
+  selectedAssignmentId = null,
+  onSelectAssignment,
   canAdvanceAssignment,
   onAdvanceAssignment,
   onOpenDiscussion,
   onOpenStory
 }: StudioAssignmentsViewProps) {
+  const [discussionInputs, setDiscussionInputs] = useState<Record<string, string>>({});
+  const [discussionFeedbacks, setDiscussionFeedbacks] = useState<Record<string, string>>({});
+
   return (
     <View style={styles.stack}>
       <LoadingOrError loading={loading} error={error}/>
@@ -79,8 +86,21 @@ export function StudioAssignmentsView({
         const actionLabel=getAssignmentProgressActionLabel(item.status);
         const nextStatus=getNextAssignmentStatus(item.status);
         const isAdvancing=progressingId===item.id;
+        const isTargeted = item.id === selectedAssignmentId;
+        const currentInput = discussionInputs[item.id] ?? "";
+        const currentFeedback = discussionFeedbacks[item.id] ?? "";
+
         return (
-          <View key={item.id} style={styles.card}>
+          <View
+            key={item.id}
+            style={[styles.card, isTargeted && styles.cardTargeted]}
+            testID={isTargeted ? "targeted-assignment-card" : undefined}
+          >
+            {isTargeted && (
+              <View style={styles.targetedPill} testID="targeted-assignment-pill">
+                <Text style={styles.targetedPillText}>🎯 TARGETED ASSIGNMENT · FOCUSED DISCUSSION</Text>
+              </View>
+            )}
             <View style={styles.row}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
@@ -101,10 +121,17 @@ export function StudioAssignmentsView({
                 </Pressable>
               )}
               <Pressable
-                style={styles.secondary}
-                onPress={()=>onOpenDiscussion(item.id)}
+                style={[styles.secondary, isTargeted && styles.secondaryActive]}
+                onPress={() => {
+                  if (onSelectAssignment) {
+                    onSelectAssignment(isTargeted ? null : item.id);
+                  }
+                  onOpenDiscussion(item.id);
+                }}
               >
-                <Text style={styles.secondaryText}>Open Discussion</Text>
+                <Text style={[styles.secondaryText, isTargeted && styles.secondaryActiveText]}>
+                  {isTargeted ? "Hide Discussion" : "Open Discussion"}
+                </Text>
               </Pressable>
               {!!item.storyId&&(
                 <Pressable
@@ -115,10 +142,54 @@ export function StudioAssignmentsView({
                 </Pressable>
               )}
             </View>
+
+            {isTargeted && (
+              <View style={styles.discussionBox} testID="assignment-targeted-discussion">
+                <Text style={styles.discussionTitle}>Internal Assignment Discussion</Text>
+                <Text style={styles.discussionSubtitle}>Direct editorial coordination for "{item.title}"</Text>
+                <View style={styles.discussionThread}>
+                  <View style={styles.discussionMsg}>
+                    <Text style={styles.msgAuthor}>Preview Assignment Editor</Text>
+                    <Text style={styles.msgText}>Please confirm field verification logs and check ORS buffer stocks before draft filing.</Text>
+                    <Text style={styles.msgTime}>Today 09:15 · Preview Persona</Text>
+                  </View>
+                  <View style={[styles.discussionMsg, styles.msgSelf]}>
+                    <Text style={styles.msgAuthor}>Assigned Reporter (Current Persona)</Text>
+                    <Text style={styles.msgText}>Field inspection underway. Municipal water testing logs obtained; filing initial reporting notes.</Text>
+                    <Text style={styles.msgTime}>Today 10:30 · Local Preview State</Text>
+                  </View>
+                </View>
+                <View style={styles.discussionComposer}>
+                  <TextInput
+                    style={styles.discussionInput}
+                    placeholder="Post note to assignment discussion (local preview)..."
+                    placeholderTextColor={colors.inkMuted}
+                    value={currentInput}
+                    onChangeText={(val) => setDiscussionInputs((prev) => ({ ...prev, [item.id]: val }))}
+                  />
+                  <Pressable
+                    style={styles.discussionSendBtn}
+                    onPress={() => {
+                      if (!currentInput.trim()) return;
+                      setDiscussionFeedbacks((prev) => ({
+                        ...prev,
+                        [item.id]: "Note added to assignment discussion in local Preview memory (writes disabled)."
+                      }));
+                      setDiscussionInputs((prev) => ({ ...prev, [item.id]: "" }));
+                    }}
+                  >
+                    <Text style={styles.discussionSendText}>Post</Text>
+                  </Pressable>
+                </View>
+                {currentFeedback ? (
+                  <Text style={styles.discussionFeedbackText}>{currentFeedback}</Text>
+                ) : null}
+              </View>
+            )}
           </View>
         );
       })}
-      {!loading&&!assignments.length&&<Text style={styles.muted}>No assignments are available to this authorized session.</Text>}
+      {!loading&&!assignments.length&&<Text style={styles.muted}>No assignments found.</Text>}
     </View>
   );
 }
@@ -397,5 +468,24 @@ const styles=StyleSheet.create({
   primaryText:{fontSize:12,fontWeight:"900",color:"#FFFFFF"},
   secondary:{minHeight:38,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderColor:colors.border,borderRadius:radius.sm},
   secondaryText:{fontSize:11,fontWeight:"900",color:colors.ink},
-  actions:{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"}
+  actions:{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"},
+  cardTargeted:{borderColor:colors.blue,borderWidth:2,backgroundColor:"#F4F8FD"},
+  targetedPill:{backgroundColor:colors.blue,paddingHorizontal:8,paddingVertical:4,borderRadius:4,alignSelf:"flex-start"},
+  targetedPillText:{color:"#FFFFFF",fontSize:10,fontWeight:"900",letterSpacing:0.5},
+  secondaryActive:{backgroundColor:colors.blue,borderColor:colors.blue},
+  secondaryActiveText:{color:"#FFFFFF"},
+  discussionBox:{marginTop:spacing.md,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,borderRadius:radius.sm,padding:spacing.md,gap:spacing.sm},
+  discussionTitle:{fontSize:13,fontWeight:"800",color:colors.ink},
+  discussionSubtitle:{fontSize:11,color:colors.inkMuted},
+  discussionThread:{gap:spacing.xs,marginVertical:spacing.xs},
+  discussionMsg:{backgroundColor:colors.paperMuted,padding:spacing.sm,borderRadius:radius.sm},
+  msgSelf:{backgroundColor:"#E8F5E9"},
+  msgAuthor:{fontSize:10,fontWeight:"800",color:colors.blue},
+  msgText:{fontSize:12,color:colors.ink,marginTop:2},
+  msgTime:{fontSize:9,color:colors.inkMuted,marginTop:2},
+  discussionComposer:{flexDirection:"row",gap:spacing.xs,marginTop:spacing.xs},
+  discussionInput:{flex:1,minHeight:36,borderWidth:1,borderColor:colors.border,borderRadius:radius.sm,paddingHorizontal:8,fontSize:12,color:colors.ink,backgroundColor:"#FFFFFF"},
+  discussionSendBtn:{backgroundColor:colors.blue,paddingHorizontal:12,justifyContent:"center",borderRadius:radius.sm},
+  discussionSendText:{color:"#FFFFFF",fontSize:11,fontWeight:"800"},
+  discussionFeedbackText:{fontSize:11,color:colors.teal,fontStyle:"italic"}
 });

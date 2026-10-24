@@ -3,25 +3,60 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { useRouter } from "expo-router";
 import { services } from "../services";
 import { colors, radius, spacing } from "../theme/tokens";
+import { HealthTimesBrand } from "./Brand";
 
-const CANONICAL_OWNER_EMAIL = "kudzimusar@gmail.com";
-const CANONICAL_INVITATION_ID = "3c277c48-5319-429f-a2c3-1bf2dbae4c2a";
+const publicClientReview = process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === "1";
+
+type ActivationStage = "credentials" | "verification" | "activated";
 
 export function StudioActivate() {
   const router = useRouter();
-  const [email] = useState(CANONICAL_OWNER_EMAIL);
-  const [invitationToken] = useState(CANONICAL_INVITATION_ID);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [stage, setStage] = useState<ActivationStage>("credentials");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+
+  if (publicClientReview) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <HealthTimesBrand inverse studio />
+          <View style={styles.header}>
+            <Text style={styles.eyebrow}>PUBLIC CLIENT REVIEW</Text>
+            <Text style={styles.title}>Owner activation is not available in this build</Text>
+            <Text style={styles.subtitle}>
+              This public Reader/PWA review intentionally excludes private staging activation credentials and Owner authorization ceremony.
+            </Text>
+          </View>
+          <View style={styles.footerRow}>
+            <Pressable onPress={() => router.replace("/" as never)}>
+              <Text style={styles.footerLink}>Open Reader →</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push("/owner-preview/studio" as never)}>
+              <Text style={styles.footerLink}>Open safe Owner Preview →</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  const normalizedEmail = email.trim();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
   const strongEnough = password.length >= 8;
   const passwordsMatch = password === confirmPassword;
 
   const handleActivate = async () => {
+    if (!emailValid) {
+      setStatusMessage("Enter a valid authorized Owner email.");
+      setIsError(true);
+      return;
+    }
     if (!strongEnough) {
       setStatusMessage("Password must be at least 8 characters.");
       setIsError(true);
@@ -38,11 +73,30 @@ export function StudioActivate() {
     setIsError(false);
 
     try {
-      const result = await services.newsroomStaff.activateOwner(password);
-      if (!result.success && result.error) {
-        throw new Error(result.error);
+      const result = await services.newsroomStaff.activateOwner({
+        email: normalizedEmail,
+        password
+      });
+      if (result.status === "verification-required") {
+        setStage("verification");
+        setPassword("");
+        setConfirmPassword("");
+        setIsError(false);
+        setStatusMessage(result.error ?? "Check your email before completing Owner activation.");
+        return;
+      }
+      if (result.status === "email-rate-limited") {
+        setPassword("");
+        setConfirmPassword("");
+        setIsError(true);
+        setStatusMessage(result.error ?? "Email delivery is temporarily rate limited.");
+        return;
+      }
+      if (result.status !== "activated" || !result.success) {
+        throw new Error(result.error ?? "Owner activation could not be completed.");
       }
 
+      setStage("activated");
       setIsSuccess(true);
       setStatusMessage("Publisher / Owner account activated successfully. Redirecting to Newsroom OS...");
       setTimeout(() => {
@@ -57,6 +111,19 @@ export function StudioActivate() {
     }
   };
 
+  const handleResend = async () => {
+    setLoading(true);
+    setIsError(false);
+    setStatusMessage("Requesting one confirmation email...");
+    try {
+      const result = await services.newsroomStaff.resendOwnerVerification(normalizedEmail);
+      setIsError(result.status === "email-rate-limited" || result.status === "error");
+      setStatusMessage(result.error ?? "Check your email to continue.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -65,9 +132,12 @@ export function StudioActivate() {
           <Text style={styles.eyebrow}>HEALTHTIMES NEWSROOM OS · FIRST OWNER ACTIVATION</Text>
           <Text style={styles.title}>Activate Publisher / Owner Account</Text>
           <Text style={styles.subtitle}>
-            Authenticate with Kudzi Musarurwa's pre-provisioned executive credentials.
-            This single ceremony locks the initial Publisher/Owner role and unlocks
-            unrestricted operational oversight across all 7 newsroom domains.
+            Authenticate with the authorized Owner email and private staging credentials.
+            Backend authority validates the first Publisher / Owner identity before
+            operational access is granted.
+          </Text>
+          <Text style={styles.steps}>
+            1. Create Owner credentials   2. Verify your email   3. Complete Owner activation   4. Open Newsroom
           </Text>
         </View>
 
@@ -87,47 +157,52 @@ export function StudioActivate() {
         {/* Credentials Form */}
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>AUTHORIZED OWNER EMAIL (CANONICAL BOUND)</Text>
-            <View style={styles.disabledInput}>
-              <Text style={styles.disabledText}>{email}</Text>
-            </View>
+            <Text style={styles.label}>AUTHORIZED OWNER EMAIL</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="Enter authorized Owner email"
+              placeholderTextColor="#627D98"
+              editable={stage === "credentials"}
+            />
             <Text style={styles.helperText}>
-              Security bound: only kudzimusar@gmail.com is permitted by staging migration 93.
+              Backend authorization determines whether this authenticated identity may become the first Publisher / Owner.
             </Text>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>INVITATION TOKEN</Text>
-            <View style={styles.disabledInput}>
-              <Text style={styles.disabledText}>{invitationToken}</Text>
-            </View>
-          </View>
+          {stage === "credentials" && (
+            <>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>SET SECURE PASSWORD (MIN 8 CHARS)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholder="Enter strong password"
+                  placeholderTextColor="#627D98"
+                  autoCapitalize="none"
+                />
+              </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>SET SECURE PASSWORD (MIN 8 CHARS)</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="Enter strong password"
-              placeholderTextColor="#627D98"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>CONFIRM PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              placeholder="Repeat password"
-              placeholderTextColor="#627D98"
-              autoCapitalize="none"
-            />
-          </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>CONFIRM PASSWORD</Text>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  placeholder="Repeat password"
+                  placeholderTextColor="#627D98"
+                  autoCapitalize="none"
+                />
+              </View>
+            </>
+          )}
 
           {/* Status Message */}
           {statusMessage && (
@@ -139,19 +214,33 @@ export function StudioActivate() {
           )}
 
           {/* Action Buttons */}
-          <Pressable
-            style={[styles.activateButton, (!strongEnough || !passwordsMatch || loading) && styles.disabledButton]}
-            onPress={handleActivate}
-            disabled={!strongEnough || !passwordsMatch || loading || isSuccess}
-          >
-            {loading ? (
-              <ActivityIndicator color="#0D1821" />
-            ) : (
-              <Text style={styles.activateButtonText}>
-                {isSuccess ? "Activated ✓" : "Activate Owner Account →"}
-              </Text>
-            )}
-          </Pressable>
+          {stage === "credentials" && (
+            <Pressable
+              style={[styles.activateButton, (!emailValid || !strongEnough || !passwordsMatch || loading) && styles.disabledButton]}
+              onPress={handleActivate}
+              disabled={!emailValid || !strongEnough || !passwordsMatch || loading || isSuccess}
+            >
+              {loading ? (
+                <ActivityIndicator color="#0D1821" />
+              ) : (
+                <Text style={styles.activateButtonText}>Create Owner Credentials →</Text>
+              )}
+            </Pressable>
+          )}
+
+          {stage === "verification" && (
+            <Pressable
+              style={[styles.activateButton, loading && styles.disabledButton]}
+              onPress={handleResend}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#0D1821" />
+              ) : (
+                <Text style={styles.activateButtonText}>Resend Confirmation Email</Text>
+              )}
+            </Pressable>
+          )}
 
           <View style={styles.footerRow}>
             <Pressable onPress={() => router.push("/studio" as never)}>
@@ -177,7 +266,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: 520,
+    maxWidth: 560,
     backgroundColor: "#132332",
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -204,8 +293,15 @@ const styles = StyleSheet.create({
     color: "#9FB3C8",
     lineHeight: 18
   },
+  steps: {
+    fontSize: 11,
+    color: "#70D1D1",
+    lineHeight: 18,
+    fontWeight: "800"
+  },
   badgeRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm
   },
   securityBadge: {
@@ -312,6 +408,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.md,
     marginTop: spacing.xs
   },
   footerLink: {

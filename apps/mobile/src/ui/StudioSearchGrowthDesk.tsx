@@ -18,6 +18,7 @@ export interface StudioSearchGrowthDeskViewProps {
   error: string | null;
   onRefresh?: () => void;
   previewMode?: boolean;
+  onOpenDesk?: (moduleKey: "articles" | "ai-citations") => void;
 }
 
 export function StudioSearchGrowthDeskView({
@@ -25,7 +26,8 @@ export function StudioSearchGrowthDeskView({
   loading,
   error,
   onRefresh,
-  previewMode = false
+  previewMode = false,
+  onOpenDesk
 }: StudioSearchGrowthDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -42,16 +44,18 @@ export function StudioSearchGrowthDeskView({
           <View style={styles.titleRow}>
             <Text style={styles.title}>Search & Growth</Text>
             <View style={styles.badgeCapability}>
-              <Text style={styles.badgeCapabilityText}>analytics.view</Text>
+              <Text style={styles.badgeCapabilityText}>
+                {previewMode ? "Search & SEO" : "analytics.view"}
+              </Text>
             </View>
             {previewMode && (
               <View style={styles.previewBadge}>
-                <Text style={styles.previewBadgeText}>PREVIEW MODE</Text>
+                <Text style={styles.previewBadgeText}>SAMPLE PREVIEW METRICS</Text>
               </View>
             )}
           </View>
           <Text style={styles.subtitle}>
-            Google Search Console authority, organic SEO audit, and academic research citations.
+            Google Search Console authority, organic SEO metadata readiness, and academic research citations.
           </Text>
         </View>
 
@@ -105,11 +109,10 @@ export function StudioSearchGrowthDeskView({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>SEO TITLE COVERAGE</Text>
               <Text style={styles.kpiValue}>
-                {Math.round(
-                  growthData.seoHealth.totalStories > 0
-                    ? (growthData.seoHealth.withSeoTitle / growthData.seoHealth.totalStories) * 100
-                    : 0
-                )}%
+                {(growthData.seoHealth.totalStories > 0
+                  ? (growthData.seoHealth.withSeoTitle / growthData.seoHealth.totalStories) * 100
+                  : 0
+                ).toFixed(1)}%
               </Text>
               <Text style={styles.kpiSubtext}>
                 {growthData.seoHealth.withSeoTitle.toLocaleString()} stories optimized
@@ -165,9 +168,58 @@ export function StudioSearchGrowthDeskView({
               </View>
               <View style={styles.noticeBox}>
                 <Text style={styles.noticeText}>
-                  ℹ️ Account Access Pending: HealthTimes domain property is registered in Staging. Once Google Search Console OAuth service credentials are provisioned, daily search performance queries will ingest into search_console_daily_metrics. Zero fabricated search queries are shown.
+                  ℹ️ Account Access Pending: HealthTimes domain property is registered in Staging. Once Google Search Console OAuth credentials are provisioned, daily organic search queries and impressions will populate automatically. Zero fabricated search queries are shown.
                 </Text>
               </View>
+            </View>
+          </View>
+
+          {/* Section: Editorial SEO vs Headline & Discoverability Readiness */}
+          <View style={styles.card} testID="search-growth-seo-readiness-card">
+            <Text style={styles.cardTitle}>Editorial SEO vs. Reader Headline & Discoverability</Text>
+            <Text style={styles.cardSubtitle}>
+              How newsroom metadata separates homepage reader headlines from search engine indexing.
+            </Text>
+            <View style={styles.searchConsoleBox}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Editorial Headline vs. SEO Title:</Text>
+                <Text style={styles.detailValue}>
+                  {growthData.seoHealth.withSeoTitle.toLocaleString()} of {growthData.seoHealth.totalStories.toLocaleString()} stories configured
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Search Snippet / Meta Description:</Text>
+                <Text style={styles.detailValue}>
+                  {growthData.seoHealth.withSeoDescription.toLocaleString()} of {growthData.seoHealth.totalStories.toLocaleString()} stories ready
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Stories Needing SEO Optimization:</Text>
+                <Text style={styles.detailValue}>
+                  {Math.max(0, growthData.seoHealth.totalStories - growthData.seoHealth.withSeoTitle)} stories missing custom search title/description
+                </Text>
+              </View>
+              <Text style={styles.citationNotes}>
+                Editorial Headlines are crafted for immediate clarity on the HealthTimes homepage and mobile app, while SEO Titles (≤ 60 chars) and Meta Descriptions (≤ 155 chars) target high-intent medical, policy, and regional public health queries.
+              </Text>
+              {onOpenDesk && (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md }}>
+                  <Pressable
+                    style={styles.refreshButton}
+                    onPress={() => onOpenDesk("articles")}
+                    testID="search-growth-open-stories-btn"
+                  >
+                    <Text style={styles.refreshButtonText}>Audit Story SEO in Story Hub →</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.refreshButton}
+                    onPress={() => onOpenDesk("ai-citations")}
+                    testID="search-growth-open-citations-btn"
+                  >
+                    <Text style={styles.refreshButtonText}>Open AI Citations Desk →</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           </View>
 

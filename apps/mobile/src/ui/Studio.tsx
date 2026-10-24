@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, radius, spacing } from "../theme/tokens";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
+import { HealthTimesBrand } from "./Brand";
 import {
   hasAnyServerCapability,
   hasServerCapability,
@@ -232,7 +233,7 @@ export function StudioShell({ children, title }: PropsWithChildren<{ title: stri
         {desktop && <View style={styles.sidebar}>
             {/* Brand Header */}
             <Pressable onPress={() => router.push("/studio" as never)} accessibilityRole="button">
-              <Text style={styles.brand}>HealthTimes</Text>
+              <HealthTimesBrand inverse studio />
               <Text style={styles.studioLabel}>NEWSROOM OS · ROLE DOMAINS</Text>
             </Pressable>
 
@@ -351,7 +352,7 @@ export function StudioShell({ children, title }: PropsWithChildren<{ title: stri
           {/* Top Mobile Bar with Identity */}
           <View style={styles.mobileBar}>
             <View style={styles.workspaceIdentity}>
-              <Text style={styles.workspaceBrand}>HealthTimes Newsroom OS</Text>
+              <HealthTimesBrand compact studio />
               <Text style={styles.environment}>
                 {roleName.toUpperCase()} • {deskName.toUpperCase()}
               </Text>

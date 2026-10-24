@@ -137,7 +137,7 @@ test("HT-NR-CLOSE-R1 Defect A: mapPlatformSettingsOverview accurately maps truth
         name: "Supabase Database & Edge Engine",
         provider: "supabase_postgres_v15",
         status: "healthy",
-        project_ref: "gcdohgbmqhqwydgaxrcr",
+        project_ref: "bzuvntbkevvuhfhqhkua",
         region: "ap-northeast-1",
         active_migrations: 85
       }

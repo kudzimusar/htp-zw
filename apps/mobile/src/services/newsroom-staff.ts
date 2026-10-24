@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import * as Linking from "expo-linking";
 import type { NewsroomStaffService } from "../domain/contracts";
+import type { OwnerActivationResult } from "../domain/models";
 import type {
   NewsroomStaffMember,
   NewsroomStaffInvitation,
@@ -135,6 +137,68 @@ export function mapStaffOperationsDirectory(
 
 import { getStagingSupabaseClient } from "../platform/supabase";
 
+
+type AuthFailure = { code?: string; message?: string } | null;
+
+export function getOwnerActivationRedirectUrl(): string {
+  const runtimeLocation =
+    typeof globalThis !== "undefined"
+      ? (globalThis as typeof globalThis & { location?: { origin?: string } }).location
+      : undefined;
+  const runtimeOrigin = runtimeLocation?.origin?.trim();
+
+  if (
+    runtimeOrigin &&
+    (runtimeOrigin.startsWith("https://") || runtimeOrigin.startsWith("http://"))
+  ) {
+    return `${runtimeOrigin.replace(/\/$/, "")}/account-access?mode=owner-activation`;
+  }
+
+  return Linking.createURL("account-access", {
+    queryParams: { mode: "owner-activation" }
+  });
+}
+
+export function isEmailRateLimitError(error: AuthFailure): boolean {
+  const code = error?.code?.toLowerCase() ?? "";
+  const message = error?.message?.toLowerCase() ?? "";
+  return code === "over_email_send_rate_limit" || message.includes("email rate limit");
+}
+
+function isEmailConfirmationRequired(error: AuthFailure): boolean {
+  const code = error?.code?.toLowerCase() ?? "";
+  const message = error?.message?.toLowerCase() ?? "";
+  return code === "email_not_confirmed" || message.includes("email not confirmed");
+}
+
+async function bootstrapConfirmedOwner(client: SupabaseClient): Promise<OwnerActivationResult> {
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  const user = sessionData.session?.user;
+  const confirmedAt = (user as unknown as Record<string, unknown> | undefined)?.email_confirmed_at;
+
+  if (sessionError || !user || !confirmedAt) {
+    return {
+      status: "verification-required",
+      success: false,
+      error: "A confirmed Owner email session is required before Publisher / Owner activation."
+    };
+  }
+
+  const { data, error } = await client.rpc("newsroom_bootstrap_owner");
+  if (error) {
+    return { status: "error", success: false, error: error.message };
+  }
+
+  const result = data as Record<string, unknown> | null;
+  return {
+    status: "activated",
+    success: Boolean(result?.success),
+    staffId: result?.staff_id ? String(result.staff_id) : undefined,
+    role: result?.role ? String(result.role) : "Publisher / Owner",
+    error: result?.error ? String(result.error) : undefined
+  };
+}
+
 export function createNewsroomStaffService(
   clientOrFactory: SupabaseClient | (() => SupabaseClient) = getStagingSupabaseClient
 ): NewsroomStaffService {
@@ -239,69 +303,115 @@ export function createNewsroomStaffService(
     },
 
     async bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
-      const client = getClient();
-      const { data, error } = await (client as any).rpc("newsroom_bootstrap_owner");
-      if (error) {
-        return { success: false, error: error.message };
-      }
-      const res = data as Record<string, unknown> | null;
+      const result = await bootstrapConfirmedOwner(getClient());
       return {
-        success: Boolean(res?.success),
-        staffId: res?.staff_id ? String(res.staff_id) : undefined,
-        role: res?.role ? String(res.role) : undefined,
-        error: res?.error ? String(res.error) : undefined
+        success: result.status === "activated" && result.success,
+        staffId: result.staffId,
+        role: result.role,
+        error: result.error
       };
     },
 
-    async activateOwner(password: string): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }> {
+    async activateOwner(input: { email: string; password: string }): Promise<OwnerActivationResult> {
       const client = getClient();
-      const ownerEmail = "kudzimusar@gmail.com";
-      const invitationId = "3c277c48-5319-429f-a2c3-1bf2dbae4c2a";
+      const ownerEmail = input.email.trim().toLowerCase();
 
-      // 1. Attempt Sign Up first
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
+        return { status: "error", success: false, error: "Enter a valid Owner email address." };
+      }
+
+      const currentSession = await client.auth.getSession();
+      if (currentSession.error) {
+        return { status: "error", success: false, error: currentSession.error.message };
+      }
+
+      const currentUser = currentSession.data.session?.user;
+      if (currentUser) {
+        const sessionEmail = currentUser.email?.trim().toLowerCase();
+        if (!sessionEmail || sessionEmail !== ownerEmail) {
+          return {
+            status: "error",
+            success: false,
+            error: "Another authenticated account is active. Sign out before continuing Owner activation."
+          };
+        }
+        return bootstrapConfirmedOwner(client);
+      }
+
+      const signInResult = await client.auth.signInWithPassword({
+        email: ownerEmail,
+        password: input.password
+      });
+      if (!signInResult.error) {
+        return bootstrapConfirmedOwner(client);
+      }
+      if (isEmailConfirmationRequired(signInResult.error)) {
+        return {
+          status: "verification-required",
+          success: false,
+          error: "Check your email to continue Owner activation."
+        };
+      }
+
       const signUpResult = await client.auth.signUp({
         email: ownerEmail,
-        password: password,
+        password: input.password,
         options: {
-          data: {
-            display_name: "Kudzi Musarurwa",
-            role: "Publisher / Owner",
-            invitation_id: invitationId
-          }
+          emailRedirectTo: getOwnerActivationRedirectUrl()
         }
       });
 
-      // If user already registered, sign in directly
       if (signUpResult.error) {
-        if (
-          signUpResult.error.message.toLowerCase().includes("already registered") ||
-          signUpResult.error.message.toLowerCase().includes("user already exists")
-        ) {
-          const signInResult = await client.auth.signInWithPassword({
-            email: ownerEmail,
-            password: password
-          });
-          if (signInResult.error) {
-            throw new Error(`Authentication failed: ${signInResult.error.message}`);
-          }
-        } else {
-          throw new Error(signUpResult.error.message);
+        if (isEmailRateLimitError(signUpResult.error)) {
+          return {
+            status: "email-rate-limited",
+            success: false,
+            error: "Email delivery is temporarily rate limited. No Owner account was activated. Wait for the staging quota to recover before one controlled retry."
+          };
         }
+        return { status: "error", success: false, error: signUpResult.error.message };
       }
 
-      // 2. Invoke parameterless bootstrap RPC
-      const rpcResult = await (client as any).rpc("newsroom_bootstrap_owner");
-      if (rpcResult.error) {
-        if (!rpcResult.error.message.includes("already provisioned")) {
-          throw new Error(`Bootstrap failed: ${rpcResult.error.message}`);
-        }
+      if (signUpResult.data.session) {
+        return bootstrapConfirmedOwner(client);
       }
 
-      const res = rpcResult.data as Record<string, unknown> | null;
       return {
-        success: true,
-        staffId: res?.staff_id ? String(res.staff_id) : undefined,
-        role: res?.role ? String(res.role) : "Publisher / Owner"
+        status: "verification-required",
+        success: false,
+        error: "Check your email to continue Owner activation."
+      };
+    },
+
+    async resendOwnerVerification(email: string): Promise<OwnerActivationResult> {
+      const client = getClient();
+      const ownerEmail = email.trim().toLowerCase();
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
+        return { status: "error", success: false, error: "Enter a valid Owner email address." };
+      }
+
+      const { error } = await client.auth.resend({
+        type: "signup",
+        email: ownerEmail,
+        options: { emailRedirectTo: getOwnerActivationRedirectUrl() }
+      });
+
+      if (error) {
+        if (isEmailRateLimitError(error)) {
+          return {
+            status: "email-rate-limited",
+            success: false,
+            error: "Email delivery is temporarily rate limited. The confirmation email was not sent."
+          };
+        }
+        return { status: "error", success: false, error: error.message };
+      }
+
+      return {
+        status: "verification-required",
+        success: false,
+        error: "Check your email to continue Owner activation."
       };
     }
   };

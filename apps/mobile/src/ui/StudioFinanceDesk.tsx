@@ -56,9 +56,31 @@ export type FinanceTab =
   | "statements"
   | "customers";
 
+export function validatePreviewInvoiceInput(input: {
+  customerId: string;
+  description: string;
+  currency: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+}): string | null {
+  if (!input.customerId.trim()) return "Select a customer.";
+  if (!input.description.trim()) return "Enter an invoice description.";
+  if (!input.currency.trim()) return "Enter a currency.";
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) return "Quantity must be greater than zero.";
+  if (!Number.isFinite(input.unitPrice) || input.unitPrice <= 0) return "Unit price must be greater than zero.";
+  if (!Number.isFinite(input.taxRate) || input.taxRate < 0 || input.taxRate > 1) return "Tax rate must be between 0 and 1.";
+  const subtotal = input.quantity * input.unitPrice;
+  const total = subtotal + subtotal * input.taxRate;
+  if (subtotal < 0 || total < 0) return "Invoice totals cannot be negative.";
+  return null;
+}
+
 interface StudioFinanceDeskProps {
   initialTab?: FinanceTab;
   isOwnerPreview?: boolean;
+  defaultExpenseScope?: "all" | "my";
+  currentStaffName?: string;
   previewOverview?: NewsroomFinanceOverview;
   previewStatements?: NewsroomFinanceStatements;
   previewAging?: NewsroomReceivablesAging;
@@ -77,6 +99,8 @@ interface StudioFinanceDeskProps {
 export function StudioFinanceDeskView({
   initialTab = "overview",
   isOwnerPreview = false,
+  defaultExpenseScope = "all",
+  currentStaffName = "Kudzanai Musarurwa",
   previewOverview,
   previewStatements,
   previewAging,
@@ -94,7 +118,22 @@ export function StudioFinanceDeskView({
   const [activeTab, setActiveTab] = useState<FinanceTab>(initialTab);
   const [currencyFilter, setCurrencyFilter] = useState<string>("USD");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>("all");
-  const [expenseScope, setExpenseScope] = useState<"all" | "my">("all");
+  const [expenseScope, setExpenseScope] = useState<"all" | "my">(defaultExpenseScope);
+  const [localExpenses, setLocalExpenses] = useState<NewsroomExpenseItem[]>(() =>
+    isOwnerPreview ? [...previewExpenses] : []
+  );
+  const [localInvoices, setLocalInvoices] = useState<NewsroomInvoiceItem[]>(() =>
+    isOwnerPreview ? [...previewInvoices] : []
+  );
+  const [localPayments, setLocalPayments] = useState<NewsroomPaymentItem[]>(() =>
+    isOwnerPreview ? [...previewPayments] : []
+  );
+  const [localOrders, setLocalOrders] = useState<NewsroomCommercialOrder[]>(() =>
+    isOwnerPreview ? [...previewOrders] : []
+  );
+  const [localJournals, setLocalJournals] = useState<NewsroomJournalEntry[]>(() =>
+    isOwnerPreview ? (previewJournals.length > 0 ? [...previewJournals] : buildPreviewJournals()) : []
+  );
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -103,6 +142,8 @@ export function StudioFinanceDeskView({
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<NewsroomInvoiceItem | null>(null);
+  const [inspectedInvoice, setInspectedInvoice] = useState<NewsroomInvoiceItem | null>(null);
+  const [inspectedOrder, setInspectedOrder] = useState<NewsroomCommercialOrder | null>(null);
 
   // Refresh trigger for live staging
   const [refreshKey, setRefreshKey] = useState(0);
@@ -172,17 +213,29 @@ export function StudioFinanceDeskView({
   );
 
   const overviewData = isOwnerPreview ? previewOverview : liveOverview.data;
-  const invoicesData = isOwnerPreview ? previewInvoices : liveInvoices.data ?? [];
+  const invoicesData = isOwnerPreview
+    ? localInvoices.filter((inv) => invoiceStatusFilter === "all" || inv.effectiveStatus === invoiceStatusFilter || inv.status === invoiceStatusFilter)
+    : (liveInvoices.data ?? []);
   const agingData = isOwnerPreview ? previewAging : liveAging.data;
-  const paymentsData = isOwnerPreview ? previewPayments : livePayments.data ?? [];
-  const expensesData = isOwnerPreview ? previewExpenses : liveExpenses.data ?? [];
+  const paymentsData = isOwnerPreview ? localPayments : (livePayments.data ?? []);
+  const rawExpenses = isOwnerPreview ? localExpenses : (liveExpenses.data ?? []);
+  const expensesData = useMemo(() => {
+    if (expenseScope === "my") {
+      const staffName = currentStaffName.trim().toLowerCase();
+      return rawExpenses.filter((e) => {
+        const subName = (e.submittedByName ?? "").trim().toLowerCase();
+        return subName === staffName || subName.includes(staffName.split(" ")[0] ?? "");
+      });
+    }
+    return rawExpenses;
+  }, [rawExpenses, expenseScope, currentStaffName]);
   const statementsData = isOwnerPreview ? previewStatements : liveStatements.data;
   const customersData = isOwnerPreview ? previewCustomers : liveCustomers.data ?? [];
-  const ordersData = isOwnerPreview ? previewOrders : liveOrders.data ?? [];
+  const ordersData = isOwnerPreview ? localOrders : (liveOrders.data ?? []);
   const trialBalanceData = isOwnerPreview ? (previewTrialBalance ?? buildPreviewTrialBalance()) : liveTrialBalance.data;
   const pnlData = isOwnerPreview ? (previewProfitAndLoss ?? buildPreviewProfitAndLoss()) : liveProfitAndLoss.data;
   const balanceSheetData = isOwnerPreview ? (previewBalanceSheet ?? buildPreviewBalanceSheet()) : liveBalanceSheet.data;
-  const journalsData = isOwnerPreview ? (previewJournals.length > 0 ? previewJournals : buildPreviewJournals()) : liveJournals.data ?? [];
+  const journalsData = isOwnerPreview ? localJournals : (liveJournals.data ?? []);
 
   // Form States for Modals
   const [newInvCustomerId, setNewInvCustomerId] = useState<string>("");
@@ -203,6 +256,8 @@ export function StudioFinanceDeskView({
   const [expAmount, setExpAmount] = useState<string>("");
   const [expCurrency, setExpCurrency] = useState<string>("USD");
   const [expDept, setExpDept] = useState<string>("Editorial");
+  const [expDate, setExpDate] = useState<string>("2026-10-24");
+  const [expReceiptEvidence, setExpReceiptEvidence] = useState<string>("");
 
   // Credit Note Modal State
   const [isCreditNoteModalOpen, setIsCreditNoteModalOpen] = useState(false);
@@ -243,7 +298,12 @@ export function StudioFinanceDeskView({
   // Invoice Actions
   async function handleApproveInvoice(invId: string) {
     if (isOwnerPreview) {
-      notify("Owner Preview: Invoice approved (read-only presentation simulated).");
+      setLocalInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === invId ? { ...inv, status: "approved", effectiveStatus: "approved" } : inv
+        )
+      );
+      notify("Preview state only: Invoice approved in local preview memory (writes disabled).");
       return;
     }
     try {
@@ -257,7 +317,15 @@ export function StudioFinanceDeskView({
 
   async function handleIssueInvoice(invId: string) {
     if (isOwnerPreview) {
-      notify("Owner Preview: Invoice issued (read-only presentation simulated).");
+      const today = new Date().toISOString().slice(0, 10);
+      setLocalInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === invId
+            ? { ...inv, status: "issued", effectiveStatus: "issued", issueDate: today }
+            : inv
+        )
+      );
+      notify("Preview state only: Invoice issued in local preview memory (writes disabled).");
       return;
     }
     try {
@@ -271,7 +339,14 @@ export function StudioFinanceDeskView({
 
   async function handleVoidInvoice(invId: string) {
     if (isOwnerPreview) {
-      notify("Owner Preview: Invoice voided (read-only presentation simulated).");
+      setLocalInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === invId
+            ? { ...inv, status: "void", effectiveStatus: "void", balanceDue: 0 }
+            : inv
+        )
+      );
+      notify("Preview state only: Invoice voided in local preview memory (writes disabled).");
       return;
     }
     try {
@@ -284,16 +359,61 @@ export function StudioFinanceDeskView({
   }
 
   async function handleCreateInvoice() {
+    const qty = Number(newInvQty);
+    const price = Number(newInvUnitPrice);
+    const taxRate = Number(newInvTaxRate);
+    const validationError = validatePreviewInvoiceInput({
+      customerId: newInvCustomerId,
+      description: newInvDesc,
+      currency: newInvCurrency,
+      quantity: qty,
+      unitPrice: price,
+      taxRate
+    });
+    if (validationError) {
+      notifyError(validationError);
+      return;
+    }
     if (isOwnerPreview) {
-      notify("Owner Preview: Invoice creation simulated (writes disabled).");
+      const cust = customersData.find((c) => c.id === newInvCustomerId) ?? customersData[0];
+      const subtotal = qty * price;
+      const taxTotal = Number((subtotal * taxRate).toFixed(2));
+      const total = Number((subtotal + taxTotal).toFixed(2));
+      const today = new Date().toISOString().slice(0, 10);
+      const createdInv: NewsroomInvoiceItem = {
+        id: `inv-preview-${Date.now()}`,
+        invoiceNumber: `INV-2026-000${localInvoices.length + 1}`,
+        orderId: null,
+        orderNumber: null,
+        customerId: cust?.id ?? "cust-sample-1",
+        customerName: cust?.name ?? "Health Corp Zimbabwe Ltd",
+        currency: newInvCurrency || "USD",
+        issueDate: today,
+        dueDate: "2026-11-24",
+        paymentTermsDays: 30,
+        daysOverdue: 0,
+        paymentCount: 0,
+        status: "draft",
+        effectiveStatus: "draft",
+        subtotal,
+        taxTotal,
+        discountTotal: 0,
+        total,
+        amountPaid: 0,
+        balanceDue: total,
+        notes: `${newInvDesc} (${newInvPlacement})`,
+        createdBy: currentStaffName,
+        approvedBy: null,
+        approvedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setLocalInvoices((prev) => [createdInv, ...prev]);
+      notify("Preview state only: Draft invoice created in local preview memory (writes disabled).");
       setIsInvoiceModalOpen(false);
       return;
     }
     try {
-      if (!newInvCustomerId) throw new Error("Please select a customer");
-      const qty = parseFloat(newInvQty) || 1;
-      const price = parseFloat(newInvUnitPrice) || 0;
-      const taxRate = parseFloat(newInvTaxRate) || 0;
       await services.newsroomFinance.createInvoice({
         customerId: newInvCustomerId,
         currency: newInvCurrency,
@@ -320,8 +440,53 @@ export function StudioFinanceDeskView({
   async function handleRecordPayment() {
     if (!selectedInvoice) return;
     if (isOwnerPreview) {
-      notify("Owner Preview: Payment recorded (read-only presentation simulated).");
+      const amt = Number(paymentAmount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        notifyError("Payment amount must be greater than zero.");
+        return;
+      }
+      if (amt > selectedInvoice.balanceDue) {
+        notifyError("Payment cannot exceed the outstanding balance.");
+        return;
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const newPay: NewsroomPaymentItem = {
+        id: `pay-preview-${Date.now()}`,
+        paymentNumber: `PAY-2026-000${localPayments.length + 1}`,
+        invoiceId: selectedInvoice.id,
+        invoiceNumber: selectedInvoice.invoiceNumber,
+        customerId: selectedInvoice.customerId,
+        customerName: selectedInvoice.customerName,
+        amount: amt,
+        currency: selectedInvoice.currency,
+        paymentMethod: paymentMethod || "bank_transfer",
+        reference: paymentRef || `PREV-REF-${Date.now().toString().slice(-4)}`,
+        notes: `Recorded against ${selectedInvoice.invoiceNumber}`,
+        paymentDate: today,
+        recordedBy: "preview-persona",
+        recordedByName: currentStaffName,
+        createdAt: new Date().toISOString()
+      };
+      setLocalPayments((prev) => [newPay, ...prev]);
+      setLocalInvoices((prev) =>
+        prev.map((inv) => {
+          if (inv.id !== selectedInvoice.id) return inv;
+          const nextPaid = Number((inv.amountPaid + amt).toFixed(2));
+          const nextDue = Math.max(0, Number((inv.total - nextPaid).toFixed(2)));
+          const nextStatus = nextDue === 0 ? "paid" : "partially_paid";
+          return {
+            ...inv,
+            amountPaid: nextPaid,
+            balanceDue: nextDue,
+            status: nextStatus,
+            effectiveStatus: nextStatus
+          };
+        })
+      );
+      notify("Preview state only: Payment recorded in local preview memory (writes disabled).");
       setIsPaymentModalOpen(false);
+      setSelectedInvoice(null);
+      setPaymentAmount("");
       return;
     }
     try {
@@ -348,8 +513,42 @@ export function StudioFinanceDeskView({
 
   async function handleCreateExpense() {
     if (isOwnerPreview) {
-      notify("Owner Preview: Expense claim submitted (writes disabled).");
+      const amt = parseFloat(expAmount) || 85.0;
+      const createdDate = expDate.trim() || new Date().toISOString().split("T")[0]!;
+      const createdClaim: NewsroomExpenseItem = {
+        id: `prev-exp-${Date.now()}`,
+        expenseNumber: `EXP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        expenseDate: createdDate,
+        vendorName: expVendor.trim() || "Field Reporting Vendor",
+        category: expCategory || "travel",
+        description: expDesc.trim() || "Newsroom operational expense",
+        department: expDept || "Editorial",
+        storyId: null,
+        amount: amt,
+        currency: expCurrency || "USD",
+        taxAmount: 0.0,
+        receiptReference: expReceiptEvidence.trim() || `RCPT-${Math.floor(1000 + Math.random() * 9000)}`,
+        receiptUrl: expReceiptEvidence.trim() ? `https://healthtimes.co.zw/receipts/${encodeURIComponent(expReceiptEvidence.trim())}` : null,
+        status: "submitted",
+        paymentStatus: "unpaid",
+        paidAt: null,
+        paymentReference: null,
+        rejectionReason: null,
+        submittedBy: "preview-persona-current",
+        submittedByName: currentStaffName,
+        approvedBy: null,
+        approvedByName: null,
+        approvedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setLocalExpenses((prev) => [createdClaim, ...prev]);
+      notify("Preview state only: Expense claim created in local Preview memory (status: SUBMITTED). Not persisted to live database.");
       setIsExpenseModalOpen(false);
+      setExpVendor("");
+      setExpDesc("");
+      setExpAmount("");
+      setExpReceiptEvidence("");
       return;
     }
     try {
@@ -380,7 +579,14 @@ export function StudioFinanceDeskView({
 
   async function handleApproveExpense(expId: string) {
     if (isOwnerPreview) {
-      notify("Owner Preview: Expense approved.");
+      setLocalExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expId
+            ? { ...e, status: "approved", approvedByName: "Dr. Tawanda Chideme", approvedAt: new Date().toISOString() }
+            : e
+        )
+      );
+      notify("Owner Preview: Expense approval simulated in local preview memory. Strict separation of duties applies in production.");
       return;
     }
     try {
@@ -394,7 +600,19 @@ export function StudioFinanceDeskView({
 
   async function handlePayExpense(expId: string) {
     if (isOwnerPreview) {
-      notify("Owner Preview: Expense paid.");
+      setLocalExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expId
+            ? {
+                ...e,
+                paymentStatus: "paid",
+                paidAt: new Date().toISOString(),
+                paymentReference: `PAY-EXP-PREV-${Date.now().toString().slice(-4)}`
+              }
+            : e
+        )
+      );
+      notify("Preview state only: Expense marked paid in local preview memory (writes disabled).");
       return;
     }
     try {
@@ -418,7 +636,20 @@ export function StudioFinanceDeskView({
       return;
     }
     if (isOwnerPreview) {
-      notify(`Owner Preview: Credit Note issued for ${creditNoteInvoice.currency} ${amt.toFixed(2)}.`);
+      setLocalInvoices((prev) =>
+        prev.map((inv) => {
+          if (inv.id !== creditNoteInvoice.id) return inv;
+          const nextDiscount = Number((inv.discountTotal + amt).toFixed(2));
+          const nextDue = Math.max(0, Number((inv.balanceDue - amt).toFixed(2)));
+          return {
+            ...inv,
+            discountTotal: nextDiscount,
+            balanceDue: nextDue,
+            effectiveStatus: nextDue === 0 ? "paid" : inv.effectiveStatus
+          };
+        })
+      );
+      notify(`Preview state only: Credit Note for ${creditNoteInvoice.currency} ${amt.toFixed(2)} simulated in local preview memory.`);
       setIsCreditNoteModalOpen(false);
       return;
     }
@@ -435,7 +666,10 @@ export function StudioFinanceDeskView({
   async function handleReverseJournal() {
     if (!reverseJournalEntry) return;
     if (isOwnerPreview) {
-      notify(`Owner Preview: Journal entry ${reverseJournalEntry.entryNumber} reversed.`);
+      setLocalJournals((prev) =>
+        prev.map((j) => (j.id === reverseJournalEntry.id ? { ...j, status: "reversed" } : j))
+      );
+      notify(`Preview state only: Journal entry ${reverseJournalEntry.entryNumber} marked reversed in local preview memory.`);
       setIsReverseJournalModalOpen(false);
       return;
     }
@@ -487,6 +721,22 @@ export function StudioFinanceDeskView({
 
   return (
     <View style={styles.container}>
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderBottomWidth: 1,
+            borderBottomColor: "#FDE68A",
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.sm
+          }}
+          testID="finance-sample-data-banner"
+        >
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Financial & General Ledger Figures (Owner Preview): Invoices, cash receipts, receivables aging, expenses, and GAAP ledger balances shown below are sample presentation records reconciled across tabs. Actions simulate in local Preview memory only and never record real accounting entries or charge customers.
+          </Text>
+        </View>
+      )}
       {/* Action Notification Banners */}
       {actionMessage && (
         <View style={styles.bannerSuccess}>
@@ -812,6 +1062,14 @@ export function StudioFinanceDeskView({
                     <View style={[styles.tdCell, styles.rowActions, { width: 320 }]}>
                       <Pressable
                         style={styles.miniBtn}
+                        onPress={() => setInspectedInvoice(inv)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View details for invoice ${inv.invoiceNumber}`}
+                      >
+                        <Text style={styles.miniBtnText}>Details</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.miniBtn}
                         onPress={() => {
                           setPrintInvoiceItem(inv);
                           setIsPrintInvoiceModalOpen(true);
@@ -863,6 +1121,22 @@ export function StudioFinanceDeskView({
                 ))}
               </View>
             </ScrollView>
+          )}
+          {inspectedInvoice && (
+            <View style={styles.detailSummaryCard} testID="finance-invoice-detail">
+              <View style={styles.toolbar}>
+                <View>
+                  <Text style={styles.sectionTitle}>{inspectedInvoice.invoiceNumber}</Text>
+                  <Text style={styles.sectionSub}>{inspectedInvoice.customerName} · {inspectedInvoice.orderNumber ?? "No linked order"}</Text>
+                </View>
+                <Pressable onPress={() => setInspectedInvoice(null)} accessibilityRole="button" accessibilityLabel="Close invoice details">
+                  <Text style={styles.miniBtnText}>Close</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.sectionSub}>{inspectedInvoice.notes ?? "No invoice description"}</Text>
+              <Text style={styles.detailSummaryText}>Subtotal: {inspectedInvoice.currency} {inspectedInvoice.subtotal.toFixed(2)} · Tax: {inspectedInvoice.currency} {inspectedInvoice.taxTotal.toFixed(2)} · Discount: {inspectedInvoice.currency} {inspectedInvoice.discountTotal.toFixed(2)}</Text>
+              <Text style={styles.detailSummaryText}>Total: {inspectedInvoice.currency} {inspectedInvoice.total.toFixed(2)} · Paid: {inspectedInvoice.currency} {inspectedInvoice.amountPaid.toFixed(2)} · Outstanding: {inspectedInvoice.currency} {inspectedInvoice.balanceDue.toFixed(2)}</Text>
+            </View>
           )}
         </View>
       )}
@@ -1015,6 +1289,13 @@ export function StudioFinanceDeskView({
       {/* 5. EXPENSES TAB */}
       {activeTab === "expenses" && (
         <View style={styles.tabContent}>
+          <View style={styles.governanceNoticeBox} testID="expense-governance-notice">
+            <Text style={styles.governanceNoticeTitle}>SEPARATION OF DUTIES · EXPENSE GOVERNANCE</Text>
+            <Text style={styles.governanceNoticeText}>
+              Newsroom expense policy enforces strict separation of duties: Staff members submit field claims, while line managers and Finance Desk verify and approve them. Self-approval is strictly prohibited in live operations. In this Owner Visual Preview, approval controls are simulated for interface demonstration only and do not establish live self-approval authority.
+            </Text>
+          </View>
+
           <View style={styles.toolbar}>
             <View style={styles.filterGroup}>
               <Pressable
@@ -1052,7 +1333,8 @@ export function StudioFinanceDeskView({
                   <Text style={[styles.th, { width: 100 }]}>DATE</Text>
                   <Text style={[styles.th, { width: 150 }]}>VENDOR</Text>
                   <Text style={[styles.th, { width: 110 }]}>CATEGORY</Text>
-                  <Text style={[styles.th, { width: 200 }]}>DESCRIPTION</Text>
+                  <Text style={[styles.th, { width: 180 }]}>DESCRIPTION</Text>
+                  <Text style={[styles.th, { width: 140 }]}>RECEIPT / EVIDENCE</Text>
                   <Text style={[styles.th, { width: 100, textAlign: "right" }]}>AMOUNT</Text>
                   <Text style={[styles.th, { width: 110, textAlign: "center" }]}>STATUS</Text>
                   <Text style={[styles.th, { width: 150 }]}>SUBMITTED BY</Text>
@@ -1065,7 +1347,10 @@ export function StudioFinanceDeskView({
                     <Text style={[styles.td, { width: 100 }]}>{e.expenseDate}</Text>
                     <Text style={[styles.td, { width: 150 }]} numberOfLines={1}>{e.vendorName}</Text>
                     <Text style={[styles.td, { width: 110 }]}>{e.category.toUpperCase()}</Text>
-                    <Text style={[styles.td, { width: 200 }]} numberOfLines={1}>{e.description}</Text>
+                    <Text style={[styles.td, { width: 180 }]} numberOfLines={1}>{e.description}</Text>
+                    <Text style={[styles.td, { width: 140 }]} numberOfLines={1}>
+                      {e.receiptReference ? `📎 ${e.receiptReference}` : e.receiptUrl ? "📎 Attached file" : "None"}
+                    </Text>
                     <Text style={[styles.td, { width: 100, textAlign: "right", fontWeight: "700" }]}>
                       {e.currency} {e.amount.toFixed(2)}
                     </Text>
@@ -1499,7 +1784,44 @@ export function StudioFinanceDeskView({
       {/* 7. ORDERS & CUSTOMERS TAB */}
       {activeTab === "customers" && (
         <View style={styles.tabContent}>
-          <Text style={styles.sectionTitle}>Commercial Orders & Booking Contracts</Text>
+          <View style={styles.toolbar}>
+            <Text style={styles.sectionTitle}>Commercial Orders & Booking Contracts</Text>
+            {isOwnerPreview && (
+              <Pressable
+                style={styles.actionBtnPrimary}
+                onPress={() => {
+                  const nextOrd: NewsroomCommercialOrder = {
+                    id: `ord-prev-${Date.now()}`,
+                    orderNumber: `ORD-2026-000${localOrders.length + 1}`,
+                    customerId: "cust-sample-2",
+                    customerName: "PharmaCare International",
+                    campaignId: "prev-camp-002",
+                    campaignName: "Q4 Maternal Health Sponsorship Package",
+                    status: "approved",
+                    billingStatus: "unbilled",
+                    currency: "USD",
+                    subtotal: 800,
+                    taxAmount: 120,
+                    discountAmount: 0,
+                    total: 920,
+                    startDate: "2026-10-25",
+                    endDate: "2026-11-25",
+                    notes: "Sponsored clinical series + newsletter banner",
+                    submittedBy: currentStaffName,
+                    approvedBy: "Publisher / Owner",
+                    approvedAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  };
+                  setLocalOrders((prev) => [nextOrd, ...prev]);
+                  notify("Preview state only: Commercial booking order created in local preview memory.");
+                }}
+                testID="orders-create-sample-order-btn"
+              >
+                <Text style={styles.actionBtnPrimaryText}>+ New Commercial Order</Text>
+              </Pressable>
+            )}
+          </View>
           {ordersData.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>Zero Commercial Orders</Text>
@@ -1515,6 +1837,7 @@ export function StudioFinanceDeskView({
                   <Text style={[styles.th, { width: 110, textAlign: "right" }]}>TOTAL</Text>
                   <Text style={[styles.th, { width: 120, textAlign: "center" }]}>STATUS</Text>
                   <Text style={[styles.th, { width: 120, textAlign: "center" }]}>BILLING</Text>
+                  <Text style={[styles.th, { width: 180 }]}>ACTIONS</Text>
                 </View>
                 {ordersData.map((ord) => (
                   <View key={ord.id} style={styles.tableRow}>
@@ -1534,10 +1857,86 @@ export function StudioFinanceDeskView({
                         <Text style={styles.badgeText}>{ord.billingStatus.toUpperCase()}</Text>
                       </View>
                     </View>
+                    <View style={[styles.tdCell, styles.rowActions, { width: 180 }]}>
+                      <Pressable
+                        style={styles.miniBtn}
+                        onPress={() => setInspectedOrder(ord)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View details for order ${ord.orderNumber}`}
+                      >
+                        <Text style={styles.miniBtnText}>Details</Text>
+                      </Pressable>
+                      {ord.billingStatus !== "billed" && isOwnerPreview && (
+                        <Pressable
+                          style={styles.miniBtnPrimary}
+                          onPress={() => {
+                            setLocalOrders((prev) =>
+                              prev.map((o) => (o.id === ord.id ? { ...o, billingStatus: "billed" } : o))
+                            );
+                            const today = new Date().toISOString().slice(0, 10);
+                            const createdInv: NewsroomInvoiceItem = {
+                              id: `inv-from-ord-${Date.now()}`,
+                              invoiceNumber: `INV-2026-000${localInvoices.length + 1}`,
+                              orderId: ord.id,
+                              orderNumber: ord.orderNumber,
+                              customerId: ord.customerId,
+                              customerName: ord.customerName ?? "Commercial Sponsor",
+                              currency: ord.currency,
+                              issueDate: today,
+                              dueDate: "2026-11-24",
+                              paymentTermsDays: 30,
+                              daysOverdue: 0,
+                              paymentCount: 0,
+                              status: "issued",
+                              effectiveStatus: "issued",
+                              subtotal: ord.subtotal,
+                              taxTotal: ord.taxAmount,
+                              discountTotal: ord.discountAmount,
+                              total: ord.total,
+                              amountPaid: 0,
+                              balanceDue: ord.total,
+                              notes: `${ord.campaignName ?? "Commercial Order"} (${ord.orderNumber})`,
+                              createdBy: currentStaffName,
+                              approvedBy: "Publisher / Owner",
+                              approvedAt: new Date().toISOString(),
+                              createdAt: new Date().toISOString(),
+                              updatedAt: new Date().toISOString()
+                            };
+                            setLocalInvoices((prev) => [createdInv, ...prev]);
+                            notify(`Preview state only: Generated Invoice ${createdInv.invoiceNumber} from ${ord.orderNumber}.`);
+                          }}
+                        >
+                          <Text style={styles.miniBtnPrimaryText}>Generate Invoice</Text>
+                        </Pressable>
+                      )}
+                      <Pressable
+                        style={styles.miniBtn}
+                        onPress={() => setActiveTab("invoices")}
+                      >
+                        <Text style={styles.miniBtnText}>View Invoices →</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 ))}
               </View>
             </ScrollView>
+          )}
+
+          {inspectedOrder && (
+            <View style={styles.detailSummaryCard} testID="finance-order-detail">
+              <View style={styles.toolbar}>
+                <View>
+                  <Text style={styles.sectionTitle}>{inspectedOrder.orderNumber}</Text>
+                  <Text style={styles.sectionSub}>{inspectedOrder.customerName} · {inspectedOrder.campaignName ?? "No campaign"}</Text>
+                </View>
+                <Pressable onPress={() => setInspectedOrder(null)} accessibilityRole="button" accessibilityLabel="Close order details">
+                  <Text style={styles.miniBtnText}>Close</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.sectionSub}>{inspectedOrder.notes ?? "No order notes"}</Text>
+              <Text style={styles.detailSummaryText}>Flight: {inspectedOrder.startDate ?? "Not set"} to {inspectedOrder.endDate ?? "Not set"}</Text>
+              <Text style={styles.detailSummaryText}>Subtotal: {inspectedOrder.currency} {inspectedOrder.subtotal.toFixed(2)} · Tax: {inspectedOrder.currency} {inspectedOrder.taxAmount.toFixed(2)} · Discount: {inspectedOrder.currency} {inspectedOrder.discountAmount.toFixed(2)} · Total: {inspectedOrder.currency} {inspectedOrder.total.toFixed(2)}</Text>
+            </View>
           )}
 
           <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Billing Customers & Accounts</Text>
@@ -1587,6 +1986,9 @@ export function StudioFinanceDeskView({
                       key={c.id}
                       style={[styles.pickerChip, newInvCustomerId === c.id && styles.pickerChipActive]}
                       onPress={() => setNewInvCustomerId(c.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select customer ${c.name}`}
+                      accessibilityState={{ selected: newInvCustomerId === c.id }}
                     >
                       <Text style={[styles.pickerChipText, newInvCustomerId === c.id && styles.pickerChipTextActive]}>
                         {c.name}
@@ -1600,35 +2002,36 @@ export function StudioFinanceDeskView({
                   placeholder="Select or enter customer UUID"
                   value={newInvCustomerId}
                   onChangeText={setNewInvCustomerId}
+                  accessibilityLabel="Invoice customer"
                 />
               )}
 
               <Text style={styles.formLabel}>Description</Text>
-              <TextInput style={styles.input} value={newInvDesc} onChangeText={setNewInvDesc} />
+              <TextInput style={styles.input} value={newInvDesc} onChangeText={setNewInvDesc} accessibilityLabel="Invoice description" />
 
               <View style={styles.formRow}>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Placement</Text>
-                  <TextInput style={styles.input} value={newInvPlacement} onChangeText={setNewInvPlacement} />
+                  <TextInput style={styles.input} value={newInvPlacement} onChangeText={setNewInvPlacement} accessibilityLabel="Invoice placement" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Currency</Text>
-                  <TextInput style={styles.input} value={newInvCurrency} onChangeText={setNewInvCurrency} />
+                  <TextInput style={styles.input} value={newInvCurrency} onChangeText={setNewInvCurrency} accessibilityLabel="Invoice currency" />
                 </View>
               </View>
 
               <View style={styles.formRow}>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Quantity</Text>
-                  <TextInput style={styles.input} value={newInvQty} onChangeText={setNewInvQty} keyboardType="numeric" />
+                  <TextInput style={styles.input} value={newInvQty} onChangeText={setNewInvQty} keyboardType="numeric" accessibilityLabel="Invoice quantity" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Unit Price ({newInvCurrency})</Text>
-                  <TextInput style={styles.input} value={newInvUnitPrice} onChangeText={setNewInvUnitPrice} keyboardType="numeric" />
+                  <TextInput style={styles.input} value={newInvUnitPrice} onChangeText={setNewInvUnitPrice} keyboardType="numeric" accessibilityLabel="Invoice unit price" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Tax Rate (0.15 = 15%)</Text>
-                  <TextInput style={styles.input} value={newInvTaxRate} onChangeText={setNewInvTaxRate} keyboardType="numeric" />
+                  <TextInput style={styles.input} value={newInvTaxRate} onChangeText={setNewInvTaxRate} keyboardType="numeric" accessibilityLabel="Invoice tax rate" />
                 </View>
               </View>
 
@@ -1646,10 +2049,10 @@ export function StudioFinanceDeskView({
             </ScrollView>
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setIsInvoiceModalOpen(false)}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsInvoiceModalOpen(false)} accessibilityRole="button" accessibilityLabel="Cancel invoice creation">
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateInvoice}>
+              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateInvoice} accessibilityRole="button" accessibilityLabel="Save draft invoice">
                 <Text style={styles.modalSubmitText}>Save Draft Invoice</Text>
               </Pressable>
             </View>
@@ -1675,6 +2078,7 @@ export function StudioFinanceDeskView({
                 onChangeText={setPaymentAmount}
                 keyboardType="numeric"
                 placeholder="Amount"
+                accessibilityLabel="Payment amount"
               />
 
               <Text style={styles.formLabel}>Payment Method</Text>
@@ -1684,6 +2088,9 @@ export function StudioFinanceDeskView({
                     key={m}
                     style={[styles.pickerChip, paymentMethod === m && styles.pickerChipActive]}
                     onPress={() => setPaymentMethod(m)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select payment method ${m.replace("_", " ")}`}
+                    accessibilityState={{ selected: paymentMethod === m }}
                   >
                     <Text style={[styles.pickerChipText, paymentMethod === m && styles.pickerChipTextActive]}>
                       {m.replace("_", " ").toUpperCase()}
@@ -1698,14 +2105,15 @@ export function StudioFinanceDeskView({
                 value={paymentRef}
                 onChangeText={setPaymentRef}
                 placeholder="e.g. STANBIC-REF-1092"
+                accessibilityLabel="Payment reference"
               />
             </View>
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setIsPaymentModalOpen(false)}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsPaymentModalOpen(false)} accessibilityRole="button" accessibilityLabel="Cancel payment recording">
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.modalSubmitBtn} onPress={handleRecordPayment}>
+              <Pressable style={styles.modalSubmitBtn} onPress={handleRecordPayment} accessibilityRole="button" accessibilityLabel="Record customer payment">
                 <Text style={styles.modalSubmitText}>Post Immutable Payment</Text>
               </Pressable>
             </View>
@@ -1762,6 +2170,27 @@ export function StudioFinanceDeskView({
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Currency</Text>
                   <TextInput style={styles.input} value={expCurrency} onChangeText={setExpCurrency} />
+                </View>
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Expense Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={expDate}
+                    onChangeText={setExpDate}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Receipt / Supporting Evidence</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={expReceiptEvidence}
+                    onChangeText={setExpReceiptEvidence}
+                    placeholder="e.g. RCPT-4091 or receipt.pdf"
+                  />
                 </View>
               </View>
             </ScrollView>
@@ -1880,6 +2309,13 @@ export function StudioFinanceDeskView({
             </View>
 
             <ScrollView style={styles.documentSheet} showsVerticalScrollIndicator={false}>
+              {isOwnerPreview && (
+                <View style={{ backgroundColor: "#FEF3C7", padding: spacing.sm, borderRadius: radius.sm, marginBottom: spacing.md }}>
+                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#92400E", textAlign: "center" }}>
+                    SAMPLE PREVIEW DOCUMENT — NOT A VALID COMMERCIAL TAX INVOICE
+                  </Text>
+                </View>
+              )}
               {/* Document Header */}
               <View style={styles.docHeader}>
                 <View>
@@ -1996,6 +2432,13 @@ export function StudioFinanceDeskView({
             </View>
 
             <ScrollView style={styles.documentSheet} showsVerticalScrollIndicator={false}>
+              {isOwnerPreview && (
+                <View style={{ backgroundColor: "#FEF3C7", padding: spacing.sm, borderRadius: radius.sm, marginBottom: spacing.md }}>
+                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#92400E", textAlign: "center" }}>
+                    SAMPLE PREVIEW RECEIPT — SIMULATED SETTLEMENT RECORD ONLY
+                  </Text>
+                </View>
+              )}
               <View style={styles.docHeader}>
                 <View>
                   <Text style={styles.docOrgName}>HealthTimes Zimbabwe</Text>
@@ -2066,6 +2509,13 @@ export function StudioFinanceDeskView({
             </View>
 
             <ScrollView style={styles.documentSheet} showsVerticalScrollIndicator={false}>
+              {isOwnerPreview && (
+                <View style={{ backgroundColor: "#FEF3C7", padding: spacing.sm, borderRadius: radius.sm, marginBottom: spacing.md }}>
+                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#92400E", textAlign: "center" }}>
+                    SAMPLE PREVIEW STATEMENT OF ACCOUNT — FOR INTERFACE REVIEW ONLY
+                  </Text>
+                </View>
+              )}
               <View style={styles.docHeader}>
                 <View>
                   <Text style={styles.docOrgName}>HealthTimes Zimbabwe</Text>
@@ -2304,6 +2754,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.inkMuted,
     lineHeight: 18
+  },
+  detailSummaryCard: {
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    maxWidth: "100%"
+  },
+  detailSummaryText: {
+    color: colors.ink,
+    fontSize: 13,
+    lineHeight: 20
   },
   currencyToggle: {
     flexDirection: "row",
@@ -2614,6 +3079,26 @@ const styles = StyleSheet.create({
   glNoticeSub: {
     fontSize: 11,
     color: colors.inkMuted
+  },
+  governanceNoticeBox: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#16A34A",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: 4
+  },
+  governanceNoticeTitle: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    color: "#15803D"
+  },
+  governanceNoticeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#166534"
   },
   modalOverlay: {
     flex: 1,

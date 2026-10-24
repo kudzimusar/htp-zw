@@ -1,54 +1,25 @@
 import { useLocalSearchParams } from "expo-router";
 import { OwnerPreviewModuleScreen } from "../../../src/preview/OwnerPreviewStudio";
+import { OWNER_PREVIEW_DYNAMIC_MODULE_SLUGS } from "../../../src/preview/newsroomPreviewData";
 
+// Canonical registered dynamic modules:
+// "social", "newsletters", "push-alerts", "analytics", "audience", "search-growth", "staff-roles"
 export function generateStaticParams() {
-  return [
-    "stories",
-    "create-edit",
-    "review-queue",
-    "planning",
-    "assignments",
-    "calendar",
-    "homepage",
-    "media",
-    "video-desk",
-    "live-desk",
-    "social",
-    "newsletters",
-    "push-alerts",
-    "whatsapp",
-    "analytics",
-    "audience",
-    "search-growth",
-    "staff-roles",
-    "advertising",
-    "subscribers",
-    "premium",
-    "ai-desk",
-    "authors",
-    "settings",
-    "finance",
-    "finance-invoices",
-    "finance-aging",
-    "finance-payments",
-    "finance-expenses",
-    "my-expenses",
-    "finance-statements",
-    "finance-customers",
-    "orders"
-  ].map((module) => ({ module }));
+  return OWNER_PREVIEW_DYNAMIC_MODULE_SLUGS.map((module) => ({ module }));
 }
 
 export default function OwnerPreviewStudioModuleRoute() {
-  const { module, storyId } = useLocalSearchParams<{
+  const { module, storyId, assignmentId } = useLocalSearchParams<{
     module: string;
     storyId?: string;
+    assignmentId?: string;
   }>();
 
   return (
     <OwnerPreviewModuleScreen
       moduleSlug={String(module ?? "today")}
       storyId={storyId ? String(storyId) : undefined}
+      assignmentId={assignmentId ? String(assignmentId) : undefined}
     />
   );
 }

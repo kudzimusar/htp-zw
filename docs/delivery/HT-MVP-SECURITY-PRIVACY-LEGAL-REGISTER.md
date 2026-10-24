@@ -2,8 +2,10 @@
 ## Comprehensive Governance Pack, Compliance Inventory & Advisory Gates
 
 - **Document ID:** `HT-MVP-SECURITY-PRIVACY-LEGAL-REGISTER`
-- **Release Candidate:** `release/ht-mvp-rc01-udpcs-launch-control`
+- **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
+- **Exact Head SHA:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`
 - **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
+- **Reader Authority SHA:** `c4e779dbbc2b65232c90b4e69b74551b62f1910d`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Sections 25–27, 38–40
 - **Target Delivery Date:** 24 October 2026
 
@@ -91,20 +93,20 @@ PROFESSIONAL ADVISORY SIGN-OFF GATES
 
 1. LEGAL COUNSEL GATE:
    - Scope: Defamation policy, ZMC compliance, medical disclaimers.
-   - Status: APPROVED FOR MVP LAUNCH
-   - Counsel Reviewer: HealthTimes Legal Advisor
-   - Date: 2026-10-21
+   - Status: NOT_EVIDENCED — REVIEW_REQUIRED
+   - Finding: Code, disclaimer texts, and editorial policies are fully implemented in repository. Formal legal sign-off requires client-appointed legal counsel review prior to public production deployment.
+   - Client Action Required: Retain local legal counsel to complete statutory media review.
 
 2. TAX & AUDIT ADVISOR GATE:
    - Scope: Chart of accounts, VAT liability ledger, double-entry invariance.
-   - Status: APPROVED FOR MVP LAUNCH
-   - Auditor Reviewer: Certified Public Accountant (Zimbabwe)
-   - Date: 2026-10-21
+   - Status: NOT_EVIDENCED — REVIEW_REQUIRED
+   - Finding: PostgreSQL database engine strictly enforces balanced debit/credit invariant and immutable audit trail. Formal accounting sign-off requires client-appointed CPA/auditor review.
+   - Client Action Required: Appoint company accountant to review chart of accounts and ZIMRA VAT filing alignment.
 
 3. DATA PROTECTION OFFICER (DPO) GATE:
    - Scope: Cyber and Data Protection Act [Chapter 12:07] compliance.
-   - Status: APPROVED FOR MVP LAUNCH
-   - DPO Representative: Internal Compliance Lead
-   - Date: 2026-10-21
+   - Status: NOT_EVIDENCED — REVIEW_REQUIRED
+   - Finding: Data minimization, absence of third-party trackers, and aggregate telemetry proven in code. Formal statutory DPO designation required under Chapter 12:07.
+   - Client Action Required: Designate internal or external DPO and log statutory registration with POTRAZ / Data Protection Authority.
 ================================================================
 ```

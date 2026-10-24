@@ -821,7 +821,14 @@ export const fixtureNewsroomStaffService: NewsroomStaffService = {
     return { success: true, staffId: "fixture-owner", role: "Publisher / Owner" };
   },
   async activateOwner() {
-    return { success: true, staffId: "fixture-owner", role: "Publisher / Owner" };
+    return { status: "activated" as const, success: true, staffId: "fixture-owner", role: "Publisher / Owner" };
+  },
+  async resendOwnerVerification() {
+    return {
+      status: "verification-required" as const,
+      success: false,
+      error: "Fixture mode does not send authentication email."
+    };
   }
 };
 

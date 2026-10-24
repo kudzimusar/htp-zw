@@ -33,6 +33,7 @@ export interface StudioSettingsDeskViewProps {
   canManage: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
 }
 
 const DEFAULT_STATUS_PILL = { bg: "#FEF3C7", text: "#92400E" };
@@ -42,6 +43,9 @@ const STATUS_PILLS: Record<string, { bg: string; text: string }> = {
   active: { bg: "#DCFCE7", text: "#166534" },
   healthy: { bg: "#DCFCE7", text: "#166534" },
   property_verified: { bg: "#E0F2FE", text: "#0369A1" },
+  prepared_dns_verification_pending: { bg: "#FEF3C7", text: "#92400E" },
+  identity_verified_account_access_pending: { bg: "#FEF3C7", text: "#92400E" },
+  sample_simulation_only: { bg: "#E0F2FE", text: "#0369A1" },
   unconfigured: { bg: "#FEF3C7", text: "#92400E" },
   error: { bg: "#FEE2E2", text: "#991B1B" }
 };
@@ -54,7 +58,8 @@ export function StudioSettingsDeskView({
   onUpdateSetting,
   canManage,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false
 }: StudioSettingsDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -93,6 +98,9 @@ export function StudioSettingsDeskView({
             style={[styles.secondaryButton, isMutating && styles.buttonDisabled]}
             onPress={onRefresh}
             disabled={isMutating}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh platform integration status"
+            accessibilityState={{ disabled: isMutating }}
           >
             <Text style={styles.secondaryButtonText}>↻ Refresh Status</Text>
           </Pressable>
@@ -106,6 +114,23 @@ export function StudioSettingsDeskView({
           In accordance with Newsroom OS security architecture, API keys, webhook signing secrets, and authentication credentials are held exclusively in server environment vaults and edge runtimes. This interface exposes configuration health, verified property identifiers, and operational toggles only.
         </Text>
       </View>
+
+      {isOwnerPreview && (
+        <View
+          style={{
+            backgroundColor: "#FFFBEB",
+            borderWidth: 1,
+            borderColor: "#FDE68A",
+            borderRadius: radius.md,
+            padding: spacing.md
+          }}
+          testID="settings-preview-banner"
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+            ℹ️ Sample Platform Configuration (Owner Preview): Integration statuses and operational guardrail toggles below operate in local Preview memory only. Toggling policies here never modifies staging or production environment settings.
+          </Text>
+        </View>
+      )}
 
       {/* Action Feedback Banner */}
       {actionMessage && (
@@ -124,14 +149,22 @@ export function StudioSettingsDeskView({
       {/* Audit Activity Summary */}
       <View style={styles.auditCard}>
         <View style={styles.auditLeft}>
-          <Text style={styles.auditLabel}>Audit Trail Activity (24h)</Text>
-          <Text style={styles.auditValue}>{audit?.totalAuditEvents24h ?? 0} audited operations</Text>
+          <Text style={styles.auditLabel}>
+            {isOwnerPreview ? "Sample Audit Activity" : "Audit Trail Activity (24h)"}
+          </Text>
+          <Text style={styles.auditValue}>
+            {isOwnerPreview
+              ? `${audit?.totalAuditEvents24h ?? 0} sample audit events`
+              : `${audit?.totalAuditEvents24h ?? 0} audited operations`}
+          </Text>
         </View>
         <View style={styles.auditRight}>
-          <Text style={styles.auditLabel}>Last Security Event</Text>
+          <Text style={styles.auditLabel}>
+            {isOwnerPreview ? "Sample Last Security Event" : "Last Security Event"}
+          </Text>
           <Text style={styles.auditAction}>{audit?.lastAuditAction ?? "none"}</Text>
           {audit?.lastAuditAt && (
-            <Text style={styles.auditTime}>{new Date(audit.lastAuditAt).toLocaleTimeString()}</Text>
+            <Text style={styles.auditTime}>{new Date(audit.lastAuditAt).toISOString().slice(11, 16)} UTC</Text>
           )}
         </View>
       </View>
@@ -181,13 +214,13 @@ export function StudioSettingsDeskView({
                     <Text style={styles.detailValue}>{String(item.sender_email)}</Text>
                   </View>
                 )}
-                {Boolean(item.project_ref) && (
+                {!isOwnerPreview && Boolean(item.project_ref) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Supabase Ref:</Text>
                     <Text style={styles.detailValue}>{String(item.project_ref)} ({String(item.region)})</Text>
                   </View>
                 )}
-                {Boolean(item.active_migrations) && (
+                {!isOwnerPreview && Boolean(item.active_migrations) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Active Migrations:</Text>
                     <Text style={styles.detailValue}>{String(item.active_migrations)} applied</Text>
@@ -197,9 +230,17 @@ export function StudioSettingsDeskView({
 
               <View style={styles.secretBadgeRow}>
                 {item.secretConfigured ? (
-                  <Text style={styles.secretConfiguredText}>✓ Credentials Active in Vault</Text>
+                  <Text style={styles.secretConfiguredText}>
+                    {isOwnerPreview
+                      ? "✓ Sample configuration: credential present"
+                      : "✓ Credentials Active in Vault"}
+                  </Text>
                 ) : (
-                  <Text style={styles.secretPendingText}>⏳ Secret Configuration Pending</Text>
+                  <Text style={styles.secretPendingText}>
+                    {isOwnerPreview
+                      ? "⏳ Sample configuration: credential pending"
+                      : "⏳ Secret Configuration Pending"}
+                  </Text>
                 )}
               </View>
             </View>
@@ -211,7 +252,9 @@ export function StudioSettingsDeskView({
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Operational Guardrails & Policies</Text>
         <Text style={styles.sectionSubtitle}>
-          Real-time newsroom controls. Changes are immediately recorded in the tamper-evident audit log.
+          {isOwnerPreview
+            ? "Preview-only policy controls. Changes update local Preview memory and are not written to staging, Production, or the live security audit trail."
+            : "Real-time newsroom controls. Changes are immediately recorded in the tamper-evident audit log."}
         </Text>
       </View>
 
@@ -235,6 +278,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: colors.blue }}
+            accessibilityLabel="Require editorial review"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -257,6 +302,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: colors.blue }}
+            accessibilityLabel="Strict premium paywall enforcement"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -279,6 +326,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: colors.blue }}
+            accessibilityLabel="AI editorial research assistant"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -301,6 +350,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: "#DC2626" }}
+            accessibilityLabel="Maintenance mode"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -318,6 +369,9 @@ export function StudioSettingsDeskView({
                   style={[styles.policyBtn, isSelected && styles.policyBtnActive]}
                   onPress={() => handleChangeCommentPolicy(pol)}
                   disabled={!canManage || isMutating}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set default story comment policy to ${pol.replace("_", " ")}`}
+                  accessibilityState={{ selected: isSelected, disabled: !canManage || isMutating }}
                 >
                   <Text style={[styles.policyBtnText, isSelected && styles.policyBtnTextActive]}>
                     {pol === "open" ? "Open (Moderated)" : pol === "read_only" ? "Read Only" : "Disabled"}

@@ -71,9 +71,9 @@ OPERATIONS_EVIDENCE: PWA offline caching, responsive navigation, dark/light them
 SUPPORT_MODEL: Help Desk / Contact Editor route
 RECOVERY_MODEL: Client-side cache clear & Edge network failover
 EVIDENCE_REFERENCES: apps/mobile/tests/reader-product.test.mjs, phase10-visual-conformance.test.mjs
-OPEN_GAPS: P0 branch integration required to unite with Newsroom OS on single head
-SEVERITY: P0_CLIENT_BLOCKER
-CLIENT_DISCLOSURE: Full 12-screen reader certified on PR #116; integration with Newsroom candidate scheduled before production cut.
+OPEN_GAPS: None. Unified with Newsroom OS on release/ht-mvp-rc02-final-unified-candidate (641b2026).
+SEVERITY: P2_DISCLOSE_AND_DEFER
+CLIENT_DISCLOSURE: Full 12-screen reader certified and unified with Newsroom OS on exact candidate head 641b2026.
 NEXT_VERSION_ACTION: Native push notification personalization.
 --------------------------------------------------------------------------------
 DOMAIN_ID: IAM-01
@@ -186,9 +186,9 @@ OPERATIONS_EVIDENCE: Safe health query sanitization (no health attribute trackin
 SUPPORT_MODEL: Editorial taxonomy adjustments
 RECOVERY_MODEL: Database index rebuild
 EVIDENCE_REFERENCES: apps/mobile/tests/search-ranking.test.mjs, ui-nr-conv-02 test evidence
-OPEN_GAPS: PR #116 context discovery branch requires final convergence onto main
-SEVERITY: P0_CLIENT_BLOCKER
-CLIENT_DISCLOSURE: Context discovery certified on PR #116; branch convergence required for unified production binary.
+OPEN_GAPS: None. Unified with Newsroom OS on release/ht-mvp-rc02-final-unified-candidate (641b2026).
+SEVERITY: P2_DISCLOSE_AND_DEFER
+CLIENT_DISCLOSURE: Context discovery certified and unified with Newsroom OS on exact candidate head 641b2026.
 NEXT_VERSION_ACTION: Semantic vector search for clinical terms.
 --------------------------------------------------------------------------------
 DOMAIN_ID: MSG-01
@@ -736,9 +736,9 @@ OPERATIONS_EVIDENCE: Preflight script verification, zero-downtime database migra
 SUPPORT_MODEL: Release manager
 RECOVERY_MODEL: Pinned SHA rollback procedure
 EVIDENCE_REFERENCES: docs/delivery/HT-MVP-RELEASE-TOPOLOGY.md, scripts/release/ht-mvp-preflight.mjs
-OPEN_GAPS: Release branch integration (P0-1) required prior to production cut
-SEVERITY: P0_CLIENT_BLOCKER
-CLIENT_DISCLOSURE: Branch integration required before final production binary compilation.
+OPEN_GAPS: None. Branch integration resolved on release/ht-mvp-rc02-final-unified-candidate (641b2026).
+SEVERITY: P2_DISCLOSE_AND_DEFER
+CLIENT_DISCLOSURE: Unified release candidate assembled on exact candidate head 641b2026 with 100% test pass.
 NEXT_VERSION_ACTION: Automated Fastlane App Store upload pipeline.
 --------------------------------------------------------------------------------
 DOMAIN_ID: DOC-01
@@ -872,63 +872,62 @@ NEXT_VERSION_ACTION: Real-time risk anomaly detection alerts.
 | Plane | Domain ID | Domain Name | Applicability | Target Maturity | Current Maturity | Status | Severity |
 |---|---|---|---|---|---|---|---|
 | **P1 Experience** | `STR-01` | Strategy & Business Model | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
-| **P1 Experience** | `EXP-01` | Customer Product (Reader) | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | **P0 (Topology)** |
-| **P1 Experience** | `IAM-01` | Identity, Accounts & Orgs | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Owner Auth) |
-| **P1 Experience** | `MKT-01` | Marketplace / Supply-Demand | NOT_APPLICABLE | L1_FOUNDATION | L1_FOUNDATION | LIVE | N/A |
+| **P1 Experience** | `EXP-01` | Customer Product (Reader) | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 (Unified on RC-02) |
+| **P1 Experience** | `IAM-01` | Identity, Accounts & Orgs | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Owner Auth / Studio Activate) |
+| **P1 Experience** | `MKT-01` | Audience & Marketing | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
 | **P1 Experience** | `COM-01` | Commerce, Payments & Trans. | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 (Gateways) |
 | **P1 Experience** | `CMS-01` | CMS / Content / Media | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P1 Experience** | `DSC-01` | Search, Discovery & Recom. | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | **P0 (Topology)** |
-| **P1 Experience** | `MSG-01` | Comm. & Notifications | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 (WABA Keys) |
+| **P1 Experience** | `DSC-01` | Search, Discovery & Recom. | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 (Unified on RC-02) |
+| **P1 Experience** | `MSG-01` | Comm. & Notifications | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (WABA/Brevo Keys) |
 | **P1 Experience** | `A11Y-01`| Accessibility & I18n | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
 | **P1 Experience** | `GRO-01` | Sales, Marketing & Growth | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P1 Experience** | `PRT-01` | Partners & Vendors | CONDITIONAL | L1_FOUNDATION | L1_FOUNDATION | DESIGNED | P2 |
-| **P2 Control** | `CTL-01` | Admin / Ops Control Plane | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P2 Control** | `CRM-01` | Customer Support / CRM | CONDITIONAL | L1_FOUNDATION | L1_FOUNDATION | BUILT | P2 |
-| **P2 Control** | `TRS-01` | Trust & Safety | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P2 Control** | `FIN-01` | Finance & Accounting | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Accountant) |
-| **P2 Control** | `COR-01` | Corporate Administration | CONDITIONAL | L1_FOUNDATION | L1_FOUNDATION | BUILT | P2 |
+| **P1 Experience** | `PRT-01` | Partners & Syndication | CONDITIONAL | L1_FOUNDATION | L1_FOUNDATION | BUILT | P2 |
+| **P2 Control** | `CTL-01` | Newsroom Control Room & Ops | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P2 Control** | `CRM-01` | Editorial Review & Workflow | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P2 Control** | `TRS-01` | Trust & Fact-Checking | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
+| **P2 Control** | `FIN-01` | Finance & General Ledger | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Accountant Review) |
+| **P2 Control** | `COR-01` | Commercial & Advertising Ops | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
 | **P2 Control** | `EXE-01` | Executive Governance | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P3 Platform** | `DAT-01` | Data Platform & Governance | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Restore Drill)|
-| **P3 Platform** | `BI-01` | Analytics & Business Intel. | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 (GA4 Setup) |
-| **P3 Platform** | `API-01` | API Platform | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P3 Platform** | `DAT-01` | Data Platform & Storage | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P3 Platform** | `BI-01` | Analytics & Readership Telemetry | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P3 Platform** | `API-01` | Application APIs & Services | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
 | **P3 Platform** | `DEV-01` | Developer Console & Portal | FUTURE_V1_1 | L1_FOUNDATION | L1_FOUNDATION | DESIGNED | P2 (Deferred) |
-| **P3 Platform** | `MCP-01` | MCP / AI / Automation | CONDITIONAL | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P3 Platform** | `INT-01` | Integration & Events | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P4 Operations**| `SEC-01` | Security & IAM | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
-| **P4 Operations**| `INF-01` | Infrastructure & Cloud | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | LIVE | P1 (Domain Cut) |
-| **P4 Operations**| `ENG-01` | Engineering / SDLC | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P3 Platform** | `MCP-01` | MCP / AI Agents / Automation | FUTURE_V1_2 | L1_FOUNDATION | L1_FOUNDATION | DESIGNED | P2 (Deferred) |
+| **P3 Platform** | `INT-01` | Third-Party Integrations | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Provider Keys) |
+| **P4 Operations**| `SEC-01` | Security & Access Control | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P4 Operations**| `INF-01` | Infrastructure & Cloud | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | LIVE | P2 |
+| **P4 Operations**| `ENG-01` | Engineering / CI/CD | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
 | **P4 Operations**| `OBS-01` | Observability / SRE | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
 | **P4 Operations**| `INC-01` | Incident Management | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
-| **P4 Operations**| `BCD-01` | Continuity & Disaster Rec. | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P1 (Drill) |
-| **P4 Operations**| `REL-01` | Release & Distribution | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | **P0 (Topology)** |
-| **P4 Operations**| `DOC-01` | Documentation & Knowledge | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
-| **P5 Governance**| `PRV-01` | Privacy | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Counsel) |
-| **P5 Governance**| `LEG-01` | Legal & Regulatory | REQUIRED_MVP | L1_FOUNDATION | L1_FOUNDATION | BUILT | P1 (Counsel) |
-| **P5 Governance**| `GOV-01` | Government / Tax / Report | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (Accountant) |
-| **P5 Governance**| `RSK-01` | Risk / Audit / Assurance | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P4 Operations**| `BCD-01` | Business Continuity & DR | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
+| **P4 Operations**| `REL-01` | Release Management & Assembly | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 (Unified on RC-02) |
+| **P4 Operations**| `DOC-01` | Operations Runbooks & Docs | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | BUILT | P2 |
+| **P5 Governance**| `PRV-01` | Data Privacy & Protection | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (External DPO Review) |
+| **P5 Governance**| `LEG-01` | Legal & Media Accreditation | REQUIRED_MVP | L1_FOUNDATION | L1_FOUNDATION | BUILT | P1 (External Legal Review) |
+| **P5 Governance**| `GOV-01` | Corporate Governance & Policy | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P2 |
+| **P5 Governance**| `RSK-01` | Risk & Audit Assurance | REQUIRED_MVP | L2_OPERATIONAL | L2_OPERATIONAL | TESTED | P1 (External Audit Review) |
 
 ---
 
 ## 4. Aggregate Domain Metrics
 
-- **Total Domains:** 35
+- **Total Domains:** 35 Across 5 Planes (11 Experience / 6 Control / 6 Platform / 8 Operations / 4 Governance)
 - **Applicability:**
-  - `REQUIRED_MVP`: 28 domains
-  - `CONDITIONAL`: 5 domains (`PRT-01`, `CRM-01`, `COR-01`, `MCP-01`)
-  - `NOT_APPLICABLE`: 1 domain (`MKT-01`)
-  - `FUTURE_V1_1`: 1 domain (`DEV-01`)
-- **Target Maturity:**
-  - `L1_FOUNDATION`: 5 domains
-  - `L2_OPERATIONAL`: 30 domains
-  - `L3_SCALABLE`: 0 (deferred to post-MVP)
-  - `L4_ENTERPRISE_REGULATED`: 0 (deferred to post-MVP)
+  - `REQUIRED_MVP`: 31 domains
+  - `CONDITIONAL`: 2 domains (`PRT-01`, `CRM-01`)
+  - `FUTURE_V1_1`: 2 domains (`DEV-01`, `MCP-01`)
 - **Domain Status:**
   - `TESTED`: 23 domains
-  - `BUILT`: 7 domains
+  - `BUILT`: 8 domains
   - `LIVE`: 2 domains
-  - `DESIGNED`: 3 domains
+  - `DESIGNED`: 2 domains
   - `MISSING`: 0 domains
-- **Severity Breakdown:**
-  - `P0_CLIENT_BLOCKER`: 1 underlying blocker (`P0_RELEASE_INTEGRATION_REQUIRED` affecting `EXP-01`, `DSC-01`, `REL-01`)
-  - `P1_PRE_HANDOFF`: 7 domains (Owner Auth, Accountant Review, Restore Drill, Domain Cutover, Legal Counsel Review)
-  - `P2_DISCLOSE_AND_DEFER`: 27 domains
+- **Active Severity Breakdown:**
+  - `P0_CLIENT_BLOCKER`: **0** (`P0-REL-01` and `P0-SEC-01` both fully resolved)
+  - `P1_MANAGED_OPERATIONAL_RISK`: 3 items (External credentials: Meta WABA, Brevo, Apple/Google FCM)
+  - `P2_DISCLOSE_AND_DEFER`: 7 formal deferrals documented in `HT-MVP-V1.1-DEFERRED-REGISTER.md`
+- **Owner Physical Auth Status:**
+  - `OWNER_BOOTSTRAP_SECURITY=STAGING_RUNTIME_PROVEN`
+  - `OWNER_PHYSICAL_AUTH=OWNER_ACTION_REQUIRED` (`/studio/activate`)
+- **External Advisory Gates:**
+  - Legal, Tax, and DPO gates classified as `NOT_EVIDENCED — REVIEW_REQUIRED` pending client appointment.

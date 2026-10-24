@@ -6,6 +6,8 @@ export type EditorialDataMode = "fixture" | "source-parity" | "staging" | "produ
 type Extra = {
   environment?: AppEnvironment;
   product?: string;
+  stagingSupabaseUrl?: string;
+  stagingSupabasePublishableKey?: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
@@ -25,10 +27,16 @@ export const editorialDataMode: EditorialDataMode =
         ? "production"
         : "source-parity";
 
+const stagingSupabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() || extra.stagingSupabaseUrl?.trim() || "";
+const stagingSupabasePublishableKey =
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+  extra.stagingSupabasePublishableKey?.trim() || "";
+
 export const stagingConfig = {
-  url: process.env.EXPO_PUBLIC_SUPABASE_URL ?? "",
-  publishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
-  expectedProjectRef: "gcdohgbmqhqwydgaxrcr"
+  url: stagingSupabaseUrl,
+  publishableKey: stagingSupabasePublishableKey,
+  expectedProjectRef: "bzuvntbkevvuhfhqhkua"
 } as const;
 
 export const hasStagingConfig =

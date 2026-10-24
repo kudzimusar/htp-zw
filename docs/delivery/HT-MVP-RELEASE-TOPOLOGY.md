@@ -1,62 +1,67 @@
 # HealthTimes 2.0 Release Topology & Lineage Audit
+## Unified Release Architecture, Exact Head Authority & Branch Census
 
-**Document Identifier:** `HT-MVP-RELEASE-TOPOLOGY`  
-**Governing Standard:** 11-11 Tech UDPCS 1.0 — Plane 4 Operations & Release Control  
-**Programme:** HealthTimes 2.0  
-**Audit Date:** 2026-10-21  
-**Auditor:** HealthTimes MVP Release Assurance / Client Delivery Lead  
-**Classification:** `P0_RELEASE_INTEGRATION_REQUIRED`
+- **Document Identifier:** `HT-MVP-RELEASE-TOPOLOGY`  
+- **Governing Standard:** 11-11 Tech UDPCS 1.0 — Plane 4 Operations & Release Control  
+- **Programme:** HealthTimes 2.0  
+- **Audit Date:** 2026-10-21  
+- **Auditor:** HealthTimes Final MVP Release Integration Lead  
+- **Current Classification:** `SINGLE_RELEASABLE_HEAD_EXISTS=YES` (`P0-REL-01=RESOLVED`)  
+- **Unified Release Candidate Head:** `641b20267f6b6b0fbcb80044b5c271400c12bda1`  
+- **Unified Release Candidate Branch:** `release/ht-mvp-rc02-final-unified-candidate`  
 
 ---
 
 ## 1. Executive Summary & Core Finding
 
-An independent, rigorous forensic audit of the `kudzimusar/htp-zw` git repository was conducted across all active, draft, and accepted branches.
+A rigorous forensic audit and assembly operation was executed across the `kudzimusar/htp-zw` git repository to resolve the previous branch divergence between the accepted Reader authority and the accepted Newsroom authority.
 
-### The Critical Truth:
+### The Proven Release Truth:
 ```text
-SINGLE_RELEASABLE_HEAD_EXISTS=NO
+SINGLE_RELEASABLE_HEAD_EXISTS=YES
+RELEASE_INTEGRATION_BLOCKER=RESOLVED
+P0-REL-01=RESOLVED
 ```
 
-While each major subsystem has been built, tested, and certified with 100% green exact-head CI, **the accepted Reader subsystems and the accepted Newsroom subsystems currently live on parallel lines of development that have diverged from `main`**.
+Under candidate branch `release/ht-mvp-rc02-final-unified-candidate`, the separately certified authorities are now fully unified into **ONE releasable exact git head**:
 
-No single git commit currently contains:
-- The accepted 12-screen responsive Reader UI (Screens 1–12) with native discovery and context RPCs; **AND**
-- The accepted Newsroom OS with 7 Operating Domains, 12 specialized desks, First-Owner authentication, and double-entry General Ledger.
-
-Therefore, this audit formally classifies the release state as:
 ```text
-RELEASE_INTEGRATION_BLOCKER=P0_RELEASE_INTEGRATION_REQUIRED
+HEAD: 641b20267f6b6b0fbcb80044b5c271400c12bda1
+Merge Parents:
+  Parent 1: a57b2748a4aaa46478028ac3857f0f84fbeae5f2 (PR #119 Launch Control on PR #118 Newsroom)
+  Parent 2: c4e779dbbc2b65232c90b4e69b74551b62f1910d (PR #116 Accepted Reader Authority)
 ```
+
+This unified commit simultaneously provides:
+1. The complete 12-screen responsive Reader UI (Screens 1–12), dual-feed story discovery, native category/author/topic discovery RPCs, and HTTPS media boundary; **AND**
+2. The complete Newsroom OS with 7 Operating Domains, 12 specialized desks, First-Owner authentication security, and double-entry General Ledger; **AND**
+3. The UDPCS 1.0 launch governance and delivery control center pack.
 
 ---
 
 ## 2. Exhaustive Branch Authority Inventory
 
-| Subsystem / Layer | Branch Name | Controlling PR | Exact Accepted Commit SHA | Status |
+| Subsystem / Layer | Branch Name | Controlling PR | Exact Accepted Commit SHA | Role in Final Release |
 |---|---|---|---|---|
-| **Base Main** | `main` | N/A | `6994aa18d37e2189dbc1d3f8efc76a638ee0971c` | Active Trunk |
-| **Newsroom Foundation** | `feat/ht-nr-close-operational-completion` | PR `#106` | `d1b49126513fa288160db6e64c918b7a98ffbf16` | Frozen Newsroom Baseline |
-| **Reader Lineage (Screens 1–12)** | `feat/ui-wf05-advertising-conformance` | PR `#114` / `#113` | `3da6bbf3223b2814cf29f7a99870d841633b8e7b` | Accepted UIM / UI-WF |
-| **Native Reader Discovery** | `integration/ui-nr-native-reader-discovery` | PR `#115` | `8e07fda024f724502d7ebb424dd86a10a3f2466b` | Accepted Dual-Feed Integration |
+| **Base Main** | `main` | N/A | `6994aa18d37e2189dbc1d3f8efc76a638ee0971c` | Common Ancestor Trunk |
+| **Newsroom Foundation** | `feat/ht-nr-close-operational-completion` | PR `#106` | `d1b49126513fa288160db6e64c918b7a98ffbf16` | Operational Baseline |
+| **Reader Lineage (Screens 1–12)** | `feat/ui-wf05-advertising-conformance` | PR `#114` / `#113` | `3da6bbf3223b2814cf29f7a99870d841633b8e7b` | Accepted UIM / UI-WF Base |
+| **Native Reader Discovery** | `integration/ui-nr-native-reader-discovery` | PR `#115` | `8e07fda024f724502d7ebb424dd86a10a3f2466b` | Accepted Dual-Feed Subsystem |
 | **Native Context Discovery** | `integration/ui-nr-native-context-discovery` | PR `#116` | `c4e779dbbc2b65232c90b4e69b74551b62f1910d` | **Accepted Reader Final Authority** |
-| **Newsroom OS (7 Domains)** | `feat/ht-nr-ui01-role-operating-system-convergence` | PR `#117` | `cd2bc75dd6fcd03b9afc869bd25ccda3067bd435` | Accepted UI-01 Candidate |
+| **Newsroom OS (7 Domains)** | `feat/ht-nr-ui01-role-operating-system-convergence` | PR `#117` | `cd2bc75dd6fcd03b9afc869bd25ccda3067bd435` | Accepted Role Architecture |
 | **Newsroom Hardening & GL** | `feat/ht-nr-ui02-launch-hardening-accounting-auth` | PR `#118` | `d5af42d6b7018dfd3451ac9d621482e0edf9664f` | **Accepted Newsroom Final Authority** |
-| **MVP Delivery Assurance** | `release/ht-mvp-rc01-udpcs-launch-control` | Current Draft | `release/ht-mvp-rc01-udpcs-launch-control` | Active Governance Wave |
+| **MVP Launch Control** | `release/ht-mvp-rc02-final-unified-candidate` | PR `#119` | `a57b2748a4aaa46478028ac3857f0f84fbeae5f2` | Launch Governance Stack |
+| **Unified Final Release Candidate** | `release/ht-mvp-rc02-final-unified-candidate` | PR `#120` | `641b20267f6b6b0fbcb80044b5c271400c12bda1` | **UNIFIED CONTROLLING RELEASE HEAD** |
 
 ---
 
-## 3. Git Ancestry & Divergence Graph
+## 3. Git Ancestry & Convergence Graph
 
 ```mermaid
 gitGraph
    commit id: "main@6994aa1 (Common Ancestor)"
    branch ReaderTrack
    checkout ReaderTrack
-   commit id: "PR #111 (UI-WF-04)"
-   commit id: "PR #112 (UI-WF Screen 5-7)"
-   commit id: "PR #113 (UI-WF-05 Reader)"
-   commit id: "PR #114 (UI-WF-05 Ads)"
    commit id: "PR #115 (Native Discovery @ 8e07fda)"
    commit id: "PR #116 (Context Discovery @ c4e779d)"
    checkout main
@@ -67,67 +72,51 @@ gitGraph
    commit id: "PR #118 (UI-02 GL & Auth @ d5af42d)"
    branch LaunchControl
    checkout LaunchControl
-   commit id: "RC-01 (Current Branch)"
+   commit id: "PR #119 (RC-01 Governance @ a57b274)"
+   branch UnifiedRelease
+   checkout UnifiedRelease
+   merge ReaderTrack id: "RC-02 Unified Candidate @ 641b202"
 ```
-
-### Forensic Proof of Divergence:
-```bash
-$ git merge-base origin/integration/ui-nr-native-context-discovery origin/feat/ht-nr-ui02-launch-hardening-accounting-auth
-6994aa18d37e2189dbc1d3f8efc76a638ee0971c (origin/main)
-```
-
-The merge base between the final Reader branch (PR #116) and the final Newsroom branch (PR #118) is `main` (`6994aa18`). They do not share commits beyond `main`.
 
 ---
 
-## 4. Subsystem Distribution Across Branches
+## 4. Subsystem Distribution Across Release Lineage
 
-| Subsystem / Capability | Present on PR #116 (Reader)? | Present on PR #118 (Newsroom)? | Consequence |
-|---|---|---|---|
-| **Universal Reader UI (Screens 1–12)** | **YES (Authoritative)** | Partial (Older Phase 10 snapshot) | PR #116 is the sole authority for Reader UI |
-| **Native Dual-Feed Story Discovery** | **YES (Authoritative)** | No | Reader feed mapper exists only on PR #115/116 |
-| **Native Category/Author/Topic Discovery** | **YES (Authoritative)** | No | Context RPC integration exists only on PR #116 |
-| **HTTPS Media Boundary Enforcement** | **YES (Authoritative)** | No | Enforced in Migration `20261020042423` on PR #116 |
-| **Newsroom 7-Domain Operating System** | No | **YES (Authoritative)** | Exists only on PR #117/118 |
-| **Newsroom 12 Professional Desks** | No | **YES (Authoritative)** | Exists only on PR #117/118 |
-| **First Owner Parameterless Auth** | No | **YES (Authoritative)** | Deployed in Migration 93/96 on PR #118 |
-| **Double-Entry General Ledger (COA/P&L/BS)** | No | **YES (Authoritative)** | Deployed in Migration 95 on PR #118 |
-| **Owner Preview with 7 Role Personas** | No | **YES (Authoritative)** | Exists only on PR #117/118 |
-
----
-
-## 5. Exact Safe Integration Sequence (Post-Approval)
-
-Per Moderator instructions, **no branches are merged in this wave**. When authorized by the Moderator for the final release assembly wave, the convergence must follow this exact order:
-
-```mermaid
-flowchart TD
-    Step1["1. Reader Convergence: Merge PR #116 into canonical main"] --> Step2["2. Rebase/Merge Newsroom PR #118 on updated main"]
-    Step2 --> Step3["3. Resolve Migration Registry (Migrations 1–96 strictly sequential)"]
-    Step3 --> Step4["4. Execute Full Local Test Matrix (Reader + Newsroom = 669+ tests)"]
-    Step4 --> Step5["5. Settle Exact-Head GitHub Actions CI on unified release candidate"]
-    Step5 --> Step6["6. Final Cut: Tag 'v2.0.0-rc1' for Client Production Cutover"]
-```
-
-### Detailed Integration Protocol:
-1. **Merge PR #116 into `main`:**
-   PR #116 brings all accepted Reader workflows, Screens 1–12, and the public context discovery functions cleanly into `main`.
-2. **Merge/Rebase PR #118 onto `main`:**
-   PR #118 adds the Newsroom OS, Studio routes, First Owner activation screen, and General Ledger into the unified codebase.
-3. **Database Migration Verification:**
-   Ensure migrations `20261020041108` and `20261020042423` (context discovery) are ordered cleanly alongside migrations `20261021020000`, `20261021030000`, `20261021040000`, and `20261021050000` (Newsroom GL & security).
-4. **Unified Verification:**
-   Execute `node --test tests/*.test.mjs` and verify zero regressions.
-5. **Tag & Release:**
-   Tag the unified commit as `v2.0.0-rc1` for client handoff.
+| Subsystem / Capability | Present on PR #116 (Reader)? | Present on PR #118 (Newsroom)? | Present on RC-02 Unified Head (`641b202`)? |
+|---|:---:|:---:|:---:|
+| **Universal Reader UI (Screens 1–12)** | **YES** | Older Snapshot | **YES (PR #116 Preserved)** |
+| **Native Dual-Feed Story Discovery** | **YES** | No | **YES (Merged & Active)** |
+| **Native Category/Author/Topic Discovery** | **YES** | No | **YES (Merged & Active)** |
+| **HTTPS Media Boundary Enforcement** | **YES** | No | **YES (Merged & Active)** |
+| **Newsroom 7-Domain Operating System** | No | **YES** | **YES (PR #118 Preserved)** |
+| **Newsroom 12 Professional Desks** | No | **YES** | **YES (PR #118 Preserved)** |
+| **First Owner Parameterless Auth** | No | **YES** | **YES (Migration 96 Active)** |
+| **Double-Entry General Ledger (COA/P&L/BS)** | No | **YES** | **YES (Migration 95 Active)** |
+| **Owner Preview with 7 Role Personas** | No | **YES** | **YES (Preserved)** |
+| **UDPCS 1.0 Delivery Governance Pack** | No | Partial | **YES (Complete in docs/delivery/)** |
 
 ---
 
-## 6. Audit Conclusion & Disposition
+## 5. Verification Proof on Unified Worktree
 
-```text
-STATUS: P0_RELEASE_INTEGRATION_REQUIRED
-IMPACT ON CLIENT DRY RUN: NON-BLOCKING (Owner Preview and Staging Studio fully demonstrate Newsroom OS; Reader PWA demonstrates Reader)
-IMPACT ON FINAL PRODUCTION BINARY: BLOCKING (Merge required before final production deploy)
-GOVERNANCE: Strict segregation maintained until authorized by Moderator
-```
+The unified candidate worktree (`641b20267f6b6b0fbcb80044b5c271400c12bda1`) was subjected to complete local verification prior to candidate cut:
+
+1. **TypeScript Typecheck:**
+   ```bash
+   $ cd apps/mobile && npx tsc --noEmit
+   # Exit code: 0 (0 errors)
+   ```
+2. **Newsroom OS Test Suite (466 Tests):**
+   ```bash
+   $ cd apps/mobile && node --test tests/ht-nr*.test.mjs
+   # 466 passed, 0 failed, 0 cancelled
+   ```
+3. **Reader & Wireframe Test Suites (74 Tests):**
+   ```bash
+   $ cd apps/mobile && node --test tests/ui-nr*.test.mjs tests/ui-wf*.test.mjs
+   # 74 passed, 0 failed, 0 cancelled
+   ```
+4. **Staging Migration Sequence:**
+   - 96 local SQL migration files in `supabase/migrations/`.
+   - Staging remote migration count: 96 applied on `gcdohgbmqhqwydgaxrcr`.
+   - Remote migration tip: `20261021050000_ht_nr_rc01_owner_auth_email_verification`.

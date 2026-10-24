@@ -14,6 +14,9 @@ import {
   NEWSROOM_WHATSAPP_BROADCAST_STATUSES,
   NEWSROOM_WHATSAPP_BROADCAST_TYPES,
   NEWSROOM_WHATSAPP_DISPATCH_STATUSES,
+  SUPPORTED_PREVIEW_TIMEZONES,
+  formatPreviewScheduleTimestamp,
+  parseAndFormatPreviewSchedule,
   validateWhatsAppBroadcastCreateInput,
   type NewsroomWhatsAppBroadcast,
   type NewsroomWhatsAppBroadcastCreateInput,
@@ -21,7 +24,8 @@ import {
   type NewsroomWhatsAppBroadcastType,
   type NewsroomWhatsAppDispatch,
   type NewsroomWhatsAppDispatchResult,
-  type NewsroomWhatsAppDispatchStatus
+  type NewsroomWhatsAppDispatchStatus,
+  type PreviewScheduleParseResult
 } from "../domain/models";
 import {
   hasServerCapability,
@@ -78,6 +82,25 @@ function formatTypeLabel(type: NewsroomWhatsAppBroadcastType): string {
   }
 }
 
+export function resolveWhatsAppBroadcastScheduleInput(
+  dateStr: string | null | undefined,
+  timeStr: string | null | undefined,
+  timezoneStr: string | null | undefined = "Africa/Harare"
+): PreviewScheduleParseResult {
+  const d = (dateStr ?? "").trim();
+  const t = (timeStr ?? "").trim();
+  if ((d && !t) || (!d && t)) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Provide both a scheduled date and time, or leave both blank."
+    };
+  }
+  return parseAndFormatPreviewSchedule(d, t, timezoneStr);
+}
+
 export interface StudioWhatsAppDeskViewProps {
   broadcasts: NewsroomWhatsAppBroadcast[];
   selectedBroadcastId: string | null;
@@ -100,6 +123,9 @@ export interface StudioWhatsAppDeskViewProps {
   actionMessage: string | null;
   actionErrorMessage: string | null;
   onDismissMessage: () => void;
+  stories?: Array<{ id: string; title: string }>;
+  onOpenStory?: (storyId: string) => void;
+  isOwnerPreview?: boolean;
 }
 
 export function StudioWhatsAppDeskView({
@@ -123,7 +149,10 @@ export function StudioWhatsAppDeskView({
   isSubmitting,
   actionMessage,
   actionErrorMessage,
-  onDismissMessage
+  onDismissMessage,
+  stories = [],
+  onOpenStory,
+  isOwnerPreview = false
 }: StudioWhatsAppDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
@@ -133,6 +162,11 @@ export function StudioWhatsAppDeskView({
   const [newBody, setNewBody] = useState("");
   const [newType, setNewType] = useState<NewsroomWhatsAppBroadcastType>("breaking_alert");
   const [newStoryId, setNewStoryId] = useState("");
+  const [newMessageMode, setNewMessageMode] = useState<"approved_template" | "session_message">("approved_template");
+  const [newTemplateName, setNewTemplateName] = useState("healthtimes_news_update");
+  const [newScheduledDate, setNewScheduledDate] = useState("");
+  const [newScheduledTime, setNewScheduledTime] = useState("");
+  const [newTimezone, setNewTimezone] = useState("Africa/Harare (CAT, UTC+2)");
   const [createValidationMessage, setCreateValidationMessage] = useState<string | null>(null);
 
   // Dispatch confirmation dialog state
@@ -161,7 +195,23 @@ export function StudioWhatsAppDeskView({
   }, [broadcasts, statusFilter, typeFilter, searchQuery]);
 
   const handleCreateSubmit = async () => {
-    const input: NewsroomWhatsAppBroadcastCreateInput = {
+    if (newMessageMode === "approved_template" && !newTemplateName.trim()) {
+      setCreateValidationMessage("Choose an approved template before saving this broadcast.");
+      return;
+    }
+    const scheduleResult = resolveWhatsAppBroadcastScheduleInput(
+      newScheduledDate,
+      newScheduledTime,
+      newTimezone
+    );
+    if (!scheduleResult.valid) {
+      setCreateValidationMessage(
+        scheduleResult.error || "Invalid schedule date, time, or timezone."
+      );
+      return;
+    }
+
+    const baseInput: NewsroomWhatsAppBroadcastCreateInput = {
       title: newTitle.trim(),
       body: newBody.trim(),
       broadcast_type: newType,
@@ -169,11 +219,19 @@ export function StudioWhatsAppDeskView({
       related_story_id: newStoryId.trim() ? newStoryId.trim() : null
     };
 
-    const validation = validateWhatsAppBroadcastCreateInput(input);
+    const validation = validateWhatsAppBroadcastCreateInput(baseInput);
     if (!validation.valid) {
       setCreateValidationMessage(validation.error || "Invalid input");
       return;
     }
+
+    const input: NewsroomWhatsAppBroadcastCreateInput = {
+      ...baseInput,
+      message_mode: newMessageMode,
+      template_name: newMessageMode === "approved_template" ? newTemplateName.trim() : null,
+      scheduled_at: scheduleResult.utcIso,
+      timezone: scheduleResult.timezone ?? "Africa/Harare"
+    };
 
     setCreateValidationMessage(null);
     try {
@@ -182,6 +240,11 @@ export function StudioWhatsAppDeskView({
       setNewBody("");
       setNewStoryId("");
       setNewType("breaking_alert");
+      setNewMessageMode("approved_template");
+      setNewTemplateName("healthtimes_news_update");
+      setNewScheduledDate("");
+      setNewScheduledTime("");
+      setNewTimezone("Africa/Harare (CAT, UTC+2)");
       onCancelCreate();
     } catch {
       // Error handled by parent
@@ -276,7 +339,33 @@ export function StudioWhatsAppDeskView({
                     statusFilter === st && styles.filterPillTextActive
                   ]}
                 >
-                  {st === "all" ? "All" : st.charAt(0).toUpperCase() + st.slice(1)}
+                  {st === "all" ? "All Statuses" : st.charAt(0).toUpperCase() + st.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.filterRow, { paddingTop: 0 }]}
+          >
+            {(["all", ...NEWSROOM_WHATSAPP_BROADCAST_TYPES] as const).map((tp) => (
+              <Pressable
+                key={tp}
+                style={[
+                  styles.filterPill,
+                  typeFilter === tp && styles.filterPillActive
+                ]}
+                onPress={() => onChangeTypeFilter(tp)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    typeFilter === tp && styles.filterPillTextActive
+                  ]}
+                >
+                  {tp === "all" ? "All Types" : formatTypeLabel(tp)}
                 </Text>
               </Pressable>
             ))}
@@ -331,6 +420,12 @@ export function StudioWhatsAppDeskView({
                     </Text>
                     <Text style={styles.broadcastItemMeta}>
                       {formatTimestamp(b.createdAt)}
+                      {b.scheduledAt
+                        ? ` • Scheduled: ${formatPreviewScheduleTimestamp(
+                            b.scheduledAt,
+                            b.timezone ?? "Africa/Harare"
+                          )}`
+                        : ""}
                     </Text>
                     {b.dispatch && (
                       <View style={styles.dispatchSummaryRow}>
@@ -385,6 +480,7 @@ export function StudioWhatsAppDeskView({
                   onChangeText={setNewTitle}
                   maxLength={200}
                   testID="whatsapp-title-input"
+                  accessibilityLabel="Broadcast title"
                 />
                 <Text style={styles.charCounter}>{newTitle.length}/200</Text>
               </View>
@@ -401,6 +497,9 @@ export function StudioWhatsAppDeskView({
                         newType === t && styles.typeButtonSelected
                       ]}
                       onPress={() => setNewType(t)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Set broadcast type to ${formatTypeLabel(t)}`}
+                      accessibilityState={{ selected: newType === t }}
                     >
                       <Text
                         style={[
@@ -428,28 +527,169 @@ export function StudioWhatsAppDeskView({
                   numberOfLines={6}
                   maxLength={4096}
                   testID="whatsapp-body-input"
+                  accessibilityLabel="WhatsApp message body"
                 />
                 <Text style={styles.charCounter}>{newBody.length}/4096</Text>
               </View>
 
-              {/* Related Story ID */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Related Story UUID (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. 11111111-1111-1111-1111-111111111111"
-                  placeholderTextColor={colors.inkMuted}
-                  value={newStoryId}
-                  onChangeText={setNewStoryId}
-                  autoCapitalize="none"
-                  testID="whatsapp-story-id-input"
-                />
+                <Text style={styles.label}>Message governance</Text>
+                <View style={styles.typeSelector}>
+                  {(["approved_template", "session_message"] as const).map((mode) => (
+                    <Pressable
+                      key={mode}
+                      style={[styles.typeButton, newMessageMode === mode && styles.typeButtonSelected]}
+                      onPress={() => setNewMessageMode(mode)}
+                      accessibilityRole="button"
+                      accessibilityLabel={mode === "approved_template" ? "Use approved WhatsApp template" : "Use session message"}
+                      accessibilityState={{ selected: newMessageMode === mode }}
+                    >
+                      <Text style={[styles.typeButtonText, newMessageMode === mode && styles.typeButtonTextSelected]}>
+                        {mode === "approved_template" ? "Approved template" : "24-hour session message"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {newMessageMode === "approved_template" && (
+                  <TextInput
+                    style={styles.textInput}
+                    value={newTemplateName}
+                    onChangeText={setNewTemplateName}
+                    placeholder="Approved template name"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Approved WhatsApp template name"
+                  />
+                )}
+                <Text style={styles.charCounter}>
+                  Template broadcasts require Meta approval. Session messages are available only inside an active 24-hour reader conversation.
+                </Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Schedule (Optional)</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                  <TextInput
+                    style={[styles.textInput, { flex: 1, minWidth: 150 }]}
+                    value={newScheduledDate}
+                    onChangeText={setNewScheduledDate}
+                    placeholder="YYYY-MM-DD (e.g. 2026-10-25)"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Scheduled send date"
+                    testID="whatsapp-schedule-date-input"
+                  />
+                  <TextInput
+                    style={[styles.textInput, { flex: 1, minWidth: 120 }]}
+                    value={newScheduledTime}
+                    onChangeText={setNewScheduledTime}
+                    placeholder="HH:MM (e.g. 08:00)"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Scheduled send time"
+                    testID="whatsapp-schedule-time-input"
+                  />
+                </View>
+                <View
+                  style={[styles.typeSelector, { marginTop: spacing.xs }]}
+                  accessibilityLabel="Scheduled send timezone"
+                  testID="whatsapp-schedule-timezone-selector"
+                >
+                  {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                    const active = newTimezone.startsWith(tz);
+                    const label =
+                      tz === "Africa/Harare"
+                        ? "Africa/Harare (CAT, UTC+2)"
+                        : "UTC";
+                    return (
+                      <Pressable
+                        key={tz}
+                        style={[
+                          styles.typeButton,
+                          active && styles.typeButtonSelected
+                        ]}
+                        onPress={() => setNewTimezone(label)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set schedule timezone to ${label}`}
+                        accessibilityState={{ selected: active }}
+                        testID={`whatsapp-schedule-tz-${tz.replace("/", "-")}`}
+                      >
+                        <Text
+                          style={[
+                            styles.typeButtonText,
+                            active && styles.typeButtonTextSelected
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Linked Editorial Story */}
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Linked Editorial Story (Optional)</Text>
+                {stories.length > 0 ? (
+                  <View style={styles.typeSelector}>
+                    <Pressable
+                      style={[
+                        styles.typeButton,
+                        !newStoryId && styles.typeButtonSelected
+                      ]}
+                      onPress={() => setNewStoryId("")}
+                      accessibilityRole="button"
+                      accessibilityLabel="Use as standalone advisory"
+                      accessibilityState={{ selected: !newStoryId }}
+                    >
+                      <Text
+                        style={[
+                          styles.typeButtonText,
+                          !newStoryId && styles.typeButtonTextSelected
+                        ]}
+                      >
+                        Standalone Advisory
+                      </Text>
+                    </Pressable>
+                    {stories.slice(0, 6).map((st) => (
+                      <Pressable
+                        key={st.id}
+                        style={[
+                          styles.typeButton,
+                          newStoryId === st.id && styles.typeButtonSelected
+                        ]}
+                        onPress={() => setNewStoryId(st.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Link broadcast to ${st.title}`}
+                        accessibilityState={{ selected: newStoryId === st.id }}
+                      >
+                        <Text
+                          style={[
+                            styles.typeButtonText,
+                            newStoryId === st.id && styles.typeButtonTextSelected
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {st.title}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Optional linked story reference"
+                    placeholderTextColor={colors.inkMuted}
+                    value={newStoryId}
+                    onChangeText={setNewStoryId}
+                    autoCapitalize="none"
+                    testID="whatsapp-story-id-input"
+                  />
+                )}
               </View>
 
               {/* Channel Identity */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Channel Identity</Text>
-                <Text style={styles.readOnlyField}>healthtimes-whatsapp-channel</Text>
+                <Text style={styles.label}>Verified Broadcast Channel</Text>
+                <Text style={styles.readOnlyField}>HealthTimes Official WhatsApp Channel (healthtimes-whatsapp-channel)</Text>
               </View>
 
               {/* Submit Buttons */}
@@ -463,12 +703,14 @@ export function StudioWhatsAppDeskView({
                   onPress={handleCreateSubmit}
                   disabled={!newTitle.trim() || newBody.trim().length < 10 || isSubmitting}
                   testID="whatsapp-create-submit-btn"
+                  accessibilityRole="button"
+                  accessibilityLabel="Save WhatsApp broadcast as draft"
                 >
                   <Text style={styles.primaryButtonText}>
                     {isSubmitting ? "Creating…" : "Save as Draft"}
                   </Text>
                 </Pressable>
-                <Pressable style={styles.secondaryButton} onPress={onCancelCreate}>
+                <Pressable style={styles.secondaryButton} onPress={onCancelCreate} accessibilityRole="button" accessibilityLabel="Cancel new WhatsApp broadcast">
                   <Text style={styles.secondaryButtonText}>Cancel</Text>
                 </Pressable>
               </View>
@@ -503,12 +745,91 @@ export function StudioWhatsAppDeskView({
                   <Text style={styles.detailTitle}>{selectedBroadcast.title}</Text>
                   <Text style={styles.detailMeta}>
                     Created: {formatTimestamp(selectedBroadcast.createdAt)}
+                    {selectedBroadcast.createdByName ? ` by ${selectedBroadcast.createdByName}` : ""}
                     {selectedBroadcast.approvedAt &&
-                      ` • Approved: ${formatTimestamp(selectedBroadcast.approvedAt)}`}
+                      ` • Approved: ${formatTimestamp(selectedBroadcast.approvedAt)}${selectedBroadcast.approvedByName ? ` (${selectedBroadcast.approvedByName})` : ""}`}
                     {selectedBroadcast.sentAt &&
                       ` • Sent: ${formatTimestamp(selectedBroadcast.sentAt)}`}
                     {selectedBroadcast.rejectedAt &&
                       ` • Rejected: ${formatTimestamp(selectedBroadcast.rejectedAt)}`}
+                  </Text>
+                  {selectedBroadcast.relatedStoryId && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, flexWrap: "wrap" }}>
+                      <Text style={{ fontSize: 12, color: colors.inkMuted, fontWeight: "600" }}>
+                        Linked Story: {stories.find((s) => s.id === selectedBroadcast.relatedStoryId)?.title ?? "Editorial Coverage Item"}
+                      </Text>
+                      {onOpenStory && (
+                        <Pressable
+                          style={{
+                            paddingHorizontal: spacing.sm,
+                            paddingVertical: 4,
+                            borderRadius: radius.sm,
+                            backgroundColor: "#EFF6FF",
+                            borderWidth: 1,
+                            borderColor: "#BFDBFE"
+                          }}
+                          onPress={() => onOpenStory(selectedBroadcast.relatedStoryId!)}
+                          accessibilityRole="button"
+                          testID="whatsapp-open-linked-story-btn"
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#1D4ED8" }}>
+                            Open Linked Story Workspace →
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* WhatsApp Governance & Lifecycle State Card */}
+              <View style={styles.sectionCard} testID="whatsapp-governance-lifecycle-card">
+                <Text style={styles.sectionCardTitle}>WhatsApp Broadcast Governance & Delivery Lifecycle</Text>
+                <View style={styles.ledgerMetaList}>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>1. Outbound Draft & Preparation:</Text>{" "}
+                    {selectedBroadcast.status === "draft"
+                      ? "Currently in editorial draft preparation — awaiting senior editor review."
+                      : "Completed by Audience & Editorial Desk."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>2. Editorial Approval Gate:</Text>{" "}
+                    {selectedBroadcast.status === "approved" || selectedBroadcast.status === "sent"
+                      ? `Approved for release${selectedBroadcast.approvedByName ? ` by ${selectedBroadcast.approvedByName}` : ""}.`
+                      : selectedBroadcast.status === "rejected"
+                        ? "Rejected during editorial review."
+                        : "Pending Editor-in-Chief or Managing Editor approval."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>3. Template & Governance State:</Text>{" "}
+                    {selectedBroadcast.messageMode === "session_message"
+                      ? "24-hour session message"
+                      : `Approved template${selectedBroadcast.templateName ? ` (${selectedBroadcast.templateName})` : ""}`} ({formatTypeLabel(selectedBroadcast.broadcastType)}) • No raw subscriber contact details exposed to newsroom clients.
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>4. Audience Consent / Opt-In:</Text>{" "}
+                    Restricted to explicitly opted-in HealthTimes WhatsApp subscribers. Suppressed and opted-out contacts are excluded before dispatch; the sample eligibility check accounts for 18 suppressed and 7 opted-out contacts.
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>Scheduled Delivery:</Text>{" "}
+                    {selectedBroadcast.scheduledAt
+                      ? formatPreviewScheduleTimestamp(
+                          selectedBroadcast.scheduledAt,
+                          selectedBroadcast.timezone ?? "Africa/Harare"
+                        )
+                      : "Not scheduled — an authorized operator must choose when to prepare dispatch."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>5. Provider Dispatch & Delivery State:</Text>{" "}
+                    {selectedBroadcast.dispatch
+                      ? `${selectedBroadcast.dispatch.transportStatus.toUpperCase()} (${selectedBroadcast.dispatch.deliveredCount} delivered / ${selectedBroadcast.dispatch.readCount} read of ${selectedBroadcast.dispatch.recipientCount} recipients)${isOwnerPreview ? " — Sample / Simulated Preview Ledger" : ""}`
+                      : selectedBroadcast.status === "approved"
+                        ? "Ready for provider dispatch."
+                        : "Not yet dispatched to provider."}
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>6. Inbound Conversation / Reply Capability:</Text>{" "}
+                    One-way broadcast advisory channel. Reader replies and tip-offs route to the Newsroom Editorial Tip-Line inbox rather than opening unmoderated threads.
                   </Text>
                 </View>
               </View>
@@ -622,7 +943,7 @@ export function StudioWhatsAppDeskView({
                       </Pressable>
                     ) : (
                       <Text style={styles.permissionHint}>
-                        Approving requires `story.publish` capability.
+                        Approving requires editorial publishing authority (Editor-in-Chief / Managing Editor).
                       </Text>
                     )}
 
@@ -649,12 +970,16 @@ export function StudioWhatsAppDeskView({
                         testID="whatsapp-dispatch-btn"
                       >
                         <Text style={styles.dispatchButtonText}>
-                          {isSubmitting ? "Dispatching…" : "🚀 Dispatch to WhatsApp"}
+                          {isSubmitting
+                            ? "Dispatching…"
+                            : isOwnerPreview
+                              ? "🚀 Simulate WhatsApp Dispatch (Preview)"
+                              : "🚀 Dispatch to WhatsApp"}
                         </Text>
                       </Pressable>
                     ) : (
                       <Text style={styles.permissionHint}>
-                        Dispatching requires `story.publish` capability.
+                        Dispatching requires editorial publishing authority (Editor-in-Chief / Managing Editor).
                       </Text>
                     )}
 
@@ -673,7 +998,9 @@ export function StudioWhatsAppDeskView({
                 {selectedBroadcast.status === "sent" && (
                   <View style={styles.sentNotice}>
                     <Text style={styles.sentNoticeText}>
-                      ✓ This broadcast has been dispatched. Delivery status updates via webhook receipts.
+                      {isOwnerPreview
+                        ? "✓ Preview Simulation: This broadcast is marked Sent in local Preview state. No external WhatsApp Cloud API messages were transmitted."
+                        : "✓ This broadcast has been dispatched. Delivery status updates via webhook receipts."}
                     </Text>
                   </View>
                 )}
@@ -683,10 +1010,13 @@ export function StudioWhatsAppDeskView({
               {confirmDispatchVisible && (
                 <View style={styles.modalOverlay}>
                   <View style={styles.modalCard}>
-                    <Text style={styles.modalTitle}>Confirm WhatsApp Broadcast</Text>
+                    <Text style={styles.modalTitle}>
+                      {isOwnerPreview ? "Simulate WhatsApp Broadcast (Preview)" : "Confirm WhatsApp Broadcast"}
+                    </Text>
                     <Text style={styles.modalBody}>
-                      Are you sure you want to broadcast "{selectedBroadcast.title}" to WhatsApp?
-                      This action will initiate irreversible provider delivery via the WhatsApp Cloud API.
+                      {isOwnerPreview
+                        ? `Simulate dispatching "${selectedBroadcast.title}" in Owner Preview? This updates local Preview delivery state only and never invokes the live WhatsApp Cloud API.`
+                        : `Are you sure you want to broadcast "${selectedBroadcast.title}" to WhatsApp? This action will initiate provider delivery via the WhatsApp Cloud API.`}
                     </Text>
                     <View style={styles.modalActions}>
                       <Pressable
@@ -694,7 +1024,9 @@ export function StudioWhatsAppDeskView({
                         onPress={handleDispatchConfirmed}
                         testID="whatsapp-confirm-dispatch-btn"
                       >
-                        <Text style={styles.primaryButtonText}>Confirm & Send</Text>
+                        <Text style={styles.primaryButtonText}>
+                          {isOwnerPreview ? "Simulate Dispatch" : "Confirm & Send"}
+                        </Text>
                       </Pressable>
                       <Pressable
                         style={styles.secondaryButton}

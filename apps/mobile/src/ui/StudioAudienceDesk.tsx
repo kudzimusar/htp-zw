@@ -18,6 +18,7 @@ export interface StudioAudienceDeskViewProps {
   error: string | null;
   onRefresh?: () => void;
   previewMode?: boolean;
+  onOpenDesk?: (moduleKey: "newsletters" | "push-alerts" | "whatsapp" | "subscribers") => void;
 }
 
 export function StudioAudienceDeskView({
@@ -25,10 +26,21 @@ export function StudioAudienceDeskView({
   loading,
   error,
   onRefresh,
-  previewMode = false
+  previewMode = false,
+  onOpenDesk
 }: StudioAudienceDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
+  const [period, setPeriod] = useState<"7 days" | "30 days" | "90 days">("30 days");
+  const [selectedSegment, setSelectedSegment] = useState("Clinical & Healthcare Practitioners Cohort");
+
+  const periodMultiplier = period === "7 days" ? 0.35 : period === "90 days" ? 2.4 : 1;
+  const segmentDetails: Record<string, { members: number; growth: number; channel: string }> = {
+    "Clinical & Healthcare Practitioners Cohort": { members: 540, growth: 14, channel: "Newsletter" },
+    "Public Health & Outbreak Advisory Readers": { members: 620, growth: 22, channel: "WhatsApp & Push" },
+    "Health Policy, NGO & Institutional Subscribers": { members: 260, growth: 9, channel: "Daily Briefing" }
+  };
+  const selectedSegmentDetail = segmentDetails[selectedSegment] ?? segmentDetails["Clinical & Healthcare Practitioners Cohort"]!;
 
   return (
     <ScrollView
@@ -42,16 +54,18 @@ export function StudioAudienceDeskView({
           <View style={styles.titleRow}>
             <Text style={styles.title}>Audience Intelligence</Text>
             <View style={styles.badgeCapability}>
-              <Text style={styles.badgeCapabilityText}>analytics.view</Text>
+              <Text style={styles.badgeCapabilityText}>
+                {previewMode ? "Audience & Growth" : "analytics.view"}
+              </Text>
             </View>
             {previewMode && (
               <View style={styles.previewBadge}>
-                <Text style={styles.previewBadgeText}>PREVIEW MODE</Text>
+                <Text style={styles.previewBadgeText}>SAMPLE PREVIEW METRICS</Text>
               </View>
             )}
           </View>
           <Text style={styles.subtitle}>
-            Verified first-party reader audience, consented contacts, and multi-channel reach.
+            Verified first-party reader audience, consented contacts, segment trends, and multi-channel reach.
           </Text>
         </View>
 
@@ -90,6 +104,42 @@ export function StudioAudienceDeskView({
 
       {audienceData && (
         <>
+          {previewMode && (
+            <View
+              style={{
+                backgroundColor: "#FFFBEB",
+                borderWidth: 1,
+                borderColor: "#FDE68A",
+                borderRadius: radius.md,
+                padding: spacing.md
+              }}
+              testID="audience-sample-analytics-banner"
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>
+                ℹ️ Sample Audience & Segment Figures (Owner Preview): The contact counts, segment memberships, and 30-day trends below reconcile with the sample records in Newsletter, Push, WhatsApp, and Subscriber desks. They do not represent live production analytics.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.card} testID="audience-period-and-segment-controls">
+            <Text style={styles.cardTitle}>Audience reporting window</Text>
+            <Text style={styles.cardSubtitle}>Compare sample first-party audience movement, then select a cohort for its operational detail.</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {(["7 days", "30 days", "90 days"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  style={[styles.refreshButton, period === option && { borderColor: colors.blue, backgroundColor: "#EFF6FF" }]}
+                  onPress={() => setPeriod(option)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Show audience trends for ${option}`}
+                  accessibilityState={{ selected: period === option }}
+                >
+                  <Text style={styles.refreshButtonText}>{option}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           {/* Top Audience Summary Cards */}
           <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
             <View style={styles.kpiCard}>
@@ -179,6 +229,108 @@ export function StudioAudienceDeskView({
                   <Text style={styles.networkUnit}>Dispatches Sent</Text>
                 </View>
               </View>
+            </View>
+            {onOpenDesk && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md }}>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("newsletters")}
+                  testID="audience-open-newsletters-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open Newsletter Segments →</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("push-alerts")}
+                  testID="audience-open-push-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open Push Alerts →</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("whatsapp")}
+                  testID="audience-open-whatsapp-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open WhatsApp Desk →</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={() => onOpenDesk("subscribers")}
+                  testID="audience-open-subscribers-btn"
+                >
+                  <Text style={styles.refreshButtonText}>Open Subscriber Directory →</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* Section: Audience Segments & 30-Day Growth Interpretation */}
+          <View style={styles.card} testID="audience-segments-interpretation-card">
+            <Text style={styles.cardTitle}>Audience Segments & 30-Day Engagement Trends</Text>
+            <Text style={styles.cardSubtitle}>
+              Cohort breakdown and editorial interpretation across first-party health readership segments.
+            </Text>
+
+            <View style={styles.networkList}>
+              <Pressable
+                style={styles.networkRow}
+                onPress={() => setSelectedSegment("Clinical & Healthcare Practitioners Cohort")}
+                accessibilityRole="button"
+                accessibilityLabel="Inspect Clinical and Healthcare Practitioners cohort"
+              >
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>Clinical & Healthcare Practitioners Cohort</Text>
+                  <Text style={styles.networkDetail}>
+                    High retention on clinical deep dives, oncology procurement updates, and policy briefings (+{Math.round(14 * periodMultiplier)}% over {period}).
+                  </Text>
+                </View>
+                <View style={styles.networkStat}>
+                  <Text style={styles.networkCount}>540</Text>
+                  <Text style={styles.networkUnit}>Members</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.networkRow}
+                onPress={() => setSelectedSegment("Public Health & Outbreak Advisory Readers")}
+                accessibilityRole="button"
+                accessibilityLabel="Inspect Public Health and Outbreak Advisory readers"
+              >
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>Public Health & Outbreak Advisory Readers</Text>
+                  <Text style={styles.networkDetail}>
+                    Driven by cholera, malaria vaccine, and provincial clinic coverage across WhatsApp & Push (+{Math.round(22 * periodMultiplier)}% over {period}).
+                  </Text>
+                </View>
+                <View style={styles.networkStat}>
+                  <Text style={styles.networkCount}>620</Text>
+                  <Text style={styles.networkUnit}>Members</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.networkRow}
+                onPress={() => setSelectedSegment("Health Policy, NGO & Institutional Subscribers")}
+                accessibilityRole="button"
+                accessibilityLabel="Inspect Health Policy NGO and Institutional subscribers"
+              >
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>Health Policy, NGO & Institutional Subscribers</Text>
+                  <Text style={styles.networkDetail}>
+                    Strong weekday morning engagement with Daily Health Briefing and parliamentary budget coverage (+{Math.round(9 * periodMultiplier)}% over {period}).
+                  </Text>
+                </View>
+                <View style={styles.networkStat}>
+                  <Text style={styles.networkCount}>260</Text>
+                  <Text style={styles.networkUnit}>Members</Text>
+                </View>
+              </Pressable>
+            </View>
+
+            <View style={styles.ga4Container} testID="audience-segment-drilldown">
+              <Text style={styles.networkName}>{selectedSegment}</Text>
+              <Text style={styles.networkDetail}>Selected cohort: {selectedSegmentDetail.members} members · Primary channel: {selectedSegmentDetail.channel}</Text>
+              <Text style={styles.networkDetail}>Sample trend for {period}: +{Math.round(selectedSegmentDetail.growth * periodMultiplier)}%. This is Preview interpretation, not live provider analytics.</Text>
             </View>
           </View>
 

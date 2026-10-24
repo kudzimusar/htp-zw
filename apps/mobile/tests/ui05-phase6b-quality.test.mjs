@@ -16,8 +16,10 @@ test("Phase 6B shared primitives preserve touch, focus, loading and narrow-layou
   assert.match(layout,/onFocus=\{\(\) => setFocused\(true\)\}/);
   assert.match(layout,/chipFocused:\{borderWidth:2\}/);
   assert.match(layout,/maxWidth:"100%"/);
-  assert.match(layout,/narrowPhone = width > 0 && width < 360/);
-  assert.match(layout,/narrowHeaderInner:\{flexWrap:"wrap"/);
+  assert.match(layout,/phoneSearchAction/);
+  assert.match(layout,/searchIconButton:\{marginLeft:"auto",width:layout\.touchMin,height:layout\.touchMin/);
+  assert.match(layout,/accessibilityLabel="Search HealthTimes"/);
+  assert.doesNotMatch(layout,/narrowHeaderInner:\{flexWrap:"wrap"/);
   assert.match(layout,/accessibilityRole="progressbar"/);
   assert.match(layout,/accessibilityLabel=\{label\}/);
 

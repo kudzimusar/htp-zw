@@ -1,8 +1,9 @@
-import type { HealthTimesServices } from "../domain/contracts";
+import type { ArticleRepository, HealthTimesServices } from "../domain/contracts";
 import { appEnvironment, editorialDataMode } from "../platform/config";
 import { fixtureServices } from "./fixtures";
 import { sourceParityServices } from "./source-parity";
 import { migratedCorpusServices } from "./migrated-corpus";
+import { mergeReaderFeeds } from "../reader/feed-order";
 import { stagingAuthService, stagingNotificationService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
@@ -24,6 +25,34 @@ import { stagingNewsroomSettingsService } from "./newsroom-settings";
 
 export const serviceMode = editorialDataMode;
 
+const stagingReaderArticles: ArticleRepository = {
+  async getHome() {
+    const migrated = await migratedCorpusServices.articles.getHome();
+    const current = await sourceParityServices.articles.getHome().catch(() => []);
+    return mergeReaderFeeds(migrated, current);
+  },
+  async getById(id) {
+    const migrated = await migratedCorpusServices.articles.getById(id);
+    if (migrated) return migrated;
+    return sourceParityServices.articles.getById(id).catch(() => null);
+  },
+  async getRelated(id) {
+    const migrated = await migratedCorpusServices.articles.getRelated(id);
+    const current = await sourceParityServices.articles.getRelated(id).catch(() => []);
+    return mergeReaderFeeds(migrated, current).slice(0, 3);
+  },
+  async listBySection(sectionSlug) {
+    const migrated = await migratedCorpusServices.articles.listBySection(sectionSlug);
+    const current = await sourceParityServices.articles.listBySection(sectionSlug).catch(() => []);
+    return mergeReaderFeeds(migrated, current);
+  },
+  async listByAuthor(authorSlug) {
+    const migrated = await migratedCorpusServices.articles.listByAuthor(authorSlug);
+    const current = await sourceParityServices.articles.listByAuthor(authorSlug).catch(() => []);
+    return mergeReaderFeeds(migrated, current);
+  }
+};
+
 function buildServices(): HealthTimesServices {
   if (appEnvironment === "production" || editorialDataMode === "production") {
     throw new Error(
@@ -33,7 +62,7 @@ function buildServices(): HealthTimesServices {
 
   const editorialServices =
     editorialDataMode === "staging"
-      ? migratedCorpusServices
+      ? { ...migratedCorpusServices, articles: stagingReaderArticles }
       : editorialDataMode === "source-parity"
         ? sourceParityServices
         : fixtureServices;

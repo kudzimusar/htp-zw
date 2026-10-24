@@ -1,0 +1,61 @@
+appId: zw.co.healthtimes.app.dev
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 240000
+- extendedWaitUntil:
+    notVisible: "Loading Home…"
+    timeout: 30000
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: ".*SecureStore.*(entitlement|Entitlement|error|Error|exception|Exception|failed|Failed).*"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- takeScreenshot: home
+
+- openLink: "healthtimes://premium"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES PREMIUM"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Checking membership options…"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Loading Premium journalism…"
+    timeout: 30000
+- assertNotVisible: "Premium journalism is temporarily unavailable"
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: ".*SecureStore.*(entitlement|Entitlement|error|Error|exception|Exception|failed|Failed).*"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- takeScreenshot: premium
+
+- openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in .*HealthTimes.*"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Loading videos…"
+    timeout: 30000
+- assertNotVisible: "Videos are temporarily unavailable"
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "KeyChainException"
+- assertNotVisible: ".*SecureStore.*(entitlement|Entitlement|error|Error|exception|Exception|failed|Failed).*"
+- assertNotVisible: "Open in .*HealthTimes.*"
+- takeScreenshot: watch

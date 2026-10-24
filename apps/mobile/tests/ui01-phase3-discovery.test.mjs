@@ -22,11 +22,11 @@ test("Phase 3 Explore uses source-backed progressive discovery rather than a tax
 });
 
 test("Phase 3 Intelligent Search preserves service authority and adds progressive states",()=>{
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   assert.match(search,/services\.search\.search/);
   assert.match(search,/query_redacted:true/);
   assert.match(search,/raw health search words are not sent/i);
-  assert.match(search,/Suggested searches/);
+  assert.match(search,/Try searching for/);
   assert.match(search,/Searching HealthTimes/);
   assert.match(search,/Search is temporarily unavailable/);
   assert.match(search,/No HealthTimes results found/);

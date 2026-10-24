@@ -50,7 +50,8 @@ export default function NotificationSettingsScreen(){
             <Switch
               value={preferences[key]}
               onValueChange={()=>void toggle(key)}
-              accessibilityLabel={title}
+              accessibilityLabel={`${title}. ${description}`}
+              accessibilityRole="switch"
             />
           </View>
         ))}
