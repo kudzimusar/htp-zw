@@ -151,6 +151,7 @@ import {
   buildPreviewProfitAndLoss,
   buildPreviewBalanceSheet,
   buildPreviewJournals,
+  OWNER_PREVIEW_REFERENCE_MS,
   isOwnerPreviewEnabled,
   type OwnerPreviewModuleKey
 } from "./newsroomPreviewData";
@@ -197,7 +198,8 @@ export function OwnerPreviewShell({
   const router = useRouter();
   const { persona: personaParam } = useLocalSearchParams<{ persona?: string }>();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= breakpoints.desktop;
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const isDesktop = hasHydrated && width >= breakpoints.desktop;
   const enabled = isOwnerPreviewEnabled();
   const initialPersonaId =
     typeof personaParam === "string" &&
@@ -208,6 +210,10 @@ export function OwnerPreviewShell({
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<string>(initialPersonaId);
   const [roleAlert, setRoleAlert] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (
@@ -345,6 +351,10 @@ export function OwnerPreviewShell({
                 key={p.id}
                 style={[styles.personaPill, isSelected && styles.personaPillActive]}
                 onPress={() => selectPersona(p.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Switch preview persona to ${p.role}`}
+                accessibilityState={{ selected: isSelected }}
+                aria-pressed={isSelected}
               >
                 <View
                   style={[
@@ -405,6 +415,8 @@ export function OwnerPreviewShell({
           <Pressable
             style={styles.headerActionBtn}
             onPress={() => previewNavigate("/owner-preview/studio/create-edit")}
+            accessibilityRole="button"
+            accessibilityLabel="Open story workspace"
           >
             <Text style={styles.headerActionBtnText}>+ Open Story Workspace</Text>
           </Pressable>
@@ -416,6 +428,7 @@ export function OwnerPreviewShell({
         <View style={styles.mobileNavWrapper}>
           <ScrollView
             horizontal
+            style={styles.mobileNavScroll}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.mobileNavRow}
           >
@@ -438,6 +451,9 @@ export function OwnerPreviewShell({
                             !isDomainAllowed && styles.mobileNavPillLocked
                           ]}
                           onPress={() => previewNavigate(item.path)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open ${item.label}`}
+                          accessibilityState={{ selected: active }}
                           testID={`owner-preview-nav-mobile-${item.key}`}
                         >
                           <Text
@@ -521,6 +537,9 @@ export function OwnerPreviewShell({
                               !isDomainAllowed && styles.sidebarNavItemLocked
                             ]}
                             onPress={() => previewNavigate(item.path)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open ${item.label}`}
+                            accessibilityState={{ selected: active }}
                             testID={`owner-preview-nav-${item.key}`}
                           >
                             <Text
@@ -1000,6 +1019,7 @@ export function OwnerPreviewPlanningView() {
         </View>
       ) : null}
       <StudioPlanningBoardView
+        nowMs={OWNER_PREVIEW_REFERENCE_MS}
         authorityMode="manager"
         canCreate={true}
         assignmentsData={assignments}
@@ -2600,6 +2620,10 @@ function OwnerPreviewWhatsAppDeskView() {
       broadcastType: input.broadcast_type,
       channelIdentity: input.channel_identity || "healthtimes-whatsapp-channel",
       relatedStoryId: input.related_story_id || null,
+      messageMode: input.message_mode ?? "approved_template",
+      templateName: input.template_name ?? null,
+      scheduledAt: input.scheduled_at ?? null,
+      timezone: input.timezone ?? "Africa/Harare",
       status: "draft",
       createdBy: "e0000000-0000-4000-a000-000000000001",
       createdByName: "Audience Lead (Nyasha Sibanda)",
@@ -3900,6 +3924,10 @@ export function OwnerPreviewModuleScreen({
 const styles = StyleSheet.create({
   pageRoot: {
     flex: 1,
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 0,
+    overflow: "hidden",
     backgroundColor: colors.paperMuted
   },
   unavailableScreen: {
@@ -4016,11 +4044,19 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   mobileNavWrapper: {
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
     backgroundColor: colors.paper,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingVertical: 8,
     paddingHorizontal: spacing.md
+  },
+  mobileNavScroll: {
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "scroll"
   },
   mobileNavRow: {
     gap: 8
@@ -4047,7 +4083,10 @@ const styles = StyleSheet.create({
   },
   bodyLayout: {
     flex: 1,
-    flexDirection: "row"
+    flexDirection: "row",
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 0
   },
   sidebar: {
     width: 240,
@@ -4314,12 +4353,17 @@ const styles = StyleSheet.create({
     color: colors.inkMuted
   },
   mainScroll: {
-    flex: 1
+    flex: 1,
+    minWidth: 0,
+    maxWidth: "100%"
   },
   mainContainer: {
     padding: spacing.lg,
     gap: 16,
-    maxWidth: 1180
+    width: "100%",
+    maxWidth: 1180,
+    minWidth: 0,
+    alignSelf: "center"
   },
   moduleHeaderCard: {
     backgroundColor: colors.paper,

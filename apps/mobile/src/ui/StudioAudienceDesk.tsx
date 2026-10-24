@@ -31,6 +31,16 @@ export function StudioAudienceDeskView({
 }: StudioAudienceDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
+  const [period, setPeriod] = useState<"7 days" | "30 days" | "90 days">("30 days");
+  const [selectedSegment, setSelectedSegment] = useState("Clinical & Healthcare Practitioners Cohort");
+
+  const periodMultiplier = period === "7 days" ? 0.35 : period === "90 days" ? 2.4 : 1;
+  const segmentDetails: Record<string, { members: number; growth: number; channel: string }> = {
+    "Clinical & Healthcare Practitioners Cohort": { members: 540, growth: 14, channel: "Newsletter" },
+    "Public Health & Outbreak Advisory Readers": { members: 620, growth: 22, channel: "WhatsApp & Push" },
+    "Health Policy, NGO & Institutional Subscribers": { members: 260, growth: 9, channel: "Daily Briefing" }
+  };
+  const selectedSegmentDetail = segmentDetails[selectedSegment] ?? segmentDetails["Clinical & Healthcare Practitioners Cohort"]!;
 
   return (
     <ScrollView
@@ -110,6 +120,25 @@ export function StudioAudienceDeskView({
               </Text>
             </View>
           )}
+
+          <View style={styles.card} testID="audience-period-and-segment-controls">
+            <Text style={styles.cardTitle}>Audience reporting window</Text>
+            <Text style={styles.cardSubtitle}>Compare sample first-party audience movement, then select a cohort for its operational detail.</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {(["7 days", "30 days", "90 days"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  style={[styles.refreshButton, period === option && { borderColor: colors.blue, backgroundColor: "#EFF6FF" }]}
+                  onPress={() => setPeriod(option)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Show audience trends for ${option}`}
+                  accessibilityState={{ selected: period === option }}
+                >
+                  <Text style={styles.refreshButtonText}>{option}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
           {/* Top Audience Summary Cards */}
           <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
@@ -243,44 +272,65 @@ export function StudioAudienceDeskView({
             </Text>
 
             <View style={styles.networkList}>
-              <View style={styles.networkRow}>
+              <Pressable
+                style={styles.networkRow}
+                onPress={() => setSelectedSegment("Clinical & Healthcare Practitioners Cohort")}
+                accessibilityRole="button"
+                accessibilityLabel="Inspect Clinical and Healthcare Practitioners cohort"
+              >
                 <View style={styles.networkInfo}>
                   <Text style={styles.networkName}>Clinical & Healthcare Practitioners Cohort</Text>
                   <Text style={styles.networkDetail}>
-                    High retention on clinical deep dives, oncology procurement updates, and policy briefings (+14% 30-day growth).
+                    High retention on clinical deep dives, oncology procurement updates, and policy briefings (+{Math.round(14 * periodMultiplier)}% over {period}).
                   </Text>
                 </View>
                 <View style={styles.networkStat}>
                   <Text style={styles.networkCount}>540</Text>
                   <Text style={styles.networkUnit}>Members</Text>
                 </View>
-              </View>
+              </Pressable>
 
-              <View style={styles.networkRow}>
+              <Pressable
+                style={styles.networkRow}
+                onPress={() => setSelectedSegment("Public Health & Outbreak Advisory Readers")}
+                accessibilityRole="button"
+                accessibilityLabel="Inspect Public Health and Outbreak Advisory readers"
+              >
                 <View style={styles.networkInfo}>
                   <Text style={styles.networkName}>Public Health & Outbreak Advisory Readers</Text>
                   <Text style={styles.networkDetail}>
-                    Driven by cholera, malaria vaccine, and provincial clinic coverage across WhatsApp & Push (+22% 30-day growth).
+                    Driven by cholera, malaria vaccine, and provincial clinic coverage across WhatsApp & Push (+{Math.round(22 * periodMultiplier)}% over {period}).
                   </Text>
                 </View>
                 <View style={styles.networkStat}>
                   <Text style={styles.networkCount}>620</Text>
                   <Text style={styles.networkUnit}>Members</Text>
                 </View>
-              </View>
+              </Pressable>
 
-              <View style={styles.networkRow}>
+              <Pressable
+                style={styles.networkRow}
+                onPress={() => setSelectedSegment("Health Policy, NGO & Institutional Subscribers")}
+                accessibilityRole="button"
+                accessibilityLabel="Inspect Health Policy NGO and Institutional subscribers"
+              >
                 <View style={styles.networkInfo}>
                   <Text style={styles.networkName}>Health Policy, NGO & Institutional Subscribers</Text>
                   <Text style={styles.networkDetail}>
-                    Strong weekday morning engagement with Daily Health Briefing and parliamentary budget coverage (+9% 30-day growth).
+                    Strong weekday morning engagement with Daily Health Briefing and parliamentary budget coverage (+{Math.round(9 * periodMultiplier)}% over {period}).
                   </Text>
                 </View>
                 <View style={styles.networkStat}>
                   <Text style={styles.networkCount}>260</Text>
                   <Text style={styles.networkUnit}>Members</Text>
                 </View>
-              </View>
+              </Pressable>
+            </View>
+
+            <View style={styles.ga4Container} testID="audience-segment-drilldown">
+              <Text style={styles.networkName}>{selectedSegment}</Text>
+              <Text style={styles.networkDetail}>Selected cohort: {selectedSegmentDetail.members} members · Primary channel: {selectedSegmentDetail.channel}</Text>
+              <Text style={styles.networkDetail}>Sample trend for {period}: +{Math.round(selectedSegmentDetail.growth * periodMultiplier)}%. This is Preview interpretation, not live provider analytics.</Text>
             </View>
           </View>
 

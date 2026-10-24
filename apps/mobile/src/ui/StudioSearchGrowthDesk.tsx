@@ -109,11 +109,10 @@ export function StudioSearchGrowthDeskView({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>SEO TITLE COVERAGE</Text>
               <Text style={styles.kpiValue}>
-                {Math.round(
-                  growthData.seoHealth.totalStories > 0
-                    ? (growthData.seoHealth.withSeoTitle / growthData.seoHealth.totalStories) * 100
-                    : 0
-                )}%
+                {(growthData.seoHealth.totalStories > 0
+                  ? (growthData.seoHealth.withSeoTitle / growthData.seoHealth.totalStories) * 100
+                  : 0
+                ).toFixed(1)}%
               </Text>
               <Text style={styles.kpiSubtext}>
                 {growthData.seoHealth.withSeoTitle.toLocaleString()} stories optimized

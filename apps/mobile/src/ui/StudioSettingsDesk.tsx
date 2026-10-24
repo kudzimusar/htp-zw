@@ -43,6 +43,9 @@ const STATUS_PILLS: Record<string, { bg: string; text: string }> = {
   active: { bg: "#DCFCE7", text: "#166534" },
   healthy: { bg: "#DCFCE7", text: "#166534" },
   property_verified: { bg: "#E0F2FE", text: "#0369A1" },
+  prepared_dns_verification_pending: { bg: "#FEF3C7", text: "#92400E" },
+  identity_verified_account_access_pending: { bg: "#FEF3C7", text: "#92400E" },
+  sample_simulation_only: { bg: "#E0F2FE", text: "#0369A1" },
   unconfigured: { bg: "#FEF3C7", text: "#92400E" },
   error: { bg: "#FEE2E2", text: "#991B1B" }
 };
@@ -95,6 +98,9 @@ export function StudioSettingsDeskView({
             style={[styles.secondaryButton, isMutating && styles.buttonDisabled]}
             onPress={onRefresh}
             disabled={isMutating}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh platform integration status"
+            accessibilityState={{ disabled: isMutating }}
           >
             <Text style={styles.secondaryButtonText}>↻ Refresh Status</Text>
           </Pressable>
@@ -158,7 +164,7 @@ export function StudioSettingsDeskView({
           </Text>
           <Text style={styles.auditAction}>{audit?.lastAuditAction ?? "none"}</Text>
           {audit?.lastAuditAt && (
-            <Text style={styles.auditTime}>{new Date(audit.lastAuditAt).toLocaleTimeString()}</Text>
+            <Text style={styles.auditTime}>{new Date(audit.lastAuditAt).toISOString().slice(11, 16)} UTC</Text>
           )}
         </View>
       </View>
@@ -272,6 +278,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: colors.blue }}
+            accessibilityLabel="Require editorial review"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -294,6 +302,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: colors.blue }}
+            accessibilityLabel="Strict premium paywall enforcement"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -316,6 +326,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: colors.blue }}
+            accessibilityLabel="AI editorial research assistant"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -338,6 +350,8 @@ export function StudioSettingsDeskView({
             }
             disabled={!canManage || isMutating}
             trackColor={{ false: colors.border, true: "#DC2626" }}
+            accessibilityLabel="Maintenance mode"
+            accessibilityRole="switch"
           />
         </View>
 
@@ -355,6 +369,9 @@ export function StudioSettingsDeskView({
                   style={[styles.policyBtn, isSelected && styles.policyBtnActive]}
                   onPress={() => handleChangeCommentPolicy(pol)}
                   disabled={!canManage || isMutating}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set default story comment policy to ${pol.replace("_", " ")}`}
+                  accessibilityState={{ selected: isSelected, disabled: !canManage || isMutating }}
                 >
                   <Text style={[styles.policyBtnText, isSelected && styles.policyBtnTextActive]}>
                     {pol === "open" ? "Open (Moderated)" : pol === "read_only" ? "Read Only" : "Disabled"}

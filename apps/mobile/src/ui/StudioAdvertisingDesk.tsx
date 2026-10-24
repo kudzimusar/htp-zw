@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -114,7 +115,10 @@ export function StudioAdvertisingDeskView({
   const [newCrPlacement, setNewCrPlacement] = useState("");
   const [newCrDestUrl, setNewCrDestUrl] = useState("");
 
-  const metrics = overview?.metrics ?? {
+  const metrics = overview ? {
+    ...overview.metrics,
+    activeCampaigns: overview.campaigns.filter((campaign) => campaign.status === "active").length
+  } : {
     totalAdvertisers: 0,
     totalCampaigns: 0,
     activeCampaigns: 0,
@@ -448,6 +452,18 @@ export function StudioAdvertisingDeskView({
           ) : (
             filteredCreatives.map((cr) => (
               <View key={cr.id} style={styles.itemCard}>
+                <View style={styles.creativePreviewFrame}>
+                  {cr.assetUrl ? (
+                    <Image
+                      source={{ uri: cr.assetUrl }}
+                      style={styles.creativePreviewImage}
+                      resizeMode="contain"
+                      accessibilityLabel={`${cr.campaignName} advertising creative preview`}
+                    />
+                  ) : (
+                    <Text style={styles.creativePreviewUnavailable}>Creative preview pending</Text>
+                  )}
+                </View>
                 <View style={styles.rowBetween}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemTitle}>Placement: {cr.placement}</Text>
@@ -459,6 +475,9 @@ export function StudioAdvertisingDeskView({
                         URL: {cr.destinationUrl}
                       </Text>
                     )}
+                    <Text style={styles.metaText}>
+                      Asset: {cr.mimeType ?? "type pending"} · {cr.width && cr.height ? `${cr.width} × ${cr.height}px` : "dimensions pending"}
+                    </Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: "#DCFCE7" }]}>
                     <Text style={[styles.badgeText, { color: "#166534" }]}>
@@ -1134,6 +1153,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.lg,
     gap: spacing.xs
+  },
+  creativePreviewFrame: {
+    width: "100%",
+    aspectRatio: 3,
+    maxHeight: 220,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: spacing.md
+  },
+  creativePreviewImage: {
+    width: "100%",
+    height: "100%"
+  },
+  creativePreviewUnavailable: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    fontWeight: "600"
   },
   itemTitle: {
     fontSize: 16,

@@ -76,6 +76,9 @@ export function StudioPremiumDeskView({
     totalEntitledSubscribers: 0,
     providers: []
   };
+  const mobileAndLocalCount = subscriberStats.providers
+    .filter((provider) => provider.provider === "ecocash" || provider.provider === "in_app")
+    .reduce((sum, provider) => sum + provider.count, 0);
 
   const teaser = overview?.teaserPolicy ?? {
     authority: "Publisher / Editorial Access Policy",
@@ -341,7 +344,7 @@ export function StudioPremiumDeskView({
               EcoCash, Paynow, and Apple / Google in-app subscriptions verified via native receipt validation.
             </Text>
             <Text style={styles.providerCount}>
-              Active: {subscriberStats.providers.find((p) => p.provider === "ecocash" || p.provider === "in_app")?.count ?? 0}
+              Active: {mobileAndLocalCount}
             </Text>
           </View>
         </View>

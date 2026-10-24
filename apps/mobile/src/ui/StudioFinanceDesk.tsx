@@ -56,6 +56,26 @@ export type FinanceTab =
   | "statements"
   | "customers";
 
+export function validatePreviewInvoiceInput(input: {
+  customerId: string;
+  description: string;
+  currency: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+}): string | null {
+  if (!input.customerId.trim()) return "Select a customer.";
+  if (!input.description.trim()) return "Enter an invoice description.";
+  if (!input.currency.trim()) return "Enter a currency.";
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) return "Quantity must be greater than zero.";
+  if (!Number.isFinite(input.unitPrice) || input.unitPrice <= 0) return "Unit price must be greater than zero.";
+  if (!Number.isFinite(input.taxRate) || input.taxRate < 0 || input.taxRate > 1) return "Tax rate must be between 0 and 1.";
+  const subtotal = input.quantity * input.unitPrice;
+  const total = subtotal + subtotal * input.taxRate;
+  if (subtotal < 0 || total < 0) return "Invoice totals cannot be negative.";
+  return null;
+}
+
 interface StudioFinanceDeskProps {
   initialTab?: FinanceTab;
   isOwnerPreview?: boolean;
@@ -122,6 +142,8 @@ export function StudioFinanceDeskView({
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<NewsroomInvoiceItem | null>(null);
+  const [inspectedInvoice, setInspectedInvoice] = useState<NewsroomInvoiceItem | null>(null);
+  const [inspectedOrder, setInspectedOrder] = useState<NewsroomCommercialOrder | null>(null);
 
   // Refresh trigger for live staging
   const [refreshKey, setRefreshKey] = useState(0);
@@ -337,11 +359,23 @@ export function StudioFinanceDeskView({
   }
 
   async function handleCreateInvoice() {
+    const qty = Number(newInvQty);
+    const price = Number(newInvUnitPrice);
+    const taxRate = Number(newInvTaxRate);
+    const validationError = validatePreviewInvoiceInput({
+      customerId: newInvCustomerId,
+      description: newInvDesc,
+      currency: newInvCurrency,
+      quantity: qty,
+      unitPrice: price,
+      taxRate
+    });
+    if (validationError) {
+      notifyError(validationError);
+      return;
+    }
     if (isOwnerPreview) {
       const cust = customersData.find((c) => c.id === newInvCustomerId) ?? customersData[0];
-      const qty = parseFloat(newInvQty) || 1;
-      const price = parseFloat(newInvUnitPrice) || 500;
-      const taxRate = parseFloat(newInvTaxRate) || 0.15;
       const subtotal = qty * price;
       const taxTotal = Number((subtotal * taxRate).toFixed(2));
       const total = Number((subtotal + taxTotal).toFixed(2));
@@ -380,10 +414,6 @@ export function StudioFinanceDeskView({
       return;
     }
     try {
-      if (!newInvCustomerId) throw new Error("Please select a customer");
-      const qty = parseFloat(newInvQty) || 1;
-      const price = parseFloat(newInvUnitPrice) || 0;
-      const taxRate = parseFloat(newInvTaxRate) || 0;
       await services.newsroomFinance.createInvoice({
         customerId: newInvCustomerId,
         currency: newInvCurrency,
@@ -410,7 +440,15 @@ export function StudioFinanceDeskView({
   async function handleRecordPayment() {
     if (!selectedInvoice) return;
     if (isOwnerPreview) {
-      const amt = parseFloat(paymentAmount) || selectedInvoice.balanceDue;
+      const amt = Number(paymentAmount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        notifyError("Payment amount must be greater than zero.");
+        return;
+      }
+      if (amt > selectedInvoice.balanceDue) {
+        notifyError("Payment cannot exceed the outstanding balance.");
+        return;
+      }
       const today = new Date().toISOString().slice(0, 10);
       const newPay: NewsroomPaymentItem = {
         id: `pay-preview-${Date.now()}`,
@@ -1024,6 +1062,14 @@ export function StudioFinanceDeskView({
                     <View style={[styles.tdCell, styles.rowActions, { width: 320 }]}>
                       <Pressable
                         style={styles.miniBtn}
+                        onPress={() => setInspectedInvoice(inv)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View details for invoice ${inv.invoiceNumber}`}
+                      >
+                        <Text style={styles.miniBtnText}>Details</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.miniBtn}
                         onPress={() => {
                           setPrintInvoiceItem(inv);
                           setIsPrintInvoiceModalOpen(true);
@@ -1075,6 +1121,22 @@ export function StudioFinanceDeskView({
                 ))}
               </View>
             </ScrollView>
+          )}
+          {inspectedInvoice && (
+            <View style={styles.detailSummaryCard} testID="finance-invoice-detail">
+              <View style={styles.toolbar}>
+                <View>
+                  <Text style={styles.sectionTitle}>{inspectedInvoice.invoiceNumber}</Text>
+                  <Text style={styles.sectionSub}>{inspectedInvoice.customerName} · {inspectedInvoice.orderNumber ?? "No linked order"}</Text>
+                </View>
+                <Pressable onPress={() => setInspectedInvoice(null)} accessibilityRole="button" accessibilityLabel="Close invoice details">
+                  <Text style={styles.miniBtnText}>Close</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.sectionSub}>{inspectedInvoice.notes ?? "No invoice description"}</Text>
+              <Text style={styles.detailSummaryText}>Subtotal: {inspectedInvoice.currency} {inspectedInvoice.subtotal.toFixed(2)} · Tax: {inspectedInvoice.currency} {inspectedInvoice.taxTotal.toFixed(2)} · Discount: {inspectedInvoice.currency} {inspectedInvoice.discountTotal.toFixed(2)}</Text>
+              <Text style={styles.detailSummaryText}>Total: {inspectedInvoice.currency} {inspectedInvoice.total.toFixed(2)} · Paid: {inspectedInvoice.currency} {inspectedInvoice.amountPaid.toFixed(2)} · Outstanding: {inspectedInvoice.currency} {inspectedInvoice.balanceDue.toFixed(2)}</Text>
+            </View>
           )}
         </View>
       )}
@@ -1796,6 +1858,14 @@ export function StudioFinanceDeskView({
                       </View>
                     </View>
                     <View style={[styles.tdCell, styles.rowActions, { width: 180 }]}>
+                      <Pressable
+                        style={styles.miniBtn}
+                        onPress={() => setInspectedOrder(ord)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View details for order ${ord.orderNumber}`}
+                      >
+                        <Text style={styles.miniBtnText}>Details</Text>
+                      </Pressable>
                       {ord.billingStatus !== "billed" && isOwnerPreview && (
                         <Pressable
                           style={styles.miniBtnPrimary}
@@ -1852,6 +1922,23 @@ export function StudioFinanceDeskView({
             </ScrollView>
           )}
 
+          {inspectedOrder && (
+            <View style={styles.detailSummaryCard} testID="finance-order-detail">
+              <View style={styles.toolbar}>
+                <View>
+                  <Text style={styles.sectionTitle}>{inspectedOrder.orderNumber}</Text>
+                  <Text style={styles.sectionSub}>{inspectedOrder.customerName} · {inspectedOrder.campaignName ?? "No campaign"}</Text>
+                </View>
+                <Pressable onPress={() => setInspectedOrder(null)} accessibilityRole="button" accessibilityLabel="Close order details">
+                  <Text style={styles.miniBtnText}>Close</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.sectionSub}>{inspectedOrder.notes ?? "No order notes"}</Text>
+              <Text style={styles.detailSummaryText}>Flight: {inspectedOrder.startDate ?? "Not set"} to {inspectedOrder.endDate ?? "Not set"}</Text>
+              <Text style={styles.detailSummaryText}>Subtotal: {inspectedOrder.currency} {inspectedOrder.subtotal.toFixed(2)} · Tax: {inspectedOrder.currency} {inspectedOrder.taxAmount.toFixed(2)} · Discount: {inspectedOrder.currency} {inspectedOrder.discountAmount.toFixed(2)} · Total: {inspectedOrder.currency} {inspectedOrder.total.toFixed(2)}</Text>
+            </View>
+          )}
+
           <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Billing Customers & Accounts</Text>
           <View style={styles.table}>
             <View style={styles.tableHeader}>
@@ -1899,6 +1986,9 @@ export function StudioFinanceDeskView({
                       key={c.id}
                       style={[styles.pickerChip, newInvCustomerId === c.id && styles.pickerChipActive]}
                       onPress={() => setNewInvCustomerId(c.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select customer ${c.name}`}
+                      accessibilityState={{ selected: newInvCustomerId === c.id }}
                     >
                       <Text style={[styles.pickerChipText, newInvCustomerId === c.id && styles.pickerChipTextActive]}>
                         {c.name}
@@ -1912,35 +2002,36 @@ export function StudioFinanceDeskView({
                   placeholder="Select or enter customer UUID"
                   value={newInvCustomerId}
                   onChangeText={setNewInvCustomerId}
+                  accessibilityLabel="Invoice customer"
                 />
               )}
 
               <Text style={styles.formLabel}>Description</Text>
-              <TextInput style={styles.input} value={newInvDesc} onChangeText={setNewInvDesc} />
+              <TextInput style={styles.input} value={newInvDesc} onChangeText={setNewInvDesc} accessibilityLabel="Invoice description" />
 
               <View style={styles.formRow}>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Placement</Text>
-                  <TextInput style={styles.input} value={newInvPlacement} onChangeText={setNewInvPlacement} />
+                  <TextInput style={styles.input} value={newInvPlacement} onChangeText={setNewInvPlacement} accessibilityLabel="Invoice placement" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Currency</Text>
-                  <TextInput style={styles.input} value={newInvCurrency} onChangeText={setNewInvCurrency} />
+                  <TextInput style={styles.input} value={newInvCurrency} onChangeText={setNewInvCurrency} accessibilityLabel="Invoice currency" />
                 </View>
               </View>
 
               <View style={styles.formRow}>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Quantity</Text>
-                  <TextInput style={styles.input} value={newInvQty} onChangeText={setNewInvQty} keyboardType="numeric" />
+                  <TextInput style={styles.input} value={newInvQty} onChangeText={setNewInvQty} keyboardType="numeric" accessibilityLabel="Invoice quantity" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Unit Price ({newInvCurrency})</Text>
-                  <TextInput style={styles.input} value={newInvUnitPrice} onChangeText={setNewInvUnitPrice} keyboardType="numeric" />
+                  <TextInput style={styles.input} value={newInvUnitPrice} onChangeText={setNewInvUnitPrice} keyboardType="numeric" accessibilityLabel="Invoice unit price" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Tax Rate (0.15 = 15%)</Text>
-                  <TextInput style={styles.input} value={newInvTaxRate} onChangeText={setNewInvTaxRate} keyboardType="numeric" />
+                  <TextInput style={styles.input} value={newInvTaxRate} onChangeText={setNewInvTaxRate} keyboardType="numeric" accessibilityLabel="Invoice tax rate" />
                 </View>
               </View>
 
@@ -1958,10 +2049,10 @@ export function StudioFinanceDeskView({
             </ScrollView>
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setIsInvoiceModalOpen(false)}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsInvoiceModalOpen(false)} accessibilityRole="button" accessibilityLabel="Cancel invoice creation">
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateInvoice}>
+              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateInvoice} accessibilityRole="button" accessibilityLabel="Save draft invoice">
                 <Text style={styles.modalSubmitText}>Save Draft Invoice</Text>
               </Pressable>
             </View>
@@ -1987,6 +2078,7 @@ export function StudioFinanceDeskView({
                 onChangeText={setPaymentAmount}
                 keyboardType="numeric"
                 placeholder="Amount"
+                accessibilityLabel="Payment amount"
               />
 
               <Text style={styles.formLabel}>Payment Method</Text>
@@ -1996,6 +2088,9 @@ export function StudioFinanceDeskView({
                     key={m}
                     style={[styles.pickerChip, paymentMethod === m && styles.pickerChipActive]}
                     onPress={() => setPaymentMethod(m)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select payment method ${m.replace("_", " ")}`}
+                    accessibilityState={{ selected: paymentMethod === m }}
                   >
                     <Text style={[styles.pickerChipText, paymentMethod === m && styles.pickerChipTextActive]}>
                       {m.replace("_", " ").toUpperCase()}
@@ -2010,14 +2105,15 @@ export function StudioFinanceDeskView({
                 value={paymentRef}
                 onChangeText={setPaymentRef}
                 placeholder="e.g. STANBIC-REF-1092"
+                accessibilityLabel="Payment reference"
               />
             </View>
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setIsPaymentModalOpen(false)}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsPaymentModalOpen(false)} accessibilityRole="button" accessibilityLabel="Cancel payment recording">
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.modalSubmitBtn} onPress={handleRecordPayment}>
+              <Pressable style={styles.modalSubmitBtn} onPress={handleRecordPayment} accessibilityRole="button" accessibilityLabel="Record customer payment">
                 <Text style={styles.modalSubmitText}>Post Immutable Payment</Text>
               </Pressable>
             </View>
@@ -2658,6 +2754,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.inkMuted,
     lineHeight: 18
+  },
+  detailSummaryCard: {
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    maxWidth: "100%"
+  },
+  detailSummaryText: {
+    color: colors.ink,
+    fontSize: 13,
+    lineHeight: 20
   },
   currencyToggle: {
     flexDirection: "row",

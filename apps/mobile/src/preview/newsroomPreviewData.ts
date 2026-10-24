@@ -56,6 +56,10 @@ import type {
   NewsroomBalanceSheet,
   NewsroomCustomerStatement
 } from "../domain/models";
+import { FINANCE_DESK_CAPABILITIES } from "../security/capabilities";
+
+export const OWNER_PREVIEW_REFERENCE_ISO = "2026-10-24T12:00:00.000Z";
+export const OWNER_PREVIEW_REFERENCE_MS = Date.parse(OWNER_PREVIEW_REFERENCE_ISO);
 
 export interface OwnerPreviewPersona {
   id: string;
@@ -402,7 +406,7 @@ export function isOwnerPreviewEnabled(options?: {
 
 // Reference timestamp helper relative to current render so "Today", "Tomorrow", "Overdue", and "Next 7 Days"
 // always populate deterministically in the live preview.
-export function getPreviewReferenceTime(baseNowMs: number = Date.now()) {
+export function getPreviewReferenceTime(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS) {
   const now = new Date(baseNowMs);
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -546,7 +550,7 @@ export const PREVIEW_SECTIONS: NewsroomSection[] = [
   }
 ];
 
-export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomStory[] {
+export function buildPreviewStories(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS): NewsroomStory[] {
   const t = getPreviewReferenceTime(baseNowMs);
 
   return [
@@ -999,7 +1003,7 @@ export function buildPreviewStories(baseNowMs: number = Date.now()): NewsroomSto
   ];
 }
 
-export function buildPreviewAssignments(baseNowMs: number = Date.now()): NewsroomAssignment[] {
+export function buildPreviewAssignments(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS): NewsroomAssignment[] {
   const t = getPreviewReferenceTime(baseNowMs);
 
   return [
@@ -1526,7 +1530,7 @@ export function buildPreviewVideos(): NewsroomVideo[] {
   ];
 }
 
-export function buildPreviewLiveCoverage(baseNowMs: number = Date.now()): NewsroomLiveCoverage[] {
+export function buildPreviewLiveCoverage(baseNowMs: number = OWNER_PREVIEW_REFERENCE_MS): NewsroomLiveCoverage[] {
   const t = getPreviewReferenceTime(baseNowMs);
   return [
     {
@@ -2275,7 +2279,7 @@ export function buildPreviewWhatsAppDispatchResult(
 
 export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligence {
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: OWNER_PREVIEW_REFERENCE_ISO,
     storyInventory: {
       total: 5792,
       published: 5789,
@@ -2317,7 +2321,7 @@ export function buildPreviewEditorialIntelligence(): NewsroomEditorialIntelligen
 
 export function buildPreviewGrowthIntelligence(): NewsroomGrowthIntelligence {
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: OWNER_PREVIEW_REFERENCE_ISO,
     integrations: [
       {
         id: "preview-ga4",
@@ -2404,7 +2408,7 @@ export function buildPreviewGrowthIntelligence(): NewsroomGrowthIntelligence {
 
 export function buildPreviewAudienceIntelligence(): NewsroomAudienceIntelligence {
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: OWNER_PREVIEW_REFERENCE_ISO,
     contacts: {
       totalProfiles: 1532,
       consentedContacts: 1420
@@ -2567,6 +2571,24 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         createdAt: "2026-06-20T09:00:00Z",
         activeSessionsCount: 0,
         capabilities: ["story.copy_edit", "story.edit_all", "story.submit"]
+      },
+      {
+        id: "prev-staff-007",
+        displayName: "Farai Moyo",
+        email: "farai.moyo@preview.healthtimes.co.zw",
+        handle: "farai.moyo",
+        roleId: "prev-role-008",
+        roleName: "Finance Manager",
+        desk: "Finance & Accounts",
+        beat: "Billing, receivables and financial control",
+        country: "Zimbabwe",
+        region: "Harare",
+        status: "active",
+        mfaRequired: true,
+        lastLoginAt: "2026-10-23T15:20:00Z",
+        createdAt: "2026-07-01T09:00:00Z",
+        activeSessionsCount: 1,
+        capabilities: [...FINANCE_DESK_CAPABILITIES]
       }
     ],
     invitations: [
@@ -2577,7 +2599,7 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         roleName: "Contributor",
         desk: "Guest Commentary",
         country: "Zimbabwe",
-        status: "pending",
+        status: "expired",
         createdAt: "2026-10-16T10:00:00Z",
         expiresAt: "2026-10-19T10:00:00Z"
       }
@@ -2638,6 +2660,12 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         name: "Contributor",
         description: "External or guest writer; can draft and submit stories for editorial review.",
         capabilities: ["story.create", "story.edit_own", "story.submit"]
+      },
+      {
+        id: "prev-role-008",
+        name: "Finance Manager",
+        description: "Invoices, receipts, receivables, expenses, statements, and financial controls.",
+        capabilities: [...FINANCE_DESK_CAPABILITIES]
       }
     ],
     capabilities: [
@@ -2715,7 +2743,25 @@ export function buildPreviewStaffOperationsDirectory(): NewsroomStaffOperationsD
         key: "staff.manage",
         description: "Full management of staff profiles, roles, and status",
         category: "staff_admin"
-      }
+      },
+      ...FINANCE_DESK_CAPABILITIES.map((key) => ({
+        key,
+        description: ({
+          "finance.view": "View finance operations and reconciliations",
+          "finance.invoice.create": "Create customer invoices",
+          "finance.invoice.approve": "Approve customer invoices",
+          "finance.invoice.issue": "Issue approved customer invoices",
+          "finance.payment.record": "Record and reconcile customer payments",
+          "finance.receivable.view": "View accounts receivable and aging",
+          "finance.expense.view": "View staff and operational expenses",
+          "finance.expense.create": "Create expense claims",
+          "finance.expense.approve": "Approve eligible expense claims",
+          "finance.expense.pay": "Record approved expense payments",
+          "finance.statement.view": "View finance statements and ledgers",
+          "finance.settings.manage": "Manage finance operating settings"
+        } as Record<string, string>)[key] ?? key,
+        category: "finance" as const
+      }))
     ],
     auditHistory: [
       {
@@ -2828,7 +2874,11 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
         destinationUrl: "https://hospaz.org.zw/",
         disclosureLabel: "Advertisement",
         status: "active",
-        createdAt: "2026-09-01T00:00:00Z"
+        createdAt: "2026-09-01T00:00:00Z",
+        assetUrl: "https://healthtimes.co.zw/wp-content/uploads/2026/08/HOSPAZ-1.jpg",
+        mimeType: "image/jpeg",
+        width: 1200,
+        height: 400
       },
       {
         id: "prev-cr-002",
@@ -2838,7 +2888,11 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
         destinationUrl: "https://mohcc.gov.zw/cholera-alert",
         disclosureLabel: "Public Health Notice",
         status: "active",
-        createdAt: "2026-09-28T12:00:00Z"
+        createdAt: "2026-09-28T12:00:00Z",
+        assetUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+        mimeType: "image/jpeg",
+        width: 1200,
+        height: 628
       },
       {
         id: "prev-cr-003",
@@ -2848,7 +2902,11 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
         destinationUrl: "https://cimas.co.zw/wellness",
         disclosureLabel: "Sponsored Content",
         status: "draft",
-        createdAt: "2026-10-16T14:20:00Z"
+        createdAt: "2026-10-16T14:20:00Z",
+        assetUrl: null,
+        mimeType: "image/jpeg",
+        width: 600,
+        height: 900
       }
     ],
     placements: [
@@ -2883,7 +2941,7 @@ export function buildPreviewAdvertisingOverview(): NewsroomAdvertisingOverview {
     metrics: {
       totalAdvertisers: 3,
       totalCampaigns: 3,
-      activeCampaigns: 2,
+      activeCampaigns: 1,
       pendingReviewCampaigns: 1,
       totalCreatives: 3,
       totalPlacements: 3
@@ -3551,8 +3609,8 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
       brevo: {
         name: "Brevo Email API",
         provider: "Brevo API v3",
-        status: "configured",
-        secretConfigured: true,
+        status: "prepared_dns_verification_pending",
+        secretConfigured: false,
         senderEmail: "newsdesk@healthtimes.co.zw",
         senderName: "HealthTimes Zimbabwe"
       },
@@ -3567,7 +3625,7 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
       search_console: {
         name: "Google Search Console",
         provider: "Google Search Console API v1",
-        status: "healthy",
+        status: "identity_verified_account_access_pending",
         secretConfigured: false,
         siteUrl: "sc-domain:healthtimes.co.zw",
         verified: true
@@ -3575,8 +3633,8 @@ export function buildPreviewPlatformSettingsOverview(): NewsroomPlatformSettings
       gemini_ai: {
         name: "Google Gemini 2.5",
         provider: "Google Generative AI API",
-        status: "active",
-        secretConfigured: true,
+        status: "sample_simulation_only",
+        secretConfigured: false,
         defaultModel: "gemini-2.5-flash",
         edgeFunction: "newsroom-ai-assist"
       },
@@ -3990,17 +4048,29 @@ export function buildPreviewReceivablesAging(): NewsroomReceivablesAging {
 }
 
 export function buildPreviewFinanceOverview(): NewsroomFinanceOverview {
+  const invoices = buildPreviewInvoices();
+  const payments = buildPreviewPayments();
+  const expenses = buildPreviewExpenses();
+  const invoicedTotal = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const revenueCollected = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const receivablesOutstanding = invoices.reduce((sum, invoice) => sum + invoice.balanceDue, 0);
+  const expensesApproved = expenses
+    .filter((expense) => ["approved", "paid"].includes(expense.status))
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const expensesPaid = expenses
+    .filter((expense) => expense.status === "paid")
+    .reduce((sum, expense) => sum + expense.amount, 0);
   return {
     byCurrency: [
       {
         currency: "USD",
-        invoicedTotal: 3410.0,
-        revenueCollected: 2125.0,
-        receivablesOutstanding: 1285.0,
+        invoicedTotal,
+        revenueCollected,
+        receivablesOutstanding,
         receivablesOverdue: 750.0,
-        expensesApproved: 165.0,
-        expensesPaid: 45.0,
-        operatingCashNet: 2080.0,
+        expensesApproved,
+        expensesPaid,
+        operatingCashNet: revenueCollected - expensesPaid,
         openInvoicesCount: 2,
         overdueInvoicesCount: 1
       }
@@ -4017,6 +4087,8 @@ export function buildPreviewFinanceOverview(): NewsroomFinanceOverview {
 }
 
 export function buildPreviewFinanceStatements(): NewsroomFinanceStatements {
+  const payments = buildPreviewPayments();
+  const cashReceiptsTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
   return {
     period: {
       startDate: "2026-10-01",
@@ -4038,7 +4110,7 @@ export function buildPreviewFinanceStatements(): NewsroomFinanceStatements {
       { placement: "sponsored_content", currency: "USD", revenue: 652.17 }
     ],
     cashReceipts: [
-      { method: "bank_transfer", currency: "USD", totalAmount: 2125.0, receiptsCount: 1 }
+      { method: "bank_transfer", currency: "USD", totalAmount: cashReceiptsTotal, receiptsCount: payments.length }
     ],
     expenseSummary: [
       { category: "travel", currency: "USD", totalAmount: 45.0, count: 1 },
@@ -4074,12 +4146,16 @@ export function buildPreviewFiscalPeriods(): NewsroomFiscalPeriod[] {
 }
 
 export function buildPreviewTrialBalance(): NewsroomTrialBalance {
+  const invoices = buildPreviewInvoices();
+  const payments = buildPreviewPayments();
+  const invoicedTotal = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const paymentsTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
   return {
     periodId: "fp-2026-q4",
     currency: "USD",
     accounts: [
-      { accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", debitTotal: 2125.0, creditTotal: 45.0, netBalance: 2080.0 },
-      { accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", debitTotal: 3410.0, creditTotal: 2125.0, netBalance: 1285.0 },
+      { accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", accountType: "ASSET", debitTotal: paymentsTotal, creditTotal: 45.0, netBalance: paymentsTotal - 45.0 },
+      { accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable (Trade)", accountType: "ASSET", debitTotal: invoicedTotal, creditTotal: paymentsTotal, netBalance: invoicedTotal - paymentsTotal },
       { accountId: "coa-2000", accountCode: "2000", accountName: "Accounts Payable (Trade)", accountType: "LIABILITY", debitTotal: 45.0, creditTotal: 165.0, netBalance: 120.0 },
       { accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax Payable", accountType: "LIABILITY", debitTotal: 0.0, creditTotal: 444.78, netBalance: 444.78 },
       { accountId: "coa-4000", accountCode: "4000", accountName: "Direct Advertising Revenue", accountType: "REVENUE", debitTotal: 0.0, creditTotal: 2965.22, netBalance: 2965.22 },
@@ -4111,48 +4187,59 @@ export function buildPreviewProfitAndLoss(): NewsroomProfitAndLoss {
 }
 
 export function buildPreviewBalanceSheet(): NewsroomBalanceSheet {
+  const finance = buildPreviewFinanceOverview().byCurrency[0]!;
+  const pnl = buildPreviewProfitAndLoss();
+  const totalLiabilities = 564.78;
+  const totalAssets = finance.operatingCashNet + finance.receivablesOutstanding;
   return {
     asOfDate: "2026-10-31",
     currency: "USD",
     assets: [
-      { accountCode: "1000", accountName: "Operating Cash / Bank", amount: 2080.0 },
-      { accountCode: "1200", accountName: "Accounts Receivable (Trade)", amount: 1285.0 }
+      { accountCode: "1000", accountName: "Operating Cash / Bank", amount: finance.operatingCashNet },
+      { accountCode: "1200", accountName: "Accounts Receivable (Trade)", amount: finance.receivablesOutstanding }
     ],
-    totalAssets: 3365.0,
+    totalAssets,
     liabilities: [
       { accountCode: "2000", accountName: "Accounts Payable (Trade)", amount: 120.0 },
       { accountCode: "2100", accountName: "VAT Output Tax Payable", amount: 444.78 }
     ],
-    totalLiabilities: 564.78,
+    totalLiabilities,
     equity: [
-      { accountCode: "3999", accountName: "Current Period Operating Surplus / Retained Earnings", amount: 2800.22 }
+      { accountCode: "3999", accountName: "Current Period Operating Surplus / Retained Earnings", amount: pnl.netOperatingSurplus }
     ],
-    totalEquity: 2800.22,
-    totalLiabilitiesAndEquity: 3365.0,
-    isBalanced: true
+    totalEquity: pnl.netOperatingSurplus,
+    totalLiabilitiesAndEquity: totalLiabilities + pnl.netOperatingSurplus,
+    isBalanced: Math.abs(totalAssets - (totalLiabilities + pnl.netOperatingSurplus)) < 0.01
   };
 }
 
 export function buildPreviewCustomerStatement(customerId?: string): NewsroomCustomerStatement {
+  const resolvedCustomerId = customerId ?? "cust-sample-1";
+  const invoice = buildPreviewInvoices().find((item) => item.customerId === resolvedCustomerId) ?? buildPreviewInvoices()[0]!;
+  const payment = buildPreviewPayments().find((item) => item.invoiceId === invoice.id);
+  const totalPaid = payment?.amount ?? 0;
   return {
-    customerId: customerId ?? "cust-sample-1",
-    customerName: "Health Corp Zimbabwe Ltd",
+    customerId: resolvedCustomerId,
+    customerName: invoice.customerName,
     currency: "USD",
     fromDate: "2026-10-01",
     toDate: "2026-10-31",
     openingBalance: 0.0,
-    totalInvoiced: 2125.0,
-    totalPaid: 2125.0,
+    totalInvoiced: invoice.total,
+    totalPaid,
     totalCredits: 0.0,
-    closingBalance: 0.0,
+    closingBalance: invoice.total - totalPaid,
     activity: [
-      { type: "invoice", reference: "INV-2026-0001", activityDate: "2026-10-02", amount: 2125.0, memo: "Cholera Awareness Campaign Masthead Sponsorship" },
-      { type: "payment", reference: "PAY-2026-0001", activityDate: "2026-10-08", amount: 2125.0, memo: "Settlement via Bank Wire Ref #BW-8829" }
+      { type: "invoice", reference: invoice.invoiceNumber, activityDate: invoice.issueDate ?? "2026-10-02", amount: invoice.total, memo: invoice.notes ?? "Customer invoice" },
+      ...(payment ? [{ type: "payment" as const, reference: payment.paymentNumber, activityDate: payment.paymentDate, amount: payment.amount, memo: payment.notes ?? "Customer payment" }] : [])
     ]
   };
 }
 
 export function buildPreviewJournals(): NewsroomJournalEntry[] {
+  const invoice = buildPreviewInvoices().find((item) => item.invoiceNumber === "INV-2026-0001")!;
+  const payment = buildPreviewPayments().find((item) => item.paymentNumber === "PAY-2026-0001")!;
+  const netRevenue = invoice.total - invoice.taxTotal;
   return [
     {
       id: "jrn-sample-1",
@@ -4167,9 +4254,9 @@ export function buildPreviewJournals(): NewsroomJournalEntry[] {
       postedAt: "2026-10-02T10:00:00Z",
       createdAt: "2026-10-02T10:00:00Z",
       lines: [
-        { lineNumber: 1, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 2125.0, credit: 0.0, description: "Customer receivable for INV-2026-0001" },
-        { lineNumber: 2, accountId: "coa-4000", accountCode: "4000", accountName: "Advertising Revenue", debit: 0.0, credit: 1847.83, description: "Net advertising revenue" },
-        { lineNumber: 3, accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax", debit: 0.0, credit: 277.17, description: "15% VAT output tax" }
+        { lineNumber: 1, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: invoice.total, credit: 0.0, description: "Customer receivable for INV-2026-0001" },
+        { lineNumber: 2, accountId: "coa-4000", accountCode: "4000", accountName: "Advertising Revenue", debit: 0.0, credit: netRevenue, description: "Net advertising revenue" },
+        { lineNumber: 3, accountId: "coa-2100", accountCode: "2100", accountName: "VAT Output Tax", debit: 0.0, credit: invoice.taxTotal, description: "VAT output tax" }
       ]
     },
     {
@@ -4185,8 +4272,8 @@ export function buildPreviewJournals(): NewsroomJournalEntry[] {
       postedAt: "2026-10-08T14:30:00Z",
       createdAt: "2026-10-08T14:30:00Z",
       lines: [
-        { lineNumber: 1, accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", debit: 2125.0, credit: 0.0, description: "Cash receipt for INV-2026-0001" },
-        { lineNumber: 2, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 0.0, credit: 2125.0, description: "Clear AR via PAY-2026-0001" }
+        { lineNumber: 1, accountId: "coa-1000", accountCode: "1000", accountName: "Operating Cash / Bank", debit: payment.amount, credit: 0.0, description: "Cash receipt for INV-2026-0001" },
+        { lineNumber: 2, accountId: "coa-1200", accountCode: "1200", accountName: "Accounts Receivable", debit: 0.0, credit: payment.amount, description: "Clear AR via PAY-2026-0001" }
       ]
     }
   ];

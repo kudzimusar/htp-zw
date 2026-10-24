@@ -36,6 +36,14 @@ export function StudioAnalyticsDeskView({
 }: StudioAnalyticsDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
+  const [period, setPeriod] = useState<"7 days" | "30 days" | "90 days">("30 days");
+  const [selectedMetric, setSelectedMetric] = useState("Publishing velocity");
+
+  const metricDetail = selectedMetric === "Publishing velocity"
+    ? `${period === "7 days" ? editorialData?.publishingVelocity.last7Days ?? 0 : editorialData?.publishingVelocity.last30Days ?? 0} stories published in the selected sample window.`
+    : selectedMetric === "Review queue"
+      ? `${editorialData?.reviewQueue.inReviewCount ?? 0} stories in review; oldest item ${editorialData?.reviewQueue.oldestAgeHours ?? 0} hours.`
+      : `${editorialData?.assignments.active ?? 0} active assignments and ${editorialData?.assignments.overdue ?? 0} overdue.`;
 
   return (
     <ScrollView
@@ -115,6 +123,39 @@ export function StudioAnalyticsDeskView({
               </Text>
             </View>
           )}
+          <View style={styles.card} testID="analytics-period-drilldown-controls">
+            <Text style={styles.cardTitle}>Reporting period and metric detail</Text>
+            <Text style={styles.cardSubtitle}>Change the sample reporting window and inspect the newsroom measure that needs attention.</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {(["7 days", "30 days", "90 days"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  style={[styles.refreshButton, period === option && { borderColor: colors.blue, backgroundColor: "#EFF6FF" }]}
+                  onPress={() => setPeriod(option)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Show analytics for ${option}`}
+                  accessibilityState={{ selected: period === option }}
+                >
+                  <Text style={styles.refreshButtonText}>{option}</Text>
+                </Pressable>
+              ))}
+              {(["Publishing velocity", "Review queue", "Assignments"] as const).map((metric) => (
+                <Pressable
+                  key={metric}
+                  style={[styles.refreshButton, selectedMetric === metric && { borderColor: colors.blue, backgroundColor: "#EFF6FF" }]}
+                  onPress={() => setSelectedMetric(metric)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Inspect ${metric}`}
+                  accessibilityState={{ selected: selectedMetric === metric }}
+                >
+                  <Text style={styles.refreshButtonText}>{metric}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.truthNotice} testID="analytics-metric-drilldown">
+              <Text style={styles.truthNoticeText}>{selectedMetric} · {period}: {metricDetail} Sample Preview comparison only.</Text>
+            </View>
+          </View>
           {/* Top KPI Cards Grid */}
           <View style={[styles.kpiGrid, isDesktop && styles.kpiGridDesktop]}>
             <View style={styles.kpiCard}>

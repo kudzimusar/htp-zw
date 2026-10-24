@@ -1369,5 +1369,132 @@ test("HT-FINAL-UI-RES-01: Platform Settings Owner Preview uses sample audit, sam
   }
 });
 
+test("HT-NR-UAT04A-FINAL-R2: finance transaction lineage reconciles from source records", () => {
+  const orders = previewData.buildPreviewCommercialOrders();
+  const invoices = previewData.buildPreviewInvoices();
+  const payments = previewData.buildPreviewPayments();
+  const statement = previewData.buildPreviewCustomerStatement("cust-sample-1");
+  const journals = previewData.buildPreviewJournals();
+  const trialBalance = previewData.buildPreviewTrialBalance();
+  const pnl = previewData.buildPreviewProfitAndLoss();
+  const balanceSheet = previewData.buildPreviewBalanceSheet();
+
+  const order = orders.find((item) => item.orderNumber === "ORD-2026-0001");
+  const invoice = invoices.find((item) => item.invoiceNumber === "INV-2026-0001");
+  const payment = payments.find((item) => item.paymentNumber === "PAY-2026-0001");
+  assert.ok(order && invoice && payment);
+  assert.equal(order.total, 1625);
+  assert.equal(order.total, invoice.total);
+  assert.equal(payment.amount, invoice.amountPaid);
+  assert.equal(invoice.total - invoice.amountPaid, invoice.balanceDue);
+  assert.equal(statement.totalInvoiced, invoice.total);
+  assert.equal(statement.totalPaid, payment.amount);
+  assert.equal(statement.closingBalance, invoice.balanceDue);
+
+  for (const candidateInvoice of invoices) {
+    const invoicePayments = payments
+      .filter((candidate) => candidate.invoiceId === candidateInvoice.id)
+      .reduce((sum, candidate) => sum + candidate.amount, 0);
+    assert.equal(invoicePayments, candidateInvoice.amountPaid);
+    assert.equal(candidateInvoice.total - candidateInvoice.amountPaid, candidateInvoice.balanceDue);
+    if (candidateInvoice.orderId) {
+      assert.equal(orders.find((candidate) => candidate.id === candidateInvoice.orderId)?.total, candidateInvoice.total);
+    }
+  }
+
+  for (const journal of journals) {
+    const debit = journal.lines.reduce((sum, line) => sum + line.debit, 0);
+    const credit = journal.lines.reduce((sum, line) => sum + line.credit, 0);
+    assert.equal(debit, credit);
+    if (journal.source === "invoice") assert.ok(invoices.some((candidate) => candidate.id === journal.sourceId));
+    if (journal.source === "payment") assert.ok(payments.some((candidate) => candidate.id === journal.sourceId));
+  }
+
+  const derivedDebits = trialBalance.accounts.reduce((sum, account) => sum + account.debitTotal, 0);
+  const derivedCredits = trialBalance.accounts.reduce((sum, account) => sum + account.creditTotal, 0);
+  assert.equal(derivedDebits, trialBalance.totalDebits);
+  assert.equal(derivedCredits, trialBalance.totalCredits);
+  assert.equal(derivedDebits, derivedCredits);
+  assert.equal(pnl.totalRevenue - pnl.totalExpenses, pnl.netOperatingSurplus);
+  assert.equal(balanceSheet.totalAssets, balanceSheet.totalLiabilities + balanceSheet.totalEquity);
+});
+
+test("HT-NR-UAT04A-FINAL-R2: Finance Manager authority, entitlement totals, advertising and invitations are coherent", () => {
+  const directory = previewData.buildPreviewStaffOperationsDirectory();
+  const financeStaff = directory.staff.find((item) => item.roleName === "Finance Manager");
+  const financeRole = directory.roles.find((item) => item.name === "Finance Manager");
+  const financeCapabilities = directory.capabilities.filter((item) => item.key.startsWith("finance."));
+  assert.ok(financeStaff && financeRole);
+  assert.ok(financeRole.capabilities.length > 0);
+  assert.deepEqual(financeStaff.capabilities, financeRole.capabilities);
+  assert.equal(financeCapabilities.length, financeRole.capabilities.length);
+  assert.ok(directory.invitations.every((item) => Date.parse(item.expiresAt) >= previewData.OWNER_PREVIEW_REFERENCE_MS || item.status === "expired"));
+
+  const premium = previewData.buildPreviewPremiumOperationsOverview();
+  const channelTotal = premium.subscriberStats.providers.reduce((sum, item) => sum + item.count, 0);
+  assert.equal(channelTotal, premium.subscriberStats.activeEntitlementsCount);
+  assert.equal(channelTotal, premium.subscriberStats.totalEntitledSubscribers);
+
+  const advertising = previewData.buildPreviewAdvertisingOverview();
+  assert.equal(advertising.metrics.activeCampaigns, advertising.campaigns.filter((item) => item.status === "active").length);
+  assert.ok(advertising.creatives.some((item) => item.assetUrl && item.mimeType?.startsWith("image/")));
+});
+
+test("HT-NR-UAT04A-FINAL-R2: form validation, analytics controls, provider truthfulness and deterministic rendering are guarded", () => {
+  const financeSource = read("src/ui/StudioFinanceDesk.tsx");
+  const whatsappSource = read("src/ui/StudioWhatsAppDesk.tsx");
+  const audienceSource = read("src/ui/StudioAudienceDesk.tsx");
+  const analyticsSource = read("src/ui/StudioAnalyticsDesk.tsx");
+  const settingsSource = read("src/ui/StudioSettingsDesk.tsx");
+  const searchSource = read("src/ui/StudioSearchGrowthDesk.tsx");
+  const premiumSource = read("src/ui/StudioPremiumDesk.tsx");
+  const previewSource = read("src/preview/newsroomPreviewData.ts");
+
+  assert.ok(financeSource.includes("Quantity must be greater than zero."));
+  assert.ok(financeSource.includes("Unit price must be greater than zero."));
+  assert.ok(financeSource.includes("Payment cannot exceed the outstanding balance."));
+  assert.ok(financeSource.includes('testID="finance-invoice-detail"'));
+  assert.ok(financeSource.includes('testID="finance-order-detail"'));
+  assert.ok(whatsappSource.includes("Scheduled send timezone"));
+  assert.ok(whatsappSource.includes("Suppressed and opted-out contacts are excluded"));
+  assert.ok(whatsappSource.includes("Approved template"));
+  assert.ok(audienceSource.includes('testID="audience-segment-drilldown"'));
+  assert.ok(analyticsSource.includes('testID="analytics-metric-drilldown"'));
+  assert.ok(settingsSource.includes("DNS verification pending") || previewSource.includes("prepared_dns_verification_pending"));
+  assert.ok(previewSource.includes("identity_verified_account_access_pending"));
+  assert.ok(previewSource.includes("sample_simulation_only"));
+  assert.ok(searchSource.includes("toFixed(1)"));
+  assert.ok(premiumSource.includes(".filter((provider)"));
+  assert.ok(previewSource.includes('OWNER_PREVIEW_REFERENCE_ISO = "2026-10-24T12:00:00.000Z"'));
+  assert.deepEqual(previewData.buildPreviewStories(), previewData.buildPreviewStories());
+});
+
+test("HT-NR-UAT04A-FINAL-R2: critical Preview controls expose accessible semantics and the root shell is width-bounded", () => {
+  const financeSource = read("src/ui/StudioFinanceDesk.tsx");
+  const whatsappSource = read("src/ui/StudioWhatsAppDesk.tsx");
+  const staffSource = read("src/ui/StudioStaffRolesDesk.tsx");
+  const settingsSource = read("src/ui/StudioSettingsDesk.tsx");
+  const shellSource = read("src/preview/OwnerPreviewStudio.tsx");
+  const htmlSource = read("app/+html.tsx");
+
+  for (const label of ["Invoice description", "Invoice quantity", "Invoice unit price", "Payment amount", "Record customer payment"]) {
+    assert.ok(financeSource.includes(`accessibilityLabel="${label}"`));
+  }
+  for (const label of ["Broadcast title", "WhatsApp message body", "Scheduled send date", "Scheduled send timezone"]) {
+    assert.ok(whatsappSource.includes(`accessibilityLabel="${label}"`));
+  }
+  assert.ok(staffSource.includes('accessibilityLabel="Staff invitation email address"'));
+  assert.ok(settingsSource.includes('accessibilityRole="switch"'));
+  assert.ok(settingsSource.includes("accessibilityState={{ selected: isSelected"));
+  assert.ok(shellSource.includes('accessibilityLabel={`Switch preview persona to ${p.role}`}'));
+  assert.ok(shellSource.includes("accessibilityState={{ selected: isSelected }}"));
+  assert.ok(shellSource.includes("aria-pressed={isSelected}"));
+  assert.ok(shellSource.includes("const isDesktop = hasHydrated && width >= breakpoints.desktop"));
+  assert.ok(shellSource.includes("nowMs={OWNER_PREVIEW_REFERENCE_MS}"));
+  assert.match(shellSource, /pageRoot:\s*\{[\s\S]*?maxWidth:\s*"100%"[\s\S]*?overflow:\s*"hidden"/);
+  assert.match(shellSource, /mainScroll:\s*\{[\s\S]*?minWidth:\s*0[\s\S]*?maxWidth:\s*"100%"/);
+  assert.ok(htmlSource.includes("html,body,#root{max-width:100%;overflow-x:hidden}"));
+});
+
 
 

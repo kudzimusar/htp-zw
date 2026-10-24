@@ -139,6 +139,11 @@ export function StudioWhatsAppDeskView({
   const [newBody, setNewBody] = useState("");
   const [newType, setNewType] = useState<NewsroomWhatsAppBroadcastType>("breaking_alert");
   const [newStoryId, setNewStoryId] = useState("");
+  const [newMessageMode, setNewMessageMode] = useState<"approved_template" | "session_message">("approved_template");
+  const [newTemplateName, setNewTemplateName] = useState("healthtimes_news_update");
+  const [newScheduledDate, setNewScheduledDate] = useState("");
+  const [newScheduledTime, setNewScheduledTime] = useState("");
+  const [newTimezone, setNewTimezone] = useState("Africa/Harare");
   const [createValidationMessage, setCreateValidationMessage] = useState<string | null>(null);
 
   // Dispatch confirmation dialog state
@@ -167,12 +172,24 @@ export function StudioWhatsAppDeskView({
   }, [broadcasts, statusFilter, typeFilter, searchQuery]);
 
   const handleCreateSubmit = async () => {
+    if (newMessageMode === "approved_template" && !newTemplateName.trim()) {
+      setCreateValidationMessage("Choose an approved template before saving this broadcast.");
+      return;
+    }
+    if ((newScheduledDate && !newScheduledTime) || (!newScheduledDate && newScheduledTime)) {
+      setCreateValidationMessage("Provide both a scheduled date and time, or leave both blank.");
+      return;
+    }
     const input: NewsroomWhatsAppBroadcastCreateInput = {
       title: newTitle.trim(),
       body: newBody.trim(),
       broadcast_type: newType,
       channel_identity: "healthtimes-whatsapp-channel",
-      related_story_id: newStoryId.trim() ? newStoryId.trim() : null
+      related_story_id: newStoryId.trim() ? newStoryId.trim() : null,
+      message_mode: newMessageMode,
+      template_name: newMessageMode === "approved_template" ? newTemplateName.trim() : null,
+      scheduled_at: newScheduledDate && newScheduledTime ? `${newScheduledDate}T${newScheduledTime}:00` : null,
+      timezone: newTimezone
     };
 
     const validation = validateWhatsAppBroadcastCreateInput(input);
@@ -188,6 +205,11 @@ export function StudioWhatsAppDeskView({
       setNewBody("");
       setNewStoryId("");
       setNewType("breaking_alert");
+      setNewMessageMode("approved_template");
+      setNewTemplateName("healthtimes_news_update");
+      setNewScheduledDate("");
+      setNewScheduledTime("");
+      setNewTimezone("Africa/Harare");
       onCancelCreate();
     } catch {
       // Error handled by parent
@@ -417,6 +439,7 @@ export function StudioWhatsAppDeskView({
                   onChangeText={setNewTitle}
                   maxLength={200}
                   testID="whatsapp-title-input"
+                  accessibilityLabel="Broadcast title"
                 />
                 <Text style={styles.charCounter}>{newTitle.length}/200</Text>
               </View>
@@ -433,6 +456,9 @@ export function StudioWhatsAppDeskView({
                         newType === t && styles.typeButtonSelected
                       ]}
                       onPress={() => setNewType(t)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Set broadcast type to ${formatTypeLabel(t)}`}
+                      accessibilityState={{ selected: newType === t }}
                     >
                       <Text
                         style={[
@@ -460,8 +486,72 @@ export function StudioWhatsAppDeskView({
                   numberOfLines={6}
                   maxLength={4096}
                   testID="whatsapp-body-input"
+                  accessibilityLabel="WhatsApp message body"
                 />
                 <Text style={styles.charCounter}>{newBody.length}/4096</Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Message governance</Text>
+                <View style={styles.typeSelector}>
+                  {(["approved_template", "session_message"] as const).map((mode) => (
+                    <Pressable
+                      key={mode}
+                      style={[styles.typeButton, newMessageMode === mode && styles.typeButtonSelected]}
+                      onPress={() => setNewMessageMode(mode)}
+                      accessibilityRole="button"
+                      accessibilityLabel={mode === "approved_template" ? "Use approved WhatsApp template" : "Use session message"}
+                      accessibilityState={{ selected: newMessageMode === mode }}
+                    >
+                      <Text style={[styles.typeButtonText, newMessageMode === mode && styles.typeButtonTextSelected]}>
+                        {mode === "approved_template" ? "Approved template" : "24-hour session message"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {newMessageMode === "approved_template" && (
+                  <TextInput
+                    style={styles.textInput}
+                    value={newTemplateName}
+                    onChangeText={setNewTemplateName}
+                    placeholder="Approved template name"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Approved WhatsApp template name"
+                  />
+                )}
+                <Text style={styles.charCounter}>
+                  Template broadcasts require Meta approval. Session messages are available only inside an active 24-hour reader conversation.
+                </Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Schedule (Optional)</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                  <TextInput
+                    style={[styles.textInput, { flex: 1, minWidth: 150 }]}
+                    value={newScheduledDate}
+                    onChangeText={setNewScheduledDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Scheduled send date"
+                  />
+                  <TextInput
+                    style={[styles.textInput, { flex: 1, minWidth: 120 }]}
+                    value={newScheduledTime}
+                    onChangeText={setNewScheduledTime}
+                    placeholder="HH:MM"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Scheduled send time"
+                  />
+                  <TextInput
+                    style={[styles.textInput, { flex: 1, minWidth: 150 }]}
+                    value={newTimezone}
+                    onChangeText={setNewTimezone}
+                    placeholder="Africa/Harare"
+                    placeholderTextColor={colors.inkMuted}
+                    accessibilityLabel="Scheduled send timezone"
+                  />
+                </View>
               </View>
 
               {/* Linked Editorial Story */}
@@ -475,6 +565,9 @@ export function StudioWhatsAppDeskView({
                         !newStoryId && styles.typeButtonSelected
                       ]}
                       onPress={() => setNewStoryId("")}
+                      accessibilityRole="button"
+                      accessibilityLabel="Use as standalone advisory"
+                      accessibilityState={{ selected: !newStoryId }}
                     >
                       <Text
                         style={[
@@ -493,6 +586,9 @@ export function StudioWhatsAppDeskView({
                           newStoryId === st.id && styles.typeButtonSelected
                         ]}
                         onPress={() => setNewStoryId(st.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Link broadcast to ${st.title}`}
+                        accessibilityState={{ selected: newStoryId === st.id }}
                       >
                         <Text
                           style={[
@@ -536,12 +632,14 @@ export function StudioWhatsAppDeskView({
                   onPress={handleCreateSubmit}
                   disabled={!newTitle.trim() || newBody.trim().length < 10 || isSubmitting}
                   testID="whatsapp-create-submit-btn"
+                  accessibilityRole="button"
+                  accessibilityLabel="Save WhatsApp broadcast as draft"
                 >
                   <Text style={styles.primaryButtonText}>
                     {isSubmitting ? "Creating…" : "Save as Draft"}
                   </Text>
                 </Pressable>
-                <Pressable style={styles.secondaryButton} onPress={onCancelCreate}>
+                <Pressable style={styles.secondaryButton} onPress={onCancelCreate} accessibilityRole="button" accessibilityLabel="Cancel new WhatsApp broadcast">
                   <Text style={styles.secondaryButtonText}>Cancel</Text>
                 </Pressable>
               </View>
@@ -633,11 +731,19 @@ export function StudioWhatsAppDeskView({
                   </Text>
                   <Text style={styles.ledgerMetaItem}>
                     • <Text style={styles.boldText}>3. Template & Governance State:</Text>{" "}
-                    Verified Meta Business Channel Advisory ({formatTypeLabel(selectedBroadcast.broadcastType)}) • No raw subscriber contact details exposed to newsroom clients.
+                    {selectedBroadcast.messageMode === "session_message"
+                      ? "24-hour session message"
+                      : `Approved template${selectedBroadcast.templateName ? ` (${selectedBroadcast.templateName})` : ""}`} ({formatTypeLabel(selectedBroadcast.broadcastType)}) • No raw subscriber contact details exposed to newsroom clients.
                   </Text>
                   <Text style={styles.ledgerMetaItem}>
                     • <Text style={styles.boldText}>4. Audience Consent / Opt-In:</Text>{" "}
-                    Restricted to explicitly opted-in HealthTimes WhatsApp Channel subscribers (POPIA/GDPR compliant consent ledger).
+                    Restricted to explicitly opted-in HealthTimes WhatsApp subscribers. Suppressed and opted-out contacts are excluded before dispatch; the sample eligibility check accounts for 18 suppressed and 7 opted-out contacts.
+                  </Text>
+                  <Text style={styles.ledgerMetaItem}>
+                    • <Text style={styles.boldText}>Scheduled Delivery:</Text>{" "}
+                    {selectedBroadcast.scheduledAt
+                      ? `${formatTimestamp(selectedBroadcast.scheduledAt)} (${selectedBroadcast.timezone ?? "Africa/Harare"})`
+                      : "Not scheduled — an authorized operator must choose when to prepare dispatch."}
                   </Text>
                   <Text style={styles.ledgerMetaItem}>
                     • <Text style={styles.boldText}>5. Provider Dispatch & Delivery State:</Text>{" "}

@@ -111,6 +111,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   editorial: "Editorial",
   distribution: "Distribution",
   commercial: "Commercial",
+  finance: "Finance & Accounting",
   audit: "Audit & Security",
   staff_admin: "Staff & Admin"
 };
@@ -304,6 +305,9 @@ export function StudioStaffRolesDeskView({
         <Pressable
           onPress={() => onChangeTab("directory")}
           style={[styles.tabBtn, activeTab === "directory" && styles.tabBtnActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Open staff directory"
+          accessibilityState={{ selected: activeTab === "directory" }}
         >
           <Text
             style={[
@@ -317,6 +321,9 @@ export function StudioStaffRolesDeskView({
         <Pressable
           onPress={() => onChangeTab("roles")}
           style={[styles.tabBtn, activeTab === "roles" && styles.tabBtnActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Open roles and capabilities"
+          accessibilityState={{ selected: activeTab === "roles" }}
         >
           <Text
             style={[
@@ -330,6 +337,9 @@ export function StudioStaffRolesDeskView({
         <Pressable
           onPress={() => onChangeTab("invitations")}
           style={[styles.tabBtn, activeTab === "invitations" && styles.tabBtnActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Open staff invitations"
+          accessibilityState={{ selected: activeTab === "invitations" }}
         >
           <Text
             style={[
@@ -343,6 +353,9 @@ export function StudioStaffRolesDeskView({
         <Pressable
           onPress={() => onChangeTab("audit")}
           style={[styles.tabBtn, activeTab === "audit" && styles.tabBtnActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Open staff security audit"
+          accessibilityState={{ selected: activeTab === "audit" }}
         >
           <Text
             style={[
@@ -688,6 +701,8 @@ export function StudioStaffRolesDeskView({
                 <Pressable
                   onPress={() => setShowInviteForm(!showInviteForm)}
                   style={styles.actionBtnPrimary}
+                  accessibilityRole="button"
+                  accessibilityLabel={showInviteForm ? "Close staff invitation form" : "Invite a staff member"}
                 >
                   <Text style={styles.actionBtnPrimaryText}>
                     {showInviteForm ? "Close Form" : "+ Invite Staff"}
@@ -716,6 +731,7 @@ export function StudioStaffRolesDeskView({
                     onChangeText={setInviteEmail}
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    accessibilityLabel="Staff invitation email address"
                   />
                 </View>
 
@@ -727,6 +743,7 @@ export function StudioStaffRolesDeskView({
                     placeholderTextColor={colors.inkMuted}
                     value={inviteName}
                     onChangeText={setInviteName}
+                    accessibilityLabel="Staff invitation display name"
                   />
                 </View>
 
@@ -745,11 +762,15 @@ export function StudioStaffRolesDeskView({
                       "Editor-in-Chief",
                       "Contributor",
                       "Commercial Manager",
+                      "Finance Manager",
                       "Publisher / Owner"
                     ].map((r) => (
                       <Pressable
                         key={r}
                         onPress={() => setInviteRole(r)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Assign ${r} role`}
+                        accessibilityState={{ selected: inviteRole === r }}
                         style={[
                           styles.roleOptionChip,
                           inviteRole === r && styles.roleOptionChipActive
@@ -777,6 +798,7 @@ export function StudioStaffRolesDeskView({
                       placeholderTextColor={colors.inkMuted}
                       value={inviteDesk}
                       onChangeText={setInviteDesk}
+                      accessibilityLabel="Staff invitation desk"
                     />
                   </View>
                   <View style={[styles.formField, { flex: 1 }]}>
@@ -787,6 +809,7 @@ export function StudioStaffRolesDeskView({
                       placeholderTextColor={colors.inkMuted}
                       value={inviteCountry}
                       onChangeText={setInviteCountry}
+                      accessibilityLabel="Staff invitation country"
                     />
                   </View>
                 </View>
@@ -796,6 +819,9 @@ export function StudioStaffRolesDeskView({
                     onPress={handleSendInvite}
                     style={styles.actionBtnPrimary}
                     disabled={isMutating}
+                    accessibilityRole="button"
+                    accessibilityLabel="Create staff invitation"
+                    accessibilityState={{ disabled: isMutating }}
                   >
                     <Text style={styles.actionBtnPrimaryText}>
                       {isMutating ? "Sending..." : "Create & Send Invitation"}
@@ -804,6 +830,8 @@ export function StudioStaffRolesDeskView({
                   <Pressable
                     onPress={() => setShowInviteForm(false)}
                     style={styles.actionBtnCancel}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel staff invitation"
                   >
                     <Text style={styles.actionBtnCancelText}>Cancel</Text>
                   </Pressable>

@@ -3040,6 +3040,10 @@ export interface NewsroomWhatsAppBroadcastCreateInput {
   broadcast_type: NewsroomWhatsAppBroadcastType;
   channel_identity?: string;
   related_story_id?: string | null;
+  message_mode?: "approved_template" | "session_message";
+  template_name?: string | null;
+  scheduled_at?: string | null;
+  timezone?: string | null;
 }
 
 export interface NewsroomWhatsAppDispatch {
@@ -3077,6 +3081,10 @@ export interface NewsroomWhatsAppBroadcast {
   rejectionReason: string | null;
   createdAt: string;
   updatedAt: string;
+  messageMode?: "approved_template" | "session_message";
+  templateName?: string | null;
+  scheduledAt?: string | null;
+  timezone?: string | null;
   dispatch?: NewsroomWhatsAppDispatch | null;
 }
 
@@ -3434,6 +3442,10 @@ export interface NewsroomAdCreative {
   disclosureLabel: string;
   status: string;
   createdAt: string;
+  assetUrl?: string | null;
+  mimeType?: string | null;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface NewsroomAdPlacement {
