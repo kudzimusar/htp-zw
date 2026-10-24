@@ -59,6 +59,8 @@ export type FinanceTab =
 interface StudioFinanceDeskProps {
   initialTab?: FinanceTab;
   isOwnerPreview?: boolean;
+  defaultExpenseScope?: "all" | "my";
+  currentStaffName?: string;
   previewOverview?: NewsroomFinanceOverview;
   previewStatements?: NewsroomFinanceStatements;
   previewAging?: NewsroomReceivablesAging;
@@ -77,6 +79,8 @@ interface StudioFinanceDeskProps {
 export function StudioFinanceDeskView({
   initialTab = "overview",
   isOwnerPreview = false,
+  defaultExpenseScope = "all",
+  currentStaffName = "Kudzanai Musarurwa",
   previewOverview,
   previewStatements,
   previewAging,
@@ -94,7 +98,8 @@ export function StudioFinanceDeskView({
   const [activeTab, setActiveTab] = useState<FinanceTab>(initialTab);
   const [currencyFilter, setCurrencyFilter] = useState<string>("USD");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>("all");
-  const [expenseScope, setExpenseScope] = useState<"all" | "my">("all");
+  const [expenseScope, setExpenseScope] = useState<"all" | "my">(defaultExpenseScope);
+  const [localExpenses, setLocalExpenses] = useState<NewsroomExpenseItem[]>([]);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -175,7 +180,17 @@ export function StudioFinanceDeskView({
   const invoicesData = isOwnerPreview ? previewInvoices : liveInvoices.data ?? [];
   const agingData = isOwnerPreview ? previewAging : liveAging.data;
   const paymentsData = isOwnerPreview ? previewPayments : livePayments.data ?? [];
-  const expensesData = isOwnerPreview ? previewExpenses : liveExpenses.data ?? [];
+  const rawExpenses = isOwnerPreview ? [...localExpenses, ...previewExpenses] : (liveExpenses.data ?? []);
+  const expensesData = useMemo(() => {
+    if (expenseScope === "my") {
+      const staffName = currentStaffName.trim().toLowerCase();
+      return rawExpenses.filter((e) => {
+        const subName = (e.submittedByName ?? "").trim().toLowerCase();
+        return subName === staffName || subName.includes(staffName.split(" ")[0] ?? "");
+      });
+    }
+    return rawExpenses;
+  }, [rawExpenses, expenseScope, currentStaffName]);
   const statementsData = isOwnerPreview ? previewStatements : liveStatements.data;
   const customersData = isOwnerPreview ? previewCustomers : liveCustomers.data ?? [];
   const ordersData = isOwnerPreview ? previewOrders : liveOrders.data ?? [];
@@ -203,6 +218,8 @@ export function StudioFinanceDeskView({
   const [expAmount, setExpAmount] = useState<string>("");
   const [expCurrency, setExpCurrency] = useState<string>("USD");
   const [expDept, setExpDept] = useState<string>("Editorial");
+  const [expDate, setExpDate] = useState<string>("2026-10-24");
+  const [expReceiptEvidence, setExpReceiptEvidence] = useState<string>("");
 
   // Credit Note Modal State
   const [isCreditNoteModalOpen, setIsCreditNoteModalOpen] = useState(false);
@@ -348,8 +365,42 @@ export function StudioFinanceDeskView({
 
   async function handleCreateExpense() {
     if (isOwnerPreview) {
-      notify("Owner Preview: Expense claim submitted (writes disabled).");
+      const amt = parseFloat(expAmount) || 85.0;
+      const createdDate = expDate.trim() || new Date().toISOString().split("T")[0]!;
+      const createdClaim: NewsroomExpenseItem = {
+        id: `prev-exp-${Date.now()}`,
+        expenseNumber: `EXP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        expenseDate: createdDate,
+        vendorName: expVendor.trim() || "Field Reporting Vendor",
+        category: expCategory || "travel",
+        description: expDesc.trim() || "Newsroom operational expense",
+        department: expDept || "Editorial",
+        storyId: null,
+        amount: amt,
+        currency: expCurrency || "USD",
+        taxAmount: 0.0,
+        receiptReference: expReceiptEvidence.trim() || `RCPT-${Math.floor(1000 + Math.random() * 9000)}`,
+        receiptUrl: expReceiptEvidence.trim() ? `https://healthtimes.co.zw/receipts/${encodeURIComponent(expReceiptEvidence.trim())}` : null,
+        status: "submitted",
+        paymentStatus: "unpaid",
+        paidAt: null,
+        paymentReference: null,
+        rejectionReason: null,
+        submittedBy: "preview-persona-current",
+        submittedByName: currentStaffName,
+        approvedBy: null,
+        approvedByName: null,
+        approvedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setLocalExpenses((prev) => [createdClaim, ...prev]);
+      notify("Preview state only: Expense claim created in local Preview memory (status: SUBMITTED). Not persisted to live database.");
       setIsExpenseModalOpen(false);
+      setExpVendor("");
+      setExpDesc("");
+      setExpAmount("");
+      setExpReceiptEvidence("");
       return;
     }
     try {
@@ -380,7 +431,14 @@ export function StudioFinanceDeskView({
 
   async function handleApproveExpense(expId: string) {
     if (isOwnerPreview) {
-      notify("Owner Preview: Expense approved.");
+      setLocalExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expId
+            ? { ...e, status: "approved", approvedByName: "Dr. Tawanda Chideme", approvedAt: new Date().toISOString() }
+            : e
+        )
+      );
+      notify("Owner Preview: Expense approval simulated in local preview memory. Strict separation of duties applies in production.");
       return;
     }
     try {
@@ -1015,6 +1073,13 @@ export function StudioFinanceDeskView({
       {/* 5. EXPENSES TAB */}
       {activeTab === "expenses" && (
         <View style={styles.tabContent}>
+          <View style={styles.governanceNoticeBox} testID="expense-governance-notice">
+            <Text style={styles.governanceNoticeTitle}>SEPARATION OF DUTIES · EXPENSE GOVERNANCE</Text>
+            <Text style={styles.governanceNoticeText}>
+              Newsroom expense policy enforces strict separation of duties: Staff members submit field claims, while line managers and Finance Desk verify and approve them. Self-approval is strictly prohibited in live operations. In this Owner Visual Preview, approval controls are simulated for interface demonstration only and do not establish live self-approval authority.
+            </Text>
+          </View>
+
           <View style={styles.toolbar}>
             <View style={styles.filterGroup}>
               <Pressable
@@ -1052,7 +1117,8 @@ export function StudioFinanceDeskView({
                   <Text style={[styles.th, { width: 100 }]}>DATE</Text>
                   <Text style={[styles.th, { width: 150 }]}>VENDOR</Text>
                   <Text style={[styles.th, { width: 110 }]}>CATEGORY</Text>
-                  <Text style={[styles.th, { width: 200 }]}>DESCRIPTION</Text>
+                  <Text style={[styles.th, { width: 180 }]}>DESCRIPTION</Text>
+                  <Text style={[styles.th, { width: 140 }]}>RECEIPT / EVIDENCE</Text>
                   <Text style={[styles.th, { width: 100, textAlign: "right" }]}>AMOUNT</Text>
                   <Text style={[styles.th, { width: 110, textAlign: "center" }]}>STATUS</Text>
                   <Text style={[styles.th, { width: 150 }]}>SUBMITTED BY</Text>
@@ -1065,7 +1131,10 @@ export function StudioFinanceDeskView({
                     <Text style={[styles.td, { width: 100 }]}>{e.expenseDate}</Text>
                     <Text style={[styles.td, { width: 150 }]} numberOfLines={1}>{e.vendorName}</Text>
                     <Text style={[styles.td, { width: 110 }]}>{e.category.toUpperCase()}</Text>
-                    <Text style={[styles.td, { width: 200 }]} numberOfLines={1}>{e.description}</Text>
+                    <Text style={[styles.td, { width: 180 }]} numberOfLines={1}>{e.description}</Text>
+                    <Text style={[styles.td, { width: 140 }]} numberOfLines={1}>
+                      {e.receiptReference ? `📎 ${e.receiptReference}` : e.receiptUrl ? "📎 Attached file" : "None"}
+                    </Text>
                     <Text style={[styles.td, { width: 100, textAlign: "right", fontWeight: "700" }]}>
                       {e.currency} {e.amount.toFixed(2)}
                     </Text>
@@ -1762,6 +1831,27 @@ export function StudioFinanceDeskView({
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Currency</Text>
                   <TextInput style={styles.input} value={expCurrency} onChangeText={setExpCurrency} />
+                </View>
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Expense Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={expDate}
+                    onChangeText={setExpDate}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Receipt / Supporting Evidence</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={expReceiptEvidence}
+                    onChangeText={setExpReceiptEvidence}
+                    placeholder="e.g. RCPT-4091 or receipt.pdf"
+                  />
                 </View>
               </View>
             </ScrollView>
@@ -2614,6 +2704,26 @@ const styles = StyleSheet.create({
   glNoticeSub: {
     fontSize: 11,
     color: colors.inkMuted
+  },
+  governanceNoticeBox: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#16A34A",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: 4
+  },
+  governanceNoticeTitle: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    color: "#15803D"
+  },
+  governanceNoticeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#166534"
   },
   modalOverlay: {
     flex: 1,

@@ -526,3 +526,369 @@ test("HT-NR-VIS-01-R1: Defect B — Owner Preview imports and renders shared Stu
   assert.ok(socialSource.includes("services.newsroomSocial"));
   assert.ok(newsletterSource.includes("services.newsroomCampaigns"));
 });
+
+// =============================================================================
+// HT-MVP-RL-01-UAT-04A-R2: 54 PROVEN OWNER PREVIEW DEFECT CONVERGENCE
+// =============================================================================
+
+test("HT-NR-UAT04A-R2: My Work domain defect convergence (UAT04A-005 through 013)", () => {
+  const commsSource = read("src/ui/StudioCommunications.tsx");
+  const workspaceSource = read("src/ui/StudioStoryWorkspace.tsx");
+  const workspacePreviewSource = read("src/preview/OwnerPreviewStoryWorkspace.tsx");
+  const financeSource = read("src/ui/StudioFinanceDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // UAT04A-005: Assignments discussion targeting
+  assert.ok(commsSource.includes("selectedAssignmentId"));
+  assert.ok(commsSource.includes("Internal Assignment Discussion"));
+  assert.ok(commsSource.includes("isTargeted"));
+  assert.ok(previewStudioSource.includes("selectedAssignmentId={selectedAssignmentId}"));
+
+  // UAT04A-006: Assignments technical copy removal
+  assert.ok(!commsSource.includes('"StudioAssignmentsView"'));
+  assert.ok(!commsSource.includes("Direct database mutations disabled"));
+
+  // UAT04A-007: Story save truthfulness
+  assert.ok(
+    workspaceSource.includes(
+      "Preview state saved locally (non-persistent)"
+    )
+  );
+
+  // UAT04A-008: Story Workspace technical copy
+  assert.ok(!workspaceSource.includes("server-backed RPC"));
+  assert.ok(!workspaceSource.includes("canonical kernel"));
+  assert.ok(
+    workspacePreviewSource.includes(
+      "Interactive editorial story workspace rendered with non-persistent preview data"
+    )
+  );
+
+  // UAT04A-009: Story tab-count consistency (7 tabs derived dynamically)
+  const modelsSource = read("src/domain/models.ts");
+  assert.ok(workspaceSource.includes("STORY_WORKSPACE_TABS"));
+  assert.ok(workspacePreviewSource.includes("STORY_WORKSPACE_TABS.length"));
+
+  // UAT04A-010: Expense completeness (date and receipt evidence)
+  assert.ok(financeSource.includes("expDate"));
+  assert.ok(financeSource.includes("expReceiptEvidence"));
+  assert.ok(financeSource.includes("Receipt / Supporting Evidence"));
+  assert.ok(financeSource.includes("Expense Date"));
+
+  // UAT04A-011: My Claims ownership filtering
+  assert.ok(financeSource.includes('expenseScope === "my"'));
+  assert.ok(financeSource.includes("e.submittedByName"));
+
+  // UAT04A-012: Expense local progression
+  assert.ok(financeSource.includes('status: "submitted"'));
+  assert.ok(
+    financeSource.includes(
+      "Expense claim created in local Preview memory"
+    )
+  );
+
+  // UAT04A-013: Expense separation of duties
+  assert.ok(
+    financeSource.includes(
+      "SEPARATION OF DUTIES · EXPENSE GOVERNANCE"
+    )
+  );
+  assert.ok(
+    financeSource.includes(
+      "Self-approval is strictly prohibited in live operations."
+    )
+  );
+});
+
+test("HT-NR-UAT04A-R2: Editorial Stories, Planning, Calendar, Live Desk (UAT04A-014 through 025)", () => {
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+  const storiesSource = read("src/ui/StudioStories.tsx");
+  const workspacePreviewSource = read("src/preview/OwnerPreviewStoryWorkspace.tsx");
+  const planningSource = read("src/ui/StudioPlanningBoard.tsx");
+  const calendarSource = read("src/ui/StudioEditorialCalendar.tsx");
+  const liveDeskSource = read("src/ui/StudioLiveDesk.tsx");
+  const previewDataSource = read("src/preview/newsroomPreviewData.ts");
+
+  // UAT04A-014: Review Queue technical copy
+  assert.ok(!previewStudioSource.includes("StudioReviewQueueView:"));
+  assert.ok(previewStudioSource.includes("Editorial review queue rendered with sample stories"));
+
+  // UAT04A-015: Review Queue lifecycle actions (contextual next-actions)
+  assert.ok(workspacePreviewSource.includes("transitionOptions"));
+  assert.ok(workspacePreviewSource.includes("currentStory.workflowStatus"));
+
+  // UAT04A-016: Story Hub ownership
+  assert.ok(storiesSource.includes("Author / Lead:"));
+  assert.ok(storiesSource.includes("story.authorId"));
+
+  // UAT04A-017: New Story action in preview
+  assert.ok(previewStudioSource.includes('storyId: "new"'));
+  assert.ok(workspacePreviewSource.includes('initialStoryId === "new"'));
+
+  // UAT04A-018: Story Hub technical copy
+  assert.ok(!storiesSource.includes('"StudioStoriesView"'));
+  assert.ok(
+    storiesSource.includes(
+      "Editorial stories, drafts, reviews, and published coverage."
+    )
+  );
+
+  // UAT04A-019: Planning technical copy
+  assert.ok(!planningSource.includes('"StudioPlanningBoardView"'));
+  assert.ok(!planningSource.includes("Shared presentation view"));
+
+  // UAT04A-020: Calendar ownership
+  assert.ok(calendarSource.includes("Responsible:"));
+
+  // UAT04A-021: Calendar targeted assignment handoff
+  assert.ok(calendarSource.includes("handleOpenAssignment"));
+  assert.ok(calendarSource.includes("onOpenAssignment"));
+  assert.ok(
+    previewStudioSource.includes(
+      'pathname: "/owner-preview/studio/assignments"'
+    )
+  );
+  assert.ok(previewStudioSource.includes("params: { assignmentId }"));
+
+  // UAT04A-022: Calendar technical copy
+  assert.ok(!previewStudioSource.includes("StudioEditorialCalendarView:"));
+  assert.ok(!calendarSource.includes("Shared presentation view"));
+
+  // UAT04A-023: Live Desk date/status consistency (relative deterministic dates)
+  assert.ok(previewDataSource.includes("getPreviewReferenceTime"));
+  assert.ok(previewDataSource.includes("tomorrowMorningIso"));
+  assert.ok(previewDataSource.includes("dayPlus2Iso"));
+  assert.ok(previewDataSource.includes("past4dIso"));
+
+  // UAT04A-024: Live Desk Preview truthfulness
+  assert.ok(
+    liveDeskSource.includes("Simulated public presentation (preview state only).")
+  );
+  assert.ok(
+    liveDeskSource.includes(
+      "Live coverage metadata saved locally (preview state only)."
+    )
+  );
+
+  // UAT04A-025: Live Desk technical leakage removal
+  assert.ok(!liveDeskSource.includes("Live Desk Control Plane"));
+  assert.ok(!liveDeskSource.includes("05D-A"));
+  assert.ok(liveDeskSource.includes("Live Desk Operations"));
+});
+
+test("HT-NR-UAT04A-R2: Editorial Video, Media Library, Taxonomy, Authors (UAT04A-026 through 038)", () => {
+  const videoSource = read("src/ui/StudioVideoDesk.tsx");
+  const mediaSource = read("src/ui/StudioMediaLibrary.tsx");
+  const authorsSource = read("src/ui/StudioAuthorsDesk.tsx");
+
+  // UAT04A-026: Video visual inspection
+  assert.ok(videoSource.includes("visualInspectionCard"));
+  assert.ok(videoSource.includes("visualInspectionThumbnailWrap"));
+  assert.ok(videoSource.includes("Visual Inspection & Media Slate"));
+
+  // UAT04A-027: Video save feedback
+  assert.ok(
+    videoSource.includes(
+      "Preview state saved: Video metadata and story association updated locally (non-persistent)"
+    )
+  );
+
+  // UAT04A-028: Video publication truthfulness
+  assert.ok(
+    videoSource.includes(
+      "Publication readiness recorded in preview memory"
+    )
+  );
+  assert.ok(
+    videoSource.includes(
+      "live reader publication requires production release"
+    )
+  );
+
+  // UAT04A-029: Video technical copy
+  assert.ok(videoSource.includes('isOwnerPreview ? "VIDEO INSPECTOR" : "VIDEO REGISTRY INSPECTOR"'));
+  assert.ok(videoSource.includes("Visual Inspection & Media Slate"));
+
+  // UAT04A-030: Media non-image inspection
+  assert.ok(mediaSource.includes("Video Asset Inspection"));
+  assert.ok(mediaSource.includes("Audio Asset Inspection"));
+  assert.ok(mediaSource.includes("Document Inspection Viewer"));
+
+  // UAT04A-031: Media rights governance
+  assert.ok(mediaSource.includes("Rights & Licensing Governance"));
+  assert.ok(mediaSource.includes("Rights Status"));
+  assert.ok(mediaSource.includes("Licensing Basis"));
+  assert.ok(mediaSource.includes("Permitted Use"));
+  assert.ok(mediaSource.includes("Provenance"));
+
+  // UAT04A-032: Media search
+  assert.ok(mediaSource.includes("searchInput.toLowerCase().trim()"));
+  assert.ok(mediaSource.includes("asset.filename?.toLowerCase().includes(q)"));
+
+  // UAT04A-033: Media stale inspector state
+  assert.ok(
+    mediaSource.includes(
+      "filteredAssets.find((a) => a.id === selectedAssetId)"
+    )
+  );
+
+  // UAT04A-034: Media technical leakage
+  assert.ok(
+    mediaSource.includes(
+      "isOwnerPreview ? `Asset: ${selectedAsset.filename}` : `ID: ${selectedAsset.id}`"
+    )
+  );
+  assert.ok(mediaSource.includes("Newsroom Managed Media"));
+
+  // UAT04A-035: Taxonomy duplicates validation
+  assert.ok(authorsSource.includes('A section with the slug "'));
+  assert.ok(authorsSource.includes("already exists. Slugs must be unique"));
+  assert.ok(authorsSource.includes("already exists. Section names must be unique"));
+
+  // UAT04A-036: Author structure (role, desk, status)
+  assert.ok(authorsSource.includes("roleBadge"));
+  assert.ok(authorsSource.includes("deskBadge"));
+  assert.ok(authorsSource.includes("statusBadge"));
+
+  // UAT04A-037: Section parent selection (picker instead of raw UUID)
+  assert.ok(authorsSource.includes("parentOptionChip"));
+  assert.ok(authorsSource.includes("Top Level (No Parent)"));
+
+  // UAT04A-038: Author WordPress technical leakage
+  assert.ok(authorsSource.includes("Slug & Publication Identifier"));
+  assert.ok(authorsSource.includes("!isOwnerPreview &&"));
+});
+
+test("HT-NR-UAT04A-R2: AI & Intelligence defect convergence (UAT04A-039 through 042)", () => {
+  const aiSource = read("src/ui/StudioAiDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // UAT04A-039: AI citation auditability
+  assert.ok(aiSource.includes("Verified by"));
+  assert.ok(aiSource.includes("cit.verifiedBy"));
+  assert.ok(aiSource.includes("cit.verificationBasis"));
+
+  // UAT04A-040: AI task differentiation
+  assert.ok(previewStudioSource.includes('selectedTask === "evidence_gap"'));
+  assert.ok(previewStudioSource.includes("gap_identification"));
+  assert.ok(previewStudioSource.includes("Unverified Claim:"));
+
+  // UAT04A-041: AI grounding truthfulness
+  assert.ok(aiSource.includes("GROUNDED IN VERIFIED SOURCES"));
+  assert.ok(aiSource.includes("UNVERIFIED CLAIM / EVIDENCE GAP"));
+  assert.ok(aiSource.includes("confidenceText"));
+
+  // UAT04A-042: AI inference provider truthfulness
+  assert.ok(
+    aiSource.includes(
+      'isOwnerPreview ? "SIMULATED INFERENCE ENGINE" : "ACTIVE ASSISTANT MODEL"'
+    )
+  );
+  assert.ok(
+    aiSource.includes(
+      "Gemini 1.5 Pro (Simulated non-production preview configuration · Writes & Live API disabled)"
+    )
+  );
+});
+
+test("HT-NR-UAT04A-R2: Social Desk defect convergence (UAT04A-043 through 047)", () => {
+  const socialSource = read("src/ui/StudioSocialDesk.tsx");
+
+  // UAT04A-043: Social story status disentanglement
+  assert.ok(socialSource.includes("Post Distribution Status:"));
+  assert.ok(socialSource.includes("Linked Story Workflow Status:"));
+
+  // UAT04A-044: Social duplicate prepare prevention
+  assert.ok(socialSource.includes("Distribution In-Flight"));
+  assert.ok(socialSource.includes('"pending"') || socialSource.includes('"dispatching"'));
+
+  // UAT04A-045: Social post ownership
+  assert.ok(socialSource.includes("post.createdByName"));
+  assert.ok(socialSource.includes("selectedPost.createdByName"));
+  assert.ok(socialSource.includes("selectedPost.approvedByName"));
+
+  // UAT04A-046: Social technical copy
+  assert.ok(socialSource.includes("isPreview ?"));
+  assert.ok(socialSource.includes("Editorial Approval Authority"));
+  assert.ok(socialSource.includes("Channel Distribution Authority"));
+
+  // UAT04A-047: Social scheduling controls
+  assert.ok(socialSource.includes("draftScheduleDate"));
+  assert.ok(socialSource.includes("draftScheduleTime"));
+  assert.ok(socialSource.includes("draftScheduleTz"));
+  assert.ok(socialSource.includes("scheduledTag"));
+});
+
+test("HT-NR-UAT04A-R2: Newsletter Desk defect convergence (UAT04A-048 through 051)", () => {
+  const newsletterSource = read("src/ui/StudioNewsletterDesk.tsx");
+
+  // UAT04A-048: Newsletter campaign ownership
+  assert.ok(newsletterSource.includes("campaign.createdByName"));
+  assert.ok(newsletterSource.includes("selectedCampaign.createdByName"));
+  assert.ok(newsletterSource.includes("selectedCampaign.approvedByName"));
+  assert.ok(newsletterSource.includes("campaignRowAuthorText"));
+
+  // UAT04A-049: Newsletter duplicate prepare prevention
+  assert.ok(newsletterSource.includes("Send Handoff Ready"));
+  assert.ok(newsletterSource.includes("Boolean(activeHandoff)"));
+
+  // UAT04A-050: Newsletter scheduling controls
+  assert.ok(newsletterSource.includes("composerScheduleDate"));
+  assert.ok(newsletterSource.includes("composerScheduleTime"));
+  assert.ok(newsletterSource.includes("composerTimezone"));
+  assert.ok(newsletterSource.includes("campaignRowScheduledText"));
+
+  // UAT04A-051: Newsletter technical copy
+  assert.ok(!newsletterSource.includes("RPC communications_create_campaign"));
+  assert.ok(!newsletterSource.includes("public.audience_campaigns"));
+  assert.ok(newsletterSource.includes("AUDIENCE CAMPAIGN REGISTRY"));
+  assert.ok(newsletterSource.includes("automated dispatch service"));
+});
+
+test("HT-NR-UAT04A-R2: Push Alert Desk defect convergence (UAT04A-052 through 058)", () => {
+  const pushSource = read("src/ui/StudioPushAlertDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // UAT04A-052: Push alert audience targeting
+  assert.ok(pushSource.includes("composerTargetSegment"));
+  assert.ok(pushSource.includes("Target Audience Segment *"));
+  assert.ok(pushSource.includes("selectedAlert.targetSegment"));
+  assert.ok(pushSource.includes("selectedAlert.audienceEligibility"));
+
+  // UAT04A-053: Push alert priority selector
+  assert.ok(pushSource.includes("composerPriority"));
+  assert.ok(pushSource.includes("Alert Priority *"));
+  assert.ok(pushSource.includes("HIGH PRIORITY"));
+  assert.ok(pushSource.includes("priorityBadge"));
+
+  // UAT04A-054: Push alert scheduling controls
+  assert.ok(pushSource.includes("composerScheduleDate"));
+  assert.ok(pushSource.includes("composerScheduleTime"));
+  assert.ok(pushSource.includes("composerTimezone"));
+  assert.ok(pushSource.includes("Scheduled For"));
+
+  // UAT04A-055: Push alert creator and approver identities
+  assert.ok(pushSource.includes("selectedAlert.createdByName"));
+  assert.ok(pushSource.includes("selectedAlert.approvedByName"));
+  assert.ok(pushSource.includes("alertCardAuthorText"));
+
+  // UAT04A-056: Push alert story navigation
+  assert.ok(pushSource.includes("openStoryButton"));
+  assert.ok(pushSource.includes("Open Linked Story Workspace →"));
+  assert.ok(pushSource.includes("Unlinked Story Alert"));
+  assert.ok(previewStudioSource.includes("Targeted story workspace handoff"));
+
+  // UAT04A-057: Push alert delivery history
+  assert.ok(pushSource.includes("dispatchRecord.failureReason"));
+  assert.ok(pushSource.includes("DISPATCH_STATUS_STYLES"));
+  assert.ok(pushSource.includes("formatDispatchStatusLabel"));
+
+  // UAT04A-058: Push alert technical copy
+  assert.ok(!pushSource.includes("DISTRIBUTION · CONTROL PLANE"));
+  assert.ok(pushSource.includes("DISTRIBUTION · PUSH ALERT OPERATIONS"));
+  assert.ok(!pushSource.includes("DELIVERY LEDGER · CANONICAL DISPATCH RECORD"));
+  assert.ok(pushSource.includes("DELIVERY LEDGER · DISPATCH & AUDIT RECORD"));
+  assert.ok(!pushSource.includes("PROVIDER SEND HANDOFF · SERVICE-ROLE BOUNDARY"));
+  assert.ok(pushSource.includes("PROVIDER SEND HANDOFF · SECURE DISPATCH BOUNDARY"));
+});
+

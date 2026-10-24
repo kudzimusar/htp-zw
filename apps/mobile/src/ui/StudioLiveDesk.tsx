@@ -298,7 +298,9 @@ export function StudioLiveDeskView({
         setUpdateMediaId(null);
         setUpdateFeedback({
           type: "success",
-          message: "Live update published to the stream."
+          message: isOwnerPreview
+            ? "Live update recorded (preview state only)."
+            : "Live update published to the stream."
         });
       }
     } catch (err: any) {
@@ -443,7 +445,12 @@ export function StudioLiveDeskView({
       setSaveSubmitting(true);
       if (onSaveCoverage) {
         await onSaveCoverage(selectedItem.id, selectedItem.lockVersion, patch);
-        setSaveFeedback({ type: "success", message: "Live coverage metadata saved successfully." });
+        setSaveFeedback({
+          type: "success",
+          message: isOwnerPreview
+            ? "Live coverage metadata saved locally (preview state only)."
+            : "Live coverage metadata saved successfully."
+        });
       }
     } catch (err: any) {
       setSaveFeedback({
@@ -465,7 +472,9 @@ export function StudioLiveDeskView({
         setConfirmAction(null);
         setSaveFeedback({
           type: "success",
-          message: "Live coverage started successfully! Now publicly visible in HealthTimes Live."
+          message: isOwnerPreview
+            ? "Live coverage started successfully! Simulated public presentation updated (preview state only)."
+            : "Live coverage started successfully! Now publicly visible in HealthTimes Live."
         });
       }
     } catch (err: any) {
@@ -488,7 +497,9 @@ export function StudioLiveDeskView({
         setConfirmAction(null);
         setSaveFeedback({
           type: "success",
-          message: "Live coverage ended and locked. Public projection updated."
+          message: isOwnerPreview
+            ? "Live coverage concluded. Simulated public presentation updated (preview state only)."
+            : "Live coverage ended and locked. Public projection updated."
         });
       }
     } catch (err: any) {
@@ -511,9 +522,9 @@ export function StudioLiveDeskView({
       {/* Header Bar */}
       <View style={styles.headerBar}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Live Desk Control Plane</Text>
+          <Text style={styles.headerTitle}>Live Desk Operations</Text>
           <Text style={styles.headerSubtitle}>
-            Editorial coordination, scheduling, related story linking, and public HealthTimes Live projection.
+            Editorial coordination, scheduling, related story linking, and real-time coverage updates.
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -803,7 +814,7 @@ export function StudioLiveDeskView({
                         newKind === "live-blog" && styles.kindOptionTextActive
                       ]}
                     >
-                      Live Blog (HT-NR-05D-A)
+                      Live Blog
                     </Text>
                   </Pressable>
                   <Pressable
@@ -921,7 +932,7 @@ export function StudioLiveDeskView({
                         ]}
                         numberOfLines={1}
                       >
-                        {m.filename || m.altText || m.id.slice(0, 8)}
+                        {m.filename || m.altText || "Media asset"}
                       </Text>
                     </Pressable>
                   ))}
@@ -1016,8 +1027,10 @@ export function StudioLiveDeskView({
                   {selectedItem.status === "upcoming"
                     ? "Scheduled/editorial coverage prepared but not currently live."
                     : selectedItem.status === "live"
-                    ? "Publicly visible in HealthTimes Live."
-                    : "Coverage has ended and is locked in 05D-A."}
+                    ? isOwnerPreview
+                      ? "Simulated public presentation (preview state only)."
+                      : "Publicly visible in HealthTimes Live."
+                    : "Coverage has concluded and is archived."}
                 </Text>
               </View>
 
@@ -1026,7 +1039,9 @@ export function StudioLiveDeskView({
                 <View style={styles.lifecycleActionCard}>
                   <Text style={styles.lifecycleCardTitle}>Start Live Coverage</Text>
                   <Text style={styles.lifecycleCardBody}>
-                    Starting live coverage makes it live and featured in HealthTimes Live for all readers.
+                    {isOwnerPreview
+                      ? "Starting live coverage activates simulated public presentation (preview state only)."
+                      : "Starting live coverage makes it live and featured in HealthTimes Live for all readers."}
                   </Text>
                   {confirmAction === "start" ? (
                     <View style={styles.confirmBox}>
@@ -1068,7 +1083,7 @@ export function StudioLiveDeskView({
                 <View style={[styles.lifecycleActionCard, { borderColor: colors.rose200 }]}>
                   <Text style={styles.lifecycleCardTitle}>Conclude Live Coverage</Text>
                   <Text style={styles.lifecycleCardBody}>
-                    Ending coverage sets status to ended and permanently locks metadata in 05D-A.
+                    Ending coverage sets status to ended and permanently concludes real-time updates.
                   </Text>
                   {confirmAction === "end" ? (
                     <View style={styles.confirmBox}>
@@ -1265,7 +1280,7 @@ export function StudioLiveDeskView({
                           ]}
                           numberOfLines={1}
                         >
-                          {m.filename || m.altText || m.id.slice(0, 8)}
+                          {m.filename || m.altText || "Media asset"}
                         </Text>
                       </Pressable>
                     ))}
@@ -1290,7 +1305,7 @@ export function StudioLiveDeskView({
               {/* Audit Details */}
               <View style={styles.auditCard}>
                 <Text style={styles.auditTitle}>Editorial Audit Details</Text>
-                <Text style={styles.auditLine}>ID: {selectedItem.id}</Text>
+                <Text style={styles.auditLine}>Desk Entry: {selectedItem.title}</Text>
                 <Text style={styles.auditLine}>
                   Started At: {formatDate(selectedItem.startedAt)}
                 </Text>
@@ -1298,10 +1313,10 @@ export function StudioLiveDeskView({
                   Ended At: {formatDate(selectedItem.endedAt)}
                 </Text>
                 <Text style={styles.auditLine}>
-                  Created: {formatDate(selectedItem.createdAt)} by staff {selectedItem.createdByStaffId.slice(0, 8)}
+                  Created: {formatDate(selectedItem.createdAt)} by Editorial Staff
                 </Text>
                 <Text style={styles.auditLine}>
-                  Last Updated: {formatDate(selectedItem.updatedAt)} by staff {selectedItem.updatedByStaffId.slice(0, 8)}
+                  Last Updated: {formatDate(selectedItem.updatedAt)} by Editorial Staff
                 </Text>
               </View>
 
@@ -1430,7 +1445,7 @@ export function StudioLiveDeskView({
                                 ]}
                                 numberOfLines={1}
                               >
-                                {m.filename || m.altText || m.id.slice(0, 8)}
+                                {m.filename || m.altText || "Media asset"}
                               </Text>
                             </Pressable>
                           ))}
@@ -1499,7 +1514,7 @@ export function StudioLiveDeskView({
                                 {formatDate(u.publishedAt)}
                               </Text>
                               <Text style={styles.updateHistoryStaff}>
-                                Staff {u.createdByStaffId.slice(0, 8)}
+                                Editorial Staff
                               </Text>
                             </View>
                             {u.headline && (
@@ -1509,7 +1524,7 @@ export function StudioLiveDeskView({
                             {u.mediaId && (
                               <View style={styles.updateHistoryMediaBadge}>
                                 <Text style={styles.updateHistoryMediaText}>
-                                  Media: {attachedMedia?.filename || attachedMedia?.altText || u.mediaId.slice(0, 8)}
+                                  Media: {attachedMedia?.filename || attachedMedia?.altText || "Attached media"}
                                 </Text>
                               </View>
                             )}

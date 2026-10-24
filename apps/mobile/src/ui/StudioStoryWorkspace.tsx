@@ -26,7 +26,17 @@ import { colors, radius, spacing } from "../theme/tokens";
 import { StudioStoryDiscussionPanel } from "./StudioCommunications";
 import { StudioStoryMediaPanel } from "./StudioStoryMedia";
 
-export type TabId = "writing" | "reporting" | "editorial" | "media" | "publication" | "history" | "discussion";
+export const STORY_WORKSPACE_TABS = [
+  ["writing", "Writing"],
+  ["reporting", "Reporting & Desk"],
+  ["editorial", "Editorial & Review"],
+  ["media", "Media & Attachments"],
+  ["publication", "Publication & SEO"],
+  ["history", "History & Revisions"],
+  ["discussion", "Internal Notes & Desk"]
+] as const;
+
+export type TabId = (typeof STORY_WORKSPACE_TABS)[number][0];
 
 type Props = {
   storyId?: string;
@@ -881,6 +891,7 @@ export type StudioStoryWorkspaceViewProps = {
   executeRestoreRevision: () => void | Promise<void>;
   handleSetCommentPolicy: (nextPolicy: "disabled" | "read_only" | "open") => void | Promise<void>;
   onBackToStories: () => void;
+  isPreview?: boolean;
   topControlsSlot?: ReactNode;
   discussionSlot?: ReactNode;
   mediaSlot?: ReactNode;
@@ -897,6 +908,7 @@ export function StudioStoryWorkspaceView({
   isDirty,
   saveStatus,
   statusMessage,
+  isPreview = false,
   title,
   setTitle,
   slug,
@@ -1015,7 +1027,10 @@ export function StudioStoryWorkspaceView({
           <Text style={styles.saveStateIndicator}>
             {saveStatus === "saving" && "Saving…"}
             {saveStatus === "autosaving" && "Autosaving (~10s)…"}
-            {saveStatus === "saved" && (isDirty ? "Unsaved edits" : "All changes saved")}
+            {saveStatus === "saved" &&
+              (isPreview
+                ? (isDirty ? "Unsaved preview edits" : "Preview state saved locally (non-persistent)")
+                : (isDirty ? "Unsaved edits" : "All changes saved"))}
             {saveStatus === "conflict" && "VERSION CONFLICT!"}
             {saveStatus === "error" && "Save error"}
             {saveStatus === "idle" && (isDirty ? "Unsaved changes" : "Draft ready")}
@@ -1082,15 +1097,7 @@ export function StudioStoryWorkspaceView({
 
       {/* Tab Navigation */}
       <View style={styles.tabBar}>
-        {([
-          ["writing", "Writing"],
-          ["reporting", "Reporting & Desk"],
-          ["editorial", "Editorial & Review"],
-          ["media", "Media & Attachments"],
-          ["publication", "Publication & SEO"],
-          ["history", "History & Revisions"],
-          ["discussion", "Internal Notes & Desk"]
-        ] as const).map(([id, label]) => {
+        {STORY_WORKSPACE_TABS.map(([id, label]) => {
           const active = activeTab === id;
           return (
             <Pressable
@@ -1186,7 +1193,9 @@ export function StudioStoryWorkspaceView({
                 <Text style={styles.readOnlyFieldText}>{story.excerpt}</Text>
               </View>
               <Text style={styles.fieldNote}>
-                Excerpt mutation is deferred; current certified save/create RPC contract does not support excerpt mutation.
+                {isPreview
+                  ? "Story excerpt will be generated automatically or set upon editorial publishing."
+                  : "Excerpt mutation is deferred; current certified save/create RPC contract does not support excerpt mutation."}
               </Text>
             </View>
           ) : null}
@@ -1312,26 +1321,26 @@ export function StudioStoryWorkspaceView({
       {/* TAB 3: Editorial & Review */}
       {activeTab === "editorial" && (
         <View style={styles.tabContent}>
-          {/* Canonical Author & Section selectors */}
+          {/* Author & Section selectors */}
           <View style={styles.cardSection}>
-            <Text style={styles.sectionHeader}>Canonical Author & Section Authority</Text>
+            <Text style={styles.sectionHeader}>Author & Section</Text>
             <Text style={styles.sectionHelp}>
-              Only server-backed canonical authors and sections are accepted by the Newsroom kernel.
+              Select verified authors and editorial sections for this story.
             </Text>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Canonical Public Author (Byline)</Text>
+              <Text style={styles.fieldLabel}>Author Byline</Text>
               {!storyId && !canEditAll ? (
                 <View style={styles.noticeBox}>
                   <Text style={styles.noticeBoxText}>
-                    Your canonical server-linked byline will be applied automatically upon creation.
+                    Your author byline will be applied automatically upon creation.
                   </Text>
                 </View>
               ) : (
                 <>
                   {storyId && !canEditAll && (
                     <Text style={styles.fieldNote}>
-                      Reassigning canonical public author requires story.edit_all capability.
+                      Reassigning the author requires editor permissions.
                     </Text>
                   )}
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceChips}>
@@ -1403,7 +1412,7 @@ export function StudioStoryWorkspaceView({
               <Text style={styles.sectionHeader}>Workflow Lifecycle & Actions</Text>
               <Text style={styles.sectionHelp}>
                 Current Status: <Text style={styles.strongText}>{currentWorkflowStatus}</Text>.
-                Transitions require dedicated Newsroom server capabilities.
+                Transitions require editorial review permissions.
               </Text>
 
               <View style={styles.actionButtonsRow}>
@@ -1551,7 +1560,7 @@ export function StudioStoryWorkspaceView({
                 <View style={styles.promptBox}>
                   <Text style={styles.promptTitle}>Publish Correction / Update</Text>
                   <Text style={styles.promptDesc}>
-                    Mandatory reason is required by Newsroom kernel audit rules.
+                    A reason is required for the editorial audit trail.
                   </Text>
                   <TextInput
                     style={[styles.input, styles.textareaSm]}
@@ -1611,7 +1620,9 @@ export function StudioStoryWorkspaceView({
           {!storyId && (
             <View style={styles.noticeBox}>
               <Text style={styles.noticeBoxText}>
-                Publication, commercial, and scheduling controls will become active after the draft is created on the server.
+                {isPreview
+                  ? "Publication, commercial, and scheduling controls become active after saving the draft."
+                  : "Publication, commercial, and scheduling controls will become active after the draft is created on the server."}
               </Text>
             </View>
           )}
@@ -1843,7 +1854,7 @@ export function StudioStoryWorkspaceView({
               </View>
             ) : (
               <Text style={styles.emptyHistoryText}>
-                No pending autosave cache on server. (All changes committed to revisions or unchanged).
+                No pending draft changes. (All changes saved or unchanged).
               </Text>
             )}
           </View>
@@ -1895,7 +1906,7 @@ export function StudioStoryWorkspaceView({
                 </Text>
               ) : (
                 <Text style={styles.fieldNote}>
-                  Restoring will update the server story title and body to this milestone revision and increment the lock version.
+                  Restoring will update the story title and body to this milestone revision and increment the version.
                 </Text>
               )}
               <View style={styles.promptActions}>

@@ -399,11 +399,18 @@ export function StudioVideoDeskView({
     try {
       if (onSaveVideo) {
         await onSaveVideo(selectedVideo.id, selectedVideo.lockVersion, patch);
-        setSaveFeedback({ type: "success", message: "Video metadata saved successfully." });
+        setSaveFeedback({
+          type: "success",
+          message: isOwnerPreview
+            ? "Preview state saved: Video metadata and story association updated locally (non-persistent)."
+            : "Video metadata saved successfully."
+        });
       } else {
         setSaveFeedback({
           type: "success",
-          message: "Changes recorded in visual sample session."
+          message: isOwnerPreview
+            ? "Preview state saved: Video metadata and story association updated locally (non-persistent)."
+            : "Changes recorded in visual sample session."
         });
       }
     } catch (err) {
@@ -466,14 +473,20 @@ export function StudioVideoDeskView({
         await onPublishVideo(selectedVideo.id, selectedVideo.lockVersion, featured);
         setSaveFeedback({
           type: "success",
-          message: featured
+          message: isOwnerPreview
+            ? featured
+              ? "Preview state only: Video marked as featured on Watch (publication readiness recorded; live reader publication requires production release)."
+              : "Preview state only: Video marked ready for Watch (publication readiness recorded; live reader publication requires production release)."
+            : featured
             ? "Video published and featured on Watch."
             : "Video published to Watch."
         });
       } else {
         setSaveFeedback({
           type: "success",
-          message: featured
+          message: isOwnerPreview
+            ? "Preview state only: Publication readiness recorded in preview memory."
+            : featured
             ? "Simulated: Video published and featured on Watch."
             : "Simulated: Video published to Watch."
         });
@@ -497,12 +510,16 @@ export function StudioVideoDeskView({
         await onUnpublishVideo(selectedVideo.id, selectedVideo.lockVersion);
         setSaveFeedback({
           type: "success",
-          message: "Video unpublished from Watch. Metadata editing is now unlocked."
+          message: isOwnerPreview
+            ? "Preview state only: Video removed from simulated Watch feed. Metadata editing unlocked locally."
+            : "Video unpublished from Watch. Metadata editing is now unlocked."
         });
       } else {
         setSaveFeedback({
           type: "success",
-          message: "Simulated: Video unpublished from Watch."
+          message: isOwnerPreview
+            ? "Preview state only: Video removed from simulated Watch feed."
+            : "Simulated: Video unpublished from Watch."
         });
       }
     } catch (err) {
@@ -746,7 +763,7 @@ export function StudioVideoDeskView({
                         ⏱ {formatDurationSeconds(video.durationSeconds)}
                       </Text>
                       <Text style={styles.cardDate}>
-                        v{video.lockVersion} · {formatDate(video.updatedAt)}
+                        {isOwnerPreview ? formatDate(video.updatedAt) : `v${video.lockVersion} · ${formatDate(video.updatedAt)}`}
                       </Text>
                     </View>
                   </Pressable>
@@ -763,7 +780,9 @@ export function StudioVideoDeskView({
             <ScrollView style={styles.inspectorScroll} testID="video-desk-new-form">
               <View style={styles.inspectorHeader}>
                 <View>
-                  <Text style={styles.inspectorKicker}>CREATE REGISTRY ENTRY</Text>
+                  <Text style={styles.inspectorKicker}>
+                    {isOwnerPreview ? "NEW VIDEO ENTRY" : "CREATE REGISTRY ENTRY"}
+                  </Text>
                   <Text style={styles.inspectorTitle}>New Video Metadata</Text>
                 </View>
                 <Pressable style={styles.cancelLink} onPress={handleCancelCreate}>
@@ -932,7 +951,9 @@ export function StudioVideoDeskView({
             <ScrollView style={styles.inspectorScroll} testID="video-desk-inspector">
               <View style={styles.inspectorHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.inspectorKicker}>VIDEO REGISTRY INSPECTOR</Text>
+                  <Text style={styles.inspectorKicker}>
+                    {isOwnerPreview ? "VIDEO INSPECTOR" : "VIDEO REGISTRY INSPECTOR"}
+                  </Text>
                   <Text style={styles.inspectorTitle} numberOfLines={2}>
                     {selectedVideo.title}
                   </Text>
@@ -975,10 +996,12 @@ export function StudioVideoDeskView({
                 <>
                   <View style={styles.publishedDistinctionBanner} testID="video-published-distinction-banner">
                     <Text style={styles.publishedDistinctionTitle}>
-                      ● PUBLISHED TO READER WATCH {selectedVideo.watchFeatured ? "(FEATURED)" : ""}
+                      ● {isOwnerPreview ? "SIMULATED PUBLICATION RECORD" : "PUBLISHED TO READER WATCH"} {selectedVideo.watchFeatured ? "(FEATURED)" : ""}
                     </Text>
                     <Text style={styles.publishedDistinctionBody}>
-                      This video is live on HealthTimes Watch. Viewing destination opens directly from Reader Watch cards.
+                      {isOwnerPreview
+                        ? "Publication readiness recorded in preview memory. Video is marked ready for Watch delivery (live reader publication requires production release)."
+                        : "This video is live on HealthTimes Watch. Viewing destination opens directly from Reader Watch cards."}
                     </Text>
                   </View>
                   <View style={styles.publishedLockBanner} testID="video-published-lock-banner">
@@ -1031,17 +1054,68 @@ export function StudioVideoDeskView({
                 </View>
               )}
 
-              {/* Read-Only Server Attributes (Section 26) */}
+              {/* Visual Video Stream / Thumbnail Inspection Card */}
+              <View style={styles.visualInspectionCard} testID="video-visual-inspection-card">
+                <Text style={styles.visualInspectionTitle}>Visual Inspection & Media Slate</Text>
+                {selectedVideo.thumbnailUrl && isThumbnailUrlValid ? (
+                  <View style={styles.visualInspectionThumbnailWrap}>
+                    <Image
+                      source={{ uri: selectedVideo.thumbnailUrl }}
+                      style={styles.visualInspectionImage}
+                      resizeMode="cover"
+                      testID="video-inspector-main-thumbnail"
+                    />
+                    <View style={styles.visualInspectionOverlay}>
+                      <Text style={styles.visualInspectionDurationBadge}>
+                        ⏱ {formatDurationSeconds(selectedVideo.durationSeconds)}
+                      </Text>
+                      <Pressable
+                        style={styles.visualInspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedVideo.sourceUrl)}
+                        testID="video-play-stream-button"
+                      >
+                        <Text style={styles.visualInspectionActionText}>▶ Open Video Stream ↗</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.visualInspectionFallbackSlate} testID="video-inspector-fallback-slate">
+                    <View style={styles.visualInspectionSlateIcon}>
+                      <Text style={styles.visualInspectionSlateIconText}>🎬</Text>
+                    </View>
+                    <View style={styles.visualInspectionSlateMeta}>
+                      <Text style={styles.visualInspectionSlateTitle} numberOfLines={2}>
+                        {selectedVideo.title}
+                      </Text>
+                      <Text style={styles.visualInspectionSlateDetail}>
+                        Duration: {formatDurationSeconds(selectedVideo.durationSeconds)} · Format: Web Stream
+                      </Text>
+                      <Text style={styles.visualInspectionSlateUrl} numberOfLines={1}>
+                        Destination: {selectedVideo.sourceUrl}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={styles.visualInspectionActionBtn}
+                      onPress={() => Linking.openURL(selectedVideo.sourceUrl)}
+                      testID="video-play-stream-button"
+                    >
+                      <Text style={styles.visualInspectionActionText}>▶ Play / Inspect Stream ↗</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+
+              {/* Editorial & Asset Attributes */}
               <View style={styles.readOnlyGrid}>
                 <View style={styles.readOnlyItem}>
-                  <Text style={styles.readOnlyLabel}>Video UUID</Text>
+                  <Text style={styles.readOnlyLabel}>{isOwnerPreview ? "Catalog Reference" : "Video UUID"}</Text>
                   <Text style={styles.readOnlyValue} numberOfLines={1}>
-                    {selectedVideo.id}
+                    {isOwnerPreview ? selectedVideo.id.slice(0, 13) : selectedVideo.id}
                   </Text>
                 </View>
                 <View style={styles.readOnlyItem}>
-                  <Text style={styles.readOnlyLabel}>Lock Version</Text>
-                  <Text style={styles.readOnlyValue}>v{selectedVideo.lockVersion}</Text>
+                  <Text style={styles.readOnlyLabel}>{isOwnerPreview ? "Format" : "Lock Version"}</Text>
+                  <Text style={styles.readOnlyValue}>{isOwnerPreview ? "Web Stream / Video" : `v${selectedVideo.lockVersion}`}</Text>
                 </View>
                 <View style={styles.readOnlyItem}>
                   <Text style={styles.readOnlyLabel}>Created At</Text>
@@ -1052,15 +1126,15 @@ export function StudioVideoDeskView({
                   <Text style={styles.readOnlyValue}>{formatDate(selectedVideo.updatedAt)}</Text>
                 </View>
                 <View style={styles.readOnlyItem}>
-                  <Text style={styles.readOnlyLabel}>Created By (Staff)</Text>
+                  <Text style={styles.readOnlyLabel}>Created By</Text>
                   <Text style={styles.readOnlyValue} numberOfLines={1}>
-                    {selectedVideo.createdByStaffId || "System"}
+                    {isOwnerPreview ? "Editorial Staff" : (selectedVideo.createdByStaffId || "System")}
                   </Text>
                 </View>
                 <View style={styles.readOnlyItem}>
-                  <Text style={styles.readOnlyLabel}>Updated By (Staff)</Text>
+                  <Text style={styles.readOnlyLabel}>Updated By</Text>
                   <Text style={styles.readOnlyValue} numberOfLines={1}>
-                    {selectedVideo.updatedByStaffId || "System"}
+                    {isOwnerPreview ? "Editorial Staff" : (selectedVideo.updatedByStaffId || "System")}
                   </Text>
                 </View>
                 <View style={styles.readOnlyItem}>
@@ -2228,5 +2302,94 @@ const styles = StyleSheet.create({
   },
   storyOptionDisabled: {
     opacity: 0.6
+  },
+  visualInspectionCard: {
+    backgroundColor: colors.gray900,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md
+  },
+  visualInspectionTitle: {
+    color: colors.gray200,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: spacing.sm
+  },
+  visualInspectionThumbnailWrap: {
+    position: "relative",
+    borderRadius: radius.md,
+    overflow: "hidden",
+    height: 180,
+    backgroundColor: "#000000"
+  },
+  visualInspectionImage: {
+    width: "100%",
+    height: "100%"
+  },
+  visualInspectionOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: spacing.sm,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  visualInspectionDurationBadge: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  visualInspectionFallbackSlate: {
+    backgroundColor: colors.gray800,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    flexDirection: "column",
+    gap: spacing.sm
+  },
+  visualInspectionSlateIcon: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.gray700,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm
+  },
+  visualInspectionSlateIconText: {
+    fontSize: 20
+  },
+  visualInspectionSlateMeta: {
+    flex: 1
+  },
+  visualInspectionSlateTitle: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 14,
+    marginBottom: 4
+  },
+  visualInspectionSlateDetail: {
+    color: colors.gray300,
+    fontSize: 12,
+    marginBottom: 2
+  },
+  visualInspectionSlateUrl: {
+    color: "#38BDF8",
+    fontSize: 11
+  },
+  visualInspectionActionBtn: {
+    backgroundColor: "#0284C7",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+    marginTop: 4
+  },
+  visualInspectionActionText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 12
   }
 });

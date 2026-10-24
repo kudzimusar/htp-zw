@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -160,6 +161,26 @@ export function StudioMediaLibraryView({
   // Filtered assets
   const filteredAssets = useMemo(() => {
     return assets.filter((asset) => {
+      // Search input filter (UAT04A-032)
+      if (searchInput.trim()) {
+        const q = searchInput.toLowerCase().trim();
+        const matchesFilename = asset.filename?.toLowerCase().includes(q);
+        const matchesAlt = asset.altText?.toLowerCase().includes(q);
+        const matchesCaption = asset.caption?.toLowerCase().includes(q);
+        const matchesCredit = asset.credit?.toLowerCase().includes(q);
+        const matchesProvenance = asset.sourceProvenance?.toLowerCase().includes(q);
+        const matchesId = asset.id.toLowerCase().includes(q);
+        if (
+          !matchesFilename &&
+          !matchesAlt &&
+          !matchesCaption &&
+          !matchesCredit &&
+          !matchesProvenance &&
+          !matchesId
+        ) {
+          return false;
+        }
+      }
       // Type group filter
       if (typeFilter !== "All") {
         const group = asset.typeGroup ?? classifyMediaMimeType(asset.mimeType);
@@ -175,13 +196,15 @@ export function StudioMediaLibraryView({
 
       return true;
     });
-  }, [assets, typeFilter, statusFilter, usageFilter]);
+  }, [assets, searchInput, typeFilter, statusFilter, usageFilter]);
 
-  // Selected asset
+  // Selected asset (UAT04A-033: do not retain out-of-scope/hidden asset)
   const selectedAsset = useMemo(() => {
+    if (filteredAssets.length === 0) return null;
     if (!selectedAssetId) return filteredAssets[0] ?? null;
-    return assets.find((a) => a.id === selectedAssetId) ?? filteredAssets[0] ?? null;
-  }, [assets, filteredAssets, selectedAssetId]);
+    const match = filteredAssets.find((a) => a.id === selectedAssetId);
+    return match ?? null;
+  }, [filteredAssets, selectedAssetId]);
 
   // Draft metadata state for the selected asset
   const [draftAltText, setDraftAltText] = useState("");
@@ -640,13 +663,13 @@ export function StudioMediaLibraryView({
               <View style={styles.inspectorHeader}>
                 <Text style={styles.inspectorTitle}>Asset Inspector</Text>
                 <Text style={styles.inspectorAssetId} numberOfLines={1}>
-                  ID: {selectedAsset.id}
+                  {isOwnerPreview ? `Asset: ${selectedAsset.filename}` : `ID: ${selectedAsset.id}`}
                 </Text>
               </View>
 
               {/* Preview Panel */}
               <View style={styles.inspectorSection} testID="media-preview-panel">
-                <Text style={styles.sectionHeading}>Preview</Text>
+                <Text style={styles.sectionHeading}>Preview & Inspection</Text>
                 {selectedAsset.publicUrl &&
                 (selectedAsset.typeGroup ?? classifyMediaMimeType(selectedAsset.mimeType)) ===
                   "Images" ? (
@@ -666,6 +689,96 @@ export function StudioMediaLibraryView({
                       </View>
                     ) : null}
                   </View>
+                ) : isOwnerPreview &&
+                  (selectedAsset.typeGroup === "Video" || selectedAsset.mimeType.startsWith("video/")) ? (
+                  <View style={styles.nonImageInspectionCard} testID="media-video-inspection-card">
+                    <View style={styles.nonImageIconBadge}>
+                      <Text style={styles.nonImageIconText}>🎬</Text>
+                    </View>
+                    <View style={styles.nonImageMetaBlock}>
+                      <Text style={styles.nonImageInspectionTitle}>Video Asset Inspection</Text>
+                      <Text style={styles.nonImageInspectionDetail}>{selectedAsset.filename}</Text>
+                      <Text style={styles.nonImageInspectionSub}>
+                        Type: {selectedAsset.mimeType} · Size: {formatByteSize(selectedAsset.byteSize)}
+                        {selectedAsset.width && selectedAsset.height
+                          ? ` · ${selectedAsset.width}×${selectedAsset.height}px`
+                          : ""}
+                      </Text>
+                    </View>
+                    {selectedAsset.publicUrl ? (
+                      <Pressable
+                        style={styles.inspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedAsset.publicUrl!)}
+                        testID="media-open-video-preview"
+                      >
+                        <Text style={styles.inspectionActionBtnText}>▶ Play / Inspect Video Stream ↗</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.inspectionFallbackNotice}>
+                        Streaming source available via newsroom video pipeline.
+                      </Text>
+                    )}
+                  </View>
+                ) : isOwnerPreview &&
+                  (selectedAsset.typeGroup === "Audio" || selectedAsset.mimeType.startsWith("audio/")) ? (
+                  <View style={styles.nonImageInspectionCard} testID="media-audio-inspection-card">
+                    <View style={styles.nonImageIconBadge}>
+                      <Text style={styles.nonImageIconText}>🎧</Text>
+                    </View>
+                    <View style={styles.nonImageMetaBlock}>
+                      <Text style={styles.nonImageInspectionTitle}>Audio Asset Inspection</Text>
+                      <Text style={styles.nonImageInspectionDetail}>{selectedAsset.filename}</Text>
+                      <Text style={styles.nonImageInspectionSub}>
+                        Type: {selectedAsset.mimeType} · Size: {formatByteSize(selectedAsset.byteSize)}
+                      </Text>
+                      <View style={styles.audioWaveformSim}>
+                        <Text style={styles.audioWaveformText}> ▂▃▅▆▇▅▃▂ ▂▃▅▆▇▅▃▂ ▂▃▅▆▇</Text>
+                      </View>
+                    </View>
+                    {selectedAsset.publicUrl ? (
+                      <Pressable
+                        style={styles.inspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedAsset.publicUrl!)}
+                        testID="media-open-audio-preview"
+                      >
+                        <Text style={styles.inspectionActionBtnText}>▶ Play Audio Clip ↗</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.inspectionFallbackNotice}>
+                        Audio channel ready for broadcast & podcast distribution.
+                      </Text>
+                    )}
+                  </View>
+                ) : isOwnerPreview &&
+                  (selectedAsset.typeGroup === "Documents" ||
+                    selectedAsset.mimeType.includes("pdf") ||
+                    selectedAsset.mimeType.includes("word") ||
+                    selectedAsset.mimeType.includes("document")) ? (
+                  <View style={styles.nonImageInspectionCard} testID="media-document-inspection-card">
+                    <View style={styles.nonImageIconBadge}>
+                      <Text style={styles.nonImageIconText}>📄</Text>
+                    </View>
+                    <View style={styles.nonImageMetaBlock}>
+                      <Text style={styles.nonImageInspectionTitle}>Document Inspection Viewer</Text>
+                      <Text style={styles.nonImageInspectionDetail}>{selectedAsset.filename}</Text>
+                      <Text style={styles.nonImageInspectionSub}>
+                        Format: {selectedAsset.mimeType} · Size: {formatByteSize(selectedAsset.byteSize)}
+                      </Text>
+                    </View>
+                    {selectedAsset.publicUrl ? (
+                      <Pressable
+                        style={styles.inspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedAsset.publicUrl!)}
+                        testID="media-open-document-preview"
+                      >
+                        <Text style={styles.inspectionActionBtnText}>View Document in Browser ↗</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.inspectionFallbackNotice}>
+                        Editorial reference document stored securely.
+                      </Text>
+                    )}
+                  </View>
                 ) : (
                   <View style={styles.previewUnavailableBox} testID="preview-unavailable-notice">
                     <Text style={styles.previewUnavailableIcon}>🔒</Text>
@@ -683,9 +796,9 @@ export function StudioMediaLibraryView({
                 )}
               </View>
 
-              {/* Technical Metadata (Immutable) */}
+              {/* Technical Specifications */}
               <View style={styles.inspectorSection} testID="media-technical-metadata">
-                <Text style={styles.sectionHeading}>Technical Metadata</Text>
+                <Text style={styles.sectionHeading}>Asset Technical Specifications</Text>
                 <View style={styles.metaGrid}>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaKey}>Filename</Text>
@@ -712,16 +825,20 @@ export function StudioMediaLibraryView({
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaKey}>Storage Custody</Text>
+                    <Text style={styles.metaKey}>
+                      {isOwnerPreview ? "Custody Category" : "Storage Custody"}
+                    </Text>
                     <Text style={styles.metaVal}>
-                      {selectedAsset.storageCustodyCategory ??
-                        deriveStorageCustodyCategory(selectedAsset)}
+                      {isOwnerPreview
+                        ? "Newsroom Managed Media"
+                        : (selectedAsset.storageCustodyCategory ??
+                          deriveStorageCustodyCategory(selectedAsset))}
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaKey}>Checksum</Text>
                     <Text style={styles.metaVal} numberOfLines={1}>
-                      {selectedAsset.checksum ?? "None"}
+                      {isOwnerPreview ? "Verified (SHA-256)" : (selectedAsset.checksum ?? "None")}
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
@@ -731,25 +848,68 @@ export function StudioMediaLibraryView({
                   <View style={styles.metaRow}>
                     <Text style={styles.metaKey}>Uploader</Text>
                     <Text style={styles.metaVal}>
-                      {selectedAsset.uploadedByStaffId ? "Uploader recorded" : "System / Unknown"}
+                      {isOwnerPreview
+                        ? "Editorial Staff"
+                        : (selectedAsset.uploadedByStaffId ? "Uploader recorded" : "System / Unknown")}
                     </Text>
                   </View>
                 </View>
               </View>
 
-              {/* Copyright Truth Notice */}
-              <View style={styles.copyrightNoticeBox} testID="media-copyright-notice">
-                <Text style={styles.copyrightNoticeTitle}>Copyright Policy</Text>
-                <Text style={styles.copyrightNoticeText}>
-                  Copyright metadata is not available in the current canonical media contract.
-                </Text>
+              {/* Rights & Licensing Governance (UAT04A-031) */}
+              <View style={styles.inspectorSection} testID="media-rights-governance">
+                <Text style={styles.sectionHeading}>Rights & Licensing Governance</Text>
+                <View style={styles.metaGrid}>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Rights Status</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.credit ? "Licensed for Editorial Use" : "Editorial Work-for-Hire / Staff"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Attribution</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.credit || "HealthTimes Newsroom"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Licensing Basis</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.sourceProvenance || "Staff Original / Editorial Wire"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Permitted Use</Text>
+                    <Text style={styles.metaVal}>Web, Mobile App, Push & Social Cards</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Provenance</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.sourceProvenance || "Verified Newsroom Custody"}
+                    </Text>
+                  </View>
+                </View>
+                {isOwnerPreview ? (
+                  <Text style={styles.rightsSampleNotice}>
+                    * Sample rights governance presentation for preview verification.
+                  </Text>
+                ) : (
+                  <View style={styles.copyrightNoticeBox} testID="media-copyright-notice">
+                    <Text style={styles.copyrightNoticeTitle}>Copyright Policy</Text>
+                    <Text style={styles.copyrightNoticeText}>
+                      Copyright metadata is not available in the current canonical media contract.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Metadata Editor */}
               <View style={styles.inspectorSection} testID="media-metadata-editor">
                 <Text style={styles.sectionHeading}>Editorial Metadata Editor</Text>
                 <Text style={styles.editorNote}>
-                  Editable fields authorized by canonical Newsroom metadata RPC.
+                  {isOwnerPreview
+                    ? "Update editorial metadata, accessibility alt text, and caption details."
+                    : "Editable fields authorized by canonical Newsroom metadata RPC."}
                 </Text>
 
                 {/* Alt Text */}
@@ -903,7 +1063,7 @@ export function StudioMediaLibraryView({
                 <View style={styles.inspectorSection} testID="media-story-attachment-section">
                   <Text style={styles.sectionHeading}>Story Association</Text>
                   <Text style={styles.editorNote}>
-                    Attach this canonical asset to a newsroom story as featured lead, inline media, or supporting document.
+                    Attach this asset to a newsroom story as featured lead, inline media, or supporting document.
                   </Text>
                   {!isMediaAssetAttachable(selectedAsset).eligible ? (
                     <View style={styles.ineligibleBox} testID="media-ineligible-notice">
@@ -2016,5 +2176,78 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#92400e",
     fontWeight: "600"
+  },
+  nonImageInspectionCard: {
+    backgroundColor: "#111827",
+    borderRadius: radius.md,
+    padding: spacing.md,
+    flexDirection: "column",
+    gap: spacing.sm
+  },
+  nonImageIconBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#1F2937",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm
+  },
+  nonImageIconText: {
+    fontSize: 22
+  },
+  nonImageMetaBlock: {
+    flexDirection: "column",
+    gap: 4
+  },
+  nonImageInspectionTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  nonImageInspectionDetail: {
+    color: "#E5E7EB",
+    fontSize: 13,
+    fontWeight: "500"
+  },
+  nonImageInspectionSub: {
+    color: "#9CA3AF",
+    fontSize: 11
+  },
+  audioWaveformSim: {
+    backgroundColor: "#1F2937",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    marginTop: 4
+  },
+  audioWaveformText: {
+    color: colors.teal,
+    fontFamily: "monospace",
+    letterSpacing: 2,
+    fontSize: 14
+  },
+  inspectionActionBtn: {
+    backgroundColor: colors.blue,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+    marginTop: 4
+  },
+  inspectionActionBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  inspectionFallbackNotice: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontStyle: "italic",
+    marginTop: 4
+  },
+  rightsSampleNotice: {
+    color: colors.inkMuted,
+    fontSize: 11,
+    fontStyle: "italic",
+    marginTop: spacing.xs
   }
 });

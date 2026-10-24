@@ -749,6 +749,7 @@ export type NewsroomCalendarItem = {
   isTerminal: boolean;
   storyId: string | null;
   assignmentId: string | null;
+  ownerOrAuthor?: string | null;
 };
 
 // ============================================================================
@@ -2318,8 +2319,11 @@ export interface NewsroomSocialPost {
   body: string;
   status: NewsroomSocialPostStatus;
   createdBy: string;
+  createdByName?: string | null;
   approvedBy: string | null;
+  approvedByName?: string | null;
   approvedAt: string | null;
+  scheduledAt?: string | null;
   publishedAt: string | null;
   providerPostId: string | null;
   createdAt: string;
@@ -2360,6 +2364,7 @@ export interface NewsroomSocialDraftCreateInput {
   provider: string;
   body: string;
   socialAccountId?: string | null;
+  scheduledAt?: string | null;
 }
 
 export function validateSocialDraftCreateInput(
@@ -2493,6 +2498,10 @@ export interface NewsroomCampaign {
   subject: string;
   htmlContent: string | null;
   textContent: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  approvedBy?: string | null;
+  approvedByName?: string | null;
   approvedAt: string | null;
   scheduledAt: string | null;
   sentAt: string | null;
@@ -2528,6 +2537,7 @@ export interface NewsroomCampaignCreateInput {
   htmlContent?: string | null;
   textContent?: string | null;
   segmentId: string;
+  scheduledAt?: string | null;
 }
 
 export interface NewsroomCampaignPrepareSendResult {
@@ -2694,6 +2704,10 @@ export interface NewsroomPushAlertCreateInput {
   category: NewsroomPushAlertCategory;
   destination?: string | null;
   related_story_id?: string | null;
+  targetSegment?: string | null;
+  audienceEligibility?: string | null;
+  priority?: "normal" | "high" | string | null;
+  scheduledAt?: string | null;
 }
 
 export interface NewsroomPushAlertPatch {
@@ -2702,6 +2716,10 @@ export interface NewsroomPushAlertPatch {
   category?: NewsroomPushAlertCategory;
   destination?: string | null;
   related_story_id?: string | null;
+  targetSegment?: string | null;
+  audienceEligibility?: string | null;
+  priority?: "normal" | "high" | string | null;
+  scheduledAt?: string | null;
 }
 
 export interface NewsroomPushAlert {
@@ -2712,9 +2730,15 @@ export interface NewsroomPushAlert {
   destination: string | null;
   relatedStoryId: string | null;
   status: NewsroomPushAlertStatus;
+  targetSegment?: string | null;
+  audienceEligibility?: string | null;
+  priority?: "normal" | "high" | string | null;
+  scheduledAt?: string | null;
   createdBy: string;
+  createdByName?: string | null;
   updatedBy: string;
   approvedBy: string | null;
+  approvedByName?: string | null;
   preparedBy: string | null;
   approvedAt: string | null;
   preparedAt: string | null;
@@ -2768,7 +2792,11 @@ export function validatePushAlertCreateInput(
     "body",
     "category",
     "destination",
-    "related_story_id"
+    "related_story_id",
+    "targetSegment",
+    "audienceEligibility",
+    "priority",
+    "scheduledAt"
   ]);
 
   for (const key of Object.keys(record)) {
@@ -2843,7 +2871,11 @@ export function validatePushAlertPatch(
     "body",
     "category",
     "destination",
-    "related_story_id"
+    "related_story_id",
+    "targetSegment",
+    "audienceEligibility",
+    "priority",
+    "scheduledAt"
   ]);
 
   for (const key of Object.keys(record)) {
@@ -3608,6 +3640,11 @@ export interface NewsroomCitationReference {
   provider: string | null;
   providerReference: string | null;
   status: "verified" | "unverified" | "flagged" | "rejected";
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  verificationBasis?: string | null;
+  excerpt?: string | null;
+  doi?: string | null;
   createdAt: string;
 }
 
@@ -3644,6 +3681,9 @@ export interface NewsroomAuthorItem {
   slug: string;
   bio: string | null;
   wordpressSourceId: string | null;
+  role?: string | null;
+  desk?: string | null;
+  status?: string | null;
   createdAt: string;
   storyCount: number;
   boundStaffId: string | null;

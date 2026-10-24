@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { hasServerCapability } from "../security/capabilities";
-import type { NewsroomStory } from "../domain/models";
+import type { NewsroomPublicAuthor, NewsroomStory } from "../domain/models";
 import { colors, radius, spacing } from "../theme/tokens";
 
 const WORKFLOW_STATUSES = [
@@ -67,6 +67,7 @@ function statusBadgeStyle(status: string | null) {
 
 export type StudioStoriesViewProps = {
   stories: NewsroomStory[];
+  authors?: NewsroomPublicAuthor[];
   loading: boolean;
   error: Error | null;
   canCreate: boolean;
@@ -78,6 +79,7 @@ export type StudioStoriesViewProps = {
 
 export function StudioStoriesView({
   stories,
+  authors,
   loading,
   error,
   canCreate,
@@ -144,7 +146,7 @@ export function StudioStoriesView({
         <View style={styles.headerTitleGroup}>
           <Text style={styles.moduleTitle}>Newsroom Stories</Text>
           <Text style={styles.moduleSubtitle}>
-            Server-backed editorial stories, drafts, reviews, and published coverage.
+            Editorial stories, drafts, reviews, and published coverage.
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -365,6 +367,13 @@ export function StudioStoriesView({
                 )}
 
                 <View style={styles.cardFooter}>
+                  <Text style={styles.cardMeta}>
+                    Author / Lead:{" "}
+                    <Text style={styles.cardMetaHighlight}>
+                      {authors?.find((a) => a.id === story.authorId)?.displayName ??
+                        (story.authorId ? "Staff Reporter" : "Editorial Desk")}
+                    </Text>
+                  </Text>
                   <Text style={styles.cardMeta}>
                     Slug: <Text style={styles.cardMetaHighlight}>{story.slug}</Text>
                   </Text>

@@ -28,6 +28,12 @@ export function loadTs(relativePath,{mocks={}}={}){
 
     const localRequire=(specifier)=>{
       if(Object.prototype.hasOwnProperty.call(mocks,specifier)) return mocks[specifier];
+      if(specifier === "expo-constants"){
+        return {
+          default: { expoConfig: { experiments: { baseUrl: "" } } },
+          expoConfig: { experiments: { baseUrl: "" } }
+        };
+      }
       if(specifier.startsWith(".")){
         const base=normalize(join(dirname(normalized),specifier));
         const candidates=extname(base)

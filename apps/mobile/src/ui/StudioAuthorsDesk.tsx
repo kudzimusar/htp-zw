@@ -42,6 +42,7 @@ export interface StudioAuthorsDeskViewProps {
   canManage: boolean;
   actionMessage: string | null;
   isMutating: boolean;
+  isOwnerPreview?: boolean;
 }
 
 export function StudioAuthorsDeskView({
@@ -60,7 +61,8 @@ export function StudioAuthorsDeskView({
   onCreateSection,
   canManage,
   actionMessage,
-  isMutating
+  isMutating,
+  isOwnerPreview = false
 }: StudioAuthorsDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -80,6 +82,7 @@ export function StudioAuthorsDeskView({
   const [sectionName, setSectionName] = useState("");
   const [sectionSlug, setSectionSlug] = useState("");
   const [sectionParentId, setSectionParentId] = useState("");
+  const [sectionValidationError, setSectionValidationError] = useState<string | null>(null);
 
   const metrics = directory?.metrics;
   const taxMetrics = taxonomy?.metrics;
@@ -131,10 +134,43 @@ export function StudioAuthorsDeskView({
   };
 
   const handleSaveSection = async () => {
-    if (!sectionName.trim()) return;
+    const rawName = sectionName.trim();
+    if (!rawName) return;
+    const normalizedName = rawName.toLowerCase();
+    const candidateSlug = (
+      sectionSlug.trim() ||
+      rawName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+    ).toLowerCase();
+
+    // UAT04A-035: Check duplicate slug or duplicate name against existing sections
+    const existingSections = taxonomy?.sections ?? [];
+    const duplicateSlug = existingSections.some(
+      (s) => s.slug.toLowerCase() === candidateSlug
+    );
+    if (duplicateSlug) {
+      setSectionValidationError(
+        `A section with the slug "${candidateSlug}" already exists. Slugs must be unique across newsroom taxonomy.`
+      );
+      return;
+    }
+
+    const duplicateName = existingSections.some(
+      (s) => s.name.trim().toLowerCase() === normalizedName
+    );
+    if (duplicateName) {
+      setSectionValidationError(
+        `A section named "${rawName}" already exists. Section names must be unique.`
+      );
+      return;
+    }
+
+    setSectionValidationError(null);
     await onCreateSection(
-      sectionName.trim(),
-      sectionSlug.trim() ? sectionSlug.trim() : undefined,
+      rawName,
+      candidateSlug,
       sectionParentId.trim() ? sectionParentId.trim() : undefined
     );
     setIsSectionModalOpen(false);
@@ -167,7 +203,10 @@ export function StudioAuthorsDeskView({
               ) : (
                 <Pressable
                   style={[styles.primaryButton, isMutating && styles.buttonDisabled]}
-                  onPress={() => setIsSectionModalOpen(true)}
+                  onPress={() => {
+                    setSectionValidationError(null);
+                    setIsSectionModalOpen(true);
+                  }}
                   disabled={isMutating}
                 >
                   <Text style={styles.primaryButtonText}>+ Add Section</Text>
@@ -274,7 +313,7 @@ export function StudioAuthorsDeskView({
         <View style={styles.tableCard}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Author & Byline</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Slug & WP Source</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Slug & Publication Identifier</Text>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Staff Binding</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: "center" }]}>Stories</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5, textAlign: "right" }]}>Actions</Text>
@@ -304,7 +343,22 @@ export function StudioAuthorsDeskView({
 
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
                   <Text style={styles.codeBadge}>/{author.slug}</Text>
-                  {author.wordpressSourceId && (
+                  {author.role && (
+                    <View style={styles.roleBadge} testID={`author-role-${author.id}`}>
+                      <Text style={styles.roleBadgeText}>{author.role}</Text>
+                    </View>
+                  )}
+                  {author.desk && (
+                    <View style={styles.deskBadge} testID={`author-desk-${author.id}`}>
+                      <Text style={styles.deskBadgeText}>{author.desk}</Text>
+                    </View>
+                  )}
+                  {author.status && (
+                    <View style={styles.statusBadgeSmall} testID={`author-status-${author.id}`}>
+                      <Text style={styles.statusBadgeSmallText}>{author.status.toUpperCase()}</Text>
+                    </View>
+                  )}
+                  {!isOwnerPreview && author.wordpressSourceId && (
                     <View style={styles.wpBadge}>
                       <Text style={styles.wpBadgeText}>WP ID: {author.wordpressSourceId}</Text>
                     </View>
@@ -536,6 +590,12 @@ export function StudioAuthorsDeskView({
               Add an editorial desk or topic category for article classification.
             </Text>
 
+            {sectionValidationError ? (
+              <View style={styles.errorAlert} testID="taxonomy-validation-error">
+                <Text style={styles.errorAlertText}>❌ {sectionValidationError}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Section Name *</Text>
               <TextInput
@@ -543,7 +603,11 @@ export function StudioAuthorsDeskView({
                 placeholder="e.g. Maternal Health & Pediatrics"
                 placeholderTextColor={colors.inkMuted}
                 value={sectionName}
-                onChangeText={setSectionName}
+                onChangeText={(text) => {
+                  setSectionName(text);
+                  if (sectionValidationError) setSectionValidationError(null);
+                }}
+                testID="taxonomy-section-name-input"
               />
             </View>
 
@@ -554,19 +618,56 @@ export function StudioAuthorsDeskView({
                 placeholder="e.g. maternal-health"
                 placeholderTextColor={colors.inkMuted}
                 value={sectionSlug}
-                onChangeText={setSectionSlug}
+                onChangeText={(text) => {
+                  setSectionSlug(text);
+                  if (sectionValidationError) setSectionValidationError(null);
+                }}
+                testID="taxonomy-section-slug-input"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Parent Section UUID (optional)</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Leave blank for top-level section"
-                placeholderTextColor={colors.inkMuted}
-                value={sectionParentId}
-                onChangeText={setSectionParentId}
-              />
+              <Text style={styles.formLabel}>Parent Section (Optional)</Text>
+              <View style={styles.parentPickerContainer} testID="taxonomy-parent-picker">
+                <Pressable
+                  style={[
+                    styles.parentOptionChip,
+                    !sectionParentId && styles.parentOptionChipActive
+                  ]}
+                  onPress={() => setSectionParentId("")}
+                  testID="parent-opt-none"
+                >
+                  <Text
+                    style={[
+                      styles.parentOptionText,
+                      !sectionParentId && styles.parentOptionTextActive
+                    ]}
+                  >
+                    Top Level (No Parent)
+                  </Text>
+                </Pressable>
+                {taxonomy?.sections.map((sec) => (
+                  <Pressable
+                    key={sec.id}
+                    style={[
+                      styles.parentOptionChip,
+                      sectionParentId === sec.id && styles.parentOptionChipActive
+                    ]}
+                    onPress={() => setSectionParentId(sec.id)}
+                    testID={`parent-opt-${sec.slug}`}
+                  >
+                    <Text
+                      style={[
+                        styles.parentOptionText,
+                        sectionParentId === sec.id && styles.parentOptionTextActive
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {sec.name} (/{sec.slug})
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
             <View style={styles.modalActions}>
@@ -1127,5 +1228,87 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     textAlign: "center",
     maxWidth: 400
+  },
+  roleBadge: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    marginTop: 4,
+    alignSelf: "flex-start"
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    color: "#1E40AF",
+    fontWeight: "600"
+  },
+  deskBadge: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    marginTop: 2,
+    alignSelf: "flex-start"
+  },
+  deskBadgeText: {
+    fontSize: 10,
+    color: "#166534",
+    fontWeight: "500"
+  },
+  statusBadgeSmall: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.sm,
+    marginTop: 2,
+    alignSelf: "flex-start"
+  },
+  statusBadgeSmallText: {
+    fontSize: 9,
+    color: "#4B5563",
+    fontWeight: "700"
+  },
+  parentPickerContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4
+  },
+  parentOptionChip: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.sm
+  },
+  parentOptionChipActive: {
+    backgroundColor: colors.blue,
+    borderColor: colors.blue
+  },
+  parentOptionText: {
+    fontSize: 12,
+    color: colors.ink
+  },
+  parentOptionTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "600"
+  },
+  errorAlert: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    marginBottom: spacing.md
+  },
+  errorAlertText: {
+    fontSize: 12,
+    color: "#B91C1C",
+    fontWeight: "600"
   }
 });

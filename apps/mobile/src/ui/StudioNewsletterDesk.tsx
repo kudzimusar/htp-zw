@@ -276,6 +276,9 @@ export function StudioNewsletterDeskView({
   const [composerValidationError, setComposerValidationError] = useState<
     string | null
   >(null);
+  const [composerScheduleDate, setComposerScheduleDate] = useState("");
+  const [composerScheduleTime, setComposerScheduleTime] = useState("");
+  const [composerTimezone, setComposerTimezone] = useState("Africa/Harare (CAT, UTC+2)");
   const [submittingAction, setSubmittingAction] = useState<
     "create" | "approve" | "send" | null
   >(null);
@@ -363,13 +366,21 @@ export function StudioNewsletterDeskView({
       return;
     }
 
+    let scheduledAt: string | null = null;
+    if (composerScheduleDate.trim()) {
+      const datePart = composerScheduleDate.trim();
+      const timePart = composerScheduleTime.trim() || "08:00";
+      scheduledAt = `${datePart}T${timePart}:00Z`;
+    }
+
     const payload: NewsroomCampaignCreateInput = {
       name: composerName.trim(),
       purpose: composerPurpose,
       subject: composerSubject.trim(),
       textContent: composerTextContent.trim() || null,
       htmlContent: composerHtmlContent.trim() || null,
-      segmentId: composerSegmentId.trim()
+      segmentId: composerSegmentId.trim(),
+      scheduledAt
     };
 
     const validation = validateCampaignCreateInput(payload);
@@ -388,6 +399,8 @@ export function StudioNewsletterDeskView({
       setComposerSubject("");
       setComposerTextContent("");
       setComposerHtmlContent("");
+      setComposerScheduleDate("");
+      setComposerScheduleTime("");
       setComposerOpen(false);
     } finally {
       setSubmittingAction(null);
@@ -701,12 +714,14 @@ export function StudioNewsletterDeskView({
           <View style={styles.composerHeader}>
             <View>
               <Text style={styles.sectionEyebrow}>
-                CREATE CAMPAIGN DRAFT • RPC communications_create_campaign
+                {previewMode
+                  ? "CREATE CAMPAIGN DRAFT • EDITORIAL WORKFLOW"
+                  : "CREATE CAMPAIGN DRAFT • EDITORIAL COMPOSER"}
               </Text>
               <Text style={styles.sectionTitle}>New Newsletter / Campaign</Text>
             </View>
             <Text style={styles.composerNotice}>
-              New campaigns enter canonical status &ldquo;draft&rdquo; and
+              New campaigns enter status &ldquo;draft&rdquo; and
               require separate human approval before send preparation.
             </Text>
           </View>
@@ -720,9 +735,7 @@ export function StudioNewsletterDeskView({
                 No canonical audience segments are configured.
               </Text>
               <Text style={styles.noSegmentsWarningBody}>
-                Campaign creation requires a canonical contact segment in
-                public.contact_segments. Create Campaign submission is disabled
-                until an audience segment is provisioned.
+                Campaign creation requires an audience contact segment. Create Campaign submission is disabled until an audience segment is provisioned.
               </Text>
             </View>
           )}
@@ -873,6 +886,46 @@ export function StudioNewsletterDeskView({
                 testID="composer-html-input"
               />
             </View>
+
+            {/* Scheduling Controls */}
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>
+                Scheduled Distribution (Optional — Default: Immediate upon approval)
+              </Text>
+              <View style={styles.scheduleRow}>
+                <View style={styles.scheduleField}>
+                  <Text style={styles.subFieldLabel}>Send Date</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={composerScheduleDate}
+                    onChangeText={setComposerScheduleDate}
+                    placeholder="YYYY-MM-DD (e.g. 2026-10-25)"
+                    placeholderTextColor={colors.inkMuted}
+                    testID="composer-schedule-date-input"
+                  />
+                </View>
+                <View style={styles.scheduleField}>
+                  <Text style={styles.subFieldLabel}>Send Time</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={composerScheduleTime}
+                    onChangeText={setComposerScheduleTime}
+                    placeholder="HH:MM (e.g. 08:00)"
+                    placeholderTextColor={colors.inkMuted}
+                    testID="composer-schedule-time-input"
+                  />
+                </View>
+                <View style={styles.scheduleField}>
+                  <Text style={styles.subFieldLabel}>Timezone</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.paperMuted }]}
+                    value={composerTimezone}
+                    editable={false}
+                    testID="composer-schedule-tz-input"
+                  />
+                </View>
+              </View>
+            </View>
           </View>
 
           <View style={styles.composerFooter}>
@@ -910,7 +963,7 @@ export function StudioNewsletterDeskView({
         <View style={styles.sectionHeaderRow}>
           <View>
             <Text style={styles.sectionEyebrow}>
-              CANONICAL CONTACT SEGMENTS • BREVO SYNCHRONIZATION STATE
+              AUDIENCE CONTACT SEGMENTS • DISTRIBUTION SYNCHRONIZATION STATE
             </Text>
             <Text style={styles.sectionTitle}>Audience Segment Readiness</Text>
           </View>
@@ -927,8 +980,8 @@ export function StudioNewsletterDeskView({
               No canonical audience segments are configured.
             </Text>
             <Text style={styles.emptySegmentSubtitle}>
-              Staging currently contains 0 rows in public.contact_segments.
-              Create Campaign submission remains disabled until a canonical
+              Audience registry currently contains 0 contact segments.
+              Create Campaign submission remains disabled until an audience
               segment exists.
             </Text>
           </View>
@@ -1075,7 +1128,7 @@ export function StudioNewsletterDeskView({
           <View style={styles.sectionHeaderRow}>
             <View>
               <Text style={styles.sectionEyebrow}>
-                PUBLIC.AUDIENCE_CAMPAIGNS
+                AUDIENCE CAMPAIGN REGISTRY
               </Text>
               <Text style={styles.sectionTitle}>
                 Campaign Registry ({filteredCampaigns.length})
@@ -1086,7 +1139,7 @@ export function StudioNewsletterDeskView({
           {loading ? (
             <View style={styles.emptyRegistryBox}>
               <Text style={styles.emptyRegistryTitle}>
-                Loading canonical campaigns...
+                Loading campaigns...
               </Text>
             </View>
           ) : filteredCampaigns.length === 0 ? (
@@ -1099,8 +1152,8 @@ export function StudioNewsletterDeskView({
               </Text>
               <Text style={styles.emptyRegistrySubtitle}>
                 {campaigns.length === 0
-                  ? "Canonical table public.audience_campaigns currently has 0 rows. No mock campaigns or fabricated subscriber counts are displayed."
-                  : "Adjust the status or purpose filter above to inspect other canonical campaigns."}
+                  ? "Campaign registry currently has 0 rows. No mock campaigns or fabricated subscriber counts are displayed."
+                  : "Adjust the status or purpose filter above to inspect other campaigns."}
               </Text>
             </View>
           ) : (
@@ -1163,9 +1216,21 @@ export function StudioNewsletterDeskView({
                     </Text>
 
                     <View style={styles.campaignRowFooter}>
-                      <Text style={styles.campaignRowSegment}>
-                        Segment: {seg ? seg.name : "Unresolved segment"}
-                      </Text>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.campaignRowSegment}>
+                          Segment: {seg ? seg.name : "Unresolved segment"}
+                        </Text>
+                        {campaign.createdByName && (
+                          <Text style={styles.campaignRowAuthorText}>
+                            Created by: {campaign.createdByName}
+                          </Text>
+                        )}
+                        {campaign.scheduledAt && (
+                          <Text style={styles.campaignRowScheduledText}>
+                            Scheduled: {formatTimestamp(campaign.scheduledAt)}
+                          </Text>
+                        )}
+                      </View>
                       {segBadge && (
                         <Text
                           style={[
@@ -1289,9 +1354,27 @@ export function StudioNewsletterDeskView({
                         </Text>
                       </View>
                       <View style={styles.metadataCell}>
+                        <Text style={styles.metadataLabel}>CREATED BY</Text>
+                        <Text style={styles.metadataValue}>
+                          {selectedCampaign.createdByName ?? selectedCampaign.createdBy ?? "Staff Reporter"}
+                        </Text>
+                      </View>
+                      <View style={styles.metadataCell}>
+                        <Text style={styles.metadataLabel}>APPROVED BY</Text>
+                        <Text style={styles.metadataValue}>
+                          {selectedCampaign.approvedByName ?? selectedCampaign.approvedBy ?? (selectedCampaign.status === "draft" ? "Pending human approval" : "Not recorded")}
+                        </Text>
+                      </View>
+                      <View style={styles.metadataCell}>
                         <Text style={styles.metadataLabel}>APPROVED AT</Text>
                         <Text style={styles.metadataValue}>
                           {formatTimestamp(selectedCampaign.approvedAt)}
+                        </Text>
+                      </View>
+                      <View style={styles.metadataCell}>
+                        <Text style={styles.metadataLabel}>SCHEDULED FOR</Text>
+                        <Text style={styles.metadataValue}>
+                          {selectedCampaign.scheduledAt ? formatTimestamp(selectedCampaign.scheduledAt) : "Immediate dispatch upon approval"}
                         </Text>
                       </View>
                       <View style={styles.metadataCell}>
@@ -1333,10 +1416,10 @@ export function StudioNewsletterDeskView({
                           <Text style={styles.unsyncedSegmentBody}>
                             Segment &ldquo;{selectedSegment.name}&rdquo; is
                             currently in state &ldquo;
-                            {selectedSegment.syncState}&rdquo;. Server RPC
-                            communications_prepare_campaign_send requires a
-                            synced Brevo list ID and consented unsuppressed
-                            recipients before handoff succeeds.
+                            {selectedSegment.syncState}&rdquo;. Campaign
+                            distribution requires a synced audience list ID and
+                            consented unsuppressed recipients before handoff
+                            succeeds.
                           </Text>
                         </View>
                       )}
@@ -1357,9 +1440,9 @@ export function StudioNewsletterDeskView({
                             : selectedCampaign.status === "approved"
                               ? "Campaign is human-approved. Authorized senders (marketing.send) may execute Prepare Send."
                               : selectedCampaign.status === "sent"
-                                ? "Campaign send was completed and recorded by backend service-role authority."
+                                ? "Campaign send was completed and recorded by automated dispatch service."
                                 : selectedCampaign.status === "failed"
-                                  ? "Provider execution reported failure via service-role completion authority."
+                                  ? "Provider execution reported failure via automated delivery service."
                                   : `Campaign is currently in ${selectedCampaign.status} state.`}
                         </Text>
                       </View>
@@ -1389,10 +1472,10 @@ export function StudioNewsletterDeskView({
                           <Pressable
                             style={[
                               styles.prepareSendButton,
-                              submittingAction === "send" &&
+                              (submittingAction === "send" || Boolean(activeHandoff)) &&
                                 styles.buttonDisabled
                             ]}
-                            disabled={submittingAction === "send"}
+                            disabled={submittingAction === "send" || Boolean(activeHandoff)}
                             onPress={() =>
                               handlePrepareSend(selectedCampaign.id)
                             }
@@ -1402,7 +1485,9 @@ export function StudioNewsletterDeskView({
                             <Text style={styles.prepareSendButtonText}>
                               {submittingAction === "send"
                                 ? "Preparing Handoff..."
-                                : "Prepare Send"}
+                                : activeHandoff
+                                  ? "Send Handoff Ready"
+                                  : "Prepare Send"}
                             </Text>
                           </Pressable>
                         )}
@@ -2417,9 +2502,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.ink
   },
+  campaignRowAuthorText: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  campaignRowScheduledText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.blue
+  },
   campaignRowSyncText: {
     fontSize: 10,
     fontWeight: "900"
+  },
+  scheduleRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    flexWrap: "wrap"
+  },
+  scheduleField: {
+    flex: 1,
+    minWidth: 140,
+    gap: 4
+  },
+  subFieldLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.inkMuted
   },
   inspectorContent: {
     gap: spacing.lg

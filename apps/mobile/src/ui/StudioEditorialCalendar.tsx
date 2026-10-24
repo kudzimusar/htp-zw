@@ -337,7 +337,8 @@ export function deriveEditorialCalendarItems(
         isOverdue: classification.isOverdue,
         isTerminal: storyTerminal,
         storyId,
-        assignmentId: null
+        assignmentId: null,
+        ownerOrAuthor: story.authorId ? "Staff Author / Byline" : "Editorial Lead"
       });
     }
 
@@ -368,7 +369,8 @@ export function deriveEditorialCalendarItems(
         isOverdue: false,
         isTerminal: storyTerminal,
         storyId,
-        assignmentId: null
+        assignmentId: null,
+        ownerOrAuthor: story.authorId ? "Staff Author / Byline" : "Editorial Lead"
       });
     }
   }
@@ -417,7 +419,8 @@ export function deriveEditorialCalendarItems(
       isOverdue: classification.isOverdue,
       isTerminal: assignmentTerminal,
       storyId: linkedStoryId,
-      assignmentId
+      assignmentId,
+      ownerOrAuthor: assignment.reporterStaffId ? "Assigned Reporter" : "Desk Editor"
     });
   }
 
@@ -672,6 +675,7 @@ export type StudioEditorialCalendarViewProps = {
   onOpenPlanning: () => void;
   onOpenMyAssignments: () => void;
   onOpenStories: () => void;
+  isOwnerPreview?: boolean;
 };
 
 export function StudioEditorialCalendarView({
@@ -686,7 +690,8 @@ export function StudioEditorialCalendarView({
   onOpenAssignment: handleOpenAssignment,
   onOpenPlanning: handleOpenPlanning,
   onOpenMyAssignments: handleOpenMyAssignments,
-  onOpenStories: handleOpenStories
+  onOpenStories: handleOpenStories,
+  isOwnerPreview = false
 }: StudioEditorialCalendarViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
@@ -871,6 +876,12 @@ export function StudioEditorialCalendarView({
             : `Deadline: ${formatCalendarTimestamp(item.timestampMs)}`}
         </Text>
 
+        {item.ownerOrAuthor && (
+          <Text style={styles.cardOwnerMeta}>
+            Responsible: <Text style={styles.cardOwnerHighlight}>{item.ownerOrAuthor}</Text>
+          </Text>
+        )}
+
         <View style={styles.cardActionsRow}>
           {item.eventKind === "assignment_deadline" && item.assignmentId && (
             <Pressable
@@ -944,21 +955,29 @@ export function StudioEditorialCalendarView({
         </View>
 
         <Text style={styles.description}>
-          Read-only editorial agenda derived from canonical story deadlines, scheduled publications, and server-scoped assignment deadlines.
+          {isOwnerPreview
+            ? "Read-only editorial agenda derived from story deadlines, scheduled publications, and assignment deadlines."
+            : "Read-only editorial agenda derived from canonical story deadlines, scheduled publications, and server-scoped assignment deadlines."}
         </Text>
       </View>
 
       {/* Loading State — never flashes 0 events before requests finish */}
       {isWorkloadLoading ? (
         <View style={styles.stateContainer}>
-          <Text style={styles.loadingText}>Loading server-authorized editorial agenda…</Text>
+          <Text style={styles.loadingText}>
+            {isOwnerPreview
+              ? "Loading editorial agenda…"
+              : "Loading server-authorized editorial agenda…"}
+          </Text>
         </View>
       ) : bothSourcesFailed ? (
-        /* Both canonical sources failed */
+        /* Both editorial sources failed */
         <View style={styles.stateContainer}>
           <Text style={styles.errorTitle}>Editorial Agenda Sources Unavailable</Text>
           <Text style={styles.errorText}>
-            Both canonical editorial calendar sources failed to load. The calendar is not shown as empty when server sources fail.
+            {isOwnerPreview
+              ? "Both editorial calendar sources failed to load. Please refresh to restore agenda visibility."
+              : "Both canonical editorial calendar sources failed to load. The calendar is not shown as empty when server sources fail."}
           </Text>
           {storiesState.error && (
             <Text style={styles.sourceErrorDetail}>
@@ -1195,16 +1214,22 @@ export function StudioEditorialCalendarView({
             hasPartialSourceError ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyTitle}>
-                  Incomplete Editorial Agenda — Canonical Source Error
+                  {isOwnerPreview
+                    ? "Incomplete Editorial Agenda — Source Connection Error"
+                    : "Incomplete Editorial Agenda — Canonical Source Error"}
                 </Text>
                 <Text style={styles.emptySub}>
-                  No dated events were found in the available source, and one canonical source failed to load. Retry above to restore complete agenda visibility.
+                  {isOwnerPreview
+                    ? "No dated events were found in the available source, and one calendar source failed to load. Retry above to restore complete agenda visibility."
+                    : "No dated events were found in the available source, and one canonical source failed to load. Retry above to restore complete agenda visibility."}
                 </Text>
               </View>
             ) : (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyTitle}>
-                  No scheduled publications or editorial deadlines are currently available in your server-authorized Newsroom scope.
+                  {isOwnerPreview
+                    ? "No scheduled publications or editorial deadlines are currently scheduled."
+                    : "No scheduled publications or editorial deadlines are currently available in your server-authorized Newsroom scope."}
                 </Text>
                 <Text style={styles.emptySub}>
                   Historical published stories without active planning dates are excluded to prevent archival noise. Generic events (interviews, editorial conferences, health dates, and cross-domain distribution campaigns) are not fabricated client-side.
@@ -1947,6 +1972,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: colors.inkMuted
+  },
+  cardOwnerMeta: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  cardOwnerHighlight: {
+    fontWeight: "700",
+    color: colors.ink
   },
   cardActionsRow: {
     flexDirection: "row",
