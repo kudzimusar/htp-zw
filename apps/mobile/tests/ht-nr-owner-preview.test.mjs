@@ -892,3 +892,274 @@ test("HT-NR-UAT04A-R2: Push Alert Desk defect convergence (UAT04A-052 through 05
   assert.ok(pushSource.includes("PROVIDER SEND HANDOFF · SECURE DISPATCH BOUNDARY"));
 });
 
+test("HT-NR-UAT04A-R2-R2: Behavioral schedule parsing and timezone differentiation (UAT04A-047, 050, 054)", () => {
+  const modelsMod = loadTsModule("src/domain/models.ts");
+  const {
+    SUPPORTED_PREVIEW_TIMEZONES,
+    normalizePreviewTimezone,
+    parseAndFormatPreviewSchedule,
+    formatPreviewScheduleTimestamp
+  } = modelsMod;
+
+  assert.deepEqual(SUPPORTED_PREVIEW_TIMEZONES, ["Africa/Harare", "UTC"]);
+  assert.equal(normalizePreviewTimezone("Africa/Harare"), "Africa/Harare");
+  assert.equal(normalizePreviewTimezone("UTC"), "UTC");
+  assert.equal(normalizePreviewTimezone("gmt"), "UTC");
+  assert.equal(normalizePreviewTimezone("cat"), "Africa/Harare");
+
+  // Unscheduled when date and time are blank
+  const unscheduled = parseAndFormatPreviewSchedule("", "", "Africa/Harare");
+  assert.equal(unscheduled.valid, true);
+  assert.equal(unscheduled.utcIso, null);
+  assert.equal(unscheduled.displayLabel, null);
+
+  // Date required when time is entered
+  const timeWithoutDate = parseAndFormatPreviewSchedule("", "08:00", "Africa/Harare");
+  assert.equal(timeWithoutDate.valid, false);
+  assert.match(timeWithoutDate.error, /Schedule date.*is required/i);
+
+  // Reject invalid calendar dates and 24-hour times
+  const invalidDate = parseAndFormatPreviewSchedule("2026-02-30", "08:00", "Africa/Harare");
+  assert.equal(invalidDate.valid, false);
+  const invalidTime = parseAndFormatPreviewSchedule("2026-10-25", "25:99", "Africa/Harare");
+  assert.equal(invalidTime.valid, false);
+
+  // Prove Africa/Harare (UTC+2) vs UTC produce distinct UTC timestamps and distinct display labels
+  const harareSchedule = parseAndFormatPreviewSchedule(
+    "2026-10-25",
+    "08:00",
+    "Africa/Harare"
+  );
+  const utcSchedule = parseAndFormatPreviewSchedule(
+    "2026-10-25",
+    "08:00",
+    "UTC"
+  );
+
+  assert.equal(harareSchedule.valid, true);
+  assert.equal(utcSchedule.valid, true);
+  assert.equal(harareSchedule.utcIso, "2026-10-25T06:00:00.000Z");
+  assert.equal(utcSchedule.utcIso, "2026-10-25T08:00:00.000Z");
+  assert.notEqual(
+    harareSchedule.utcIso,
+    utcSchedule.utcIso,
+    "08:00 Africa/Harare and 08:00 UTC must not produce the same UTC timestamp"
+  );
+  assert.equal(
+    harareSchedule.displayLabel,
+    "2026-10-25 08:00 Africa/Harare (CAT, UTC+2)"
+  );
+  assert.equal(utcSchedule.displayLabel, "2026-10-25 08:00 UTC");
+
+  // Prove round-trip formatting preserves local wall-clock time and timezone label
+  assert.equal(
+    formatPreviewScheduleTimestamp("2026-10-25T06:00:00.000Z", "Africa/Harare"),
+    "2026-10-25 08:00 Africa/Harare (CAT, UTC+2)"
+  );
+  assert.equal(
+    formatPreviewScheduleTimestamp("2026-10-25T08:00:00.000Z", "UTC"),
+    "2026-10-25 08:00 UTC"
+  );
+
+  // Verify Social, Newsletter, and Push Alert desks wire parseAndFormatPreviewSchedule and formatPreviewScheduleTimestamp
+  for (const deskPath of [
+    "src/ui/StudioSocialDesk.tsx",
+    "src/ui/StudioNewsletterDesk.tsx",
+    "src/ui/StudioPushAlertDesk.tsx"
+  ]) {
+    const deskSource = read(deskPath);
+    assert.ok(
+      deskSource.includes("parseAndFormatPreviewSchedule"),
+      `${deskPath} must use parseAndFormatPreviewSchedule`
+    );
+    assert.ok(
+      deskSource.includes("formatPreviewScheduleTimestamp"),
+      `${deskPath} must use formatPreviewScheduleTimestamp`
+    );
+    assert.ok(
+      deskSource.includes("Africa/Harare (CAT, UTC+2)"),
+      `${deskPath} must expose Africa/Harare (CAT, UTC+2) timezone selection`
+    );
+  }
+});
+
+test("HT-NR-UAT04A-R2-R2: Push Alert human-readable story selection & consent governance (UAT04A-052, 058)", () => {
+  const pushSource = read("src/ui/StudioPushAlertDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  const stories = previewData.buildPreviewStories();
+  const alerts = previewData.buildPreviewPushAlerts();
+  assert.ok(stories.length >= 2);
+  assert.ok(alerts.length >= 2);
+
+  // Verify linked alerts resolve to human-readable story titles in preview data
+  const linkedAlerts = alerts.filter((a) => a.relatedStoryId);
+  assert.ok(linkedAlerts.length >= 1);
+  for (const alert of linkedAlerts) {
+    const matchedStory = stories.find((s) => s.id === alert.relatedStoryId);
+    assert.ok(
+      matchedStory && matchedStory.title.length > 5,
+      `Push alert ${alert.id} relatedStoryId must resolve to a human-readable preview story title`
+    );
+  }
+
+  // Verify StudioPushAlertDesk replaces raw UUID story input with human-readable selector in composer and edit mode
+  assert.ok(!pushSource.includes("Optional story UUID"));
+  assert.ok(!pushSource.includes("Related Story ID (Optional UUID)"));
+  assert.ok(pushSource.includes("Linked Editorial Story (Optional)"));
+  assert.ok(pushSource.includes("Standalone Alert (No Linked Story)"));
+  assert.ok(pushSource.includes("composer-story-selector"));
+  assert.ok(pushSource.includes("composer-story-option-${st.id}"));
+  assert.ok(pushSource.includes("edit-story-option-${st.id}"));
+  assert.ok(previewStudioSource.includes("stories={stories}"));
+
+  // Verify UAT04A-052 explicit consent & opt-in governance in composer and inspector
+  assert.ok(pushSource.includes("Audience Consent & Opt-In Governance"));
+  assert.ok(pushSource.includes("✓ Push notifications enabled"));
+  assert.ok(pushSource.includes("✓ Reader opt-in required"));
+  assert.ok(pushSource.includes("✓ Suppressed/disabled devices excluded"));
+  assert.ok(pushSource.includes("Consented & Eligible Sample Devices:"));
+  assert.ok(pushSource.includes("composer-consent-governance-box"));
+  assert.ok(pushSource.includes("inspector-consent-governance-box"));
+});
+
+test("HT-NR-UAT04A-R2-R2: Citation independent verification & AI audit truthfulness (UAT04A-039, 042)", () => {
+  const citations = previewData.buildPreviewCitationsDirectory();
+  assert.ok(citations.citations.length >= 2);
+
+  for (const cit of citations.citations) {
+    assert.ok(
+      cit.authorsOrOrganization && cit.authorsOrOrganization.length > 3,
+      `Citation ${cit.id} must expose authorsOrOrganization`
+    );
+    assert.ok(
+      cit.publicationDate && cit.publicationDate.length >= 4,
+      `Citation ${cit.id} must expose publicationDate`
+    );
+    assert.ok(
+      cit.sourceUrl && cit.sourceUrl.includes("Sample Non-Live URL"),
+      `Citation ${cit.id} must expose clearly marked sample non-live sourceUrl`
+    );
+    assert.ok(
+      cit.doi && cit.doi.includes("Sample Non-Live DOI"),
+      `Citation ${cit.id} must expose clearly marked sample non-live DOI`
+    );
+  }
+
+  const aiSource = read("src/ui/StudioAiDesk.tsx");
+  assert.ok(aiSource.includes("Author / Organization:"));
+  assert.ok(aiSource.includes("Publication Date:"));
+  assert.ok(aiSource.includes("Source Destination:"));
+  assert.ok(aiSource.includes("Inspect Source"));
+  assert.ok(aiSource.includes("inspect-citation-source-${cit.id}"));
+  assert.ok(aiSource.includes("INDEPENDENT SOURCE VERIFICATION RECORD"));
+  assert.ok(aiSource.includes("citation-source-inspector-${cit.id}"));
+
+  // UAT04A-042: AI audit truthfulness in Preview
+  assert.ok(
+    aiSource.includes(
+      'isOwnerPreview ? "✓ Simulated Audit Record (Preview)" : "✓ Audited Execution Log"'
+    )
+  );
+});
+
+test("HT-NR-UAT04A-R2-R2: Residual technical copy sweep across Live, Video, Media, Authors, Social, Newsletter, and Push Desks (UAT04A-025, 029, 034, 038, 046, 051, 058)", () => {
+  const liveSource = read("src/ui/StudioLiveDesk.tsx");
+  const videoSource = read("src/ui/StudioVideoDesk.tsx");
+  const mediaSource = read("src/ui/StudioMediaLibrary.tsx");
+  const authorsSource = read("src/ui/StudioAuthorsDesk.tsx");
+  const socialSource = read("src/ui/StudioSocialDesk.tsx");
+  const newsletterSource = read("src/ui/StudioNewsletterDesk.tsx");
+  const pushSource = read("src/ui/StudioPushAlertDesk.tsx");
+  const previewStudioSource = read("src/preview/OwnerPreviewStudio.tsx");
+
+  // UAT04A-025: Live Desk Preview copy
+  assert.ok(
+    liveSource.includes(
+      "Showing up to 100 coverage records matching the current filters."
+    )
+  );
+  assert.ok(liveSource.includes("!isOwnerPreview && ("));
+  assert.ok(
+    liveSource.includes(
+      'Asset: ${selectedMediaAsset.filename || "Editorial Media"}'
+    )
+  );
+
+  // UAT04A-029: Video Desk Preview copy
+  assert.ok(
+    videoSource.includes(
+      "Video Library · Editorial Metadata · Publication Readiness"
+    )
+  );
+  assert.ok(
+    videoSource.includes(
+      "Showing up to 100 videos matching the current filters. Results reflect current query criteria."
+    )
+  );
+  assert.ok(videoSource.includes('isOwnerPreview ? "Video Library" : "Video Registry"'));
+  assert.ok(videoSource.includes('"Editorial Video Asset"'));
+
+  // UAT04A-034: Media Library Preview copy
+  assert.ok(mediaSource.includes('isOwnerPreview ? "Media Management" : "Storage Custody"'));
+  assert.ok(mediaSource.includes('isOwnerPreview ? "Integrity Status" : "Checksum"'));
+  assert.ok(mediaSource.includes('isOwnerPreview ? "Verified" : (selectedAsset.checksum ?? "None")'));
+  assert.ok(!mediaSource.includes("Verified (SHA-256)"));
+  assert.ok(
+    previewStudioSource.includes(
+      "Visual inspection of newsroom media assets, editorial metadata, safe preview sandboxing, and story usage handoffs."
+    )
+  );
+
+  // UAT04A-038: Authors & Taxonomy Preview copy and human-readable staff selector
+  assert.ok(
+    authorsSource.includes(
+      "Public byline directory, staff author assignments, and hierarchical editorial taxonomy sections."
+    )
+  );
+  assert.ok(authorsSource.includes('isOwnerPreview ? "Editorial Status" : "Provenance"'));
+  assert.ok(authorsSource.includes('<Text style={styles.nativeBadge}>Active Section</Text>'));
+  assert.ok(authorsSource.includes("Select Newsroom Staff Member *"));
+  assert.ok(authorsSource.includes("bind-staff-option-${staff.id}"));
+  assert.ok(previewStudioSource.includes("staffOptions={PREVIEW_STAFF_DIRECTORY.map"));
+
+  // UAT04A-046: Social Desk Preview copy
+  assert.ok(socialSource.includes('"AUDIENCE DISTRIBUTION • SOCIAL DESK"'));
+  assert.ok(
+    socialSource.includes('"COMPOSE SOCIAL DRAFT • EDITORIAL COMPOSER"')
+  );
+
+  // UAT04A-051: Newsletter Desk Preview copy
+  assert.ok(
+    newsletterSource.includes("AUDIENCE DISTRIBUTION • NEWSLETTER DESK")
+  );
+  assert.ok(
+    newsletterSource.includes("Newsletter & Audience Campaign Desk")
+  );
+  assert.ok(
+    newsletterSource.includes("CAMPAIGN PERMISSIONS:")
+  );
+  assert.ok(
+    newsletterSource.includes(
+      "Showing up to 100 campaigns matching the current filters."
+    )
+  );
+  assert.ok(
+    newsletterSource.includes('"CAMPAIGN REGISTRY NOTICE"')
+  );
+  assert.ok(
+    newsletterSource.includes('previewMode ? "PROVIDER STATUS" : "BREVO SEGMENT SYNC"')
+  );
+  assert.ok(
+    newsletterSource.includes('"DELIVERY REFERENCE"')
+  );
+
+  // UAT04A-058: Push Alert Desk Preview copy
+  assert.ok(
+    pushSource.includes(
+      "Showing up to 100 push alerts matching the current filters."
+    )
+  );
+});
+
+

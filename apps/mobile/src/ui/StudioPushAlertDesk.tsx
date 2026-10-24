@@ -14,6 +14,9 @@ import {
   NEWSROOM_PUSH_ALERT_CATEGORIES,
   NEWSROOM_PUSH_ALERT_STATUSES,
   NEWSROOM_PUSH_DISPATCH_STATUSES,
+  SUPPORTED_PREVIEW_TIMEZONES,
+  formatPreviewScheduleTimestamp,
+  parseAndFormatPreviewSchedule,
   validatePushAlertCreateInput,
   validatePushAlertPatch,
   type NewsroomPushAlert,
@@ -179,6 +182,7 @@ export interface StudioPushAlertDeskViewProps {
   onPrepareAlert?: (id: string) => Promise<void>;
   onDispatchAlert?: (id: string) => Promise<void>;
   onOpenStory?: (storyId: string) => void;
+  stories?: Array<{ id: string; title: string; slug?: string | null; status?: string }>;
   loading?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
@@ -208,6 +212,7 @@ export function StudioPushAlertDeskView({
   onPrepareAlert,
   onDispatchAlert,
   onOpenStory,
+  stories = [],
   loading = false,
   refreshing = false,
   onRefresh,
@@ -228,6 +233,9 @@ export function StudioPushAlertDeskView({
   const [composerStoryId, setComposerStoryId] = useState("");
   const [composerTargetSegment, setComposerTargetSegment] =
     useState("All Registered Devices");
+  const [composerConsentBasis, setComposerConsentBasis] = useState(
+    "Strict Opt-In Readers Only (Push Enabled & Unsuppressed)"
+  );
   const [composerPriority, setComposerPriority] = useState<"normal" | "high">(
     "normal"
   );
@@ -317,6 +325,9 @@ export function StudioPushAlertDeskView({
     setComposerDestination("");
     setComposerStoryId("");
     setComposerTargetSegment("All Registered Devices");
+    setComposerConsentBasis(
+      "Strict Opt-In Readers Only (Push Enabled & Unsuppressed)"
+    );
     setComposerPriority("normal");
     setComposerScheduleDate("");
     setComposerScheduleTime("");
@@ -326,12 +337,25 @@ export function StudioPushAlertDeskView({
 
   const handleSubmitComposer = async () => {
     if (!onCreateAlert) return;
-    let scheduledAt: string | null = null;
-    if (composerScheduleDate.trim()) {
-      const datePart = composerScheduleDate.trim();
-      const timePart = composerScheduleTime.trim() || "08:00";
-      scheduledAt = `${datePart}T${timePart}:00Z`;
+    const scheduleCheck = parseAndFormatPreviewSchedule(
+      composerScheduleDate,
+      composerScheduleTime,
+      composerTimezone
+    );
+    if (!scheduleCheck.valid) {
+      setComposerError(
+        scheduleCheck.error || "Invalid schedule date or time."
+      );
+      return;
     }
+    const scheduledAt = scheduleCheck.utcIso;
+
+    const segmentEligibility =
+      composerTargetSegment === "Harare Healthcare Workers"
+        ? "Active verified healthcare personnel in Harare metropolitan province"
+        : composerTargetSegment === "Subscribers & Premium Readers"
+          ? "All active subscribers with push enabled"
+          : "All active registered push-enabled devices (Aggregate)";
 
     const input: NewsroomPushAlertCreateInput = {
       title: composerTitle.trim(),
@@ -340,12 +364,7 @@ export function StudioPushAlertDeskView({
       destination: composerDestination.trim() || null,
       related_story_id: composerStoryId.trim() || null,
       targetSegment: composerTargetSegment,
-      audienceEligibility:
-        composerTargetSegment === "Harare Healthcare Workers"
-          ? "Active verified healthcare personnel in Harare metropolitan province"
-          : composerTargetSegment === "Subscribers & Premium Readers"
-            ? "All active subscribers with push enabled"
-            : "All active registered push-enabled devices (Aggregate)",
+      audienceEligibility: `${composerConsentBasis} · ${segmentEligibility}`,
       priority: composerPriority,
       scheduledAt
     };
@@ -545,7 +564,9 @@ export function StudioPushAlertDeskView({
 
         {/* Restrained Disclosure */}
         <Text style={styles.disclosureText}>
-          Showing up to 100 server-matched push alerts.
+          {isOwnerPreview
+            ? "Showing up to 100 push alerts matching the current filters."
+            : "Showing up to 100 server-matched push alerts."}
         </Text>
       </View>
 
@@ -666,7 +687,13 @@ export function StudioPushAlertDeskView({
                       )}
                       {alert.scheduledAt && (
                         <Text style={styles.alertCardScheduledText}>
-                          Scheduled: {formatTimestamp(alert.scheduledAt)}
+                          Scheduled:{" "}
+                          {isOwnerPreview
+                            ? formatPreviewScheduleTimestamp(
+                                alert.scheduledAt,
+                                composerTimezone
+                              )
+                            : formatTimestamp(alert.scheduledAt)}
                         </Text>
                       )}
                     </View>
@@ -806,16 +833,62 @@ export function StudioPushAlertDeskView({
                     />
 
                     <Text style={styles.fieldLabel}>
-                      Related Story ID (optional UUID)
+                      {isOwnerPreview || stories.length > 0
+                        ? "Linked Editorial Story (Optional)"
+                        : "Related Story ID (optional UUID)"}
                     </Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={editStoryId}
-                      onChangeText={setEditStoryId}
-                      placeholder="e.g. 00000000-0000-0000-0000-000000000000"
-                      placeholderTextColor={colors.inkMuted}
-                      testID="edit-alert-story-input"
-                    />
+                    {isOwnerPreview || stories.length > 0 ? (
+                      <View style={styles.filterPillsRow}>
+                        <Pressable
+                          style={[
+                            styles.filterPill,
+                            !editStoryId && styles.filterPillActive
+                          ]}
+                          onPress={() => setEditStoryId("")}
+                          testID="edit-story-option-none"
+                        >
+                          <Text
+                            style={[
+                              styles.filterPillText,
+                              !editStoryId && styles.filterPillTextActive
+                            ]}
+                          >
+                            Standalone Alert (No Linked Story)
+                          </Text>
+                        </Pressable>
+                        {stories.map((st) => (
+                          <Pressable
+                            key={st.id}
+                            style={[
+                              styles.filterPill,
+                              editStoryId === st.id && styles.filterPillActive
+                            ]}
+                            onPress={() => setEditStoryId(st.id)}
+                            testID={`edit-story-option-${st.id}`}
+                          >
+                            <Text
+                              style={[
+                                styles.filterPillText,
+                                editStoryId === st.id &&
+                                  styles.filterPillTextActive
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {st.title}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : (
+                      <TextInput
+                        style={styles.textInput}
+                        value={editStoryId}
+                        onChangeText={setEditStoryId}
+                        placeholder="e.g. 00000000-0000-0000-0000-000000000000"
+                        placeholderTextColor={colors.inkMuted}
+                        testID="edit-alert-story-input"
+                      />
+                    )}
 
                     {editError && (
                       <Text style={styles.formErrorText}>⚠ {editError}</Text>
@@ -868,7 +941,14 @@ export function StudioPushAlertDeskView({
                       <View style={styles.metaItem}>
                         <Text style={styles.metaLabel}>Scheduled For</Text>
                         <Text style={styles.metaValue}>
-                          {selectedAlert.scheduledAt ? formatTimestamp(selectedAlert.scheduledAt) : "Immediate dispatch upon approval"}
+                          {selectedAlert.scheduledAt
+                            ? isOwnerPreview
+                              ? formatPreviewScheduleTimestamp(
+                                  selectedAlert.scheduledAt,
+                                  composerTimezone
+                                )
+                              : formatTimestamp(selectedAlert.scheduledAt)
+                            : "Immediate dispatch upon approval"}
                         </Text>
                       </View>
                       <View style={styles.metaItem}>
@@ -919,13 +999,32 @@ export function StudioPushAlertDeskView({
                       )}
                     </View>
 
+                    {/* Audience Consent & Opt-In Governance (UAT04A-052) */}
+                    <View
+                      style={styles.storyLinkSection}
+                      testID="inspector-consent-governance-box"
+                    >
+                      <Text style={styles.metaLabel}>
+                        AUDIENCE CONSENT & OPT-IN GOVERNANCE
+                      </Text>
+                      <View style={styles.linkedStoryBox}>
+                        <Text style={styles.linkedStoryText}>
+                          ✓ Push notifications enabled · ✓ Reader opt-in required · ✓ Suppressed/disabled devices excluded
+                        </Text>
+                      </View>
+                    </View>
+
                     {/* Linked Editorial Story Handoff / Navigation */}
                     <View style={styles.storyLinkSection}>
                       <Text style={styles.metaLabel}>LINKED EDITORIAL STORY</Text>
                       {selectedAlert.relatedStoryId ? (
                         <View style={styles.linkedStoryBox}>
                           <Text style={styles.linkedStoryText}>
-                            Story UUID: {selectedAlert.relatedStoryId}
+                            {isOwnerPreview
+                              ? `Linked Story: ${stories.find((s) => s.id === selectedAlert.relatedStoryId)?.title || "Editorial Newsroom Story"}`
+                              : stories.find((s) => s.id === selectedAlert.relatedStoryId)
+                              ? `Linked Story: ${stories.find((s) => s.id === selectedAlert.relatedStoryId)?.title}`
+                              : `Story UUID: ${selectedAlert.relatedStoryId}`}
                           </Text>
                           <Pressable
                             style={styles.openStoryButton}
@@ -1034,9 +1133,13 @@ export function StudioPushAlertDeskView({
 
                   <View style={styles.handoffBody}>
                     <View style={styles.handoffRow}>
-                      <Text style={styles.handoffLabel}>Alert ID:</Text>
+                      <Text style={styles.handoffLabel}>
+                        {isOwnerPreview ? "Alert Reference:" : "Alert ID:"}
+                      </Text>
                       <Text style={styles.handoffValue}>
-                        {activeHandoff.alert_id}
+                        {isOwnerPreview
+                          ? "Editorial Push Alert"
+                          : activeHandoff.alert_id}
                       </Text>
                     </View>
                     <View style={styles.handoffRow}>
@@ -1067,7 +1170,9 @@ export function StudioPushAlertDeskView({
                     ) : null}
                     <View style={styles.handoffStatRow}>
                       <Text style={styles.handoffStatLabel}>
-                        Eligible Active Devices:
+                        {isOwnerPreview
+                          ? "Consented & Eligible Sample Devices:"
+                          : "Eligible Active Devices:"}
                       </Text>
                       <Text style={styles.handoffStatValue}>
                         {activeHandoff.eligible_device_count}
@@ -1120,7 +1225,9 @@ export function StudioPushAlertDeskView({
 
                   <View style={styles.ledgerGrid}>
                     <View style={styles.ledgerMetricBox}>
-                      <Text style={styles.ledgerMetricLabel}>Eligible Devices</Text>
+                      <Text style={styles.ledgerMetricLabel}>
+                        {isOwnerPreview ? "Consented Sample Devices" : "Eligible Devices"}
+                      </Text>
                       <Text style={styles.ledgerMetricValue}>
                         {dispatchRecord.eligibleDeviceCount}
                       </Text>
@@ -1157,8 +1264,12 @@ export function StudioPushAlertDeskView({
 
                   <View style={styles.ledgerMeta}>
                     <View style={styles.ledgerMetaRow}>
-                      <Text style={styles.ledgerMetaLabel}>Dispatch ID:</Text>
-                      <Text style={styles.ledgerMetaValue}>{dispatchRecord.id}</Text>
+                      <Text style={styles.ledgerMetaLabel}>
+                        {isOwnerPreview ? "Dispatch Reference:" : "Dispatch ID:"}
+                      </Text>
+                      <Text style={styles.ledgerMetaValue}>
+                        {isOwnerPreview ? "Simulated Push Dispatch" : dispatchRecord.id}
+                      </Text>
                     </View>
                     <View style={styles.ledgerMetaRow}>
                       <Text style={styles.ledgerMetaLabel}>Idempotency Key:</Text>
@@ -1293,6 +1404,45 @@ export function StudioPushAlertDeskView({
                 ))}
               </View>
 
+              <Text style={styles.fieldLabel}>
+                Audience Consent & Opt-In Governance *
+              </Text>
+              <View
+                style={styles.linkedStoryBox}
+                testID="composer-consent-governance-box"
+              >
+                <Text style={styles.linkedStoryText}>
+                  Audience eligibility:{"\n"}✓ Push notifications enabled{"\n"}✓ Reader opt-in required{"\n"}✓ Suppressed/disabled devices excluded
+                </Text>
+                <View style={[styles.filterPillsRow, { marginTop: 8 }]}>
+                  {[
+                    "Strict Opt-In Readers Only (Push Enabled & Unsuppressed)",
+                    "Breaking News Opt-In Cohort",
+                    "Verified Subscriber Opt-In Cohort"
+                  ].map((policy) => (
+                    <Pressable
+                      key={policy}
+                      style={[
+                        styles.filterPill,
+                        composerConsentBasis === policy && styles.filterPillActive
+                      ]}
+                      onPress={() => setComposerConsentBasis(policy)}
+                      testID={`composer-consent-policy-${policy.slice(0, 14).toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <Text
+                        style={[
+                          styles.filterPillText,
+                          composerConsentBasis === policy &&
+                            styles.filterPillTextActive
+                        ]}
+                      >
+                        {policy}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
               <Text style={styles.fieldLabel}>Alert Priority *</Text>
               <View style={styles.filterPillsRow}>
                 {(["normal", "high"] as const).map((pr) => (
@@ -1346,15 +1496,39 @@ export function StudioPushAlertDeskView({
                 </View>
                 <View style={styles.scheduleField}>
                   <Text style={styles.subFieldLabel}>Timezone</Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      { backgroundColor: colors.paperMuted }
-                    ]}
-                    value={composerTimezone}
-                    editable={false}
-                    testID="composer-schedule-tz-input"
-                  />
+                  <View style={styles.filterPillsRow}>
+                    {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                      const active = composerTimezone.startsWith(tz);
+                      return (
+                        <Pressable
+                          key={tz}
+                          style={[
+                            styles.filterPill,
+                            active && styles.filterPillActive
+                          ]}
+                          onPress={() =>
+                            setComposerTimezone(
+                              tz === "Africa/Harare"
+                                ? "Africa/Harare (CAT, UTC+2)"
+                                : "UTC"
+                            )
+                          }
+                          testID={`push-schedule-tz-${tz.replace("/", "-")}`}
+                        >
+                          <Text
+                            style={[
+                              styles.filterPillText,
+                              active && styles.filterPillTextActive
+                            ]}
+                          >
+                            {tz === "Africa/Harare"
+                              ? "Africa/Harare (CAT, UTC+2)"
+                              : "UTC"}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
 
@@ -1371,16 +1545,65 @@ export function StudioPushAlertDeskView({
               />
 
               <Text style={styles.fieldLabel}>
-                Related Story ID (optional UUID)
+                {isOwnerPreview || stories.length > 0
+                  ? "Linked Editorial Story (Optional)"
+                  : "Related Story ID (optional UUID)"}
               </Text>
-              <TextInput
-                style={styles.textInput}
-                value={composerStoryId}
-                onChangeText={setComposerStoryId}
-                placeholder="e.g. 00000000-0000-0000-0000-000000000000"
-                placeholderTextColor={colors.inkMuted}
-                testID="composer-story-input"
-              />
+              {isOwnerPreview || stories.length > 0 ? (
+                <View
+                  style={styles.filterPillsRow}
+                  testID="composer-story-selector"
+                >
+                  <Pressable
+                    style={[
+                      styles.filterPill,
+                      !composerStoryId && styles.filterPillActive
+                    ]}
+                    onPress={() => setComposerStoryId("")}
+                    testID="composer-story-option-none"
+                  >
+                    <Text
+                      style={[
+                        styles.filterPillText,
+                        !composerStoryId && styles.filterPillTextActive
+                      ]}
+                    >
+                      Standalone Alert (No Linked Story)
+                    </Text>
+                  </Pressable>
+                  {stories.map((st) => (
+                    <Pressable
+                      key={st.id}
+                      style={[
+                        styles.filterPill,
+                        composerStoryId === st.id && styles.filterPillActive
+                      ]}
+                      onPress={() => setComposerStoryId(st.id)}
+                      testID={`composer-story-option-${st.id}`}
+                    >
+                      <Text
+                        style={[
+                          styles.filterPillText,
+                          composerStoryId === st.id &&
+                            styles.filterPillTextActive
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {st.title}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.textInput}
+                  value={composerStoryId}
+                  onChangeText={setComposerStoryId}
+                  placeholder="e.g. 00000000-0000-0000-0000-000000000000"
+                  placeholderTextColor={colors.inkMuted}
+                  testID="composer-story-input"
+                />
+              )}
 
               {composerError && (
                 <Text style={styles.formErrorText}>⚠ {composerError}</Text>
@@ -1458,7 +1681,9 @@ export function StudioPushAlertDeskView({
                 ) : null}
                 <View style={styles.handoffStatRow}>
                   <Text style={styles.handoffStatLabel}>
-                    Eligible Active Devices:
+                    {isOwnerPreview
+                      ? "Consented & Eligible Sample Devices:"
+                      : "Eligible Active Devices:"}
                   </Text>
                   <Text style={styles.handoffStatValue}>
                     {activeHandoff?.eligible_device_count ?? 0}

@@ -12,6 +12,9 @@ import {
 import {
   NEWSROOM_CAMPAIGN_PURPOSES,
   NEWSROOM_CAMPAIGN_STATUSES,
+  SUPPORTED_PREVIEW_TIMEZONES,
+  formatPreviewScheduleTimestamp,
+  parseAndFormatPreviewSchedule,
   validateCampaignCreateInput,
   type NewsroomCampaign,
   type NewsroomCampaignCreateInput,
@@ -361,17 +364,25 @@ export function StudioNewsletterDeskView({
     setComposerValidationError(null);
     if (segments.length === 0) {
       setComposerValidationError(
-        "No canonical audience segments are configured."
+        previewMode
+          ? "No audience segments are configured."
+          : "No canonical audience segments are configured."
       );
       return;
     }
 
-    let scheduledAt: string | null = null;
-    if (composerScheduleDate.trim()) {
-      const datePart = composerScheduleDate.trim();
-      const timePart = composerScheduleTime.trim() || "08:00";
-      scheduledAt = `${datePart}T${timePart}:00Z`;
+    const scheduleCheck = parseAndFormatPreviewSchedule(
+      composerScheduleDate,
+      composerScheduleTime,
+      composerTimezone
+    );
+    if (!scheduleCheck.valid) {
+      setComposerValidationError(
+        scheduleCheck.error || "Invalid schedule date or time."
+      );
+      return;
     }
+    const scheduledAt = scheduleCheck.utcIso;
 
     const payload: NewsroomCampaignCreateInput = {
       name: composerName.trim(),
@@ -441,15 +452,19 @@ export function StudioNewsletterDeskView({
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleGroup}>
             <Text style={styles.eyebrow}>
-              HT-NR-06B • CANONICAL NEWSLETTER & CAMPAIGN DESK
+              {previewMode
+                ? "AUDIENCE DISTRIBUTION • NEWSLETTER DESK"
+                : "HT-NR-06B • CANONICAL NEWSLETTER & CAMPAIGN DESK"}
             </Text>
             <Text style={styles.headerTitle}>
-              Newsletter & Consented Campaign Control Plane
+              {previewMode
+                ? "Newsletter & Audience Campaign Desk"
+                : "Newsletter & Consented Campaign Control Plane"}
             </Text>
             <Text style={styles.headerDescription}>
-              Compose editorial newsletters, record human approval, and prepare
-              consented Brevo send handoffs without exposing subscriber emails or
-              direct provider credentials.
+              {previewMode
+                ? "Compose editorial newsletters, record editorial approval, and prepare consented audience delivery without exposing subscriber emails."
+                : "Compose editorial newsletters, record human approval, and prepare consented Brevo send handoffs without exposing subscriber emails or direct provider credentials."}
             </Text>
           </View>
           <View style={styles.headerActions}>
@@ -485,7 +500,9 @@ export function StudioNewsletterDeskView({
         </View>
 
         <View style={styles.capabilityBar}>
-          <Text style={styles.capabilityBarLabel}>SERVER AUTHORITY:</Text>
+          <Text style={styles.capabilityBarLabel}>
+            {previewMode ? "CAMPAIGN PERMISSIONS:" : "SERVER AUTHORITY:"}
+          </Text>
           <View
             style={[
               styles.capPill,
@@ -499,7 +516,8 @@ export function StudioNewsletterDeskView({
                   : styles.capPillTextMuted
               }
             >
-              marketing.create: {capabilities.canCreate ? "GRANTED" : "DENIED"}
+              {previewMode ? "Create Campaigns" : "marketing.create"}:{" "}
+              {capabilities.canCreate ? "GRANTED" : "DENIED"}
             </Text>
           </View>
           <View
@@ -517,7 +535,7 @@ export function StudioNewsletterDeskView({
                   : styles.capPillTextMuted
               }
             >
-              marketing.approve:{" "}
+              {previewMode ? "Approve Campaigns" : "marketing.approve"}:{" "}
               {capabilities.canApprove ? "GRANTED" : "DENIED"}
             </Text>
           </View>
@@ -534,7 +552,8 @@ export function StudioNewsletterDeskView({
                   : styles.capPillTextMuted
               }
             >
-              marketing.send: {capabilities.canSend ? "GRANTED" : "DENIED"}
+              {previewMode ? "Prepare Delivery" : "marketing.send"}:{" "}
+              {capabilities.canSend ? "GRANTED" : "DENIED"}
             </Text>
           </View>
           <View
@@ -552,7 +571,7 @@ export function StudioNewsletterDeskView({
                   : styles.capPillTextMuted
               }
             >
-              marketing.analytics:{" "}
+              {previewMode ? "Campaign Analytics" : "marketing.analytics"}:{" "}
               {capabilities.canViewAnalytics ? "GRANTED" : "DENIED"}
             </Text>
           </View>
@@ -589,14 +608,18 @@ export function StudioNewsletterDeskView({
             <Text style={styles.metricValue}>
               {syncedSegmentCount} / {segments.length}
             </Text>
-            <Text style={styles.metricLabel}>Brevo Synced Segments</Text>
+            <Text style={styles.metricLabel}>
+              {previewMode ? "Delivery Synced Segments" : "Brevo Synced Segments"}
+            </Text>
           </View>
         </View>
 
         {/* Result Window Disclosure */}
         <View style={styles.disclosureRow} testID="newsletter-desk-disclosure">
           <Text style={styles.disclosureText}>
-            Showing up to 100 server-matched campaigns.
+            {previewMode
+              ? "Showing up to 100 campaigns matching the current filters."
+              : "Showing up to 100 server-matched campaigns."}
             {Boolean(
               (searchQuery && searchQuery.trim()) ||
                 statusFilter !== "all" ||
@@ -610,7 +633,9 @@ export function StudioNewsletterDeskView({
       {error && (
         <View style={styles.errorBanner} testID="newsletter-query-error-banner">
           <Text style={styles.errorBannerTitle}>
-            CANONICAL CAMPAIGN REGISTRY ERROR
+            {previewMode
+              ? "CAMPAIGN REGISTRY NOTICE"
+              : "CANONICAL CAMPAIGN REGISTRY ERROR"}
           </Text>
           <Text style={styles.errorBannerText}>{error}</Text>
         </View>
@@ -622,7 +647,9 @@ export function StudioNewsletterDeskView({
           testID="newsletter-action-error-banner"
         >
           <Text style={styles.errorBannerTitle}>
-            SERVER AUTHORITY / HANDOFF REJECTED
+            {previewMode
+              ? "DELIVERY PREPARATION REJECTED"
+              : "SERVER AUTHORITY / HANDOFF REJECTED"}
           </Text>
           <Text style={styles.errorBannerText}>{actionErrorMessage}</Text>
         </View>
@@ -646,16 +673,24 @@ export function StudioNewsletterDeskView({
           <View style={styles.handoffHeaderRow}>
             <View>
               <Text style={styles.handoffEyebrow}>
-                CONSENTED SEND PREPARATION HANDOFF • BACKEND WORKER AUTHORITY
+                {previewMode
+                  ? "CONSENTED DELIVERY PREPARATION • AUDIENCE READINESS"
+                  : "CONSENTED SEND PREPARATION HANDOFF • BACKEND WORKER AUTHORITY"}
               </Text>
               <Text style={styles.handoffTitle}>Send handoff prepared.</Text>
-              <Text style={styles.handoffSubtitle}>
-                Campaign &ldquo;{activeHandoff.name}&rdquo; ({activeHandoff.purpose}
-                ) is evaluated for Brevo list{" "}
-                <Text style={styles.monoStrong}>{activeHandoff.brevoListId}</Text>
-                . Provider execution and completion recording remain
-                service-role controlled.
-              </Text>
+              {previewMode ? (
+                <Text style={styles.handoffSubtitle}>
+                  Campaign &ldquo;{activeHandoff.name}&rdquo; ({activeHandoff.purpose}) is prepared for consented audience delivery (simulated preview state — live provider dispatch disabled).
+                </Text>
+              ) : (
+                <Text style={styles.handoffSubtitle}>
+                  Campaign &ldquo;{activeHandoff.name}&rdquo; ({activeHandoff.purpose}
+                  ) is evaluated for Brevo list{" "}
+                  <Text style={styles.monoStrong}>{activeHandoff.brevoListId}</Text>
+                  . Provider execution and completion recording remain
+                  service-role controlled.
+                </Text>
+              )}
             </View>
             <View style={styles.handoffStatusPill}>
               <Text style={styles.handoffStatusPillText}>
@@ -732,7 +767,9 @@ export function StudioNewsletterDeskView({
               testID="newsletter-no-segments-warning"
             >
               <Text style={styles.noSegmentsWarningTitle}>
-                No canonical audience segments are configured.
+                {previewMode
+                  ? "No audience segments are configured."
+                  : "No canonical audience segments are configured."}
               </Text>
               <Text style={styles.noSegmentsWarningBody}>
                 Campaign creation requires an audience contact segment. Create Campaign submission is disabled until an audience segment is provisioned.
@@ -792,10 +829,16 @@ export function StudioNewsletterDeskView({
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Canonical Audience Segment *</Text>
+              <Text style={styles.fieldLabel}>
+                {previewMode
+                  ? "Audience Segment *"
+                  : "Canonical Audience Segment *"}
+              </Text>
               {segments.length === 0 ? (
                 <Text style={styles.emptyInlineText}>
-                  No canonical audience segments are configured.
+                  {previewMode
+                    ? "No audience segments are configured."
+                    : "No canonical audience segments are configured."}
                 </Text>
               ) : (
                 <View style={styles.segmentSelectGrid}>
@@ -834,8 +877,9 @@ export function StudioNewsletterDeskView({
                           </View>
                         </View>
                         <Text style={styles.segmentOptionMeta}>
-                          Key: {segment.key} • List ID:{" "}
-                          {segment.providerSegmentId ?? "Unassigned"}
+                          {previewMode
+                            ? `Segment: ${segment.key} • Provider Status: ${segment.syncState === "synced" ? "Ready" : "Pending sync"}`
+                            : `Key: ${segment.key} • List ID: ${segment.providerSegmentId ?? "Unassigned"}`}
                         </Text>
                       </Pressable>
                     );
@@ -917,12 +961,39 @@ export function StudioNewsletterDeskView({
                 </View>
                 <View style={styles.scheduleField}>
                   <Text style={styles.subFieldLabel}>Timezone</Text>
-                  <TextInput
-                    style={[styles.textInput, { backgroundColor: colors.paperMuted }]}
-                    value={composerTimezone}
-                    editable={false}
-                    testID="composer-schedule-tz-input"
-                  />
+                  <View style={styles.pillGroup}>
+                    {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                      const active = composerTimezone.startsWith(tz);
+                      return (
+                        <Pressable
+                          key={tz}
+                          style={[
+                            styles.filterPill,
+                            active && styles.filterPillActive
+                          ]}
+                          onPress={() =>
+                            setComposerTimezone(
+                              tz === "Africa/Harare"
+                                ? "Africa/Harare (CAT, UTC+2)"
+                                : "UTC"
+                            )
+                          }
+                          testID={`newsletter-schedule-tz-${tz.replace("/", "-")}`}
+                        >
+                          <Text
+                            style={[
+                              styles.filterPillText,
+                              active && styles.filterPillTextActive
+                            ]}
+                          >
+                            {tz === "Africa/Harare"
+                              ? "Africa/Harare (CAT, UTC+2)"
+                              : "UTC"}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
             </View>
@@ -969,7 +1040,9 @@ export function StudioNewsletterDeskView({
           </View>
           <Text style={styles.sectionMetaText}>
             {segments.length === 0
-              ? "No canonical audience segments are configured."
+              ? previewMode
+                ? "No audience segments are configured."
+                : "No canonical audience segments are configured."
               : `${segments.length} configured segment${segments.length === 1 ? "" : "s"}`}
           </Text>
         </View>
@@ -977,7 +1050,9 @@ export function StudioNewsletterDeskView({
         {segments.length === 0 ? (
           <View style={styles.emptySegmentBox}>
             <Text style={styles.emptySegmentTitle}>
-              No canonical audience segments are configured.
+              {previewMode
+                ? "No audience segments are configured."
+                : "No canonical audience segments are configured."}
             </Text>
             <Text style={styles.emptySegmentSubtitle}>
               Audience registry currently contains 0 contact segments.
@@ -1017,8 +1092,9 @@ export function StudioNewsletterDeskView({
                   </View>
                   <Text style={styles.segmentCardKey}>Key: {seg.key}</Text>
                   <Text style={styles.segmentCardDetail}>
-                    Provider: {seg.provider ?? "unassigned"} • Brevo List:{" "}
-                    {seg.providerSegmentId ?? "Not linked"}
+                    {previewMode
+                      ? `Provider: ${seg.provider ?? "unassigned"} • Status: ${seg.syncState === "synced" ? "Ready for delivery" : "Pending sync"}`
+                      : `Provider: ${seg.provider ?? "unassigned"} • Brevo List: ${seg.providerSegmentId ?? "Not linked"}`}
                   </Text>
                 </View>
               );
@@ -1227,7 +1303,13 @@ export function StudioNewsletterDeskView({
                         )}
                         {campaign.scheduledAt && (
                           <Text style={styles.campaignRowScheduledText}>
-                            Scheduled: {formatTimestamp(campaign.scheduledAt)}
+                            Scheduled:{" "}
+                            {previewMode
+                              ? formatPreviewScheduleTimestamp(
+                                  campaign.scheduledAt,
+                                  composerTimezone
+                                )
+                              : formatTimestamp(campaign.scheduledAt)}
                           </Text>
                         )}
                       </View>
@@ -1262,8 +1344,9 @@ export function StudioNewsletterDeskView({
                 lifecycle authority
               </Text>
               <Text style={styles.emptyRegistrySubtitle}>
-                Editorial content preview, human approval, and consented send
-                preparation appear here when a canonical campaign is selected.
+                {previewMode
+                  ? "Editorial content preview, approval status, and consented delivery preparation appear here when a campaign is selected."
+                  : "Editorial content preview, human approval, and consented send preparation appear here when a canonical campaign is selected."}
               </Text>
             </View>
           ) : (
@@ -1340,7 +1423,7 @@ export function StudioNewsletterDeskView({
                       </View>
                       <View style={styles.metadataCell}>
                         <Text style={styles.metadataLabel}>
-                          BREVO SEGMENT SYNC
+                          {previewMode ? "PROVIDER STATUS" : "BREVO SEGMENT SYNC"}
                         </Text>
                         <Text
                           style={[
@@ -1349,7 +1432,9 @@ export function StudioNewsletterDeskView({
                           ]}
                         >
                           {selectedSegment
-                            ? `${selectedSegment.syncState.toUpperCase()} (${selectedSegment.providerSegmentId ?? "No list ID"})`
+                            ? previewMode
+                              ? `${selectedSegment.syncState.toUpperCase()} (Audience Segment Ready)`
+                              : `${selectedSegment.syncState.toUpperCase()} (${selectedSegment.providerSegmentId ?? "No list ID"})`
                             : "UNRESOLVED"}
                         </Text>
                       </View>
@@ -1374,7 +1459,14 @@ export function StudioNewsletterDeskView({
                       <View style={styles.metadataCell}>
                         <Text style={styles.metadataLabel}>SCHEDULED FOR</Text>
                         <Text style={styles.metadataValue}>
-                          {selectedCampaign.scheduledAt ? formatTimestamp(selectedCampaign.scheduledAt) : "Immediate dispatch upon approval"}
+                          {selectedCampaign.scheduledAt
+                            ? previewMode
+                              ? formatPreviewScheduleTimestamp(
+                                  selectedCampaign.scheduledAt,
+                                  composerTimezone
+                                )
+                              : formatTimestamp(selectedCampaign.scheduledAt)
+                            : "Immediate dispatch upon approval"}
                         </Text>
                       </View>
                       <View style={styles.metadataCell}>
@@ -1387,11 +1479,15 @@ export function StudioNewsletterDeskView({
                       </View>
                       <View style={styles.metadataCell}>
                         <Text style={styles.metadataLabel}>
-                          PROVIDER CAMPAIGN ID
+                          {previewMode
+                            ? "DELIVERY REFERENCE"
+                            : "PROVIDER CAMPAIGN ID"}
                         </Text>
                         <Text style={styles.metadataValue}>
                           {selectedCampaign.providerCampaignId ??
-                            "Awaiting provider worker completion"}
+                            (previewMode
+                              ? "Awaiting delivery preparation"
+                              : "Awaiting provider worker completion")}
                         </Text>
                       </View>
                       <View style={styles.metadataCell}>
@@ -1410,8 +1506,10 @@ export function StudioNewsletterDeskView({
                           testID="inspector-unsynced-segment-warning"
                         >
                           <Text style={styles.unsyncedSegmentTitle}>
-                            Brevo segment synchronization is not ready (
-                            {selectedSegment.syncState})
+                            {previewMode
+                              ? "Audience segment synchronization is not ready"
+                              : "Brevo segment synchronization is not ready"}{" "}
+                            ({selectedSegment.syncState})
                           </Text>
                           <Text style={styles.unsyncedSegmentBody}>
                             Segment &ldquo;{selectedSegment.name}&rdquo; is
@@ -1436,9 +1534,13 @@ export function StudioNewsletterDeskView({
                         </Text>
                         <Text style={styles.governanceHint}>
                           {selectedCampaign.status === "draft"
-                            ? "Draft campaign requires human approval (marketing.approve) before send preparation."
+                            ? previewMode
+                              ? "Draft campaign requires editorial approval before delivery preparation."
+                              : "Draft campaign requires human approval (marketing.approve) before send preparation."
                             : selectedCampaign.status === "approved"
-                              ? "Campaign is human-approved. Authorized senders (marketing.send) may execute Prepare Send."
+                              ? previewMode
+                                ? "Campaign is approved. Authorized editors may execute Prepare Send."
+                                : "Campaign is human-approved. Authorized senders (marketing.send) may execute Prepare Send."
                               : selectedCampaign.status === "sent"
                                 ? "Campaign send was completed and recorded by automated dispatch service."
                                 : selectedCampaign.status === "failed"

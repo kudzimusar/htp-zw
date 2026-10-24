@@ -18,6 +18,9 @@ import {
   type AuthorizationSnapshot
 } from "../security/capabilities";
 import {
+  SUPPORTED_PREVIEW_TIMEZONES,
+  formatPreviewScheduleTimestamp,
+  parseAndFormatPreviewSchedule,
   validateSocialDraftCreateInput,
   type NewsroomSocialAccount,
   type NewsroomSocialDraftCreateInput,
@@ -327,9 +330,16 @@ export function StudioSocialDeskView({
       );
       return;
     }
-    const scheduledAt = draftScheduleDate.trim()
-      ? `${draftScheduleDate.trim()}T${draftScheduleTime.trim() || "00:00"}:00Z`
-      : null;
+    const scheduleCheck = parseAndFormatPreviewSchedule(
+      draftScheduleDate,
+      draftScheduleTime,
+      draftScheduleTz
+    );
+    if (!scheduleCheck.valid) {
+      setComposeError(scheduleCheck.error || "Invalid schedule date or time.");
+      return;
+    }
+    const scheduledAt = scheduleCheck.utcIso;
     const input: NewsroomSocialDraftCreateInput = {
       storyId: selectedStoryId,
       provider: selectedAccountForCompose.provider,
@@ -365,7 +375,11 @@ export function StudioSocialDeskView({
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleCol}>
             <View style={styles.eyebrowRow}>
-              <Text style={styles.eyebrow}>HT-NR-06A • DISTRIBUTION CONTROL PLANE</Text>
+              <Text style={styles.eyebrow}>
+                {isPreview
+                  ? "AUDIENCE DISTRIBUTION • SOCIAL DESK"
+                  : "HT-NR-06A • DISTRIBUTION CONTROL PLANE"}
+              </Text>
               <View style={styles.authorityBadge}>
                 <Text style={styles.authorityBadgeText}>
                   {isPreview ? "OWNER PREVIEW • READ-ONLY" : "SERVER SOCIAL AUTHORITY"}
@@ -486,7 +500,9 @@ export function StudioSocialDeskView({
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>PUBLISHED</Text>
           <Text style={[styles.metricValue, { color: colors.emerald700 }]}>{counters.published}</Text>
-          <Text style={styles.metricHint}>Confirmed by provider worker</Text>
+          <Text style={styles.metricHint}>
+            {isPreview ? "Confirmed channel delivery" : "Confirmed by provider worker"}
+          </Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>FAILED</Text>
@@ -562,7 +578,11 @@ export function StudioSocialDeskView({
         <View style={styles.composeCard} testID="social-desk-compose-panel">
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionEyebrow}>COMPOSE SOCIAL DRAFT • SOCIAL.COMPOSE</Text>
+              <Text style={styles.sectionEyebrow}>
+                {isPreview
+                  ? "COMPOSE SOCIAL DRAFT • EDITORIAL COMPOSER"
+                  : "COMPOSE SOCIAL DRAFT • SOCIAL.COMPOSE"}
+              </Text>
               <Text style={styles.sectionTitle}>Create Story-Linked Social Draft</Text>
             </View>
           </View>
@@ -573,14 +593,20 @@ export function StudioSocialDeskView({
                 No social provider accounts are configured.
               </Text>
               <Text style={styles.composeBlockedText}>
-                Configure a provider account before creating a social draft. Canonical server RPC communications_create_social_draft requires a registered provider account in public.social_accounts.
+                {isPreview
+                  ? "Configure a channel account before creating a social draft."
+                  : "Configure a provider account before creating a social draft. Canonical server RPC communications_create_social_draft requires a registered provider account in public.social_accounts."}
               </Text>
             </View>
           ) : (
             <>
               {/* Story Picker */}
               <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>1. Select Canonical Newsroom Story</Text>
+                <Text style={styles.fieldLabel}>
+                  {isPreview
+                    ? "1. Select Newsroom Story"
+                    : "1. Select Canonical Newsroom Story"}
+                </Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="Filter stories by headline or status…"
@@ -590,7 +616,11 @@ export function StudioSocialDeskView({
                   testID="social-compose-story-search"
                 />
                 {filteredStories.length === 0 ? (
-                  <Text style={styles.fieldHint}>No canonical stories available to link.</Text>
+                  <Text style={styles.fieldHint}>
+                    {isPreview
+                      ? "No stories available to link."
+                      : "No canonical stories available to link."}
+                  </Text>
                 ) : (
                   <ScrollView
                     horizontal
@@ -700,12 +730,32 @@ export function StudioSocialDeskView({
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fieldSubLabel}>Timezone</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={draftScheduleTz}
-                      onChangeText={setDraftScheduleTz}
-                      testID="social-schedule-tz-input"
-                    />
+                    <View style={styles.filterPillsRow}>
+                      {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                        const active = draftScheduleTz.startsWith(tz);
+                        return (
+                          <Pressable
+                            key={tz}
+                            style={[styles.filterPill, active && styles.filterPillActive]}
+                            onPress={() =>
+                              setDraftScheduleTz(
+                                tz === "Africa/Harare" ? "Africa/Harare (CAT)" : "UTC"
+                              )
+                            }
+                            testID={`social-schedule-tz-${tz.replace("/", "-")}`}
+                          >
+                            <Text
+                              style={[
+                                styles.filterPillText,
+                                active && styles.filterPillTextActive
+                              ]}
+                            >
+                              {tz === "Africa/Harare" ? "Africa/Harare (CAT, UTC+2)" : "UTC"}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
                 </View>
               </View>
@@ -789,7 +839,9 @@ export function StudioSocialDeskView({
               </Text>
               <Text style={styles.emptyRegistrySub}>
                 {posts.length === 0
-                  ? "Social posts are created from canonical stories via communications_create_social_draft once a provider account is registered."
+                  ? isPreview
+                    ? "Social posts are created from stories once a channel account is configured."
+                    : "Social posts are created from canonical stories via communications_create_social_draft once a provider account is registered."
                   : "Clear the status or search filter to inspect other social posts."}
               </Text>
             </View>
@@ -856,7 +908,7 @@ export function StudioSocialDeskView({
                       </Text>
                       {post.scheduledAt && (
                         <Text style={styles.scheduledTag}>
-                          ⏱ Scheduled
+                          ⏱ Scheduled: {isPreview ? formatPreviewScheduleTimestamp(post.scheduledAt, draftScheduleTz) : formatTimestamp(post.scheduledAt)}
                         </Text>
                       )}
                       {post.providerPostId && (
@@ -924,6 +976,8 @@ export function StudioSocialDeskView({
                 <Text style={styles.blockTitle}>
                   {selectedPostStory
                     ? selectedPostStory.title
+                    : isPreview
+                    ? "Linked Newsroom Story"
                     : `Canonical Story (${selectedPost.storyId})`}
                 </Text>
                 <View style={styles.storyMetaRow}>
@@ -967,7 +1021,13 @@ export function StudioSocialDeskView({
                 )}
                 {selectedPost.scheduledAt && (
                   <Text style={styles.blockMeta}>
-                    Scheduled for: {formatTimestamp(selectedPost.scheduledAt)}
+                    Scheduled for:{" "}
+                    {isPreview
+                      ? formatPreviewScheduleTimestamp(
+                          selectedPost.scheduledAt,
+                          draftScheduleTz
+                        )
+                      : formatTimestamp(selectedPost.scheduledAt)}
                   </Text>
                 )}
                 <Text style={styles.blockMeta}>

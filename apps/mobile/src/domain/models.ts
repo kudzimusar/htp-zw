@@ -3645,6 +3645,8 @@ export interface NewsroomCitationReference {
   verificationBasis?: string | null;
   excerpt?: string | null;
   doi?: string | null;
+  authorsOrOrganization?: string | null;
+  publicationDate?: string | null;
   createdAt: string;
 }
 
@@ -4231,6 +4233,176 @@ export interface NewsroomCustomerStatement {
     memo: string;
   }>;
 }
+
+// =============================================================================
+// UAT04A-047 / 050 / 054: SHARED DETERMINISTIC PREVIEW SCHEDULING PARSER/FORMATTER
+// =============================================================================
+
+export const SUPPORTED_PREVIEW_TIMEZONES = ["Africa/Harare", "UTC"] as const;
+export type SupportedPreviewTimezone = (typeof SUPPORTED_PREVIEW_TIMEZONES)[number];
+
+export interface PreviewScheduleParseResult {
+  valid: boolean;
+  utcIso: string | null;
+  displayLabel: string | null;
+  timezone: SupportedPreviewTimezone | null;
+  error?: string;
+}
+
+export function normalizePreviewTimezone(
+  tz: string | null | undefined
+): SupportedPreviewTimezone | null {
+  const raw = (tz ?? "").trim();
+  const upper = raw.toUpperCase();
+  if (
+    raw === "Africa/Harare" ||
+    raw === "Africa/Harare (CAT)" ||
+    raw === "Africa/Harare (CAT, UTC+2)" ||
+    upper === "CAT"
+  ) {
+    return "Africa/Harare";
+  }
+  if (raw === "UTC" || raw === "UTC (GMT, UTC+0)" || upper === "GMT" || upper === "UTC") {
+    return "UTC";
+  }
+  return null;
+}
+
+export function parseAndFormatPreviewSchedule(
+  dateStr: string | null | undefined,
+  timeStr: string | null | undefined,
+  timezoneStr: string | null | undefined = "Africa/Harare"
+): PreviewScheduleParseResult {
+  const datePart = (dateStr ?? "").trim();
+  const timeRaw = (timeStr ?? "").trim();
+  const normalizedTz = normalizePreviewTimezone(timezoneStr);
+
+  if (!datePart && !timeRaw) {
+    return {
+      valid: true,
+      utcIso: null,
+      displayLabel: null,
+      timezone: normalizedTz ?? "Africa/Harare"
+    };
+  }
+
+  if (!datePart && timeRaw) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Schedule date (YYYY-MM-DD) is required before setting a schedule time."
+    };
+  }
+
+  if (!normalizedTz) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Unsupported schedule timezone. Select Africa/Harare (CAT, UTC+2) or UTC."
+    };
+  }
+
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+  if (!dateMatch) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Invalid schedule date. Use YYYY-MM-DD format (e.g. 2026-10-25)."
+    };
+  }
+
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Invalid calendar date. Month must be 01–12 and day must be valid."
+    };
+  }
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (day > daysInMonth) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: `Invalid calendar day ${datePart} for the selected month.`
+    };
+  }
+
+  const timePart = timeRaw || "08:00";
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(timePart);
+  if (!timeMatch) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Invalid schedule time. Use 24-hour HH:MM format (00:00 to 23:59)."
+    };
+  }
+
+  const hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return {
+      valid: false,
+      utcIso: null,
+      displayLabel: null,
+      timezone: null,
+      error: "Invalid schedule time. Hours must be 00–23 and minutes 00–59."
+    };
+  }
+
+  // Interpret wall-clock time in declared timezone deterministically (browser-timezone invariant)
+  const wallClockUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const offsetMinutes = normalizedTz === "Africa/Harare" ? 120 : 0;
+  const trueUtcMs = wallClockUtcMs - offsetMinutes * 60 * 1000;
+  const utcIso = new Date(trueUtcMs).toISOString();
+  const tzDisplay =
+    normalizedTz === "Africa/Harare" ? "Africa/Harare (CAT, UTC+2)" : "UTC";
+  const displayLabel = `${datePart} ${timePart} ${tzDisplay}`;
+
+  return {
+    valid: true,
+    utcIso,
+    displayLabel,
+    timezone: normalizedTz
+  };
+}
+
+export function formatPreviewScheduleTimestamp(
+  utcIso: string | null | undefined,
+  preferredTimezone: string = "Africa/Harare"
+): string {
+  if (!utcIso) return "—";
+  const parsed = new Date(utcIso);
+  if (isNaN(parsed.getTime())) return "—";
+  const normalizedTz = normalizePreviewTimezone(preferredTimezone) ?? "Africa/Harare";
+  const offsetMinutes = normalizedTz === "Africa/Harare" ? 120 : 0;
+  const localMs = parsed.getTime() + offsetMinutes * 60 * 1000;
+  const localDate = new Date(localMs);
+  const yyyy = String(localDate.getUTCFullYear());
+  const mm = String(localDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(localDate.getUTCDate()).padStart(2, "0");
+  const hh = String(localDate.getUTCHours()).padStart(2, "0");
+  const min = String(localDate.getUTCMinutes()).padStart(2, "0");
+  const tzSuffix =
+    normalizedTz === "Africa/Harare" ? "Africa/Harare (CAT, UTC+2)" : "UTC";
+  return `${yyyy}-${mm}-${dd} ${hh}:${min} ${tzSuffix}`;
+}
+
 
 
 

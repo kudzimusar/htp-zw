@@ -83,6 +83,7 @@ export function StudioAiDeskPresentation({
 }: StudioAiDeskPresentationProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
+  const [inspectedCitationId, setInspectedCitationId] = useState<string | null>(null);
 
   return (
     <View style={styles.container}>
@@ -111,7 +112,11 @@ export function StudioAiDeskPresentation({
         <View style={styles.safetyPillsRow}>
           <View style={styles.rulePill}><Text style={styles.rulePillText}>✓ Human Review Required</Text></View>
           <View style={styles.rulePill}><Text style={styles.rulePillText}>✓ Zero Direct Story Write</Text></View>
-          <View style={styles.rulePill}><Text style={styles.rulePillText}>✓ Audited Execution Log</Text></View>
+          <View style={styles.rulePill}>
+            <Text style={styles.rulePillText}>
+              {isOwnerPreview ? "✓ Simulated Audit Record (Preview)" : "✓ Audited Execution Log"}
+            </Text>
+          </View>
           <View style={styles.rulePill}><Text style={styles.rulePillText}>✓ Reviewable Suggestions</Text></View>
         </View>
       </View>
@@ -467,8 +472,26 @@ export function StudioAiDeskPresentation({
                   </View>
                 )}
 
+                {cit.authorsOrOrganization && (
+                  <Text style={styles.citationDoi}>
+                    Author / Organization: {cit.authorsOrOrganization}
+                  </Text>
+                )}
+
+                {(cit.publicationDate || cit.citedAt) && (
+                  <Text style={styles.citationDoi}>
+                    Publication Date: {cit.publicationDate || cit.citedAt}
+                  </Text>
+                )}
+
                 {cit.doi && (
                   <Text style={styles.citationDoi}>DOI: {cit.doi}</Text>
+                )}
+
+                {cit.sourceUrl && (
+                  <Text style={styles.citationDoi} testID={`citation-destination-${cit.id}`}>
+                    Source Destination: {cit.sourceUrl}
+                  </Text>
                 )}
 
                 {cit.storyTitle && (
@@ -487,34 +510,77 @@ export function StudioAiDeskPresentation({
                   </Text>
                 </View>
 
-                {canVerifyCitation && (
-                  <View style={styles.citationActionsRow}>
-                    {cit.status !== "verified" && (
-                      <Pressable
-                        style={[styles.smallActionBtn, styles.btnVerify]}
-                        onPress={() => onUpdateCitationStatus(cit.id, "verified")}
-                      >
-                        <Text style={styles.btnVerifyText}>Verify</Text>
-                      </Pressable>
-                    )}
-                    {cit.status !== "flagged" && (
-                      <Pressable
-                        style={[styles.smallActionBtn, styles.btnFlag]}
-                        onPress={() => onUpdateCitationStatus(cit.id, "flagged")}
-                      >
-                        <Text style={styles.btnFlagText}>Flag</Text>
-                      </Pressable>
-                    )}
-                    {cit.status !== "rejected" && (
-                      <Pressable
-                        style={[styles.smallActionBtn, styles.btnReject]}
-                        onPress={() => onUpdateCitationStatus(cit.id, "rejected")}
-                      >
-                        <Text style={styles.btnRejectText}>Reject</Text>
-                      </Pressable>
+                {inspectedCitationId === cit.id && (
+                  <View
+                    style={styles.citationExcerptBox}
+                    testID={`citation-source-inspector-${cit.id}`}
+                  >
+                    <Text style={styles.storyLinkLabel}>
+                      INDEPENDENT SOURCE VERIFICATION RECORD
+                    </Text>
+                    <Text style={styles.citationExcerptText}>
+                      Title: {cit.title}
+                    </Text>
+                    <Text style={styles.citationExcerptText}>
+                      Author / Publishing Organization:{" "}
+                      {cit.authorsOrOrganization || cit.sourceName}
+                    </Text>
+                    <Text style={styles.citationExcerptText}>
+                      Publication Date: {cit.publicationDate || cit.citedAt || "Not recorded"}
+                    </Text>
+                    <Text style={styles.citationExcerptText}>
+                      Source URL / DOI Destination:{" "}
+                      {cit.sourceUrl || cit.doi || "Sample reference record"}
+                    </Text>
+                    {isOwnerPreview && (
+                      <Text style={styles.verificationAuditText}>
+                        Sample non-live citation destination for Owner Preview verification — no external scholarly network request is executed.
+                      </Text>
                     )}
                   </View>
                 )}
+
+                <View style={styles.citationActionsRow}>
+                  <Pressable
+                    style={[styles.smallActionBtn, styles.btnVerify]}
+                    onPress={() =>
+                      setInspectedCitationId((prev) =>
+                        prev === cit.id ? null : cit.id
+                      )
+                    }
+                    testID={`inspect-citation-source-${cit.id}`}
+                  >
+                    <Text style={styles.btnVerifyText}>
+                      {inspectedCitationId === cit.id
+                        ? "Close Source Inspector"
+                        : "Inspect Source"}
+                    </Text>
+                  </Pressable>
+                  {canVerifyCitation && cit.status !== "verified" && (
+                    <Pressable
+                      style={[styles.smallActionBtn, styles.btnVerify]}
+                      onPress={() => onUpdateCitationStatus(cit.id, "verified")}
+                    >
+                      <Text style={styles.btnVerifyText}>Verify</Text>
+                    </Pressable>
+                  )}
+                  {canVerifyCitation && cit.status !== "flagged" && (
+                    <Pressable
+                      style={[styles.smallActionBtn, styles.btnFlag]}
+                      onPress={() => onUpdateCitationStatus(cit.id, "flagged")}
+                    >
+                      <Text style={styles.btnFlagText}>Flag</Text>
+                    </Pressable>
+                  )}
+                  {canVerifyCitation && cit.status !== "rejected" && (
+                    <Pressable
+                      style={[styles.smallActionBtn, styles.btnReject]}
+                      onPress={() => onUpdateCitationStatus(cit.id, "rejected")}
+                    >
+                      <Text style={styles.btnRejectText}>Reject</Text>
+                    </Pressable>
+                  )}
+                </View>
               </View>
             ))
           )}

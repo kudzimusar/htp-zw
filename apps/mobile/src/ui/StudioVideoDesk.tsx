@@ -574,7 +574,9 @@ export function StudioVideoDeskView({
           <Text style={styles.headerKicker}>STUDIO · MULTIMEDIA OPERATIONS</Text>
           <Text style={styles.headerTitle}>Video Desk</Text>
           <Text style={styles.headerSubtitle}>
-            Canonical Video Registry · Editorial Destination Metadata · Production Control
+            {isOwnerPreview
+              ? "Video Library · Editorial Metadata · Publication Readiness"
+              : "Canonical Video Registry · Editorial Destination Metadata · Production Control"}
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -613,7 +615,9 @@ export function StudioVideoDeskView({
         </View>
         <View style={styles.metricDisclaimer}>
           <Text style={styles.metricDisclaimerText}>
-            Showing up to 100 server-matched videos. Results reflect current query criteria.
+            {isOwnerPreview
+              ? "Showing up to 100 videos matching the current filters. Results reflect current query criteria."
+              : "Showing up to 100 server-matched videos. Results reflect current query criteria."}
           </Text>
         </View>
       </View>
@@ -676,7 +680,9 @@ export function StudioVideoDeskView({
         {/* Left Registry List */}
         <View style={[styles.listColumn, isDesktop && styles.listColumnDesktop]}>
           <View style={styles.listHeader}>
-            <Text style={styles.listHeaderTitle}>Video Registry</Text>
+            <Text style={styles.listHeaderTitle}>
+              {isOwnerPreview ? "Video Library" : "Video Registry"}
+            </Text>
             <Text style={styles.listHeaderCount}>
               {filteredVideos.length} {filteredVideos.length === 1 ? "video" : "videos"}
             </Text>
@@ -938,7 +944,11 @@ export function StudioVideoDeskView({
                   testID="video-create-submit-button"
                 >
                   <Text style={styles.primaryButtonText}>
-                    {createSubmitting ? "Creating..." : "Create Registry Entry"}
+                    {createSubmitting
+                      ? "Creating..."
+                      : isOwnerPreview
+                      ? "Create Video Entry"
+                      : "Create Registry Entry"}
                   </Text>
                 </Pressable>
                 <Pressable style={styles.secondaryButton} onPress={handleCancelCreate}>
@@ -1110,7 +1120,7 @@ export function StudioVideoDeskView({
                 <View style={styles.readOnlyItem}>
                   <Text style={styles.readOnlyLabel}>{isOwnerPreview ? "Catalog Reference" : "Video UUID"}</Text>
                   <Text style={styles.readOnlyValue} numberOfLines={1}>
-                    {isOwnerPreview ? selectedVideo.id.slice(0, 13) : selectedVideo.id}
+                    {isOwnerPreview ? "Editorial Video Asset" : selectedVideo.id}
                   </Text>
                 </View>
                 <View style={styles.readOnlyItem}>

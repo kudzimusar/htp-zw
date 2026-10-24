@@ -571,7 +571,9 @@ export function StudioLiveDeskView({
       {/* Result Window Disclosure */}
       <View style={styles.disclosureRow} testID="live-desk-disclosure">
         <Text style={styles.disclosureText}>
-          Showing up to 100 server-matched coverage records.
+          {isOwnerPreview
+            ? "Showing up to 100 coverage records matching the current filters."
+            : "Showing up to 100 server-matched coverage records."}
           {Boolean(searchQuery.trim() || statusFilter !== "all" || kindFilter !== "all") &&
             " Displayed metrics describe the current query result set."}
         </Text>
@@ -998,9 +1000,11 @@ export function StudioLiveDeskView({
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.lockVersionBadge}>
-                  v{selectedItem.lockVersion}
-                </Text>
+                {!isOwnerPreview && (
+                  <Text style={styles.lockVersionBadge}>
+                    v{selectedItem.lockVersion}
+                  </Text>
+                )}
               </View>
 
               {/* Status Explanatory Banner per Section 41 */}
@@ -1237,7 +1241,9 @@ export function StudioLiveDeskView({
                         {selectedMediaAsset.filename || selectedMediaAsset.altText || "Attached Asset"}
                       </Text>
                       <Text style={styles.mediaPreviewId} numberOfLines={1}>
-                        ID: {selectedMediaAsset.id}
+                        {isOwnerPreview
+                          ? `Asset: ${selectedMediaAsset.filename || "Editorial Media"}`
+                          : `ID: ${selectedMediaAsset.id}`}
                       </Text>
                     </View>
                   </View>
@@ -1353,7 +1359,9 @@ export function StudioLiveDeskView({
                     <View style={styles.postUpdateComposer} testID="live-update-composer">
                       <Text style={styles.composerTitle}>Post Update</Text>
                       <Text style={styles.composerSubtitle}>
-                        Dispatches published here appear immediately in the public Reader Live Blog stream.
+                        {isOwnerPreview
+                          ? "Simulated live blog updates appear in the local preview stream only (writes disabled)."
+                          : "Dispatches published here appear immediately in the public Reader Live Blog stream."}
                       </Text>
 
                       {updateFeedback && (

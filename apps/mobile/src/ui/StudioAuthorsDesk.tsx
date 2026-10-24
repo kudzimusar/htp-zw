@@ -43,6 +43,12 @@ export interface StudioAuthorsDeskViewProps {
   actionMessage: string | null;
   isMutating: boolean;
   isOwnerPreview?: boolean;
+  staffOptions?: Array<{
+    id: string;
+    displayName: string;
+    email?: string | null;
+    desk?: string | null;
+  }>;
 }
 
 export function StudioAuthorsDeskView({
@@ -62,7 +68,8 @@ export function StudioAuthorsDeskView({
   canManage,
   actionMessage,
   isMutating,
-  isOwnerPreview = false
+  isOwnerPreview = false,
+  staffOptions = []
 }: StudioAuthorsDeskViewProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
@@ -186,7 +193,9 @@ export function StudioAuthorsDeskView({
         <View style={styles.headerLeft}>
           <Text style={styles.title}>Authors & Taxonomy Desk</Text>
           <Text style={styles.subtitle}>
-            Public byline registry, WordPress migration provenance, staff profile reconciliation, and hierarchical taxonomy sections.
+            {isOwnerPreview
+              ? "Public byline directory, staff author assignments, and hierarchical editorial taxonomy sections."
+              : "Public byline registry, WordPress migration provenance, staff profile reconciliation, and hierarchical taxonomy sections."}
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -266,11 +275,13 @@ export function StudioAuthorsDeskView({
             <Text style={styles.metricValue}>{metrics?.totalAuthors ?? 0}</Text>
             <Text style={styles.metricSub}>Registered story bylines</Text>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Migrated Provenance</Text>
-            <Text style={styles.metricValue}>{metrics?.migratedAuthorsCount ?? 0}</Text>
-            <Text style={styles.metricSub}>Imported from WordPress</Text>
-          </View>
+          {!isOwnerPreview && (
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Migrated Provenance</Text>
+              <Text style={styles.metricValue}>{metrics?.migratedAuthorsCount ?? 0}</Text>
+              <Text style={styles.metricSub}>Imported from WordPress</Text>
+            </View>
+          )}
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Staff Profile Bound</Text>
             <Text style={[styles.metricValue, { color: "#166534" }]}>{metrics?.boundAuthorsCount ?? 0}</Text>
@@ -428,7 +439,9 @@ export function StudioAuthorsDeskView({
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Slug</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Parent Section</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: "center" }]}>Stories</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1.5, textAlign: "right" }]}>Provenance</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5, textAlign: "right" }]}>
+              {isOwnerPreview ? "Editorial Status" : "Provenance"}
+            </Text>
           </View>
 
           {isLoading ? (
@@ -461,7 +474,9 @@ export function StudioAuthorsDeskView({
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5, alignItems: "flex-end" }]}>
-                  {sec.wordpressSourceId ? (
+                  {isOwnerPreview ? (
+                    <Text style={styles.nativeBadge}>Active Section</Text>
+                  ) : sec.wordpressSourceId ? (
                     <View style={styles.wpBadge}>
                       <Text style={styles.wpBadgeText}>WP #{sec.wordpressSourceId}</Text>
                     </View>
@@ -548,19 +563,50 @@ export function StudioAuthorsDeskView({
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Bind Author to Staff Profile</Text>
             <Text style={styles.modalSub}>
-              Connect this public author byline to a registered newsroom staff member UUID.
+              {isOwnerPreview
+                ? "Select a newsroom staff member to associate with this public author byline."
+                : "Connect this public author byline to a registered newsroom staff member UUID."}
             </Text>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Staff Profile UUID *</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Paste staff profile UUID from Staff & Roles"
-                placeholderTextColor={colors.inkMuted}
-                value={bindStaffId}
-                onChangeText={setBindStaffId}
-              />
-            </View>
+            {isOwnerPreview || staffOptions.length > 0 ? (
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Select Newsroom Staff Member *</Text>
+                <View style={styles.parentPickerContainer}>
+                  {staffOptions.map((staff) => (
+                    <Pressable
+                      key={staff.id}
+                      style={[
+                        styles.parentOptionChip,
+                        bindStaffId === staff.id && styles.parentOptionChipActive
+                      ]}
+                      onPress={() => setBindStaffId(staff.id)}
+                      testID={`bind-staff-option-${staff.id}`}
+                    >
+                      <Text
+                        style={[
+                          styles.parentOptionText,
+                          bindStaffId === staff.id && styles.parentOptionTextActive
+                        ]}
+                      >
+                        {staff.displayName}
+                        {staff.desk ? ` (${staff.desk})` : ""}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Staff Profile UUID *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Paste staff profile UUID from Staff & Roles"
+                  placeholderTextColor={colors.inkMuted}
+                  value={bindStaffId}
+                  onChangeText={setBindStaffId}
+                />
+              </View>
+            )}
 
             <View style={styles.modalActions}>
               <Pressable

@@ -798,7 +798,11 @@ export function StudioMediaLibraryView({
 
               {/* Technical Specifications */}
               <View style={styles.inspectorSection} testID="media-technical-metadata">
-                <Text style={styles.sectionHeading}>Asset Technical Specifications</Text>
+                <Text style={styles.sectionHeading}>
+                  {isOwnerPreview
+                    ? "Asset Editorial & File Specifications"
+                    : "Asset Technical Specifications"}
+                </Text>
                 <View style={styles.metaGrid}>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaKey}>Filename</Text>
@@ -826,7 +830,7 @@ export function StudioMediaLibraryView({
                   </View>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaKey}>
-                      {isOwnerPreview ? "Custody Category" : "Storage Custody"}
+                      {isOwnerPreview ? "Media Management" : "Storage Custody"}
                     </Text>
                     <Text style={styles.metaVal}>
                       {isOwnerPreview
@@ -836,9 +840,11 @@ export function StudioMediaLibraryView({
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaKey}>Checksum</Text>
+                    <Text style={styles.metaKey}>
+                      {isOwnerPreview ? "Integrity Status" : "Checksum"}
+                    </Text>
                     <Text style={styles.metaVal} numberOfLines={1}>
-                      {isOwnerPreview ? "Verified (SHA-256)" : (selectedAsset.checksum ?? "None")}
+                      {isOwnerPreview ? "Verified" : (selectedAsset.checksum ?? "None")}
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
@@ -968,7 +974,11 @@ export function StudioMediaLibraryView({
                     style={styles.textInput}
                     value={draftProvenance}
                     onChangeText={setDraftProvenance}
-                    placeholder="Archival provenance (e.g. wordpress-migration, direct-assignment)…"
+                    placeholder={
+                      isOwnerPreview
+                        ? "Editorial origin (e.g. direct assignment, field photography)…"
+                        : "Archival provenance (e.g. wordpress-migration, direct-assignment)…"
+                    }
                     placeholderTextColor={colors.inkMuted}
                     testID="media-provenance-input"
                   />
@@ -1032,7 +1042,9 @@ export function StudioMediaLibraryView({
                           ) : null}
                         </View>
                         <Text style={styles.usageStoryId} numberOfLines={1}>
-                          Story ID: {u.storyId}
+                          {isOwnerPreview
+                            ? `Story: ${storyOptions.find((st) => st.id === u.storyId)?.title || "Linked Editorial Story"}`
+                            : `Story ID: ${u.storyId}`}
                         </Text>
                         <Pressable
                           style={styles.storyWorkspaceLink}

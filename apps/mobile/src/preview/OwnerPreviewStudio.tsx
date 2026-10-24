@@ -2247,6 +2247,8 @@ function OwnerPreviewNewsletterDeskView() {
 }
 
 function OwnerPreviewPushAlertDeskView() {
+  const { previewNavigate } = useOwnerPreviewNavigation();
+  const stories = useMemo(() => buildPreviewStories(), []);
   const [alerts, setAlerts] = useState<NewsroomPushAlert[]>(() =>
     buildPreviewPushAlerts()
   );
@@ -2429,7 +2431,7 @@ function OwnerPreviewPushAlertDeskView() {
     setPreparedHandoff(result);
     setActionErrorMessage(null);
     setFeedbackMessage(
-      "Preview state only — not saved: Dispatch handoff prepared for native background worker."
+      "Preview state only — not saved: Dispatch handoff prepared for delivery service."
     );
     setNotice(
       "Preview state only — not saved: Simulated push alert dispatch preparation handoff."
@@ -2497,8 +2499,16 @@ function OwnerPreviewPushAlertDeskView() {
         onPrepareAlert={async (id) => handlePrepareAlert(id)}
         onDispatchAlert={async (id) => handleDispatchAlert(id)}
         onOpenStory={(storyId) => {
-          setNotice(`Preview state only: Targeted story workspace handoff for story ${storyId}`);
+          const matchedStory = stories.find((st) => st.id === storyId);
+          setNotice(
+            `Preview state only: Targeted story workspace handoff for "${matchedStory?.title ?? storyId}".`
+          );
+          previewNavigate({
+            pathname: "/owner-preview/studio/create-edit",
+            params: { storyId }
+          } as never);
         }}
+        stories={stories}
         isOwnerPreview={true}
       />
     </View>
@@ -3009,11 +3019,17 @@ export function OwnerPreviewAuthorsView() {
   };
 
   const handleBindStaffAuthor = async (staffId: string, authorId: string | null) => {
+    const matchedStaff = PREVIEW_STAFF_DIRECTORY.find((s) => s.id === staffId);
     setDirectory((prev) => ({
       ...prev,
       authors: prev.authors.map((a) =>
         a.id === authorId
-          ? { ...a, boundStaffId: staffId, boundStaffName: "Linked Staff", boundStaffEmail: "staff@healthtimes.co.zw" }
+          ? {
+              ...a,
+              boundStaffId: staffId,
+              boundStaffName: matchedStaff?.displayName ?? "Linked Staff",
+              boundStaffEmail: matchedStaff?.email ?? "staff@preview.healthtimes.co.zw"
+            }
           : a.boundStaffId === staffId
           ? { ...a, boundStaffId: null, boundStaffName: null, boundStaffEmail: null }
           : a
@@ -3066,6 +3082,12 @@ export function OwnerPreviewAuthorsView() {
       canManage={true}
       actionMessage={actionMessage}
       isMutating={false}
+      staffOptions={PREVIEW_STAFF_DIRECTORY.map((s) => ({
+        id: s.id,
+        displayName: s.displayName,
+        email: s.email,
+        desk: s.desk
+      }))}
       isOwnerPreview={true}
     />
   );
@@ -3358,7 +3380,7 @@ export function OwnerPreviewModuleScreen({
         <OwnerPreviewShell
           activeKey="media"
           title="Media Library (Owner Visual Preview)"
-          subtitle="Visual inspection of migrated media assets, technical metadata, safe preview sandboxing, and story usage handoffs."
+          subtitle="Visual inspection of newsroom media assets, editorial metadata, safe preview sandboxing, and story usage handoffs."
         >
           <OwnerPreviewMediaLibraryView />
         </OwnerPreviewShell>
@@ -3368,7 +3390,7 @@ export function OwnerPreviewModuleScreen({
         <OwnerPreviewShell
           activeKey="video-desk"
           title="Video Desk (Owner Visual Preview)"
-          subtitle="Editorial video custody, source provenance, duration, related story linking, and publication-ready lifecycle."
+          subtitle="Editorial video library, source provenance, duration, related story linking, and publication-ready lifecycle."
         >
           <OwnerPreviewVideoDeskView />
         </OwnerPreviewShell>
@@ -3508,7 +3530,7 @@ export function OwnerPreviewModuleScreen({
         <OwnerPreviewShell
           activeKey="authors"
           title="Authors & Taxonomy Registry (Owner Visual Preview)"
-          subtitle="Editorial author directory, WordPress author mapping, staff profile reconciliation, and hierarchical taxonomy sections."
+          subtitle="Public byline directory, staff author assignments, and hierarchical editorial taxonomy sections."
         >
           <OwnerPreviewAuthorsView />
         </OwnerPreviewShell>
