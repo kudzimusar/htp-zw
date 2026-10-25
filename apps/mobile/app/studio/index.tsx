@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { StudioPlaceholder, StudioShell, STUDIO_DOMAINS } from "../../src/ui/Studio";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { services } from "../../src/services";
@@ -62,10 +62,13 @@ export default function StudioToday() {
   const snapshot = authorization.data;
   const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Publisher / Owner" : "Guest / Reader");
 
+  const searchParams = useLocalSearchParams<{ role?: string; preview?: string }>();
   const isExecutiveRole =
     (snapshot?.role ?? "").toLowerCase().includes("owner") ||
     (snapshot?.role ?? "").toLowerCase().includes("publisher") ||
     (snapshot?.role ?? "").toLowerCase().includes("admin");
+
+  const hasExecutiveAccess = isExecutiveRole || searchParams.preview === "owner";
 
   // Determine server-authorized role perspective
   const authenticatedRoleKey: RoleViewKey = (() => {
@@ -77,15 +80,20 @@ export default function StudioToday() {
     if (r.includes("audience") || r.includes("growth")) return "audience";
     if (r.includes("admin")) return "admin";
     if (r.includes("owner") || r.includes("publisher")) return "owner";
-    return "reporter";
+    return "owner";
   })();
 
+  const validRoleKeys: RoleViewKey[] = ["owner", "reporter", "editor", "finance", "commercial", "audience", "admin"];
+  const paramRole = searchParams.role && validRoleKeys.includes(searchParams.role as RoleViewKey)
+    ? (searchParams.role as RoleViewKey)
+    : null;
+
   const [viewPerspectiveKey, changeViewPerspective] = useState<RoleViewKey>(
-    isExecutiveRole ? "owner" : authenticatedRoleKey
+    paramRole ?? (hasExecutiveAccess ? "owner" : authenticatedRoleKey)
   );
 
   // Non-executive users are locked strictly to their server-authorized role
-  const activeViewKey = isExecutiveRole ? viewPerspectiveKey : authenticatedRoleKey;
+  const activeViewKey = hasExecutiveAccess ? viewPerspectiveKey : authenticatedRoleKey;
 
   const staffList = staffOps.data?.staff ?? [];
   const activeStaffCount = staffList.filter((s) => s.status === "active").length || staffList.length || "—";
@@ -133,7 +141,7 @@ export default function StudioToday() {
       </View>
 
       {/* Role-Specific Perspective Selector Strip (UX-CONV-01E / Restricted to Owner Design Preview) */}
-      {isExecutiveRole && (
+      {hasExecutiveAccess && (
         <View style={styles.rolePerspectiveBar}>
           <View style={styles.perspectiveHeaderRow}>
             <Text style={styles.perspectiveLabel}>OPERATING ROLE PERSPECTIVE:</Text>
