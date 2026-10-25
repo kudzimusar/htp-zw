@@ -172,7 +172,7 @@ export const STUDIO_DOMAINS: readonly StudioDomainDef[] = [
     description: "Publication governance, homepage curation, standards, and performance",
     requiredCapabilities: EXECUTIVE_DESK_CAPABILITIES,
     items: [
-      { label: "Executive Dashboard", path: "/studio/executive", requiredCapability: "analytics.view" },
+      { label: "Executive Dashboard", path: "/studio", requiredCapability: "analytics.view" },
       { label: "Homepage Curation", path: "/studio/homepage", requiredCapability: "story.publish" },
       { label: "Analytics & Intelligence", path: "/studio/analytics", requiredCapability: "analytics.view" },
       { label: "Staff Governance", path: "/studio/staff-roles", requiredCapability: "staff.view" },
@@ -189,7 +189,7 @@ export const STUDIO_DOMAINS: readonly StudioDomainDef[] = [
     items: [
       { label: "Staff & Roles (RBAC)", path: "/studio/staff-roles", requiredCapability: "staff.manage" },
       { label: "Platform Settings", path: "/studio/settings", requiredCapability: "settings.manage" },
-      { label: "Active Sessions & Audit", path: "/studio/admin-sessions", requiredCapability: "security.view_sessions" }
+      { label: "Active Sessions & Audit", path: "/studio/staff-roles?tab=audit", requiredCapability: "security.view_sessions" }
     ]
   }
 ];

@@ -1530,20 +1530,22 @@ export function StudioEditorialCalendar() {
     (storiesState.data === null && !storiesState.error) ||
     (assignmentsState.data === null && !assignmentsState.error);
 
-  return StudioEditorialCalendarView({
-    storiesData: storiesState.data,
-    storiesError: storiesState.error,
-    assignmentsData: assignmentsState.data,
-    assignmentsError: assignmentsState.error,
-    isWorkloadLoading,
-    canOpenPlanning,
-    onRefresh: () => setRefreshKey((k) => k + 1),
-    onOpenStory: handleOpenStory,
-    onOpenAssignment: handleOpenAssignment,
-    onOpenPlanning: handleOpenPlanning,
-    onOpenMyAssignments: handleOpenMyAssignments,
-    onOpenStories: handleOpenStories
-  });
+  return (
+    <StudioEditorialCalendarView
+      storiesData={storiesState.data}
+      storiesError={storiesState.error}
+      assignmentsData={assignmentsState.data}
+      assignmentsError={assignmentsState.error}
+      isWorkloadLoading={isWorkloadLoading}
+      canOpenPlanning={canOpenPlanning}
+      onRefresh={() => setRefreshKey((k) => k + 1)}
+      onOpenStory={handleOpenStory}
+      onOpenAssignment={handleOpenAssignment}
+      onOpenPlanning={handleOpenPlanning}
+      onOpenMyAssignments={handleOpenMyAssignments}
+      onOpenStories={handleOpenStories}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

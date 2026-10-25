@@ -168,10 +168,10 @@ export function StudioAnalyticsDeskView({
                   ✓ {editorialData.storyInventory.published.toLocaleString()} Published
                 </Text>
                 <Text style={styles.kpiSubtext}>
-                  ✎ {editorialData.storyInventory.review} In Review
+                  📄 {editorialData.storyInventory.draft} Draft / Unpublished
                 </Text>
                 <Text style={styles.kpiSubtext}>
-                  📄 {editorialData.storyInventory.draft} Drafts
+                  ↳ {editorialData.storyInventory.review} In Review (subset of Draft / Unpublished)
                 </Text>
               </View>
             </View>

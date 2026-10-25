@@ -646,16 +646,23 @@ test("HT-NR-03B: Empty state, partial/full source error states, and deep handoff
       }
     });
 
+    const renderCalendar = () => {
+      const element = mod.StudioEditorialCalendar();
+      return typeof element?.type === "function"
+        ? element.type(element.props ?? {})
+        : element;
+    };
+
     // First render (loading state before promises settle)
     stateIdx = 0;
-    const initialTree = mod.StudioEditorialCalendar();
+    const initialTree = renderCalendar();
     const initialTexts = collectTexts(initialTree).join(" | ");
 
     await new Promise((r) => setTimeout(r, 15));
 
     // Second render after promises settle
     stateIdx = 0;
-    const settledTree = mod.StudioEditorialCalendar();
+    const settledTree = renderCalendar();
     const settledTexts = collectTexts(settledTree).join(" | ");
 
     return { initialTexts, settledTree, settledTexts };

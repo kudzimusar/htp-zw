@@ -988,14 +988,18 @@ export function StudioStaffRolesDeskView({
   );
 }
 
-export function StudioStaffRolesDesk() {
+export function StudioStaffRolesDesk({
+  initialTab = "directory"
+}: {
+  initialTab?: StaffDeskTab;
+} = {}) {
   const [directory, setDirectory] = useState<NewsroomStaffOperationsDirectory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isMutating, setIsMutating] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<StaffDeskTab>("directory");
+  const [activeTab, setActiveTab] = useState<StaffDeskTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 

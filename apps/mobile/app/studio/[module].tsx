@@ -107,7 +107,7 @@ const owners:Record<string,ModuleConfig>={
 };
 
 export default function StudioModule(){
-  const {module,deskId,threadId,assignmentId,storyId}=useLocalSearchParams<{module:string;deskId?:string;threadId?:string;assignmentId?:string;storyId?:string}>();
+  const {module,deskId,threadId,assignmentId,storyId,tab}=useLocalSearchParams<{module:string;deskId?:string;threadId?:string;assignmentId?:string;storyId?:string;tab?:string}>();
   const config=owners[String(module)] ?? {
     title:"Studio",
     owner:"AG-06",
@@ -139,7 +139,7 @@ export default function StudioModule(){
       {String(module)==="analytics" && <StudioAnalyticsDesk />}
       {String(module)==="audience" && <StudioAudienceDesk />}
       {String(module)==="search-growth" && <StudioSearchGrowthDesk />}
-      {String(module)==="staff-roles" && <StudioStaffRolesDesk />}
+      {String(module)==="staff-roles" && <StudioStaffRolesDesk initialTab={tab === "audit" ? "audit" : "directory"} />}
       {String(module)==="advertising" && <StudioAdvertisingDesk />}
       {String(module)==="subscribers" && <StudioSubscribersDesk />}
       {String(module)==="premium" && <StudioPremiumDesk />}
