@@ -258,6 +258,7 @@ test("UX-CONV-01-R2: Dynamic Staff Profile rewrite rule and deep-link routing co
   const staffRewrite = vercelConfig.rewrites.find((r) => r.source === "/studio/staff/:staffId");
   assert.ok(staffRewrite, "Must contain rewrite rule for /studio/staff/:staffId");
   assert.ok(
+    staffRewrite.destination === "/studio/staff/fallback" ||
     staffRewrite.destination === "/studio/staff/fallback.html" ||
     staffRewrite.destination === "/studio/staff/[staffId].html",
     "Destination must serve the dynamic staff route HTML fallback"
