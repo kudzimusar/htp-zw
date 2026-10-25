@@ -817,6 +817,7 @@ export function isStoryPublishable(story: {
   workflowStatus?: string | null;
   status?: string | null;
   accessPolicy?: string | null;
+  primarySectionId?: string | null;
 }): boolean {
   if (!story || typeof story !== "object") return false;
   if (!story.id || !CANONICAL_UUID_PATTERN.test(story.id)) return false;
@@ -827,6 +828,15 @@ export function isStoryPublishable(story: {
   const ws = (story.workflowStatus || "").toLowerCase();
   const st = (story.status || "").toLowerCase();
   if (ws === "archived" || st === "archived") return false;
+  if (("workflowStatus" in story || "status" in story) && ws !== "published" && st !== "published") {
+    return false;
+  }
+  if (
+    "primarySectionId" in story &&
+    (!story.primarySectionId || !CANONICAL_UUID_PATTERN.test(story.primarySectionId))
+  ) {
+    return false;
+  }
   return true;
 }
 

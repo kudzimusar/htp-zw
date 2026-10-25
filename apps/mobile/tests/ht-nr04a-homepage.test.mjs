@@ -307,7 +307,8 @@ test("HT-NR-04A: isStoryPublishable validates canonical publishability requireme
     slug: "valid-published-story",
     accessPolicy: "public",
     status: "published",
-    workflowStatus: "Published"
+    workflowStatus: "Published",
+    primarySectionId: "00000000-0000-4000-8000-000000009001"
   };
   assert.equal(isStoryPublishable(validStory), true);
 
@@ -336,6 +337,11 @@ test("HT-NR-04A: isStoryPublishable validates canonical publishability requireme
     isStoryPublishable({ ...validStory, status: "archived" }),
     false
   );
+  assert.equal(
+    isStoryPublishable({ ...validStory, status: "draft", workflowStatus: "Submitted" }),
+    false
+  );
+  assert.equal(isStoryPublishable({ ...validStory, primarySectionId: null }), false);
 });
 
 test("HT-NR-04A: deriveHomepageCurationState enforces Hero cardinality (max 1) and tie-breaking", () => {

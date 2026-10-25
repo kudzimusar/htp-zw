@@ -986,10 +986,20 @@ export function StudioFinanceDeskView({
 
           {/* Quick Actions Bar */}
           <View style={styles.quickActionsBar}>
-            <Pressable style={styles.actionBtnPrimary} onPress={() => setIsInvoiceModalOpen(true)}>
+            <Pressable
+              style={styles.actionBtnPrimary}
+              onPress={() => setIsInvoiceModalOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Create a new invoice"
+            >
               <Text style={styles.actionBtnPrimaryText}>+ Create Invoice</Text>
             </Pressable>
-            <Pressable style={styles.actionBtnSecondary} onPress={() => setIsExpenseModalOpen(true)}>
+            <Pressable
+              style={styles.actionBtnSecondary}
+              onPress={() => setIsExpenseModalOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Submit a new expense claim"
+            >
               <Text style={styles.actionBtnSecondaryText}>+ Submit Expense Claim</Text>
             </Pressable>
           </View>
@@ -1013,7 +1023,12 @@ export function StudioFinanceDeskView({
                 </Pressable>
               ))}
             </View>
-            <Pressable style={styles.actionBtnPrimary} onPress={() => setIsInvoiceModalOpen(true)}>
+            <Pressable
+              style={styles.actionBtnPrimary}
+              onPress={() => setIsInvoiceModalOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Create a new invoice"
+            >
               <Text style={styles.actionBtnPrimaryText}>+ New Invoice</Text>
             </Pressable>
           </View>
@@ -1306,6 +1321,9 @@ export function StudioFinanceDeskView({
               <Pressable
                 style={[styles.filterChip, expenseScope === "all" && styles.filterChipActive]}
                 onPress={() => setExpenseScope("all")}
+                accessibilityRole="button"
+                accessibilityLabel="Show all newsroom expense claims"
+                accessibilityState={{ selected: expenseScope === "all" }}
               >
                 <Text style={[styles.filterChipText, expenseScope === "all" && styles.filterChipTextActive]}>
                   ALL NEWSROOM CLAIMS
@@ -1314,13 +1332,21 @@ export function StudioFinanceDeskView({
               <Pressable
                 style={[styles.filterChip, expenseScope === "my" && styles.filterChipActive]}
                 onPress={() => setExpenseScope("my")}
+                accessibilityRole="button"
+                accessibilityLabel="Show my expense claims"
+                accessibilityState={{ selected: expenseScope === "my" }}
               >
                 <Text style={[styles.filterChipText, expenseScope === "my" && styles.filterChipTextActive]}>
                   MY EXPENSE CLAIMS
                 </Text>
               </Pressable>
             </View>
-            <Pressable style={styles.actionBtnPrimary} onPress={() => setIsExpenseModalOpen(true)}>
+            <Pressable
+              style={styles.actionBtnPrimary}
+              onPress={() => setIsExpenseModalOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Create a new expense claim"
+            >
               <Text style={styles.actionBtnPrimaryText}>+ New Expense Claim</Text>
             </Pressable>
           </View>
@@ -2140,16 +2166,17 @@ export function StudioFinanceDeskView({
                 value={expVendor}
                 onChangeText={setExpVendor}
                 placeholder="e.g. Harare Taxi Co / Freelance Photographer"
+                accessibilityLabel="Expense vendor or payee"
               />
 
               <View style={styles.formRow}>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Category</Text>
-                  <TextInput style={styles.input} value={expCategory} onChangeText={setExpCategory} />
+                  <TextInput style={styles.input} value={expCategory} onChangeText={setExpCategory} accessibilityLabel="Expense category" />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Department</Text>
-                  <TextInput style={styles.input} value={expDept} onChangeText={setExpDept} />
+                  <TextInput style={styles.input} value={expDept} onChangeText={setExpDept} accessibilityLabel="Expense department" />
                 </View>
               </View>
 
@@ -2159,6 +2186,7 @@ export function StudioFinanceDeskView({
                 value={expDesc}
                 onChangeText={setExpDesc}
                 placeholder="Field investigation trip to Mutare"
+                accessibilityLabel="Expense description or business purpose"
               />
 
               <View style={styles.formRow}>
@@ -2170,11 +2198,12 @@ export function StudioFinanceDeskView({
                     onChangeText={setExpAmount}
                     keyboardType="numeric"
                     placeholder="0.00"
+                    accessibilityLabel="Expense amount"
                   />
                 </View>
                 <View style={styles.formCol}>
                   <Text style={styles.formLabel}>Currency</Text>
-                  <TextInput style={styles.input} value={expCurrency} onChangeText={setExpCurrency} />
+                  <TextInput style={styles.input} value={expCurrency} onChangeText={setExpCurrency} accessibilityLabel="Expense currency" />
                 </View>
               </View>
 
@@ -2186,6 +2215,7 @@ export function StudioFinanceDeskView({
                     value={expDate}
                     onChangeText={setExpDate}
                     placeholder="YYYY-MM-DD"
+                    accessibilityLabel="Expense date"
                   />
                 </View>
                 <View style={styles.formCol}>
@@ -2195,16 +2225,17 @@ export function StudioFinanceDeskView({
                     value={expReceiptEvidence}
                     onChangeText={setExpReceiptEvidence}
                     placeholder="e.g. RCPT-4091 or receipt.pdf"
+                    accessibilityLabel="Receipt or supporting evidence reference"
                   />
                 </View>
               </View>
             </ScrollView>
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setIsExpenseModalOpen(false)}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsExpenseModalOpen(false)} accessibilityRole="button" accessibilityLabel="Cancel expense claim">
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateExpense}>
+              <Pressable style={styles.modalSubmitBtn} onPress={handleCreateExpense} accessibilityRole="button" accessibilityLabel="Submit expense claim">
                 <Text style={styles.modalSubmitText}>Submit Claim</Text>
               </Pressable>
             </View>

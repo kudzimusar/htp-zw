@@ -668,14 +668,21 @@ test("HT-NR-03A-R1: Create-only mode renders bounded creation workspace, never f
       }
     });
 
+    const renderBoard = () => {
+      const element = boardMod.StudioPlanningBoard();
+      return typeof element?.type === "function"
+        ? element.type(element.props ?? {})
+        : element;
+    };
+
     // Initial render triggers useEffect -> listAssignmentStaff()
     stateIdx = 0;
-    boardMod.StudioPlanningBoard();
+    renderBoard();
     await new Promise((r) => setTimeout(r, 10));
 
     // Re-render after async staff directory resolves
     stateIdx = 0;
-    let tree = boardMod.StudioPlanningBoard();
+    let tree = renderBoard();
 
     if (prefillState.title || prefillState.reporterDisplayName) {
       // Find title TextInput and trigger onChangeText
@@ -703,7 +710,7 @@ test("HT-NR-03A-R1: Create-only mode renders bounded creation workspace, never f
         pills[0].props.onPress();
       }
       stateIdx = 0;
-      tree = boardMod.StudioPlanningBoard();
+      tree = renderBoard();
     }
 
     return { tree, texts: collectTexts(tree).join(" | "), states };

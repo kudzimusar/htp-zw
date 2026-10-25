@@ -1128,6 +1128,7 @@ export function StudioStoryWorkspaceView({
               }}
               placeholder="Enter comprehensive editorial headline"
               placeholderTextColor={colors.inkMuted}
+              accessibilityLabel="Story headline"
             />
           </View>
 
@@ -1143,6 +1144,7 @@ export function StudioStoryWorkspaceView({
               }}
               placeholder="article-slug-format"
               placeholderTextColor={colors.inkMuted}
+              accessibilityLabel="Story URL slug"
               autoCapitalize="none"
             />
           </View>
@@ -1159,6 +1161,7 @@ export function StudioStoryWorkspaceView({
               }}
               placeholder="Summary or standfirst displayed below the headline…"
               placeholderTextColor={colors.inkMuted}
+              accessibilityLabel="Story standfirst or deck"
               multiline
             />
           </View>
@@ -1180,6 +1183,7 @@ export function StudioStoryWorkspaceView({
               }}
               placeholder="<p>Write or paste validated article content here…</p>"
               placeholderTextColor={colors.inkMuted}
+              accessibilityLabel="Editorial story body"
               multiline
               textAlignVertical="top"
             />

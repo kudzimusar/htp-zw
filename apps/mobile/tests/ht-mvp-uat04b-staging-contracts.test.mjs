@@ -142,3 +142,58 @@ test("UAT04B payment adapter uses canonical RPC names and filters invoice result
   assert.equal(calls[1].args, undefined);
   assert.deepEqual(payments.map((item) => item.invoiceId), ["inv-1"]);
 });
+
+test("UAT04B Planning and Calendar render hook-using views as React components", () => {
+  const planning = fs.readFileSync(
+    path.join(repoRoot, "apps/mobile/src/ui/StudioPlanningBoard.tsx"),
+    "utf8"
+  );
+  const calendar = fs.readFileSync(
+    path.join(repoRoot, "apps/mobile/src/ui/StudioEditorialCalendar.tsx"),
+    "utf8"
+  );
+
+  assert.doesNotMatch(planning, /return\s+StudioPlanningBoardView\s*\(\s*\{/);
+  assert.match(planning, /return\s*\(\s*<StudioPlanningBoardView\b/);
+  assert.doesNotMatch(calendar, /return\s+StudioEditorialCalendarView\s*\(\s*\{/);
+  assert.match(calendar, /return\s*\(\s*<StudioEditorialCalendarView\b/);
+});
+
+test("UAT04B Executive and security navigation resolve to implemented Studio surfaces", () => {
+  const studio = fs.readFileSync(
+    path.join(repoRoot, "apps/mobile/src/ui/Studio.tsx"),
+    "utf8"
+  );
+  const moduleRoute = fs.readFileSync(
+    path.join(repoRoot, "apps/mobile/app/studio/[module].tsx"),
+    "utf8"
+  );
+  const staffDesk = fs.readFileSync(
+    path.join(repoRoot, "apps/mobile/src/ui/StudioStaffRolesDesk.tsx"),
+    "utf8"
+  );
+
+  assert.match(studio, /label: "Executive Dashboard", path: "\/studio"/);
+  assert.match(studio, /label: "Active Sessions & Audit", path: "\/studio\/staff-roles\?tab=audit"/);
+  assert.match(moduleRoute, /tab === "audit" \? "audit" : "directory"/);
+  assert.match(staffDesk, /useState<StaffDeskTab>\(initialTab\)/);
+});
+
+test("UAT04B executive metrics, homepage candidates, and critical forms stay truthful and accessible", () => {
+  const today = fs.readFileSync(path.join(repoRoot, "apps/mobile/app/studio/index.tsx"), "utf8");
+  const models = fs.readFileSync(path.join(repoRoot, "apps/mobile/src/domain/models.ts"), "utf8");
+  const analytics = fs.readFileSync(path.join(repoRoot, "apps/mobile/src/ui/StudioAnalyticsDesk.tsx"), "utf8");
+  const finance = fs.readFileSync(path.join(repoRoot, "apps/mobile/src/ui/StudioFinanceDesk.tsx"), "utf8");
+  const story = fs.readFileSync(path.join(repoRoot, "apps/mobile/src/ui/StudioStoryWorkspace.tsx"), "utf8");
+
+  assert.match(today, /getEditorialIntelligence/);
+  assert.match(today, /reviewQueueCount/);
+  assert.match(models, /ws !== "published" && st !== "published"/);
+  assert.match(models, /primarySectionId/);
+  assert.match(analytics, /In Review \(subset of Draft \/ Unpublished\)/);
+  assert.match(finance, /accessibilityLabel="Create a new invoice"/);
+  assert.match(finance, /accessibilityLabel="Expense date"/);
+  assert.match(finance, /accessibilityLabel="Submit expense claim"/);
+  assert.match(story, /accessibilityLabel="Story headline"/);
+  assert.match(story, /accessibilityLabel="Editorial story body"/);
+});

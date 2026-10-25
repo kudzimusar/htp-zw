@@ -1539,37 +1539,42 @@ export function StudioPlanningBoard() {
     );
   }
 
-  return StudioPlanningBoardView({
-    authorityMode,
-    canCreate,
-    assignmentsData: assignmentsState.data,
-    assignmentsLoading: assignmentsState.loading,
-    assignmentsError: assignmentsState.error,
-    staffData: staffState.data,
-    staffLoading: staffState.loading,
-    staffError: staffState.error,
-    storiesData: storiesState.data,
-    canProgressAssignmentItem: (item) => canProgressAssignment(authSnapshot, item),
-    onRefresh: () => setRefreshKey((k) => k + 1),
-    onCreateAssignment: async (payload) => {
-      await services.newsroomCommunication.createAssignment(payload);
-    },
-    onProgressAssignment: async (assignment) => {
-      await services.newsroomCommunication.progressAssignment(assignment.id);
-    },
-    onOpenStoryWorkspace: (storyId) =>
-      router.push({
-        pathname: "/studio/[module]",
-        params: { module: "create-edit", storyId }
-      }),
-    onOpenDiscussion: (assignmentId) =>
-      router.push({
-        pathname: "/studio/[module]",
-        params: { module: "assignments", assignmentId }
-      }),
-    onOpenMyAssignments: () =>
-      router.push({ pathname: "/studio/[module]", params: { module: "assignments" } })
-  });
+  return (
+    <StudioPlanningBoardView
+      authorityMode={authorityMode}
+      canCreate={canCreate}
+      assignmentsData={assignmentsState.data}
+      assignmentsLoading={assignmentsState.loading}
+      assignmentsError={assignmentsState.error}
+      staffData={staffState.data}
+      staffLoading={staffState.loading}
+      staffError={staffState.error}
+      storiesData={storiesState.data}
+      canProgressAssignmentItem={(item) => canProgressAssignment(authSnapshot, item)}
+      onRefresh={() => setRefreshKey((k) => k + 1)}
+      onCreateAssignment={async (payload) => {
+        await services.newsroomCommunication.createAssignment(payload);
+      }}
+      onProgressAssignment={async (assignment) => {
+        await services.newsroomCommunication.progressAssignment(assignment.id);
+      }}
+      onOpenStoryWorkspace={(storyId) =>
+        router.push({
+          pathname: "/studio/[module]",
+          params: { module: "create-edit", storyId }
+        })
+      }
+      onOpenDiscussion={(assignmentId) =>
+        router.push({
+          pathname: "/studio/[module]",
+          params: { module: "assignments", assignmentId }
+        })
+      }
+      onOpenMyAssignments={() =>
+        router.push({ pathname: "/studio/[module]", params: { module: "assignments" } })
+      }
+    />
+  );
 }
 
 const styles = StyleSheet.create({

@@ -466,7 +466,7 @@ test("HT-NR-CLOSE Wave C: Studio [module].tsx renders StudioStaffRolesDesk and o
   const content = fs.readFileSync(moduleFile, "utf8");
 
   assert.ok(content.includes('String(module)!=="staff-roles"'), "Must exclude staff-roles from StudioPlaceholder");
-  assert.ok(content.includes('<StudioStaffRolesDesk />'), "Must render StudioStaffRolesDesk component");
+  assert.match(content, /<StudioStaffRolesDesk\b/, "Must render StudioStaffRolesDesk component");
   assert.ok(content.includes('STAFF_DESK_CAPABILITIES'), "Must gate staff-roles using STAFF_DESK_CAPABILITIES");
 });
 

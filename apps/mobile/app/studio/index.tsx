@@ -30,12 +30,18 @@ export default function StudioToday() {
   const stories = useAsync(() => services.articles.getHome(), []);
   const publication = useAsync(() => services.publication.getProfile(), []);
   const financeOverview = useAsync(() => services.newsroomFinance.getOverview().catch(() => null), []);
+  const editorialIntelligence = useAsync(
+    () => services.newsroomIntelligence.getEditorialIntelligence().catch(() => null),
+    []
+  );
 
   const authStatus = authorization.data?.status ?? "checking";
   const sourceStories = stories.data ?? [];
   const sourceBacked = sourceStories.filter((story) => story.sourceProvenance?.system === "wordpress");
   const premiumStories = sourceStories.filter((story) => story.accessPolicy === "premium");
   const reviewStories = sourceStories.filter((story) => story.contentIntegrity === "requires-review");
+  const reviewQueueCount =
+    editorialIntelligence.data?.reviewQueue.inReviewCount ?? reviewStories.length;
 
   const snapshot = authorization.data;
   const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Staff Member" : "Guest / Reader");
@@ -61,7 +67,7 @@ export default function StudioToday() {
       <View style={styles.statusStrip}>
         <View style={styles.statusBlock}>
           <Text style={styles.statusLabel}>EDITORIAL QUEUE</Text>
-          <Text style={styles.metricValue}>{reviewStories.length}</Text>
+          <Text style={styles.metricValue}>{reviewQueueCount}</Text>
           <Text style={styles.statusSub}>Stories awaiting review</Text>
         </View>
 
