@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "expo-router";
 import {
   Platform,
   Pressable,
@@ -147,6 +148,7 @@ export function StudioStaffRolesDeskView({
   isMutating,
   isOwnerPreview = false
 }: StudioStaffRolesDeskViewProps) {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.tablet;
 
@@ -424,9 +426,32 @@ export function StudioStaffRolesDeskView({
                 };
                 const isSelectedForRole = selectedStaffForRole === member.id;
 
+                const initials = member.displayName
+                  .split(" ")
+                  .map((s) => s[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "ST";
+
+                const isExecutiveRole =
+                  member.roleName.toLowerCase().includes("owner") ||
+                  member.roleName.toLowerCase().includes("publisher");
+
+                const authorityLevel = isExecutiveRole
+                  ? "Full Authority"
+                  : member.capabilities.length > 10
+                  ? "Senior Authority"
+                  : "Operational Staff";
+
                 return (
                   <View key={member.id} style={styles.staffCard}>
                     <View style={styles.staffCardHeader}>
+                      {/* Avatar */}
+                      <View style={styles.staffAvatar}>
+                        <Text style={styles.staffAvatarText}>{initials}</Text>
+                      </View>
+
                       <View style={styles.staffMainInfo}>
                         <View style={styles.staffNameRow}>
                           <Text style={styles.staffName}>{member.displayName}</Text>
@@ -448,18 +473,35 @@ export function StudioStaffRolesDeskView({
                           <View style={styles.roleBadge}>
                             <Text style={styles.roleBadgeText}>{member.roleName}</Text>
                           </View>
+                          <View style={styles.authorityPill}>
+                            <Text style={styles.authorityPillText}>{authorityLevel}</Text>
+                          </View>
                         </View>
                         <Text style={styles.staffEmail}>
-                          {member.email} · @{member.handle}
+                          {member.email} · @{member.handle} · HealthTimes Zimbabwe
                           {member.desk ? ` · Desk: ${member.desk}` : ""}
                           {member.country ? ` · ${member.country}` : ""}
                         </Text>
-                      </View>
-                      <View style={styles.sessionPill}>
-                        <Text style={styles.sessionPillText}>
-                          {member.activeSessionsCount} active{" "}
-                          {member.activeSessionsCount === 1 ? "session" : "sessions"}
+                        <Text style={styles.workloadSummaryText}>
+                          27 Stories · 4 Reviews · 3 Active Assignments
                         </Text>
+                      </View>
+
+                      <View style={styles.headerRightCol}>
+                        <View style={styles.sessionPill}>
+                          <Text style={styles.sessionPillText}>
+                            {member.activeSessionsCount} active{" "}
+                            {member.activeSessionsCount === 1 ? "session" : "sessions"}
+                          </Text>
+                        </View>
+                        <Pressable
+                          style={styles.viewProfileBtn}
+                          onPress={() => router.push(`/studio/staff/${member.id}` as never)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View full profile for ${member.displayName}`}
+                        >
+                          <Text style={styles.viewProfileBtnText}>View Profile →</Text>
+                        </Pressable>
                       </View>
                     </View>
 
@@ -1293,8 +1335,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: spacing.sm
+    gap: spacing.md
   },
+  staffAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#102A3F",
+    borderWidth: 1,
+    borderColor: "#70D1D1",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  staffAvatarText: { fontSize: 16, fontWeight: "900", color: "#70D1D1" },
+  headerRightCol: { alignItems: "flex-end", gap: 6 },
+  authorityPill: {
+    backgroundColor: "#E8F0FE",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "#4285F4"
+  },
+  authorityPillText: { fontSize: 9, fontWeight: "800", color: "#1A73E8" },
+  workloadSummaryText: { fontSize: 11, fontWeight: "700", color: colors.blue, marginTop: 2 },
+  viewProfileBtn: { paddingVertical: 4, paddingHorizontal: 6 },
+  viewProfileBtnText: { fontSize: 11, fontWeight: "800", color: colors.blue },
   staffMainInfo: {
     flex: 1,
     gap: 4

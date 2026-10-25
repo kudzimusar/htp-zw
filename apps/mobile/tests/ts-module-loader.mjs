@@ -34,6 +34,18 @@ export function loadTs(relativePath,{mocks={}}={}){
           expoConfig: { experiments: { baseUrl: "" } }
         };
       }
+      if(specifier === "@react-native-async-storage/async-storage"){
+        return {
+          default: {
+            getItem: async () => null,
+            setItem: async () => {},
+            removeItem: async () => {}
+          },
+          getItem: async () => null,
+          setItem: async () => {},
+          removeItem: async () => {}
+        };
+      }
       if(specifier.startsWith(".")){
         const base=normalize(join(dirname(normalized),specifier));
         const candidates=extname(base)

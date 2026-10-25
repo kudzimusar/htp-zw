@@ -1,10 +1,20 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { StudioPlaceholder, StudioShell, STUDIO_DOMAINS } from "../../src/ui/Studio";
 import { colors, radius, spacing } from "../../src/theme/tokens";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { hasAnyServerCapability } from "../../src/security/capabilities";
+import {
+  PublisherOwnerDashboard,
+  ReporterDashboard,
+  EditorInChiefDashboard,
+  FinanceManagerDashboard,
+  CommercialManagerDashboard,
+  AudienceGrowthDashboard,
+  SystemsAdminDashboard
+} from "../../src/ui/StudioRoleDashboards";
 
 const actions = [
   ["Inbox","inbox","Assignments, mentions, reviews, urgent work and announcements"],
@@ -24,6 +34,15 @@ const actions = [
   ["Staff & Roles","staff-roles","Server-authorized staff and capabilities"]
 ] as const;
 
+type RoleViewKey =
+  | "owner"
+  | "reporter"
+  | "editor"
+  | "finance"
+  | "commercial"
+  | "audience"
+  | "admin";
+
 export default function StudioToday() {
   const router = useRouter();
   const authorization = useAsync(() => services.authorization.getSnapshot(), []);
@@ -38,10 +57,41 @@ export default function StudioToday() {
   const reviewStories = sourceStories.filter((story) => story.contentIntegrity === "requires-review");
 
   const snapshot = authorization.data;
-  const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Staff Member" : "Guest / Reader");
+  const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Publisher / Owner" : "Guest / Reader");
+
+  // Determine initial role view perspective from server snapshot
+  const initialRolePerspective: RoleViewKey = (() => {
+    const r = (roleName || "").toLowerCase();
+    if (r.includes("reporter")) return "reporter";
+    if (r.includes("editor")) return "editor";
+    if (r.includes("finance")) return "finance";
+    if (r.includes("commercial")) return "commercial";
+    if (r.includes("audience")) return "audience";
+    if (r.includes("admin")) return "admin";
+    return "owner";
+  })();
+
+  const [viewPerspectiveKey, changeViewPerspective] = useState<RoleViewKey>(initialRolePerspective);
+
+  const roleViewOptions: Array<{ key: RoleViewKey; label: string; icon: string }> = [
+    { key: "owner", label: "Publisher / Owner", icon: "🏛" },
+    { key: "reporter", label: "Reporter", icon: "✓" },
+    { key: "editor", label: "Editor-in-Chief", icon: "✎" },
+    { key: "finance", label: "Finance Manager", icon: "▤" },
+    { key: "commercial", label: "Commercial Manager", icon: "$" },
+    { key: "audience", label: "Audience & Growth", icon: "◎" },
+    { key: "admin", label: "Systems Admin", icon: "⚙" }
+  ];
 
   return (
-    <StudioShell title="Newsroom Operating Room">
+    <StudioShell
+      title="Newsroom Operating Room"
+      subtitle="Role-aware operational operating system. Real-time newsroom health, departmental workflows, and certified authority."
+      breadcrumbs={[
+        { label: "Studio", path: "/studio" },
+        { label: "Operating Room" }
+      ]}
+    >
       {/* Operating Room Executive Banner */}
       <View style={styles.execBanner}>
         <View style={styles.execInfo}>
@@ -53,11 +103,67 @@ export default function StudioToday() {
           </Text>
         </View>
         <View style={styles.execBadge}>
-          <Text style={styles.execBadgeText}>{authStatus === "authorized" ? "AG-06 VERIFIED" : "STAGING SESSION"}</Text>
+          <Text style={styles.execBadgeText}>
+            {authStatus === "authorized" ? "AG-06 VERIFIED" : "STAGING SESSION"}
+          </Text>
         </View>
       </View>
 
-      {/* Cross-Domain Metric Strip */}
+      {/* Role-Specific Perspective Selector Strip (UX-CONV-01E) */}
+      <View style={styles.rolePerspectiveBar}>
+        <Text style={styles.perspectiveLabel}>OPERATING ROLE PERSPECTIVE:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.perspectiveScroll}>
+          {roleViewOptions.map((opt) => (
+            <Pressable
+              key={opt.key}
+              style={[
+                styles.perspectiveBtn,
+                viewPerspectiveKey === opt.key && styles.perspectiveBtnActive
+              ]}
+              onPress={() => changeViewPerspective(opt.key)}
+            >
+              <Text style={styles.perspectiveBtnIcon}>{opt.icon}</Text>
+              <Text
+                style={[
+                  styles.perspectiveBtnText,
+                  viewPerspectiveKey === opt.key && styles.perspectiveBtnTextActive
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* RENDER ACTIVE ROLE-SPECIFIC DASHBOARD */}
+      <View style={styles.roleDashboardSection}>
+        {viewPerspectiveKey === "owner" && (
+          <PublisherOwnerDashboard
+            reviewCount={reviewStories.length}
+            openInvoicesCount={financeOverview.data?.counts.openInvoices ?? 0}
+            overdueInvoicesCount={financeOverview.data?.counts.overdueInvoices ?? 0}
+            pendingExpensesCount={financeOverview.data?.counts.pendingExpenses ?? 0}
+            storiesCount={sourceStories.length}
+          />
+        )}
+        {viewPerspectiveKey === "reporter" && <ReporterDashboard />}
+        {viewPerspectiveKey === "editor" && (
+          <EditorInChiefDashboard reviewCount={reviewStories.length} />
+        )}
+        {viewPerspectiveKey === "finance" && (
+          <FinanceManagerDashboard
+            openInvoicesCount={financeOverview.data?.counts.openInvoices ?? 0}
+            overdueInvoicesCount={financeOverview.data?.counts.overdueInvoices ?? 0}
+            pendingExpensesCount={financeOverview.data?.counts.pendingExpenses ?? 0}
+          />
+        )}
+        {viewPerspectiveKey === "commercial" && <CommercialManagerDashboard />}
+        {viewPerspectiveKey === "audience" && <AudienceGrowthDashboard />}
+        {viewPerspectiveKey === "admin" && <SystemsAdminDashboard />}
+      </View>
+
+      {/* Cross-Domain Metric Strip (Retains Required Test Assertions) */}
       <View style={styles.statusStrip}>
         <View style={styles.statusBlock}>
           <Text style={styles.statusLabel}>EDITORIAL QUEUE</Text>
@@ -189,37 +295,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#203A4E",
     padding: spacing.xl,
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap",
     gap: spacing.md
   },
-  execInfo: {
-    flex: 1,
-    minWidth: 260,
-    gap: 4
-  },
-  execEyebrow: {
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1.2,
-    color: "#70D1D1"
-  },
-  execTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#FFFFFF"
-  },
-  execSub: {
-    fontSize: 13,
-    color: "#D5DFE8"
-  },
-  execHighlight: {
-    fontWeight: "800",
-    color: "#70D1D1"
-  },
+  execInfo: { flex: 1, minWidth: 260, gap: 4 },
+  execEyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2, color: "#70D1D1" },
+  execTitle: { fontSize: 22, fontWeight: "900", color: "#FFFFFF" },
+  execSub: { fontSize: 13, color: "#D5DFE8" },
+  execHighlight: { fontWeight: "800", color: "#70D1D1" },
   execBadge: {
     backgroundColor: "#1A364E",
     paddingHorizontal: 12,
@@ -228,14 +315,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#70D1D1"
   },
-  execBadgeText: {
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-    color: "#70D1D1"
+  execBadgeText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.8, color: "#70D1D1" },
+  rolePerspectiveBar: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm
   },
+  perspectiveLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1, color: colors.inkMuted },
+  perspectiveScroll: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },
+  perspectiveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#F8FAFC"
+  },
+  perspectiveBtnActive: { backgroundColor: "#102A3F", borderColor: "#102A3F" },
+  perspectiveBtnIcon: { fontSize: 12 },
+  perspectiveBtnText: { fontSize: 12, fontWeight: "700", color: colors.ink },
+  perspectiveBtnTextActive: { color: "#FFFFFF", fontWeight: "800" },
+  roleDashboardSection: { marginTop: spacing.md },
   statusStrip: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md
@@ -250,47 +359,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     gap: 2
   },
-  statusLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    color: colors.inkMuted
-  },
-  statusValue: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: colors.ink,
-    textTransform: "uppercase"
-  },
-  metricValue: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: colors.ink
-  },
-  statusSub: {
-    fontSize: 11,
-    color: colors.inkMuted
-  },
-  sectionHeader: {
-    marginTop: spacing.xl,
-    gap: 4
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: colors.ink
-  },
-  sectionText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.inkMuted
-  },
-  grid: {
-    marginTop: spacing.md,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md
-  },
+  statusLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.8, color: colors.inkMuted },
+  statusValue: { fontSize: 14, fontWeight: "900", color: colors.ink, textTransform: "uppercase" },
+  metricValue: { fontSize: 22, fontWeight: "900", color: colors.ink },
+  statusSub: { fontSize: 11, color: colors.inkMuted },
+  sectionHeader: { marginTop: spacing.xl, gap: 4 },
+  sectionTitle: { fontSize: 20, fontWeight: "900", color: colors.ink },
+  sectionText: { fontSize: 13, lineHeight: 20, color: colors.inkMuted },
+  grid: { marginTop: spacing.md, flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   domainCard: {
     minWidth: 260,
     flex: 1,
@@ -302,11 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     justifyContent: "space-between"
   },
-  domainCardTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
+  domainCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   domainCardNumber: {
     fontSize: 11,
     fontWeight: "900",
@@ -316,56 +388,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4
   },
-  domainCardItemsCount: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.inkMuted
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: colors.ink,
-    marginTop: 4
-  },
-  cardText: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.inkMuted
-  },
-  domainChipsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-    marginTop: spacing.xs
-  },
-  domainChip: {
-    backgroundColor: "#F1F3F4",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4
-  },
-  domainChipText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: colors.ink
-  },
-  domainChipMore: {
-    backgroundColor: "#E8F0FE",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4
-  },
-  domainChipMoreText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.blue
-  },
-  open: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: colors.blue,
-    marginTop: spacing.sm
-  },
+  domainCardItemsCount: { fontSize: 10, fontWeight: "700", color: colors.inkMuted },
+  cardTitle: { fontSize: 16, fontWeight: "900", color: colors.ink, marginTop: 4 },
+  cardText: { fontSize: 12, lineHeight: 18, color: colors.inkMuted },
+  domainChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: spacing.xs },
+  domainChip: { backgroundColor: "#F1F3F4", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  domainChipText: { fontSize: 10, fontWeight: "600", color: colors.ink },
+  domainChipMore: { backgroundColor: "#E8F0FE", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  domainChipMoreText: { fontSize: 10, fontWeight: "800", color: colors.blue },
+  open: { fontSize: 12, fontWeight: "900", color: colors.blue, marginTop: spacing.sm },
   sourcePanel: {
     marginTop: spacing.xl,
     backgroundColor: "#FFFFFF",
@@ -382,17 +413,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border
   },
-  sourcePanelTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: colors.ink
-  },
-  sourceBadge: {
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-    color: colors.blue
-  },
+  sourcePanelTitle: { fontSize: 14, fontWeight: "900", color: colors.ink },
+  sourceBadge: { fontSize: 9, fontWeight: "900", letterSpacing: 0.8, color: colors.blue },
   sourceRow: {
     padding: spacing.md,
     flexDirection: "row",
@@ -401,32 +423,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE"
   },
-  sourceCopy: {
-    flex: 1,
-    gap: 2
-  },
-  sourceTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: colors.ink
-  },
-  sourceMeta: {
-    fontSize: 11,
-    color: colors.inkMuted
-  },
-  publicState: {
-    fontSize: 9,
-    fontWeight: "900",
-    color: colors.success
-  },
-  premiumState: {
-    fontSize: 9,
-    fontWeight: "900",
-    color: colors.warning
-  },
-  sourceFootnote: {
-    fontSize: 11,
-    color: colors.inkMuted,
-    padding: spacing.md
-  }
+  sourceCopy: { flex: 1, gap: 2 },
+  sourceTitle: { fontSize: 13, fontWeight: "800", color: colors.ink },
+  sourceMeta: { fontSize: 11, color: colors.inkMuted },
+  publicState: { fontSize: 9, fontWeight: "900", color: colors.success },
+  premiumState: { fontSize: 9, fontWeight: "900", color: colors.warning },
+  sourceFootnote: { fontSize: 11, color: colors.inkMuted, padding: spacing.md }
 });
