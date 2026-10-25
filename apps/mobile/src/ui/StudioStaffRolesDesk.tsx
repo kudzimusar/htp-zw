@@ -483,7 +483,7 @@ export function StudioStaffRolesDeskView({
                           {member.country ? ` · ${member.country}` : ""}
                         </Text>
                         <Text style={styles.workloadSummaryText}>
-                          27 Stories · 4 Reviews · 3 Active Assignments
+                          {member.desk ? `Desk: ${member.desk} · ` : ""}{member.capabilities?.length ?? 0} certified capabilities · {member.mfaRequired ? "MFA Enforced" : "MFA Optional"}
                         </Text>
                       </View>
 

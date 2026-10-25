@@ -71,11 +71,11 @@ export function StudioPersonalProfile() {
 
   const snapshot = authorization.data;
   const isAuthorized = snapshot?.status === "authorized";
-  const displayName = snapshot?.displayName || "Kudzanai Musarurwa";
-  const email = snapshot?.email || "kudzimusar@gmail.com";
-  const roleName = snapshot?.role || (isAuthorized ? "Publisher / Owner" : "Staff Member");
-  const deskName = snapshot?.desk || "Executive Desk";
-  const handle = snapshot?.handle || "kudzimusar";
+  const displayName = snapshot?.displayName || (authorization.loading ? "Loading..." : "Authenticated Staff");
+  const email = snapshot?.email || (authorization.loading ? "Loading..." : "Unavailable");
+  const roleName = snapshot?.role || (isAuthorized ? "Staff Member" : "Guest / Reader");
+  const deskName = snapshot?.desk || (isAuthorized ? "General Newsroom" : "Unavailable");
+  const handle = snapshot?.handle || (email !== "Unavailable" ? email.split("@")[0] : "staff");
 
   const initials = displayName
     .split(" ")
@@ -83,7 +83,7 @@ export function StudioPersonalProfile() {
     .filter(Boolean)
     .slice(0, 2)
     .join("")
-    .toUpperCase() || "KM";
+    .toUpperCase() || "ST";
 
   // Derive human-readable authority summary
   function getAuthoritySummary(role: string): string {
@@ -595,31 +595,21 @@ export function StudioPersonalProfile() {
             <View style={styles.sessionItem}>
               <View style={styles.sessionItemMain}>
                 <View style={styles.sessionTitleRow}>
-                  <Text style={styles.sessionDeviceTitle}>Current Device (This Browser Session)</Text>
+                  <Text style={styles.sessionDeviceTitle}>Current Device (This Authenticated Session)</Text>
                   <View style={styles.currentDeviceBadge}>
                     <Text style={styles.currentDeviceText}>THIS DEVICE</Text>
                   </View>
                 </View>
                 <Text style={styles.sessionDetails}>
-                  Web Browser · HealthTimes Studio Web Client · Active now
+                  HealthTimes Studio Client · Server session registered in newsroom_sessions
                 </Text>
-                <Text style={styles.sessionDetailsSub}>IP: 197.221.254.12 · Harare, Zimbabwe</Text>
+                <Text style={styles.sessionDetailsSub}>
+                  Session ID: {snapshot?.sessionId ?? "Local active session"}
+                </Text>
               </View>
               <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
                 <Text style={styles.signOutBtnText}>Sign Out</Text>
               </Pressable>
-            </View>
-
-            <View style={styles.sessionItem}>
-              <View style={styles.sessionItemMain}>
-                <View style={styles.sessionTitleRow}>
-                  <Text style={styles.sessionDeviceTitle}>Mobile Application (PWA / Android)</Text>
-                </View>
-                <Text style={styles.sessionDetails}>
-                  HealthTimes Native · Last active 3 hours ago
-                </Text>
-                <Text style={styles.sessionDetailsSub}>Harare, Zimbabwe</Text>
-              </View>
             </View>
 
             <Pressable style={styles.signOutAllBtn} onPress={handleSignOutOtherSessions}>

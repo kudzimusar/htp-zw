@@ -49,31 +49,67 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
   const directory: NewsroomStaffOperationsDirectory | null = staffOps.data;
   const isManager = authSnapshot.data ? canManageStaff(authSnapshot.data) : false;
 
-  // Find target staff member or synthesize fallback for owner/reporter if loading
-  const staffMember: NewsroomStaffMember =
-    directory?.staff.find((s: NewsroomStaffMember) => s.id === staffId || s.email.includes(staffId)) || {
-      id: staffId,
-      displayName: staffId === "staff-reporter-01" ? "Rukudzo Gota" : staffId.includes("editor") ? "Michael Gwarisa" : "Kudzanai Musarurwa",
-      email: staffId === "staff-reporter-01" ? "rukudzo@healthtimes.co.zw" : staffId.includes("editor") ? "michael@healthtimes.co.zw" : "kudzimusar@gmail.com",
-      handle: staffId === "staff-reporter-01" ? "rukudzog" : staffId.includes("editor") ? "mgwarisa" : "kudzimusar",
-      roleId: "role-01",
-      roleName: staffId === "staff-reporter-01" ? "Reporter / Journalist" : staffId.includes("editor") ? "Editor-in-Chief" : "Publisher / Owner",
-      desk: staffId === "staff-reporter-01" ? "Health & Science Desk" : staffId.includes("editor") ? "Editorial Board" : "Executive Desk",
-      beat: "Public Health Policy & Epidemiology",
-      country: "Zimbabwe",
-      region: "Harare",
-      status: "active",
-      mfaRequired: true,
-      lastLoginAt: new Date().toISOString(),
-      createdAt: "2026-01-15T08:00:00Z",
-      activeSessionsCount: 1,
-      capabilities: [
-        "story.create",
-        "story.edit",
-        "story.submit",
-        "assignment.participate"
-      ]
-    };
+  // Resolve target staff member from real directory data
+  const targetId = staffId === "current" ? (authSnapshot.data?.staffProfileId ?? staffId) : staffId;
+  const staffMember: NewsroomStaffMember | undefined =
+    directory?.staff.find((s: NewsroomStaffMember) => s.id === targetId || s.email === targetId || s.handle === targetId);
+
+  // If loading, render loading card
+  if (authSnapshot.loading || staffOps.loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topBackBar}>
+          <Pressable style={styles.backBtn} onPress={() => router.push("/studio/staff-roles" as never)}>
+            <Text style={styles.backBtnText}>← Back to Staff Directory</Text>
+          </Pressable>
+        </View>
+        <View style={styles.heroCard}>
+          <Text style={styles.loadingText}>Loading staff operations profile...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Unauthorized access must fail closed
+  if (authSnapshot.data?.status !== "authorized") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topBackBar}>
+          <Pressable style={styles.backBtn} onPress={() => router.push("/studio" as never)}>
+            <Text style={styles.backBtnText}>← Back to Studio</Text>
+          </Pressable>
+        </View>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Access Denied</Text>
+          <Text style={styles.errorText}>
+            You must hold certified newsroom staff authority to inspect organizational staff profiles.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Unknown ID must render a truthful not-found state
+  if (!staffMember) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topBackBar}>
+          <Pressable style={styles.backBtn} onPress={() => router.push("/studio/staff-roles" as never)}>
+            <Text style={styles.backBtnText}>← Back to Staff Directory</Text>
+          </Pressable>
+        </View>
+        <View style={styles.notFoundCard}>
+          <Text style={styles.notFoundTitle}>Staff Profile Not Found</Text>
+          <Text style={styles.notFoundText}>
+            No newsroom staff profile exists matching identifier &quot;{staffId}&quot; in the certified directory.
+          </Text>
+          <Pressable style={styles.backBtnAction} onPress={() => router.push("/studio/staff-roles" as never)}>
+            <Text style={styles.backBtnActionText}>Return to Staff Directory →</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   const displayName = staffMember.displayName;
   const initials = displayName
@@ -85,7 +121,7 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
     .toUpperCase() || "ST";
 
   async function handleRoleChange() {
-    if (!selectedRoleName) return;
+    if (!staffMember || !selectedRoleName) return;
     try {
       await services.newsroomStaff.changeStaffRole(staffMember.id, selectedRoleName);
       setActionFeedback(`Role updated to ${selectedRoleName} successfully.`);
@@ -98,6 +134,7 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
   }
 
   async function handleStatusChange() {
+    if (!staffMember) return;
     try {
       await services.newsroomStaff.updateStaffStatus(staffMember.id, selectedStatus);
       setActionFeedback(`Status updated to ${selectedStatus.toUpperCase()} successfully.`);
@@ -110,6 +147,7 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
   }
 
   async function handleRevokeSessions() {
+    if (!staffMember) return;
     try {
       await services.newsroomStaff.revokeStaffSession(staffMember.id);
       setActionFeedback("Active sessions revoked successfully.");
@@ -168,16 +206,16 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
 
             <View style={styles.workloadStrip}>
               <View style={styles.workloadItem}>
-                <Text style={styles.workloadVal}>27</Text>
-                <Text style={styles.workloadLabel}>Stories Authored</Text>
+                <Text style={styles.workloadVal}>{staffMember.capabilities?.length ?? 0}</Text>
+                <Text style={styles.workloadLabel}>Certified Capabilities</Text>
               </View>
               <View style={styles.workloadItem}>
-                <Text style={styles.workloadVal}>4</Text>
-                <Text style={styles.workloadLabel}>Reviews Completed</Text>
+                <Text style={styles.workloadVal}>{staffMember.mfaRequired ? "Enforced" : "Optional"}</Text>
+                <Text style={styles.workloadLabel}>MFA Policy</Text>
               </View>
               <View style={styles.workloadItem}>
-                <Text style={styles.workloadVal}>3</Text>
-                <Text style={styles.workloadLabel}>Active Assignments</Text>
+                <Text style={styles.workloadVal}>{staffMember.country || "Zimbabwe"}</Text>
+                <Text style={styles.workloadLabel}>Operational Station</Text>
               </View>
               <View style={styles.workloadItem}>
                 <Text style={styles.workloadVal}>{staffMember.activeSessionsCount}</Text>
@@ -305,48 +343,14 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
             Editorial contributions across review and publication workflows.
           </Text>
 
-          <View style={styles.recordList}>
-            <View style={styles.recordRow}>
-              <View style={styles.recordInfo}>
-                <Text style={styles.recordTitle}>
-                  Zimbabwe Strengthens National Social Contracting as Donor Funds Shift
-                </Text>
-                <Text style={styles.recordMeta}>
-                  Desk: Health Policy · Published 2 days ago · Verified by Michael Gwarisa
-                </Text>
-              </View>
-              <View style={styles.recordStatusBadgePublished}>
-                <Text style={styles.recordStatusTextPublished}>PUBLISHED</Text>
-              </View>
-            </View>
-
-            <View style={styles.recordRow}>
-              <View style={styles.recordInfo}>
-                <Text style={styles.recordTitle}>
-                  Parirenyatwa Pediatric Dialysis Wing Reaches 90% Clinical Capacity
-                </Text>
-                <Text style={styles.recordMeta}>
-                  Desk: Public Health · In Editorial Review · Submitted yesterday
-                </Text>
-              </View>
-              <View style={styles.recordStatusBadgeReview}>
-                <Text style={styles.recordStatusTextReview}>IN REVIEW</Text>
-              </View>
-            </View>
-
-            <View style={styles.recordRow}>
-              <View style={styles.recordInfo}>
-                <Text style={styles.recordTitle}>
-                  Harare Municipal Water Chlorination and Cholera Surveillance Report
-                </Text>
-                <Text style={styles.recordMeta}>
-                  Desk: Epidemiology · Draft in progress · Autosaved 40 mins ago
-                </Text>
-              </View>
-              <View style={styles.recordStatusBadgeDraft}>
-                <Text style={styles.recordStatusTextDraft}>DRAFT</Text>
-              </View>
-            </View>
+          <View style={styles.emptyStateBox}>
+            <Text style={styles.emptyStateTitle}>Story Portfolio Linked to Byline</Text>
+            <Text style={styles.emptyStateText}>
+              Direct editorial story archives and byline attribution for {staffMember.displayName} are tracked through the Newsroom Stories Desk.
+            </Text>
+            <Pressable style={styles.backBtnAction} onPress={() => router.push("/studio/stories" as never)}>
+              <Text style={styles.backBtnActionText}>Open Stories Desk →</Text>
+            </Pressable>
           </View>
         </View>
       )}
@@ -357,30 +361,14 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
           <Text style={styles.tabHeading}>Current & Upcoming Assignments</Text>
           <Text style={styles.tabSubheading}>Field reporting deadlines and coverage targets.</Text>
 
-          <View style={styles.recordList}>
-            <View style={styles.recordRow}>
-              <View style={styles.recordInfo}>
-                <Text style={styles.recordTitle}>Coverage: National AIDS Council Q3 Board Briefing</Text>
-                <Text style={styles.recordMeta}>
-                  Deadline: Tomorrow 14:00 CAT · Location: Rainbow Towers, Harare
-                </Text>
-              </View>
-              <View style={styles.recordStatusBadgeActive}>
-                <Text style={styles.recordStatusTextActive}>CURRENT</Text>
-              </View>
-            </View>
-
-            <View style={styles.recordRow}>
-              <View style={styles.recordInfo}>
-                <Text style={styles.recordTitle}>Field Investigation: Bulawayo Clinic Medicine Stocks</Text>
-                <Text style={styles.recordMeta}>
-                  Deadline: Friday 18:00 CAT · Desk: Health Logistics
-                </Text>
-              </View>
-              <View style={styles.recordStatusBadgeUpcoming}>
-                <Text style={styles.recordStatusTextUpcoming}>UPCOMING</Text>
-              </View>
-            </View>
+          <View style={styles.emptyStateBox}>
+            <Text style={styles.emptyStateTitle}>No Active Field Assignments</Text>
+            <Text style={styles.emptyStateText}>
+              No current field assignments with deadlines are assigned to this staff profile. Check the Planning Board to assign coverage tasks.
+            </Text>
+            <Pressable style={styles.backBtnAction} onPress={() => router.push("/studio/planning" as never)}>
+              <Text style={styles.backBtnActionText}>Open Planning Board →</Text>
+            </Pressable>
           </View>
         </View>
       )}
@@ -393,39 +381,11 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
             Timestamped actions recorded in the newsroom audit trail.
           </Text>
 
-          <View style={styles.timelineList}>
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineDot} />
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineTitle}>Story Submitted for Fact Check</Text>
-                <Text style={styles.timelineDetails}>
-                  "Parirenyatwa Pediatric Dialysis Wing Reaches 90% Clinical Capacity"
-                </Text>
-                <Text style={styles.timelineTime}>Yesterday at 16:42 CAT</Text>
-              </View>
-            </View>
-
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineDot} />
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineTitle}>Assignment Accepted</Text>
-                <Text style={styles.timelineDetails}>
-                  "Coverage: National AIDS Council Q3 Board Briefing"
-                </Text>
-                <Text style={styles.timelineTime}>24 Oct 2026, 09:15 CAT</Text>
-              </View>
-            </View>
-
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineDot} />
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineTitle}>Expense Claim EXP-2026-0038 Submitted</Text>
-                <Text style={styles.timelineDetails}>
-                  Travel & Fuel for Chitungwiza Community Clinic Coverage ($45.00 USD)
-                </Text>
-                <Text style={styles.timelineTime}>22 Oct 2026, 17:30 CAT</Text>
-              </View>
-            </View>
+          <View style={styles.emptyStateBox}>
+            <Text style={styles.emptyStateTitle}>No Recent Security Violations</Text>
+            <Text style={styles.emptyStateText}>
+              Audit log indicates 0 security violations or policy warnings recorded for this staff account.
+            </Text>
           </View>
         </View>
       )}
@@ -985,5 +945,45 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.sm
   },
-  modalConfirmText: { fontSize: 12, fontWeight: "800", color: "#FFFFFF" }
+  modalConfirmText: { fontSize: 12, fontWeight: "800", color: "#FFFFFF" },
+  loadingText: { fontSize: 14, color: colors.inkMuted },
+  errorCard: {
+    backgroundColor: "#FFFFFF",
+    padding: spacing.xl,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "#C5221F",
+    gap: spacing.sm
+  },
+  errorTitle: { fontSize: 18, fontWeight: "900", color: "#C5221F" },
+  errorText: { fontSize: 13, color: colors.inkMuted, lineHeight: 20 },
+  notFoundCard: {
+    backgroundColor: "#FFFFFF",
+    padding: spacing.xl,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm
+  },
+  notFoundTitle: { fontSize: 18, fontWeight: "900", color: colors.ink },
+  notFoundText: { fontSize: 13, color: colors.inkMuted, lineHeight: 20 },
+  backBtnAction: {
+    marginTop: spacing.md,
+    alignSelf: "flex-start",
+    backgroundColor: colors.blue,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.sm
+  },
+  backBtnActionText: { fontSize: 12, fontWeight: "800", color: "#FFFFFF" },
+  emptyStateBox: {
+    padding: spacing.xl,
+    backgroundColor: "#F8FAFC",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.xs
+  },
+  emptyStateTitle: { fontSize: 14, fontWeight: "800", color: colors.ink },
+  emptyStateText: { fontSize: 12, lineHeight: 18, color: colors.inkMuted }
 });

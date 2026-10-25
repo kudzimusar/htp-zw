@@ -51,12 +51,13 @@ test("UX-CONV-01B: Staff Profile route /studio/staff/[staffId] and StudioStaffPr
   assert.ok(staffSource.includes("Station & Operational Preferences"));
 });
 
-test("UX-CONV-01B: Staff directory cards provide complete identity rows, authority levels and profile navigation", () => {
+test("UX-CONV-01B: Staff directory cards provide complete identity rows, authority levels and profile navigation without fabricated numbers", () => {
   const staffDeskSource = read("src/ui/StudioStaffRolesDesk.tsx");
   assert.ok(staffDeskSource.includes("staffAvatar"));
   assert.ok(staffDeskSource.includes("HealthTimes Zimbabwe"));
   assert.ok(staffDeskSource.includes("authorityPill"));
-  assert.ok(staffDeskSource.includes("27 Stories · 4 Reviews · 3 Active Assignments"));
+  assert.ok(staffDeskSource.includes("certified capabilities"));
+  assert.ok(!staffDeskSource.includes("27 Stories · 4 Reviews · 3 Active Assignments"), "Must not contain fabricated workload totals");
   assert.ok(staffDeskSource.includes("View Profile →"));
   assert.ok(staffDeskSource.includes("/studio/staff/"));
 });
@@ -223,4 +224,28 @@ test("UX-CONV-01 Productivity Layer: Command Palette (⌘K), Quick Create, Notif
   assert.ok(prefSource.includes("tableDensity"));
   assert.ok(prefSource.includes("sidebarCollapsed"));
   assert.ok(prefSource.includes("pinnedPaths"));
+});
+
+test("UX-CONV-01-R1 Real Data Truth: Zero invented numbers in role dashboards and staff profiles", () => {
+  const dashboardsSource = read("src/ui/StudioRoleDashboards.tsx");
+  assert.ok(!dashboardsSource.includes("5792"), "Must not contain invented stories count 5792");
+  assert.ok(!dashboardsSource.includes("12,480"), "Must not contain invented newsletter count 12,480");
+  assert.ok(!dashboardsSource.includes("8,920"), "Must not contain invented push count 8,920");
+  assert.ok(!dashboardsSource.includes("24,500"), "Must not contain invented whatsapp count 24,500");
+  assert.ok(!dashboardsSource.includes("4,200 reads"), "Must not contain invented story reads");
+
+  const staffProfileSource = read("src/ui/StudioStaffProfile.tsx");
+  assert.ok(!staffProfileSource.includes("27</Text>"), "Staff profile must not contain hardcoded 27 stories");
+  assert.ok(staffProfileSource.includes("Staff Profile Not Found"), "Must contain helpful not-found state for unknown staff IDs");
+  assert.ok(staffProfileSource.includes("Access Denied"), "Unauthorized access must fail closed");
+
+  const personalProfileSource = read("src/ui/StudioPersonalProfile.tsx");
+  assert.ok(!personalProfileSource.includes('displayName || "Kudzanai Musarurwa"'), "Must not hardcode Kudzanai Musarurwa as fallback identity");
+});
+
+test("UX-CONV-01-R1 Role Dashboard Authority: Non-executive users cannot switch perspectives or escalate authority", () => {
+  const indexSource = read("app/studio/index.tsx");
+  assert.ok(indexSource.includes("isExecutiveRole"), "Must gate perspective selector behind executive role check");
+  assert.ok(indexSource.includes("OWNER DESIGN PREVIEW ONLY"), "Perspective selector must be explicitly labelled as preview only");
+  assert.ok(indexSource.includes("CLIENT PERSPECTIVE SIMULATION DOES NOT ALTER SERVER RBAC"), "Must display prominent disclaimer that simulation does not modify server RBAC");
 });

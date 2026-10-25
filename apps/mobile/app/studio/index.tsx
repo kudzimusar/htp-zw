@@ -49,6 +49,9 @@ export default function StudioToday() {
   const stories = useAsync(() => services.articles.getHome(), []);
   const publication = useAsync(() => services.publication.getProfile(), []);
   const financeOverview = useAsync(() => services.newsroomFinance.getOverview().catch(() => null), []);
+  const staffOps = useAsync(() => services.newsroomStaff.getStaffOperationsDirectory().catch(() => null), []);
+  const commercialOverview = useAsync(() => services.newsroomCommercial.getAdvertisingOverview().catch(() => null), []);
+  const subscribersDirectory = useAsync(() => services.newsroomCommercial.getSubscribersDirectory().catch(() => null), []);
 
   const authStatus = authorization.data?.status ?? "checking";
   const sourceStories = stories.data ?? [];
@@ -59,19 +62,39 @@ export default function StudioToday() {
   const snapshot = authorization.data;
   const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Publisher / Owner" : "Guest / Reader");
 
-  // Determine initial role view perspective from server snapshot
-  const initialRolePerspective: RoleViewKey = (() => {
-    const r = (roleName || "").toLowerCase();
-    if (r.includes("reporter")) return "reporter";
+  const isExecutiveRole =
+    (snapshot?.role ?? "").toLowerCase().includes("owner") ||
+    (snapshot?.role ?? "").toLowerCase().includes("publisher") ||
+    (snapshot?.role ?? "").toLowerCase().includes("admin");
+
+  // Determine server-authorized role perspective
+  const authenticatedRoleKey: RoleViewKey = (() => {
+    const r = (snapshot?.role || "").toLowerCase();
+    if (r.includes("reporter") || r.includes("journalist")) return "reporter";
     if (r.includes("editor")) return "editor";
     if (r.includes("finance")) return "finance";
-    if (r.includes("commercial")) return "commercial";
-    if (r.includes("audience")) return "audience";
+    if (r.includes("commercial") || r.includes("advert")) return "commercial";
+    if (r.includes("audience") || r.includes("growth")) return "audience";
     if (r.includes("admin")) return "admin";
-    return "owner";
+    if (r.includes("owner") || r.includes("publisher")) return "owner";
+    return "reporter";
   })();
 
-  const [viewPerspectiveKey, changeViewPerspective] = useState<RoleViewKey>(initialRolePerspective);
+  const [viewPerspectiveKey, changeViewPerspective] = useState<RoleViewKey>(
+    isExecutiveRole ? "owner" : authenticatedRoleKey
+  );
+
+  // Non-executive users are locked strictly to their server-authorized role
+  const activeViewKey = isExecutiveRole ? viewPerspectiveKey : authenticatedRoleKey;
+
+  const staffList = staffOps.data?.staff ?? [];
+  const activeStaffCount = staffList.filter((s) => s.status === "active").length || staffList.length || "—";
+  const activeSessionsCount = staffList.reduce((acc, s) => acc + (s.activeSessionsCount ?? 0), 0) || "—";
+  const pendingInvitationsCount = staffOps.data?.invitations?.length ?? 0;
+  const campaignsList = commercialOverview.data?.campaigns ?? [];
+  const activeCampaignsCount = campaignsList.filter((c) => c.status === "active").length || campaignsList.length || 0;
+  const openOrdersCount = 0;
+  const subscribersCount = subscribersDirectory.data?.totalCount ?? 0;
 
   const roleViewOptions: Array<{ key: RoleViewKey; label: string; icon: string }> = [
     { key: "owner", label: "Publisher / Owner", icon: "🏛" },
@@ -109,58 +132,99 @@ export default function StudioToday() {
         </View>
       </View>
 
-      {/* Role-Specific Perspective Selector Strip (UX-CONV-01E) */}
-      <View style={styles.rolePerspectiveBar}>
-        <Text style={styles.perspectiveLabel}>OPERATING ROLE PERSPECTIVE:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.perspectiveScroll}>
-          {roleViewOptions.map((opt) => (
-            <Pressable
-              key={opt.key}
-              style={[
-                styles.perspectiveBtn,
-                viewPerspectiveKey === opt.key && styles.perspectiveBtnActive
-              ]}
-              onPress={() => changeViewPerspective(opt.key)}
-            >
-              <Text style={styles.perspectiveBtnIcon}>{opt.icon}</Text>
-              <Text
+      {/* Role-Specific Perspective Selector Strip (UX-CONV-01E / Restricted to Owner Design Preview) */}
+      {isExecutiveRole && (
+        <View style={styles.rolePerspectiveBar}>
+          <View style={styles.perspectiveHeaderRow}>
+            <Text style={styles.perspectiveLabel}>OPERATING ROLE PERSPECTIVE:</Text>
+            <View style={styles.previewModeTagBox}>
+              <Text style={styles.previewModeTagText}>OWNER DESIGN PREVIEW ONLY</Text>
+            </View>
+          </View>
+          <Text style={styles.previewModeNotice}>
+            CLIENT PERSPECTIVE SIMULATION DOES NOT ALTER SERVER RBAC · CAPABILITIES ARE STRICTLY SERVER-BOUND
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.perspectiveScroll}>
+            {roleViewOptions.map((opt) => (
+              <Pressable
+                key={opt.key}
                 style={[
-                  styles.perspectiveBtnText,
-                  viewPerspectiveKey === opt.key && styles.perspectiveBtnTextActive
+                  styles.perspectiveBtn,
+                  viewPerspectiveKey === opt.key && styles.perspectiveBtnActive
                 ]}
+                onPress={() => changeViewPerspective(opt.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Preview ${opt.label} dashboard perspective`}
               >
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
+                <Text style={styles.perspectiveBtnIcon}>{opt.icon}</Text>
+                <Text
+                  style={[
+                    styles.perspectiveBtnText,
+                    viewPerspectiveKey === opt.key && styles.perspectiveBtnTextActive
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* RENDER ACTIVE ROLE-SPECIFIC DASHBOARD */}
       <View style={styles.roleDashboardSection}>
-        {viewPerspectiveKey === "owner" && (
+        {activeViewKey === "owner" && (
           <PublisherOwnerDashboard
             reviewCount={reviewStories.length}
             openInvoicesCount={financeOverview.data?.counts.openInvoices ?? 0}
             overdueInvoicesCount={financeOverview.data?.counts.overdueInvoices ?? 0}
             pendingExpensesCount={financeOverview.data?.counts.pendingExpenses ?? 0}
             storiesCount={sourceStories.length}
+            activeStaffCount={activeStaffCount}
+            activeSessionsCount={activeSessionsCount}
+            pendingInvitationsCount={pendingInvitationsCount}
+            activeCampaignsCount={activeCampaignsCount}
+            openOrdersCount={openOrdersCount}
+            subscribersCount={subscribersCount}
+            scheduledStoriesCount={0}
+            publishedTodayCount={sourceStories.length > 0 ? 1 : 0}
+            overdueAssignmentsCount={0}
           />
         )}
-        {viewPerspectiveKey === "reporter" && <ReporterDashboard />}
-        {viewPerspectiveKey === "editor" && (
-          <EditorInChiefDashboard reviewCount={reviewStories.length} />
+        {activeViewKey === "reporter" && (
+          <ReporterDashboard
+            userAssignmentsCount={0}
+            userDraftsCount={0}
+          />
         )}
-        {viewPerspectiveKey === "finance" && (
+        {activeViewKey === "editor" && (
+          <EditorInChiefDashboard
+            reviewCount={reviewStories.length}
+            overdueAssignmentsCount={0}
+            scheduledStoriesCount={0}
+          />
+        )}
+        {activeViewKey === "finance" && (
           <FinanceManagerDashboard
             openInvoicesCount={financeOverview.data?.counts.openInvoices ?? 0}
             overdueInvoicesCount={financeOverview.data?.counts.overdueInvoices ?? 0}
             pendingExpensesCount={financeOverview.data?.counts.pendingExpenses ?? 0}
           />
         )}
-        {viewPerspectiveKey === "commercial" && <CommercialManagerDashboard />}
-        {viewPerspectiveKey === "audience" && <AudienceGrowthDashboard />}
-        {viewPerspectiveKey === "admin" && <SystemsAdminDashboard />}
+        {activeViewKey === "commercial" && (
+          <CommercialManagerDashboard
+            activeCampaignsCount={activeCampaignsCount}
+            openOrdersCount={openOrdersCount}
+            subscribersCount={subscribersCount}
+          />
+        )}
+        {activeViewKey === "audience" && <AudienceGrowthDashboard />}
+        {activeViewKey === "admin" && (
+          <SystemsAdminDashboard
+            activeStaffCount={activeStaffCount}
+            activeSessionsCount={activeSessionsCount}
+          />
+        )}
       </View>
 
       {/* Cross-Domain Metric Strip (Retains Required Test Assertions) */}
@@ -324,6 +388,33 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.md,
     gap: spacing.sm
+  },
+  perspectiveHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+    flexWrap: "wrap",
+    gap: 8
+  },
+  previewModeTagBox: {
+    backgroundColor: "#102331",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#70D1D1"
+  },
+  previewModeTagText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#70D1D1",
+    letterSpacing: 0.8
+  },
+  previewModeNotice: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    marginBottom: spacing.xs
   },
   perspectiveLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1, color: colors.inkMuted },
   perspectiveScroll: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },

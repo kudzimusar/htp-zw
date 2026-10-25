@@ -11,22 +11,42 @@ import { useRouter } from "expo-router";
 import { colors, radius, spacing } from "../theme/tokens";
 import type { TableDensity } from "./StudioPreferencesContext";
 
-interface DashboardProps {
+export interface DashboardProps {
   density?: TableDensity;
-  reviewCount: number;
-  openInvoicesCount: number;
-  overdueInvoicesCount: number;
-  pendingExpensesCount: number;
-  storiesCount: number;
+  reviewCount?: number;
+  openInvoicesCount?: number;
+  overdueInvoicesCount?: number;
+  pendingExpensesCount?: number;
+  storiesCount?: number;
+  activeStaffCount?: number | string;
+  activeSessionsCount?: number | string;
+  pendingInvitationsCount?: number;
+  activeCampaignsCount?: number;
+  openOrdersCount?: number;
+  subscribersCount?: number;
+  scheduledStoriesCount?: number;
+  publishedTodayCount?: number;
+  overdueAssignmentsCount?: number;
+  userAssignmentsCount?: number;
+  userDraftsCount?: number;
 }
 
 // 1. PUBLISHER / OWNER DASHBOARD (First Design Priority)
 export function PublisherOwnerDashboard({
-  reviewCount,
-  openInvoicesCount,
-  overdueInvoicesCount,
-  pendingExpensesCount,
-  storiesCount
+  reviewCount = 0,
+  openInvoicesCount = 0,
+  overdueInvoicesCount = 0,
+  pendingExpensesCount = 0,
+  storiesCount,
+  activeStaffCount = "—",
+  activeSessionsCount = "—",
+  pendingInvitationsCount = 0,
+  activeCampaignsCount = 0,
+  openOrdersCount = 0,
+  subscribersCount = 0,
+  scheduledStoriesCount = 0,
+  publishedTodayCount = 0,
+  overdueAssignmentsCount = 0
 }: DashboardProps) {
   const router = useRouter();
 
@@ -66,10 +86,14 @@ export function PublisherOwnerDashboard({
         <Text style={styles.sectionTag}>REAL-TIME NEWSROOM PULSE</Text>
       </View>
       <View style={styles.gridRow}>
-        <View style={[styles.card, styles.alertBorder]}>
+        <View style={[styles.card, reviewCount > 0 ? styles.alertBorder : null]}>
           <Text style={styles.cardEyebrow}>STORIES AWAITING APPROVAL</Text>
-          <Text style={styles.cardHeroNumber}>{reviewCount || 3}</Text>
-          <Text style={styles.cardDesc}>Lead healthcare investigation & epidemic updates awaiting final sign-off.</Text>
+          <Text style={styles.cardHeroNumber}>{reviewCount}</Text>
+          <Text style={styles.cardDesc}>
+            {reviewCount > 0
+              ? "Investigations and clinical reports currently awaiting editorial sign-off."
+              : "Review queue is clear. No stories currently awaiting editorial sign-off."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/review-queue" as never)}>
             <Text style={styles.cardLinkText}>Open Review Queue →</Text>
           </Pressable>
@@ -78,10 +102,12 @@ export function PublisherOwnerDashboard({
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>LIVE COVERAGE STATUS</Text>
           <View style={styles.liveIndicatorRow}>
-            <View style={styles.pulseLiveDot} />
-            <Text style={styles.liveHeadline}>PARLIAMENT HEALTH AUDIT</Text>
+            <View style={[styles.pulseLiveDot, { backgroundColor: colors.inkMuted }]} />
+            <Text style={[styles.liveHeadline, { color: colors.ink }]}>STANDBY MODE</Text>
           </View>
-          <Text style={styles.cardDesc}>Live desk reporting NatPharm procurement hearing in Committee Room 1.</Text>
+          <Text style={styles.cardDesc}>
+            No live coverage event currently streaming. Click below to launch real-time updates.
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/live-desk" as never)}>
             <Text style={styles.cardLinkText}>Manage Live Desk →</Text>
           </Pressable>
@@ -89,8 +115,12 @@ export function PublisherOwnerDashboard({
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>SCHEDULED PUBLICATIONS</Text>
-          <Text style={styles.cardHeroNumber}>4</Text>
-          <Text style={styles.cardDesc}>Stories queued for automated release across morning and evening editions.</Text>
+          <Text style={styles.cardHeroNumber}>{scheduledStoriesCount}</Text>
+          <Text style={styles.cardDesc}>
+            {scheduledStoriesCount > 0
+              ? "Stories queued for automated release across scheduled editions."
+              : "No stories currently scheduled for automated release in this cycle."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/calendar" as never)}>
             <Text style={styles.cardLinkText}>View Agenda →</Text>
           </Pressable>
@@ -105,23 +135,25 @@ export function PublisherOwnerDashboard({
       <View style={styles.gridRow}>
         <View style={styles.statMetricCard}>
           <Text style={styles.metricLabel}>Total Stories Backed</Text>
-          <Text style={styles.metricBig}>{storiesCount || 5792}</Text>
-          <Text style={styles.metricSub}>Full corpus verified</Text>
+          <Text style={styles.metricBig}>{storiesCount !== undefined ? String(storiesCount) : "Unavailable"}</Text>
+          <Text style={styles.metricSub}>Corpus verified</Text>
         </View>
         <View style={styles.statMetricCard}>
           <Text style={styles.metricLabel}>Published Today</Text>
-          <Text style={[styles.metricBig, { color: colors.blue }]}>8</Text>
-          <Text style={styles.metricSub}>Across 4 desks</Text>
+          <Text style={[styles.metricBig, { color: colors.blue }]}>{publishedTodayCount}</Text>
+          <Text style={styles.metricSub}>Last 24h velocity</Text>
         </View>
         <View style={styles.statMetricCard}>
           <Text style={styles.metricLabel}>Active Reporters</Text>
-          <Text style={styles.metricBig}>6</Text>
-          <Text style={styles.metricSub}>Filing from Harare & Bulawayo</Text>
+          <Text style={styles.metricBig}>{String(activeStaffCount)}</Text>
+          <Text style={styles.metricSub}>Certified staff members</Text>
         </View>
         <View style={styles.statMetricCard}>
           <Text style={styles.metricLabel}>Overdue Assignments</Text>
-          <Text style={[styles.metricBig, { color: "#C5221F" }]}>1</Text>
-          <Text style={styles.metricSub}>Needs editor escalation</Text>
+          <Text style={[styles.metricBig, { color: overdueAssignmentsCount > 0 ? "#C5221F" : colors.ink }]}>
+            {overdueAssignmentsCount}
+          </Text>
+          <Text style={styles.metricSub}>{overdueAssignmentsCount > 0 ? "Needs editor escalation" : "All deadlines on track"}</Text>
         </View>
       </View>
 
@@ -135,15 +167,15 @@ export function PublisherOwnerDashboard({
           <Text style={styles.cardEyebrow}>MULTI-CHANNEL AUDIENCE</Text>
           <View style={styles.audienceStatsGrid}>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>12,480</Text>
+              <Text style={styles.audVal}>Provider Pending</Text>
               <Text style={styles.audLbl}>Newsletter Subs</Text>
             </View>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>8,920</Text>
+              <Text style={styles.audVal}>0</Text>
               <Text style={styles.audLbl}>Push Subscribers</Text>
             </View>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>24,500</Text>
+              <Text style={styles.audVal}>0</Text>
               <Text style={styles.audLbl}>WhatsApp Readers</Text>
             </View>
           </View>
@@ -156,15 +188,15 @@ export function PublisherOwnerDashboard({
           <Text style={styles.cardEyebrow}>COMMERCIAL & SUBSCRIBERS</Text>
           <View style={styles.audienceStatsGrid}>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>14</Text>
+              <Text style={styles.audVal}>{activeCampaignsCount}</Text>
               <Text style={styles.audLbl}>Active Campaigns</Text>
             </View>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>5</Text>
+              <Text style={styles.audVal}>{openOrdersCount}</Text>
               <Text style={styles.audLbl}>Open Orders</Text>
             </View>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>280</Text>
+              <Text style={styles.audVal}>{subscribersCount}</Text>
               <Text style={styles.audLbl}>Premium Passes</Text>
             </View>
           </View>
@@ -177,17 +209,17 @@ export function PublisherOwnerDashboard({
           <Text style={styles.cardEyebrow}>FINANCE & BILLING</Text>
           <View style={styles.audienceStatsGrid}>
             <View style={styles.audItem}>
-              <Text style={[styles.audVal, { color: colors.blue }]}>{openInvoicesCount || 12}</Text>
+              <Text style={[styles.audVal, { color: colors.blue }]}>{openInvoicesCount}</Text>
               <Text style={styles.audLbl}>Open Invoices</Text>
             </View>
             <View style={styles.audItem}>
-              <Text style={[styles.audVal, { color: overdueInvoicesCount ? "#C5221F" : colors.ink }]}>
-                {overdueInvoicesCount || 0}
+              <Text style={[styles.audVal, { color: overdueInvoicesCount > 0 ? "#C5221F" : colors.ink }]}>
+                {overdueInvoicesCount}
               </Text>
               <Text style={styles.audLbl}>Overdue</Text>
             </View>
             <View style={styles.audItem}>
-              <Text style={styles.audVal}>{pendingExpensesCount || 2}</Text>
+              <Text style={styles.audVal}>{pendingExpensesCount}</Text>
               <Text style={styles.audLbl}>Pending Expenses</Text>
             </View>
           </View>
@@ -215,11 +247,11 @@ export function PublisherOwnerDashboard({
           </View>
           <View style={styles.peopleStatusStrip}>
             <View style={styles.peoplePill}>
-              <Text style={styles.peoplePillVal}>8</Text>
+              <Text style={styles.peoplePillVal}>{String(activeStaffCount)}</Text>
               <Text style={styles.peoplePillLbl}>Active Staff Profiles</Text>
             </View>
             <View style={styles.peoplePill}>
-              <Text style={styles.peoplePillVal}>2</Text>
+              <Text style={styles.peoplePillVal}>{pendingInvitationsCount}</Text>
               <Text style={styles.peoplePillLbl}>Pending Invitations</Text>
             </View>
             <View style={styles.peoplePill}>
@@ -227,8 +259,8 @@ export function PublisherOwnerDashboard({
               <Text style={styles.peoplePillLbl}>Security Violations</Text>
             </View>
             <View style={styles.peoplePill}>
-              <Text style={styles.peoplePillVal}>100%</Text>
-              <Text style={styles.peoplePillLbl}>MFA Compliance</Text>
+              <Text style={styles.peoplePillVal}>Enforced</Text>
+              <Text style={styles.peoplePillLbl}>MFA Enforcement</Text>
             </View>
           </View>
         </View>
@@ -238,7 +270,13 @@ export function PublisherOwnerDashboard({
 }
 
 // 2. REPORTER / JOURNALIST DASHBOARD (Section 12)
-export function ReporterDashboard() {
+export function ReporterDashboard({
+  userAssignmentsCount = 0,
+  userDraftsCount = 0
+}: {
+  userAssignmentsCount?: number;
+  userDraftsCount?: number;
+}) {
   const router = useRouter();
 
   return (
@@ -270,21 +308,18 @@ export function ReporterDashboard() {
         <Text style={styles.sectionTitle}>Today's Assignments & Deadlines</Text>
       </View>
       <View style={styles.gridRow}>
-        <View style={styles.card}>
-          <Text style={styles.cardEyebrow}>DUE TODAY · 14:00 CAT</Text>
-          <Text style={styles.cardTitle}>National AIDS Council Q3 Briefing</Text>
-          <Text style={styles.cardDesc}>Attend board briefing, capture quote on paediatric viral suppression.</Text>
-          <Pressable style={styles.cardLink} onPress={() => router.push("/studio/assignments" as never)}>
-            <Text style={styles.cardLinkText}>Open Assignment Thread →</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardEyebrow}>UPCOMING · TOMORROW 11:00</Text>
-          <Text style={styles.cardTitle}>Bulawayo Clinic Medicine Delivery</Text>
-          <Text style={styles.cardDesc}>Follow up NatPharm consignment arrival with Matabeleland clinical director.</Text>
-          <Pressable style={styles.cardLink} onPress={() => router.push("/studio/assignments" as never)}>
-            <Text style={styles.cardLinkText}>View Assignment Details →</Text>
+        <View style={[styles.card, { minWidth: "100%" }]}>
+          <Text style={styles.cardEyebrow}>ASSIGNMENT QUEUE</Text>
+          <Text style={styles.cardTitle}>
+            {userAssignmentsCount > 0 ? `${userAssignmentsCount} Active Field Assignments` : "No Active Field Assignments"}
+          </Text>
+          <Text style={styles.cardDesc}>
+            {userAssignmentsCount > 0
+              ? "You have assignments scheduled on the news budget."
+              : "You have no pending assignments with deadlines assigned to your desk. Inspect the Planning Board to pick up new assignments or pitch a story."}
+          </Text>
+          <Pressable style={styles.cardLink} onPress={() => router.push("/studio/planning" as never)}>
+            <Text style={styles.cardLinkText}>Inspect News Budget & Planning Board →</Text>
           </Pressable>
         </View>
       </View>
@@ -294,21 +329,18 @@ export function ReporterDashboard() {
         <Text style={styles.sectionTitle}>My Drafts & Recent Stories</Text>
       </View>
       <View style={styles.gridRow}>
-        <View style={styles.card}>
-          <Text style={styles.cardEyebrow}>DRAFT (AUTOSAVED)</Text>
-          <Text style={styles.cardTitle}>Harare Chlorination & Cholera Surveillance</Text>
-          <Text style={styles.cardDesc}>1,240 words · 3 sources cited · Draft stage.</Text>
+        <View style={[styles.card, { minWidth: "100%" }]}>
+          <Text style={styles.cardEyebrow}>AUTHOR WORKSPACE</Text>
+          <Text style={styles.cardTitle}>
+            {userDraftsCount > 0 ? `${userDraftsCount} Drafts in Progress` : "Story Drafting Workspace"}
+          </Text>
+          <Text style={styles.cardDesc}>
+            {userDraftsCount > 0
+              ? "Draft stories ready for further reporting and medical source verification."
+              : "No unpublished drafts found for your author profile. Start a new investigation or clinical report."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/create-edit" as never)}>
-            <Text style={styles.cardLinkText}>Continue Writing →</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardEyebrow}>PUBLISHED</Text>
-          <Text style={styles.cardTitle}>Zimbabwe Strengthens National Social Contracting</Text>
-          <Text style={styles.cardDesc}>Published yesterday · 4,200 reads · Fact-checked.</Text>
-          <Pressable style={styles.cardLink} onPress={() => router.push("/studio/stories" as never)}>
-            <Text style={styles.cardLinkText}>View Live Story →</Text>
+            <Text style={styles.cardLinkText}>+ Start New Story Draft →</Text>
           </Pressable>
         </View>
       </View>
@@ -317,7 +349,15 @@ export function ReporterDashboard() {
 }
 
 // 3. EDITOR-IN-CHIEF DASHBOARD (Section 13)
-export function EditorInChiefDashboard({ reviewCount }: { reviewCount: number }) {
+export function EditorInChiefDashboard({
+  reviewCount = 0,
+  overdueAssignmentsCount = 0,
+  scheduledStoriesCount = 0
+}: {
+  reviewCount?: number;
+  overdueAssignmentsCount?: number;
+  scheduledStoriesCount?: number;
+}) {
   const router = useRouter();
 
   return (
@@ -330,7 +370,7 @@ export function EditorInChiefDashboard({ reviewCount }: { reviewCount: number })
 
       <View style={styles.quickActionsStrip}>
         <Pressable style={styles.quickActionBtnPrimary} onPress={() => router.push("/studio/review-queue" as never)}>
-          <Text style={styles.quickActionTextPrimary}>Open Review Queue ({reviewCount || 4})</Text>
+          <Text style={styles.quickActionTextPrimary}>Open Review Queue ({reviewCount})</Text>
         </Pressable>
         <Pressable style={styles.quickActionBtn} onPress={() => router.push("/studio/planning" as never)}>
           <Text style={styles.quickActionText}>Assign Story / News Budget</Text>
@@ -344,10 +384,14 @@ export function EditorInChiefDashboard({ reviewCount }: { reviewCount: number })
       </View>
 
       <View style={styles.gridRow}>
-        <View style={[styles.card, styles.alertBorder]}>
+        <View style={[styles.card, reviewCount > 0 ? styles.alertBorder : null]}>
           <Text style={styles.cardEyebrow}>REVIEW QUEUE (HIGH PRIORITY)</Text>
-          <Text style={styles.cardHeroNumber}>{reviewCount || 4}</Text>
-          <Text style={styles.cardDesc}>Stories awaiting clinical accuracy checks, legal triage, and headline polishing.</Text>
+          <Text style={styles.cardHeroNumber}>{reviewCount}</Text>
+          <Text style={styles.cardDesc}>
+            {reviewCount > 0
+              ? "Stories awaiting clinical accuracy checks, legal triage, and headline polishing."
+              : "Review queue is clear. No stories currently awaiting triage."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/review-queue" as never)}>
             <Text style={styles.cardLinkText}>Open Review Queue →</Text>
           </Pressable>
@@ -355,8 +399,14 @@ export function EditorInChiefDashboard({ reviewCount }: { reviewCount: number })
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>OVERDUE ASSIGNMENTS</Text>
-          <Text style={[styles.cardHeroNumber, { color: "#C5221F" }]}>1</Text>
-          <Text style={styles.cardDesc}>Field report past stated deadline requiring editor follow-up.</Text>
+          <Text style={[styles.cardHeroNumber, { color: overdueAssignmentsCount > 0 ? "#C5221F" : colors.ink }]}>
+            {overdueAssignmentsCount}
+          </Text>
+          <Text style={styles.cardDesc}>
+            {overdueAssignmentsCount > 0
+              ? "Field report past stated deadline requiring editor follow-up."
+              : "No overdue assignments on the planning board."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/planning" as never)}>
             <Text style={styles.cardLinkText}>Inspect News Budget →</Text>
           </Pressable>
@@ -364,8 +414,12 @@ export function EditorInChiefDashboard({ reviewCount }: { reviewCount: number })
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>READY TO PUBLISH</Text>
-          <Text style={styles.cardHeroNumber}>2</Text>
-          <Text style={styles.cardDesc}>Approved stories scheduled for afternoon newsroom distribution.</Text>
+          <Text style={styles.cardHeroNumber}>{scheduledStoriesCount}</Text>
+          <Text style={styles.cardDesc}>
+            {scheduledStoriesCount > 0
+              ? "Approved stories scheduled for automated newsroom distribution."
+              : "No stories currently scheduled for release."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/calendar" as never)}>
             <Text style={styles.cardLinkText}>View Agenda →</Text>
           </Pressable>
@@ -377,13 +431,13 @@ export function EditorInChiefDashboard({ reviewCount }: { reviewCount: number })
 
 // 4. FINANCE MANAGER DASHBOARD (Section 14)
 export function FinanceManagerDashboard({
-  openInvoicesCount,
-  overdueInvoicesCount,
-  pendingExpensesCount
+  openInvoicesCount = 0,
+  overdueInvoicesCount = 0,
+  pendingExpensesCount = 0
 }: {
-  openInvoicesCount: number;
-  overdueInvoicesCount: number;
-  pendingExpensesCount: number;
+  openInvoicesCount?: number;
+  overdueInvoicesCount?: number;
+  pendingExpensesCount?: number;
 }) {
   const router = useRouter();
 
@@ -403,7 +457,7 @@ export function FinanceManagerDashboard({
           <Text style={styles.quickActionText}>Record Incoming Payment</Text>
         </Pressable>
         <Pressable style={styles.quickActionBtn} onPress={() => router.push("/studio/finance-expenses" as never)}>
-          <Text style={styles.quickActionText}>Review Expense Claims ({pendingExpensesCount || 2})</Text>
+          <Text style={styles.quickActionText}>Review Expense Claims ({pendingExpensesCount})</Text>
         </Pressable>
         <Pressable style={styles.quickActionBtn} onPress={() => router.push("/studio/finance-aging" as never)}>
           <Text style={styles.quickActionText}>Aged Debtors</Text>
@@ -413,7 +467,7 @@ export function FinanceManagerDashboard({
       <View style={styles.gridRow}>
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>OPEN INVOICES</Text>
-          <Text style={[styles.cardHeroNumber, { color: colors.blue }]}>{openInvoicesCount || 12}</Text>
+          <Text style={[styles.cardHeroNumber, { color: colors.blue }]}>{openInvoicesCount}</Text>
           <Text style={styles.cardDesc}>Commercial advertising invoices awaiting advertiser settlement.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/finance-invoices" as never)}>
             <Text style={styles.cardLinkText}>Open Invoices →</Text>
@@ -422,8 +476,8 @@ export function FinanceManagerDashboard({
 
         <View style={[styles.card, overdueInvoicesCount > 0 ? styles.alertBorder : null]}>
           <Text style={styles.cardEyebrow}>OVERDUE RECEIVABLES</Text>
-          <Text style={[styles.cardHeroNumber, { color: overdueInvoicesCount ? "#C5221F" : colors.ink }]}>
-            {overdueInvoicesCount || 0}
+          <Text style={[styles.cardHeroNumber, { color: overdueInvoicesCount > 0 ? "#C5221F" : colors.ink }]}>
+            {overdueInvoicesCount}
           </Text>
           <Text style={styles.cardDesc}>Invoices past 30+ day credit terms requiring reminder issuance.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/finance-aging" as never)}>
@@ -433,7 +487,7 @@ export function FinanceManagerDashboard({
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>PENDING EXPENSE CLAIMS</Text>
-          <Text style={styles.cardHeroNumber}>{pendingExpensesCount || 2}</Text>
+          <Text style={styles.cardHeroNumber}>{pendingExpensesCount}</Text>
           <Text style={styles.cardDesc}>Field reporter travel and communication reimbursements awaiting approval.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/finance-expenses" as never)}>
             <Text style={styles.cardLinkText}>Approve Expenses →</Text>
@@ -445,7 +499,15 @@ export function FinanceManagerDashboard({
 }
 
 // 5. COMMERCIAL MANAGER DASHBOARD (Section 15)
-export function CommercialManagerDashboard() {
+export function CommercialManagerDashboard({
+  activeCampaignsCount = 0,
+  openOrdersCount = 0,
+  subscribersCount = 0
+}: {
+  activeCampaignsCount?: number;
+  openOrdersCount?: number;
+  subscribersCount?: number;
+}) {
   const router = useRouter();
 
   return (
@@ -474,8 +536,12 @@ export function CommercialManagerDashboard() {
       <View style={styles.gridRow}>
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>ACTIVE AD CAMPAIGNS</Text>
-          <Text style={styles.cardHeroNumber}>14</Text>
-          <Text style={styles.cardDesc}>Direct sponsor campaigns live on Homepage, Section and Article slots.</Text>
+          <Text style={styles.cardHeroNumber}>{activeCampaignsCount}</Text>
+          <Text style={styles.cardDesc}>
+            {activeCampaignsCount > 0
+              ? "Direct sponsor campaigns live across editorial slots."
+              : "No direct sponsor campaigns currently active. Create a new campaign to schedule placements."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/advertising" as never)}>
             <Text style={styles.cardLinkText}>View Campaigns →</Text>
           </Pressable>
@@ -483,8 +549,12 @@ export function CommercialManagerDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>ORDERS AWAITING APPROVAL</Text>
-          <Text style={styles.cardHeroNumber}>3</Text>
-          <Text style={styles.cardDesc}>Commercial booking orders requiring management sign-off before scheduling.</Text>
+          <Text style={styles.cardHeroNumber}>{openOrdersCount}</Text>
+          <Text style={styles.cardDesc}>
+            {openOrdersCount > 0
+              ? "Commercial booking orders requiring management sign-off before scheduling."
+              : "All commercial insertion orders have been triaged."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/orders" as never)}>
             <Text style={styles.cardLinkText}>Approve Orders →</Text>
           </Pressable>
@@ -492,8 +562,12 @@ export function CommercialManagerDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>SUBSCRIBER ACCESS PASSES</Text>
-          <Text style={styles.cardHeroNumber}>280</Text>
-          <Text style={styles.cardDesc}>Active premium reader passes under AG-05 meter authority.</Text>
+          <Text style={styles.cardHeroNumber}>{subscribersCount}</Text>
+          <Text style={styles.cardDesc}>
+            {subscribersCount > 0
+              ? "Active premium reader passes under AG-05 meter authority."
+              : "No active subscriber passes registered in this environment."}
+          </Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/subscribers" as never)}>
             <Text style={styles.cardLinkText}>Inspect Subscribers →</Text>
           </Pressable>
@@ -533,8 +607,8 @@ export function AudienceGrowthDashboard() {
       <View style={styles.gridRow}>
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>NEWSLETTER DISTRIBUTION</Text>
-          <Text style={styles.cardHeroNumber}>12,480</Text>
-          <Text style={styles.cardDesc}>Consented subscribers on Brevo infrastructure with 34.2% open rate.</Text>
+          <Text style={styles.cardHeroNumber}>Provider Setup Pending</Text>
+          <Text style={styles.cardDesc}>Brevo transactional & campaign dispatch configuration pending in staging.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/newsletters" as never)}>
             <Text style={styles.cardLinkText}>Manage Newsletters →</Text>
           </Pressable>
@@ -542,8 +616,8 @@ export function AudienceGrowthDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>PUSH ALERTS</Text>
-          <Text style={styles.cardHeroNumber}>8,920</Text>
-          <Text style={styles.cardDesc}>Registered reader devices with verified FCM/APNS delivery.</Text>
+          <Text style={styles.cardHeroNumber}>0 Devices</Text>
+          <Text style={styles.cardDesc}>No mobile or web notification device tokens currently registered in staging.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/push-alerts" as never)}>
             <Text style={styles.cardLinkText}>Manage Push Alerts →</Text>
           </Pressable>
@@ -551,8 +625,8 @@ export function AudienceGrowthDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>WHATSAPP CHANNEL</Text>
-          <Text style={styles.cardHeroNumber}>24,500</Text>
-          <Text style={styles.cardDesc}>Consented health update channel readers via Meta Cloud API.</Text>
+          <Text style={styles.cardHeroNumber}>0 Broadcasts</Text>
+          <Text style={styles.cardDesc}>No broadcast dispatches recorded through Meta Cloud API in staging.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/whatsapp" as never)}>
             <Text style={styles.cardLinkText}>Broadcast Desk →</Text>
           </Pressable>
@@ -563,7 +637,13 @@ export function AudienceGrowthDashboard() {
 }
 
 // 7. SYSTEMS ADMINISTRATOR DASHBOARD (Section 17)
-export function SystemsAdminDashboard() {
+export function SystemsAdminDashboard({
+  activeStaffCount = "—",
+  activeSessionsCount = "—"
+}: {
+  activeStaffCount?: number | string;
+  activeSessionsCount?: number | string;
+}) {
   const router = useRouter();
 
   return (
@@ -592,7 +672,7 @@ export function SystemsAdminDashboard() {
       <View style={styles.gridRow}>
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>ACTIVE STAFF ACCOUNTS</Text>
-          <Text style={styles.cardHeroNumber}>8</Text>
+          <Text style={styles.cardHeroNumber}>{String(activeStaffCount)}</Text>
           <Text style={styles.cardDesc}>Certified newsroom staff members with enforced two-factor authentication.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/staff-roles" as never)}>
             <Text style={styles.cardLinkText}>Review Staff Directory →</Text>
@@ -601,7 +681,7 @@ export function SystemsAdminDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>ACTIVE SESSIONS</Text>
-          <Text style={styles.cardHeroNumber}>11</Text>
+          <Text style={styles.cardHeroNumber}>{String(activeSessionsCount)}</Text>
           <Text style={styles.cardDesc}>Server-registered sessions tracked in newsroom_sessions.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/staff-roles" as never)}>
             <Text style={styles.cardLinkText}>Inspect Sessions →</Text>
@@ -610,8 +690,8 @@ export function SystemsAdminDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>PROVIDER INTEGRATIONS</Text>
-          <Text style={[styles.cardHeroNumber, { color: "#137333" }]}>HEALTHY</Text>
-          <Text style={styles.cardDesc}>Supabase Auth, Storage, Brevo Mail, WhatsApp API verified.</Text>
+          <Text style={[styles.cardHeroNumber, { color: "#137333" }]}>OPERATIONAL</Text>
+          <Text style={styles.cardDesc}>Staging Supabase Auth, Storage, and newsroom bridges verified.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/settings" as never)}>
             <Text style={styles.cardLinkText}>Platform Settings →</Text>
           </Pressable>

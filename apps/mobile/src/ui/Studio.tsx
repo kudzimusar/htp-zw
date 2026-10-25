@@ -1325,7 +1325,7 @@ const styles = StyleSheet.create({
   breadcrumbText: { fontSize: 12, color: colors.inkMuted },
   breadcrumbActive: { fontWeight: "800", color: colors.ink },
   headerActionsStrip: { flexDirection: "row", gap: spacing.sm },
-  content: { width: "100%", maxWidth: 1240, alignSelf: "center", padding: spacing.xl },
+  content: { width: "100%", maxWidth: 1400, alignSelf: "center", padding: spacing.xl },
   pageHeaderBox: { marginBottom: spacing.lg },
   title: { fontSize: 26, fontWeight: "900", color: colors.ink, letterSpacing: -0.5 },
   subtitle: { fontSize: 13, lineHeight: 20, color: colors.inkMuted, maxWidth: 760, marginTop: 4 },
