@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/studio/staff/:staffId",
+      "destination": "/studio/staff/[staffId].html"
+    }
+  ]
 }

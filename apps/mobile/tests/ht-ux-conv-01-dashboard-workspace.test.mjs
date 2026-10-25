@@ -249,3 +249,17 @@ test("UX-CONV-01-R1 Role Dashboard Authority: Non-executive users cannot switch 
   assert.ok(indexSource.includes("OWNER DESIGN PREVIEW ONLY"), "Perspective selector must be explicitly labelled as preview only");
   assert.ok(indexSource.includes("CLIENT PERSPECTIVE SIMULATION DOES NOT ALTER SERVER RBAC"), "Must display prominent disclaimer that simulation does not modify server RBAC");
 });
+
+test("UX-CONV-01-R2: Dynamic Staff Profile rewrite rule and deep-link routing contract (UAT04B-STG02-001)", () => {
+  const repoRoot = path.resolve(root, "../..");
+  const vercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, "vercel.json"), "utf8"));
+  assert.equal(vercelConfig.cleanUrls, true, "cleanUrls must be true");
+  assert.ok(Array.isArray(vercelConfig.rewrites), "vercel.json must define rewrites");
+  const staffRewrite = vercelConfig.rewrites.find((r) => r.source === "/studio/staff/:staffId");
+  assert.ok(staffRewrite, "Must contain rewrite rule for /studio/staff/:staffId");
+  assert.equal(staffRewrite.destination, "/studio/staff/[staffId].html");
+
+  // Verify /studio/me route exists independently and is not affected by dynamic staff rewrites
+  assert.ok(fs.existsSync(path.join(root, "app/studio/me.tsx")), "app/studio/me.tsx must exist");
+  assert.ok(fs.existsSync(path.join(root, "app/studio/staff/[staffId].tsx")), "app/studio/staff/[staffId].tsx must exist");
+});
