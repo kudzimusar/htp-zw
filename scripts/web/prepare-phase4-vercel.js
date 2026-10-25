@@ -38,6 +38,11 @@ for (const retired of ['app.js','v21.js','reader.js']) {
   }
 }
 
+const staffDynamicHtml = path.join(dist, 'studio/staff/[staffId].html');
+if (fs.existsSync(staffDynamicHtml)) {
+  fs.copyFileSync(staffDynamicHtml, path.join(dist, 'studio/staff/fallback.html'));
+}
+
 const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local';
 fs.writeFileSync(path.join(dist, 'build-info.json'), JSON.stringify({
   sha,

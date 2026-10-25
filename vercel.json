@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/studio/staff/:staffId",
-      "destination": "/studio/staff/[staffId].html"
+      "destination": "/studio/staff/fallback.html"
     }
   ]
 }
