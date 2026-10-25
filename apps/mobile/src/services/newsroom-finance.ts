@@ -145,10 +145,14 @@ export function mapPaymentItem(raw: Record<string, unknown>): NewsroomPaymentIte
     amount: Number(raw.amount ?? 0),
     currency: String(raw.currency ?? "USD"),
     paymentDate: String(raw.payment_date ?? new Date().toISOString().slice(0, 10)),
-    paymentMethod: String(raw.payment_method ?? "bank_transfer"),
-    reference: raw.reference ? String(raw.reference) : null,
+    paymentMethod: String(raw.payment_method ?? raw.method ?? "bank_transfer"),
+    reference: raw.reference
+      ? String(raw.reference)
+      : (raw.provider_reference ? String(raw.provider_reference) : null),
     notes: raw.notes ? String(raw.notes) : null,
-    recordedBy: raw.recorded_by ? String(raw.recorded_by) : null,
+    recordedBy: raw.recorded_by
+      ? String(raw.recorded_by)
+      : (raw.received_by ? String(raw.received_by) : null),
     recordedByName: raw.recorded_by_name ? String(raw.recorded_by_name) : null,
     createdAt: String(raw.created_at ?? new Date().toISOString())
   };
@@ -159,7 +163,7 @@ export function mapExpenseItem(raw: Record<string, unknown>): NewsroomExpenseIte
     id: String(raw.id ?? ""),
     expenseNumber: String(raw.expense_number ?? ""),
     expenseDate: String(raw.expense_date ?? new Date().toISOString().slice(0, 10)),
-    vendorName: String(raw.vendor_name ?? ""),
+    vendorName: String(raw.vendor_name ?? raw.vendor ?? ""),
     category: String(raw.category ?? ""),
     description: String(raw.description ?? ""),
     department: raw.department ? String(raw.department) : null,
@@ -167,13 +171,17 @@ export function mapExpenseItem(raw: Record<string, unknown>): NewsroomExpenseIte
     amount: Number(raw.amount ?? 0),
     currency: String(raw.currency ?? "USD"),
     taxAmount: Number(raw.tax_amount ?? 0),
-    receiptReference: raw.receipt_reference ? String(raw.receipt_reference) : null,
+    receiptReference: raw.receipt_reference
+      ? String(raw.receipt_reference)
+      : (raw.document_ref ? String(raw.document_ref) : null),
     receiptUrl: raw.receipt_url ? String(raw.receipt_url) : null,
     status: String(raw.status ?? "draft"),
     paymentStatus: String(raw.payment_status ?? "unpaid"),
     paidAt: raw.paid_at ? String(raw.paid_at) : null,
     paymentReference: raw.payment_reference ? String(raw.payment_reference) : null,
-    rejectionReason: raw.rejection_reason ? String(raw.rejection_reason) : null,
+    rejectionReason: raw.rejection_reason
+      ? String(raw.rejection_reason)
+      : (raw.rejected_reason ? String(raw.rejected_reason) : null),
     submittedBy: raw.submitted_by ? String(raw.submitted_by) : null,
     submittedByName: raw.submitted_by_name ? String(raw.submitted_by_name) : null,
     approvedBy: raw.approved_by ? String(raw.approved_by) : null,
@@ -576,13 +584,18 @@ export function createNewsroomFinanceService(
 
     async recordPayment(input: NewsroomRecordPaymentInput): Promise<NewsroomPaymentResult> {
       const client = getClient();
+      const canonicalMethod = input.paymentMethod === "ecocash" || input.paymentMethod === "paynow"
+        ? "mobile_money"
+        : input.paymentMethod === "stripe"
+          ? "card"
+          : input.paymentMethod;
       const { data, error } = await client.rpc("finance_record_payment", {
         p_invoice_id: input.invoiceId,
         p_amount: input.amount,
         p_currency: input.currency,
-        p_payment_date: input.paymentDate ?? null,
-        p_payment_method: input.paymentMethod,
-        p_reference: input.reference ?? null,
+        p_payment_date: input.paymentDate ?? new Date().toISOString().slice(0, 10),
+        p_method: canonicalMethod,
+        p_provider_reference: input.reference ?? null,
         p_notes: input.notes ?? null,
         p_idempotency_key: input.idempotencyKey ?? null
       });
@@ -604,14 +617,13 @@ export function createNewsroomFinanceService(
 
     async listPayments(invoiceId?: string): Promise<NewsroomPaymentItem[]> {
       const client = getClient();
-      const { data, error } = await client.rpc("finance_list_payments", {
-        p_invoice_id: invoiceId ?? null
-      });
+      const { data, error } = await client.rpc("finance_list_payments");
       if (error) {
         throw new Error(`Failed to list payments: ${error.message} (code ${error.code})`);
       }
       const list = Array.isArray(data) ? data : [];
-      return list.map((item) => mapPaymentItem(item as Record<string, unknown>));
+      const mapped = list.map((item) => mapPaymentItem(item as Record<string, unknown>));
+      return invoiceId ? mapped.filter((payment) => payment.invoiceId === invoiceId) : mapped;
     },
 
     async listExpenses(statusFilter?: string | null): Promise<NewsroomExpenseItem[]> {
@@ -629,7 +641,7 @@ export function createNewsroomFinanceService(
     async createExpense(input: NewsroomCreateExpenseInput): Promise<NewsroomExpenseItem> {
       const client = getClient();
       const { data, error } = await client.rpc("finance_create_expense", {
-        p_expense_date: input.expenseDate ?? null,
+        p_expense_date: input.expenseDate ?? new Date().toISOString().slice(0, 10),
         p_vendor_name: input.vendorName,
         p_category: input.category,
         p_description: input.description,

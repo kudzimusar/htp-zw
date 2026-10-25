@@ -492,6 +492,9 @@ export function StudioFinanceDeskView({
     try {
       const amt = parseFloat(paymentAmount);
       if (!amt || amt <= 0) throw new Error("Enter a valid payment amount");
+      if (amt > selectedInvoice.balanceDue) {
+        throw new Error("Payment cannot exceed the outstanding balance.");
+      }
       const idemKey = `pay-${selectedInvoice.id}-${Date.now()}`;
       await services.newsroomFinance.recordPayment({
         invoiceId: selectedInvoice.id,
@@ -558,12 +561,14 @@ export function StudioFinanceDeskView({
       if (!expDesc) throw new Error("Expense description is required");
 
       await services.newsroomFinance.createExpense({
+        expenseDate: expDate.trim() || new Date().toISOString().slice(0, 10),
         vendorName: expVendor,
         category: expCategory,
         description: expDesc,
         department: expDept,
         amount: amt,
         currency: expCurrency,
+        receiptReference: expReceiptEvidence.trim() || null,
         submitImmediately: true
       });
       notify("Expense submitted for review.");
