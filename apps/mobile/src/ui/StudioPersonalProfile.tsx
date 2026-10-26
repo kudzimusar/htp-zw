@@ -77,6 +77,10 @@ export function StudioPersonalProfile() {
   const deskName = snapshot?.desk || (isAuthorized ? "General Newsroom" : "Unavailable");
   const handle = snapshot?.handle || (email !== "Unavailable" ? email.split("@")[0] : "staff");
 
+  const currentStaff = staffOperations.data?.staff?.find(
+    (s) => s.email.toLowerCase() === email.toLowerCase()
+  );
+
   const initials = displayName
     .split(" ")
     .map((s) => s[0])
@@ -154,9 +158,13 @@ export function StudioPersonalProfile() {
           <View style={styles.heroInfo}>
             <View style={styles.nameBadgeRow}>
               <Text style={styles.profileName}>{displayName}</Text>
-              <View style={styles.statusBadgeActive}>
-                <View style={styles.statusDotGreen} />
-                <Text style={styles.statusTextActive}>ACTIVE STAFF</Text>
+              <View style={currentStaff?.status === "active" ? styles.statusBadgeActive : styles.statusBadgeNeutral}>
+                {currentStaff?.status === "active" && <View style={styles.statusDotGreen} />}
+                <Text style={currentStaff?.status === "active" ? styles.statusTextActive : styles.statusTextNeutral}>
+                  {currentStaff?.status
+                    ? currentStaff.status.toUpperCase()
+                    : (isAuthorized ? "AUTHORIZED" : "GUEST / READER")}
+                </Text>
               </View>
               <View style={styles.publicationBadge}>
                 <Text style={styles.publicationBadgeText}>HealthTimes Zimbabwe</Text>
@@ -258,7 +266,7 @@ export function StudioPersonalProfile() {
 
             <View style={styles.fieldBlock}>
               <Text style={styles.fieldLabel}>Mobile Phone</Text>
-              <Text style={styles.fieldValue}>+263 77 200 0000 (Secured / Private)</Text>
+              <Text style={styles.fieldValue}>Not provided</Text>
             </View>
 
             <View style={styles.fieldBlock}>
@@ -278,7 +286,11 @@ export function StudioPersonalProfile() {
 
             <View style={styles.fieldBlock}>
               <Text style={styles.fieldLabel}>Member Status</Text>
-              <Text style={styles.fieldValue}>Active · Two-Factor Authenticated</Text>
+              <Text style={styles.fieldValue}>
+                {currentStaff?.status
+                  ? currentStaff.status.charAt(0).toUpperCase() + currentStaff.status.slice(1)
+                  : (isAuthorized ? "Authorized" : "Guest / Reader")}
+              </Text>
             </View>
           </View>
         </View>
@@ -623,16 +635,16 @@ export function StudioPersonalProfile() {
             <View style={styles.protectionRow}>
               <View>
                 <Text style={styles.protTitle}>Multi-Factor Authentication (MFA)</Text>
-                <Text style={styles.protDesc}>Required for all authorized Newsroom OS staff.</Text>
+                <Text style={styles.protDesc}>MFA verification state from server authority.</Text>
               </View>
-              <View style={styles.statusBadgeActive}>
-                <Text style={styles.statusTextActive}>ENFORCED</Text>
+              <View style={styles.statusBadgeNeutral}>
+                <Text style={styles.statusTextNeutral}>MFA status unavailable</Text>
               </View>
             </View>
             <View style={styles.protectionRow}>
               <View>
                 <Text style={styles.protTitle}>Password</Text>
-                <Text style={styles.protDesc}>Last changed 14 days ago.</Text>
+                <Text style={styles.protDesc}>Manage your account access password.</Text>
               </View>
               <Pressable
                 style={styles.changePasswordBtn}
@@ -754,6 +766,18 @@ const styles = StyleSheet.create({
   },
   statusDotGreen: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#34A853" },
   statusTextActive: { fontSize: 10, fontWeight: "900", color: "#137333", letterSpacing: 0.5 },
+  statusBadgeNeutral: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  statusTextNeutral: { fontSize: 10, fontWeight: "800", color: colors.inkMuted },
   publicationBadge: {
     backgroundColor: "#F1F5F9",
     paddingHorizontal: 8,

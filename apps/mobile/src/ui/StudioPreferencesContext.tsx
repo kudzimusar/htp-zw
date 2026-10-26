@@ -72,11 +72,7 @@ export function StudioPreferencesProvider({ children }: PropsWithChildren) {
   const [isMobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
   const [recentItems, setRecentItems] = useState<
     Array<{ id: string; title: string; path: string; category: string; timestamp: string }>
-  >([
-    { id: "rec-1", title: "National Malaria Budget Review", path: "/studio/stories", category: "Story", timestamp: "10 mins ago" },
-    { id: "rec-2", title: "Harare Central Hospital Inspection", path: "/studio/planning", category: "Assignment", timestamp: "25 mins ago" },
-    { id: "rec-3", title: "Invoice INV-2026-0042 (Econet Health)", path: "/studio/finance-invoices", category: "Invoice", timestamp: "1 hour ago" }
-  ]);
+  >([]);
 
   useEffect(() => {
     async function loadPreferences() {

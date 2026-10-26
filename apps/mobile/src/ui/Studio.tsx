@@ -255,6 +255,9 @@ export function StudioShell({
   const [collapsedHoverDomain, setCollapsedHoverDomain] = useState<StudioDomainDef | null>(null);
 
   const authorization = useAsync(() => services.authorization.getSnapshot(), []);
+  const inbox = useAsync(() => services.newsroomCommunication.listInbox("all", 20).catch(() => null), []);
+  const unreadCount = inbox.data?.summary?.unreadTotal ?? 0;
+  const notificationItems = inbox.data?.items ?? [];
   const active = (path: string) => (path === "/studio" ? pathname === "/studio" : pathname === path);
   const status = authorizationLabel(authorization.data?.status);
   const snapshot = authorization.data;
@@ -417,9 +420,11 @@ export function StudioShell({
             accessibilityLabel="Open Notification Centre"
           >
             <Text style={styles.bellIcon}>🔔</Text>
-            <View style={styles.notificationBadgeDot}>
-              <Text style={styles.notificationBadgeText}>4</Text>
-            </View>
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadgeDot}>
+                <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </Pressable>
 
           {/* Table Density Toggle (UX-CONV-01O) */}
@@ -859,67 +864,41 @@ export function StudioShell({
             </View>
 
             <ScrollView style={styles.notificationListScroll}>
-              <Pressable
-                style={styles.notificationCard}
-                onPress={() => {
-                  setNotificationsOpen(false);
-                  router.push("/studio/review-queue" as never);
-                }}
-              >
-                <View style={styles.notificationPillRow}>
-                  <Text style={styles.notifPillRed}>EDITORIAL REVIEW</Text>
-                  <Text style={styles.notifTime}>15 mins ago</Text>
+              {inbox.error ? (
+                <View style={styles.notificationEmptyBox}>
+                  <Text style={styles.notificationEmptyTitle}>Notification service unavailable</Text>
+                  <Text style={styles.notificationEmptySub}>
+                    Unable to retrieve operational notifications from server.
+                  </Text>
                 </View>
-                <Text style={styles.notifTitle}>Story returned for health accuracy check</Text>
-                <Text style={styles.notifDesc}>
-                  "Parirenyatwa Dialysis Wing Expansion" submitted by Rukudzo Gota.
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.notificationCard}
-                onPress={() => {
-                  setNotificationsOpen(false);
-                  router.push("/studio/assignments" as never);
-                }}
-              >
-                <View style={styles.notificationPillRow}>
-                  <Text style={styles.notifPillAmber}>DEADLINE IMMINENT</Text>
-                  <Text style={styles.notifTime}>1 hour ago</Text>
+              ) : notificationItems.length === 0 ? (
+                <View style={styles.notificationEmptyBox}>
+                  <Text style={styles.notificationEmptyTitle}>No unread notifications</Text>
+                  <Text style={styles.notificationEmptySub}>
+                    Your operational newsroom inbox is clear.
+                  </Text>
                 </View>
-                <Text style={styles.notifTitle}>National AIDS Council Q3 briefing coverage due today</Text>
-                <Text style={styles.notifDesc}>Assigned to Health Policy Desk.</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.notificationCard}
-                onPress={() => {
-                  setNotificationsOpen(false);
-                  router.push("/studio/finance-invoices" as never);
-                }}
-              >
-                <View style={styles.notificationPillRow}>
-                  <Text style={styles.notifPillBlue}>FINANCE ALERT</Text>
-                  <Text style={styles.notifTime}>3 hours ago</Text>
-                </View>
-                <Text style={styles.notifTitle}>Commercial Invoice INV-2026-0012 overdue</Text>
-                <Text style={styles.notifDesc}>Econet Healthcare placement past 30-day payment term.</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.notificationCard}
-                onPress={() => {
-                  setNotificationsOpen(false);
-                  router.push("/studio/staff-roles" as never);
-                }}
-              >
-                <View style={styles.notificationPillRow}>
-                  <Text style={styles.notifPillGreen}>STAFF INVITATION</Text>
-                  <Text style={styles.notifTime}>Yesterday</Text>
-                </View>
-                <Text style={styles.notifTitle}>Invitation accepted by Senior Science Reporter</Text>
-                <Text style={styles.notifDesc}>MFA enrollment complete and verified.</Text>
-              </Pressable>
+              ) : (
+                notificationItems.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={styles.notificationCard}
+                    onPress={() => {
+                      setNotificationsOpen(false);
+                      router.push("/studio/inbox" as never);
+                    }}
+                  >
+                    <View style={styles.notificationPillRow}>
+                      <Text style={styles.notifPillBlue}>{item.category.toUpperCase()}</Text>
+                      <Text style={styles.notifTime}>{item.priority.toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.notifTitle}>{item.eventType}</Text>
+                    <Text style={styles.notifDesc}>
+                      {item.readAt ? "Read" : "Unread"} · Registered newsroom event
+                    </Text>
+                  </Pressable>
+                ))
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1461,6 +1440,27 @@ const styles = StyleSheet.create({
   notifTime: { fontSize: 10, color: colors.inkMuted },
   notifTitle: { fontSize: 13, fontWeight: "800", color: colors.ink },
   notifDesc: { fontSize: 11, color: colors.inkMuted },
+  notificationEmptyBox: {
+    padding: spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginVertical: spacing.md
+  },
+  notificationEmptyTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.ink,
+    marginBottom: 4
+  },
+  notificationEmptySub: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    textAlign: "center"
+  },
   placeholder: {
     marginTop: spacing.xl,
     backgroundColor: "#FFFFFF",

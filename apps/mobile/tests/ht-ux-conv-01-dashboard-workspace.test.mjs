@@ -215,7 +215,7 @@ test("UX-CONV-01 Productivity Layer: Command Palette (⌘K), Quick Create, Notif
   // Notification Centre
   assert.ok(shellSource.includes("notificationDrawerSheet"));
   assert.ok(shellSource.includes("Operational Notifications"));
-  assert.ok(shellSource.includes("EDITORIAL REVIEW"));
+  assert.ok(shellSource.includes("No unread notifications"));
 
   // Studio Preferences Context
   assert.ok(fs.existsSync(path.join(root, "src/ui/StudioPreferencesContext.tsx")));
@@ -267,4 +267,48 @@ test("UX-CONV-01-R2: Dynamic Staff Profile rewrite rule and deep-link routing co
   // Verify /studio/me route exists independently and is not affected by dynamic staff rewrites
   assert.ok(fs.existsSync(path.join(root, "app/studio/me.tsx")), "app/studio/me.tsx must exist");
   assert.ok(fs.existsSync(path.join(root, "app/studio/staff/[staffId].tsx")), "app/studio/staff/[staffId].tsx must exist");
+});
+
+test("HT-MVP-RL-01-UAT-04B-STG03-R1: NO_FAKE_PROFILE_PHONE - Personal Profile does not hardcode fake phone", () => {
+  const profileSource = read("src/ui/StudioPersonalProfile.tsx");
+  assert.ok(!profileSource.includes("+263 77 200 0000"), "Must not contain hardcoded phone +263 77 200 0000");
+  assert.ok(!profileSource.includes("200 0000"), "Must not contain fake phone numbers");
+  assert.ok(profileSource.includes("Not provided"), "Must truthfully state phone is not provided when unavailable");
+});
+
+test("HT-MVP-RL-01-UAT-04B-STG03-R1: NO_FAKE_MFA_STATE - No unsubstantiated MFA or password claims", () => {
+  const profileSource = read("src/ui/StudioPersonalProfile.tsx");
+  assert.ok(!profileSource.includes("Two-Factor Authenticated"), "Must not claim user is Two-Factor Authenticated without server proof");
+  assert.ok(!profileSource.includes(">ENFORCED<"), "Must not claim MFA is ENFORCED without server authority");
+  assert.ok(!profileSource.includes("Last changed 14 days ago"), "Must not fabricate password last changed timestamp");
+  assert.ok(profileSource.includes("MFA status unavailable"), "Must truthfully state MFA status unavailable");
+
+  const dashboardSource = read("src/ui/StudioRoleDashboards.tsx");
+  assert.ok(!dashboardSource.includes(">Enforced<"), "Role dashboard must not claim MFA is Enforced");
+  assert.ok(dashboardSource.includes("MFA status unavailable"), "Role dashboard must report MFA status unavailable");
+});
+
+test("HT-MVP-RL-01-UAT-04B-STG03-R1: NO_FAKE_NOTIFICATION_COUNT - Notification count derived from authoritative inbox", () => {
+  const shellSource = read("src/ui/Studio.tsx");
+  assert.ok(!shellSource.includes(">4</Text>"), "Must not hardcode notification badge count = 4");
+  assert.ok(shellSource.includes("services.newsroomCommunication.listInbox"), "Must bind to real communications service");
+  assert.ok(shellSource.includes("unreadCount > 0"), "Must hide badge when unread count = 0");
+});
+
+test("HT-MVP-RL-01-UAT-04B-STG03-R1: NO_STATIC_OPERATIONAL_NOTIFICATIONS - Zero fabricated notification cards or shell facts", () => {
+  const shellSource = read("src/ui/Studio.tsx");
+  assert.ok(!shellSource.includes("Parirenyatwa Dialysis Wing Expansion"), "Must not contain fabricated story notification");
+  assert.ok(!shellSource.includes("National AIDS Council Q3 briefing"), "Must not contain fabricated assignment notification");
+  assert.ok(!shellSource.includes("INV-2026-0012 overdue"), "Must not contain fabricated invoice notification");
+  assert.ok(!shellSource.includes("Invitation accepted by Senior Science Reporter"), "Must not contain fabricated invitation notification");
+  assert.ok(shellSource.includes("No unread notifications"), "Must render truthful empty state");
+
+  const prefSource = read("src/ui/StudioPreferencesContext.tsx");
+  assert.ok(!prefSource.includes("National Malaria Budget Review"), "Recent items must not contain fake seed stories");
+  assert.ok(!prefSource.includes("Harare Central Hospital Inspection"), "Recent items must not contain fake seed assignments");
+  assert.ok(!prefSource.includes("INV-2026-0042"), "Recent items must not contain fake seed invoices");
+
+  const staffSource = read("src/ui/StudioStaffProfile.tsx");
+  assert.ok(!staffSource.includes("197.221.254.12"), "Staff profile must not contain fake IP address");
+  assert.ok(!staffSource.includes("Last active 10 mins ago"), "Staff profile must not contain fake active time");
 });

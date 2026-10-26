@@ -259,7 +259,7 @@ export function PublisherOwnerDashboard({
               <Text style={styles.peoplePillLbl}>Security Violations</Text>
             </View>
             <View style={styles.peoplePill}>
-              <Text style={styles.peoplePillVal}>Enforced</Text>
+              <Text style={styles.peoplePillVal}>MFA status unavailable</Text>
               <Text style={styles.peoplePillLbl}>MFA Enforcement</Text>
             </View>
           </View>
@@ -673,7 +673,7 @@ export function SystemsAdminDashboard({
         <View style={styles.card}>
           <Text style={styles.cardEyebrow}>ACTIVE STAFF ACCOUNTS</Text>
           <Text style={styles.cardHeroNumber}>{String(activeStaffCount)}</Text>
-          <Text style={styles.cardDesc}>Certified newsroom staff members with enforced two-factor authentication.</Text>
+          <Text style={styles.cardDesc}>Certified newsroom staff accounts registered in directory.</Text>
           <Pressable style={styles.cardLink} onPress={() => router.push("/studio/staff-roles" as never)}>
             <Text style={styles.cardLinkText}>Review Staff Directory →</Text>
           </Pressable>

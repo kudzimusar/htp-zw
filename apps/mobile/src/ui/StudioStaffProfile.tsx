@@ -480,11 +480,17 @@ export function StudioStaffProfile({ staffId }: { staffId: string }) {
 
           <View style={styles.sessionItem}>
             <View style={styles.sessionItemMain}>
-              <Text style={styles.sessionTitle}>Web Studio Session (Chrome / macOS)</Text>
-              <Text style={styles.sessionSub}>IP: 197.221.254.12 · Last active 10 mins ago</Text>
+              <Text style={styles.sessionTitle}>Registered Newsroom Sessions</Text>
+              <Text style={styles.sessionSub}>
+                {staffMember.activeSessionsCount > 0
+                  ? `${staffMember.activeSessionsCount} active session${staffMember.activeSessionsCount > 1 ? "s" : ""} · Last login: ${staffMember.lastLoginAt ? new Date(staffMember.lastLoginAt).toLocaleString() : "Recently"}`
+                  : `0 active sessions · Last login: ${staffMember.lastLoginAt ? new Date(staffMember.lastLoginAt).toLocaleString() : "Never"}`}
+              </Text>
             </View>
-            <View style={styles.activePill}>
-              <Text style={styles.activePillText}>ONLINE</Text>
+            <View style={staffMember.activeSessionsCount > 0 ? styles.activePill : styles.offlinePill}>
+              <Text style={staffMember.activeSessionsCount > 0 ? styles.activePillText : styles.offlinePillText}>
+                {staffMember.activeSessionsCount > 0 ? "ONLINE" : "OFFLINE"}
+              </Text>
             </View>
           </View>
 
@@ -896,6 +902,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm
   },
   activePillText: { fontSize: 10, fontWeight: "900", color: "#137333" },
+  offlinePill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  offlinePillText: { fontSize: 10, fontWeight: "800", color: colors.inkMuted },
   revokeFullBtn: {
     alignSelf: "flex-start",
     backgroundColor: "#FFF5F5",
