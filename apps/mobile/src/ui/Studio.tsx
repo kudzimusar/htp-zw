@@ -17,6 +17,7 @@ import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { HealthTimesBrand } from "./Brand";
 import {
+  StudioPreferencesProvider,
   useStudioPreferences,
   type NewsroomRoleKey
 } from "./StudioPreferencesContext";
@@ -215,7 +216,20 @@ export interface BreadcrumbItem {
   path?: string;
 }
 
-export function StudioShell({
+export function StudioShell(props: PropsWithChildren<{
+  title: string;
+  breadcrumbs?: BreadcrumbItem[];
+  subtitle?: string;
+  actions?: React.ReactNode;
+}>) {
+  return (
+    <StudioPreferencesProvider>
+      <StudioShellInner {...props} />
+    </StudioPreferencesProvider>
+  );
+}
+
+function StudioShellInner({
   children,
   title,
   breadcrumbs,
