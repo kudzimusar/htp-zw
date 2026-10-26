@@ -62,7 +62,7 @@ const DEFAULT_PINNED = [
 const StudioPreferencesContext = safeCreateContext(null);
 
 export function StudioPreferencesProvider({ children }: PropsWithChildren) {
-  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(false);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(true);
   const [tableDensity, setTableDensityState] = useState<TableDensity>("comfortable");
   const [pinnedPaths, setPinnedPathsState] = useState<string[]>(DEFAULT_PINNED);
   const [activeRoleOverride, setActiveRoleOverride] = useState<NewsroomRoleKey | null>(null);
@@ -183,7 +183,7 @@ export function useStudioPreferences(): StudioPreferencesContextValue {
   if (!ctx) {
     // Return safe fallback if used outside provider
     return {
-      sidebarCollapsed: false,
+      sidebarCollapsed: true,
       setSidebarCollapsed: () => {},
       toggleSidebar: () => {},
       tableDensity: "comfortable",

@@ -374,17 +374,21 @@ function StudioShellInner({
       {/* 1. GLOBAL TOP UTILITY BAR (UX-CONV-01D) */}
       <View style={styles.topUtilityBar}>
         <View style={styles.topBarLeft}>
-          {/* Hamburger button for mobile / tablet drawer */}
-          {!desktop && (
-            <Pressable
-              style={styles.menuIconBtn}
-              onPress={() => setMobileDrawerOpen(true)}
-              accessibilityLabel="Open navigation drawer"
-              accessibilityRole="button"
-            >
-              <Text style={styles.menuIconText}>☰</Text>
-            </Pressable>
-          )}
+          {/* Hamburger button for navigation sidebar / drawer */}
+          <Pressable
+            style={styles.menuIconBtn}
+            onPress={() => {
+              if (desktop) {
+                toggleSidebar();
+              } else {
+                setMobileDrawerOpen(true);
+              }
+            }}
+            accessibilityLabel="Toggle navigation sidebar"
+            accessibilityRole="button"
+          >
+            <Text style={styles.menuIconText}>☰</Text>
+          </Pressable>
 
           {/* HealthTimes Brand */}
           <Pressable
@@ -1222,7 +1226,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     justifyContent: "space-between"
   },
-  sidebarCollapsed: { width: 64, paddingHorizontal: 8 },
+  sidebarCollapsed: { display: "none" },
   pinnedSection: {
     borderBottomWidth: 1,
     borderBottomColor: "#1F3243",
