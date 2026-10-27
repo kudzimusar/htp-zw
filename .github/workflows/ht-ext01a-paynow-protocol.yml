@@ -1,0 +1,38 @@
+name: HT-EXT-01A Paynow protocol (server-only)
+
+on:
+  push:
+    branches:
+      - feat/ht-ext01a-paynow-protocol-staging
+  pull_request:
+    paths:
+      - lib/paynow-protocol.js
+      - tests/paynow-protocol.test.js
+      - .github/workflows/ht-ext01a-paynow-protocol.yml
+
+permissions:
+  contents: read
+
+jobs:
+  paynow-protocol-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Paynow protocol contract with offline fixtures (no secrets)
+        run: node --test tests/paynow-protocol.test.js
+      - name: Verify commerce gates remain fail-closed
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const api = fs.readFileSync('api/commerce.js', 'utf8');
+          const readiness = fs.readFileSync('apps/mobile/src/growth/payment-readiness.ts', 'utf8');
+          if (!api.includes('webhookDecision()') || !api.includes('checkoutDecision()') ||
+              !readiness.includes('provider_authority_certified')) {
+            throw new Error('Commerce fail-closed guard drift');
+          }
+          NODE
