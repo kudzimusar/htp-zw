@@ -1057,14 +1057,19 @@ test("11. Finance Transparency, Commercial Transparency (AdSense separated), Dai
   assert.equal(mapTransactionToPremiumCheckoutState("AMOUNT_MISMATCH", false), "Requires review");
 });
 
-test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (payment_create_intent, connectivity purpose, idempotency, unverified barrier, Premium reconciliation & replay, Advertising invoice gating & accounting-pending, no-delete triggers, privileges, and transparency)", () => {
+test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase extensions.pgcrypto parity, payment_create_intent, connectivity purpose, idempotency, unverified barrier, Premium reconciliation & replay, Advertising invoice gating & accounting-pending, no-delete triggers, privileges, and transparency)", () => {
   const migrationPath = path.join(
     repoRoot,
     "supabase/migrations/20261027000000_ht_ext01a_payment_finance_readiness.sql"
   );
+  const followupMigrationPath = path.join(
+    repoRoot,
+    "supabase/migrations/20261027010000_ht_ext01a_rdy01_stg01_pgcrypto_runtime_parity.sql"
+  );
   const migrationSql = fs.readFileSync(migrationPath, "utf8");
+  const followupMigrationSql = fs.readFileSync(followupMigrationPath, "utf8");
 
-  // Structural & security boundary assertions on the SQL migration
+  // Structural & security boundary assertions on the SQL migrations
   assert.match(migrationSql, /create or replace function public\.payment_create_intent\(/);
   assert.match(migrationSql, /create or replace function public\.payment_reconcile_premium_transaction\(/);
   assert.match(migrationSql, /create or replace function public\.payment_reconcile_advertising_invoice\(/);
@@ -1075,6 +1080,15 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (payment_cr
   assert.match(migrationSql, /grant execute on function public\.payment_create_intent\(text, text, uuid, uuid, text, numeric, text\) to service_role/);
   assert.match(migrationSql, /create trigger trg_payment_transactions_no_delete/);
   assert.match(migrationSql, /create trigger trg_payment_audit_logs_immutable/);
+
+  // STG01-R1 follow-up migration structural assertions (extensions.gen_random_bytes(16), SECURITY DEFINER, search_path = public, service_role bounds)
+  assert.match(followupMigrationSql, /create or replace function public\.payment_generate_ulid\(p_timestamp timestamptz default clock_timestamp\(\)\)/);
+  assert.match(followupMigrationSql, /security definer/);
+  assert.match(followupMigrationSql, /set search_path = public/);
+  assert.match(followupMigrationSql, /extensions\.gen_random_bytes\(16\)/);
+  assert.doesNotMatch(followupMigrationSql, /(?<!extensions\.)gen_random_bytes\s*\(/);
+  assert.match(followupMigrationSql, /revoke all on function public\.payment_generate_ulid\(timestamptz\) from public, anon, authenticated/);
+  assert.match(followupMigrationSql, /grant execute on function public\.payment_generate_ulid\(timestamptz\) to service_role/);
 
   const psqlCandidates = [
     "/opt/homebrew/Cellar/postgresql@16/16.15/bin/psql",
@@ -1113,10 +1127,12 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (payment_cr
     runDbSql("postgres", `drop database if exists ${dbName}; create database ${dbName};`);
 
     // 1. Bootstrap prerequisite Supabase/Newsroom/Finance objects in the disposable database
+    //    Match Supabase staging topology: pgcrypto lives in schema `extensions`, NOT `public`.
     runDbSql(
       dbName,
       `
-      create extension if not exists pgcrypto;
+      create schema if not exists extensions;
+      create extension if not exists pgcrypto with schema extensions;
       create schema if not exists auth;
       create or replace function auth.uid() returns uuid language sql stable as $$
         select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
@@ -1127,6 +1143,7 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (payment_cr
         if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
         if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
       end $$;
+      grant usage on schema extensions to postgres, anon, authenticated, service_role;
       create table public.newsroom_capabilities (key text primary key, description text);
       create table public.newsroom_roles (id uuid primary key default gen_random_uuid(), name text unique not null, description text);
       create table public.newsroom_role_capabilities (role_id uuid references public.newsroom_roles(id), capability_key text references public.newsroom_capabilities(key), primary key (role_id, capability_key));
@@ -1164,8 +1181,30 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (payment_cr
       `
     );
 
-    // 2. Apply the migration file 20261027000000_ht_ext01a_payment_finance_readiness.sql
+    // 2. Apply base readiness migration 20261027000000_ht_ext01a_payment_finance_readiness.sql
     runDbSql(dbName, migrationSql);
+
+    // 2b. Prove that before the follow-up migration, unqualified gen_random_bytes fails with SQLSTATE 42883 when pgcrypto is in schema `extensions`
+    const preRemediationSqlState = runDbSql(
+      dbName,
+      `
+      do $$
+      begin
+        perform public.payment_generate_ulid();
+        raise exception 'Expected SQLSTATE 42883 before STG01-R1 follow-up migration';
+      exception when undefined_function then
+        -- SQLSTATE 42883 confirmed
+        null;
+      end $$;
+      select
+        (select n.nspname from pg_extension e join pg_namespace n on n.oid = e.extnamespace where e.extname = 'pgcrypto') || ':' ||
+        (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'gen_random_bytes');
+      `
+    );
+    assert.equal(preRemediationSqlState, "extensions:0");
+
+    // 2c. Apply follow-up migration 20261027010000_ht_ext01a_rdy01_stg01_pgcrypto_runtime_parity.sql
+    runDbSql(dbName, followupMigrationSql);
 
     // 3. Execute all required runtime SQL assertions (Sections 3 through 12) and return a structured JSON proof
     const runtimeProofRaw = runDbSql(
