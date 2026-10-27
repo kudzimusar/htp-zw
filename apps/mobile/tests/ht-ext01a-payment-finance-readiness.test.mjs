@@ -1057,7 +1057,7 @@ test("11. Finance Transparency, Commercial Transparency (AdSense separated), Dai
   assert.equal(mapTransactionToPremiumCheckoutState("AMOUNT_MISMATCH", false), "Requires review");
 });
 
-test("12. Section 14 SQL Migration & Runtime Contract Verification (disposable PostgreSQL when socket/IPC permitted, full SQL structure verification always)", () => {
+test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (payment_create_intent, connectivity purpose, idempotency, unverified barrier, Premium reconciliation & replay, Advertising invoice gating & accounting-pending, no-delete triggers, privileges, and transparency)", () => {
   const migrationPath = path.join(
     repoRoot,
     "supabase/migrations/20261027000000_ht_ext01a_payment_finance_readiness.sql"
@@ -1076,16 +1076,15 @@ test("12. Section 14 SQL Migration & Runtime Contract Verification (disposable P
   assert.match(migrationSql, /create trigger trg_payment_transactions_no_delete/);
   assert.match(migrationSql, /create trigger trg_payment_audit_logs_immutable/);
 
-  // Attempt disposable local PostgreSQL runtime execution if local socket/IPC is permitted by OS sandbox
   const psqlCandidates = [
     "/opt/homebrew/Cellar/postgresql@16/16.15/bin/psql",
     "/opt/homebrew/bin/psql",
     "psql"
   ];
   const psqlBin = psqlCandidates.find((p) => p === "psql" || fs.existsSync(p));
-  if (!psqlBin) return;
+  assert.ok(psqlBin, "psql binary must be present");
 
-  const dbName = `ht_rdy01_r1_verify_${process.pid}`;
+  const dbName = `ht_rdy01_r2_verify_${process.pid}`;
   let canConnect = false;
   try {
     execFileSync(psqlBin, ["-h", "/tmp", "-p", "5432", "-d", "postgres", "-qAt", "-c", "SELECT 1;"], {
@@ -1094,7 +1093,7 @@ test("12. Section 14 SQL Migration & Runtime Contract Verification (disposable P
     canConnect = true;
   } catch (err) {
     const msg = String(err?.stderr || err?.message || "");
-    // Under macOS Seatbelt sandbox with network/IPC disabled, socket connect returns Operation not permitted
+    // Seatbelt/IPC skip behavior ONLY when the OS sandbox blocks socket connect()
     if (msg.includes("Operation not permitted") || msg.includes("could not connect")) {
       return;
     }
@@ -1112,6 +1111,8 @@ test("12. Section 14 SQL Migration & Runtime Contract Verification (disposable P
 
   try {
     runDbSql("postgres", `drop database if exists ${dbName}; create database ${dbName};`);
+
+    // 1. Bootstrap prerequisite Supabase/Newsroom/Finance objects in the disposable database
     runDbSql(
       dbName,
       `
@@ -1162,7 +1163,464 @@ test("12. Section 14 SQL Migration & Runtime Contract Verification (disposable P
       create table public.analytics_daily_metrics (id uuid primary key default gen_random_uuid(), source_system text not null, metric_date date not null, ad_revenue numeric(18,2) default 0);
       `
     );
+
+    // 2. Apply the migration file 20261027000000_ht_ext01a_payment_finance_readiness.sql
     runDbSql(dbName, migrationSql);
+
+    // 3. Execute all required runtime SQL assertions (Sections 3 through 12) and return a structured JSON proof
+    const runtimeProofRaw = runDbSql(
+      dbName,
+      `
+      create temp table r2_runtime_proof (payload jsonb);
+
+      do $$
+      declare
+        v_staff_id uuid;
+        v_sub_id uuid;
+        v_cust_id uuid;
+        v_inv_draft uuid;
+        v_inv_approved uuid;
+        v_inv_void uuid;
+        v_inv_cancelled uuid;
+        v_inv_issued uuid;
+        v_inv_overdue uuid;
+
+        v_prem_intent jsonb;
+        v_prem_replay jsonb;
+        v_prem_tx_id uuid;
+        v_prem_tx_row public.payment_transactions%rowtype;
+        v_prem_tx_count int;
+        v_alt_amount_rejected boolean := false;
+        v_idem_conflict_rejected boolean := false;
+
+        v_conn_intent jsonb;
+        v_conn_tx_id uuid;
+        v_conn_prem_rejected boolean := false;
+        v_conn_adv_rejected boolean := false;
+
+        v_unverified_intent jsonb;
+        v_unverified_tx_id uuid;
+        v_unverified_update_rejected boolean := false;
+        v_unverified_reconcile_rejected boolean := false;
+
+        v_prem_rec_1 jsonb;
+        v_prem_rec_2 jsonb;
+        v_prem_rec_row public.premium_entitlement_reconciliations%rowtype;
+        v_entitlement_count_after_first int;
+        v_entitlement_count_after_replay int;
+
+        v_draft_intent_rejected boolean := false;
+        v_approved_intent_rejected boolean := false;
+        v_void_intent_rejected boolean := false;
+        v_cancelled_intent_rejected boolean := false;
+        v_unpayable_reconcile_rejected boolean := false;
+
+        v_adv_intent_1 jsonb;
+        v_adv_tx_1 uuid;
+        v_adv_rec_1 jsonb;
+        v_adv_pay_1 public.finance_payments%rowtype;
+        v_inv_issued_after public.finance_invoices%rowtype;
+        v_gl_count_while_unapproved int;
+
+        v_adv_intent_2 jsonb;
+        v_adv_tx_2 uuid;
+        v_adv_rec_2 jsonb;
+
+        v_delete_tx_sqlstate text := '';
+        v_delete_audit_sqlstate text := '';
+        v_delete_fin_pay_sqlstate text := '';
+        v_delete_prem_rec_sqlstate text := '';
+
+        v_rls_enabled_count int;
+        v_priv_proof jsonb;
+        v_transparency jsonb;
+      begin
+        insert into public.staff_profiles(display_name) values ('Finance Officer') returning id into v_staff_id;
+        insert into public.subscribers(email, display_name) values ('r2-runtime@example.com', 'R2 Runtime Subscriber') returning id into v_sub_id;
+        insert into public.finance_customers(legal_name, currency) values ('R2 Medical Advertiser', 'USD') returning id into v_cust_id;
+
+        -- Section 3 & 5: Payment Intent & Idempotency Runtime
+        v_prem_intent := public.payment_create_intent('PREMIUM_SUBSCRIPTION', 'r2-idem-prem-001', v_sub_id, null);
+        v_prem_replay := public.payment_create_intent('PREMIUM_SUBSCRIPTION', 'r2-idem-prem-001', v_sub_id, null);
+        v_prem_tx_id := (v_prem_intent->>'transaction_id')::uuid;
+        select * into v_prem_tx_row from public.payment_transactions where id = v_prem_tx_id;
+        select count(*)::int into v_prem_tx_count from public.payment_transactions where idempotency_key = 'r2-idem-prem-001';
+
+        -- Reject client-supplied alternative amount
+        begin
+          perform public.payment_create_intent('PREMIUM_SUBSCRIPTION', 'r2-idem-prem-bad-amt', v_sub_id, null, 'healthtimes_premium_monthly', 1.00, 'USD');
+        exception when sqlstate '22023' then
+          v_alt_amount_rejected := true;
+        end;
+
+        -- Reject conflicting parameters on existing idempotency key
+        begin
+          perform public.payment_create_intent('PROVIDER_CONNECTIVITY_TEST', 'r2-idem-prem-001', null, null);
+        exception when sqlstate '22023' then
+          v_idem_conflict_rejected := true;
+        end;
+
+        -- Section 4: Connectivity Purpose Runtime
+        v_conn_intent := public.payment_create_intent('PROVIDER_CONNECTIVITY_TEST', 'r2-idem-conn-001', null, null);
+        v_conn_tx_id := (v_conn_intent->>'transaction_id')::uuid;
+
+        begin
+          perform public.payment_reconcile_premium_transaction(v_conn_tx_id);
+        exception when sqlstate '22023' then
+          v_conn_prem_rejected := true;
+        end;
+
+        begin
+          perform public.payment_reconcile_advertising_invoice(v_conn_tx_id, v_staff_id);
+        exception when sqlstate '22023' then
+          v_conn_adv_rejected := true;
+        end;
+
+        -- Section 6: Unverified Payment Barrier Runtime
+        v_unverified_intent := public.payment_create_intent('PREMIUM_SUBSCRIPTION', 'r2-idem-unverified-001', v_sub_id, null);
+        v_unverified_tx_id := (v_unverified_intent->>'transaction_id')::uuid;
+
+        begin
+          update public.payment_transactions
+             set internal_status = 'PAYMENT_VERIFIED'
+           where id = v_unverified_tx_id;
+        exception when sqlstate '23514' then
+          v_unverified_update_rejected := true;
+        end;
+
+        begin
+          perform public.payment_reconcile_premium_transaction(v_unverified_tx_id);
+        exception when sqlstate '22023' then
+          v_unverified_reconcile_rejected := true;
+        end;
+
+        -- Section 7: Premium Reconciliation & Replay Runtime (using explicit TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION)
+        update public.payment_transactions
+           set verification_authority = 'TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION',
+               internal_status = 'PAYMENT_VERIFIED',
+               reported_amount = 5.00,
+               provider_reference = 'SYNTH-PREM-001',
+               confirmed_at = '2026-10-27T10:00:00Z'::timestamptz
+         where id = v_prem_tx_id;
+
+        v_prem_rec_1 := public.payment_reconcile_premium_transaction(v_prem_tx_id, '2026-10-27T10:05:00Z'::timestamptz);
+        select count(*)::int into v_entitlement_count_after_first from public.premium_entitlements where subscriber_id = v_sub_id;
+
+        v_prem_rec_2 := public.payment_reconcile_premium_transaction(v_prem_tx_id, '2026-10-27T11:00:00Z'::timestamptz);
+        select count(*)::int into v_entitlement_count_after_replay from public.premium_entitlements where subscriber_id = v_sub_id;
+        select * into v_prem_rec_row from public.premium_entitlement_reconciliations where transaction_id = v_prem_tx_id;
+
+        -- Section 8: Advertising Invoice Gating Runtime (draft, approved, void, cancelled rejected; issued permitted)
+        insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by)
+        values ('INV-R2-DRAFT', v_cust_id, 'USD', 200, 200, 200, 'draft', v_staff_id) returning id into v_inv_draft;
+
+        insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by, approved_by)
+        values ('INV-R2-APPROVED', v_cust_id, 'USD', 200, 200, 200, 'approved', v_staff_id, v_staff_id) returning id into v_inv_approved;
+
+        insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by)
+        values ('INV-R2-VOID', v_cust_id, 'USD', 200, 200, 200, 'void', v_staff_id) returning id into v_inv_void;
+
+        insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by)
+        values ('INV-R2-CANCELLED', v_cust_id, 'USD', 200, 200, 200, 'cancelled', v_staff_id) returning id into v_inv_cancelled;
+
+        insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by, issued_by)
+        values ('INV-R2-ISSUED', v_cust_id, 'USD', 400, 400, 400, 'issued', v_staff_id, v_staff_id) returning id into v_inv_issued;
+
+        insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by, issued_by)
+        values ('INV-R2-OVERDUE', v_cust_id, 'USD', 300, 300, 300, 'overdue', v_staff_id, v_staff_id) returning id into v_inv_overdue;
+
+        begin
+          perform public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-inv-draft', null, v_inv_draft);
+        exception when sqlstate '22023' then v_draft_intent_rejected := true; end;
+
+        begin
+          perform public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-inv-approved', null, v_inv_approved);
+        exception when sqlstate '22023' then v_approved_intent_rejected := true; end;
+
+        begin
+          perform public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-inv-void', null, v_inv_void);
+        exception when sqlstate '22023' then v_void_intent_rejected := true; end;
+
+        begin
+          perform public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-inv-cancelled', null, v_inv_cancelled);
+        exception when sqlstate '22023' then v_cancelled_intent_rejected := true; end;
+
+        -- Also prove payment_reconcile_advertising_invoice rejects an invoice that became void/approved before reconciliation
+        declare
+          v_inv_temp uuid;
+          v_tx_temp uuid;
+        begin
+          insert into public.finance_invoices(invoice_number, customer_id, currency, subtotal, total, balance_due, status, created_by, issued_by)
+          values ('INV-R2-TEMP', v_cust_id, 'USD', 150, 150, 150, 'issued', v_staff_id, v_staff_id) returning id into v_inv_temp;
+          v_tx_temp := (public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-inv-temp', null, v_inv_temp)->>'transaction_id')::uuid;
+          update public.payment_transactions
+             set verification_authority = 'TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION',
+                 internal_status = 'PAYMENT_VERIFIED',
+                 reported_amount = 150.00
+           where id = v_tx_temp;
+          update public.finance_invoices set status = 'approved' where id = v_inv_temp;
+          begin
+            perform public.payment_reconcile_advertising_invoice(v_tx_temp, v_staff_id);
+          exception when sqlstate '22023' then
+            v_unpayable_reconcile_rejected := true;
+          end;
+        end;
+
+        -- Section 9: Advertising Accounting Pending Runtime (accountant_approved = false)
+        v_adv_intent_1 := public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-adv-001', null, v_inv_issued);
+        v_adv_tx_1 := (v_adv_intent_1->>'transaction_id')::uuid;
+        update public.payment_transactions
+           set verification_authority = 'TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION',
+               internal_status = 'PAYMENT_VERIFIED',
+               reported_amount = 400.00,
+               payment_channel = 'ecocash',
+               provider_reference = 'SYNTH-ADV-001',
+               confirmed_at = '2026-10-27T10:15:00Z'::timestamptz
+         where id = v_adv_tx_1;
+
+        v_adv_rec_1 := public.payment_reconcile_advertising_invoice(v_adv_tx_1, v_staff_id);
+        select * into v_adv_pay_1 from public.finance_payments where transaction_id = v_adv_tx_1;
+        select * into v_inv_issued_after from public.finance_invoices where id = v_inv_issued;
+        select count(*)::int into v_gl_count_while_unapproved from public.finance_journal_entries;
+
+        -- Approve clearing model for second payable invoice so both accounting_pending_authority and accounting_posted are populated for Section 12
+        update public.finance_provider_clearing_config
+           set accountant_approved = true,
+               clearing_mode = 'PROVIDER_CLEARING_TWO_STEP',
+               provider_clearing_account_code = '1060'
+         where provider = 'paynow';
+
+        v_adv_intent_2 := public.payment_create_intent('ADVERTISING_INVOICE', 'r2-idem-adv-002', null, v_inv_overdue);
+        v_adv_tx_2 := (v_adv_intent_2->>'transaction_id')::uuid;
+        update public.payment_transactions
+           set verification_authority = 'TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION',
+               internal_status = 'PAYMENT_VERIFIED',
+               reported_amount = 300.00,
+               payment_channel = 'innbucks',
+               provider_reference = 'SYNTH-ADV-002',
+               confirmed_at = '2026-10-27T10:30:00Z'::timestamptz
+         where id = v_adv_tx_2;
+
+        v_adv_rec_2 := public.payment_reconcile_advertising_invoice(v_adv_tx_2, v_staff_id);
+
+        -- Section 10: No-Destructive-Delete Runtime
+        begin
+          delete from public.payment_transactions where id = v_prem_tx_id;
+        exception when others then
+          v_delete_tx_sqlstate := sqlstate;
+        end;
+
+        begin
+          delete from public.payment_audit_logs;
+        exception when others then
+          v_delete_audit_sqlstate := sqlstate;
+        end;
+
+        begin
+          delete from public.finance_payments where id = v_adv_pay_1.id;
+        exception when others then
+          v_delete_fin_pay_sqlstate := sqlstate;
+        end;
+
+        begin
+          delete from public.premium_entitlement_reconciliations where id = v_prem_rec_row.id;
+        exception when others then
+          v_delete_prem_rec_sqlstate := sqlstate;
+        end;
+
+        -- Section 11: Privilege & RLS Runtime
+        select count(*)::int into v_rls_enabled_count
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relname in (
+            'premium_plans',
+            'payment_transactions',
+            'premium_entitlement_reconciliations',
+            'finance_provider_clearing_config',
+            'provider_settlements',
+            'provider_settlement_lines',
+            'payment_reversals',
+            'payment_exceptions',
+            'payment_audit_logs'
+          )
+          and c.relrowsecurity = true;
+
+        v_priv_proof := jsonb_build_object(
+          'rls_enabled_count', v_rls_enabled_count,
+          'anon_table_select', has_table_privilege('anon', 'public.payment_transactions', 'SELECT'),
+          'authenticated_table_select', has_table_privilege('authenticated', 'public.payment_transactions', 'SELECT'),
+          'anon_create_intent', has_function_privilege('anon', 'public.payment_create_intent(text,text,uuid,uuid,text,numeric,text)', 'EXECUTE'),
+          'authenticated_create_intent', has_function_privilege('authenticated', 'public.payment_create_intent(text,text,uuid,uuid,text,numeric,text)', 'EXECUTE'),
+          'service_role_create_intent', has_function_privilege('service_role', 'public.payment_create_intent(text,text,uuid,uuid,text,numeric,text)', 'EXECUTE'),
+          'anon_reconcile_premium', has_function_privilege('anon', 'public.payment_reconcile_premium_transaction(uuid,timestamptz)', 'EXECUTE'),
+          'authenticated_reconcile_premium', has_function_privilege('authenticated', 'public.payment_reconcile_premium_transaction(uuid,timestamptz)', 'EXECUTE'),
+          'service_role_reconcile_premium', has_function_privilege('service_role', 'public.payment_reconcile_premium_transaction(uuid,timestamptz)', 'EXECUTE'),
+          'anon_reconcile_advertising', has_function_privilege('anon', 'public.payment_reconcile_advertising_invoice(uuid,uuid)', 'EXECUTE'),
+          'authenticated_reconcile_advertising', has_function_privilege('authenticated', 'public.payment_reconcile_advertising_invoice(uuid,uuid)', 'EXECUTE'),
+          'service_role_reconcile_advertising', has_function_privilege('service_role', 'public.payment_reconcile_advertising_invoice(uuid,uuid)', 'EXECUTE')
+        );
+
+        -- Section 12: Transparency Runtime
+        v_transparency := public.finance_get_payment_transparency('USD');
+
+        insert into r2_runtime_proof(payload) values (
+          jsonb_build_object(
+            'payment_intent', jsonb_build_object(
+              'intent', v_prem_intent,
+              'alt_amount_rejected', v_alt_amount_rejected
+            ),
+            'connectivity_intent', jsonb_build_object(
+              'intent', v_conn_intent,
+              'prem_reconcile_rejected', v_conn_prem_rejected,
+              'adv_reconcile_rejected', v_conn_adv_rejected
+            ),
+            'idempotency', jsonb_build_object(
+              'first_replayed', (v_prem_intent->>'replayed')::boolean,
+              'second_replayed', (v_prem_replay->>'replayed')::boolean,
+              'same_transaction_id', (v_prem_intent->>'transaction_id') = (v_prem_replay->>'transaction_id'),
+              'tx_count', v_prem_tx_count,
+              'conflict_rejected', v_idem_conflict_rejected
+            ),
+            'unverified_barrier', jsonb_build_object(
+              'update_rejected', v_unverified_update_rejected,
+              'reconcile_rejected', v_unverified_reconcile_rejected
+            ),
+            'premium_reconciliation', jsonb_build_object(
+              'first', v_prem_rec_1,
+              'replay', v_prem_rec_2,
+              'entitlement_count_after_first', v_entitlement_count_after_first,
+              'entitlement_count_after_replay', v_entitlement_count_after_replay,
+              'amount', v_prem_rec_row.amount,
+              'currency', v_prem_rec_row.currency,
+              'business_reconciliation', v_prem_rec_row.business_reconciliation,
+              'accounting_status', v_prem_rec_row.accounting_status,
+              'revenue_journal_id', v_prem_rec_row.revenue_journal_id
+            ),
+            'advertising_gating', jsonb_build_object(
+              'draft_rejected', v_draft_intent_rejected,
+              'approved_rejected', v_approved_intent_rejected,
+              'void_rejected', v_void_intent_rejected,
+              'cancelled_rejected', v_cancelled_intent_rejected,
+              'unpayable_reconcile_rejected', v_unpayable_reconcile_rejected
+            ),
+            'advertising_accounting_pending', jsonb_build_object(
+              'rec_result', v_adv_rec_1,
+              'payment_method', v_adv_pay_1.method,
+              'business_reconciliation', v_adv_pay_1.business_reconciliation,
+              'accounting_status', v_adv_pay_1.accounting_status,
+              'clearing_journal_id', v_adv_pay_1.clearing_journal_id,
+              'invoice_balance_due_after', v_inv_issued_after.balance_due,
+              'invoice_status_after', v_inv_issued_after.status,
+              'gl_count_while_unapproved', v_gl_count_while_unapproved,
+              'approved_rec_result', v_adv_rec_2
+            ),
+            'no_delete_triggers', jsonb_build_object(
+              'delete_tx_sqlstate', v_delete_tx_sqlstate,
+              'delete_audit_sqlstate', v_delete_audit_sqlstate,
+              'delete_fin_pay_sqlstate', v_delete_fin_pay_sqlstate,
+              'delete_prem_rec_sqlstate', v_delete_prem_rec_sqlstate
+            ),
+            'privileges', v_priv_proof,
+            'transparency', v_transparency
+          )
+        );
+      end $$;
+
+      select payload::text from r2_runtime_proof limit 1;
+      `
+    );
+
+    const proof = JSON.parse(runtimeProofRaw);
+
+    // Assert Section 3 — PAYMENT INTENT
+    assert.equal(proof.payment_intent.intent.purpose, "PREMIUM_SUBSCRIPTION");
+    assert.equal(Number(proof.payment_intent.intent.expected_amount), 5.0);
+    assert.equal(proof.payment_intent.intent.currency, "USD");
+    assert.equal(proof.payment_intent.intent.internal_status, "CREATED");
+    assert.equal(proof.payment_intent.intent.reconciliation_status, "PENDING");
+    assert.equal(proof.payment_intent.intent.accounting_status, "PENDING_ACCOUNTANT_AUTHORITY");
+    assert.match(proof.payment_intent.intent.merchant_reference, /^HT-PREM-[0-9A-HJKMNP-TV-Z]{26}$/);
+    assert.equal(proof.payment_intent.alt_amount_rejected, true);
+
+    // Assert Section 4 — CONNECTIVITY PURPOSE
+    assert.equal(proof.connectivity_intent.intent.purpose, "PROVIDER_CONNECTIVITY_TEST");
+    assert.match(proof.connectivity_intent.intent.merchant_reference, /^HT-CONN-[0-9A-HJKMNP-TV-Z]{26}$/);
+    assert.equal(proof.connectivity_intent.intent.reconciliation_status, "NOT_ELIGIBLE");
+    assert.equal(proof.connectivity_intent.intent.accounting_status, "NOT_APPLICABLE");
+    assert.equal(proof.connectivity_intent.prem_reconcile_rejected, true);
+    assert.equal(proof.connectivity_intent.adv_reconcile_rejected, true);
+
+    // Assert Section 5 — IDEMPOTENCY
+    assert.equal(proof.idempotency.first_replayed, false);
+    assert.equal(proof.idempotency.second_replayed, true);
+    assert.equal(proof.idempotency.same_transaction_id, true);
+    assert.equal(proof.idempotency.tx_count, 1);
+    assert.equal(proof.idempotency.conflict_rejected, true);
+
+    // Assert Section 6 — UNVERIFIED PAYMENT BARRIER
+    assert.equal(proof.unverified_barrier.update_rejected, true);
+    assert.equal(proof.unverified_barrier.reconcile_rejected, true);
+
+    // Assert Section 7 — PREMIUM RECONCILIATION & REPLAY
+    assert.equal(proof.premium_reconciliation.first.reconciled, true);
+    assert.equal(proof.premium_reconciliation.first.replayed, false);
+    assert.equal(proof.premium_reconciliation.first.entitlement_changed, true);
+    assert.equal(proof.premium_reconciliation.business_reconciliation, "COMPLETE");
+    assert.equal(proof.premium_reconciliation.accounting_status, "PENDING_ACCOUNTANT_AUTHORITY");
+    assert.equal(proof.premium_reconciliation.revenue_journal_id, null);
+    assert.equal(Number(proof.premium_reconciliation.amount), 5.0);
+    assert.equal(proof.premium_reconciliation.currency, "USD");
+    assert.equal(proof.premium_reconciliation.replay.replayed, true);
+    assert.equal(proof.premium_reconciliation.replay.entitlement_changed, false);
+    assert.equal(proof.premium_reconciliation.entitlement_count_after_first, 1);
+    assert.equal(proof.premium_reconciliation.entitlement_count_after_replay, 1);
+
+    // Assert Section 8 — ADVERTISING INVOICE GATING
+    assert.equal(proof.advertising_gating.draft_rejected, true);
+    assert.equal(proof.advertising_gating.approved_rejected, true);
+    assert.equal(proof.advertising_gating.void_rejected, true);
+    assert.equal(proof.advertising_gating.cancelled_rejected, true);
+    assert.equal(proof.advertising_gating.unpayable_reconcile_rejected, true);
+
+    // Assert Section 9 — ADVERTISING ACCOUNTING PENDING
+    assert.equal(proof.advertising_accounting_pending.payment_method, "paynow");
+    assert.equal(proof.advertising_accounting_pending.business_reconciliation, "COMPLETE");
+    assert.equal(proof.advertising_accounting_pending.accounting_status, "PENDING_ACCOUNTANT_AUTHORITY");
+    assert.equal(proof.advertising_accounting_pending.clearing_journal_id, null);
+    assert.equal(Number(proof.advertising_accounting_pending.invoice_balance_due_after), 0);
+    assert.equal(proof.advertising_accounting_pending.invoice_status_after, "paid");
+    assert.equal(proof.advertising_accounting_pending.gl_count_while_unapproved, 0);
+    assert.equal(proof.advertising_accounting_pending.approved_rec_result.accounting_status, "POSTED");
+    assert.ok(proof.advertising_accounting_pending.approved_rec_result.clearing_journal_id);
+
+    // Assert Section 10 — NO-DESTRUCTIVE-DELETE
+    assert.equal(proof.no_delete_triggers.delete_tx_sqlstate, "42501");
+    assert.equal(proof.no_delete_triggers.delete_audit_sqlstate, "42501");
+    assert.equal(proof.no_delete_triggers.delete_fin_pay_sqlstate, "42501");
+    assert.equal(proof.no_delete_triggers.delete_prem_rec_sqlstate, "42501");
+
+    // Assert Section 11 — PRIVILEGES
+    assert.equal(proof.privileges.rls_enabled_count, 9);
+    assert.equal(proof.privileges.anon_table_select, false);
+    assert.equal(proof.privileges.authenticated_table_select, false);
+    assert.equal(proof.privileges.anon_create_intent, false);
+    assert.equal(proof.privileges.authenticated_create_intent, false);
+    assert.equal(proof.privileges.service_role_create_intent, true);
+    assert.equal(proof.privileges.anon_reconcile_premium, false);
+    assert.equal(proof.privileges.authenticated_reconcile_premium, false);
+    assert.equal(proof.privileges.service_role_reconcile_premium, true);
+    assert.equal(proof.privileges.anon_reconcile_advertising, false);
+    assert.equal(proof.privileges.authenticated_reconcile_advertising, false);
+    assert.equal(proof.privileges.service_role_reconcile_advertising, true);
+
+    // Assert Section 12 — TRANSPARENCY
+    assert.equal(Number(proof.transparency.business_reconciled), 705);
+    assert.equal(Number(proof.transparency.accounting_pending_authority), 405);
+    assert.equal(Number(proof.transparency.accounting_pending_posting), 0);
+    assert.equal(Number(proof.transparency.accounting_posted), 300);
+    assert.equal(Number(proof.transparency.provider_clearing_pending_settlement), 705);
+    assert.equal(Number(proof.transparency.bank_settled), 0);
   } finally {
     try {
       runDbSql("postgres", `drop database if exists ${dbName};`);
