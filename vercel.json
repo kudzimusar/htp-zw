@@ -3,6 +3,10 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/article/:id",
+      "destination": "/article/fallback"
+    },
+    {
       "source": "/studio/staff/:staffId",
       "destination": "/studio/staff/fallback"
     }

@@ -5,7 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
+const repoRoot=join(root,"..","..");
 const read=(path)=>readFileSync(join(root,path),"utf8");
+const readRepo=(path)=>readFileSync(join(repoRoot,path),"utf8");
 
 function between(source,start,end){
   const from=source.indexOf(start);
@@ -38,7 +40,8 @@ test("direct identity resolution preserves slug path URL migrated and native com
   );
   assert.match(body,/pathFromCanonicalUrl\(identity\)/);
   assert.match(body,/identity\.startsWith\("\/"\)/);
-  assert.match(body,/decodeURIComponent\(identity\)/);
+  assert.match(body,/identity\.startsWith\("source-"\)/);
+  assert.match(body,/decodeURIComponent\(routeIdentity\)/);
   assert.match(body,/ag05_resolve_public_path/);
   assert.match(body,/migratedStoryForPath\(migratedPath\)/);
   assert.match(body,/nativeStoryForPath\(requestedPath\)/);
@@ -95,4 +98,21 @@ test("Premium protected-body and 20-second preview authority remain unchanged",(
   assert.match(article,/previewConfig\.seconds===20/);
   assert.match(article,/parseArticleContent\(protectedBody \? null : story\.bodyHtml/);
   assert.match(article,/PremiumPaywall/);
+});
+
+test("fresh article URLs are served through a generic exported article shell",()=>{
+  const config=JSON.parse(readRepo("vercel.json"));
+  assert.equal(
+    config.rewrites.some((rule)=>
+      rule.source==="/article/:id" &&
+      rule.destination==="/article/fallback"
+    ),
+    true,
+    "Vercel must route fresh article identities to the exported article shell"
+  );
+
+  const prepare=readRepo("scripts/web/prepare-phase4-vercel.js");
+  assert.match(prepare,/articleFallbackHtml/);
+  assert.match(prepare,/article\/fallback\.html/);
+  assert.match(prepare,/source-.*\.html/);
 });

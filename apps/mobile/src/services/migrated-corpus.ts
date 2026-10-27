@@ -443,10 +443,17 @@ function requestedPathForIdentity(id: string) {
     return normalizePath(identity);
   }
 
+  // Source-parity cards use source-<slug> IDs. In staging those stories are
+  // also present in the migrated corpus, so strip only the routing prefix and
+  // resolve the canonical public slug before considering any feed fallback.
+  const routeIdentity = identity.startsWith("source-")
+    ? identity.slice("source-".length)
+    : identity;
+
   try {
-    return normalizePath("/" + decodeURIComponent(identity));
+    return normalizePath("/" + decodeURIComponent(routeIdentity));
   } catch {
-    return normalizePath("/" + identity);
+    return normalizePath("/" + routeIdentity);
   }
 }
 

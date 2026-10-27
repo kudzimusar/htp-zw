@@ -43,6 +43,19 @@ if (fs.existsSync(staffDynamicHtml)) {
   fs.copyFileSync(staffDynamicHtml, path.join(dist, 'studio/staff/fallback.html'));
 }
 
+const articleDir = path.join(dist, 'article');
+if (!fs.existsSync(articleDir)) {
+  throw new Error('Missing Phase 4 Reader article export directory.');
+}
+const articleShellName = fs.readdirSync(articleDir)
+  .filter((file) => /^source-.*\.html$/.test(file))
+  .sort()[0];
+if (!articleShellName) {
+  throw new Error('Missing generated Reader article shell for direct-load fallback.');
+}
+const articleFallbackHtml = path.join(articleDir, 'fallback.html');
+fs.copyFileSync(path.join(articleDir, articleShellName), articleFallbackHtml);
+
 const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local';
 fs.writeFileSync(path.join(dist, 'build-info.json'), JSON.stringify({
   sha,
