@@ -1,17 +1,26 @@
 /**
- * HT-MVP-EXT-01A-RDY-01 — Payment + Finance Business Transparency Foundation
+ * HT-MVP-EXT-01A-RDY-01-R1 — Payment + Finance Business Transparency Foundation
  *
  * Canonical provider-independent commercial, transaction, reconciliation,
  * settlement, exception, audit, and Finance readiness engine for HealthTimes.
  *
- * Governing rule:
- * - Paynow remains the future collection provider.
- * - HealthTimes remains the financial authority.
- * - When PAYNOW_INTEGRATION_ID / PAYNOW_INTEGRATION_KEY are absent,
- *   PAYNOW_CONFIGURED=NO, CHECKOUT_FAILS_CLOSED, NO BUSINESS AUTHORITY MUTATED.
+ * Governing rules:
+ * 1. Credentials alone NEVER enable checkout:
+ *    credentials_present, provider_authority_certified, checkout_implementation_ready,
+ *    and checkout_available are strictly separated. In RDY-01-R1,
+ *    provider_authority_certified=false, checkout_implementation_ready=false,
+ *    and checkout_available=false.
+ * 2. PAYNOW_MODE must fail closed (missing/invalid/live -> checkout unavailable).
+ * 3. No false Paynow cryptographic hash is implemented or claimed.
+ *    Unverified events (NO_VERIFICATION_AUTHORITY) keep signatureValid=false
+ *    and can never transition a transaction to PAYMENT_VERIFIED.
+ *    Provider-independent tests must use an explicit SyntheticProviderVerificationAdapter
+ *    classified as TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION.
+ * 4. Business reconciliation is explicitly separated from Accounting reconciliation
+ *    (accounting_status: PENDING_ACCOUNTANT_AUTHORITY | PENDING_POSTING | POSTED | REVERSED | POSTING_FAILED).
  */
 
-export const PAYMENT_READINESS_UNIT_ID = "HT-MVP-EXT-01A-RDY-01";
+export const PAYMENT_READINESS_UNIT_ID = "HT-MVP-EXT-01A-RDY-01-R1";
 
 // ---------------------------------------------------------------------------
 // Section 2: Canonical Premium Plan Authority
@@ -150,7 +159,7 @@ export function validateMerchantReference(
 }
 
 // ---------------------------------------------------------------------------
-// Section 6 & 15: Explicit Server-Side Payment State Machine
+// Section 6, 8, 9, 10, 15: Explicit Server-Side Payment & Accounting State Models
 // ---------------------------------------------------------------------------
 export type PaymentInternalStatus =
   | "CREATED"
@@ -183,6 +192,16 @@ export type PaymentReconciliationStatus =
   | "RECONCILED"
   | "RECONCILIATION_FAILED"
   | "REVERSED";
+
+export type PaymentAccountingStatus =
+  | "NOT_APPLICABLE"
+  | "PENDING_ACCOUNTANT_AUTHORITY"
+  | "PENDING_POSTING"
+  | "POSTED"
+  | "REVERSED"
+  | "POSTING_FAILED";
+
+export type BusinessReconciliationDisposition = "PENDING" | "COMPLETE" | "FAILED" | "REVERSED" | "NOT_ELIGIBLE";
 
 export type PremiumCheckoutExperienceState =
   | "Available"
@@ -393,48 +412,151 @@ export interface PaymentAuditEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Section 22 & 29: Provider Readiness Endpoint & No-Credential Fail-Closed Behavior
+// Remediation RDY01-R1-001 (Sections 1, 2, 3):
+// Provider Readiness Truth, Separated Gates & Fail-Closed PAYNOW_MODE
 // ---------------------------------------------------------------------------
+export type PaynowModeStatus =
+  | "valid_test_configuration_candidate"
+  | "live_forbidden_fail_closed"
+  | "configuration_incomplete_missing_mode"
+  | "configuration_incomplete_invalid_mode";
+
 export interface ProviderReadinessState {
   provider: "paynow";
+  status: "authority-incomplete" | "ready";
   configured: boolean;
+  credentials_present: boolean;
   mode: "unavailable" | "test" | "live";
+  mode_status: PaynowModeStatus;
+  provider_authority_certified: boolean;
+  checkout_implementation_ready: boolean;
   checkout_available: boolean;
   paynow_configured: "YES" | "NO";
   checkout_behavior: "CHECKOUT_FAILS_CLOSED" | "CHECKOUT_AVAILABLE";
   business_authority_mutated: false;
 }
 
-export function resolvePaynowReadinessState(
-  env: Record<string, string | undefined> = typeof process !== "undefined" && process.env ? process.env : {}
+export interface ProviderReadinessGateOverrides {
+  /**
+   * Used only by unit tests to verify individual gate behavior.
+   * In RDY-01-R1 production/staging runtime, both gates are frozen to false.
+   */
+  providerAuthorityCertified?: boolean;
+  checkoutImplementationReady?: boolean;
+}
+
+export function evaluateProviderReadinessGates(
+  env: Record<string, string | undefined> = {},
+  gates: ProviderReadinessGateOverrides = {}
 ): ProviderReadinessState {
   const integrationId = (env.PAYNOW_INTEGRATION_ID ?? "").trim();
   const integrationKey = (env.PAYNOW_INTEGRATION_KEY ?? "").trim();
   const rawMode = (env.PAYNOW_MODE ?? "").trim().toLowerCase();
 
-  const hasCredentials = integrationId.length > 0 && integrationKey.length > 0;
-  if (!hasCredentials) {
-    return {
-      provider: "paynow",
-      configured: false,
-      mode: "unavailable",
-      checkout_available: false,
-      paynow_configured: "NO",
-      checkout_behavior: "CHECKOUT_FAILS_CLOSED",
-      business_authority_mutated: false
-    };
+  const credentialsPresent = integrationId.length > 0 && integrationKey.length > 0;
+
+  let mode: "unavailable" | "test" | "live" = "unavailable";
+  let modeStatus: PaynowModeStatus = "configuration_incomplete_missing_mode";
+
+  if (rawMode === "test") {
+    mode = "test";
+    modeStatus = "valid_test_configuration_candidate";
+  } else if (rawMode === "live") {
+    // PAYNOW_MODE=live must fail closed until later explicit live authority
+    mode = "live";
+    modeStatus = "live_forbidden_fail_closed";
+  } else if (rawMode.length > 0) {
+    mode = "unavailable";
+    modeStatus = "configuration_incomplete_invalid_mode";
   }
 
-  const mode: "test" | "live" = rawMode === "live" ? "live" : "test";
+  const providerAuthorityCertified = Boolean(gates.providerAuthorityCertified ?? false);
+  const checkoutImplementationReady = Boolean(gates.checkoutImplementationReady ?? false);
+
+  // Checkout is only available if ALL four gates hold AND mode is valid TEST candidate
+  const allGatesSatisfied =
+    credentialsPresent &&
+    mode === "test" &&
+    modeStatus === "valid_test_configuration_candidate" &&
+    providerAuthorityCertified &&
+    checkoutImplementationReady;
+
   return {
     provider: "paynow",
-    configured: true,
+    status: allGatesSatisfied ? "ready" : "authority-incomplete",
+    configured: allGatesSatisfied,
+    credentials_present: credentialsPresent,
     mode,
-    checkout_available: true,
-    paynow_configured: "YES",
-    checkout_behavior: "CHECKOUT_AVAILABLE",
+    mode_status: modeStatus,
+    provider_authority_certified: providerAuthorityCertified,
+    checkout_implementation_ready: checkoutImplementationReady,
+    checkout_available: allGatesSatisfied,
+    paynow_configured: allGatesSatisfied ? "YES" : "NO",
+    checkout_behavior: allGatesSatisfied ? "CHECKOUT_AVAILABLE" : "CHECKOUT_FAILS_CLOSED",
     business_authority_mutated: false
   };
+}
+
+/**
+ * Canonical RDY-01-R1 runtime readiness resolver.
+ * Even if PAYNOW_INTEGRATION_ID, PAYNOW_INTEGRATION_KEY, and PAYNOW_MODE=test
+ * are installed in the environment, provider_authority_certified=false,
+ * checkout_implementation_ready=false, and checkout_available=false.
+ */
+export function resolvePaynowReadinessState(
+  env: Record<string, string | undefined> = typeof process !== "undefined" && process.env ? process.env : {}
+): ProviderReadinessState {
+  return evaluateProviderReadinessGates(env, {
+    providerAuthorityCertified: false,
+    checkoutImplementationReady: false
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Remediation RDY01-R1-002 (Sections 4, 5, 6, 7):
+// Synthetic Provider Verification Boundary (No False Paynow SHA-512 Claims)
+// ---------------------------------------------------------------------------
+export type ProviderVerificationAuthority =
+  | "NO_VERIFICATION_AUTHORITY"
+  | "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION";
+
+export interface SyntheticVerificationInput {
+  providerEventId: string;
+  merchantReference: string;
+  providerReference: string;
+  reportedAmount: number;
+  reportedCurrency: string;
+  providerStatus: string;
+  syntheticDecision?: "ALLOW_SYNTHETIC_TEST" | "REJECT_SYNTHETIC_TAMPER";
+}
+
+export interface SyntheticVerificationResult {
+  readonly classification: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION";
+  readonly acceptedBySyntheticAdapter: boolean;
+  readonly cryptographicSignatureVerified: false;
+  readonly reason: string;
+}
+
+export interface SyntheticProviderVerificationAdapter {
+  readonly classification: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION";
+  verifySyntheticEvent(input: SyntheticVerificationInput): SyntheticVerificationResult;
+}
+
+export function createSyntheticProviderVerificationAdapter(): SyntheticProviderVerificationAdapter {
+  return Object.freeze({
+    classification: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION" as const,
+    verifySyntheticEvent(input: SyntheticVerificationInput): SyntheticVerificationResult {
+      const rejected = input.syntheticDecision === "REJECT_SYNTHETIC_TAMPER";
+      return {
+        classification: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+        acceptedBySyntheticAdapter: !rejected,
+        cryptographicSignatureVerified: false,
+        reason: rejected
+          ? "Rejected by test-only synthetic verification adapter"
+          : "Accepted by test-only synthetic verification adapter (not real Paynow SHA-512)"
+      };
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -489,8 +611,8 @@ export function getAdvertiserInvoicePaymentOptions(
 ): AdvertiserInvoicePaymentOptions {
   const effective = (invoice.effectiveStatus ?? invoice.status).toLowerCase();
   const isPayableState =
-    (PAYABLE_INVOICE_STATUSES as readonly string[]).includes( invoice.status.toLowerCase() ) ||
-    (PAYABLE_INVOICE_STATUSES as readonly string[]).includes( effective );
+    (PAYABLE_INVOICE_STATUSES as readonly string[]).includes(invoice.status.toLowerCase()) ||
+    (PAYABLE_INVOICE_STATUSES as readonly string[]).includes(effective);
   const eligible = isPayableState && invoice.balanceDue > 0;
 
   return {
@@ -538,7 +660,7 @@ export const ACCOUNTANT_POLICY_REGISTER: readonly PolicyRegisterItem[] = Object.
     status: "UNRESOLVED_AWAITING_AUTHORITY",
     description: "Chart of Accounts code for the Paynow Provider Clearing asset account.",
     implementationConsequence:
-      "finance_provider_clearing_config.accountant_approved remains false; verified Paynow collections are tracked in provider_clearing_pending_settlement without posting unapproved GL account codes."
+      "finance_provider_clearing_config.accountant_approved remains false; verified Paynow collections record business_reconciliation=COMPLETE and accounting_status=PENDING_ACCOUNTANT_AUTHORITY with clearing_journal_id=null."
   },
   {
     key: "fee_expense_account",
@@ -546,7 +668,7 @@ export const ACCOUNTANT_POLICY_REGISTER: readonly PolicyRegisterItem[] = Object.
     status: "UNRESOLVED_AWAITING_AUTHORITY",
     description: "Chart of Accounts code for Paynow merchant transaction/settlement fee expenses.",
     implementationConsequence:
-      "Provider fees are recorded on provider_settlements from settlement evidence only and held pending accountant GL account code assignment."
+      "Provider fees are recorded on provider_settlements from settlement evidence only and held in accounting_status=PENDING_ACCOUNTANT_AUTHORITY pending accountant GL account code assignment."
   },
   {
     key: "premium_revenue_recognition_timing",
@@ -554,7 +676,7 @@ export const ACCOUNTANT_POLICY_REGISTER: readonly PolicyRegisterItem[] = Object.
     status: "UNRESOLVED_AWAITING_AUTHORITY",
     description: "Whether monthly Premium subscription receipts are recognized immediately upon verification or ratably over the 1-month service window.",
     implementationConsequence:
-      "Premium receipts are tracked in premium_entitlement_reconciliations with exact start/end service dates so either point-in-time or ratable recognition can be posted."
+      "Premium reconciliations record business_reconciliation=COMPLETE and accounting_status=PENDING_ACCOUNTANT_AUTHORITY with revenue_journal_id=null until accountant sign-off."
   },
   {
     key: "deferred_revenue_treatment",
@@ -658,7 +780,7 @@ export const OWNER_POLICY_REGISTER: readonly PolicyRegisterItem[] = Object.freez
 ]);
 
 // ---------------------------------------------------------------------------
-// Deterministic Paynow Hash & Secret Sanitization Helpers (Section 5 & 28)
+// Secret Sanitization & Date Helpers
 // ---------------------------------------------------------------------------
 const REDACTED_SECRET_KEYS = new Set([
   "integration_key",
@@ -684,40 +806,6 @@ export function sanitizeProviderMetadata(
     sanitized[key] = value;
   }
   return sanitized;
-}
-
-/**
- * Deterministic contract hash helper for provider protocol vector testing.
- * Uses Node's built-in crypto SHA-512 when available (same algorithm as Paynow),
- * concatenating all non-hash field values in key order + integrationKey in uppercase hex.
- */
-export function computeDeterministicProviderHash(
-  fields: Record<string, string | number>,
-  integrationKey: string
-): string {
-  const orderedKeys = Object.keys(fields)
-    .filter((k) => k.toLowerCase() !== "hash")
-    .sort();
-  const concatenated =
-    orderedKeys.map((k) => String(fields[k] ?? "")).join("") + integrationKey;
-
-  let h1 = 0x811c9dc5;
-  let h2 = 0x01000193;
-  let h3 = 0x9e3779b9;
-  let h4 = 0x85ebca6b;
-  for (let i = 0; i < concatenated.length; i += 1) {
-    const ch = concatenated.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 0x01000193) >>> 0;
-    h2 = Math.imul(h2 ^ (ch + i), 0x811c9dc5) >>> 0;
-    h3 = Math.imul(h3 ^ (ch * 31), 0xc2b2ae35) >>> 0;
-    h4 = Math.imul(h4 ^ (ch ^ (i << 3)), 0x27d4eb2f) >>> 0;
-  }
-  return (
-    h1.toString(16).padStart(8, "0") +
-    h2.toString(16).padStart(8, "0") +
-    h3.toString(16).padStart(8, "0") +
-    h4.toString(16).padStart(8, "0")
-  ).toUpperCase();
 }
 
 export function addOneBillingMonth(baseIsoOrDate: string | Date): string {
@@ -747,6 +835,8 @@ export interface PaymentTransactionRecord {
   providerStatus: string | null;
   internalStatus: PaymentInternalStatus;
   reconciliationStatus: PaymentReconciliationStatus;
+  accountingStatus: PaymentAccountingStatus;
+  verificationAuthority: ProviderVerificationAuthority;
   idempotencyKey: string;
   paymentChannel: string | null;
   initiatedAt: string | null;
@@ -762,7 +852,8 @@ export interface ProviderWebhookEventRecord {
   provider: "paynow" | "cloudflare" | "resend" | "brevo" | "social";
   providerEventId: string;
   eventType: string;
-  signatureValid: boolean;
+  signatureValid: false;
+  verificationAuthority: ProviderVerificationAuthority;
   payloadHash: string;
   status: "received" | "processed" | "ignored" | "failed";
   transactionId: string | null;
@@ -783,6 +874,23 @@ export interface SubscriberEntitlementRecord {
   endsAt: string;
   provider: string;
   providerReference: string;
+}
+
+export interface PremiumReconciliationRecord {
+  id: string;
+  transactionId: string;
+  entitlementId: string;
+  subscriberId: string;
+  amount: number;
+  currency: string;
+  previousEndsAt: string | null;
+  newStartsAt: string;
+  newEndsAt: string;
+  businessReconciliation: "COMPLETE" | "REVERSED";
+  accountingStatus: PaymentAccountingStatus;
+  revenueJournalId: string | null;
+  unresolvedAccountingPolicies: readonly string[];
+  reconciledAt: string;
 }
 
 export interface FinanceInvoiceRecord {
@@ -814,6 +922,9 @@ export interface FinancePaymentRecord {
   providerReference: string | null;
   merchantReference: string | null;
   transactionId: string | null;
+  businessReconciliation: "COMPLETE" | "REVERSED";
+  accountingStatus: PaymentAccountingStatus;
+  clearingJournalId: string | null;
   idempotencyKey: string;
   receivedBy: string;
   createdAt: string;
@@ -843,6 +954,7 @@ export interface ProviderSettlementRecord {
   netAmount: number;
   bankReference: string | null;
   status: "PENDING" | "MATCHED" | "SETTLEMENT_MISMATCH" | "RECONCILED_TO_BANK";
+  accountingStatus: PaymentAccountingStatus;
   lines: ProviderSettlementLineRecord[];
   clearingJournalId: string | null;
   createdAt: string;
@@ -886,13 +998,19 @@ export interface BusinessReceiptRecord {
   invoiceOrPlanReference: string;
   internalStatus: PaymentInternalStatus;
   reconciliationStatus: PaymentReconciliationStatus;
+  accountingStatus: PaymentAccountingStatus;
 }
 
 export interface FinanceTransparencySnapshot {
   currency: string;
   accountsReceivable: number;
   verifiedProviderPaymentsPendingReconciliation: number;
+  businessReconciled: number;
+  accountingPendingAuthority: number;
+  accountingPendingPosting: number;
+  accountingPosted: number;
   providerClearingPendingSettlement: number;
+  bankSettled: number;
   bankSettlements: number;
   providerFees: number;
   refundsAndDisputes: number;
@@ -942,7 +1060,7 @@ export interface MonthEndControlSnapshot {
 // ---------------------------------------------------------------------------
 export function createPaymentFinanceLedgerEngine(options?: {
   env?: Record<string, string | undefined>;
-  integrationKeyForContractTests?: string;
+  syntheticVerificationAdapter?: SyntheticProviderVerificationAdapter;
 }) {
   let seq = 1;
   const nextId = (prefix: string) => `${prefix}-${String(seq++).padStart(4, "0")}`;
@@ -954,21 +1072,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
   const transactionsByMerchantRef = new Map<string, string>();
   const providerEvents = new Map<string, ProviderWebhookEventRecord>();
   const entitlements: SubscriberEntitlementRecord[] = [];
-  const premiumReconciliations = new Map<
-    string,
-    {
-      id: string;
-      transactionId: string;
-      entitlementId: string;
-      subscriberId: string;
-      amount: number;
-      currency: string;
-      previousEndsAt: string | null;
-      newStartsAt: string;
-      newEndsAt: string;
-      reconciledAt: string;
-    }
-  >();
+  const premiumReconciliations = new Map<string, PremiumReconciliationRecord>();
   const financePayments: FinancePaymentRecord[] = [];
   const financePaymentsByIdempotency = new Map<string, FinancePaymentRecord>();
   const financePaymentsByTxId = new Map<string, FinancePaymentRecord>();
@@ -994,6 +1098,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
     provider: "paynow" as const,
     clearingMode: "PENDING_ACCOUNTANT_AUTHORITY" as "PENDING_ACCOUNTANT_AUTHORITY" | "PROVIDER_CLEARING_TWO_STEP",
     accountantApproved: false,
+    premiumAccountingApproved: false,
     providerClearingAccountCode: null as string | null,
     providerFeeExpenseAccountCode: null as string | null,
     bankSettlementAccountCode: "1000",
@@ -1098,11 +1203,13 @@ export function createPaymentFinanceLedgerEngine(options?: {
       accountantApproved: boolean;
       providerClearingAccountCode: string | null;
       providerFeeExpenseAccountCode: string | null;
+      premiumAccountingApproved?: boolean;
     }) {
       clearingConfig = {
         ...clearingConfig,
         clearingMode: cfg.accountantApproved ? "PROVIDER_CLEARING_TWO_STEP" : "PENDING_ACCOUNTANT_AUTHORITY",
         accountantApproved: cfg.accountantApproved,
+        premiumAccountingApproved: Boolean(cfg.premiumAccountingApproved ?? false),
         providerClearingAccountCode: cfg.providerClearingAccountCode,
         providerFeeExpenseAccountCode: cfg.providerFeeExpenseAccountCode
       };
@@ -1125,7 +1232,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
       subscriberId?: string | null;
       invoiceId?: string | null;
       planKey?: string | null;
-      // Untrusted client fields (tested for tampering rejection / ignoring)
       clientSuppliedAmount?: number | null;
       clientSuppliedCurrency?: string | null;
       clientSuppliedPaid?: boolean | null;
@@ -1156,6 +1262,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
       let planKey: string | null = null;
       let planVersion: number | null = null;
       let reconciliationStatus: PaymentReconciliationStatus = "PENDING";
+      let accountingStatus: PaymentAccountingStatus = "PENDING_ACCOUNTANT_AUTHORITY";
 
       if (input.purpose === "PREMIUM_SUBSCRIPTION") {
         if (!input.subscriberId || !subscribers.has(input.subscriberId)) {
@@ -1200,11 +1307,11 @@ export function createPaymentFinanceLedgerEngine(options?: {
         expectedAmount = 1.0;
         currency = "USD";
         reconciliationStatus = "NOT_ELIGIBLE";
+        accountingStatus = "NOT_APPLICABLE";
       } else {
         throw new Error(`UNSUPPORTED_PURPOSE: ${String(input.purpose)}`);
       }
 
-      // Reject client-supplied currency or amount tampering
       if (
         input.clientSuppliedCurrency !== undefined &&
         input.clientSuppliedCurrency !== null &&
@@ -1232,7 +1339,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
       const now = input.now ?? new Date().toISOString();
       const merchantRef = generateMerchantReference(input.purpose);
 
-      // Client-supplied paid / providerStatus / pollUrl are NEVER trusted as authority
       const tx: PaymentTransactionRecord = {
         id: nextId("tx"),
         provider: "paynow",
@@ -1250,6 +1356,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
         providerStatus: null,
         internalStatus: "CREATED",
         reconciliationStatus,
+        accountingStatus,
+        verificationAuthority: "NO_VERIFICATION_AUTHORITY",
         idempotencyKey: idem,
         paymentChannel: null,
         initiatedAt: null,
@@ -1277,7 +1385,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
           purpose: tx.purpose,
           expectedAmount: tx.expectedAmount,
           currency: tx.currency,
-          internalStatus: tx.internalStatus
+          internalStatus: tx.internalStatus,
+          accountingStatus: tx.accountingStatus
         },
         reason: "Canonical server payment intent created",
         timestamp: now
@@ -1286,7 +1395,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
       return { transaction: { ...tx }, replayed: false };
     },
 
-    // Section 21 & 29: Fail-closed provider checkout initiation when credentials absent
+    // Section 1, 2, 3, 21 & 29: Fail-closed provider checkout initiation
     initiateProviderCheckout(transactionId: string): {
       allowed: boolean;
       readiness: ProviderReadinessState;
@@ -1297,12 +1406,11 @@ export function createPaymentFinanceLedgerEngine(options?: {
       if (!tx) {
         throw new Error("TRANSACTION_NOT_FOUND");
       }
-      if (!readiness.configured || !readiness.checkout_available) {
-        // Fail closed without mutating business authority
+      if (!readiness.checkout_available) {
         return {
           allowed: false,
           readiness,
-          reason: "PAYNOW_CONFIGURED=NO: Checkout fails closed; no business authority mutated"
+          reason: `CHECKOUT_FAILS_CLOSED: status=${readiness.status}, mode_status=${readiness.mode_status}, provider_authority_certified=${String(readiness.provider_authority_certified)}, checkout_implementation_ready=${String(readiness.checkout_implementation_ready)}`
         };
       }
       const before = { internalStatus: tx.internalStatus };
@@ -1326,7 +1434,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
       };
     },
 
-    // Section 5, 6, 7: Provider Event Ingestion & Verification
+    // Remediation RDY01-R1-002 (Sections 4, 5, 6):
+    // Provider Event Ingestion with strict NO_VERIFICATION_AUTHORITY fail-closed gate
     ingestProviderWebhookEvent(input: {
       provider: "paynow";
       providerEventId: string;
@@ -1337,12 +1446,14 @@ export function createPaymentFinanceLedgerEngine(options?: {
       reportedCurrency: string;
       paymentChannel?: string | null;
       pollUrl?: string | null;
-      hash?: string | null;
+      syntheticDecision?: "ALLOW_SYNTHETIC_TEST" | "REJECT_SYNTHETIC_TAMPER";
       rawMetadata?: Record<string, unknown>;
       now?: string;
     }): {
       eventStatus: "PROCESSED" | "DUPLICATE_EVENT" | "REJECTED";
       internalStatus: PaymentInternalStatus;
+      verificationAuthority: ProviderVerificationAuthority;
+      signatureValid: false;
       transactionId: string | null;
       exceptionId: string | null;
     } {
@@ -1352,6 +1463,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
 
       // 1. Provider event idempotency check
       if (providerEvents.has(eventKey)) {
+        const existingEvt = providerEvents.get(eventKey)!;
         const existingTxId = transactionsByMerchantRef.get(input.merchantReference) ?? null;
         const exc = openException({
           exceptionCode: "DUPLICATE_PROVIDER_EVENT",
@@ -1365,6 +1477,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
         return {
           eventStatus: "DUPLICATE_EVENT",
           internalStatus: "DUPLICATE_EVENT",
+          verificationAuthority: existingEvt.verificationAuthority,
+          signatureValid: false,
           transactionId: existingTxId,
           exceptionId: exc.id
         };
@@ -1386,7 +1500,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
           providerEventId: input.providerEventId,
           eventType: input.providerStatus,
           signatureValid: false,
-          payloadHash: input.hash ?? "unverified",
+          verificationAuthority: "NO_VERIFICATION_AUTHORITY",
+          payloadHash: "unverified",
           status: "failed",
           transactionId: null,
           merchantReference: input.merchantReference,
@@ -1400,6 +1515,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
         return {
           eventStatus: "REJECTED",
           internalStatus: "UNKNOWN_REFERENCE",
+          verificationAuthority: "NO_VERIFICATION_AUTHORITY",
+          signatureValid: false,
           transactionId: null,
           exceptionId: exc.id
         };
@@ -1409,71 +1526,131 @@ export function createPaymentFinanceLedgerEngine(options?: {
       const beforeState = {
         internalStatus: tx.internalStatus,
         reconciliationStatus: tx.reconciliationStatus,
-        reportedAmount: tx.reportedAmount
+        reportedAmount: tx.reportedAmount,
+        verificationAuthority: tx.verificationAuthority
       };
 
-      // 3. Verify deterministic contract hash when contract key is configured
-      if (options?.integrationKeyForContractTests) {
-        const expectedHash = computeDeterministicProviderHash(
-          {
-            reference: input.merchantReference,
-            paynowreference: input.providerReference,
-            amount: input.reportedAmount.toFixed(2),
-            currency: input.reportedCurrency,
-            status: input.providerStatus
+      // 3. Enforce Verification Authority Invariant (Sections 5 & 6):
+      // If no SyntheticProviderVerificationAdapter is configured, NO_VERIFICATION_AUTHORITY applies:
+      // signatureValid=false and transaction can NEVER transition to PAYMENT_VERIFIED.
+      const syntheticAdapter = options?.syntheticVerificationAdapter;
+      if (!syntheticAdapter || syntheticAdapter.classification !== "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION") {
+        tx.internalStatus = "INVALID_HASH";
+        tx.verificationAuthority = "NO_VERIFICATION_AUTHORITY";
+        tx.updatedAt = now;
+        providerEvents.set(eventKey, {
+          id: nextId("evt"),
+          provider: input.provider,
+          providerEventId: input.providerEventId,
+          eventType: input.providerStatus,
+          signatureValid: false,
+          verificationAuthority: "NO_VERIFICATION_AUTHORITY",
+          payloadHash: "unverified",
+          status: "failed",
+          transactionId: tx.id,
+          merchantReference: input.merchantReference,
+          providerReference: input.providerReference,
+          reportedAmount: input.reportedAmount,
+          reportedCurrency: input.reportedCurrency,
+          sanitizedMetadata: sanitizedMeta,
+          receivedAt: now,
+          processedAt: now
+        });
+        recordAudit({
+          actor: "provider_webhook",
+          actorType: "provider_webhook",
+          action: "payment.webhook.unverified_rejected",
+          source: "provider_webhook",
+          transactionId: tx.id,
+          businessObject: `payment_transactions:${tx.id}`,
+          beforeState,
+          afterState: {
+            internalStatus: tx.internalStatus,
+            verificationAuthority: "NO_VERIFICATION_AUTHORITY",
+            signatureValid: false
           },
-          options.integrationKeyForContractTests
-        );
-        if (!input.hash || input.hash.toUpperCase() !== expectedHash) {
-          tx.internalStatus = "INVALID_HASH";
-          tx.updatedAt = now;
-          providerEvents.set(eventKey, {
-            id: nextId("evt"),
-            provider: input.provider,
-            providerEventId: input.providerEventId,
-            eventType: input.providerStatus,
-            signatureValid: false,
-            payloadHash: input.hash ?? "missing",
-            status: "failed",
-            transactionId: tx.id,
-            merchantReference: input.merchantReference,
-            providerReference: input.providerReference,
-            reportedAmount: input.reportedAmount,
-            reportedCurrency: input.reportedCurrency,
-            sanitizedMetadata: sanitizedMeta,
-            receivedAt: now,
-            processedAt: now
-          });
-          recordAudit({
-            actor: "provider_webhook",
-            actorType: "provider_webhook",
-            action: "payment.webhook.invalid_hash",
-            source: "provider_webhook",
-            transactionId: tx.id,
-            businessObject: `payment_transactions:${tx.id}`,
-            beforeState,
-            afterState: { internalStatus: tx.internalStatus },
-            reason: "Provider webhook signature/hash verification failed",
-            providerReference: input.providerReference,
-            timestamp: now
-          });
-          return {
-            eventStatus: "REJECTED",
-            internalStatus: "INVALID_HASH",
-            transactionId: tx.id,
-            exceptionId: null
-          };
-        }
+          reason: "NO_VERIFICATION_AUTHORITY: Unverified provider event cannot transition transaction to PAYMENT_VERIFIED",
+          providerReference: input.providerReference,
+          timestamp: now
+        });
+        return {
+          eventStatus: "REJECTED",
+          internalStatus: "INVALID_HASH",
+          verificationAuthority: "NO_VERIFICATION_AUTHORITY",
+          signatureValid: false,
+          transactionId: tx.id,
+          exceptionId: null
+        };
       }
 
-      // Record verified event in ledger
+      const syntheticResult = syntheticAdapter.verifySyntheticEvent({
+        providerEventId: input.providerEventId,
+        merchantReference: input.merchantReference,
+        providerReference: input.providerReference,
+        reportedAmount: input.reportedAmount,
+        reportedCurrency: input.reportedCurrency,
+        providerStatus: input.providerStatus,
+        syntheticDecision: input.syntheticDecision
+      });
+
+      if (!syntheticResult.acceptedBySyntheticAdapter) {
+        tx.internalStatus = "INVALID_HASH";
+        tx.verificationAuthority = "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION";
+        tx.updatedAt = now;
+        providerEvents.set(eventKey, {
+          id: nextId("evt"),
+          provider: input.provider,
+          providerEventId: input.providerEventId,
+          eventType: input.providerStatus,
+          signatureValid: false,
+          verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+          payloadHash: "synthetic-rejected",
+          status: "failed",
+          transactionId: tx.id,
+          merchantReference: input.merchantReference,
+          providerReference: input.providerReference,
+          reportedAmount: input.reportedAmount,
+          reportedCurrency: input.reportedCurrency,
+          sanitizedMetadata: sanitizedMeta,
+          receivedAt: now,
+          processedAt: now
+        });
+        recordAudit({
+          actor: "provider_webhook",
+          actorType: "provider_webhook",
+          action: "payment.webhook.synthetic_rejected",
+          source: "provider_webhook",
+          transactionId: tx.id,
+          businessObject: `payment_transactions:${tx.id}`,
+          beforeState,
+          afterState: {
+            internalStatus: tx.internalStatus,
+            verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION"
+          },
+          reason: syntheticResult.reason,
+          providerReference: input.providerReference,
+          timestamp: now
+        });
+        return {
+          eventStatus: "REJECTED",
+          internalStatus: "INVALID_HASH",
+          verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+          signatureValid: false,
+          transactionId: tx.id,
+          exceptionId: null
+        };
+      }
+
+      // Record event with signatureValid=false (never claiming real Paynow SHA-512)
+      // and verificationAuthority="TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION"
       providerEvents.set(eventKey, {
         id: nextId("evt"),
         provider: input.provider,
         providerEventId: input.providerEventId,
         eventType: input.providerStatus,
-        signatureValid: true,
-        payloadHash: input.hash ?? "verified",
+        signatureValid: false,
+        verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+        payloadHash: "synthetic-test-only",
         status: "processed",
         transactionId: tx.id,
         merchantReference: input.merchantReference,
@@ -1485,7 +1662,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
         processedAt: now
       });
 
-      // If transaction is already RECONCILED, a new event id for the same already-reconciled tx must not re-mutate
       if (tx.internalStatus === "RECONCILED") {
         const exc = openException({
           exceptionCode: "DUPLICATE_PROVIDER_EVENT",
@@ -1498,11 +1674,14 @@ export function createPaymentFinanceLedgerEngine(options?: {
         return {
           eventStatus: "DUPLICATE_EVENT",
           internalStatus: tx.internalStatus,
+          verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+          signatureValid: false,
           transactionId: tx.id,
           exceptionId: exc.id
         };
       }
 
+      tx.verificationAuthority = "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION";
       tx.providerReference = input.providerReference;
       tx.providerStatus = input.providerStatus;
       tx.reportedAmount = Number(input.reportedAmount.toFixed(2));
@@ -1528,6 +1707,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
         return {
           eventStatus: "REJECTED",
           internalStatus: tx.internalStatus,
+          verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+          signatureValid: false,
           transactionId: tx.id,
           exceptionId: exc.id
         };
@@ -1550,6 +1731,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
         return {
           eventStatus: "REJECTED",
           internalStatus: tx.internalStatus,
+          verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+          signatureValid: false,
           transactionId: tx.id,
           exceptionId: exc.id
         };
@@ -1581,9 +1764,11 @@ export function createPaymentFinanceLedgerEngine(options?: {
         afterState: {
           internalStatus: tx.internalStatus,
           reportedAmount: tx.reportedAmount,
-          providerReference: tx.providerReference
+          providerReference: tx.providerReference,
+          verificationAuthority: tx.verificationAuthority,
+          signatureValid: false
         },
-        reason: `Provider status ${input.providerStatus} processed`,
+        reason: `Provider status ${input.providerStatus} processed under TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION`,
         providerReference: input.providerReference,
         timestamp: now
       });
@@ -1591,12 +1776,14 @@ export function createPaymentFinanceLedgerEngine(options?: {
       return {
         eventStatus: "PROCESSED",
         internalStatus: tx.internalStatus,
+        verificationAuthority: "TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION",
+        signatureValid: false,
         transactionId: tx.id,
         exceptionId: null
       };
     },
 
-    // Section 9: Premium Payment Reconciliation Primitive
+    // Section 9 & 10: Premium Payment Reconciliation Primitive (with Accounting State Closure)
     reconcilePremiumSubscription(
       transactionId: string,
       nowIso: string = new Date().toISOString()
@@ -1604,6 +1791,10 @@ export function createPaymentFinanceLedgerEngine(options?: {
       reconciled: boolean;
       replayed: boolean;
       entitlementChanged: boolean;
+      businessReconciliation: "COMPLETE" | "REVERSED";
+      accountingStatus: PaymentAccountingStatus;
+      revenueJournalId: string | null;
+      unresolvedAccountingPolicies: readonly string[];
       entitlement: SubscriberEntitlementRecord | null;
       previousEndsAt: string | null;
       newStartsAt: string;
@@ -1627,6 +1818,15 @@ export function createPaymentFinanceLedgerEngine(options?: {
           reconciled: true,
           replayed: true,
           entitlementChanged: false,
+          businessReconciliation: existingRec?.businessReconciliation ?? "COMPLETE",
+          accountingStatus: existingRec?.accountingStatus ?? tx.accountingStatus,
+          revenueJournalId: existingRec?.revenueJournalId ?? null,
+          unresolvedAccountingPolicies: existingRec?.unresolvedAccountingPolicies ?? [
+            "revenue_recognition_timing",
+            "deferred_revenue_treatment",
+            "vat",
+            "fiscalization"
+          ],
           entitlement: ent,
           previousEndsAt: existingRec?.previousEndsAt ?? null,
           newStartsAt: existingRec?.newStartsAt ?? nowIso,
@@ -1634,10 +1834,13 @@ export function createPaymentFinanceLedgerEngine(options?: {
         };
       }
 
-      if (tx.internalStatus !== "PAYMENT_VERIFIED" && tx.internalStatus !== "RECONCILIATION_PENDING") {
+      if (
+        tx.verificationAuthority === "NO_VERIFICATION_AUTHORITY" ||
+        (tx.internalStatus !== "PAYMENT_VERIFIED" && tx.internalStatus !== "RECONCILIATION_PENDING")
+      ) {
         openException({
           exceptionCode: "RECONCILIATION_FAILED",
-          reason: `Cannot reconcile Premium transaction in status ${tx.internalStatus}`,
+          reason: `Cannot reconcile Premium transaction in status ${tx.internalStatus} (verification=${tx.verificationAuthority})`,
           transactionId: tx.id,
           merchantReference: tx.merchantReference,
           providerReference: tx.providerReference,
@@ -1678,7 +1881,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
         throw new Error("SUBSCRIBER_NOT_FOUND");
       }
 
-      // Find latest entitlement end for this subscriber
       const subEntitlements = entitlements.filter((e) => e.subscriberId === tx.subscriberId);
       let latestEnd: string | null = null;
       for (const ent of subEntitlements) {
@@ -1703,7 +1905,14 @@ export function createPaymentFinanceLedgerEngine(options?: {
       };
       entitlements.push(newEntitlement);
 
-      premiumReconciliations.set(tx.id, {
+      // Section 10: Premium accounting state remains PENDING_ACCOUNTANT_AUTHORITY
+      // because revenue recognition timing, deferred revenue treatment, VAT, and fiscalization are unresolved.
+      const accountingStatus: PaymentAccountingStatus =
+        clearingConfig.accountantApproved && clearingConfig.premiumAccountingApproved
+          ? "PENDING_POSTING"
+          : "PENDING_ACCOUNTANT_AUTHORITY";
+
+      const recRecord: PremiumReconciliationRecord = {
         id: nextId("prec"),
         transactionId: tx.id,
         entitlementId: newEntitlement.id,
@@ -1713,12 +1922,27 @@ export function createPaymentFinanceLedgerEngine(options?: {
         previousEndsAt: latestEnd,
         newStartsAt: nowIso,
         newEndsAt,
+        businessReconciliation: "COMPLETE",
+        accountingStatus,
+        revenueJournalId: null,
+        unresolvedAccountingPolicies: Object.freeze([
+          "revenue_recognition_timing",
+          "deferred_revenue_treatment",
+          "vat",
+          "fiscalization"
+        ]),
         reconciledAt: nowIso
-      });
+      };
+      premiumReconciliations.set(tx.id, recRecord);
 
-      const beforeState = { internalStatus: tx.internalStatus, reconciliationStatus: tx.reconciliationStatus };
+      const beforeState = {
+        internalStatus: tx.internalStatus,
+        reconciliationStatus: tx.reconciliationStatus,
+        accountingStatus: tx.accountingStatus
+      };
       tx.internalStatus = "RECONCILED";
       tx.reconciliationStatus = "RECONCILED";
+      tx.accountingStatus = accountingStatus;
       tx.reconciledAt = nowIso;
       tx.updatedAt = nowIso;
 
@@ -1733,11 +1957,14 @@ export function createPaymentFinanceLedgerEngine(options?: {
         afterState: {
           internalStatus: tx.internalStatus,
           reconciliationStatus: tx.reconciliationStatus,
+          businessReconciliation: "COMPLETE",
+          accountingStatus: tx.accountingStatus,
+          revenueJournalId: null,
           previousEndsAt: latestEnd,
           newStartsAt: nowIso,
           newEndsAt
         },
-        reason: "Verified Premium payment reconciled into subscriber entitlement",
+        reason: "Verified Premium payment reconciled into subscriber entitlement (accounting pending accountant authority)",
         providerReference: tx.providerReference,
         timestamp: nowIso
       });
@@ -1746,6 +1973,10 @@ export function createPaymentFinanceLedgerEngine(options?: {
         reconciled: true,
         replayed: false,
         entitlementChanged: true,
+        businessReconciliation: "COMPLETE",
+        accountingStatus,
+        revenueJournalId: null,
+        unresolvedAccountingPolicies: recRecord.unresolvedAccountingPolicies,
         entitlement: newEntitlement,
         previousEndsAt: latestEnd,
         newStartsAt: nowIso,
@@ -1753,7 +1984,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
       };
     },
 
-    // Section 10 & 11: Advertising Invoice Payment Reconciliation Primitive
+    // Section 8, 9, 10 & 11: Advertising Invoice Payment Reconciliation Primitive
     reconcileAdvertisingInvoice(
       transactionId: string,
       actorStaffId: string = "staff-finance-system",
@@ -1761,6 +1992,9 @@ export function createPaymentFinanceLedgerEngine(options?: {
     ): {
       reconciled: boolean;
       replayed: boolean;
+      businessReconciliation: "COMPLETE" | "REVERSED";
+      accountingStatus: PaymentAccountingStatus;
+      clearingJournalId: string | null;
       payment: FinancePaymentRecord;
       invoiceStatus: InvoicePayableStatus;
       balanceDue: number;
@@ -1782,16 +2016,22 @@ export function createPaymentFinanceLedgerEngine(options?: {
         return {
           reconciled: true,
           replayed: true,
+          businessReconciliation: existingPayment?.businessReconciliation ?? "COMPLETE",
+          accountingStatus: existingPayment?.accountingStatus ?? tx.accountingStatus,
+          clearingJournalId: existingPayment?.clearingJournalId ?? null,
           payment: existingPayment!,
           invoiceStatus: inv.status,
           balanceDue: inv.balanceDue
         };
       }
 
-      if (tx.internalStatus !== "PAYMENT_VERIFIED" && tx.internalStatus !== "RECONCILIATION_PENDING") {
+      if (
+        tx.verificationAuthority === "NO_VERIFICATION_AUTHORITY" ||
+        (tx.internalStatus !== "PAYMENT_VERIFIED" && tx.internalStatus !== "RECONCILIATION_PENDING")
+      ) {
         openException({
           exceptionCode: "RECONCILIATION_FAILED",
-          reason: `Cannot reconcile Advertising transaction in status ${tx.internalStatus}`,
+          reason: `Cannot reconcile Advertising transaction in status ${tx.internalStatus} (verification=${tx.verificationAuthority})`,
           transactionId: tx.id,
           merchantReference: tx.merchantReference,
           openedAt: nowIso
@@ -1806,7 +2046,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
         throw new Error("INVOICE_NOT_FOUND");
       }
 
-      // Section 10: Only payable invoice states (issued, partially_paid, overdue) may be settled
       if (!(PAYABLE_INVOICE_STATUSES as readonly string[]).includes(inv.status)) {
         openException({
           exceptionCode: "UNPAYABLE_INVOICE",
@@ -1848,10 +2087,43 @@ export function createPaymentFinanceLedgerEngine(options?: {
         throw new Error("AMOUNT_MISMATCH");
       }
 
+      // Section 8 & 9: Separate business reconciliation from accounting reconciliation
+      let accountingStatus: PaymentAccountingStatus = "PENDING_ACCOUNTANT_AUTHORITY";
+      let clearingJournalId: string | null = null;
+      const paymentNumber = `PAY-2026-${String(financePayments.length + 1).padStart(4, "0")}`;
+
+      if (clearingConfig.accountantApproved && clearingConfig.providerClearingAccountCode) {
+        const jrnId = nextId("jrn");
+        clearingJournalId = jrnId;
+        accountingStatus = "POSTED";
+        journals.push({
+          id: jrnId,
+          entryNumber: `JRN-2026-${String(journals.length + 1).padStart(4, "0")}`,
+          source: "payment",
+          sourceId: tx.id,
+          currency: tx.currency,
+          memo: `Paynow Provider Clearing Receipt: ${paymentNumber}`,
+          lines: [
+            {
+              accountCode: clearingConfig.providerClearingAccountCode,
+              debit: tx.reportedAmount,
+              credit: 0,
+              description: `DR Provider Clearing (${tx.merchantReference})`
+            },
+            {
+              accountCode: clearingConfig.accountsReceivableAccountCode,
+              debit: 0,
+              credit: tx.reportedAmount,
+              description: `CR Accounts Receivable (${inv.invoiceNumber})`
+            }
+          ]
+        });
+      }
+
       const paymentIdem = `paynow-tx-${tx.id}`;
       const payment: FinancePaymentRecord = {
         id: nextId("pay"),
-        paymentNumber: `PAY-2026-${String(financePayments.length + 1).padStart(4, "0")}`,
+        paymentNumber,
         customerId: inv.customerId,
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -1863,6 +2135,9 @@ export function createPaymentFinanceLedgerEngine(options?: {
         providerReference: tx.providerReference ?? tx.merchantReference,
         merchantReference: tx.merchantReference,
         transactionId: tx.id,
+        businessReconciliation: "COMPLETE",
+        accountingStatus,
+        clearingJournalId,
         idempotencyKey: paymentIdem,
         receivedBy: actorStaffId,
         createdAt: nowIso
@@ -1878,34 +2153,9 @@ export function createPaymentFinanceLedgerEngine(options?: {
       inv.balanceDue = Number((inv.total - inv.amountPaid).toFixed(2));
       inv.status = inv.balanceDue === 0 ? "paid" : "partially_paid";
 
-      // Section 12: Configurable Provider Clearing journal posting
-      if (clearingConfig.accountantApproved && clearingConfig.providerClearingAccountCode) {
-        journals.push({
-          id: nextId("jrn"),
-          entryNumber: `JRN-2026-${String(journals.length + 1).padStart(4, "0")}`,
-          source: "payment",
-          sourceId: payment.id,
-          currency: payment.currency,
-          memo: `Paynow Provider Clearing Receipt: ${payment.paymentNumber}`,
-          lines: [
-            {
-              accountCode: clearingConfig.providerClearingAccountCode,
-              debit: payment.amount,
-              credit: 0,
-              description: `DR Provider Clearing (${tx.merchantReference})`
-            },
-            {
-              accountCode: clearingConfig.accountsReceivableAccountCode,
-              debit: 0,
-              credit: payment.amount,
-              description: `CR Accounts Receivable (${inv.invoiceNumber})`
-            }
-          ]
-        });
-      }
-
       tx.internalStatus = "RECONCILED";
       tx.reconciliationStatus = "RECONCILED";
+      tx.accountingStatus = accountingStatus;
       tx.reconciledAt = nowIso;
       tx.updatedAt = nowIso;
 
@@ -1922,7 +2172,10 @@ export function createPaymentFinanceLedgerEngine(options?: {
           balanceDue: inv.balanceDue,
           paymentNumber: payment.paymentNumber,
           method: payment.method,
-          providerChannel: payment.providerChannel
+          providerChannel: payment.providerChannel,
+          businessReconciliation: payment.businessReconciliation,
+          accountingStatus: payment.accountingStatus,
+          clearingJournalId: payment.clearingJournalId
         },
         reason: "Verified Paynow invoice payment reconciled",
         providerReference: tx.providerReference,
@@ -1932,6 +2185,9 @@ export function createPaymentFinanceLedgerEngine(options?: {
       return {
         reconciled: true,
         replayed: false,
+        businessReconciliation: payment.businessReconciliation,
+        accountingStatus: payment.accountingStatus,
+        clearingJournalId: payment.clearingJournalId,
         payment,
         invoiceStatus: inv.status,
         balanceDue: inv.balanceDue
@@ -1960,6 +2216,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
       if (input.currency !== inv.currency) throw new Error("CURRENCY_MISMATCH");
       if (input.amount <= 0 || input.amount > inv.balanceDue) throw new Error("AMOUNT_MISMATCH");
 
+      const jrnId = nextId("jrn");
       const payment: FinancePaymentRecord = {
         id: nextId("pay"),
         paymentNumber: `PAY-2026-${String(financePayments.length + 1).padStart(4, "0")}`,
@@ -1974,6 +2231,9 @@ export function createPaymentFinanceLedgerEngine(options?: {
         providerReference: input.bankReference,
         merchantReference: null,
         transactionId: null,
+        businessReconciliation: "COMPLETE",
+        accountingStatus: "POSTED",
+        clearingJournalId: jrnId,
         idempotencyKey: input.idempotencyKey,
         receivedBy: input.actorStaffId,
         createdAt: new Date().toISOString()
@@ -1987,7 +2247,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
       inv.status = inv.balanceDue === 0 ? "paid" : "partially_paid";
 
       journals.push({
-        id: nextId("jrn"),
+        id: jrnId,
         entryNumber: `JRN-2026-${String(journals.length + 1).padStart(4, "0")}`,
         source: "payment",
         sourceId: payment.id,
@@ -2030,7 +2290,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
         throw new Error(`SETTLEMENT_MATH_ERROR: gross (${input.grossAmount}) - fee (${input.feeAmount}) != net (${input.netAmount})`);
       }
 
-      // Check duplicate transaction allocation across settlements
       for (const line of input.lines) {
         if (settledTransactionIds.has(line.transactionId)) {
           throw new Error(`DUPLICATE_SETTLEMENT_ALLOCATION: Transaction ${line.transactionId} is already allocated to a settlement`);
@@ -2075,7 +2334,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
       let status: ProviderSettlementRecord["status"] = "RECONCILED_TO_BANK";
       let raisedException: PaymentExceptionRecord | null = null;
 
-      // Check header vs lines and vs bank deposit
       const headerMismatch =
         sumGross !== Number(input.grossAmount.toFixed(2)) ||
         sumFee !== Number(input.feeAmount.toFixed(2)) ||
@@ -2119,46 +2377,51 @@ export function createPaymentFinanceLedgerEngine(options?: {
       }
 
       let clearingJournalId: string | null = null;
-      if (
-        status === "RECONCILED_TO_BANK" &&
-        clearingConfig.accountantApproved &&
-        clearingConfig.providerClearingAccountCode &&
-        clearingConfig.providerFeeExpenseAccountCode
-      ) {
-        const jrnId = nextId("jrn");
-        clearingJournalId = jrnId;
-        const jrnLines: Array<{ accountCode: string; debit: number; credit: number; description: string }> = [
-          {
-            accountCode: clearingConfig.bankSettlementAccountCode,
-            debit: input.netAmount,
-            credit: 0,
-            description: `DR Bank Settlement (${input.settlementReference})`
+      let accountingStatus: PaymentAccountingStatus = "PENDING_ACCOUNTANT_AUTHORITY";
+      if (status === "RECONCILED_TO_BANK") {
+        if (
+          clearingConfig.accountantApproved &&
+          clearingConfig.providerClearingAccountCode &&
+          clearingConfig.providerFeeExpenseAccountCode
+        ) {
+          const jrnId = nextId("jrn");
+          clearingJournalId = jrnId;
+          accountingStatus = "POSTED";
+          const jrnLines: Array<{ accountCode: string; debit: number; credit: number; description: string }> = [
+            {
+              accountCode: clearingConfig.bankSettlementAccountCode,
+              debit: input.netAmount,
+              credit: 0,
+              description: `DR Bank Settlement (${input.settlementReference})`
+            }
+          ];
+          if (input.feeAmount > 0) {
+            jrnLines.push({
+              accountCode: clearingConfig.providerFeeExpenseAccountCode,
+              debit: input.feeAmount,
+              credit: 0,
+              description: `DR Provider Fees Expense (${input.settlementReference})`
+            });
           }
-        ];
-        if (input.feeAmount > 0) {
           jrnLines.push({
-            accountCode: clearingConfig.providerFeeExpenseAccountCode,
-            debit: input.feeAmount,
-            credit: 0,
-            description: `DR Provider Fees Expense (${input.settlementReference})`
+            accountCode: clearingConfig.providerClearingAccountCode,
+            debit: 0,
+            credit: input.grossAmount,
+            description: `CR Provider Clearing (${input.settlementReference})`
+          });
+
+          journals.push({
+            id: jrnId,
+            entryNumber: `JRN-2026-${String(journals.length + 1).padStart(4, "0")}`,
+            source: "manual",
+            sourceId: settlementId,
+            currency: input.currency,
+            memo: `Paynow Settlement to Bank: ${input.settlementReference}`,
+            lines: jrnLines
           });
         }
-        jrnLines.push({
-          accountCode: clearingConfig.providerClearingAccountCode,
-          debit: 0,
-          credit: input.grossAmount,
-          description: `CR Provider Clearing (${input.settlementReference})`
-        });
-
-        journals.push({
-          id: jrnId,
-          entryNumber: `JRN-2026-${String(journals.length + 1).padStart(4, "0")}`,
-          source: "manual",
-          sourceId: settlementId,
-          currency: input.currency,
-          memo: `Paynow Settlement to Bank: ${input.settlementReference}`,
-          lines: jrnLines
-        });
+      } else {
+        accountingStatus = "POSTING_FAILED";
       }
 
       const settlement: ProviderSettlementRecord = {
@@ -2173,6 +2436,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
         netAmount: Number(input.netAmount.toFixed(2)),
         bankReference: input.bankReference ?? null,
         status,
+        accountingStatus,
         lines: lineRecords,
         clearingJournalId,
         createdAt: now
@@ -2193,7 +2457,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
           grossAmount: settlement.grossAmount,
           feeAmount: settlement.feeAmount,
           netAmount: settlement.netAmount,
-          status: settlement.status
+          status: settlement.status,
+          accountingStatus: settlement.accountingStatus
         },
         reason: `Settlement ${input.settlementReference} recorded`,
         timestamp: now
@@ -2233,6 +2498,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
       tx.internalStatus = input.workflowState;
       if (input.workflowState === "REFUND_CONFIRMED" || input.workflowState === "REVERSAL_REQUIRED") {
         tx.reconciliationStatus = "REVERSED";
+        tx.accountingStatus = "REVERSED";
       }
       tx.updatedAt = now;
 
@@ -2278,6 +2544,7 @@ export function createPaymentFinanceLedgerEngine(options?: {
         afterState: {
           internalStatus: tx.internalStatus,
           reconciliationStatus: tx.reconciliationStatus,
+          accountingStatus: tx.accountingStatus,
           workflowState: rev.workflowState
         },
         reason: input.reason.trim(),
@@ -2288,7 +2555,6 @@ export function createPaymentFinanceLedgerEngine(options?: {
       return { reversal: rev, transaction: { ...tx }, exception: exc };
     },
 
-    // Section 15 & 17: Destructive deletion is strictly forbidden
     deleteTransaction(_transactionId: string): never {
       throw new Error("DESTRUCTIVE_PAYMENT_DELETION_PROHIBITED: Original payments and transactions must never be deleted");
     },
@@ -2303,9 +2569,10 @@ export function createPaymentFinanceLedgerEngine(options?: {
         throw new Error("RECEIPT_FORBIDDEN: Connectivity test transactions never generate business receipts");
       }
       if (
-        tx.internalStatus !== "PAYMENT_VERIFIED" &&
-        tx.internalStatus !== "RECONCILIATION_PENDING" &&
-        tx.internalStatus !== "RECONCILED"
+        tx.verificationAuthority === "NO_VERIFICATION_AUTHORITY" ||
+        (tx.internalStatus !== "PAYMENT_VERIFIED" &&
+          tx.internalStatus !== "RECONCILIATION_PENDING" &&
+          tx.internalStatus !== "RECONCILED")
       ) {
         throw new Error(`RECEIPT_UNAVAILABLE_UNVERIFIED: Cannot generate receipt in status ${tx.internalStatus}`);
       }
@@ -2326,7 +2593,8 @@ export function createPaymentFinanceLedgerEngine(options?: {
           providerReference: tx.providerReference,
           invoiceOrPlanReference: tx.planKey ?? CANONICAL_PREMIUM_PLAN.plan_key,
           internalStatus: tx.internalStatus,
-          reconciliationStatus: tx.reconciliationStatus
+          reconciliationStatus: tx.reconciliationStatus,
+          accountingStatus: tx.accountingStatus
         };
       }
 
@@ -2346,11 +2614,12 @@ export function createPaymentFinanceLedgerEngine(options?: {
         providerReference: tx.providerReference,
         invoiceOrPlanReference: inv.invoiceNumber,
         internalStatus: tx.internalStatus,
-        reconciliationStatus: tx.reconciliationStatus
+        reconciliationStatus: tx.reconciliationStatus,
+        accountingStatus: tx.accountingStatus
       };
     },
 
-    // Section 18: Finance Transparency (never combining buckets)
+    // Section 11 & 18: Finance Transparency (distinguishing business_reconciled vs accounting states)
     getFinanceTransparency(currency: string = "USD"): FinanceTransparencySnapshot {
       let accountsReceivable = 0;
       for (const inv of invoices.values()) {
@@ -2364,25 +2633,37 @@ export function createPaymentFinanceLedgerEngine(options?: {
       }
 
       let verifiedProviderPaymentsPendingReconciliation = 0;
+      let businessReconciled = 0;
+      let accountingPendingAuthority = 0;
+      let accountingPendingPosting = 0;
+      let accountingPosted = 0;
       let providerClearingPendingSettlement = 0;
+
       for (const tx of transactions.values()) {
         if (tx.currency !== currency || tx.purpose === "PROVIDER_CONNECTIVITY_TEST") continue;
+        const amt = tx.reportedAmount ?? tx.expectedAmount;
         if (
           (tx.internalStatus === "PAYMENT_VERIFIED" || tx.internalStatus === "RECONCILIATION_PENDING") &&
           tx.reconciliationStatus === "PENDING"
         ) {
           verifiedProviderPaymentsPendingReconciliation = Number(
-            (verifiedProviderPaymentsPendingReconciliation + (tx.reportedAmount ?? tx.expectedAmount)).toFixed(2)
+            (verifiedProviderPaymentsPendingReconciliation + amt).toFixed(2)
           );
         }
-        if (
-          tx.provider === "paynow" &&
-          tx.reconciliationStatus === "RECONCILED" &&
-          !settledTransactionIds.has(tx.id)
-        ) {
-          providerClearingPendingSettlement = Number(
-            (providerClearingPendingSettlement + (tx.reportedAmount ?? 0)).toFixed(2)
-          );
+        if (tx.reconciliationStatus === "RECONCILED") {
+          businessReconciled = Number((businessReconciled + (tx.reportedAmount ?? 0)).toFixed(2));
+          if (tx.accountingStatus === "PENDING_ACCOUNTANT_AUTHORITY") {
+            accountingPendingAuthority = Number((accountingPendingAuthority + (tx.reportedAmount ?? 0)).toFixed(2));
+          } else if (tx.accountingStatus === "PENDING_POSTING") {
+            accountingPendingPosting = Number((accountingPendingPosting + (tx.reportedAmount ?? 0)).toFixed(2));
+          } else if (tx.accountingStatus === "POSTED") {
+            accountingPosted = Number((accountingPosted + (tx.reportedAmount ?? 0)).toFixed(2));
+          }
+          if (tx.provider === "paynow" && !settledTransactionIds.has(tx.id)) {
+            providerClearingPendingSettlement = Number(
+              (providerClearingPendingSettlement + (tx.reportedAmount ?? 0)).toFixed(2)
+            );
+          }
         }
       }
 
@@ -2413,7 +2694,12 @@ export function createPaymentFinanceLedgerEngine(options?: {
         currency,
         accountsReceivable,
         verifiedProviderPaymentsPendingReconciliation,
+        businessReconciled,
+        accountingPendingAuthority,
+        accountingPendingPosting,
+        accountingPosted,
         providerClearingPendingSettlement,
+        bankSettled: bankSettlements,
         bankSettlements,
         providerFees,
         refundsAndDisputes,
@@ -2647,6 +2933,10 @@ export function createPaymentFinanceLedgerEngine(options?: {
 
     getJournals() {
       return [...journals];
+    },
+
+    getProviderEvents(): ProviderWebhookEventRecord[] {
+      return [...providerEvents.values()];
     }
   };
 }

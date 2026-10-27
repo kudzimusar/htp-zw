@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Migration: 20261027000000_ht_ext01a_payment_finance_readiness.sql
--- Unit: HT-MVP-EXT-01A-RDY-01 — Payment + Finance Business Transparency Foundation
+-- Unit: HT-MVP-EXT-01A-RDY-01-R1 — Payment + Finance Business Transparency Foundation
 -- Programme: HealthTimes External Revenue & Communications Activation
 -- Disposition: Provider-Independent Payment / Finance Readiness (Fail-Closed)
 -- =============================================================================
@@ -173,7 +173,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 4. Provider Transaction Authority & Payment State Machine (Sections 3, 6, 7)
+-- 4. Provider Transaction Authority, State Machine & Accounting Disposition
 -- ---------------------------------------------------------------------------
 create table if not exists public.payment_transactions (
   id uuid primary key default gen_random_uuid(),
@@ -222,6 +222,18 @@ create table if not exists public.payment_transactions (
     'RECONCILIATION_FAILED',
     'REVERSED'
   )),
+  accounting_status text not null default 'PENDING_ACCOUNTANT_AUTHORITY' check (accounting_status in (
+    'NOT_APPLICABLE',
+    'PENDING_ACCOUNTANT_AUTHORITY',
+    'PENDING_POSTING',
+    'POSTED',
+    'REVERSED',
+    'POSTING_FAILED'
+  )),
+  verification_authority text not null default 'NO_VERIFICATION_AUTHORITY' check (verification_authority in (
+    'NO_VERIFICATION_AUTHORITY',
+    'TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION'
+  )),
   idempotency_key text not null unique check (length(trim(idempotency_key)) >= 8),
   payment_channel text,
   initiated_at timestamptz,
@@ -235,13 +247,18 @@ create table if not exists public.payment_transactions (
   check (
     (purpose = 'PREMIUM_SUBSCRIPTION' and merchant_reference like 'HT-PREM-%' and subscriber_id is not null and plan_key is not null and invoice_id is null)
     or (purpose = 'ADVERTISING_INVOICE' and merchant_reference like 'HT-INV-%' and invoice_id is not null and subscriber_id is null)
-    or (purpose = 'PROVIDER_CONNECTIVITY_TEST' and merchant_reference like 'HT-CONN-%' and subscriber_id is null and invoice_id is null and reconciliation_status = 'NOT_ELIGIBLE' and internal_status <> 'RECONCILED')
+    or (purpose = 'PROVIDER_CONNECTIVITY_TEST' and merchant_reference like 'HT-CONN-%' and subscriber_id is null and invoice_id is null and reconciliation_status = 'NOT_ELIGIBLE' and accounting_status = 'NOT_APPLICABLE' and internal_status <> 'RECONCILED')
+  ),
+  -- Unverified events must never transition transaction to PAYMENT_VERIFIED or RECONCILED
+  check (
+    internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING', 'RECONCILED')
+    or verification_authority <> 'NO_VERIFICATION_AUTHORITY'
   )
 );
 
 create index if not exists idx_payment_transactions_subscriber on public.payment_transactions(subscriber_id) where subscriber_id is not null;
 create index if not exists idx_payment_transactions_invoice on public.payment_transactions(invoice_id) where invoice_id is not null;
-create index if not exists idx_payment_transactions_status on public.payment_transactions(internal_status, reconciliation_status);
+create index if not exists idx_payment_transactions_status on public.payment_transactions(internal_status, reconciliation_status, accounting_status);
 
 -- Prevent destructive deletion of payment transactions (Section 15 & 17)
 create or replace function public.payment_prevent_destructive_delete()
@@ -258,7 +275,7 @@ create trigger trg_payment_transactions_no_delete
   for each row execute function public.payment_prevent_destructive_delete();
 
 -- ---------------------------------------------------------------------------
--- 5. Extend Provider Event Authority for Paynow (Section 5)
+-- 5. Extend Provider Event Authority for Paynow (Section 5 & 6)
 -- ---------------------------------------------------------------------------
 alter table public.provider_webhook_events
   drop constraint if exists provider_webhook_events_provider_check;
@@ -273,10 +290,12 @@ alter table public.provider_webhook_events
   add column if not exists provider_reference text,
   add column if not exists reported_amount numeric(18,2),
   add column if not exists reported_currency text,
+  add column if not exists verification_authority text not null default 'NO_VERIFICATION_AUTHORITY'
+    check (verification_authority in ('NO_VERIFICATION_AUTHORITY', 'TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION')),
   add column if not exists sanitized_metadata jsonb not null default '{}'::jsonb;
 
 -- ---------------------------------------------------------------------------
--- 6. Extend Finance Payments for method=paynow & Provider Channel (Section 11)
+-- 6. Extend Finance Payments for method=paynow, Provider Channel & Accounting State (Sections 8, 9, 11)
 -- ---------------------------------------------------------------------------
 alter table public.finance_payments
   drop constraint if exists finance_payments_method_check;
@@ -288,10 +307,15 @@ alter table public.finance_payments
 alter table public.finance_payments
   add column if not exists provider_channel text,
   add column if not exists transaction_id uuid unique references public.payment_transactions(id) on delete restrict,
-  add column if not exists merchant_reference text;
+  add column if not exists merchant_reference text,
+  add column if not exists business_reconciliation text not null default 'COMPLETE'
+    check (business_reconciliation in ('COMPLETE', 'REVERSED')),
+  add column if not exists accounting_status text not null default 'POSTED'
+    check (accounting_status in ('PENDING_ACCOUNTANT_AUTHORITY', 'PENDING_POSTING', 'POSTED', 'REVERSED', 'POSTING_FAILED')),
+  add column if not exists clearing_journal_id uuid references public.finance_journal_entries(id);
 
 -- ---------------------------------------------------------------------------
--- 7. Premium Entitlement Reconciliations Ledger (Section 7 & 9)
+-- 7. Premium Entitlement Reconciliations Ledger with Accounting State (Sections 7, 9, 10)
 -- ---------------------------------------------------------------------------
 create table if not exists public.premium_entitlement_reconciliations (
   id uuid primary key default gen_random_uuid(),
@@ -305,6 +329,12 @@ create table if not exists public.premium_entitlement_reconciliations (
   previous_ends_at timestamptz,
   new_starts_at timestamptz not null,
   new_ends_at timestamptz not null,
+  business_reconciliation text not null default 'COMPLETE'
+    check (business_reconciliation in ('COMPLETE', 'REVERSED')),
+  accounting_status text not null default 'PENDING_ACCOUNTANT_AUTHORITY'
+    check (accounting_status in ('PENDING_ACCOUNTANT_AUTHORITY', 'PENDING_POSTING', 'POSTED', 'REVERSED', 'POSTING_FAILED')),
+  revenue_journal_id uuid references public.finance_journal_entries(id),
+  unresolved_accounting_policies jsonb not null default '["revenue_recognition_timing","deferred_revenue_treatment","vat","fiscalization"]'::jsonb,
   reconciled_at timestamptz not null default now(),
   check (new_ends_at > new_starts_at)
 );
@@ -328,15 +358,16 @@ create table if not exists public.finance_provider_clearing_config (
   accounts_receivable_account_code text not null default '1200',
   premium_revenue_account_code text not null default '4100',
   deferred_revenue_account_code text,
-  policy_notes text not null default 'Awaiting accountant sign-off on Paynow Clearing account code, Provider Fee expense account code, and Premium revenue recognition / deferred revenue policy.',
+  premium_accounting_approved boolean not null default false,
+  policy_notes text not null default 'Awaiting accountant sign-off on Paynow Clearing account code, Provider Fee expense account code, and Premium revenue recognition / deferred revenue / VAT / fiscalization policy.',
   updated_by uuid references public.staff_profiles(id),
   updated_at timestamptz not null default now()
 );
 
 insert into public.finance_provider_clearing_config (
-  provider, clearing_mode, accountant_approved
+  provider, clearing_mode, accountant_approved, premium_accounting_approved
 ) values (
-  'paynow', 'PENDING_ACCOUNTANT_AUTHORITY', false
+  'paynow', 'PENDING_ACCOUNTANT_AUTHORITY', false, false
 ) on conflict (provider) do nothing;
 
 create table if not exists public.provider_settlements (
@@ -355,6 +386,13 @@ create table if not exists public.provider_settlements (
     'MATCHED',
     'SETTLEMENT_MISMATCH',
     'RECONCILED_TO_BANK'
+  )),
+  accounting_status text not null default 'PENDING_ACCOUNTANT_AUTHORITY' check (accounting_status in (
+    'PENDING_ACCOUNTANT_AUTHORITY',
+    'PENDING_POSTING',
+    'POSTED',
+    'REVERSED',
+    'POSTING_FAILED'
   )),
   clearing_journal_id uuid references public.finance_journal_entries(id),
   reconciled_by uuid references public.staff_profiles(id),
@@ -625,6 +663,7 @@ declare
   v_currency text;
   v_merchant_ref text;
   v_reconciliation_status text := 'PENDING';
+  v_accounting_status text := 'PENDING_ACCOUNTANT_AUTHORITY';
   v_tx_id uuid;
 begin
   if p_idempotency_key is null or length(trim(p_idempotency_key)) < 8 then
@@ -650,6 +689,7 @@ begin
       'currency', v_existing.currency,
       'internal_status', v_existing.internal_status,
       'reconciliation_status', v_existing.reconciliation_status,
+      'accounting_status', v_existing.accounting_status,
       'replayed', true
     );
   end if;
@@ -687,7 +727,7 @@ begin
       raise exception using errcode = 'P0002', message = 'Invoice not found';
     end if;
     if v_inv.status not in ('issued', 'partially_paid', 'overdue') or v_inv.balance_due <= 0 then
-      raise exception using errcode = '22023', message = 'Invoice is not in an explicitly payable state (status: ' || v_inv.status || ')';
+      raise exception using errcode = '22023', message = 'UNPAYABLE_INVOICE: Invoice is not in an explicitly payable state (status: ' || v_inv.status || ')';
     end if;
 
     v_expected_amount := v_inv.balance_due;
@@ -700,6 +740,7 @@ begin
     v_expected_amount := 1.00;
     v_currency := 'USD';
     v_reconciliation_status := 'NOT_ELIGIBLE';
+    v_accounting_status := 'NOT_APPLICABLE';
 
   else
     raise exception using errcode = '22023', message = 'Unsupported payment purpose: ' || coalesce(p_purpose, 'null');
@@ -721,7 +762,8 @@ begin
   insert into public.payment_transactions (
     provider, purpose, merchant_reference, subscriber_id, invoice_id,
     plan_key, plan_version, currency, expected_amount,
-    internal_status, reconciliation_status, idempotency_key
+    internal_status, reconciliation_status, accounting_status,
+    verification_authority, idempotency_key
   )
   values (
     'paynow',
@@ -735,6 +777,8 @@ begin
     v_expected_amount,
     'CREATED',
     v_reconciliation_status,
+    v_accounting_status,
+    'NO_VERIFICATION_AUTHORITY',
     trim(p_idempotency_key)
   )
   returning id into v_tx_id;
@@ -754,7 +798,8 @@ begin
       'expected_amount', v_expected_amount,
       'currency', v_currency,
       'internal_status', 'CREATED',
-      'reconciliation_status', v_reconciliation_status
+      'reconciliation_status', v_reconciliation_status,
+      'accounting_status', v_accounting_status
     ),
     'Canonical server payment intent created',
     null,
@@ -769,12 +814,13 @@ begin
     'currency', v_currency,
     'internal_status', 'CREATED',
     'reconciliation_status', v_reconciliation_status,
+    'accounting_status', v_accounting_status,
     'replayed', false
   );
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 12. Premium Payment Reconciliation Primitive (Section 9)
+-- 12. Premium Payment Reconciliation Primitive (Section 9 & 10)
 -- ---------------------------------------------------------------------------
 create or replace function public.payment_reconcile_premium_transaction(
   p_transaction_id uuid,
@@ -789,12 +835,14 @@ declare
   v_tx public.payment_transactions%rowtype;
   v_plan public.premium_plans%rowtype;
   v_existing_rec public.premium_entitlement_reconciliations%rowtype;
+  v_clearing_cfg public.finance_provider_clearing_config%rowtype;
   v_current_end timestamptz;
   v_base timestamptz;
   v_new_end timestamptz;
   v_entitlement_id uuid;
   v_rec_id uuid;
   v_exc_id uuid;
+  v_accounting_status text := 'PENDING_ACCOUNTANT_AUTHORITY';
 begin
   select * into v_tx from public.payment_transactions where id = p_transaction_id for update;
   if v_tx.id is null then
@@ -819,18 +867,22 @@ begin
       'reconciled', true,
       'replayed', true,
       'entitlement_changed', false,
+      'business_reconciliation', coalesce(v_existing_rec.business_reconciliation, 'COMPLETE'),
+      'accounting_status', coalesce(v_existing_rec.accounting_status, v_tx.accounting_status),
+      'revenue_journal_id', v_existing_rec.revenue_journal_id,
       'entitlement_id', v_existing_rec.entitlement_id,
       'new_starts_at', v_existing_rec.new_starts_at,
       'new_ends_at', v_existing_rec.new_ends_at
     );
   end if;
 
-  if v_tx.internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING') then
+  if v_tx.verification_authority = 'NO_VERIFICATION_AUTHORITY'
+     or v_tx.internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING') then
     v_exc_id := public.payment_open_exception(
       'RECONCILIATION_FAILED',
-      'Premium reconciliation requires PAYMENT_VERIFIED or RECONCILIATION_PENDING state (current: ' || v_tx.internal_status || ')',
+      'Premium reconciliation requires verified payment authority and PAYMENT_VERIFIED/RECONCILIATION_PENDING state (current: ' || v_tx.internal_status || ', verification: ' || v_tx.verification_authority || ')',
       v_tx.id, null, v_tx.merchant_reference, v_tx.provider_reference,
-      jsonb_build_object('internal_status', v_tx.internal_status)
+      jsonb_build_object('internal_status', v_tx.internal_status, 'verification_authority', v_tx.verification_authority)
     );
     update public.payment_transactions
        set internal_status = 'RECONCILIATION_FAILED',
@@ -911,19 +963,31 @@ begin
   )
   returning id into v_entitlement_id;
 
+  -- Section 10: Premium accounting state remains PENDING_ACCOUNTANT_AUTHORITY until
+  -- revenue recognition timing, deferred revenue treatment, VAT, and fiscalization are signed off.
+  select * into v_clearing_cfg from public.finance_provider_clearing_config where provider = 'paynow';
+  if v_clearing_cfg.accountant_approved and v_clearing_cfg.premium_accounting_approved then
+    v_accounting_status := 'PENDING_POSTING';
+  else
+    v_accounting_status := 'PENDING_ACCOUNTANT_AUTHORITY';
+  end if;
+
   insert into public.premium_entitlement_reconciliations (
     transaction_id, entitlement_id, subscriber_id, plan_key, plan_version,
-    amount, currency, previous_ends_at, new_starts_at, new_ends_at
+    amount, currency, previous_ends_at, new_starts_at, new_ends_at,
+    business_reconciliation, accounting_status, revenue_journal_id
   )
   values (
     v_tx.id, v_entitlement_id, v_tx.subscriber_id, v_plan.plan_key, v_plan.version,
-    v_plan.amount, v_plan.currency, v_current_end, p_now, v_new_end
+    v_plan.amount, v_plan.currency, v_current_end, p_now, v_new_end,
+    'COMPLETE', v_accounting_status, null
   )
   returning id into v_rec_id;
 
   update public.payment_transactions
      set internal_status = 'RECONCILED',
          reconciliation_status = 'RECONCILED',
+         accounting_status = v_accounting_status,
          reconciled_at = p_now,
          updated_at = p_now
    where id = v_tx.id;
@@ -937,8 +1001,15 @@ begin
     'premium_entitlements',
     v_entitlement_id::text,
     jsonb_build_object('internal_status', v_tx.internal_status, 'previous_ends_at', v_current_end),
-    jsonb_build_object('internal_status', 'RECONCILED', 'new_starts_at', p_now, 'new_ends_at', v_new_end),
-    'Verified Premium subscription payment reconciled',
+    jsonb_build_object(
+      'internal_status', 'RECONCILED',
+      'business_reconciliation', 'COMPLETE',
+      'accounting_status', v_accounting_status,
+      'revenue_journal_id', null,
+      'new_starts_at', p_now,
+      'new_ends_at', v_new_end
+    ),
+    'Verified Premium subscription payment reconciled (accounting pending accountant policy)',
     v_tx.provider_reference,
     jsonb_build_object('plan_key', v_plan.plan_key, 'amount', v_plan.amount, 'currency', v_plan.currency)
   );
@@ -947,6 +1018,9 @@ begin
     'reconciled', true,
     'replayed', false,
     'entitlement_changed', true,
+    'business_reconciliation', 'COMPLETE',
+    'accounting_status', v_accounting_status,
+    'revenue_journal_id', null,
     'entitlement_id', v_entitlement_id,
     'reconciliation_id', v_rec_id,
     'previous_ends_at', v_current_end,
@@ -956,7 +1030,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 13. Advertising Invoice Payment Reconciliation Primitive (Section 10)
+-- 13. Advertising Invoice Payment Reconciliation Primitive (Sections 8, 9, 10)
 -- ---------------------------------------------------------------------------
 create or replace function public.payment_reconcile_advertising_invoice(
   p_transaction_id uuid,
@@ -979,7 +1053,8 @@ declare
   v_clearing_cfg public.finance_provider_clearing_config%rowtype;
   v_debit_acc uuid;
   v_ar_acc uuid;
-  v_jrn_id uuid;
+  v_jrn_id uuid := null;
+  v_accounting_status text := 'PENDING_ACCOUNTANT_AUTHORITY';
   v_exc_id uuid;
 begin
   select * into v_tx from public.payment_transactions where id = p_transaction_id for update;
@@ -1005,17 +1080,21 @@ begin
     return jsonb_build_object(
       'reconciled', true,
       'replayed', true,
+      'business_reconciliation', coalesce(v_existing_payment.business_reconciliation, 'COMPLETE'),
+      'accounting_status', coalesce(v_existing_payment.accounting_status, v_tx.accounting_status),
+      'clearing_journal_id', v_existing_payment.clearing_journal_id,
       'payment_id', v_existing_payment.id,
       'payment_number', v_existing_payment.payment_number
     );
   end if;
 
-  if v_tx.internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING') then
+  if v_tx.verification_authority = 'NO_VERIFICATION_AUTHORITY'
+     or v_tx.internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING') then
     v_exc_id := public.payment_open_exception(
       'RECONCILIATION_FAILED',
-      'Advertising invoice reconciliation requires PAYMENT_VERIFIED or RECONCILIATION_PENDING state',
+      'Advertising invoice reconciliation requires verified payment authority and PAYMENT_VERIFIED/RECONCILIATION_PENDING state',
       v_tx.id, null, v_tx.merchant_reference, v_tx.provider_reference,
-      jsonb_build_object('internal_status', v_tx.internal_status)
+      jsonb_build_object('internal_status', v_tx.internal_status, 'verification_authority', v_tx.verification_authority)
     );
     update public.payment_transactions
        set internal_status = 'RECONCILIATION_FAILED',
@@ -1080,11 +1159,42 @@ begin
     select coalesce(v_inv.issued_by, v_inv.approved_by, v_inv.created_by) into v_actor;
   end if;
 
+  -- Provider Clearing GL Posting (Sections 8, 9, 12):
+  -- Determine accounting_status and whether clearing journal can be posted.
+  select * into v_clearing_cfg from public.finance_provider_clearing_config where provider = 'paynow';
+  if v_clearing_cfg.accountant_approved and v_clearing_cfg.provider_clearing_account_code is not null then
+    select id into v_debit_acc from public.finance_chart_of_accounts where account_code = v_clearing_cfg.provider_clearing_account_code;
+    select id into v_ar_acc from public.finance_chart_of_accounts where account_code = v_clearing_cfg.accounts_receivable_account_code;
+    if v_debit_acc is not null and v_ar_acc is not null then
+      v_accounting_status := 'POSTED';
+    else
+      v_accounting_status := 'PENDING_POSTING';
+    end if;
+  else
+    v_accounting_status := 'PENDING_ACCOUNTANT_AUTHORITY';
+  end if;
+
   v_payment_number := public.finance_next_number('payment');
+
+  -- If accounting_status is POSTED, post the clearing journal first so finance_payments (which is immutable) records clearing_journal_id
+  if v_accounting_status = 'POSTED' then
+    v_jrn_id := public.finance_record_operational_journal(
+      'payment',
+      v_tx.id,
+      'Paynow Provider Clearing Receipt: ' || v_payment_number || ' (' || v_inv.invoice_number || ')',
+      v_tx.currency,
+      v_actor,
+      jsonb_build_array(
+        jsonb_build_object('account_id', v_debit_acc, 'debit', v_tx.reported_amount, 'credit', 0, 'description', 'DR Provider Clearing for ' || v_tx.merchant_reference),
+        jsonb_build_object('account_id', v_ar_acc, 'debit', 0, 'credit', v_tx.reported_amount, 'description', 'CR Accounts Receivable for ' || v_inv.invoice_number)
+      )
+    );
+  end if;
 
   insert into public.finance_payments (
     payment_number, customer_id, invoice_id, amount, currency, payment_date,
     method, provider_channel, provider_reference, merchant_reference, transaction_id,
+    business_reconciliation, accounting_status, clearing_journal_id,
     idempotency_key, received_by, notes
   )
   values (
@@ -1099,6 +1209,9 @@ begin
     coalesce(v_tx.provider_reference, v_tx.merchant_reference),
     v_tx.merchant_reference,
     v_tx.id,
+    'COMPLETE',
+    v_accounting_status,
+    v_jrn_id,
     'paynow-tx-' || v_tx.id::text,
     v_actor,
     'Reconciled from verified Paynow transaction ' || v_tx.merchant_reference
@@ -1115,31 +1228,10 @@ begin
          updated_at = now()
    where id = v_inv.id;
 
-  -- Provider Clearing GL Posting (Section 12):
-  -- Only post to Provider Clearing if accountant_approved = true and provider_clearing_account_code is configured;
-  -- do not silently alter live accounting semantics without accountant authority.
-  select * into v_clearing_cfg from public.finance_provider_clearing_config where provider = 'paynow';
-  if v_clearing_cfg.accountant_approved and v_clearing_cfg.provider_clearing_account_code is not null then
-    select id into v_debit_acc from public.finance_chart_of_accounts where account_code = v_clearing_cfg.provider_clearing_account_code;
-    select id into v_ar_acc from public.finance_chart_of_accounts where account_code = v_clearing_cfg.accounts_receivable_account_code;
-    if v_debit_acc is not null and v_ar_acc is not null then
-      v_jrn_id := public.finance_record_operational_journal(
-        'payment',
-        v_payment_id,
-        'Paynow Provider Clearing Receipt: ' || v_payment_number || ' (' || v_inv.invoice_number || ')',
-        v_tx.currency,
-        v_actor,
-        jsonb_build_array(
-          jsonb_build_object('account_id', v_debit_acc, 'debit', v_tx.reported_amount, 'credit', 0, 'description', 'DR Provider Clearing for ' || v_tx.merchant_reference),
-          jsonb_build_object('account_id', v_ar_acc, 'debit', 0, 'credit', v_tx.reported_amount, 'description', 'CR Accounts Receivable for ' || v_inv.invoice_number)
-        )
-      );
-    end if;
-  end if;
-
   update public.payment_transactions
      set internal_status = 'RECONCILED',
          reconciliation_status = 'RECONCILED',
+         accounting_status = v_accounting_status,
          reconciled_at = now(),
          updated_at = now()
    where id = v_tx.id;
@@ -1153,7 +1245,14 @@ begin
     'finance_payments',
     v_payment_id::text,
     jsonb_build_object('invoice_status', v_inv.status, 'balance_due', v_inv.balance_due),
-    jsonb_build_object('invoice_status', v_new_status, 'balance_due', v_inv.total - v_new_paid, 'payment_number', v_payment_number, 'clearing_journal_id', v_jrn_id),
+    jsonb_build_object(
+      'invoice_status', v_new_status,
+      'balance_due', v_inv.total - v_new_paid,
+      'payment_number', v_payment_number,
+      'business_reconciliation', 'COMPLETE',
+      'accounting_status', v_accounting_status,
+      'clearing_journal_id', v_jrn_id
+    ),
     'Verified Paynow invoice payment reconciled',
     v_tx.provider_reference,
     jsonb_build_object('invoice_id', v_inv.id, 'invoice_number', v_inv.invoice_number)
@@ -1162,12 +1261,14 @@ begin
   return jsonb_build_object(
     'reconciled', true,
     'replayed', false,
+    'business_reconciliation', 'COMPLETE',
+    'accounting_status', v_accounting_status,
+    'clearing_journal_id', v_jrn_id,
     'payment_id', v_payment_id,
     'payment_number', v_payment_number,
     'invoice_id', v_inv.id,
     'invoice_status', v_new_status,
-    'balance_due', v_inv.total - v_new_paid,
-    'clearing_journal_id', v_jrn_id
+    'balance_due', v_inv.total - v_new_paid
   );
 end $$;
 
@@ -1194,7 +1295,8 @@ begin
   end if;
 
   -- Never fabricate a receipt before payment verification (Section 23)
-  if v_tx.internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING', 'RECONCILED') then
+  if v_tx.verification_authority = 'NO_VERIFICATION_AUTHORITY'
+     or v_tx.internal_status not in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING', 'RECONCILED') then
     raise exception using errcode = '22023',
       message = 'Receipt unavailable: Payment has not been verified (current status: ' || v_tx.internal_status || ')';
   end if;
@@ -1214,7 +1316,8 @@ begin
       'provider_reference', v_tx.provider_reference,
       'invoice_or_plan_reference', v_tx.plan_key,
       'internal_status', v_tx.internal_status,
-      'reconciliation_status', v_tx.reconciliation_status
+      'reconciliation_status', v_tx.reconciliation_status,
+      'accounting_status', v_tx.accounting_status
     );
   elsif v_tx.purpose = 'ADVERTISING_INVOICE' then
     select * into v_inv from public.finance_invoices where id = v_tx.invoice_id;
@@ -1234,7 +1337,8 @@ begin
       'provider_reference', v_tx.provider_reference,
       'invoice_or_plan_reference', v_inv.invoice_number,
       'internal_status', v_tx.internal_status,
-      'reconciliation_status', v_tx.reconciliation_status
+      'reconciliation_status', v_tx.reconciliation_status,
+      'accounting_status', v_tx.accounting_status
     );
   else
     raise exception using errcode = '22023', message = 'Connectivity test transactions do not produce business receipts';
@@ -1242,7 +1346,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 15. Finance Transparency, Daily Control & Month-End Control RPCs (Sections 18, 19, 24, 25)
+-- 15. Finance Transparency, Daily Control & Month-End Control RPCs (Sections 11, 18, 19, 24, 25)
 -- ---------------------------------------------------------------------------
 create or replace function public.finance_get_payment_transparency(p_currency text default 'USD')
 returns jsonb
@@ -1254,6 +1358,10 @@ as $$
 declare
   v_ar numeric(18,2);
   v_verified_pending_rec numeric(18,2);
+  v_business_reconciled numeric(18,2);
+  v_accounting_pending_authority numeric(18,2);
+  v_accounting_pending_posting numeric(18,2);
+  v_accounting_posted numeric(18,2);
   v_clearing_pending_settlement numeric(18,2);
   v_bank_settlements numeric(18,2);
   v_provider_fees numeric(18,2);
@@ -1264,7 +1372,7 @@ begin
     raise exception using errcode = '42501', message = 'finance.view capability required';
   end if;
 
-  -- 1. Accounts Receivable (separately reported)
+  -- 1. Accounts Receivable
   select coalesce(sum(balance_due), 0) into v_ar
   from public.finance_invoices
   where currency = p_currency
@@ -1279,7 +1387,38 @@ begin
     and internal_status in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING')
     and reconciliation_status = 'PENDING';
 
-  -- 3. Provider Clearing Pending Settlement (reconciled provider transactions not yet in a RECONCILED_TO_BANK settlement)
+  -- 3. Business Reconciled Total (reconciled provider transactions across Premium & Advertising)
+  select coalesce(sum(reported_amount), 0) into v_business_reconciled
+  from public.payment_transactions
+  where currency = p_currency
+    and purpose in ('PREMIUM_SUBSCRIPTION', 'ADVERTISING_INVOICE')
+    and reconciliation_status = 'RECONCILED';
+
+  -- 4. Accounting Pending Authority
+  select coalesce(sum(reported_amount), 0) into v_accounting_pending_authority
+  from public.payment_transactions
+  where currency = p_currency
+    and purpose in ('PREMIUM_SUBSCRIPTION', 'ADVERTISING_INVOICE')
+    and reconciliation_status = 'RECONCILED'
+    and accounting_status = 'PENDING_ACCOUNTANT_AUTHORITY';
+
+  -- 5. Accounting Pending Posting
+  select coalesce(sum(reported_amount), 0) into v_accounting_pending_posting
+  from public.payment_transactions
+  where currency = p_currency
+    and purpose in ('PREMIUM_SUBSCRIPTION', 'ADVERTISING_INVOICE')
+    and reconciliation_status = 'RECONCILED'
+    and accounting_status = 'PENDING_POSTING';
+
+  -- 6. Accounting Posted
+  select coalesce(sum(reported_amount), 0) into v_accounting_posted
+  from public.payment_transactions
+  where currency = p_currency
+    and purpose in ('PREMIUM_SUBSCRIPTION', 'ADVERTISING_INVOICE')
+    and reconciliation_status = 'RECONCILED'
+    and accounting_status = 'POSTED';
+
+  -- 7. Provider Clearing Pending Settlement
   select coalesce(sum(t.reported_amount), 0) into v_clearing_pending_settlement
   from public.payment_transactions t
   where t.currency = p_currency
@@ -1294,24 +1433,24 @@ begin
         and s.status = 'RECONCILED_TO_BANK'
     );
 
-  -- 4. Bank Settlements
+  -- 8. Bank Settled
   select coalesce(sum(net_amount), 0) into v_bank_settlements
   from public.provider_settlements
   where currency = p_currency
     and status = 'RECONCILED_TO_BANK';
 
-  -- 5. Provider Fees (only from authorized settlement records, never invented)
+  -- 9. Provider Fees
   select coalesce(sum(fee_amount), 0) into v_provider_fees
   from public.provider_settlements
   where currency = p_currency
     and status in ('MATCHED', 'RECONCILED_TO_BANK');
 
-  -- 6. Refunds / Disputes
+  -- 10. Refunds / Disputes
   select coalesce(sum(amount), 0) into v_refunds_disputes
   from public.payment_reversals
   where currency = p_currency;
 
-  -- 7. Payment Exceptions (open count)
+  -- 11. Open Payment Exceptions
   select count(*)::int into v_open_exceptions
   from public.payment_exceptions
   where status in ('OPEN', 'IN_REVIEW');
@@ -1320,7 +1459,12 @@ begin
     'currency', p_currency,
     'accounts_receivable', v_ar,
     'verified_provider_payments_pending_reconciliation', v_verified_pending_rec,
+    'business_reconciled', v_business_reconciled,
+    'accounting_pending_authority', v_accounting_pending_authority,
+    'accounting_pending_posting', v_accounting_pending_posting,
+    'accounting_posted', v_accounting_posted,
     'provider_clearing_pending_settlement', v_clearing_pending_settlement,
+    'bank_settled', v_bank_settlements,
     'bank_settlements', v_bank_settlements,
     'provider_fees', v_provider_fees,
     'refunds_and_disputes', v_refunds_disputes,
@@ -1351,25 +1495,21 @@ begin
     raise exception using errcode = '42501', message = 'finance.view capability required';
   end if;
 
-  -- 1. Premium Revenue (reconciled Premium subscription payments)
   select coalesce(sum(amount), 0) into v_premium_rev
   from public.premium_entitlement_reconciliations
   where currency = p_currency
     and (reconciled_at at time zone 'Africa/Harare')::date between v_from and v_to;
 
-  -- 2. Direct Advertising Revenue (recorded invoice payments across bank_transfer, paynow, etc.)
   select coalesce(sum(amount), 0) into v_direct_ad_rev
   from public.finance_payments
   where currency = p_currency
     and payment_date between v_from and v_to;
 
-  -- 3. AdSense Revenue (separate rail from analytics_daily_metrics where source_system='google_adsense', never merged into Paynow)
   select coalesce(sum(ad_revenue), 0) into v_adsense_rev
   from public.analytics_daily_metrics
   where source_system = 'google_adsense'
     and metric_date between v_from and v_to;
 
-  -- 4. Other Commercial Revenue (Sponsorship & Grants account 4200 posted journals)
   select coalesce(sum(l.credit - l.debit), 0) into v_other_rev
   from public.finance_chart_of_accounts a
   join public.finance_journal_lines l on l.account_id = a.id
@@ -1412,7 +1552,6 @@ begin
     raise exception using errcode = '42501', message = 'finance.view capability required';
   end if;
 
-  -- Opening provider clearing before p_control_date
   select
     coalesce((
       select sum(reported_amount)
@@ -1440,7 +1579,6 @@ begin
     ), 0)
   into v_opening;
 
-  -- Verified provider collections on p_control_date
   select coalesce(sum(reported_amount), 0) into v_collections
   from public.payment_transactions
   where provider = 'paynow'
@@ -1449,7 +1587,6 @@ begin
     and internal_status in ('PAYMENT_VERIFIED', 'RECONCILIATION_PENDING', 'RECONCILED')
     and (confirmed_at at time zone 'Africa/Harare')::date = p_control_date;
 
-  -- Settlements to bank on p_control_date
   select coalesce(sum(net_amount), 0), coalesce(sum(fee_amount), 0)
   into v_settlements, v_fees
   from public.provider_settlements
@@ -1458,7 +1595,6 @@ begin
     and status = 'RECONCILED_TO_BANK'
     and settlement_date = p_control_date;
 
-  -- Refunds/reversals confirmed on p_control_date
   select coalesce(sum(amount), 0) into v_refunds
   from public.payment_reversals
   where currency = p_currency

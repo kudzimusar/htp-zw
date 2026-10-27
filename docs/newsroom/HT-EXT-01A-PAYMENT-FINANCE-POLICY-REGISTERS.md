@@ -1,10 +1,10 @@
 # HealthTimes External Revenue & Communications Activation
-## HT-MVP-EXT-01A-RDY-01 — Payment + Finance Business Transparency Foundation & Policy Registers
+## HT-MVP-EXT-01A-RDY-01-R1 — Payment + Finance Business Transparency Foundation & Policy Registers
 
-- **Unit ID:** `HT-MVP-EXT-01A-RDY-01`
+- **Unit ID:** `HT-MVP-EXT-01A-RDY-01-R1`
 - **Repository:** `kudzimusar/htp-zw`
 - **Source Authority:** `a41f7be33b59a6d4d3a8244b0d5d1644fe0b1699`
-- **Disposition:** `AUTHORIZED — PROVIDER-INDEPENDENT PAYMENT / FINANCE READINESS`
+- **Disposition:** `REMEDIATE — THREE BOUNDED TRUTHFULNESS DEFECTS ONLY`
 - **Provider Authority State:** `HT-MVP-EXT-01A-PROVIDER-AUTHORITY-R3-R1 = BLOCKED_OWNER_PROVIDER_EVIDENCE`
 
 ---
@@ -20,8 +20,9 @@ business purpose (PREMIUM_SUBSCRIPTION | ADVERTISING_INVOICE | PROVIDER_CONNECTI
   → HealthTimes server payment intent (payment_transactions: CREATED, HT-PREM/INV/CONN-<ULID>)
   → provider transaction (PROVIDER_INITIATED / PROVIDER_PENDING)
   → provider webhook event (provider_webhook_events: UNIQUE(provider, provider_event_id))
-  → verified payment (PAYMENT_VERIFIED / RECONCILIATION_PENDING)
-  → business reconciliation (RECONCILED: premium_entitlement_reconciliations | finance_payments)
+  → verified payment (PAYMENT_VERIFIED / RECONCILIATION_PENDING; requires verification_authority <> 'NO_VERIFICATION_AUTHORITY')
+  → business reconciliation (business_reconciliation = COMPLETE: premium_entitlement_reconciliations | finance_payments)
+  → accounting reconciliation (accounting_status = PENDING_ACCOUNTANT_AUTHORITY | PENDING_POSTING | POSTED | REVERSED | POSTING_FAILED)
   → Finance entry (method=paynow | bank_transfer, provider_channel, provider_reference)
   → provider settlement (provider_settlements + provider_settlement_lines)
   → bank settlement (RECONCILED_TO_BANK)
@@ -31,33 +32,50 @@ business purpose (PREMIUM_SUBSCRIPTION | ADVERTISING_INVOICE | PROVIDER_CONNECTI
 
 ---
 
-## 2. Canonical Premium Plan Authority
+## 2. Provider Readiness Gate Separation (RDY01-R1-001)
 
-Frozen in `public.premium_plans` (`supabase/migrations/20261027000000_ht_ext01a_payment_finance_readiness.sql`), `lib/ag05-premium-commerce.js`, and `apps/mobile/src/growth/payment-readiness.ts`:
+Credential installation alone (`PAYNOW_INTEGRATION_ID` + `PAYNOW_INTEGRATION_KEY`) never enables checkout. Readiness separates:
 
 ```text
-plan_key         = healthtimes_premium_monthly
-version          = 1
-name             = HealthTimes Premium
-amount           = 5.00
-currency         = USD
-billing_interval = month
-status           = active
-effective_from   = 2026-01-01T00:00:00.000Z
-effective_to     = null
+credentials_present
+mode / mode_status (test -> valid_test_configuration_candidate; live -> live_forbidden_fail_closed; missing/invalid -> configuration_incomplete)
+provider_authority_certified (false in RDY-01-R1)
+checkout_implementation_ready (false in RDY-01-R1)
+checkout_available (false in RDY-01-R1)
+status (authority-incomplete in RDY-01-R1)
 ```
 
 ---
 
-## 3. Accountant Policy Register (Section 26 — Unresolved Pending Accountant Authority)
+## 3. Provider Verification Authority Separation (RDY01-R1-002)
 
-None of the following accounting policies are silently assumed or hardcoded into live General Ledger postings. Each item is explicitly held in `public.finance_provider_clearing_config` and `ACCOUNTANT_POLICY_REGISTER`:
+- No synthetic or custom hash is ever represented as Paynow SHA-512.
+- If no verification authority is present (`NO_VERIFICATION_AUTHORITY`), `signatureValid = false` and the transaction cannot transition to `PAYMENT_VERIFIED`.
+- Provider-independent tests use `SyntheticProviderVerificationAdapter`, explicitly classified as `TEST_ONLY_SYNTHETIC_PROVIDER_VERIFICATION` with `signatureValid = false`.
+- The frozen future Paynow runtime contract remains: ordered actual message field values excluding `hash` → append Integration Key → UTF-8 → SHA-512 → uppercase hexadecimal.
+
+---
+
+## 4. Business Reconciliation vs Accounting Reconciliation (RDY01-R1-003)
+
+- **Advertising Invoice Reconciliation (`payment_reconcile_advertising_invoice`)**:
+  - When clearing authority is not yet approved (`accountant_approved = false`), verified Paynow money applied to an `issued` / `partially_paid` / `overdue` invoice records:
+    - `business_reconciliation = 'COMPLETE'`
+    - `accounting_status = 'PENDING_ACCOUNTANT_AUTHORITY'`
+    - `clearing_journal_id = null`
+  - When clearing authority is approved (`accountant_approved = true` and `provider_clearing_account_code` is configured), the clearing journal (`DR Provider Clearing / CR Accounts Receivable`) is posted and `accounting_status = 'POSTED'`.
+- **Premium Subscription Reconciliation (`payment_reconcile_premium_transaction`)**:
+  - Verified Paynow money grants/extends the subscriber's entitlement (`business_reconciliation = 'COMPLETE'`) while recording `accounting_status = 'PENDING_ACCOUNTANT_AUTHORITY'` and `revenue_journal_id = null` until revenue recognition timing, deferred revenue treatment, VAT, and fiscalization policies are signed off by the accountant.
+
+---
+
+## 5. Accountant Policy Register (Section 26 — Unresolved Pending Accountant Authority)
 
 | # | Policy Key | Unresolved Policy Question | Exact Implementation Consequence |
 | :--- | :--- | :--- | :--- |
-| 1 | `paynow_clearing_account_number` | What Chart of Accounts code should be assigned to the Paynow Provider Clearing asset account? | `finance_provider_clearing_config.accountant_approved` defaults to `false` and `provider_clearing_account_code` is `null`. Verified Paynow payments are tracked in `provider_clearing_pending_settlement` without posting unapproved GL codes. |
+| 1 | `paynow_clearing_account_number` | What Chart of Accounts code should be assigned to the Paynow Provider Clearing asset account? | `finance_provider_clearing_config.accountant_approved` defaults to `false` and `provider_clearing_account_code` is `null`. Verified Paynow payments record `business_reconciliation = 'COMPLETE'`, `accounting_status = 'PENDING_ACCOUNTANT_AUTHORITY'`, and `clearing_journal_id = null`. |
 | 2 | `fee_expense_account` | What Chart of Accounts code should be assigned to Paynow merchant transaction/settlement fee expenses? | `provider_fee_expense_account_code` remains `null` until accountant assignment; fees are recorded on `provider_settlements` from settlement evidence only and never invented on payment callbacks. |
-| 3 | `premium_revenue_recognition_timing` | Should monthly Premium subscription receipts (`$5.00 USD`) be recognized immediately upon verification or ratably over the 1-month service window? | `premium_entitlement_reconciliations` records exact `new_starts_at` and `new_ends_at` timestamps so either point-in-time or ratable recognition can be executed once authorized. |
+| 3 | `premium_revenue_recognition_timing` | Should monthly Premium subscription receipts (`$5.00 USD`) be recognized immediately upon verification or ratably over the 1-month service window? | `premium_entitlement_reconciliations` records `business_reconciliation = 'COMPLETE'`, `accounting_status = 'PENDING_ACCOUNTANT_AUTHORITY'`, and `revenue_journal_id = null` with exact `new_starts_at` and `new_ends_at` timestamps. |
 | 4 | `deferred_revenue_treatment` | Do unearned subscription or pre-paid advertising balances require a dedicated Deferred Revenue liability account? | `finance_provider_clearing_config.deferred_revenue_account_code` remains `null` until accountant sign-off. |
 | 5 | `vat_treatment` | What is the statutory VAT applicability and rate treatment on digital reader subscriptions vs commercial advertising invoices? | Invoices maintain explicit `subtotal` and `tax_total` columns; the `$5.00 USD` Premium plan does not fabricate tax splits until tax/accountant sign-off. |
 | 6 | `fiscalization` | What ZIMRA FDMS fiscal device/receipt integration is required for online digital collections? | Business receipts (`payment_get_business_receipt`) issue canonical HealthTimes references (`HT-PREM-<ULID>`, `HT-INV-<ULID>`, `PAY-YYYY-NNNN`) without fabricating ZIMRA fiscal signatures. |
@@ -66,9 +84,7 @@ None of the following accounting policies are silently assumed or hardcoded into
 
 ---
 
-## 4. Owner Policy Register (Section 27 — Unresolved Pending Owner Authority)
-
-None of the following commercial/product policies are invented. Each item is explicitly preserved as unresolved in `OWNER_POLICY_REGISTER`:
+## 6. Owner Policy Register (Section 27 — Unresolved Pending Owner Authority)
 
 | # | Policy Key | Unresolved Policy Question | Exact Implementation Consequence |
 | :--- | :--- | :--- | :--- |
