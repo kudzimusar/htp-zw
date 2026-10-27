@@ -42,6 +42,7 @@ import {
   buildPreviewChartOfAccounts,
   buildPreviewFiscalPeriods
 } from "../preview/newsroomPreviewData";
+import { getAdvertiserInvoicePaymentOptions } from "../growth/payment-readiness";
 
 export type FinanceTab =
   | "overview"
@@ -1142,22 +1143,52 @@ export function StudioFinanceDeskView({
               </View>
             </ScrollView>
           )}
-          {inspectedInvoice && (
-            <View style={styles.detailSummaryCard} testID="finance-invoice-detail">
-              <View style={styles.toolbar}>
-                <View>
-                  <Text style={styles.sectionTitle}>{inspectedInvoice.invoiceNumber}</Text>
-                  <Text style={styles.sectionSub}>{inspectedInvoice.customerName} · {inspectedInvoice.orderNumber ?? "No linked order"}</Text>
+          {inspectedInvoice && (() => {
+            const payOptions = getAdvertiserInvoicePaymentOptions(inspectedInvoice);
+            return (
+              <View style={styles.detailSummaryCard} testID="finance-invoice-detail">
+                <View style={styles.toolbar}>
+                  <View>
+                    <Text style={styles.sectionTitle}>{inspectedInvoice.invoiceNumber}</Text>
+                    <Text style={styles.sectionSub}>{inspectedInvoice.customerName} · {inspectedInvoice.orderNumber ?? "No linked order"}</Text>
+                  </View>
+                  <Pressable onPress={() => setInspectedInvoice(null)} accessibilityRole="button" accessibilityLabel="Close invoice details">
+                    <Text style={styles.miniBtnText}>Close</Text>
+                  </Pressable>
                 </View>
-                <Pressable onPress={() => setInspectedInvoice(null)} accessibilityRole="button" accessibilityLabel="Close invoice details">
-                  <Text style={styles.miniBtnText}>Close</Text>
-                </Pressable>
+                <Text style={styles.sectionSub}>{inspectedInvoice.notes ?? "No invoice description"}</Text>
+                <Text style={styles.detailSummaryText}>Subtotal: {inspectedInvoice.currency} {inspectedInvoice.subtotal.toFixed(2)} · Tax: {inspectedInvoice.currency} {inspectedInvoice.taxTotal.toFixed(2)} · Discount: {inspectedInvoice.currency} {inspectedInvoice.discountTotal.toFixed(2)}</Text>
+                <Text style={styles.detailSummaryText}>Total: {inspectedInvoice.currency} {inspectedInvoice.total.toFixed(2)} · Paid: {inspectedInvoice.currency} {inspectedInvoice.amountPaid.toFixed(2)} · Balance Due: {inspectedInvoice.currency} {inspectedInvoice.balanceDue.toFixed(2)}</Text>
+                {payOptions.eligibleForPayment && (
+                  <View style={styles.rowActions} testID="advertiser-invoice-payment-options">
+                    <Pressable
+                      style={[styles.miniBtn, !payOptions.payOnline.available && { opacity: 0.65 }]}
+                      disabled={!payOptions.payOnline.available}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Pay Online: ${payOptions.payOnline.statusText}`}
+                    >
+                      <Text style={styles.miniBtnText}>
+                        Pay Online ({payOptions.payOnline.statusText})
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.miniBtnSuccess}
+                      onPress={() => {
+                        setSelectedInvoice(inspectedInvoice);
+                        setPaymentMethod("bank_transfer");
+                        setPaymentAmount(inspectedInvoice.balanceDue.toString());
+                        setIsPaymentModalOpen(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Bank Transfer"
+                    >
+                      <Text style={styles.miniBtnSuccessText}>Bank Transfer</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
-              <Text style={styles.sectionSub}>{inspectedInvoice.notes ?? "No invoice description"}</Text>
-              <Text style={styles.detailSummaryText}>Subtotal: {inspectedInvoice.currency} {inspectedInvoice.subtotal.toFixed(2)} · Tax: {inspectedInvoice.currency} {inspectedInvoice.taxTotal.toFixed(2)} · Discount: {inspectedInvoice.currency} {inspectedInvoice.discountTotal.toFixed(2)}</Text>
-              <Text style={styles.detailSummaryText}>Total: {inspectedInvoice.currency} {inspectedInvoice.total.toFixed(2)} · Paid: {inspectedInvoice.currency} {inspectedInvoice.amountPaid.toFixed(2)} · Outstanding: {inspectedInvoice.currency} {inspectedInvoice.balanceDue.toFixed(2)}</Text>
-            </View>
-          )}
+            );
+          })()}
         </View>
       )}
 
@@ -2114,7 +2145,7 @@ export function StudioFinanceDeskView({
 
               <Text style={styles.formLabel}>Payment Method</Text>
               <View style={styles.pickerRow}>
-                {["bank_transfer", "cash", "ecocash", "card"].map((m) => (
+                {["bank_transfer", "paynow", "cash", "ecocash", "card"].map((m) => (
                   <Pressable
                     key={m}
                     style={[styles.pickerChip, paymentMethod === m && styles.pickerChipActive]}

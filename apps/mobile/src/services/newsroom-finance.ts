@@ -584,7 +584,7 @@ export function createNewsroomFinanceService(
 
     async recordPayment(input: NewsroomRecordPaymentInput): Promise<NewsroomPaymentResult> {
       const client = getClient();
-      const canonicalMethod = input.paymentMethod === "ecocash" || input.paymentMethod === "paynow"
+      const canonicalMethod = input.paymentMethod === "ecocash"
         ? "mobile_money"
         : input.paymentMethod === "stripe"
           ? "card"

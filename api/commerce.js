@@ -2,6 +2,7 @@
 
 const {
   COMMERCE_CAPABILITY_VERSION,
+  providerReadinessState,
   publicCommerceAuthority,
   checkoutDecision,
   webhookDecision
@@ -23,7 +24,13 @@ function send(res, status, value) {
 }
 
 module.exports = async function handler(req, res) {
+  const url = new URL(req.url || '/api/commerce', 'https://' + (req.headers?.host || 'localhost'));
+  const action = String(url.searchParams.get('action') || '').toLowerCase();
+
   if (req.method === 'GET') {
+    if (action === 'readiness') {
+      return send(res, 200, providerReadinessState());
+    }
     return send(res, 200, publicCommerceAuthority());
   }
 
@@ -31,23 +38,23 @@ module.exports = async function handler(req, res) {
     return send(res, 405, {
       capabilityVersion: COMMERCE_CAPABILITY_VERSION,
       error: 'method-not-allowed',
-      entitlementGranted: false
+      entitlementGranted: false,
+      businessAuthorityMutated: false
     });
   }
 
-  const url = new URL(req.url || '/api/commerce', 'https://' + (req.headers?.host || 'localhost'));
-  const action = String(url.searchParams.get('action') || 'checkout').toLowerCase();
+  const postAction = action || 'checkout';
 
   // Browser query parameters such as paid=true, premium=true or success=1 are
   // deliberately ignored. Only a future verified provider webhook may create
   // payment/subscription state and only authoritative entitlement may unlock
   // Premium content.
-  if (action === 'webhook' || action === 'callback') {
+  if (postAction === 'webhook' || postAction === 'callback') {
     const decision = webhookDecision();
     return send(res, decision.httpStatus, decision);
   }
 
-  if (action === 'checkout') {
+  if (postAction === 'checkout') {
     const decision = checkoutDecision();
     return send(res, decision.httpStatus, decision);
   }
@@ -55,7 +62,8 @@ module.exports = async function handler(req, res) {
   return send(res, 400, {
     capabilityVersion: COMMERCE_CAPABILITY_VERSION,
     error: 'unsupported-commerce-action',
-    entitlementGranted: false
+    entitlementGranted: false,
+    businessAuthorityMutated: false
   });
 };
 
