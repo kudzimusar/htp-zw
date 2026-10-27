@@ -333,9 +333,14 @@ async function loadFeedDocuments(limit = FEED_LIMIT) {
 
 const CONTEXT_LIMIT = 50;
 
-async function loadContext(kind: "category" | "tag" | "author", slug: string): Promise<ArticleDetail[]> {
+async function loadContext(
+  kind: "category" | "tag" | "author",
+  slug: string,
+  limit = CONTEXT_LIMIT
+): Promise<ArticleDetail[]> {
   const normalizedSlug = slug.trim().toLowerCase();
   if (!normalizedSlug) return [];
+  const boundedLimit=Math.min(CONTEXT_LIMIT,Math.max(1,Math.floor(limit)));
 
   let legacyDoc: ContextDocument | null = null;
   let legacyFailed = false;
@@ -356,7 +361,7 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string): P
       nativeDoc = await rpc<ContextDocument | null>("newsroom_public_context_document", {
         p_kind: kind === "category" ? "section" : kind,
         p_slug: normalizedSlug,
-        p_limit: CONTEXT_LIMIT
+        p_limit: boundedLimit
       });
     } catch {
       try {
@@ -385,7 +390,7 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string): P
     ...nativeItems.map((item) => item.canonical_url ?? null)
   ].filter((url): url is string => Boolean(url));
 
-  const uniqueUrls = Array.from(new Set(urls));
+  const uniqueUrls = Array.from(new Set(urls)).slice(0,boundedLimit);
 
   const mapped = await mapInBatches(
     uniqueUrls,
@@ -422,7 +427,7 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string): P
     return (a.canonicalStoryId || a.id).localeCompare(b.canonicalStoryId || b.id);
   });
 
-  return deduped.slice(0, CONTEXT_LIMIT);
+  return deduped.slice(0,boundedLimit);
 }
 
 function cachedArticleForIdentity(id: string) {
@@ -523,8 +528,8 @@ const articleRepository: ArticleRepository = {
     return (await loadFeedDocuments()).filter((article) => article.id !== current.id).slice(0, 3);
   },
 
-  async listBySection(sectionSlug) {
-    return loadContext("category", sectionSlug);
+  async listBySection(sectionSlug,limit) {
+    return loadContext("category",sectionSlug,limit);
   },
 
   async listByAuthor(authorSlug) {

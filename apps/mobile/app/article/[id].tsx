@@ -104,6 +104,8 @@ type ReaderPerformanceEvent=
 type ReaderPerformanceGlobal=typeof globalThis & {
   __DEV__?: boolean;
   __HT_READER_PERF__?: boolean;
+  __HT_READER_STABILITY__?:boolean;
+  __HT_READER_STABILITY_COUNTS__?:Record<string,number>;
 };
 
 function readerPerformanceMark(
@@ -121,6 +123,16 @@ function readerPerformanceMark(
     ...(typeof startedAt==="number" ? {elapsedMs:Math.max(0,at-startedAt)} : {})
   });
 }
+
+function readerStabilityCount(eventName:"article_mount_count"|"article_lookup_count"|"related_lookup_count"){
+  const runtime=globalThis as ReaderPerformanceGlobal;
+  if(runtime.__DEV__!==true && runtime.__HT_READER_STABILITY__!==true) return;
+  const counts=runtime.__HT_READER_STABILITY_COUNTS__ ?? {};
+  counts[eventName]=(counts[eventName] ?? 0)+1;
+  runtime.__HT_READER_STABILITY_COUNTS__=counts;
+}
+
+const RELATED_CONTEXT_LIMIT=4;
 
 type PremiumPreviewState="preview"|"warning"|"locked";
 
@@ -149,7 +161,13 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const premiumSessionKey=useRef("");
   const premiumPromptOpenedSession=useRef("");
   const performanceVisibleArticle=useRef<string|null>(null);
+
+  useEffect(()=>{
+    readerStabilityCount("article_mount_count");
+  },[]);
+
   const article=useAsync(async()=>{
+    readerStabilityCount("article_lookup_count");
     const requestedId=String(id);
     const startedAt=Date.now();
     readerPerformanceMark("article_lookup_start",requestedId);
@@ -167,11 +185,15 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
 
     const stableStoryId=current.canonicalStoryId ?? current.id;
     const startedAt=Date.now();
+    readerStabilityCount("related_lookup_count");
     readerPerformanceMark("related_lookup_start",stableStoryId);
 
+    // Three cards need at most four section candidates after excluding the
+    // current story. Sectionless stories do not hydrate Home just to fabricate
+    // related coverage.
     const candidates=current.primarySection?.slug
-      ? await services.articles.listBySection(current.primarySection.slug)
-      : await services.articles.getHome();
+      ? await services.articles.listBySection(current.primarySection.slug,RELATED_CONTEXT_LIMIT)
+      : [];
 
     const relatedStories=candidates
       .filter((candidate)=>

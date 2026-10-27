@@ -70,8 +70,8 @@ test("article Reader resolves primary story before beginning related work",()=>{
   );
   assert.match(related,/const current=article\.data/);
   assert.match(related,/if\(initialStory \|\| !current\) return \[]/);
-  assert.match(related,/services\.articles\.listBySection\(current\.primarySection\.slug\)/);
-  assert.match(related,/services\.articles\.getHome\(\)/);
+  assert.match(related,/services\.articles\.listBySection\(current\.primarySection\.slug,RELATED_CONTEXT_LIMIT\)/);
+  assert.doesNotMatch(related,/services\.articles\.getHome/);
   assert.doesNotMatch(related,/services\.articles\.getRelated/);
   assert.match(related,/article\.data\?\.id/);
 });
@@ -115,4 +115,81 @@ test("fresh article URLs are served through a generic exported article shell",()
   assert.match(prepare,/articleFallbackHtml/);
   assert.match(prepare,/article\/fallback\.html/);
   assert.match(prepare,/source-.*\.html/);
+});
+
+test("web deep-link bridge never pushes the browser's already-authoritative article URL",()=>{
+  const layout=read("app/_layout.tsx");
+  const effect=between(layout,"useEffect(()=>{","return null;");
+  const webGuard=effect.indexOf('if(Platform.OS==="web") return');
+  const initialUrl=effect.indexOf("Linking.getInitialURL()");
+  const push=effect.indexOf("router.push");
+  assert.ok(webGuard>=0,"web deep-link bridge must have an explicit no-op guard");
+  assert.ok(initialUrl>webGuard,"web guard must run before initial URL processing");
+  assert.ok(push>webGuard,"web guard must run before synthetic route pushes");
+});
+
+test("anonymous Reader eligibility returns sign-in-required without protected eligibility RPC",()=>{
+  const communications=read("src/services/communications.ts");
+  const body=between(
+    communications,
+    "async getEligibility(canonicalStoryId)",
+    "async listPublic(canonicalStoryId)"
+  );
+  const sessionCheck=body.indexOf("client.auth.getSession()");
+  const anonymousReturn=body.indexOf('reason:"signin_required"');
+  const protectedRpc=body.indexOf('"reader_comment_eligibility"');
+  assert.ok(sessionCheck>=0);
+  assert.ok(anonymousReturn>sessionCheck);
+  assert.ok(protectedRpc>anonymousReturn,"protected RPC must be unreachable for anonymous session");
+});
+
+test("discussion mount has one explicit refresh effect and no polling or retry loop",()=>{
+  const discussion=read("src/ui/ReaderDiscussion.tsx");
+  assert.match(discussion,/useEffect\(\(\)=>\{void refresh\(\);\},\[canonicalStoryId\]\)/);
+  assert.doesNotMatch(discussion,/setInterval\s*\(/);
+  assert.doesNotMatch(discussion,/setTimeout\s*\([^)]*refresh/);
+  assert.match(discussion,/services\.readerDiscussion\.listPublic\(canonicalStoryId\)/);
+  assert.match(discussion,/services\.readerDiscussion\.getEligibility\(canonicalStoryId\)/);
+});
+
+test("related coverage is bounded and cannot hydrate Home on sectionless detail",()=>{
+  const article=read("app/article/[id].tsx");
+  const related=between(article,"const related=useAsync(async()=>","const entitlement=useAsync");
+  assert.match(article,/const RELATED_CONTEXT_LIMIT=4/);
+  assert.match(related,/listBySection\(current\.primarySection\.slug,RELATED_CONTEXT_LIMIT\)/);
+  assert.match(related,/current\.primarySection\?\.slug[\s\S]*:\s*\[\]/);
+  assert.doesNotMatch(related,/getHome\(/);
+
+  const corpus=read("src/services/migrated-corpus.ts");
+  const context=between(corpus,"async function loadContext(","function cachedArticleForIdentity");
+  assert.match(context,/boundedLimit/);
+  assert.match(context,/p_limit: boundedLimit/);
+  assert.match(context,/Array\.from\(new Set\(urls\)\)\.slice\(0,boundedLimit\)/);
+  assert.match(context,/deduped\.slice\(0,boundedLimit\)/);
+});
+
+test("request-budget diagnostics cover mounts lookups related discussion and eligibility RPCs",()=>{
+  const article=read("app/article/[id].tsx");
+  const discussion=read("src/ui/ReaderDiscussion.tsx");
+  const communications=read("src/services/communications.ts");
+  for(const marker of ["article_mount_count","article_lookup_count","related_lookup_count"]){
+    assert.ok(article.includes('"'+marker+'"'),"missing article stability counter "+marker);
+  }
+  for(const marker of ["discussion_refresh_count","public_comment_lookup_count","eligibility_service_check_count"]){
+    assert.ok(discussion.includes('"'+marker+'"'),"missing discussion stability counter "+marker);
+  }
+  assert.ok(communications.includes('"eligibility_rpc_count"'));
+  assert.match(article,/__HT_READER_STABILITY__/);
+  assert.match(discussion,/__HT_READER_STABILITY__/);
+  assert.match(communications,/__HT_READER_STABILITY__/);
+});
+
+test("normal detail request budget retains direct lookup and zero Home/full-feed related fallback",()=>{
+  const article=read("app/article/[id].tsx");
+  const related=between(article,"const related=useAsync(async()=>","const entitlement=useAsync");
+  assert.doesNotMatch(related,/loadFeedDocuments|getHome|getRelated/);
+
+  const corpus=read("src/services/migrated-corpus.ts");
+  const identity=between(corpus,"async function resolveIdentity(id: string)","const articleRepository: ArticleRepository");
+  assert.ok(identity.indexOf("resolveIdentityDirect(id)") < identity.indexOf("loadFeedDocuments()"));
 });

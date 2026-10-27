@@ -41,10 +41,13 @@ const stagingReaderArticles: ArticleRepository = {
     const current = await sourceParityServices.articles.getRelated(id).catch(() => []);
     return mergeReaderFeeds(migrated, current).slice(0, 3);
   },
-  async listBySection(sectionSlug) {
-    const migrated = await migratedCorpusServices.articles.listBySection(sectionSlug);
+  async listBySection(sectionSlug,limit) {
+    const migrated = await migratedCorpusServices.articles.listBySection(sectionSlug,limit);
     const current = await sourceParityServices.articles.listBySection(sectionSlug).catch(() => []);
-    return mergeReaderFeeds(migrated, current);
+    const merged=mergeReaderFeeds(migrated,current);
+    return typeof limit==="number"
+      ? merged.slice(0,Math.max(1,Math.floor(limit)))
+      : merged;
   },
   async listByAuthor(authorSlug) {
     const migrated = await migratedCorpusServices.articles.listByAuthor(authorSlug);

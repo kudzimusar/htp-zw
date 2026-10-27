@@ -37,6 +37,20 @@ async function rpc<T>(name:string,args:Record<string,unknown>={}):Promise<T>{
   return data as T;
 }
 
+type ReaderDiscussionServiceDiagnosticsGlobal=typeof globalThis & {
+  __DEV__?:boolean;
+  __HT_READER_STABILITY__?:boolean;
+  __HT_READER_STABILITY_COUNTS__?:Record<string,number>;
+};
+
+function readerDiscussionServiceDiagnostic(eventName:"eligibility_rpc_count"){
+  const runtime=globalThis as ReaderDiscussionServiceDiagnosticsGlobal;
+  if(runtime.__DEV__!==true && runtime.__HT_READER_STABILITY__!==true) return;
+  const counts=runtime.__HT_READER_STABILITY_COUNTS__ ?? {};
+  counts[eventName]=(counts[eventName] ?? 0)+1;
+  runtime.__HT_READER_STABILITY_COUNTS__=counts;
+}
+
 
 async function ensureNewsroomSession(){
   const client=getStagingSupabaseClient() as any;
@@ -69,6 +83,17 @@ export const stagingReaderDiscussionService:ReaderDiscussionService={
     if(!canonicalStoryId || !canonicalStoryPattern.test(canonicalStoryId)){
       return {status:"blocked",reason:"canonical_story_required",profileId:null,publishedCommentCount:0};
     }
+
+    // Eligibility is authenticated authority. Public Reader mounts must not
+    // probe it with an anonymous token and turn a normal signed-out state into
+    // a recurring 401 network error.
+    const client=getStagingSupabaseClient() as any;
+    const {data:sessionData,error:sessionError}=await client.auth.getSession();
+    if(sessionError || !sessionData?.session){
+      return {status:"blocked",reason:"signin_required",profileId:null,publishedCommentCount:0};
+    }
+
+    readerDiscussionServiceDiagnostic("eligibility_rpc_count");
     const result=await rpc<Record<string,unknown>>("reader_comment_eligibility",{p_story_id:canonicalStoryId});
     return {
       status:(result.status==="allowed"||result.status==="pre_moderated" ? result.status : "blocked") as ReaderCommentEligibility["status"],

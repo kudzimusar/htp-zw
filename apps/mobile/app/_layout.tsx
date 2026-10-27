@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,6 +10,11 @@ function DeepLinkBridge(){
   const router=useRouter();
 
   useEffect(()=>{
+    // On web, Expo Router / browser history already owns the current URL.
+    // Re-processing window.location through Linking.getInitialURL() can push
+    // /article/X while /article/X is already mounted, recreating the route tree.
+    if(Platform.OS==="web") return;
+
     let active=true;
 
     const routeUrl=(url:string|null)=>{

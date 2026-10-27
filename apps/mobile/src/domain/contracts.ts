@@ -161,7 +161,7 @@ export interface ArticleRepository {
   getHome(): Promise<ArticleSummary[]>;
   getById(id: string): Promise<ArticleDetail | null>;
   getRelated(id: string): Promise<ArticleSummary[]>;
-  listBySection(sectionSlug: string): Promise<ArticleSummary[]>;
+  listBySection(sectionSlug: string, limit?: number): Promise<ArticleSummary[]>;
   listByAuthor(authorSlug: string): Promise<ArticleSummary[]>;
 }
 

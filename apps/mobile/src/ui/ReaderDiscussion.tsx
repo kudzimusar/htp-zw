@@ -7,6 +7,21 @@ import { useAppearance } from "../theme/AppearanceProvider";
 
 type Props={canonicalStoryId:string|null};
 
+type ReaderDiscussionDiagnosticsGlobal=typeof globalThis & {
+  __DEV__?:boolean;
+  __HT_READER_STABILITY__?:boolean;
+  __HT_READER_STABILITY_COUNTS__?:Record<string,number>;
+};
+
+function readerDiscussionDiagnostic(eventName:"discussion_refresh_count"|"public_comment_lookup_count"|"eligibility_service_check_count"){
+  const runtime=globalThis as ReaderDiscussionDiagnosticsGlobal;
+  if(runtime.__DEV__!==true && runtime.__HT_READER_STABILITY__!==true) return;
+  const counts=runtime.__HT_READER_STABILITY_COUNTS__ ?? {};
+  counts[eventName]=(counts[eventName] ?? 0)+1;
+  runtime.__HT_READER_STABILITY_COUNTS__=counts;
+}
+
+
 export function ReaderDiscussionPanel({canonicalStoryId}:Props){
   const { palette }=useAppearance();
   const [comments,setComments]=useState<ReaderStoryComment[]>([]);
@@ -22,9 +37,12 @@ export function ReaderDiscussionPanel({canonicalStoryId}:Props){
 
   const refresh=async()=>{
     if(!canonicalStoryId) return;
+    readerDiscussionDiagnostic("discussion_refresh_count");
     setLoading(true);
     setError("");
     try{
+      readerDiscussionDiagnostic("public_comment_lookup_count");
+      readerDiscussionDiagnostic("eligibility_service_check_count");
       const [publicRows,nextEligibility]=await Promise.all([
         services.readerDiscussion.listPublic(canonicalStoryId),
         services.readerDiscussion.getEligibility(canonicalStoryId)
@@ -153,7 +171,11 @@ export function ReaderDiscussionPanel({canonicalStoryId}:Props){
       )}
 
       {eligibility?.status==="blocked" && !profileRequired && (
-        <Text style={[styles.muted,{color:palette.inkMuted}]}>Commenting is currently unavailable for this account or story.</Text>
+        <Text style={[styles.muted,{color:palette.inkMuted}]}>
+          {eligibility.reason==="signin_required"
+            ? "Sign in with a verified HealthTimes account to comment."
+            : "Commenting is currently unavailable for this account or story."}
+        </Text>
       )}
     </View>
   );
