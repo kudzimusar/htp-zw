@@ -121,7 +121,7 @@ test("web deep-link bridge never pushes the browser's already-authoritative arti
   const layout=read("app/_layout.tsx");
   const effect=between(layout,"useEffect(()=>{","return null;");
   const webGuard=effect.indexOf('if(Platform.OS==="web") return');
-  const initialUrl=effect.indexOf("Linking.getInitialURL()");
+  const initialUrl=effect.indexOf("void Linking.getInitialURL().then(routeUrl);");
   const push=effect.indexOf("router.push");
   assert.ok(webGuard>=0,"web deep-link bridge must have an explicit no-op guard");
   assert.ok(initialUrl>webGuard,"web guard must run before initial URL processing");

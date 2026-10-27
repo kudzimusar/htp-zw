@@ -11,7 +11,7 @@ function DeepLinkBridge(){
 
   useEffect(()=>{
     // On web, Expo Router / browser history already owns the current URL.
-    // Re-processing window.location through Linking.getInitialURL() can push
+    // Re-processing the browser's initial URL can push
     // /article/X while /article/X is already mounted, recreating the route tree.
     if(Platform.OS==="web") return;
 
