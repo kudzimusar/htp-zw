@@ -93,6 +93,35 @@ function premiumTeaserParagraph(
   return block;
 }
 
+
+type ReaderPerformanceEvent=
+  | "article_lookup_start"
+  | "article_resolved"
+  | "article_visible"
+  | "related_lookup_start"
+  | "related_resolved";
+
+type ReaderPerformanceGlobal=typeof globalThis & {
+  __DEV__?: boolean;
+  __HT_READER_PERF__?: boolean;
+};
+
+function readerPerformanceMark(
+  eventName:ReaderPerformanceEvent,
+  articleIdentity:string,
+  startedAt?:number
+){
+  const runtime=globalThis as ReaderPerformanceGlobal;
+  if(runtime.__DEV__!==true && runtime.__HT_READER_PERF__!==true) return;
+  const at=Date.now();
+  console.info("[HealthTimes reader performance]",{
+    event:eventName,
+    articleIdentity,
+    at,
+    ...(typeof startedAt==="number" ? {elapsedMs:Math.max(0,at-startedAt)} : {})
+  });
+}
+
 type PremiumPreviewState="preview"|"warning"|"locked";
 
 export function ArticleReader({ initialStory = null }: { initialStory?: ArticleDetail | null }){
@@ -119,8 +148,46 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const trackedProgressEvents=useRef(new Set<string>());
   const premiumSessionKey=useRef("");
   const premiumPromptOpenedSession=useRef("");
-  const article=useAsync(()=>initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
-  const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
+  const performanceVisibleArticle=useRef<string|null>(null);
+  const article=useAsync(async()=>{
+    const requestedId=String(id);
+    const startedAt=Date.now();
+    readerPerformanceMark("article_lookup_start",requestedId);
+    const resolved=initialStory ?? await services.articles.getById(requestedId);
+    readerPerformanceMark(
+      "article_resolved",
+      resolved?.canonicalStoryId ?? resolved?.id ?? requestedId,
+      startedAt
+    );
+    return resolved;
+  },[id,initialStory?.id]);
+  const related=useAsync(async()=>{
+    const current=article.data;
+    if(initialStory || !current) return [];
+
+    const stableStoryId=current.canonicalStoryId ?? current.id;
+    const startedAt=Date.now();
+    readerPerformanceMark("related_lookup_start",stableStoryId);
+
+    const candidates=current.primarySection?.slug
+      ? await services.articles.listBySection(current.primarySection.slug)
+      : await services.articles.getHome();
+
+    const relatedStories=candidates
+      .filter((candidate)=>
+        candidate.id!==current.id &&
+        (!current.canonicalStoryId || candidate.canonicalStoryId!==current.canonicalStoryId)
+      )
+      .slice(0,3);
+
+    readerPerformanceMark("related_resolved",stableStoryId,startedAt);
+    return relatedStories;
+  },[
+    article.data?.id,
+    article.data?.canonicalStoryId,
+    article.data?.primarySection?.slug,
+    initialStory?.id
+  ]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
   const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
@@ -129,6 +196,15 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     if(!current || current.accessPolicy!=="premium" || entitlement.data!==true) return null;
     return services.premium.getProtectedArticle(current.id);
   },[article.data?.id,article.data?.accessPolicy,entitlement.data]);
+
+  useEffect(()=>{
+    const current=article.data;
+    if(!current) return;
+    const stableStoryId=current.canonicalStoryId ?? current.id;
+    if(performanceVisibleArticle.current===stableStoryId) return;
+    performanceVisibleArticle.current=stableStoryId;
+    readerPerformanceMark("article_visible",stableStoryId);
+  },[article.data?.id,article.data?.canonicalStoryId]);
 
   useEffect(()=>{
     const current=article.data;
