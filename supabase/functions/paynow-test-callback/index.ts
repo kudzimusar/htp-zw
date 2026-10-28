@@ -39,9 +39,9 @@ type Options = { key: string; supabaseUrl: string; serviceKey: string; fetcher?:
 
 export async function handlePaynowTestCallback(request: Request, options: Options): Promise<Response> {
   if (request.method !== "POST") return reply(405, { error: "METHOD_NOT_ALLOWED" });
-  if (options.supabaseUrl.replace(/\/$/, "") !== STAGING_ORIGIN || options.key.length < 32 || options.serviceKey.length < 20) {
-    return reply(503, { error: "CONFIGURATION_REQUIRED" });
-  }
+  if (options.supabaseUrl.replace(/\/$/, "") !== STAGING_ORIGIN) return reply(503, { error: "STAGING_PROJECT_CONFIGURATION_REQUIRED" });
+  if (options.key.length < 32) return reply(503, { error: "PAYNOW_KEY_CONFIGURATION_REQUIRED" });
+  if (options.serviceKey.length < 20) return reply(503, { error: "DATABASE_CONFIGURATION_REQUIRED" });
   const length = request.headers.get("content-length");
   if (length && (!/^\d+$/.test(length) || Number(length) > MAX_BYTES)) return reply(413, { error: "BODY_TOO_LARGE" });
   let raw: string;
