@@ -94,6 +94,14 @@ test('invalid public status references are rejected before any backend request',
   await assert.rejects(() => runtime.transactionStatus('HT-PREM-user@example.com', {}), /MERCHANT_REFERENCE_INVALID/);
 });
 
+test('operator TEST scenarios are bounded and idempotency-safe', () => {
+  for (const scenario of ['connectivity', 'success', 'cancel', 'failure', 'delayed']) {
+    assert.equal(runtime.normalizeConnectivityScenario(scenario.toUpperCase()), scenario);
+  }
+  assert.throws(() => runtime.normalizeConnectivityScenario('live'), /PAYNOW_TEST_SCENARIO_INVALID/);
+  assert.throws(() => runtime.normalizeConnectivityScenario('customer-payment'), /PAYNOW_TEST_SCENARIO_INVALID/);
+});
+
 test('operator connectivity and poll endpoints fail closed without a separate secret', async () => {
   const invoke = async (action) => {
     let statusCode = 0;

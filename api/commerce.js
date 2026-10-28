@@ -136,10 +136,14 @@ module.exports = async function handler(req, res) {
     if (action === 'connectivity') {
       if (!same(req.headers['x-healthtimes-unit'], paynow.UNIT_ID) ||
           !same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN) ||
-          !allowed(req, 'connectivity', 3, 300_000)) {
+          !allowed(req, 'connectivity', 8, 300_000)) {
         return send(res, 403, { error: 'CONNECTIVITY_AUTHORITY_REQUIRED' });
       }
-      return send(res, 200, await paynow.initiateConnectivity({ origin: requestOrigin(req) }));
+      const input = await body(req);
+      const parsed = typeof input === 'string' && input ? JSON.parse(input) : input;
+      return send(res, 200, await paynow.initiateConnectivity({
+        origin: requestOrigin(req), scenario: parsed?.scenario
+      }));
     }
 
     if (action === 'poll') {
