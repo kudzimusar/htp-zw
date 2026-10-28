@@ -26,7 +26,7 @@ test('valid callback requires a matching signed provider poll before ledger upda
   const fetcher = async (url, init) => {
     calls.push([url, init]);
     if (url.includes('/payment_transactions?')) return Response.json([tx()]);
-    if (url === pollUrl) return new Response(signed(entries), { status: 200 });
+    if (url === pollUrl) { assert.equal(init.body, ''); return new Response(signed(entries), { status: 200 }); }
     return Response.json({ accepted: true, duplicate: false, purpose: 'PROVIDER_CONNECTIVITY_TEST' });
   };
   const response = await handlePaynowTestCallback(request(signed(entries)), { ...options, fetcher });

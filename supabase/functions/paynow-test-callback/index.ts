@@ -78,7 +78,9 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   let response: Response;
   let polled: Record<string, string>;
   try {
-    response = await fetcher(pollUrl, { method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000) });
+    // Paynow requires a zero-length POST, including an explicit body. Some
+    // runtimes otherwise omit Content-Length and receive HTTP 411.
+    response = await fetcher(pollUrl, { method: "POST", body: "", redirect: "error", signal: AbortSignal.timeout(15_000) });
     if (!response.ok) throw new Error("POLL_FAILED");
     polled = verifiedFields(await response.text(), options.key);
     trustedPollUrl(polled.pollurl);
