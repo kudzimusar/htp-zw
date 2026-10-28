@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
-import protocol from "../_shared/paynow-protocol.cjs";
+import { verifyForm as verifiedFields, trustedUrl } from "../_shared/paynow-protocol.mjs";
 
 // This endpoint is intentionally restricted to the approved TEST project.
 const STAGING_ORIGIN = "https://bzuvntbkevvuhfhqhkua.supabase.co";
 const MAX_BYTES = 16_384;
-const { verifyForm: verifiedFields, trustedUrl } = protocol;
 const trustedPollUrl = (raw: string) => trustedUrl(raw, "poll");
 
 function reply(status: number, body: Record<string, unknown>): Response {
