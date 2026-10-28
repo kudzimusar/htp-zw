@@ -1787,6 +1787,63 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
     assert.equal(providerProof.privileges.anon_record_status, false);
     assert.equal(providerProof.privileges.authenticated_record_status, false);
     assert.equal(providerProof.privileges.service_record_status, true);
+
+    // Reproduce the exact TEST-only mistaken currency assumption in a disposable DB.
+    runDbSql(dbName, `
+      do $$ declare v jsonb; v_ref text := 'HT-CONN-01M61ANPB2N0Y8QYEK426TP347'; begin
+        v := public.payment_create_intent('PROVIDER_CONNECTIVITY_TEST', 'currency-correction-fixture', null, null);
+        update public.payment_transactions set merchant_reference=v_ref where id=(v->>'transaction_id')::uuid;
+        perform public.payment_claim_paynow_initiation(v_ref);
+        perform public.payment_record_paynow_initiation(v_ref,
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          'https://www.paynow.co.zw/Payment/ConfirmPayment/9510', '66738535');
+        perform public.payment_record_paynow_status(v_ref, '66738535', 1.00, 'USD', 'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          repeat('1',64), repeat('2',64), '{}'::jsonb);
+      end $$;
+    `);
+    const currencyMigration = fs.readFileSync(path.join(repoRoot,
+      'supabase/migrations/20261029010000_ht_ext01a_paynow_currency_evidence.sql'), 'utf8');
+    runDbSql(dbName, currencyMigration);
+    const correction = JSON.parse(runDbSql(dbName, `
+      select jsonb_build_object('status',t.internal_status,'authority',t.verification_authority,
+        'reconciliation',t.reconciliation_status,'accounting',t.accounting_status,
+        'exception_count',(select count(*) from public.payment_exceptions e where e.transaction_id=t.id and e.exception_code='CURRENCY_MISMATCH'),
+        'audit_count',(select count(*) from public.payment_audit_logs a where a.transaction_id=t.id and a.action='payment.test.currency_evidence_corrected'))::text
+      from public.payment_transactions t where t.merchant_reference='HT-CONN-01M61ANPB2N0Y8QYEK426TP347';
+    `));
+    assert.equal(correction.status, 'CURRENCY_MISMATCH');
+    assert.equal(correction.authority, 'PAYNOW_TEST_SHA512_VERIFIED');
+    assert.equal(correction.reconciliation, 'NOT_ELIGIBLE');
+    assert.equal(correction.accounting, 'NOT_APPLICABLE');
+    assert.equal(correction.exception_count, 1);
+    assert.equal(correction.audit_count, 1);
+    const guard = runDbSql(dbName, `
+      do $$ declare rejected boolean := false; begin
+        begin
+          perform public.payment_record_paynow_status('HT-CONN-01M61ANPB2N0Y8QYEK426TP347', '66738535', 1.00, null, 'Paid',
+            'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+            repeat('3',64), repeat('4',64), '{}'::jsonb);
+        exception when check_violation then rejected := true; end;
+        if not rejected then raise exception 'Missing provider currency was accepted'; end if;
+        rejected := false;
+        begin
+          perform public.payment_record_paynow_status('HT-CONN-01M61ANPB2N0Y8QYEK426TP347', '66738535', 1.00, 'USD', 'Paid',
+            'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+            repeat('5',64), repeat('6',64), '{}'::jsonb);
+        exception when check_violation then rejected := true; end;
+        if not rejected then raise exception 'Unproven provider currency was accepted'; end if;
+      end $$;
+      select 'guard_passed';
+    `);
+    assert.equal(guard.trim(), 'guard_passed');
+    const signedMismatch = JSON.parse(runDbSql(dbName, `
+      select public.payment_record_paynow_status('HT-CONN-01M61ANPB2N0Y8QYEK426TP347', '66738535', 1.00, 'ZWG', 'Paid',
+        'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+        repeat('7',64), repeat('8',64), '{"currency_source":"SIGNED_PROVIDER_FIELD"}'::jsonb)::text;
+    `));
+    assert.equal(signedMismatch.accepted, false);
+    assert.equal(signedMismatch.code, 'CURRENCY_MISMATCH');
   } finally {
     try {
       runDbSql("postgres", `drop database if exists ${dbName};`);

@@ -94,7 +94,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
       p_merchant_reference: callback.reference, p_provider_reference: callback.paynowreference,
       p_amount: callback.amount, p_currency: currency, p_provider_status: callback.status,
       p_poll_url: callback.pollurl, p_event_id: eventId, p_payload_hash: eventId,
-      p_metadata: { source: "paynow_callback_confirmed_by_poll", payment_channel: callback.paymentchannel || null, poll_http_status: response.status }
+      p_metadata: { source: "paynow_callback_confirmed_by_poll", currency_source: "SIGNED_PROVIDER_FIELD", payment_channel: callback.paymentchannel || null, poll_http_status: response.status }
     });
     if (result?.accepted === true && result?.purpose === "PREMIUM_SUBSCRIPTION" &&
         ["PAYMENT_VERIFIED", "RECONCILIATION_PENDING", "RECONCILED"].includes(result.internal_status)) {
