@@ -55,12 +55,12 @@ test('bad signature, duplicate fields, unsafe URL and oversized form never call 
 });
 
 test('poll signature and status disagreement prevent ledger writes', async () => {
-  for (const body of [signed(entries).replace('amount=1.00', 'amount=3.00'), signed(entries.map(([n, v]) => [n, n === 'status' ? 'Cancelled' : v]))]) {
+  for (const [body, expected] of [[signed(entries).replace('amount=1.00', 'amount=3.00'), 'POLL_SIGNATURE_OR_FORM_REJECTED'], [signed(entries.map(([n, v]) => [n, n === 'status' ? 'Cancelled' : v])), 'POLL_TRANSACTION_MISMATCH']]) {
     let calls = 0;
     const response = await handlePaynowTestCallback(request(signed(entries)), { ...options,
       fetcher: async (url) => { calls++; return url.includes('/payment_transactions?') ? Response.json([tx()]) : new Response(body, { status: 200 }); } });
     assert.equal(response.status, 503);
-    assert.equal((await response.json()).error, 'POLL_VERIFICATION_FAILED');
+    assert.equal((await response.json()).error, expected);
     assert.equal(calls, 2);
   }
 });

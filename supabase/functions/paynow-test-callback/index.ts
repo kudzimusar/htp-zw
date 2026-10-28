@@ -77,17 +77,22 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   }
   let response: Response;
   let polled: Record<string, string>;
+  const pollFailure = (error: string, httpStatus?: number) => reply(503, { error, poll_http_status: httpStatus,
+    provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
   try {
     // Paynow requires a zero-length POST, including an explicit body. Some
     // runtimes otherwise omit Content-Length and receive HTTP 411.
     response = await fetcher(pollUrl, { method: "POST", body: "", redirect: "error", signal: AbortSignal.timeout(15_000) });
-    if (!response.ok) throw new Error("POLL_FAILED");
-    polled = verifiedFields(await response.text(), options.key);
+  } catch { return pollFailure("POLL_TRANSPORT_FAILED"); }
+  if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);
+  try { polled = verifiedFields(await response.text(), options.key); }
+  catch { return pollFailure("POLL_SIGNATURE_OR_FORM_REJECTED", response.status); }
+  try {
     trustedPollUrl(polled.pollurl);
     for (const field of ["reference", "paynowreference", "amount", "status", "pollurl", "currency"]) {
       if (callback[field] !== polled[field]) throw new Error("POLL_MISMATCH");
     }
-  } catch { return reply(503, { error: "POLL_VERIFICATION_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false }); }
+  } catch { return pollFailure("POLL_TRANSACTION_MISMATCH", response.status); }
   const currency = String(callback.currency || "").toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) {
     // Record signed evidence only. This cannot grant entitlement or change a
