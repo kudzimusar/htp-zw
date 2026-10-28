@@ -1,35 +1,11 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
+import protocol from "../_shared/paynow-protocol.cjs";
 
 // This endpoint is intentionally restricted to the approved TEST project.
 const STAGING_ORIGIN = "https://bzuvntbkevvuhfhqhkua.supabase.co";
-const TRUSTED_HOSTS = new Set(["www.paynow.co.zw", "paynow.co.zw", "staging.paynow.co.zw"]);
 const MAX_BYTES = 16_384;
-
-function verifiedFields(raw: string, key: string): Record<string, string> {
-  if (new TextEncoder().encode(raw).length > MAX_BYTES || /%(?![\da-f]{2})/i.test(raw)) throw new Error("INVALID_FORM");
-  const entries = [...new URLSearchParams(raw).entries()];
-  const fields: Record<string, string> = Object.create(null);
-  for (const [name, value] of entries) {
-    const normalized = name.toLowerCase();
-    if (!/^[a-z][a-z0-9]*$/.test(normalized) || Object.hasOwn(fields, normalized)) throw new Error("INVALID_FORM");
-    fields[normalized] = value;
-  }
-  if (!/^[a-f0-9]{128}$/i.test(fields.hash || "")) throw new Error("INVALID_HASH");
-  const expected = createHash("sha512").update(entries.filter(([name]) => name.toLowerCase() !== "hash").map(([, value]) => value).join("") + key, "utf8").digest();
-  const supplied = Buffer.from(fields.hash, "hex");
-  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new Error("INVALID_HASH");
-  return fields;
-}
-
-function trustedPollUrl(raw: string): string {
-  if (!raw || raw.length > 2048 || /[\\\u0000-\u001f]/.test(raw)) throw new Error("INVALID_POLL_URL");
-  const url = new URL(raw);
-  if (url.protocol !== "https:" || !TRUSTED_HOSTS.has(url.hostname.toLowerCase()) || url.username || url.password ||
-      (url.port && url.port !== "443") || url.hash || !/^\/interface\/checkpayment\/?$/i.test(url.pathname) ||
-      !/^[\da-f]{8}-[\da-f]{4}-[1-5][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(url.searchParams.get("guid") || "") ||
-      [...url.searchParams.keys()].length !== 1) throw new Error("INVALID_POLL_URL");
-  return url.toString();
-}
+const { verifyForm: verifiedFields, trustedUrl } = protocol;
+const trustedPollUrl = (raw: string) => trustedUrl(raw, "poll");
 
 function reply(status: number, body: Record<string, unknown>): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
@@ -37,8 +13,16 @@ function reply(status: number, body: Record<string, unknown>): Response {
 
 type Options = { key: string; supabaseUrl: string; serviceKey: string; fetcher?: typeof fetch };
 
+function amountCents(value: unknown): bigint | null {
+  const match = /^(\d{1,16})(?:\.(\d{1,2}))?$/.exec(String(value));
+  return match ? BigInt(match[1]) * 100n + BigInt((match[2] || '').padEnd(2, '0')) : null;
+}
+
 export async function handlePaynowTestCallback(request: Request, options: Options): Promise<Response> {
   if (request.method !== "POST") return reply(405, { error: "METHOD_NOT_ALLOWED" });
+  if (!/^application\/x-www-form-urlencoded(?:\s*;|\s*$)/i.test(request.headers.get("content-type") || "")) {
+    return reply(415, { error: "CONTENT_TYPE_INVALID" });
+  }
   if (options.supabaseUrl.replace(/\/$/, "") !== STAGING_ORIGIN) return reply(503, { error: "STAGING_PROJECT_CONFIGURATION_REQUIRED" });
   if (options.key.length < 32) return reply(503, { error: "PAYNOW_KEY_CONFIGURATION_REQUIRED" });
   if (options.serviceKey.length < 20) return reply(503, { error: "DATABASE_CONFIGURATION_REQUIRED" });
@@ -65,26 +49,77 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   let pollUrl: string;
   try {
     callback = verifiedFields(raw, options.key);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    const signatureFailure = code === "PAYNOW_HASH_MISMATCH" || code === "PAYNOW_HASH_MISSING_OR_INVALID";
+    return reply(400, { error: signatureFailure ? "SIGNATURE_REJECTED" : "FORM_REJECTED", provider_signature_verified: false });
+  }
+  try {
     pollUrl = trustedPollUrl(callback.pollurl);
     if (!/^HT-(PREM|INV|CONN)-[0-9A-HJKMNP-TV-Z]{26}$/.test(callback.reference || "") ||
         !callback.paynowreference || !/^\d+\.\d{2}$/.test(callback.amount || "") || !callback.status) throw new Error("INVALID_FIELDS");
-  } catch { return reply(400, { error: "INVALID_PROVIDER_MESSAGE" }); }
+  } catch { return reply(400, { error: "TRANSACTION_FIELDS_REJECTED", provider_signature_verified: true }); }
   const fetcher = options.fetcher || fetch;
+  const headers = { apikey: options.serviceKey, Authorization: `Bearer ${options.serviceKey}`, "Content-Type": "application/json" };
+  let transaction: Record<string, unknown>;
   try {
-    const response = await fetcher(pollUrl, { method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000) });
+    const lookupUrl = `${STAGING_ORIGIN}/rest/v1/payment_transactions?provider=eq.paynow&merchant_reference=eq.${encodeURIComponent(callback.reference)}&select=id,purpose,expected_amount,currency,poll_url,provider_reference,reconciliation_status,accounting_status&limit=2`;
+    const lookup = await fetcher(lookupUrl, { headers, signal: AbortSignal.timeout(15_000), redirect: "error" });
+    if (!lookup.ok) throw new Error("LOOKUP_FAILED");
+    const rows = await lookup.json();
+    if (!Array.isArray(rows) || rows.length !== 1) return reply(404, { error: "TRANSACTION_NOT_FOUND", provider_signature_verified: true, provider_transaction_matched: false });
+    transaction = rows[0];
+    if (transaction.poll_url !== callback.pollurl || (transaction.provider_reference && String(transaction.provider_reference) !== callback.paynowreference)) {
+      return reply(409, { error: "TRANSACTION_MISMATCH", provider_signature_verified: true, provider_transaction_matched: false });
+    }
+  } catch { return reply(503, { error: "TRANSACTION_LOOKUP_FAILED", provider_signature_verified: true }); }
+  if (amountCents(transaction.expected_amount) === null || amountCents(transaction.expected_amount) !== amountCents(callback.amount)) {
+    return reply(409, { error: "AMOUNT_MISMATCH", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: false });
+  }
+  let response: Response;
+  let polled: Record<string, string>;
+  try {
+    response = await fetcher(pollUrl, { method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000) });
     if (!response.ok) throw new Error("POLL_FAILED");
-    const polled = verifiedFields(await response.text(), options.key);
+    polled = verifiedFields(await response.text(), options.key);
     trustedPollUrl(polled.pollurl);
     for (const field of ["reference", "paynowreference", "amount", "status", "pollurl", "currency"]) {
       if (callback[field] !== polled[field]) throw new Error("POLL_MISMATCH");
     }
-    const currency = String(callback.currency || "").toUpperCase();
-    if (!/^[A-Z]{3}$/.test(currency)) throw new Error("CURRENCY_UNVERIFIED");
+  } catch { return reply(503, { error: "POLL_VERIFICATION_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false }); }
+  const currency = String(callback.currency || "").toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    // Record signed evidence only. This cannot grant entitlement or change a
+    // transaction, and does not claim a payment verification authority.
+    const semanticId = createHash("sha256").update(JSON.stringify([callback.reference, callback.paynowreference, callback.amount, callback.status, callback.pollurl])).digest("hex");
+    const payloadHash = createHash("sha256").update(raw).digest("hex");
+    try {
+      const event = await fetcher(`${STAGING_ORIGIN}/rest/v1/provider_webhook_events?on_conflict=provider,provider_event_id`, {
+        method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000),
+        headers: { ...headers, Prefer: "resolution=ignore-duplicates,return=representation" },
+        body: JSON.stringify({ provider: "paynow", provider_event_id: semanticId, event_type: callback.status,
+          signature_valid: true, payload_hash: payloadHash, payload: { source: "paynow_signed_status" },
+          status: "ignored", error: "CURRENCY_UNVERIFIED", transaction_id: transaction.id,
+          merchant_reference: callback.reference, provider_reference: callback.paynowreference,
+          reported_amount: callback.amount, reported_currency: null, verification_authority: "NO_VERIFICATION_AUTHORITY",
+          sanitized_metadata: { source: "paynow_callback_confirmed_by_poll", signature_verified: true,
+            transaction_matched: true, amount_verified: true, poll_verified: true, currency_verified: false,
+            reconciliation_eligible: false } })
+      });
+      if (!event.ok) throw new Error("EVENT_STORE_FAILED");
+      const rows = await event.json();
+      if (!Array.isArray(rows)) throw new Error("EVENT_STORE_FAILED");
+      return reply(200, { received: true, accepted: false, duplicate: rows.length === 0,
+        provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true,
+        poll_verified: true, provider_currency_verified: false, reconciliation_eligible: false, event_stored: true });
+    } catch { return reply(503, { error: "EVENT_STORAGE_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true, provider_currency_verified: false }); }
+  }
+  try {
     const eventId = createHash("sha256").update(raw).digest("hex");
     const rpc = async (name: string, args: Record<string, unknown>) => {
       const res = await fetcher(`${STAGING_ORIGIN}/rest/v1/rpc/${name}`, {
         method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000),
-        headers: { apikey: options.serviceKey, Authorization: `Bearer ${options.serviceKey}`, "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(args)
       });
       if (!res.ok) throw new Error("AUTHORITY_FAILED");
@@ -100,8 +135,11 @@ export async function handlePaynowTestCallback(request: Request, options: Option
         ["PAYMENT_VERIFIED", "RECONCILIATION_PENDING", "RECONCILED"].includes(result.internal_status)) {
       await rpc("payment_reconcile_premium_transaction", { p_transaction_id: result.transaction_id });
     }
-    return reply(200, { received: true, accepted: result?.accepted === true, duplicate: result?.duplicate === true });
-  } catch { return reply(503, { error: "PROVIDER_VERIFICATION_FAILED" }); }
+    return reply(200, { received: true, accepted: result?.accepted === true, duplicate: result?.duplicate === true,
+      provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true,
+      poll_verified: true, provider_currency_verified: currency === String(transaction.currency),
+      reconciliation_eligible: result?.accepted === true && transaction.purpose !== "PROVIDER_CONNECTIVITY_TEST" });
+  } catch { return reply(503, { error: "DATABASE_RECORDING_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true }); }
 }
 
 if (typeof Deno !== "undefined") {
