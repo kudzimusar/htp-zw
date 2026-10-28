@@ -4,3 +4,8 @@ verify_jwt = true
 
 [functions.newsroom-whatsapp-dispatch]
 verify_jwt = true
+
+# Paynow does not send a Supabase JWT. The handler verifies the Paynow hash,
+# matches a signed provider poll and only then calls the payment authority.
+[functions.paynow-test-callback]
+verify_jwt = false
