@@ -1066,8 +1066,13 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
     repoRoot,
     "supabase/migrations/20261027010000_ht_ext01a_rdy01_stg01_pgcrypto_runtime_parity.sql"
   );
+  const providerMigrationPath = path.join(
+    repoRoot,
+    "supabase/migrations/20261028010000_ht_ext01a_paynow_test_authority.sql"
+  );
   const migrationSql = fs.readFileSync(migrationPath, "utf8");
   const followupMigrationSql = fs.readFileSync(followupMigrationPath, "utf8");
+  const providerMigrationSql = fs.readFileSync(providerMigrationPath, "utf8");
 
   // Structural & security boundary assertions on the SQL migrations
   assert.match(migrationSql, /create or replace function public\.payment_create_intent\(/);
@@ -1089,6 +1094,12 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
   assert.doesNotMatch(followupMigrationSql, /(?<!extensions\.)gen_random_bytes\s*\(/);
   assert.match(followupMigrationSql, /revoke all on function public\.payment_generate_ulid\(timestamptz\) from public, anon, authenticated/);
   assert.match(followupMigrationSql, /grant execute on function public\.payment_generate_ulid\(timestamptz\) to service_role/);
+
+  // R3-R1 provider authority is service-only and records genuine SHA-512 authority.
+  assert.match(providerMigrationSql, /create or replace function public\.payment_record_paynow_status\(/);
+  assert.match(providerMigrationSql, /'PAYNOW_TEST_SHA512_VERIFIED'/);
+  assert.match(providerMigrationSql, /on conflict \(provider, provider_event_id\) do nothing/);
+  assert.match(providerMigrationSql, /grant execute on function public\.payment_record_paynow_status\(text, text, numeric, text, text, text, text, text, jsonb\) to service_role/);
 
   const psqlCandidates = [
     "/opt/homebrew/Cellar/postgresql@16/16.15/bin/psql",
@@ -1139,6 +1150,7 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
       $$;
       do $$
       begin
+        if not exists (select 1 from pg_roles where rolname = 'postgres') then create role postgres nologin; end if;
         if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
         if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
         if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
@@ -1205,6 +1217,9 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
 
     // 2c. Apply follow-up migration 20261027010000_ht_ext01a_rdy01_stg01_pgcrypto_runtime_parity.sql
     runDbSql(dbName, followupMigrationSql);
+
+    // 2d. Apply the Paynow TEST provider authority migration.
+    runDbSql(dbName, providerMigrationSql);
 
     // 3. Execute all required runtime SQL assertions (Sections 3 through 12) and return a structured JSON proof
     const runtimeProofRaw = runDbSql(
@@ -1660,6 +1675,118 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
     assert.equal(Number(proof.transparency.accounting_posted), 300);
     assert.equal(Number(proof.transparency.provider_clearing_pending_settlement), 705);
     assert.equal(Number(proof.transparency.bank_settled), 0);
+
+    const providerProofRaw = runDbSql(
+      dbName,
+      `
+      create temp table provider_runtime_proof (payload jsonb);
+      do $$
+      declare
+        v_conn jsonb;
+        v_conn_id uuid;
+        v_conn_ref text;
+        v_conn_paid jsonb;
+        v_conn_dup jsonb;
+        v_conn_row public.payment_transactions%rowtype;
+        v_conn_event_count int;
+        v_amount jsonb;
+        v_amount_result jsonb;
+        v_currency jsonb;
+        v_currency_result jsonb;
+      begin
+        v_conn := public.payment_create_intent('PROVIDER_CONNECTIVITY_TEST', 'r3-paynow-connectivity', null, null);
+        v_conn_id := (v_conn->>'transaction_id')::uuid;
+        v_conn_ref := v_conn->>'merchant_reference';
+        perform public.payment_claim_paynow_initiation(v_conn_ref);
+        perform public.payment_record_paynow_initiation(
+          v_conn_ref,
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          'https://www.paynow.co.zw/Payment/ConfirmPayment/9510',
+          '9510'
+        );
+        v_conn_paid := public.payment_record_paynow_status(
+          v_conn_ref, '9510', 1.00, 'USD', 'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          repeat('a', 64), repeat('b', 64),
+          jsonb_build_object('source', 'disposable_provider_test', 'payment_channel', 'ecocash')
+        );
+        v_conn_dup := public.payment_record_paynow_status(
+          v_conn_ref, '9510', 1.00, 'USD', 'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          repeat('a', 64), repeat('b', 64),
+          jsonb_build_object('source', 'disposable_provider_test', 'payment_channel', 'ecocash')
+        );
+        select * into v_conn_row from public.payment_transactions where id = v_conn_id;
+        select count(*)::int into v_conn_event_count from public.provider_webhook_events
+          where transaction_id = v_conn_id;
+
+        v_amount := public.payment_create_intent('PROVIDER_CONNECTIVITY_TEST', 'r3-paynow-amount-mismatch', null, null);
+        perform public.payment_claim_paynow_initiation(v_amount->>'merchant_reference');
+        perform public.payment_record_paynow_initiation(
+          v_amount->>'merchant_reference',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=7c583b19-8327-4e99-868d-9cc2c9693b4f',
+          'https://www.paynow.co.zw/Payment/ConfirmPayment/9511', null
+        );
+        v_amount_result := public.payment_record_paynow_status(
+          v_amount->>'merchant_reference', '9511', 2.00, 'USD', 'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=7c583b19-8327-4e99-868d-9cc2c9693b4f',
+          repeat('c', 64), repeat('d', 64), '{}'::jsonb
+        );
+
+        v_currency := public.payment_create_intent('PROVIDER_CONNECTIVITY_TEST', 'r3-paynow-currency-mismatch', null, null);
+        perform public.payment_claim_paynow_initiation(v_currency->>'merchant_reference');
+        perform public.payment_record_paynow_initiation(
+          v_currency->>'merchant_reference',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=42d7b196-1080-409d-8e39-5b5d196077e1',
+          'https://www.paynow.co.zw/Payment/ConfirmPayment/9512', null
+        );
+        v_currency_result := public.payment_record_paynow_status(
+          v_currency->>'merchant_reference', '9512', 1.00, 'ZWG', 'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=42d7b196-1080-409d-8e39-5b5d196077e1',
+          repeat('e', 64), repeat('f', 64), '{}'::jsonb
+        );
+
+        insert into provider_runtime_proof(payload) values (jsonb_build_object(
+          'connectivity', jsonb_build_object(
+            'first', v_conn_paid,
+            'duplicate', v_conn_dup,
+            'event_count', v_conn_event_count,
+            'internal_status', v_conn_row.internal_status,
+            'reconciliation_status', v_conn_row.reconciliation_status,
+            'accounting_status', v_conn_row.accounting_status,
+            'payment_channel', v_conn_row.payment_channel,
+            'verification_authority', v_conn_row.verification_authority
+          ),
+          'amount_mismatch', v_amount_result,
+          'currency_mismatch', v_currency_result,
+          'privileges', jsonb_build_object(
+            'anon_record_status', has_function_privilege('anon', 'public.payment_record_paynow_status(text,text,numeric,text,text,text,text,text,jsonb)', 'EXECUTE'),
+            'authenticated_record_status', has_function_privilege('authenticated', 'public.payment_record_paynow_status(text,text,numeric,text,text,text,text,text,jsonb)', 'EXECUTE'),
+            'service_record_status', has_function_privilege('service_role', 'public.payment_record_paynow_status(text,text,numeric,text,text,text,text,text,jsonb)', 'EXECUTE')
+          )
+        ));
+      end $$;
+      select payload::text from provider_runtime_proof limit 1;
+      `
+    );
+
+    const providerProof = JSON.parse(providerProofRaw);
+    assert.equal(providerProof.connectivity.first.accepted, true);
+    assert.equal(providerProof.connectivity.first.duplicate, false);
+    assert.equal(providerProof.connectivity.duplicate.duplicate, true);
+    assert.equal(providerProof.connectivity.event_count, 1);
+    assert.equal(providerProof.connectivity.internal_status, "PAYMENT_VERIFIED");
+    assert.equal(providerProof.connectivity.reconciliation_status, "NOT_ELIGIBLE");
+    assert.equal(providerProof.connectivity.accounting_status, "NOT_APPLICABLE");
+    assert.equal(providerProof.connectivity.payment_channel, "ecocash");
+    assert.equal(providerProof.connectivity.verification_authority, "PAYNOW_TEST_SHA512_VERIFIED");
+    assert.equal(providerProof.amount_mismatch.accepted, false);
+    assert.equal(providerProof.amount_mismatch.code, "AMOUNT_MISMATCH");
+    assert.equal(providerProof.currency_mismatch.accepted, false);
+    assert.equal(providerProof.currency_mismatch.code, "CURRENCY_MISMATCH");
+    assert.equal(providerProof.privileges.anon_record_status, false);
+    assert.equal(providerProof.privileges.authenticated_record_status, false);
+    assert.equal(providerProof.privileges.service_record_status, true);
   } finally {
     try {
       runDbSql("postgres", `drop database if exists ${dbName};`);
