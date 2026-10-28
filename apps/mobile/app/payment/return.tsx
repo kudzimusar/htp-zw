@@ -9,6 +9,7 @@ type PaymentStatus={
   payment_verified?:boolean;
   internal_status?:string;
   provider_status?:string|null;
+  purpose?:string;
 };
 
 const terminal=new Set(["PAYMENT_VERIFIED","RECONCILIATION_PENDING","RECONCILED","CANCELLED","FAILED","REFUNDED","DISPUTED"]);
@@ -40,7 +41,11 @@ export default function PaymentReturn(){
         if(response.ok){
           setStatus(next);
           if(next.payment_verified===true){
-            setMessage("Payment verified. HealthTimes is completing membership reconciliation.");
+            setMessage(next.purpose==="PROVIDER_CONNECTIVITY_TEST"
+              ? "Provider test verified. No membership or accounting changes were made."
+              : next.purpose==="PREMIUM_SUBSCRIPTION"
+                ? "Payment verified. HealthTimes is completing membership reconciliation."
+                : "Payment verified. HealthTimes is completing payment reconciliation.");
             return;
           }
           if(next.internal_status==="CANCELLED"){
