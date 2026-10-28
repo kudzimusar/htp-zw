@@ -65,6 +65,16 @@ test('poll signature and status disagreement prevent ledger writes', async () =>
   }
 });
 
+test('poll transport failures expose only a bounded category', async () => {
+  const response = await handlePaynowTestCallback(request(signed(entries)), { ...options,
+    fetcher: async (url) => { if (url.includes('/payment_transactions?')) return Response.json([tx()]);
+      throw new Error('TLS certificate failed with sensitive provider details'); } });
+  const result = await response.json();
+  assert.equal(result.error, 'POLL_TRANSPORT_FAILED');
+  assert.equal(result.transport_category, 'TLS');
+  assert.equal(JSON.stringify(result).includes('sensitive provider details'), false);
+});
+
 test('a signed provider message without currency cannot become a verified USD payment', async () => {
   const withoutCurrency = entries.filter(([name]) => name !== 'currency');
   let calls = 0;

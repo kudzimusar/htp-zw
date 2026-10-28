@@ -83,7 +83,16 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     // Paynow requires a zero-length POST, including an explicit body. Some
     // runtimes otherwise omit Content-Length and receive HTTP 411.
     response = await fetcher(pollUrl, { method: "POST", body: "", redirect: "error", signal: AbortSignal.timeout(15_000) });
-  } catch { return pollFailure("POLL_TRANSPORT_FAILED"); }
+  } catch (error) {
+    // Only emit a bounded category, never exception messages or provider data.
+    const detail = error instanceof Error ? `${error.message} ${String(error.cause || "")}` : "";
+    const category = /certificate|cert_|tls|unknownissuer/i.test(detail) ? "TLS" :
+      /dns|name resolution|lookup|resolve|not known/i.test(detail) ? "DNS" :
+      /timeout|timed out|aborted/i.test(detail) ? "TIMEOUT" :
+      /connect|connection|refused|reset/i.test(detail) ? "CONNECTION" : "OTHER";
+    return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
+      provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
+  }
   if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);
   try { polled = verifiedFields(await response.text(), options.key); }
   catch { return pollFailure("POLL_SIGNATURE_OR_FORM_REJECTED", response.status); }
