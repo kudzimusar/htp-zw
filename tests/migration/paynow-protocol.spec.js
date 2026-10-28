@@ -71,6 +71,9 @@ test('callback and trusted poll must agree on every authority field', () => {
   assert.equal(runtime.sameStatusAuthority(base,{...base,amount:'5.00'}),false);
   assert.equal(runtime.sameStatusAuthority(base,{...base,status:'Created'}),false);
   assert.equal(runtime.sameStatusAuthority(base,{...base,paynowreference:'P2'}),false);
+  assert.equal(runtime.sameStatusAuthority({...base,currency:'USD'},{...base,currency:'ZWG'}),false);
+  assert.throws(() => runtime.verifiedCurrency(base), /PAYNOW_CURRENCY_UNVERIFIED/);
+  assert.equal(runtime.verifiedCurrency({...base,currency:'ZWG'}),'ZWG');
 });
 
 test('readiness gates and public offer stay separate', () => {

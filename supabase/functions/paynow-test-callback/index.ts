@@ -75,9 +75,11 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     if (!response.ok) throw new Error("POLL_FAILED");
     const polled = verifiedFields(await response.text(), options.key);
     trustedPollUrl(polled.pollurl);
-    for (const field of ["reference", "paynowreference", "amount", "status", "pollurl"]) {
+    for (const field of ["reference", "paynowreference", "amount", "status", "pollurl", "currency"]) {
       if (callback[field] !== polled[field]) throw new Error("POLL_MISMATCH");
     }
+    const currency = String(callback.currency || "").toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) throw new Error("CURRENCY_UNVERIFIED");
     const eventId = createHash("sha256").update(raw).digest("hex");
     const rpc = async (name: string, args: Record<string, unknown>) => {
       const res = await fetcher(`${STAGING_ORIGIN}/rest/v1/rpc/${name}`, {
@@ -90,7 +92,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     };
     const result = await rpc("payment_record_paynow_status", {
       p_merchant_reference: callback.reference, p_provider_reference: callback.paynowreference,
-      p_amount: callback.amount, p_currency: "USD", p_provider_status: callback.status,
+      p_amount: callback.amount, p_currency: currency, p_provider_status: callback.status,
       p_poll_url: callback.pollurl, p_event_id: eventId, p_payload_hash: eventId,
       p_metadata: { source: "paynow_callback_confirmed_by_poll", payment_channel: callback.paymentchannel || null, poll_http_status: response.status }
     });

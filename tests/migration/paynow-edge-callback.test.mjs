@@ -6,7 +6,9 @@ import { handlePaynowTestCallback } from '../../supabase/functions/paynow-test-c
 const key = '3e9fed89-60e1-4ce5-ab6e-6b1eb2d4f977'; // Public documentation fixture.
 const options = { key, supabaseUrl: 'https://bzuvntbkevvuhfhqhkua.supabase.co', serviceKey: 'x'.repeat(40) };
 const pollUrl = 'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b';
-const entries = [['reference','HT-CONN-01ARZ3NDEKTSV4RRFFQ69G5FAV'],['paynowreference','1234'],['amount','1.00'],['status','Paid'],['pollurl',pollUrl]];
+// Synthetic currency field exercises the mismatch barrier. Paynow's documented
+// status format does not guarantee this field, and missing currency fails closed.
+const entries = [['reference','HT-CONN-01ARZ3NDEKTSV4RRFFQ69G5FAV'],['paynowreference','1234'],['amount','1.00'],['status','Paid'],['pollurl',pollUrl],['currency','USD']];
 const signed = (items) => {
   const hash = createHash('sha512').update(items.map(([, value]) => value).join('') + key).digest('hex').toUpperCase();
   return new URLSearchParams([...items, ['hash', hash]]).toString();
@@ -49,6 +51,15 @@ test('poll signature and status disagreement prevent ledger writes', async () =>
     assert.equal(response.status, 503);
     assert.equal(calls, 1);
   }
+});
+
+test('a signed provider message without currency cannot become a verified USD payment', async () => {
+  const withoutCurrency = entries.filter(([name]) => name !== 'currency');
+  let calls = 0;
+  const response = await handlePaynowTestCallback(request(signed(withoutCurrency)), { ...options,
+    fetcher: async () => { calls++; return new Response(signed(withoutCurrency), { status: 200 }); } });
+  assert.equal(response.status, 503);
+  assert.equal(calls, 1);
 });
 
 test('duplicate events are reported without creating a second payment', async () => {
