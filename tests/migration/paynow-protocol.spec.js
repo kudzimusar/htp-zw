@@ -85,6 +85,23 @@ test('readiness gates and public offer stay separate', () => {
   assert.equal(open.currentCurrency,'USD');
 });
 
+test('verified connectivity alone cannot certify authority or enable checkout', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => [{ id: 'fixture' }] });
+  try {
+    const env = { PAYNOW_INTEGRATION_ID: '20637', PAYNOW_INTEGRATION_KEY: exampleKey,
+      PAYNOW_MODE: 'test', SUPABASE_URL: 'https://example.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(40) };
+    const closed = await runtime.readiness(env);
+    assert.equal(closed.provider_authority_certified, false);
+    assert.equal(closed.checkout_implementation_ready, false);
+    assert.equal(closed.checkout_available, false);
+    const certified = await runtime.readiness({ ...env, PAYNOW_PROVIDER_AUTHORITY_CERTIFIED: '1' });
+    assert.equal(certified.provider_authority_certified, true);
+    assert.equal(certified.checkout_available, false);
+  } finally { globalThis.fetch = original; }
+});
+
 test('commerce errors never echo provider or secret material', () => {
   assert.equal(commerceApi._internals.safeError(new Error('PAYNOW_INITIATION_REJECTED:Error:sensitive provider detail')),'PAYNOW_INITIATION_REJECTED');
   assert.equal(commerceApi._internals.safeError(new Error('bad detail from provider')),'PAYNOW_REQUEST_FAILED');
