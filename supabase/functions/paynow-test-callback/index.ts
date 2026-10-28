@@ -1,5 +1,9 @@
-import { createHash } from "node:crypto";
-import { verifyForm as verifiedFields, trustedUrl } from "../_shared/paynow-protocol.mjs";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
+import "../_shared/paynow-protocol.js";
+
+const createProtocol = (globalThis as any)[Symbol.for("healthtimes.paynow.protocol")];
+const { verifyForm: verifiedFields, trustedUrl } = createProtocol({ createHash, timingSafeEqual, Buffer });
 
 // This endpoint is intentionally restricted to the approved TEST project.
 const STAGING_ORIGIN = "https://bzuvntbkevvuhfhqhkua.supabase.co";

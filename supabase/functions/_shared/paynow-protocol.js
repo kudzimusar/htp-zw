@@ -1,7 +1,7 @@
 // Shared by the Vercel server and the Supabase Edge callback. Paynow signs
 // decoded field values in their received order, followed by the integration key.
-import { createHash, timingSafeEqual } from 'node:crypto';
-import { Buffer } from 'node:buffer';
+(function registerPaynowProtocol(root) {
+function createProtocol({ createHash, timingSafeEqual, Buffer }) {
 const TRUSTED_HOSTS = new Set(['www.paynow.co.zw', 'paynow.co.zw', 'staging.paynow.co.zw']);
 const MAX_FORM_BYTES = 16_384;
 
@@ -51,4 +51,8 @@ function trustedUrl(raw, role) {
   return url.toString();
 }
 
-export { hashValues, parseForm, verifyForm, trustedUrl };
+return { hashValues, parseForm, verifyForm, trustedUrl };
+}
+root[Symbol.for('healthtimes.paynow.protocol')] = createProtocol;
+if (typeof module !== 'undefined' && module.exports) module.exports = createProtocol;
+})(globalThis);
