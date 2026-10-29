@@ -228,6 +228,13 @@ export function StudioFinanceDeskView({
     [refreshKey, isOwnerPreview]
   );
 
+  const liveAuth = useAsync(
+    () => (isOwnerPreview ? Promise.resolve(null) : services.authorization.getSnapshot().catch(() => null)),
+    [isOwnerPreview]
+  );
+  const effectiveStaffName = liveAuth.data?.displayName || currentStaffName;
+  const effectiveStaffId = liveAuth.data?.staffProfileId;
+
   const overviewData = isOwnerPreview ? previewOverview : liveOverview.data;
   const invoicesData = isOwnerPreview
     ? localInvoices.filter((inv) => invoiceStatusFilter === "all" || inv.effectiveStatus === invoiceStatusFilter || inv.status === invoiceStatusFilter)
@@ -236,15 +243,28 @@ export function StudioFinanceDeskView({
   const paymentsData = isOwnerPreview ? localPayments : (livePayments.data ?? []);
   const rawExpenses = isOwnerPreview ? localExpenses : (liveExpenses.data ?? []);
   const expensesData = useMemo(() => {
+    if (isOwnerPreview) {
+      if (expenseScope === "my") {
+        const staffName = currentStaffName.trim().toLowerCase();
+        return rawExpenses.filter((e) => {
+          const subName = (e.submittedByName ?? "").trim().toLowerCase();
+          return subName === staffName || subName.includes(staffName.split(" ")[0] ?? "");
+        });
+      }
+      return rawExpenses;
+    }
     if (expenseScope === "my") {
-      const staffName = currentStaffName.trim().toLowerCase();
+      if (effectiveStaffId) {
+        return rawExpenses.filter((e) => e.submittedBy === effectiveStaffId);
+      }
+      const staffName = (effectiveStaffName || currentStaffName).trim().toLowerCase();
       return rawExpenses.filter((e) => {
         const subName = (e.submittedByName ?? "").trim().toLowerCase();
         return subName === staffName || subName.includes(staffName.split(" ")[0] ?? "");
       });
     }
     return rawExpenses;
-  }, [rawExpenses, expenseScope, currentStaffName]);
+  }, [rawExpenses, expenseScope, isOwnerPreview, effectiveStaffId, effectiveStaffName, currentStaffName]);
   const statementsData = isOwnerPreview ? previewStatements : liveStatements.data;
   const customersData = isOwnerPreview ? localCustomers : (liveCustomers.data ?? []);
   const ordersData = isOwnerPreview ? localOrders : (liveOrders.data ?? []);

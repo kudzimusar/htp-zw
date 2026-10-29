@@ -533,13 +533,31 @@ export function createNewsroomFinanceService(
 
     async createInvoice(input: NewsroomCreateInvoiceInput): Promise<NewsroomInvoiceDetail> {
       const client = getClient();
+      const mappedLines = (input.lines ?? []).map((line: any) => {
+        const qty = Number(line.quantity ?? 1);
+        const price = Number(line.unit_price ?? line.unitPrice ?? 0);
+        const rate = Number(line.tax_rate ?? line.taxRate ?? 0);
+        const disc = Number(line.discount ?? 0);
+        return {
+          description: String(line.description ?? ""),
+          category: line.category ?? "advertising",
+          placement: line.placement ?? null,
+          quantity: qty,
+          unit_price: price,
+          unitPrice: price,
+          tax_rate: rate,
+          taxRate: rate,
+          discount: disc,
+          metadata: line.metadata ?? {}
+        };
+      });
       const { data, error } = await client.rpc("finance_create_invoice", {
         p_customer_id: input.customerId,
         p_order_id: input.orderId ?? null,
         p_issue_date: input.issueDate ?? null,
         p_due_date: input.dueDate ?? null,
         p_currency: input.currency ?? "USD",
-        p_lines: input.lines,
+        p_lines: mappedLines,
         p_notes: input.notes ?? null,
         p_terms: input.terms ?? null
       });
