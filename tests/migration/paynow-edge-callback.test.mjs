@@ -89,10 +89,11 @@ test('nested transport causes retain bounded actionable categories', () => {
 test('reset compares connectivity only to the fixed protected staging preview', async () => {
   let preview = 0;
   const response = await handlePaynowTestCallback(request(signed(entries)), {...options,
-    fetcher: async (url) => {
+    fetcher: async (url, init) => {
       if (url.includes('/payment_transactions?')) return Response.json([tx()]);
       if (url === pollUrl) throw new Error('connection reset');
       assert.equal(url, 'https://healthtimes-staging-c6y2jrt51-11-11.vercel.app/api/commerce?action=readiness');
+      assert.equal(init.redirect, 'manual');
       preview++; return new Response('', {status:401});
     }});
   const result = await response.json();

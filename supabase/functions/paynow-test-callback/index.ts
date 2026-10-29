@@ -123,7 +123,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
       // No credentials, provider data, or user-controlled destinations are sent.
       try {
         const probe = await fetcher('https://healthtimes-staging-c6y2jrt51-11-11.vercel.app/api/commerce?action=readiness',
-          { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10_000) });
+          { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(10_000) });
         stagingPreviewHttp = probe.status;
         await probe.body?.cancel();
       } catch (probeError) { stagingPreviewError = classifyPollTransport(probeError); }
