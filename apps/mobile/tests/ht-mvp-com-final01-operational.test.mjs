@@ -139,6 +139,17 @@ test("HT-MVP-COM-FINAL-01-R2-R2: Migration 20261029080000 exists and performs id
   assert.match(sql, /delete from auth\.sessions/i, "Must invalidate auth sessions for test users");
 });
 
+test("HT-MVP-COM-FINAL-01-R2-R3: Migration 20261029090000 exists and revokes authenticated execution on uat fixture reconciler", () => {
+  const migPath = path.join(REPO_ROOT, "supabase/migrations/20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql");
+  assert.ok(fs.existsSync(migPath), "Migration file 20261029090000 must exist");
+
+  const sql = fs.readFileSync(migPath, "utf8");
+  assert.match(sql, /revoke all on function public\.finance_reconcile_uat_fixtures\(text, text\) from public, anon, authenticated;/i, "Must revoke authenticated execution");
+  assert.match(sql, /grant execute on function public\.finance_reconcile_uat_fixtures\(text, text\) to service_role;/i, "Must isolate execute strictly to service_role");
+  assert.match(sql, /order_number = 'ORD-2026-0011'/i, "Must resolve outstanding synthetic commercial order");
+  assert.match(sql, /trading_name in \('HealthCorp 272105', 'HealthCorp 895254'\)/i, "Must resolve outstanding synthetic customers");
+});
+
 test("HT-MVP-COM-FINAL-01: Workstream A — Finance Service Mapping & Invoicing lifecycle", () => {
   // Test mapCustomer
   const cust = mapCustomer({

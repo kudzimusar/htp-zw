@@ -148,10 +148,11 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     expect(buildInfo.sha).toBeDefined();
     expect(buildInfo.serviceMode).toBe('staging');
     const expectedSha = process.env.EXPECTED_SHA;
-    if (expectedSha) {
-      expect(buildInfo.sha.toLowerCase()).toBe(expectedSha.toLowerCase());
+    if (!expectedSha) {
+      throw new Error('MANDATORY_EXPECTED_SHA_MISSING: The EXPECTED_SHA environment variable must be specified to certify physical staging custody against deployed /build-info.json.');
     }
-    console.log(`[Custody] Deployed Preview SHA: ${buildInfo.sha} (Expected: ${expectedSha || 'UNSPECIFIED'})`);
+    expect(buildInfo.sha.toLowerCase()).toBe(expectedSha.toLowerCase());
+    console.log(`[Custody] Deployed Preview SHA: ${buildInfo.sha} (Expected: ${expectedSha})`);
   });
 
   // Shared state across sequential scenarios
@@ -175,25 +176,13 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
   });
 
   test.afterAll(async () => {
-    // Session Lifecycle & Financial Fixture Teardown:
-    // Reconciles synthetic journals, voids invoices/expenses, cancels orders, deactivates customers, and revokes sessions.
+    // Session Lifecycle Containment:
+    // Revokes all active newsroom sessions and signs out test identities globally.
     const cleanupErrors = [];
     try {
       const financeSb = await getAuthenticatedClient(SECRETS.finance);
 
-      // 1. Governed Reconciliation of Fixtures via Security Definer RPC
-      const { data: recData, error: recErr } = await financeSb.rpc('finance_reconcile_uat_fixtures', {
-        p_customer_name: testCustomerLegalName || null,
-        p_vendor_name: testExpenseVendor || null
-      });
-
-      if (recErr) {
-        cleanupErrors.push(`Failed to reconcile UAT fixtures: ${recErr.message} (code ${recErr.code})`);
-      } else {
-        console.log('[UAT Fixture Reconciliation Success]:', recData);
-      }
-
-      // 2. Revoke Finance Actor Sessions
+      // 1. Revoke Finance Actor Sessions
       const { data: finStaffId } = await financeSb.rpc('newsroom_current_staff_id_basic');
       if (finStaffId) {
         const { error: revFinErr } = await financeSb.rpc('newsroom_revoke_session', {
@@ -204,7 +193,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
       }
       await financeSb.auth.signOut({ scope: 'global' });
 
-      // 3. Revoke Commercial Actor Sessions
+      // 2. Revoke Commercial Actor Sessions
       if (SECRETS.commercial?.email && SECRETS.commercial?.password) {
         try {
           const commSb = await getAuthenticatedClient(SECRETS.commercial);
