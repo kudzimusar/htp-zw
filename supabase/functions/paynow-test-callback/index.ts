@@ -116,7 +116,19 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   } catch (error) {
     // Only emit a bounded category, never exception messages or provider data.
     const category = classifyPollTransport(error);
+    let stagingPreviewHttp: number | undefined;
+    if (category === 'CONNECTION_RESET') {
+      // Read-only connectivity comparison to the existing protected staging preview.
+      // No credentials, provider data, or user-controlled destinations are sent.
+      try {
+        const probe = await fetcher('https://healthtimes-staging-c6y2jrt51-11-11.vercel.app/api/commerce?action=readiness',
+          { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10_000) });
+        stagingPreviewHttp = probe.status;
+        await probe.body?.cancel();
+      } catch { /* No status means the comparison itself did not complete. */ }
+    }
     return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
+      staging_preview_http_status: stagingPreviewHttp,
       provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
   }
   if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);
