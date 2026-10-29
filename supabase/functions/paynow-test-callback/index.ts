@@ -21,6 +21,32 @@ function amountCents(value: unknown): bigint | null {
   return match ? BigInt(match[1]) * 100n + BigInt((match[2] || '').padEnd(2, '0')) : null;
 }
 
+// Inspect nested runtime causes in memory, but expose only fixed classifications.
+export function classifyPollTransport(error: unknown): string {
+  const seen = new Set<unknown>();
+  const parts: string[] = [];
+  let current: any = error;
+  for (let depth = 0; current && depth < 8 && !seen.has(current); depth++) {
+    seen.add(current);
+    if (typeof current === 'object') {
+      for (const field of ['name', 'code', 'message']) {
+        if (typeof current[field] === 'string') parts.push(current[field]);
+      }
+      current = current.cause;
+    } else { parts.push(String(current)); break; }
+  }
+  const text = parts.join(' ');
+  if (/certificate|cert_|unknownissuer|unknown issuer|tls alert|invalid peer/i.test(text)) return 'TLS_CERTIFICATE';
+  if (/handshake|tls|ssl/i.test(text)) return 'TLS_NEGOTIATION';
+  if (/enotfound|eai_again|dns|name resolution|lookup|resolve|not known/i.test(text)) return 'DNS';
+  if (/timeout|timed ?out|aborterror|aborted/i.test(text)) return 'TIMEOUT';
+  if (/econnrefused|connection refused/i.test(text)) return 'CONNECTION_REFUSED';
+  if (/econnreset|connection reset|broken pipe/i.test(text)) return 'CONNECTION_RESET';
+  if (/enetunreach|ehostunreach|network is unreachable|host is unreachable/i.test(text)) return 'NETWORK_UNREACHABLE';
+  if (/connect|connection/i.test(text)) return 'CONNECTION_OTHER';
+  return 'OTHER';
+}
+
 export async function handlePaynowTestCallback(request: Request, options: Options): Promise<Response> {
   if (request.method !== "POST") return reply(405, { error: "METHOD_NOT_ALLOWED" });
   if (!/^application\/x-www-form-urlencoded(?:\s*;|\s*$)/i.test(request.headers.get("content-type") || "")) {
@@ -89,11 +115,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     response = await fetcher(pollUrl, { method: "POST", body: "", redirect: "error", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
     // Only emit a bounded category, never exception messages or provider data.
-    const detail = error instanceof Error ? `${error.message} ${String(error.cause || "")}` : "";
-    const category = /certificate|cert_|tls|unknownissuer/i.test(detail) ? "TLS" :
-      /dns|name resolution|lookup|resolve|not known/i.test(detail) ? "DNS" :
-      /timeout|timed out|aborted/i.test(detail) ? "TIMEOUT" :
-      /connect|connection|refused|reset/i.test(detail) ? "CONNECTION" : "OTHER";
+    const category = classifyPollTransport(error);
     return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
       provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
   }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { handlePaynowTestCallback } from '../../supabase/functions/paynow-test-callback/index.ts';
+import { handlePaynowTestCallback, classifyPollTransport } from '../../supabase/functions/paynow-test-callback/index.ts';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -71,8 +71,46 @@ test('poll transport failures expose only a bounded category', async () => {
       throw new Error('TLS certificate failed with sensitive provider details'); } });
   const result = await response.json();
   assert.equal(result.error, 'POLL_TRANSPORT_FAILED');
-  assert.equal(result.transport_category, 'TLS');
+  assert.equal(result.transport_category, 'TLS_CERTIFICATE');
   assert.equal(JSON.stringify(result).includes('sensitive provider details'), false);
+});
+
+test('nested transport causes retain bounded actionable categories', () => {
+  for (const [message, expected] of [
+    ['ECONNREFUSED', 'CONNECTION_REFUSED'], ['ECONNRESET', 'CONNECTION_RESET'],
+    ['ENOTFOUND', 'DNS'], ['ETIMEDOUT', 'TIMEOUT'], ['ENETUNREACH', 'NETWORK_UNREACHABLE'],
+    ['invalid peer certificate: UnknownIssuer', 'TLS_CERTIFICATE'], ['TLS handshake failed', 'TLS_NEGOTIATION']
+  ]) {
+    const cause = Object.assign(new Error('private diagnostic'), {code:message});
+    assert.equal(classifyPollTransport(new Error('fetch failed', {cause})), expected);
+  }
+});
+
+test('upstream HTTP failure is distinguished from transport failure', async () => {
+  const response = await handlePaynowTestCallback(request(signed(entries)), { ...options,
+    fetcher: async (url) => url.includes('/payment_transactions?') ? Response.json([tx()]) : new Response('', {status:411}) });
+  const result = await response.json();
+  assert.equal(result.error, 'POLL_HTTP_FAILED');
+  assert.equal(result.poll_http_status, 411);
+  assert.equal(result.poll_verified, false);
+});
+
+test('timeout and evidence-storage failure never acknowledge processing', async () => {
+  const noCurrency = entries.filter(([name]) => name !== 'currency');
+  const timeout = await handlePaynowTestCallback(request(signed(noCurrency)), {...options,
+    fetcher: async (url) => { if (url.includes('/payment_transactions?')) return Response.json([tx()]);
+      throw new DOMException('Timed out', 'TimeoutError'); }});
+  const timeoutResult = await timeout.json();
+  assert.equal(timeout.status, 503);
+  assert.equal(timeoutResult.transport_category, 'TIMEOUT');
+  const storageFailure = await handlePaynowTestCallback(request(signed(noCurrency)), {...options,
+    fetcher: async (url) => { if (url.includes('/payment_transactions?')) return Response.json([tx()]);
+      if (url === pollUrl) return new Response(signed(noCurrency));
+      return new Response('', {status:503}); }});
+  const storageResult = await storageFailure.json();
+  assert.equal(storageFailure.status, 503);
+  assert.equal(storageResult.error, 'EVENT_STORAGE_FAILED');
+  assert.equal(storageResult.provider_currency_verified, false);
 });
 
 test('a signed provider message without currency cannot become a verified USD payment', async () => {
