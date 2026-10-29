@@ -95,6 +95,17 @@ test("HT-MVP-COM-FINAL-01-R1: Migration 20261029040000 exists and revokes public
   assert.match(sql, /revoke execute on function public\.finance_upsert_customer\(uuid, uuid, text, text, text, text, text, text, text, int\) from public, anon;/i);
 });
 
+test("HT-MVP-COM-FINAL-01-R1: Migration 20261029050000 exists and fixes idempotency & expense column reference", () => {
+  const migPath = path.join(REPO_ROOT, "supabase/migrations/20261029050000_ht_mvp_com_final01_r1_idempotency_fix.sql");
+  assert.ok(fs.existsSync(migPath), "Migration file 20261029050000 must exist");
+
+  const sql = fs.readFileSync(migPath, "utf8");
+  assert.match(sql, /where source_id = i\.id and source = 'invoice'/i, "Must fix source_id and source column reference");
+  assert.match(sql, /e\.rejected_reason as rejection_reason/i, "Must fix rejected_reason column reference");
+  assert.match(sql, /revoke all on function public\.finance_issue_invoice\(uuid, date, date\) from public;/i);
+  assert.match(sql, /grant execute on function public\.finance_issue_invoice\(uuid, date, date\) to authenticated, service_role;/i);
+});
+
 test("HT-MVP-COM-FINAL-01: Workstream A — Finance Service Mapping & Invoicing lifecycle", () => {
   // Test mapCustomer
   const cust = mapCustomer({
