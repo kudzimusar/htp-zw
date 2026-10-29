@@ -14,8 +14,7 @@ function reply(status: number, body: Record<string, unknown>): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 }
 
-type Options = { key: string; supabaseUrl: string; serviceKey: string; fetcher?: typeof fetch;
-  makeHttp1Client?: () => { close: () => void } };
+type Options = { key: string; supabaseUrl: string; serviceKey: string; fetcher?: typeof fetch };
 
 function amountCents(value: unknown): bigint | null {
   const match = /^(\d{1,16})(?:\.(\d{1,2}))?$/.exec(String(value));
@@ -108,8 +107,6 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   }
   let response: Response;
   let polled: Record<string, string>;
-  let pollTransport = "DEFAULT";
-  let retryClient: { close: () => void } | undefined;
   const pollFailure = (error: string, httpStatus?: number) => reply(503, { error, poll_http_status: httpStatus,
     provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
   try {
@@ -117,31 +114,14 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     // runtimes otherwise omit Content-Length and receive HTTP 411.
     response = await fetcher(pollUrl, { method: "POST", body: "", redirect: "error", signal: AbortSignal.timeout(15_000) });
   } catch (error) {
+    // Only emit a bounded category, never exception messages or provider data.
     const category = classifyPollTransport(error);
-    // A reset may happen during protocol negotiation. Compare HTTP/1.1 with
-    // default negotiation without changing the destination or TLS validation.
-    const createClient = options.makeHttp1Client ||
-      (typeof Deno !== 'undefined' && typeof Deno.createHttpClient === 'function'
-        ? () => Deno.createHttpClient({http1: true, http2: false}) : null);
-    if (category !== 'CONNECTION_RESET' || !createClient) return reply(503, {
-      error: "POLL_TRANSPORT_FAILED", transport_category: category, poll_transport: "DEFAULT",
+    return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
       provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
-    try {
-      retryClient = createClient();
-      response = await fetcher(pollUrl, { method: "POST", body: "", redirect: "error",
-        signal: AbortSignal.timeout(15_000), client: retryClient } as RequestInit);
-      pollTransport = "HTTP1_RETRY";
-    } catch (retryError) {
-      retryClient?.close();
-      return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
-        retry_transport: "HTTP1", retry_category: classifyPollTransport(retryError),
-        provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
-    }
   }
-  if (!response.ok) { retryClient?.close(); return pollFailure("POLL_HTTP_FAILED", response.status); }
+  if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);
   try { polled = verifiedFields(await response.text(), options.key); }
   catch { return pollFailure("POLL_SIGNATURE_OR_FORM_REJECTED", response.status); }
-  finally { retryClient?.close(); }
   try {
     trustedPollUrl(polled.pollurl);
     for (const field of ["reference", "paynowreference", "amount", "status", "pollurl", "currency"]) {
@@ -172,7 +152,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
       if (!Array.isArray(rows)) throw new Error("EVENT_STORE_FAILED");
       return reply(200, { received: true, accepted: false, duplicate: rows.length === 0,
         provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true,
-        poll_verified: true, poll_transport: pollTransport, provider_currency_verified: false, reconciliation_eligible: false, event_stored: true });
+        poll_verified: true, provider_currency_verified: false, reconciliation_eligible: false, event_stored: true });
     } catch { return reply(503, { error: "EVENT_STORAGE_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true, provider_currency_verified: false }); }
   }
   try {

@@ -113,44 +113,6 @@ test('timeout and evidence-storage failure never acknowledge processing', async 
   assert.equal(storageResult.provider_currency_verified, false);
 });
 
-test('HTTP/1 retry follows only a reset and still requires a signed matched poll', async () => {
-  const noCurrency = entries.filter(([name]) => name !== 'currency');
-  let pollCalls = 0;
-  let closed = false;
-  const retryClient = {close: () => {closed = true;}};
-  const response = await handlePaynowTestCallback(request(signed(noCurrency)), {...options,
-    makeHttp1Client: () => retryClient,
-    fetcher: async (url, init = {}) => {
-      if (url.includes('/payment_transactions?')) return Response.json([tx()]);
-      if (url === pollUrl) {
-        assert.equal(init.method, 'POST'); assert.equal(init.body, ''); pollCalls++;
-        if (pollCalls === 1) throw new Error('connection reset');
-        assert.equal(init.client, retryClient); return new Response(signed(noCurrency));
-      }
-      return Response.json([{id:'event'}]);
-    }});
-  const result = await response.json();
-  assert.equal(response.status, 200);
-  assert.equal(result.poll_transport, 'HTTP1_RETRY');
-  assert.equal(result.poll_verified, true);
-  assert.equal(result.provider_currency_verified, false);
-  assert.equal(result.reconciliation_eligible, false);
-  assert.equal(pollCalls, 2); assert.equal(closed, true);
-});
-
-test('HTTP/1 retry failure does not store or acknowledge evidence', async () => {
-  let polls = 0;
-  const response = await handlePaynowTestCallback(request(signed(entries)), {...options,
-    makeHttp1Client: () => ({close: () => {}}),
-    fetcher: async (url) => { if (url.includes('/payment_transactions?')) return Response.json([tx()]);
-      polls++; throw new Error('connection reset'); }});
-  const result = await response.json();
-  assert.equal(response.status, 503);
-  assert.equal(result.retry_category, 'CONNECTION_RESET');
-  assert.equal(result.poll_verified, false);
-  assert.equal(polls, 2);
-});
-
 test('a signed provider message without currency cannot become a verified USD payment', async () => {
   const withoutCurrency = entries.filter(([name]) => name !== 'currency');
   let calls = 0;
