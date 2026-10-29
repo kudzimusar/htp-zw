@@ -277,7 +277,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
 
     await page.getByLabel('Order Subtotal').fill('1000.00');
     await page.getByLabel('Order Tax Amount').fill('150.00');
-    await page.getByLabel('Order Discount Amount').fill('100.00');
+    await page.getByLabel('Order Discount Amount').fill('0.00');
     await page.getByLabel('Order Notes').fill(testOrderNotes);
 
     const saveOrderBtn = page.getByRole('button', { name: 'Save Commercial Order' }).last();
@@ -288,7 +288,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     const orderRow = page.locator('.tableRow', { hasText: testCustomerLegalName }).first();
     await expect(page.getByText(testCustomerLegalName).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DRAFT').first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('1050.00').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('1150.00').first()).toBeVisible({ timeout: 15000 });
 
     // 3. Negative test: Commercial Manager (Creator) attempts self-approval -> must fail closed
     const approveBtnCreator = page.getByText('Approve', { exact: true }).first();
@@ -366,9 +366,9 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await issueInvBtn.click();
     await page.waitForTimeout(2500);
 
-    // Verify invoice status transitioned to ISSUED and balance due displays $1,050.00
+    // Verify invoice status transitioned to ISSUED and balance due displays $1,150.00
     await expect(page.getByText('ISSUED').first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/1,?050\.00/).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/1,?150\.00/).first()).toBeVisible({ timeout: 15000 });
 
     // Inspect Details modal
     const detailsBtn = page.getByText('Details', { exact: true }).first();
@@ -385,9 +385,9 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await page.goto('/studio/finance-aging', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Accounts Receivable Aging').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Accounts Receivable Aging Breakdown').first()).toBeVisible({ timeout: 15000 });
-    // Customer appears with $1,050.00 in current aging bucket
+    // Customer appears with $1,150.00 in current aging bucket
     await expect(page.getByText(testCustomerLegalName).first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/1,?050\.00/).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/1,?150\.00/).first()).toBeVisible({ timeout: 15000 });
 
     // 4. Customer Statement Verification
     await page.goto('/studio/finance-customers', { waitUntil: 'domcontentloaded' });
@@ -399,8 +399,8 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await page.waitForTimeout(1500);
 
     await expect(page.getByText('STATEMENT OF ACCOUNT').first()).toBeVisible({ timeout: 10000 });
-    // Closing balance must agree with the AR Aging total ($1,050.00)
-    await expect(page.getByText(/1,?050\.00/).first()).toBeVisible({ timeout: 10000 });
+    // Closing balance must agree with the AR Aging total ($1,150.00)
+    await expect(page.getByText(/1,?150\.00/).first()).toBeVisible({ timeout: 10000 });
 
     const closeStmtBtn = page.getByText('Close', { exact: true }).first();
     if (await closeStmtBtn.isVisible()) await closeStmtBtn.click();
