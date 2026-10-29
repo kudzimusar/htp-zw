@@ -86,30 +86,46 @@ test('nested transport causes retain bounded actionable categories', () => {
   }
 });
 
-test('reset compares connectivity only to the fixed protected staging preview', async () => {
-  let preview = 0;
-  const response = await handlePaynowTestCallback(request(signed(entries)), {...options,
-    fetcher: async (url, init) => {
-      if (url.includes('/payment_transactions?')) return Response.json([tx()]);
-      if (url === pollUrl) throw new Error('connection reset');
-      assert.equal(url, 'https://healthtimes-staging-c6y2jrt51-11-11.vercel.app/api/commerce?action=readiness');
-      assert.equal(init.redirect, 'manual');
-      preview++; return new Response('', {status:401});
-    }});
-  const result = await response.json();
-  assert.equal(response.status, 503);
-  assert.equal(result.transport_category, 'CONNECTION_RESET');
-  assert.equal(result.staging_preview_http_status, 401);
-  assert.equal(preview, 1);
+test('authenticated TEST poller returns a signed poll that Edge verifies before storing evidence', async () => {
+  const noCurrency = entries.filter(([name]) => name !== 'currency');
+  const relayUrl = 'https://healthtimes-staging-demo-11-11.vercel.app/api/commerce?action=internal-test-poll';
+  const stored = new Map();
+  const secret = 'x'.repeat(40);
+  const fetcher = async (url, init = {}) => {
+    if (url.includes('/payment_transactions?')) return Response.json([tx()]);
+    if (url === pollUrl) throw new Error('connection reset');
+    if (url === relayUrl) {
+      assert.equal(init.redirect, 'error');
+      assert.deepEqual(JSON.parse(init.body), {reference:entries[0][1]});
+      assert.equal(init.headers['x-healthtimes-internal-poll'], secret);
+      return Response.json({signedForm:signed(noCurrency)});
+    }
+    assert.match(url, /provider_webhook_events/);
+    const event = JSON.parse(init.body);
+    if (stored.has(event.provider_event_id)) return Response.json([]);
+    stored.set(event.provider_event_id,event); return Response.json([{id:'event'}]);
+  };
+  const opts = {...options, fetcher, internalPollUrl:relayUrl, internalPollToken:secret, vercelBypass:secret};
+  const first = await (await handlePaynowTestCallback(request(signed(noCurrency)),opts)).json();
+  const replay = await (await handlePaynowTestCallback(request(signed(noCurrency)),opts)).json();
+  assert.equal(first.poll_verified,true); assert.equal(first.poll_transport,'VERCEL_TEST_POLLER');
+  assert.equal(first.provider_currency_verified,false); assert.equal(first.reconciliation_eligible,false);
+  assert.equal(first.event_stored,true); assert.equal(replay.duplicate,true); assert.equal(stored.size,1);
 });
 
-test('failed preview comparison returns only a bounded transport category', async () => {
-  const response = await handlePaynowTestCallback(request(signed(entries)), {...options,
-    fetcher: async (url) => { if (url.includes('/payment_transactions?')) return Response.json([tx()]);
-      throw new Error('connection reset with private details'); }});
-  const result = await response.json();
-  assert.equal(result.staging_preview_transport_category, 'CONNECTION_RESET');
-  assert.equal(JSON.stringify(result).includes('private details'), false);
+test('untrusted relay URL, unavailable relay and altered relay status fail closed', async () => {
+  const noCurrency = entries.filter(([name]) => name !== 'currency');
+  const secret = 'x'.repeat(40);
+  for (const [relayUrl, form, expected] of [
+    ['https://evil.test/api/commerce?action=internal-test-poll', signed(noCurrency), 'POLL_RELAY_FAILED'],
+    ['https://healthtimes-staging-demo-11-11.vercel.app/api/commerce?action=internal-test-poll', signed(noCurrency).replace('amount=1.00','amount=2.00'), 'POLL_SIGNATURE_OR_FORM_REJECTED']
+  ]) {
+    const response = await handlePaynowTestCallback(request(signed(noCurrency)), {...options,
+      internalPollUrl:relayUrl, internalPollToken:secret, vercelBypass:secret,
+      fetcher:async (url) => {if (url.includes('/payment_transactions?')) return Response.json([tx()]);
+        if (url === pollUrl) throw new Error('connection reset'); return Response.json({signedForm:form});}});
+    assert.equal((await response.json()).error, expected);
+  }
 });
 
 test('upstream HTTP failure is distinguished from transport failure', async () => {

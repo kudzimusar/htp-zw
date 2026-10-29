@@ -114,6 +114,25 @@ test('invalid public status references are rejected before any backend request',
   await assert.rejects(() => runtime.transactionStatus('HT-PREM-user@example.com', {}), /MERCHANT_REFERENCE_INVALID/);
 });
 
+test('internal poller only reads a stored TEST connectivity target and verifies its signed response', async () => {
+  const ref='HT-CONN-01ARZ3NDEKTSV4RRFFQ69G5FAV';
+  const url='https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b';
+  const fields=[['reference',ref],['paynowreference','1234'],['amount','1.00'],['status','Paid'],['pollurl',url]];
+  const form=new URLSearchParams(fields); form.append('hash',hashValues(fields,exampleKey));
+  const env={PAYNOW_INTEGRATION_ID:'20637',PAYNOW_INTEGRATION_KEY:exampleKey,PAYNOW_MODE:'test',SUPABASE_URL:'https://bzuvntbkevvuhfhqhkua.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40)};
+  const original=globalThis.fetch; let calls=0;
+  globalThis.fetch=async (target, init={}) => {calls++;
+    if (String(target).includes('/payment_transactions?')) return Response.json([{expected_amount:'1.00',poll_url:url,provider_reference:'1234'}]);
+    assert.equal(target,url); assert.equal(init.body,''); assert.equal(init.method,'POST');
+    return new Response(form.toString()); };
+  try {
+    assert.equal((await runtime.internalConnectivityPoll(ref,env)).signedForm,form.toString());
+    assert.equal(calls,2);
+    await assert.rejects(() => runtime.internalConnectivityPoll('HT-PREM-01ARZ3NDEKTSV4RRFFQ69G5FAV',env),/MERCHANT_REFERENCE_INVALID/);
+    await assert.rejects(() => runtime.internalConnectivityPoll(ref,{...env,PAYNOW_MODE:'live'}),/CONFIGURATION_INCOMPLETE/);
+  } finally {globalThis.fetch=original;}
+});
+
 test('operator TEST scenarios are bounded and idempotency-safe', () => {
   for (const scenario of ['connectivity', 'success', 'cancel', 'failure', 'delayed']) {
     assert.equal(runtime.normalizeConnectivityScenario(scenario.toUpperCase()), scenario);
@@ -138,4 +157,5 @@ test('operator connectivity and poll endpoints fail closed without a separate se
   };
   assert.equal((await invoke('connectivity')).statusCode, 403);
   assert.equal((await invoke('poll')).statusCode, 403);
+  assert.equal((await invoke('internal-test-poll')).statusCode, 403);
 });

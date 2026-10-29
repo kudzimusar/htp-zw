@@ -127,6 +127,18 @@ module.exports = async function handler(req, res) {
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'METHOD_NOT_ALLOWED' });
 
+    if (action === 'internal-test-poll') {
+      if (String(process.env.PAYNOW_INTERNAL_POLL_TOKEN || '').length < 32 ||
+          !same(req.headers['x-healthtimes-internal-poll'], process.env.PAYNOW_INTERNAL_POLL_TOKEN) ||
+          !allowed(req, 'internal-test-poll', 60)) return send(res, 403, { error: 'INTERNAL_POLL_AUTHORITY_REQUIRED' });
+      const input = await body(req);
+      const parsed = typeof input === 'string' && input ? JSON.parse(input) : input;
+      if (!parsed || Object.keys(parsed).length !== 1 || typeof parsed.reference !== 'string') {
+        return send(res, 400, { error: 'INTERNAL_POLL_REQUEST_INVALID' });
+      }
+      return send(res, 200, await paynow.internalConnectivityPoll(parsed.reference));
+    }
+
     if (action === 'callback' || action === 'webhook') {
       if (!allowed(req, 'callback', 120)) return send(res, 429, { error: 'RATE_LIMITED' });
       const result = await paynow.acceptCallback(await body(req));

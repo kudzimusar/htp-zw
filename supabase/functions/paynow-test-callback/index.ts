@@ -14,7 +14,8 @@ function reply(status: number, body: Record<string, unknown>): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 }
 
-type Options = { key: string; supabaseUrl: string; serviceKey: string; fetcher?: typeof fetch };
+type Options = { key: string; supabaseUrl: string; serviceKey: string; fetcher?: typeof fetch;
+  internalPollUrl?: string; internalPollToken?: string; vercelBypass?: string };
 
 function amountCents(value: unknown): bigint | null {
   const match = /^(\d{1,16})(?:\.(\d{1,2}))?$/.exec(String(value));
@@ -107,6 +108,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   }
   let response: Response;
   let polled: Record<string, string>;
+  let pollTransport = "SUPABASE_EDGE";
   const pollFailure = (error: string, httpStatus?: number) => reply(503, { error, poll_http_status: httpStatus,
     provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
   try {
@@ -116,22 +118,28 @@ export async function handlePaynowTestCallback(request: Request, options: Option
   } catch (error) {
     // Only emit a bounded category, never exception messages or provider data.
     const category = classifyPollTransport(error);
-    let stagingPreviewHttp: number | undefined;
-    let stagingPreviewError: string | undefined;
-    if (category === 'CONNECTION_RESET') {
-      // Read-only connectivity comparison to the existing protected staging preview.
-      // No credentials, provider data, or user-controlled destinations are sent.
-      try {
-        const probe = await fetcher('https://healthtimes-staging-c6y2jrt51-11-11.vercel.app/api/commerce?action=readiness',
-          { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(10_000) });
-        stagingPreviewHttp = probe.status;
-        await probe.body?.cancel();
-      } catch (probeError) { stagingPreviewError = classifyPollTransport(probeError); }
+    if (category !== 'CONNECTION_RESET' || transaction.purpose !== 'PROVIDER_CONNECTIVITY_TEST') {
+      return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
+        provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
     }
-    return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
-      staging_preview_http_status: stagingPreviewHttp,
-      staging_preview_transport_category: stagingPreviewError,
-      provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
+    try {
+      const relay = new URL(options.internalPollUrl || '');
+      if (relay.protocol !== 'https:' || !/^healthtimes-staging-[a-z0-9-]+-11-11\.vercel\.app$/.test(relay.hostname) ||
+          relay.username || relay.password || relay.port || relay.hash || relay.pathname !== '/api/commerce' ||
+          relay.search !== '?action=internal-test-poll' || (options.internalPollToken || '').length < 32 ||
+          (options.vercelBypass || '').length < 32) throw new Error('RELAY_CONFIG_INVALID');
+      const relayResponse = await fetcher(relay.toString(), { method:'POST', redirect:'error', signal:AbortSignal.timeout(25_000),
+        headers: { 'Content-Type':'application/json', 'x-healthtimes-internal-poll':options.internalPollToken!,
+          'x-vercel-protection-bypass':options.vercelBypass! }, body:JSON.stringify({reference:callback.reference}) });
+      if (!relayResponse.ok) throw new Error('RELAY_HTTP_FAILED');
+      const result = await relayResponse.json();
+      if (typeof result?.signedForm !== 'string' || Buffer.byteLength(result.signedForm, 'utf8') > MAX_BYTES) throw new Error('RELAY_RESPONSE_INVALID');
+      response = new Response(result.signedForm, {status:200});
+      pollTransport = 'VERCEL_TEST_POLLER';
+    } catch {
+      return reply(503, { error:'POLL_RELAY_FAILED', transport_category:category,
+        provider_signature_verified:true, provider_transaction_matched:true, provider_amount_verified:true, poll_verified:false });
+    }
   }
   if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);
   try { polled = verifiedFields(await response.text(), options.key); }
@@ -158,7 +166,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
           merchant_reference: callback.reference, provider_reference: callback.paynowreference,
           reported_amount: callback.amount, reported_currency: null, verification_authority: "NO_VERIFICATION_AUTHORITY",
           sanitized_metadata: { source: "paynow_callback_confirmed_by_poll", signature_verified: true,
-            transaction_matched: true, amount_verified: true, poll_verified: true, currency_verified: false,
+            transaction_matched: true, amount_verified: true, poll_verified: true, poll_transport: pollTransport, currency_verified: false,
             reconciliation_eligible: false } })
       });
       if (!event.ok) throw new Error("EVENT_STORE_FAILED");
@@ -166,7 +174,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
       if (!Array.isArray(rows)) throw new Error("EVENT_STORE_FAILED");
       return reply(200, { received: true, accepted: false, duplicate: rows.length === 0,
         provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true,
-        poll_verified: true, provider_currency_verified: false, reconciliation_eligible: false, event_stored: true });
+        poll_verified: true, poll_transport: pollTransport, provider_currency_verified: false, reconciliation_eligible: false, event_stored: true });
     } catch { return reply(503, { error: "EVENT_STORAGE_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true, provider_currency_verified: false }); }
   }
   try {
@@ -201,6 +209,9 @@ if (typeof Deno !== "undefined") {
   Deno.serve((req: Request) => handlePaynowTestCallback(req, {
     key: Deno.env.get("PAYNOW_INTEGRATION_KEY") || "",
     supabaseUrl: Deno.env.get("SUPABASE_URL") || "",
-    serviceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+    serviceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+    internalPollUrl: Deno.env.get("PAYNOW_INTERNAL_POLL_URL") || "",
+    internalPollToken: Deno.env.get("PAYNOW_INTERNAL_POLL_TOKEN") || "",
+    vercelBypass: Deno.env.get("PAYNOW_VERCEL_BYPASS_SECRET") || ""
   }));
 }
