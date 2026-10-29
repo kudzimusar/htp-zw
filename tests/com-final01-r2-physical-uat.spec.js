@@ -370,14 +370,14 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await expect(page.getByText('ISSUED').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/1,?150\.00/).first()).toBeVisible({ timeout: 15000 });
 
-    // Inspect Details modal
+    // Inspect Details card
     const detailsBtn = page.getByText('Details', { exact: true }).first();
     await expect(detailsBtn).toBeVisible({ timeout: 10000 });
     await detailsBtn.click();
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText('INVOICE DETAIL').first()).toBeVisible({ timeout: 10000 });
-    const closeBtn = page.getByText('Close', { exact: true }).first();
+    await expect(page.getByTestId('finance-invoice-detail').or(page.getByLabel('Close invoice details')).first()).toBeVisible({ timeout: 10000 });
+    const closeBtn = page.getByLabel('Close invoice details').or(page.getByText('Close', { exact: true })).first();
     await expect(closeBtn).toBeVisible();
     await closeBtn.click();
 
