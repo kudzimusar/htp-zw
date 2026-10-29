@@ -50,12 +50,13 @@ export type FinanceTab =
   | "aging"
   | "payments"
   | "expenses"
+  | "orders"
+  | "customers"
   | "trial-balance"
   | "pnl"
   | "balance-sheet"
   | "journals"
-  | "statements"
-  | "customers";
+  | "statements";
 
 export function validatePreviewInvoiceInput(input: {
   customerId: string;
@@ -120,6 +121,15 @@ export function StudioFinanceDeskView({
   const [currencyFilter, setCurrencyFilter] = useState<string>("USD");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>("all");
   const [expenseScope, setExpenseScope] = useState<"all" | "my">(defaultExpenseScope);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    setExpenseScope(defaultExpenseScope);
+  }, [defaultExpenseScope]);
+
   const [localExpenses, setLocalExpenses] = useState<NewsroomExpenseItem[]>(() =>
     isOwnerPreview ? [...previewExpenses] : []
   );
@@ -132,6 +142,9 @@ export function StudioFinanceDeskView({
   const [localOrders, setLocalOrders] = useState<NewsroomCommercialOrder[]>(() =>
     isOwnerPreview ? [...previewOrders] : []
   );
+  const [localCustomers, setLocalCustomers] = useState<NewsroomCustomer[]>(() =>
+    isOwnerPreview ? [...previewCustomers] : []
+  );
   const [localJournals, setLocalJournals] = useState<NewsroomJournalEntry[]>(() =>
     isOwnerPreview ? (previewJournals.length > 0 ? [...previewJournals] : buildPreviewJournals()) : []
   );
@@ -142,6 +155,8 @@ export function StudioFinanceDeskView({
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<NewsroomInvoiceItem | null>(null);
   const [inspectedInvoice, setInspectedInvoice] = useState<NewsroomInvoiceItem | null>(null);
   const [inspectedOrder, setInspectedOrder] = useState<NewsroomCommercialOrder | null>(null);
@@ -231,7 +246,7 @@ export function StudioFinanceDeskView({
     return rawExpenses;
   }, [rawExpenses, expenseScope, currentStaffName]);
   const statementsData = isOwnerPreview ? previewStatements : liveStatements.data;
-  const customersData = isOwnerPreview ? previewCustomers : liveCustomers.data ?? [];
+  const customersData = isOwnerPreview ? localCustomers : (liveCustomers.data ?? []);
   const ordersData = isOwnerPreview ? localOrders : (liveOrders.data ?? []);
   const trialBalanceData = isOwnerPreview ? (previewTrialBalance ?? buildPreviewTrialBalance()) : liveTrialBalance.data;
   const pnlData = isOwnerPreview ? (previewProfitAndLoss ?? buildPreviewProfitAndLoss()) : liveProfitAndLoss.data;
@@ -240,12 +255,34 @@ export function StudioFinanceDeskView({
 
   // Form States for Modals
   const [newInvCustomerId, setNewInvCustomerId] = useState<string>("");
+  const [newInvOrderId, setNewInvOrderId] = useState<string | null>(null);
   const [newInvDesc, setNewInvDesc] = useState<string>("Direct Advertising placement");
   const [newInvPlacement, setNewInvPlacement] = useState<string>("masthead");
   const [newInvQty, setNewInvQty] = useState<string>("1");
   const [newInvUnitPrice, setNewInvUnitPrice] = useState<string>("500.00");
   const [newInvTaxRate, setNewInvTaxRate] = useState<string>("0.15");
   const [newInvCurrency, setNewInvCurrency] = useState<string>("USD");
+
+  // Customer Form State
+  const [newCustLegalName, setNewCustLegalName] = useState<string>("");
+  const [newCustTradingName, setNewCustTradingName] = useState<string>("");
+  const [newCustEmail, setNewCustEmail] = useState<string>("");
+  const [newCustPhone, setNewCustPhone] = useState<string>("");
+  const [newCustAddress, setNewCustAddress] = useState<string>("");
+  const [newCustTaxId, setNewCustTaxId] = useState<string>("");
+  const [newCustCurrency, setNewCustCurrency] = useState<string>("USD");
+  const [newCustTerms, setNewCustTerms] = useState<string>("30");
+
+  // Order Form State
+  const [newOrderCustomerId, setNewOrderCustomerId] = useState<string>("");
+  const [newOrderCampaignId, setNewOrderCampaignId] = useState<string>("");
+  const [newOrderStartDate, setNewOrderStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [newOrderEndDate, setNewOrderEndDate] = useState<string>("");
+  const [newOrderCurrency, setNewOrderCurrency] = useState<string>("USD");
+  const [newOrderSubtotal, setNewOrderSubtotal] = useState<string>("500.00");
+  const [newOrderTax, setNewOrderTax] = useState<string>("75.00");
+  const [newOrderDiscount, setNewOrderDiscount] = useState<string>("0");
+  const [newOrderNotes, setNewOrderNotes] = useState<string>("");
 
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("bank_transfer");
@@ -384,8 +421,8 @@ export function StudioFinanceDeskView({
       const createdInv: NewsroomInvoiceItem = {
         id: `inv-preview-${Date.now()}`,
         invoiceNumber: `INV-2026-000${localInvoices.length + 1}`,
-        orderId: null,
-        orderNumber: null,
+        orderId: newInvOrderId ?? null,
+        orderNumber: newInvOrderId ? `ORD-LINKED` : null,
         customerId: cust?.id ?? "cust-sample-1",
         customerName: cust?.name ?? "Health Corp Zimbabwe Ltd",
         currency: newInvCurrency || "USD",
@@ -412,11 +449,13 @@ export function StudioFinanceDeskView({
       setLocalInvoices((prev) => [createdInv, ...prev]);
       notify("Preview state only: Draft invoice created in local preview memory (writes disabled).");
       setIsInvoiceModalOpen(false);
+      setNewInvOrderId(null);
       return;
     }
     try {
       await services.newsroomFinance.createInvoice({
         customerId: newInvCustomerId,
+        orderId: newInvOrderId ?? undefined,
         currency: newInvCurrency,
         lines: [
           {
@@ -432,6 +471,138 @@ export function StudioFinanceDeskView({
       });
       notify("Invoice created successfully.");
       setIsInvoiceModalOpen(false);
+      setNewInvOrderId(null);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      notifyError(e);
+    }
+  }
+
+  async function handleSaveCustomer() {
+    const legalName = newCustLegalName.trim() || newCustTradingName.trim();
+    if (!legalName) {
+      notifyError("Legal or Trading name is required.");
+      return;
+    }
+    if (!newCustEmail.trim()) {
+      notifyError("Billing email is required.");
+      return;
+    }
+    if (isOwnerPreview) {
+      const createdCust: NewsroomCustomer = {
+        id: `cust-prev-${Date.now()}`,
+        advertiserId: null,
+        name: newCustTradingName.trim() || legalName,
+        legalName: legalName,
+        billingEmail: newCustEmail.trim(),
+        billingPhone: newCustPhone.trim() || null,
+        billingAddress: newCustAddress.trim() || null,
+        taxNumber: newCustTaxId.trim() || null,
+        currency: newCustCurrency,
+        paymentTermsDays: Number(newCustTerms) || 30,
+        status: "active",
+        metadata: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setLocalCustomers((prev) => [createdCust, ...prev]);
+      notify(`Preview state: Customer ${createdCust.name} created in local preview memory.`);
+      setIsCustomerModalOpen(false);
+      return;
+    }
+    try {
+      const created = await services.newsroomFinance.upsertCustomer({
+        name: newCustTradingName.trim() || legalName,
+        legalName: legalName,
+        billingEmail: newCustEmail.trim(),
+        billingPhone: newCustPhone.trim() || undefined,
+        billingAddress: newCustAddress.trim() || undefined,
+        taxNumber: newCustTaxId.trim() || undefined,
+        currency: newCustCurrency,
+        paymentTermsDays: Number(newCustTerms) || 30
+      });
+      notify(`Customer ${created.legalName ?? created.name} created successfully.`);
+      setIsCustomerModalOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      notifyError(e);
+    }
+  }
+
+  async function handleSaveOrder() {
+    const custId = newOrderCustomerId.trim() || (customersData[0]?.id ?? "");
+    if (!custId) {
+      notifyError("Select a customer for this order.");
+      return;
+    }
+    const subtotal = Number(newOrderSubtotal);
+    if (!Number.isFinite(subtotal) || subtotal <= 0) {
+      notifyError("Subtotal must be greater than zero.");
+      return;
+    }
+    const tax = Number(newOrderTax) || 0;
+    const discount = Number(newOrderDiscount) || 0;
+    const total = subtotal + tax - discount;
+
+    if (isOwnerPreview) {
+      const cust = customersData.find((c) => c.id === custId) ?? customersData[0];
+      const createdOrd: NewsroomCommercialOrder = {
+        id: `ord-prev-${Date.now()}`,
+        orderNumber: `ORD-2026-000${localOrders.length + 1}`,
+        customerId: custId,
+        customerName: cust?.name ?? "Commercial Client",
+        campaignId: newOrderCampaignId.trim() || null,
+        campaignName: newOrderCampaignId.trim() ? "Campaign Booking" : null,
+        status: "draft",
+        billingStatus: "unbilled",
+        currency: newOrderCurrency,
+        subtotal,
+        taxAmount: tax,
+        discountAmount: discount,
+        total,
+        startDate: newOrderStartDate.trim() || new Date().toISOString().slice(0, 10),
+        endDate: newOrderEndDate.trim() || null,
+        notes: newOrderNotes.trim() || null,
+        submittedBy: currentStaffName,
+        approvedBy: null,
+        approvedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setLocalOrders((prev) => [createdOrd, ...prev]);
+      notify(`Preview state: Order ${createdOrd.orderNumber} created in local preview memory.`);
+      setIsOrderModalOpen(false);
+      return;
+    }
+    try {
+      const created = await services.newsroomFinance.createOrder({
+        customerId: custId,
+        campaignId: newOrderCampaignId.trim() || undefined,
+        startDate: newOrderStartDate.trim() || undefined,
+        endDate: newOrderEndDate.trim() || undefined,
+        currency: newOrderCurrency,
+        subtotal,
+        taxAmount: tax,
+        discountAmount: discount,
+        notes: newOrderNotes.trim() || undefined
+      });
+      notify(`Order ${created.orderNumber} created successfully.`);
+      setIsOrderModalOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      notifyError(e);
+    }
+  }
+
+  async function handleApproveOrder(orderId: string) {
+    if (isOwnerPreview) {
+      setLocalOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: "approved" } : o)));
+      notify("Preview state: Order approved.");
+      return;
+    }
+    try {
+      await services.newsroomFinance.approveOrder(orderId);
+      notify("Commercial order approved successfully.");
       setRefreshKey((k) => k + 1);
     } catch (e) {
       notifyError(e);
@@ -895,11 +1066,20 @@ export function StudioFinanceDeskView({
           </Pressable>
 
           <Pressable
+            style={[styles.tabBtn, activeTab === "orders" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("orders")}
+          >
+            <Text style={[styles.tabBtnText, activeTab === "orders" && styles.tabBtnTextActive]}>
+              Commercial Orders ({ordersData.length})
+            </Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.tabBtn, activeTab === "customers" && styles.tabBtnActive]}
             onPress={() => setActiveTab("customers")}
           >
             <Text style={[styles.tabBtnText, activeTab === "customers" && styles.tabBtnTextActive]}>
-              Orders & Customers ({customersData.length})
+              Billing Customers ({customersData.length})
             </Text>
           </Pressable>
         </ScrollView>
@@ -1843,46 +2023,27 @@ export function StudioFinanceDeskView({
         </View>
       )}
 
-      {/* 7. ORDERS & CUSTOMERS TAB */}
-      {activeTab === "customers" && (
+      {/* 7. ORDERS TAB */}
+      {activeTab === "orders" && (
         <View style={styles.tabContent}>
           <View style={styles.toolbar}>
             <Text style={styles.sectionTitle}>Commercial Orders & Booking Contracts</Text>
-            {isOwnerPreview && (
-              <Pressable
-                style={styles.actionBtnPrimary}
-                onPress={() => {
-                  const nextOrd: NewsroomCommercialOrder = {
-                    id: `ord-prev-${Date.now()}`,
-                    orderNumber: `ORD-2026-000${localOrders.length + 1}`,
-                    customerId: "cust-sample-2",
-                    customerName: "PharmaCare International",
-                    campaignId: "prev-camp-002",
-                    campaignName: "Q4 Maternal Health Sponsorship Package",
-                    status: "approved",
-                    billingStatus: "unbilled",
-                    currency: "USD",
-                    subtotal: 800,
-                    taxAmount: 120,
-                    discountAmount: 0,
-                    total: 920,
-                    startDate: "2026-10-25",
-                    endDate: "2026-11-25",
-                    notes: "Sponsored clinical series + newsletter banner",
-                    submittedBy: currentStaffName,
-                    approvedBy: "Publisher / Owner",
-                    approvedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                  };
-                  setLocalOrders((prev) => [nextOrd, ...prev]);
-                  notify("Preview state only: Commercial booking order created in local preview memory.");
-                }}
-                testID="orders-create-sample-order-btn"
-              >
-                <Text style={styles.actionBtnPrimaryText}>+ New Commercial Order</Text>
-              </Pressable>
-            )}
+            <Pressable
+              style={styles.actionBtnPrimary}
+              onPress={() => {
+                setNewOrderCustomerId(customersData[0]?.id ?? "");
+                setNewOrderSubtotal("500.00");
+                setNewOrderTax("75.00");
+                setNewOrderDiscount("0");
+                setNewOrderStartDate(new Date().toISOString().slice(0, 10));
+                setNewOrderEndDate("");
+                setNewOrderNotes("");
+                setIsOrderModalOpen(true);
+              }}
+              testID="orders-create-order-btn"
+            >
+              <Text style={styles.actionBtnPrimaryText}>+ New Commercial Order</Text>
+            </Pressable>
           </View>
           {ordersData.length === 0 ? (
             <View style={styles.emptyState}>
@@ -1899,7 +2060,7 @@ export function StudioFinanceDeskView({
                   <Text style={[styles.th, { width: 110, textAlign: "right" }]}>TOTAL</Text>
                   <Text style={[styles.th, { width: 120, textAlign: "center" }]}>STATUS</Text>
                   <Text style={[styles.th, { width: 120, textAlign: "center" }]}>BILLING</Text>
-                  <Text style={[styles.th, { width: 180 }]}>ACTIONS</Text>
+                  <Text style={[styles.th, { width: 240 }]}>ACTIONS</Text>
                 </View>
                 {ordersData.map((ord) => (
                   <View key={ord.id} style={styles.tableRow}>
@@ -1919,7 +2080,7 @@ export function StudioFinanceDeskView({
                         <Text style={styles.badgeText}>{ord.billingStatus.toUpperCase()}</Text>
                       </View>
                     </View>
-                    <View style={[styles.tdCell, styles.rowActions, { width: 180 }]}>
+                    <View style={[styles.tdCell, styles.rowActions, { width: 240 }]}>
                       <Pressable
                         style={styles.miniBtn}
                         onPress={() => setInspectedOrder(ord)}
@@ -1928,44 +2089,28 @@ export function StudioFinanceDeskView({
                       >
                         <Text style={styles.miniBtnText}>Details</Text>
                       </Pressable>
-                      {ord.billingStatus !== "billed" && isOwnerPreview && (
+                      {ord.status === "draft" && (
+                        <Pressable
+                          style={styles.miniBtnSuccess}
+                          onPress={() => handleApproveOrder(ord.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Approve order ${ord.orderNumber}`}
+                        >
+                          <Text style={styles.miniBtnSuccessText}>Approve</Text>
+                        </Pressable>
+                      )}
+                      {ord.billingStatus !== "billed" && (
                         <Pressable
                           style={styles.miniBtnPrimary}
                           onPress={() => {
-                            setLocalOrders((prev) =>
-                              prev.map((o) => (o.id === ord.id ? { ...o, billingStatus: "billed" } : o))
-                            );
-                            const today = new Date().toISOString().slice(0, 10);
-                            const createdInv: NewsroomInvoiceItem = {
-                              id: `inv-from-ord-${Date.now()}`,
-                              invoiceNumber: `INV-2026-000${localInvoices.length + 1}`,
-                              orderId: ord.id,
-                              orderNumber: ord.orderNumber,
-                              customerId: ord.customerId,
-                              customerName: ord.customerName ?? "Commercial Sponsor",
-                              currency: ord.currency,
-                              issueDate: today,
-                              dueDate: "2026-11-24",
-                              paymentTermsDays: 30,
-                              daysOverdue: 0,
-                              paymentCount: 0,
-                              status: "issued",
-                              effectiveStatus: "issued",
-                              subtotal: ord.subtotal,
-                              taxTotal: ord.taxAmount,
-                              discountTotal: ord.discountAmount,
-                              total: ord.total,
-                              amountPaid: 0,
-                              balanceDue: ord.total,
-                              notes: `${ord.campaignName ?? "Commercial Order"} (${ord.orderNumber})`,
-                              createdBy: currentStaffName,
-                              approvedBy: "Publisher / Owner",
-                              approvedAt: new Date().toISOString(),
-                              createdAt: new Date().toISOString(),
-                              updatedAt: new Date().toISOString()
-                            };
-                            setLocalInvoices((prev) => [createdInv, ...prev]);
-                            notify(`Preview state only: Generated Invoice ${createdInv.invoiceNumber} from ${ord.orderNumber}.`);
+                            setNewInvCustomerId(ord.customerId);
+                            setNewInvOrderId(ord.id);
+                            setNewInvCurrency(ord.currency);
+                            setNewInvDesc(ord.notes || `Media placement for ${ord.orderNumber}`);
+                            setNewInvUnitPrice(String(ord.subtotal));
+                            setNewInvQty("1");
+                            setNewInvTaxRate(ord.subtotal > 0 ? String(Number((ord.taxAmount / ord.subtotal).toFixed(4))) : "0");
+                            setIsInvoiceModalOpen(true);
                           }}
                         >
                           <Text style={styles.miniBtnPrimaryText}>Generate Invoice</Text>
@@ -1975,7 +2120,7 @@ export function StudioFinanceDeskView({
                         style={styles.miniBtn}
                         onPress={() => setActiveTab("invoices")}
                       >
-                        <Text style={styles.miniBtnText}>View Invoices →</Text>
+                        <Text style={styles.miniBtnText}>Invoices →</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -2000,35 +2145,79 @@ export function StudioFinanceDeskView({
               <Text style={styles.detailSummaryText}>Subtotal: {inspectedOrder.currency} {inspectedOrder.subtotal.toFixed(2)} · Tax: {inspectedOrder.currency} {inspectedOrder.taxAmount.toFixed(2)} · Discount: {inspectedOrder.currency} {inspectedOrder.discountAmount.toFixed(2)} · Total: {inspectedOrder.currency} {inspectedOrder.total.toFixed(2)}</Text>
             </View>
           )}
+        </View>
+      )}
 
-          <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Billing Customers & Accounts</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.th, { width: 220 }]}>NAME</Text>
-              <Text style={[styles.th, { width: 200 }]}>BILLING EMAIL</Text>
-              <Text style={[styles.th, { width: 80 }]}>CURR</Text>
-              <Text style={[styles.th, { width: 90 }]}>TERMS</Text>
-              <Text style={[styles.th, { width: 110 }]}>TAX #</Text>
-              <Text style={[styles.th, { width: 110 }]}>ACTIONS</Text>
-            </View>
-            {customersData.map((cust) => (
-              <View key={cust.id} style={styles.tableRow}>
-                <Text style={[styles.td, { width: 220, fontWeight: "600" }]}>{cust.name}</Text>
-                <Text style={[styles.td, { width: 200 }]}>{cust.billingEmail}</Text>
-                <Text style={[styles.td, { width: 80 }]}>{cust.currency}</Text>
-                <Text style={[styles.td, { width: 90 }]}>{cust.paymentTermsDays} days</Text>
-                <Text style={[styles.td, { width: 110 }]}>{cust.taxNumber ?? "—"}</Text>
-                <View style={[styles.tdCell, { width: 110 }]}>
-                  <Pressable
-                    style={styles.miniBtnPrimary}
-                    onPress={() => handleOpenCustomerStatement(cust)}
-                  >
-                    <Text style={styles.miniBtnPrimaryText}>Statement</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+      {/* 8. CUSTOMERS TAB */}
+      {activeTab === "customers" && (
+        <View style={styles.tabContent}>
+          <View style={styles.toolbar}>
+            <Text style={styles.sectionTitle}>Billing Customers & Accounts</Text>
+            <Pressable
+              style={styles.actionBtnPrimary}
+              onPress={() => {
+                setNewCustLegalName("");
+                setNewCustTradingName("");
+                setNewCustEmail("");
+                setNewCustPhone("");
+                setNewCustAddress("");
+                setNewCustTaxId("");
+                setNewCustCurrency("USD");
+                setNewCustTerms("30");
+                setIsCustomerModalOpen(true);
+              }}
+              testID="finance-create-customer-btn"
+            >
+              <Text style={styles.actionBtnPrimaryText}>+ New Customer</Text>
+            </Pressable>
           </View>
+          {customersData.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Zero Customers</Text>
+              <Text style={styles.emptySub}>No commercial billing accounts recorded yet.</Text>
+            </View>
+          ) : (
+            <ScrollView horizontal style={styles.tableScroll}>
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.th, { width: 220 }]}>NAME</Text>
+                  <Text style={[styles.th, { width: 200 }]}>BILLING EMAIL</Text>
+                  <Text style={[styles.th, { width: 80 }]}>CURR</Text>
+                  <Text style={[styles.th, { width: 90 }]}>TERMS</Text>
+                  <Text style={[styles.th, { width: 110 }]}>TAX #</Text>
+                  <Text style={[styles.th, { width: 180 }]}>ACTIONS</Text>
+                </View>
+                {customersData.map((cust) => (
+                  <View key={cust.id} style={styles.tableRow}>
+                    <Text style={[styles.td, { width: 220, fontWeight: "600" }]}>{cust.name}</Text>
+                    <Text style={[styles.td, { width: 200 }]}>{cust.billingEmail}</Text>
+                    <Text style={[styles.td, { width: 80 }]}>{cust.currency}</Text>
+                    <Text style={[styles.td, { width: 90 }]}>{cust.paymentTermsDays} days</Text>
+                    <Text style={[styles.td, { width: 110 }]}>{cust.taxNumber ?? "—"}</Text>
+                    <View style={[styles.tdCell, styles.rowActions, { width: 180 }]}>
+                      <Pressable
+                        style={styles.miniBtnPrimary}
+                        onPress={() => handleOpenCustomerStatement(cust)}
+                      >
+                        <Text style={styles.miniBtnPrimaryText}>Statement</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.miniBtn}
+                        onPress={() => {
+                          setNewOrderCustomerId(cust.id);
+                          setNewOrderCurrency(cust.currency ?? "USD");
+                          setActiveTab("orders");
+                          setIsOrderModalOpen(true);
+                        }}
+                      >
+                        <Text style={styles.miniBtnText}>+ Order</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
         </View>
       )}
 
@@ -2116,6 +2305,286 @@ export function StudioFinanceDeskView({
               </Pressable>
               <Pressable style={styles.modalSubmitBtn} onPress={handleCreateInvoice} accessibilityRole="button" accessibilityLabel="Save draft invoice">
                 <Text style={styles.modalSubmitText}>Save Draft Invoice</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: CREATE CUSTOMER */}
+      <Modal visible={isCustomerModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Add Billing Customer</Text>
+            <Text style={styles.modalSub}>Create a corporate advertiser profile and billing account.</Text>
+
+            <ScrollView style={styles.modalForm}>
+              <Text style={styles.formLabel}>Legal Company Name *</Text>
+              <TextInput
+                style={styles.input}
+                value={newCustLegalName}
+                onChangeText={setNewCustLegalName}
+                placeholder="e.g. HealthCare Holdings Ltd"
+                accessibilityLabel="Legal Company Name"
+              />
+
+              <Text style={styles.formLabel}>Trading / Brand Name</Text>
+              <TextInput
+                style={styles.input}
+                value={newCustTradingName}
+                onChangeText={setNewCustTradingName}
+                placeholder="e.g. HealthCare Online"
+                accessibilityLabel="Trading Name"
+              />
+
+              <Text style={styles.formLabel}>Billing Email *</Text>
+              <TextInput
+                style={styles.input}
+                value={newCustEmail}
+                onChangeText={setNewCustEmail}
+                placeholder="finance@advertiser.co.zw"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                accessibilityLabel="Billing Email"
+              />
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Billing Phone</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newCustPhone}
+                    onChangeText={setNewCustPhone}
+                    placeholder="+263 77..."
+                    accessibilityLabel="Billing Phone"
+                  />
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Tax / VAT Number</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newCustTaxId}
+                    onChangeText={setNewCustTaxId}
+                    placeholder="BP / VAT #"
+                    accessibilityLabel="Tax Identifier"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Preferred Currency</Text>
+                  <View style={styles.pickerRow}>
+                    {["USD", "ZWG"].map((c) => (
+                      <Pressable
+                        key={c}
+                        style={[styles.pickerChip, newCustCurrency === c && styles.pickerChipActive]}
+                        onPress={() => setNewCustCurrency(c)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Currency ${c}`}
+                      >
+                        <Text style={[styles.pickerChipText, newCustCurrency === c && styles.pickerChipTextActive]}>
+                          {c}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Payment Terms (Days)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newCustTerms}
+                    onChangeText={setNewCustTerms}
+                    keyboardType="numeric"
+                    accessibilityLabel="Payment Terms Days"
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.formLabel}>Billing Address</Text>
+              <TextInput
+                style={styles.input}
+                value={newCustAddress}
+                onChangeText={setNewCustAddress}
+                placeholder="Corporate Office, Harare"
+                accessibilityLabel="Billing Address"
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setIsCustomerModalOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel customer creation"
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalSubmitBtn}
+                onPress={handleSaveCustomer}
+                accessibilityRole="button"
+                accessibilityLabel="Save Customer"
+              >
+                <Text style={styles.modalSubmitText}>Save Customer</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: CREATE ORDER */}
+      <Modal visible={isOrderModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Create Commercial Booking Order</Text>
+            <Text style={styles.modalSub}>Reserve advertising inventory, newsletter sponsorships, or custom series.</Text>
+
+            <ScrollView style={styles.modalForm}>
+              <Text style={styles.formLabel}>Customer / Advertiser *</Text>
+              {customersData.length > 0 ? (
+                <View style={styles.customerPickerRow}>
+                  {customersData.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      style={[styles.pickerChip, newOrderCustomerId === c.id && styles.pickerChipActive]}
+                      onPress={() => setNewOrderCustomerId(c.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select customer ${c.name}`}
+                      accessibilityState={{ selected: newOrderCustomerId === c.id }}
+                    >
+                      <Text style={[styles.pickerChipText, newOrderCustomerId === c.id && styles.pickerChipTextActive]}>
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Customer UUID"
+                  value={newOrderCustomerId}
+                  onChangeText={setNewOrderCustomerId}
+                  accessibilityLabel="Order Customer"
+                />
+              )}
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Start Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newOrderStartDate}
+                    onChangeText={setNewOrderStartDate}
+                    placeholder="YYYY-MM-DD"
+                    accessibilityLabel="Order Start Date"
+                  />
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>End Date</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newOrderEndDate}
+                    onChangeText={setNewOrderEndDate}
+                    placeholder="YYYY-MM-DD"
+                    accessibilityLabel="Order End Date"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Currency</Text>
+                  <View style={styles.pickerRow}>
+                    {["USD", "ZWG"].map((c) => (
+                      <Pressable
+                        key={c}
+                        style={[styles.pickerChip, newOrderCurrency === c && styles.pickerChipActive]}
+                        onPress={() => setNewOrderCurrency(c)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Currency ${c}`}
+                      >
+                        <Text style={[styles.pickerChipText, newOrderCurrency === c && styles.pickerChipTextActive]}>
+                          {c}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Subtotal ({newOrderCurrency}) *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newOrderSubtotal}
+                    onChangeText={setNewOrderSubtotal}
+                    keyboardType="numeric"
+                    accessibilityLabel="Order Subtotal"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Tax Amount ({newOrderCurrency})</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newOrderTax}
+                    onChangeText={setNewOrderTax}
+                    keyboardType="numeric"
+                    accessibilityLabel="Order Tax Amount"
+                  />
+                </View>
+                <View style={styles.formCol}>
+                  <Text style={styles.formLabel}>Discount Amount ({newOrderCurrency})</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newOrderDiscount}
+                    onChangeText={setNewOrderDiscount}
+                    keyboardType="numeric"
+                    accessibilityLabel="Order Discount Amount"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.calcSummaryBox}>
+                <Text style={styles.calcLabel}>Estimated Total Order Value:</Text>
+                <Text style={styles.calcValue}>
+                  {newOrderCurrency}{" "}
+                  {(
+                    (parseFloat(newOrderSubtotal) || 0) +
+                    (parseFloat(newOrderTax) || 0) -
+                    (parseFloat(newOrderDiscount) || 0)
+                  ).toFixed(2)}
+                </Text>
+              </View>
+
+              <Text style={styles.formLabel}>Notes & Deliverables</Text>
+              <TextInput
+                style={styles.input}
+                value={newOrderNotes}
+                onChangeText={setNewOrderNotes}
+                placeholder="Placement flight specifications, banner units, sponsor guidelines"
+                accessibilityLabel="Order Notes"
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setIsOrderModalOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel order creation"
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalSubmitBtn}
+                onPress={handleSaveOrder}
+                accessibilityRole="button"
+                accessibilityLabel="Save Commercial Order"
+              >
+                <Text style={styles.modalSubmitText}>Save Commercial Order</Text>
               </Pressable>
             </View>
           </View>

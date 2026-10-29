@@ -34,12 +34,12 @@ export function mapCustomer(raw: Record<string, unknown>): NewsroomCustomer {
   return {
     id: String(raw.id ?? ""),
     advertiserId: raw.advertiser_id ? String(raw.advertiser_id) : null,
-    name: String(raw.name ?? "Unnamed Customer"),
-    legalName: raw.legal_name ? String(raw.legal_name) : null,
+    name: String(raw.name ?? raw.trading_name ?? raw.legal_name ?? "Unnamed Customer"),
+    legalName: raw.legal_name ? String(raw.legal_name) : (raw.name ? String(raw.name) : null),
     billingEmail: String(raw.billing_email ?? ""),
     billingPhone: raw.billing_phone ? String(raw.billing_phone) : null,
     billingAddress: raw.billing_address ? String(raw.billing_address) : null,
-    taxNumber: raw.tax_number ? String(raw.tax_number) : null,
+    taxNumber: raw.tax_number ? String(raw.tax_number) : (raw.tax_identifier ? String(raw.tax_identifier) : null),
     currency: String(raw.currency ?? "USD"),
     paymentTermsDays: Number(raw.payment_terms_days ?? 30),
     status: String(raw.status ?? "active"),
@@ -61,8 +61,8 @@ export function mapCommercialOrder(raw: Record<string, unknown>): NewsroomCommer
     endDate: raw.end_date ? String(raw.end_date) : null,
     currency: String(raw.currency ?? "USD"),
     subtotal: Number(raw.subtotal ?? 0),
-    taxAmount: Number(raw.tax_amount ?? 0),
-    discountAmount: Number(raw.discount_amount ?? 0),
+    taxAmount: Number(raw.tax_amount ?? raw.tax_total ?? 0),
+    discountAmount: Number(raw.discount_amount ?? raw.discount_total ?? 0),
     total: Number(raw.total ?? 0),
     status: String(raw.status ?? "draft"),
     billingStatus: String(raw.billing_status ?? "unbilled"),
@@ -214,19 +214,19 @@ export function mapReceivablesAging(raw: Record<string, unknown>): NewsroomRecei
       d31_60: Number(item.d31_60 ?? 0),
       d61_90: Number(item.d61_90 ?? 0),
       d90Plus: Number(item.d90_plus ?? 0),
-      totalOutstanding: Number(item.total_outstanding ?? 0)
+      totalOutstanding: Number(item.total_outstanding ?? item.total ?? 0)
     })),
     customers: customersRaw.map((item: Record<string, unknown>) => ({
       customerId: String(item.customer_id ?? ""),
-      customerName: String(item.customer_name ?? "Unknown"),
+      customerName: String(item.customer_name ?? item.legal_name ?? "Unknown"),
       currency: String(item.currency ?? "USD"),
       notDue: Number(item.not_due ?? 0),
       d1_30: Number(item.d1_30 ?? 0),
       d31_60: Number(item.d31_60 ?? 0),
       d61_90: Number(item.d61_90 ?? 0),
       d90Plus: Number(item.d90_plus ?? 0),
-      totalOutstanding: Number(item.total_outstanding ?? 0),
-      invoiceCount: Number(item.invoice_count ?? 0)
+      totalOutstanding: Number(item.total_outstanding ?? item.balance ?? item.total ?? 0),
+      invoiceCount: Number(item.invoice_count ?? item.open_invoices ?? 0)
     }))
   };
 }
@@ -490,8 +490,8 @@ export function createNewsroomFinanceService(
     async getStatements(startDate?: string, endDate?: string): Promise<NewsroomFinanceStatements> {
       const client = getClient();
       const { data, error } = await client.rpc("finance_statements", {
-        p_start_date: startDate ?? null,
-        p_end_date: endDate ?? null
+        p_from: startDate ?? null,
+        p_to: endDate ?? null
       });
       if (error) {
         throw new Error(`Failed to load financial statements: ${error.message} (code ${error.code})`);
@@ -629,7 +629,7 @@ export function createNewsroomFinanceService(
     async listExpenses(statusFilter?: string | null): Promise<NewsroomExpenseItem[]> {
       const client = getClient();
       const { data, error } = await client.rpc("finance_list_expenses", {
-        p_status: statusFilter ?? null
+        p_status: statusFilter && statusFilter !== "all" ? statusFilter : null
       });
       if (error) {
         throw new Error(`Failed to list expenses: ${error.message} (code ${error.code})`);
@@ -693,8 +693,7 @@ export function createNewsroomFinanceService(
     async payExpense(expenseId: string, reference?: string): Promise<void> {
       const client = getClient();
       const { error } = await client.rpc("finance_pay_expense", {
-        p_expense_id: expenseId,
-        p_payment_reference: reference ?? null
+        p_expense_id: expenseId
       });
       if (error) {
         throw new Error(`Failed to pay expense ${expenseId}: ${error.message} (code ${error.code})`);
@@ -714,7 +713,7 @@ export function createNewsroomFinanceService(
     async listOrders(statusFilter?: string | null): Promise<NewsroomCommercialOrder[]> {
       const client = getClient();
       const { data, error } = await client.rpc("commercial_list_orders", {
-        p_status: statusFilter ?? null
+        p_status: statusFilter && statusFilter !== "all" ? statusFilter : null
       });
       if (error) {
         throw new Error(`Failed to list commercial orders: ${error.message} (code ${error.code})`);
@@ -732,8 +731,8 @@ export function createNewsroomFinanceService(
         p_end_date: input.endDate ?? null,
         p_currency: input.currency ?? "USD",
         p_subtotal: input.subtotal,
-        p_tax_amount: input.taxAmount ?? 0,
-        p_discount_amount: input.discountAmount ?? 0,
+        p_tax: input.taxAmount ?? 0,
+        p_discount: input.discountAmount ?? 0,
         p_notes: input.notes ?? null
       });
       if (error) {
@@ -767,15 +766,14 @@ export function createNewsroomFinanceService(
       const { data, error } = await client.rpc("finance_upsert_customer", {
         p_id: input.customerId ?? null,
         p_advertiser_id: input.advertiserId ?? null,
-        p_name: input.name,
-        p_legal_name: input.legalName ?? null,
+        p_legal_name: input.legalName ?? input.name,
+        p_trading_name: input.name ?? input.legalName,
         p_billing_email: input.billingEmail,
         p_billing_phone: input.billingPhone ?? null,
         p_billing_address: input.billingAddress ?? null,
-        p_tax_number: input.taxNumber ?? null,
+        p_tax_identifier: input.taxNumber ?? null,
         p_currency: input.currency ?? "USD",
-        p_payment_terms_days: input.paymentTermsDays ?? 30,
-        p_metadata: input.metadata ?? {}
+        p_payment_terms_days: input.paymentTermsDays ?? 30
       });
       if (error) {
         throw new Error(`Failed to upsert customer: ${error.message} (code ${error.code})`);

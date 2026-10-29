@@ -153,11 +153,11 @@ export default function StudioModule(){
       {String(module)==="finance-invoices" && <StudioFinanceDeskView initialTab="invoices" />}
       {String(module)==="finance-aging" && <StudioFinanceDeskView initialTab="aging" />}
       {String(module)==="finance-payments" && <StudioFinanceDeskView initialTab="payments" />}
-      {String(module)==="finance-expenses" && <StudioFinanceDeskView initialTab="expenses" />}
-      {String(module)==="my-expenses" && <StudioFinanceDeskView initialTab="expenses" />}
+      {String(module)==="finance-expenses" && <StudioFinanceDeskView initialTab="expenses" defaultExpenseScope="all" />}
+      {String(module)==="my-expenses" && <StudioFinanceDeskView initialTab="expenses" defaultExpenseScope="my" />}
       {String(module)==="finance-statements" && <StudioFinanceDeskView initialTab="statements" />}
       {String(module)==="finance-customers" && <StudioFinanceDeskView initialTab="customers" />}
-      {String(module)==="orders" && <StudioFinanceDeskView initialTab="customers" />}
+      {String(module)==="orders" && <StudioFinanceDeskView initialTab="orders" />}
       <View style={styles.readiness}>
         <Text style={styles.readinessTitle}>Implementation readiness</Text>
         {config.readiness.map((item)=><View style={styles.readinessRow} key={item}><View style={styles.dot} /><Text style={styles.readinessText}>{item}</Text></View>)}
