@@ -247,7 +247,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2: Physical Staging Commercial UAT & Securit
     // 2. Visit Accounts Receivable Aging
     await page.goto('/studio/finance-aging', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Accounts Receivable Aging').first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('AGING BUCKET BREAKDOWN').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Accounts Receivable Aging Breakdown').first()).toBeVisible({ timeout: 15000 });
 
     // 3. Visit Customer Statements
     await page.goto('/studio/finance-customers', { waitUntil: 'domcontentloaded' });
@@ -271,11 +271,16 @@ test.describe('HT-MVP-COM-FINAL-01-R2: Physical Staging Commercial UAT & Securit
     const monitor = setupMonitoring(page);
     const uniqueId = Date.now().toString().slice(-6);
 
-    // Step A: Login as Commercial Manager to submit expense
+    // Step A: Login as Commercial Manager to submit expense via /studio/my-expenses
     await loginAs(page, SECRETS.commercial);
 
+    // Verify Commercial Manager cannot access organization-wide /studio/finance-expenses (scoped access)
     await page.goto('/studio/finance-expenses', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Newsroom Expense Claims').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('SERVER AUTHORITY REQUIRED').first()).toBeVisible({ timeout: 15000 });
+
+    // Navigate to /studio/my-expenses to submit personal expense claim
+    await page.goto('/studio/my-expenses', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('My Filed Expense Claims').first()).toBeVisible({ timeout: 15000 });
 
     const newExpBtn = page.getByText('+ New Expense Claim', { exact: false }).first();
     await expect(newExpBtn).toBeVisible({ timeout: 10000 });
@@ -285,22 +290,12 @@ test.describe('HT-MVP-COM-FINAL-01-R2: Physical Staging Commercial UAT & Securit
     await page.getByLabel('Expense description or business purpose').fill(`Field reporting travel allowance ${uniqueId}`);
     await page.getByLabel('Expense amount').fill('85.00');
 
-    const submitExpBtn = page.getByRole('button', { name: 'Submit Claim' }).last();
+    const submitExpBtn = page.getByRole('button', { name: 'Submit expense claim' }).last();
     await submitExpBtn.click();
     await page.waitForTimeout(2500);
 
     // Verify claim exists in SUBMITTED status
     await expect(page.getByText('SUBMITTED').first()).toBeVisible({ timeout: 15000 });
-
-    // Commercial Manager cannot approve (has no finance.expense.approve capability)
-    // If an approve button is present, clicking it must fail closed
-    const creatorApproveBtn = page.getByRole('button', { name: /^Approve$/i }).first();
-    if (await creatorApproveBtn.isVisible()) {
-      await creatorApproveBtn.click();
-      await page.waitForTimeout(1500);
-      // Status remains SUBMITTED
-      await expect(page.getByText('SUBMITTED').first()).toBeVisible();
-    }
 
     // Step B: Switch to Finance Manager to approve the expense
     await context.clearCookies();
@@ -310,7 +305,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2: Physical Staging Commercial UAT & Securit
     await page.goto('/studio/finance-expenses', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Newsroom Expense Claims').first()).toBeVisible({ timeout: 15000 });
 
-    const finApproveBtn = page.getByRole('button', { name: /^Approve$/i }).first();
+    const finApproveBtn = page.getByText('Approve', { exact: true }).first();
     await expect(finApproveBtn).toBeVisible({ timeout: 10000 });
     await finApproveBtn.click();
     await page.waitForTimeout(2500);
