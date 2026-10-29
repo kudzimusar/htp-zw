@@ -117,6 +117,7 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     // Only emit a bounded category, never exception messages or provider data.
     const category = classifyPollTransport(error);
     let stagingPreviewHttp: number | undefined;
+    let stagingPreviewError: string | undefined;
     if (category === 'CONNECTION_RESET') {
       // Read-only connectivity comparison to the existing protected staging preview.
       // No credentials, provider data, or user-controlled destinations are sent.
@@ -125,10 +126,11 @@ export async function handlePaynowTestCallback(request: Request, options: Option
           { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10_000) });
         stagingPreviewHttp = probe.status;
         await probe.body?.cancel();
-      } catch { /* No status means the comparison itself did not complete. */ }
+      } catch (probeError) { stagingPreviewError = classifyPollTransport(probeError); }
     }
     return reply(503, { error: "POLL_TRANSPORT_FAILED", transport_category: category,
       staging_preview_http_status: stagingPreviewHttp,
+      staging_preview_transport_category: stagingPreviewError,
       provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: false });
   }
   if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);

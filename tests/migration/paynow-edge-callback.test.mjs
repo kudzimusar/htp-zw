@@ -102,6 +102,15 @@ test('reset compares connectivity only to the fixed protected staging preview', 
   assert.equal(preview, 1);
 });
 
+test('failed preview comparison returns only a bounded transport category', async () => {
+  const response = await handlePaynowTestCallback(request(signed(entries)), {...options,
+    fetcher: async (url) => { if (url.includes('/payment_transactions?')) return Response.json([tx()]);
+      throw new Error('connection reset with private details'); }});
+  const result = await response.json();
+  assert.equal(result.staging_preview_transport_category, 'CONNECTION_RESET');
+  assert.equal(JSON.stringify(result).includes('private details'), false);
+});
+
 test('upstream HTTP failure is distinguished from transport failure', async () => {
   const response = await handlePaynowTestCallback(request(signed(entries)), { ...options,
     fetcher: async (url) => url.includes('/payment_transactions?') ? Response.json([tx()]) : new Response('', {status:411}) });
