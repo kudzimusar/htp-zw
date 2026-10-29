@@ -106,6 +106,39 @@ test("HT-MVP-COM-FINAL-01-R1: Migration 20261029050000 exists and fixes idempote
   assert.match(sql, /grant execute on function public\.finance_issue_invoice\(uuid, date, date\) to authenticated, service_role;/i);
 });
 
+test("HT-MVP-COM-FINAL-01-R2-R1: Migration 20261029060000 exists and ensures statement reversal parity", () => {
+  const migPath = path.join(REPO_ROOT, "supabase/migrations/20261029060000_ht_mvp_com_final01_r2_r1_statement_reversal_parity.sql");
+  assert.ok(fs.existsSync(migPath), "Migration file 20261029060000 must exist");
+
+  const sql = fs.readFileSync(migPath, "utf8");
+  assert.match(sql, /e\.status in \('posted', 'reversed'\)/i, "Must include reversed status in statement aggregations");
+  assert.match(sql, /create or replace function public\.finance_get_trial_balance/i);
+  assert.match(sql, /create or replace function public\.finance_get_profit_and_loss/i);
+  assert.match(sql, /create or replace function public\.finance_get_balance_sheet/i);
+});
+
+test("HT-MVP-COM-FINAL-01-R2-R1: Migration 20261029070000 exists and adds casing tolerance for invoice lines", () => {
+  const migPath = path.join(REPO_ROOT, "supabase/migrations/20261029070000_ht_mvp_com_final01_r2_r1_invoice_line_casing_tolerance.sql");
+  assert.ok(fs.existsSync(migPath), "Migration file 20261029070000 must exist");
+
+  const sql = fs.readFileSync(migPath, "utf8");
+  assert.match(sql, /coalesce\(\(v_line->>'unit_price'\)::numeric, \(v_line->>'unitPrice'\)::numeric\)/i);
+  assert.match(sql, /coalesce\(\(v_line->>'tax_rate'\)::numeric, \(v_line->>'taxRate'\)::numeric, 0\)/i);
+});
+
+test("HT-MVP-COM-FINAL-01-R2-R2: Migration 20261029080000 exists and performs idempotent fixture reconciliation and session containment", () => {
+  const migPath = path.join(REPO_ROOT, "supabase/migrations/20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql");
+  assert.ok(fs.existsSync(migPath), "Migration file 20261029080000 must exist");
+
+  const sql = fs.readFileSync(migPath, "utf8");
+  assert.match(sql, /JRN-2026-0012/i, "Must target synthetic UAT journals");
+  assert.match(sql, /status = 'void'/i, "Must void synthetic invoices and expenses");
+  assert.match(sql, /status = 'cancelled'/i, "Must cancel synthetic orders");
+  assert.match(sql, /status = 'inactive'/i, "Must deactivate synthetic customers");
+  assert.match(sql, /revoked_at = now\(\)/i, "Must contain and revoke UAT test sessions");
+  assert.match(sql, /delete from auth\.sessions/i, "Must invalidate auth sessions for test users");
+});
+
 test("HT-MVP-COM-FINAL-01: Workstream A — Finance Service Mapping & Invoicing lifecycle", () => {
   // Test mapCustomer
   const cust = mapCustomer({

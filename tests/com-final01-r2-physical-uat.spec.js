@@ -37,7 +37,10 @@ function getRuntimeSecrets() {
 }
 
 const SECRETS = getRuntimeSecrets();
-const PREVIEW_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://healthtimes-staging-nbzh64yn1-11-11.vercel.app';
+const PREVIEW_URL = process.env.PLAYWRIGHT_BASE_URL;
+if (!PREVIEW_URL) {
+  throw new Error('HT-MVP-COM-FINAL-01-R2-R2: PLAYWRIGHT_BASE_URL environment variable is required. Silent preview fallback is prohibited.');
+}
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://bzuvntbkevvuhfhqhkua.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_G82EfIFGaJeJYG-A5G2B8w_UkA7zTVZ';
 
@@ -144,7 +147,11 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     expect(buildInfo).toBeDefined();
     expect(buildInfo.sha).toBeDefined();
     expect(buildInfo.serviceMode).toBe('staging');
-    console.log(`[Custody] Deployed Preview SHA: ${buildInfo.sha}`);
+    const expectedSha = process.env.EXPECTED_SHA;
+    if (expectedSha) {
+      expect(buildInfo.sha.toLowerCase()).toBe(expectedSha.toLowerCase());
+    }
+    console.log(`[Custody] Deployed Preview SHA: ${buildInfo.sha} (Expected: ${expectedSha || 'UNSPECIFIED'})`);
   });
 
   // Shared state across sequential scenarios
@@ -168,24 +175,142 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
   });
 
   test.afterAll(async () => {
-    // Session Lifecycle Teardown: Revoke test sessions created during test run
+    // Session Lifecycle & Financial Fixture Teardown:
+    // Reconciles synthetic journals, voids invoices/expenses, cancels orders, deactivates customers, and revokes sessions.
+    const cleanupErrors = [];
     try {
       const financeSb = await getAuthenticatedClient(SECRETS.finance);
+
+      // 1. Reconcile Invoices, Orders, and Customers
       if (testCustomerLegalName) {
-        const { data: cust } = await financeSb.from('finance_customers').select('id').eq('legal_name', testCustomerLegalName).single();
+        const { data: cust, error: custErr } = await financeSb
+          .from('finance_customers')
+          .select('id')
+          .eq('legal_name', testCustomerLegalName)
+          .maybeSingle();
+
+        if (custErr) cleanupErrors.push(`Failed to query test customer: ${custErr.message}`);
         if (cust?.id) {
-          const { data: invs } = await financeSb.from('finance_invoices').select('id, status').eq('customer_id', cust.id);
+          const { data: invs, error: invsErr } = await financeSb
+            .from('finance_invoices')
+            .select('id, invoice_number, status')
+            .eq('customer_id', cust.id);
+
+          if (invsErr) cleanupErrors.push(`Failed to query test invoices: ${invsErr.message}`);
           for (const inv of invs ?? []) {
+            // Find any posted journals created for this invoice and reverse them
+            const { data: journals, error: jErr } = await financeSb
+              .from('finance_journal_entries')
+              .select('id, entry_number, status, reversed_entry_id')
+              .eq('source', 'invoice')
+              .eq('source_id', inv.id);
+
+            if (jErr) cleanupErrors.push(`Failed to query journals for ${inv.invoice_number}: ${jErr.message}`);
+            for (const j of journals ?? []) {
+              if (j.status === 'posted' && !j.reversed_entry_id) {
+                const { error: revErr } = await financeSb.rpc('finance_reverse_journal_entry', {
+                  p_entry_id: j.id,
+                  p_reason: `UAT test cleanup reversal for ${inv.invoice_number}`
+                });
+                if (revErr) cleanupErrors.push(`Failed to reverse journal ${j.entry_number}: ${revErr.message}`);
+              }
+            }
+
             if (inv.status !== 'void') {
-              await financeSb.rpc('finance_void_invoice', { p_invoice_id: inv.id, p_reason: 'UAT test cleanup' }).catch(() => {});
+              const { error: voidErr } = await financeSb.rpc('finance_void_invoice', {
+                p_invoice_id: inv.id,
+                p_reason: 'UAT test cleanup'
+              });
+              if (voidErr) cleanupErrors.push(`Failed to void invoice ${inv.invoice_number}: ${voidErr.message}`);
             }
           }
-          await financeSb.from('commercial_orders').update({ status: 'cancelled' }).eq('customer_id', cust.id);
-          await financeSb.from('finance_customers').update({ status: 'inactive' }).eq('id', cust.id);
+
+          const { error: ordErr } = await financeSb
+            .from('commercial_orders')
+            .update({ status: 'cancelled', billing_status: 'unbilled', updated_at: new Date().toISOString() })
+            .eq('customer_id', cust.id);
+          if (ordErr) cleanupErrors.push(`Failed to cancel test orders: ${ordErr.message}`);
+
+          const { error: deactErr } = await financeSb
+            .from('finance_customers')
+            .update({ status: 'inactive', updated_at: new Date().toISOString() })
+            .eq('id', cust.id);
+          if (deactErr) cleanupErrors.push(`Failed to deactivate test customer: ${deactErr.message}`);
         }
       }
-      await financeSb.auth.signOut();
-    } catch {}
+
+      // 2. Reconcile Expenses
+      if (testExpenseVendor) {
+        const { data: exps, error: expsErr } = await financeSb
+          .from('finance_expenses')
+          .select('id, expense_number, status')
+          .eq('vendor', testExpenseVendor);
+
+        if (expsErr) cleanupErrors.push(`Failed to query test expenses: ${expsErr.message}`);
+        for (const exp of exps ?? []) {
+          const { data: journals, error: jErr } = await financeSb
+            .from('finance_journal_entries')
+            .select('id, entry_number, status, reversed_entry_id')
+            .eq('source', 'expense')
+            .eq('source_id', exp.id);
+
+          if (jErr) cleanupErrors.push(`Failed to query journals for ${exp.expense_number}: ${jErr.message}`);
+          for (const j of journals ?? []) {
+            if (j.status === 'posted' && !j.reversed_entry_id) {
+              const { error: revErr } = await financeSb.rpc('finance_reverse_journal_entry', {
+                p_entry_id: j.id,
+                p_reason: `UAT test cleanup reversal for ${exp.expense_number}`
+              });
+              if (revErr) cleanupErrors.push(`Failed to reverse journal ${j.entry_number}: ${revErr.message}`);
+            }
+          }
+
+          if (exp.status !== 'void') {
+            const { error: voidExpErr } = await financeSb
+              .from('finance_expenses')
+              .update({
+                status: 'void',
+                rejected_reason: 'UAT test cleanup reversal',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', exp.id);
+            if (voidExpErr) cleanupErrors.push(`Failed to void expense ${exp.expense_number}: ${voidExpErr.message}`);
+          }
+        }
+      }
+
+      // 3. Contain and Revoke Finance Actor Sessions
+      const { data: finStaffId } = await financeSb.rpc('newsroom_current_staff_id_basic');
+      if (finStaffId) {
+        await financeSb.rpc('newsroom_revoke_session', { p_staff_id: finStaffId, p_provider_session_id: null }).catch((err) => {
+          cleanupErrors.push(`Failed to revoke finance newsroom sessions: ${err.message}`);
+        });
+      }
+      await financeSb.auth.signOut({ scope: 'global' }).catch(() => {});
+
+      // 4. Contain and Revoke Commercial Actor Sessions
+      if (SECRETS.commercial?.email && SECRETS.commercial?.password) {
+        try {
+          const commSb = await getAuthenticatedClient(SECRETS.commercial);
+          const { data: commStaffId } = await commSb.rpc('newsroom_current_staff_id_basic');
+          if (commStaffId) {
+            await commSb.rpc('newsroom_revoke_session', { p_staff_id: commStaffId, p_provider_session_id: null }).catch((err) => {
+              cleanupErrors.push(`Failed to revoke commercial newsroom sessions: ${err.message}`);
+            });
+          }
+          await commSb.auth.signOut({ scope: 'global' }).catch(() => {});
+        } catch (e) {
+          cleanupErrors.push(`Commercial session revocation failed: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      cleanupErrors.push(`Unexpected teardown failure: ${e.message}`);
+    }
+
+    if (cleanupErrors.length > 0) {
+      console.error('[UAT Teardown Failures]:', cleanupErrors);
+      throw new Error(`UAT Teardown failed with ${cleanupErrors.length} errors:\n${cleanupErrors.join('\n')}`);
+    }
   });
 
   test('Scenario 1: Authenticate scoped identities (Commercial Manager vs Finance Manager)', async ({ page, context }) => {
