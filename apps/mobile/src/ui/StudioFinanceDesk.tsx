@@ -2218,6 +2218,8 @@ export function StudioFinanceDeskView({
                       <Pressable
                         style={styles.miniBtnPrimary}
                         onPress={() => handleOpenCustomerStatement(cust)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View statement for ${cust.name}`}
                       >
                         <Text style={styles.miniBtnPrimaryText}>Statement</Text>
                       </Pressable>

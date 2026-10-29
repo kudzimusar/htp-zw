@@ -104,3 +104,96 @@ begin
     where email in ('uat-commercial@healthtimes.test', 'uat-finance@healthtimes.test', 'uat-specialist@healthtimes.test')
   );
 end $$;
+
+-- 7. Governed UAT Fixture Reconciler RPC for physical browser harnesses
+create or replace function public.finance_reconcile_uat_fixtures(
+  p_customer_name text default null,
+  p_vendor_name text default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_invoices_voided int := 0;
+  v_journals_reversed int := 0;
+  v_orders_cancelled int := 0;
+  v_expenses_voided int := 0;
+  v_inv record;
+  v_exp record;
+  v_j record;
+begin
+  if not (public.newsroom_has_capability('finance.view') or public.newsroom_has_capability('finance.statement.view')) then
+    raise exception using errcode='42501', message='finance capability required';
+  end if;
+
+  -- 1. Reconcile Invoices and Orders for customer
+  if p_customer_name is not null and length(trim(p_customer_name)) > 0 then
+    for v_inv in (
+      select i.id, i.invoice_number
+      from public.finance_invoices i
+      join public.finance_customers c on c.id = i.customer_id
+      where (c.legal_name = trim(p_customer_name) or c.trading_name = trim(p_customer_name))
+        and i.status not in ('void', 'cancelled')
+    ) loop
+      -- Reverse any posted journals for this invoice
+      for v_j in (
+        select id from public.finance_journal_entries
+        where source = 'invoice' and source_id = v_inv.id and status = 'posted' and reversed_entry_id is null
+      ) loop
+        perform public.finance_reverse_journal_entry(v_j.id, 'UAT test cleanup reversal');
+        v_journals_reversed := v_journals_reversed + 1;
+      end loop;
+
+      perform public.finance_void_invoice(v_inv.id, 'UAT test cleanup');
+      v_invoices_voided := v_invoices_voided + 1;
+    end loop;
+
+    -- Cancel orders for this customer
+    update public.commercial_orders o
+    set status = 'cancelled', billing_status = 'unbilled', updated_at = now()
+    where exists (
+      select 1 from public.finance_customers c
+      where c.id = o.customer_id and (c.legal_name = trim(p_customer_name) or c.trading_name = trim(p_customer_name))
+    ) and o.status <> 'cancelled';
+    get diagnostics v_orders_cancelled = row_count;
+
+    -- Deactivate customer
+    update public.finance_customers
+    set status = 'inactive', updated_at = now()
+    where (legal_name = trim(p_customer_name) or trading_name = trim(p_customer_name));
+  end if;
+
+  -- 2. Reconcile Expenses for vendor
+  if p_vendor_name is not null and length(trim(p_vendor_name)) > 0 then
+    for v_exp in (
+      select id, expense_number
+      from public.finance_expenses
+      where vendor = trim(p_vendor_name) and status not in ('void', 'rejected')
+    ) loop
+      -- Reverse any posted journals for this expense
+      for v_j in (
+        select id from public.finance_journal_entries
+        where source = 'expense' and source_id = v_exp.id and status = 'posted' and reversed_entry_id is null
+      ) loop
+        perform public.finance_reverse_journal_entry(v_j.id, 'UAT test cleanup reversal');
+        v_journals_reversed := v_journals_reversed + 1;
+      end loop;
+
+      update public.finance_expenses
+      set status = 'void', rejected_reason = 'UAT test cleanup reversal', updated_at = now()
+      where id = v_exp.id;
+      v_expenses_voided := v_expenses_voided + 1;
+    end loop;
+  end if;
+
+  return jsonb_build_object(
+    'invoices_voided', v_invoices_voided,
+    'journals_reversed', v_journals_reversed,
+    'orders_cancelled', v_orders_cancelled,
+    'expenses_voided', v_expenses_voided
+  );
+end $$;
+
+revoke all on function public.finance_reconcile_uat_fixtures(text, text) from public, anon;
+grant execute on function public.finance_reconcile_uat_fixtures(text, text) to authenticated, service_role;

@@ -181,124 +181,42 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     try {
       const financeSb = await getAuthenticatedClient(SECRETS.finance);
 
-      // 1. Reconcile Invoices, Orders, and Customers
-      if (testCustomerLegalName) {
-        const { data: cust, error: custErr } = await financeSb
-          .from('finance_customers')
-          .select('id')
-          .eq('legal_name', testCustomerLegalName)
-          .maybeSingle();
+      // 1. Governed Reconciliation of Fixtures via Security Definer RPC
+      const { data: recData, error: recErr } = await financeSb.rpc('finance_reconcile_uat_fixtures', {
+        p_customer_name: testCustomerLegalName || null,
+        p_vendor_name: testExpenseVendor || null
+      });
 
-        if (custErr) cleanupErrors.push(`Failed to query test customer: ${custErr.message}`);
-        if (cust?.id) {
-          const { data: invs, error: invsErr } = await financeSb
-            .from('finance_invoices')
-            .select('id, invoice_number, status')
-            .eq('customer_id', cust.id);
-
-          if (invsErr) cleanupErrors.push(`Failed to query test invoices: ${invsErr.message}`);
-          for (const inv of invs ?? []) {
-            // Find any posted journals created for this invoice and reverse them
-            const { data: journals, error: jErr } = await financeSb
-              .from('finance_journal_entries')
-              .select('id, entry_number, status, reversed_entry_id')
-              .eq('source', 'invoice')
-              .eq('source_id', inv.id);
-
-            if (jErr) cleanupErrors.push(`Failed to query journals for ${inv.invoice_number}: ${jErr.message}`);
-            for (const j of journals ?? []) {
-              if (j.status === 'posted' && !j.reversed_entry_id) {
-                const { error: revErr } = await financeSb.rpc('finance_reverse_journal_entry', {
-                  p_entry_id: j.id,
-                  p_reason: `UAT test cleanup reversal for ${inv.invoice_number}`
-                });
-                if (revErr) cleanupErrors.push(`Failed to reverse journal ${j.entry_number}: ${revErr.message}`);
-              }
-            }
-
-            if (inv.status !== 'void') {
-              const { error: voidErr } = await financeSb.rpc('finance_void_invoice', {
-                p_invoice_id: inv.id,
-                p_reason: 'UAT test cleanup'
-              });
-              if (voidErr) cleanupErrors.push(`Failed to void invoice ${inv.invoice_number}: ${voidErr.message}`);
-            }
-          }
-
-          const { error: ordErr } = await financeSb
-            .from('commercial_orders')
-            .update({ status: 'cancelled', billing_status: 'unbilled', updated_at: new Date().toISOString() })
-            .eq('customer_id', cust.id);
-          if (ordErr) cleanupErrors.push(`Failed to cancel test orders: ${ordErr.message}`);
-
-          const { error: deactErr } = await financeSb
-            .from('finance_customers')
-            .update({ status: 'inactive', updated_at: new Date().toISOString() })
-            .eq('id', cust.id);
-          if (deactErr) cleanupErrors.push(`Failed to deactivate test customer: ${deactErr.message}`);
-        }
+      if (recErr) {
+        cleanupErrors.push(`Failed to reconcile UAT fixtures: ${recErr.message} (code ${recErr.code})`);
+      } else {
+        console.log('[UAT Fixture Reconciliation Success]:', recData);
       }
 
-      // 2. Reconcile Expenses
-      if (testExpenseVendor) {
-        const { data: exps, error: expsErr } = await financeSb
-          .from('finance_expenses')
-          .select('id, expense_number, status')
-          .eq('vendor', testExpenseVendor);
-
-        if (expsErr) cleanupErrors.push(`Failed to query test expenses: ${expsErr.message}`);
-        for (const exp of exps ?? []) {
-          const { data: journals, error: jErr } = await financeSb
-            .from('finance_journal_entries')
-            .select('id, entry_number, status, reversed_entry_id')
-            .eq('source', 'expense')
-            .eq('source_id', exp.id);
-
-          if (jErr) cleanupErrors.push(`Failed to query journals for ${exp.expense_number}: ${jErr.message}`);
-          for (const j of journals ?? []) {
-            if (j.status === 'posted' && !j.reversed_entry_id) {
-              const { error: revErr } = await financeSb.rpc('finance_reverse_journal_entry', {
-                p_entry_id: j.id,
-                p_reason: `UAT test cleanup reversal for ${exp.expense_number}`
-              });
-              if (revErr) cleanupErrors.push(`Failed to reverse journal ${j.entry_number}: ${revErr.message}`);
-            }
-          }
-
-          if (exp.status !== 'void') {
-            const { error: voidExpErr } = await financeSb
-              .from('finance_expenses')
-              .update({
-                status: 'void',
-                rejected_reason: 'UAT test cleanup reversal',
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', exp.id);
-            if (voidExpErr) cleanupErrors.push(`Failed to void expense ${exp.expense_number}: ${voidExpErr.message}`);
-          }
-        }
-      }
-
-      // 3. Contain and Revoke Finance Actor Sessions
+      // 2. Revoke Finance Actor Sessions
       const { data: finStaffId } = await financeSb.rpc('newsroom_current_staff_id_basic');
       if (finStaffId) {
-        await financeSb.rpc('newsroom_revoke_session', { p_staff_id: finStaffId, p_provider_session_id: null }).catch((err) => {
-          cleanupErrors.push(`Failed to revoke finance newsroom sessions: ${err.message}`);
+        const { error: revFinErr } = await financeSb.rpc('newsroom_revoke_session', {
+          p_staff_id: finStaffId,
+          p_provider_session_id: null
         });
+        if (revFinErr) cleanupErrors.push(`Failed to revoke finance sessions: ${revFinErr.message}`);
       }
-      await financeSb.auth.signOut({ scope: 'global' }).catch(() => {});
+      await financeSb.auth.signOut({ scope: 'global' });
 
-      // 4. Contain and Revoke Commercial Actor Sessions
+      // 3. Revoke Commercial Actor Sessions
       if (SECRETS.commercial?.email && SECRETS.commercial?.password) {
         try {
           const commSb = await getAuthenticatedClient(SECRETS.commercial);
           const { data: commStaffId } = await commSb.rpc('newsroom_current_staff_id_basic');
           if (commStaffId) {
-            await commSb.rpc('newsroom_revoke_session', { p_staff_id: commStaffId, p_provider_session_id: null }).catch((err) => {
-              cleanupErrors.push(`Failed to revoke commercial newsroom sessions: ${err.message}`);
+            const { error: revCommErr } = await commSb.rpc('newsroom_revoke_session', {
+              p_staff_id: commStaffId,
+              p_provider_session_id: null
             });
+            if (revCommErr) cleanupErrors.push(`Failed to revoke commercial sessions: ${revCommErr.message}`);
           }
-          await commSb.auth.signOut({ scope: 'global' }).catch(() => {});
+          await commSb.auth.signOut({ scope: 'global' });
         } catch (e) {
           cleanupErrors.push(`Commercial session revocation failed: ${e.message}`);
         }
@@ -518,7 +436,10 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await page.goto('/studio/finance-customers', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Billing Customers & Directory').first()).toBeVisible({ timeout: 15000 });
 
-    const stmtBtn = page.getByText('Statement', { exact: true }).first();
+    const stmtBtn = page.getByLabel(`View statement for ${testCustomerTradingName}`)
+      .or(page.locator('div').filter({ hasText: testCustomerTradingName }).getByText('Statement', { exact: true }))
+      .or(page.getByText('Statement', { exact: true }))
+      .first();
     await expect(stmtBtn).toBeVisible({ timeout: 10000 });
     await stmtBtn.click();
     await page.waitForTimeout(1500);
