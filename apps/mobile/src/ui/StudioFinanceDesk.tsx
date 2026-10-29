@@ -3719,7 +3719,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
-    maxHeight: 100
+    marginBottom: 8
   },
   pickerChip: {
     paddingVertical: 6,

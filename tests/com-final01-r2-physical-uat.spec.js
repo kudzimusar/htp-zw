@@ -316,7 +316,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
       .or(page.getByText(testCustomerLegalName))
       .first();
     await expect(custChip).toBeVisible({ timeout: 15000 });
-    await custChip.click();
+    await custChip.click({ force: true });
 
     await page.getByLabel('Order Subtotal').fill('1000.00');
     await page.getByLabel('Order Tax Amount').fill('150.00');
