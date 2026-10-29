@@ -311,12 +311,12 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await newOrderBtn.click();
 
     // Select the newly created customer
-    const custChip = page.getByText(testCustomerLegalName).first();
-    if (await custChip.isVisible()) {
-      await custChip.click();
-    } else {
-      await page.getByText(testCustomerTradingName).first().click();
-    }
+    const custChip = page.getByRole('button', { name: `Select customer ${testCustomerTradingName}` })
+      .or(page.getByText(testCustomerTradingName))
+      .or(page.getByText(testCustomerLegalName))
+      .first();
+    await expect(custChip).toBeVisible({ timeout: 15000 });
+    await custChip.click();
 
     await page.getByLabel('Order Subtotal').fill('1000.00');
     await page.getByLabel('Order Tax Amount').fill('150.00');
@@ -328,8 +328,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await page.waitForTimeout(2500);
 
     // Locate the exact order row by customer name and flight note
-    const orderRow = page.locator('.tableRow', { hasText: testCustomerLegalName }).first();
-    await expect(page.getByText(testCustomerLegalName).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(testCustomerLegalName).or(page.getByText(testCustomerTradingName)).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DRAFT').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('1150.00').first()).toBeVisible({ timeout: 15000 });
 
@@ -436,10 +435,7 @@ test.describe('HT-MVP-COM-FINAL-01-R2-R1: Physical Staging Commercial UAT & Cert
     await page.goto('/studio/finance-customers', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Billing Customers & Directory').first()).toBeVisible({ timeout: 15000 });
 
-    const stmtBtn = page.getByLabel(`View statement for ${testCustomerTradingName}`)
-      .or(page.locator('div').filter({ hasText: testCustomerTradingName }).getByText('Statement', { exact: true }))
-      .or(page.getByText('Statement', { exact: true }))
-      .first();
+    const stmtBtn = page.getByLabel(`View statement for ${testCustomerTradingName}`).first();
     await expect(stmtBtn).toBeVisible({ timeout: 10000 });
     await stmtBtn.click();
     await page.waitForTimeout(1500);
