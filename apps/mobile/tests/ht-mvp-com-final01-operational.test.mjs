@@ -150,6 +150,16 @@ test("HT-MVP-COM-FINAL-01-R2-R3: Migration 20261029090000 exists and revokes aut
   assert.match(sql, /trading_name in \('HealthCorp 272105', 'HealthCorp 895254'\)/i, "Must resolve outstanding synthetic customers");
 });
 
+test("HT-MVP-REL-COM-01: Migration 20261030100000 exists, drops UAT reconciler, and registers production migration policy", () => {
+  const migPath = path.join(REPO_ROOT, "supabase/migrations/20261030100000_ht_mvp_rel_com01_production_migration_safety.sql");
+  assert.ok(fs.existsSync(migPath), "Migration file 20261030100000 must exist");
+
+  const sql = fs.readFileSync(migPath, "utf8");
+  assert.match(sql, /drop function if exists public\.finance_reconcile_uat_fixtures\(text, text\);/i, "Must permanently drop UAT reconciler");
+  assert.match(sql, /production_migration_policy/i, "Must register production migration policy in platform_settings");
+  assert.match(sql, /staging_only_uat_migrations/i, "Must categorize staging-only UAT migrations");
+});
+
 test("HT-MVP-COM-FINAL-01: Workstream A — Finance Service Mapping & Invoicing lifecycle", () => {
   // Test mapCustomer
   const cust = mapCustomer({
