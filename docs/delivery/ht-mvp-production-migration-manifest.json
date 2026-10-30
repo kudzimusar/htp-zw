@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0.0",
+  "programme": "HealthTimes 2.0 MVP Unified Release",
+  "unit_id": "HT-MVP-REL-COM-01-R1",
+  "policy": "STRICT_EXCLUSION_STAGING_UAT_RECONCILIATION",
+  "generated_at": "2026-10-30T00:59:03.982Z",
+  "governance": {
+    "production_replay_action": "EXCLUDE_STAGING_UAT_RECONCILIATION",
+    "unfiltered_execution_blocked": true,
+    "in_file_sql_replay_guards": true,
+    "uat_reconciler_status": "DROPPED"
+  },
+  "quarantined_staging_only_migrations": [
+    {
+      "file": "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql",
+      "reason": "Contains hardcoded staging identifiers, synthetic customer/order mutations, or UAT cleanup logic",
+      "staging_ledger_version": "20261029131047",
+      "remedial_status": "Permanently dropped and barred from production execution",
+      "sha256": "e58f8dfb7ee09f45e0eff435c520663193ee5c6fce42d04cefa68097ecd0c67b"
+    },
+    {
+      "file": "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql",
+      "reason": "Contains hardcoded staging identifiers, synthetic customer/order mutations, or UAT cleanup logic",
+      "staging_ledger_version": "20261029142840",
+      "remedial_status": "Permanently dropped and barred from production execution",
+      "sha256": "8205e97d51daf8e4a2961a35a262fe0e5d91efe0446d55fd272c7f05f23bb96b"
+    }
+  ],
+  "canonical_commercial_ddl": [
+    {
+      "file": "20261029020000_ht_mvp_com_final01_operational_completion.sql",
+      "classification": "CANONICAL_COMMERCIAL_DDL",
+      "staging_ledger_version": "20261029031548",
+      "sha256": "10f83f9f0b262d8e535658ccd48feedb04aaa2ed746d80fcf8425df3b9b53832"
+    },
+    {
+      "file": "20261029040000_ht_mvp_com_final01_r1_privilege_hardening.sql",
+      "classification": "CANONICAL_COMMERCIAL_DDL",
+      "staging_ledger_version": "20261029044030",
+      "sha256": "65d3f5f6518b6a727a9d5ffe9c1f79331e2ea2e7f88f1e302c666d1ac5643779"
+    },
+    {
+      "file": "20261029050000_ht_mvp_com_final01_r1_idempotency_fix.sql",
+      "classification": "CANONICAL_COMMERCIAL_DDL",
+      "staging_ledger_version": "20261029045728",
+      "sha256": "33c47de725f0763e6e2d52e7546b8ac8cc0cd00acfbfb7fd9175c3400bed1d50"
+    },
+    {
+      "file": "20261029060000_ht_mvp_com_final01_r2_r1_statement_reversal_parity.sql",
+      "classification": "CANONICAL_COMMERCIAL_DDL",
+      "staging_ledger_version": "20261029060000",
+      "sha256": "5a7e84868390a9e54ca72233f07c5d1f2f4531658d35093f237c813512b8f726"
+    },
+    {
+      "file": "20261029070000_ht_mvp_com_final01_r2_r1_invoice_line_casing_tolerance.sql",
+      "classification": "CANONICAL_COMMERCIAL_DDL",
+      "staging_ledger_version": "20261029070000",
+      "sha256": "134c103273d0017e535ea7f13874b89a2a432874ff08f641f6933180ccfcbfa2"
+    },
+    {
+      "file": "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql",
+      "classification": "CANONICAL_COMMERCIAL_DDL",
+      "staging_ledger_version": "20261030001134",
+      "sha256": "c5d75f8f0ada98c482fccf2d4f4fad0e4f87686ad08b337f4bab7796ba30df3b"
+    }
+  ],
+  "staging_ledger_tip": "20261030001134",
+  "staging_ledger_records_count": 110,
+  "production_plan_migrations_count": 108,
+  "fail_closed_invariants": [
+    "FAIL_IF_QUARANTINED_IN_PRODUCTION_PLAN",
+    "FAIL_IF_CANONICAL_DDL_ORDER_VIOLATED",
+    "FAIL_IF_TARGET_ENVIRONMENT_MISMATCH",
+    "FAIL_IF_UNFILTERED_COMMAND_ATTEMPTS_QUARANTINED_REPLAY",
+    "FAIL_IF_UAT_RECONCILER_RPC_EXISTS_AFTER_MIGRATION"
+  ]
+}

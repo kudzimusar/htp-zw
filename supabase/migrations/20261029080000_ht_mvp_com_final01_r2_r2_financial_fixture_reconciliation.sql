@@ -1,6 +1,34 @@
 -- Migration: 20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql
 -- Description: Idempotent financial fixture reconciliation, UAT session containment, and audit preservation for HT-MVP-COM-FINAL-01-R2-R2.
 
+-- ============================================================================
+-- FAIL-CLOSED MIGRATION REPLAY GUARD (HT-MVP-REL-COM-01-R1)
+-- ============================================================================
+-- This migration is strictly classified as STAGING_ONLY_UAT_RECONCILIATION.
+-- It must NEVER be executed or replayed against a Production database.
+-- Any ordinary unfiltered migration command (e.g. psql, supabase db push)
+-- executed against an unapproved target or without explicit staging authorization
+-- will immediately FAIL CLOSED and abort.
+-- ============================================================================
+do $$
+begin
+  -- 1. Hard block if target environment is production
+  if current_setting('app.environment', true) = 'production'
+     or current_setting('healthtimes.environment', true) = 'production'
+     or current_database() in ('production', 'healthtimes_prod', 'postgres_prod') then
+    raise exception using
+      errcode = '55000',
+      message = 'CRITICAL: Migration 20261029080000 is a quarantined staging-only UAT fixture reconciliation and is permanently barred from running on Production.';
+  end if;
+
+  -- 2. Hard block unfiltered replay: requires explicit session-level staging reconciliation authorization
+  if coalesce(current_setting('healthtimes.allow_staging_uat_reconciliation', true), 'false') != 'true' then
+    raise exception using
+      errcode = '55000',
+      message = 'CRITICAL: Migration 20261029080000 is quarantined as STAGING-ONLY. Unfiltered migration execution is blocked unless explicit staging session authority is configured.';
+  end if;
+end $$;
+
 do $$
 declare
   v_rec record;

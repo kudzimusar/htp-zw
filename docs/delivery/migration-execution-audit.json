@@ -1,0 +1,222 @@
+{
+  "test_run_id": "HT-MVP-REL-COM-01-R1-DISPOSABLE-1793321745302",
+  "timestamp": "2026-10-30T00:55:45.302Z",
+  "disposable_environment": {
+    "container_image": "postgres:17",
+    "port": 55432,
+    "status": "VERIFIED_SAFE"
+  },
+  "pre_migration_state": {
+    "invoices": [
+      {
+        "invoice_number": "INV-2026-0004",
+        "status": "issued",
+        "total": 1500
+      },
+      {
+        "invoice_number": "INV-2026-0005",
+        "status": "issued",
+        "total": 1200
+      },
+      {
+        "invoice_number": "INV-2026-0006",
+        "status": "issued",
+        "total": 800
+      },
+      {
+        "invoice_number": "INV-2026-0099",
+        "status": "issued",
+        "total": 500
+      }
+    ],
+    "orders": [
+      {
+        "order_number": "ORD-2026-0008",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0009",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0010",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0011",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0099",
+        "status": "approved",
+        "billing_status": "billed"
+      }
+    ],
+    "customers": [
+      {
+        "legal_name": "HealthCorp Zimbabwe Official Ltd",
+        "trading_name": "HealthCorp Official",
+        "status": "active"
+      }
+    ],
+    "expenses": [
+      {
+        "expense_number": "EXP-2026-0006",
+        "status": "approved",
+        "amount": 350
+      },
+      {
+        "expense_number": "EXP-2026-0007",
+        "status": "approved",
+        "amount": 600
+      },
+      {
+        "expense_number": "EXP-2026-0008",
+        "status": "approved",
+        "amount": 1200
+      },
+      {
+        "expense_number": "EXP-2026-0099",
+        "status": "approved",
+        "amount": 150
+      }
+    ],
+    "journals": [
+      {
+        "entry_number": "JRN-2026-0012",
+        "status": "posted"
+      },
+      {
+        "entry_number": "JRN-2026-0013",
+        "status": "posted"
+      },
+      {
+        "entry_number": "JRN-2026-0014",
+        "status": "posted"
+      },
+      {
+        "entry_number": "JRN-2026-0099",
+        "status": "posted"
+      }
+    ],
+    "ledger": {
+      "debits": 4000,
+      "credits": 4000
+    }
+  },
+  "post_migration_state": {
+    "invoices": [
+      {
+        "invoice_number": "INV-2026-0004",
+        "status": "issued",
+        "total": 1500
+      },
+      {
+        "invoice_number": "INV-2026-0005",
+        "status": "issued",
+        "total": 1200
+      },
+      {
+        "invoice_number": "INV-2026-0006",
+        "status": "issued",
+        "total": 800
+      },
+      {
+        "invoice_number": "INV-2026-0099",
+        "status": "issued",
+        "total": 500
+      }
+    ],
+    "orders": [
+      {
+        "order_number": "ORD-2026-0008",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0009",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0010",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0011",
+        "status": "approved",
+        "billing_status": "billed"
+      },
+      {
+        "order_number": "ORD-2026-0099",
+        "status": "approved",
+        "billing_status": "billed"
+      }
+    ],
+    "customers": [
+      {
+        "legal_name": "HealthCorp Zimbabwe Official Ltd",
+        "trading_name": "HealthCorp Official",
+        "status": "active"
+      }
+    ],
+    "expenses": [
+      {
+        "expense_number": "EXP-2026-0006",
+        "status": "approved",
+        "amount": 350
+      },
+      {
+        "expense_number": "EXP-2026-0007",
+        "status": "approved",
+        "amount": 600
+      },
+      {
+        "expense_number": "EXP-2026-0008",
+        "status": "approved",
+        "amount": 1200
+      },
+      {
+        "expense_number": "EXP-2026-0099",
+        "status": "approved",
+        "amount": 150
+      }
+    ],
+    "journals": [
+      {
+        "entry_number": "JRN-2026-0012",
+        "status": "posted"
+      },
+      {
+        "entry_number": "JRN-2026-0013",
+        "status": "posted"
+      },
+      {
+        "entry_number": "JRN-2026-0014",
+        "status": "posted"
+      },
+      {
+        "entry_number": "JRN-2026-0099",
+        "status": "posted"
+      }
+    ],
+    "ledger": {
+      "debits": 4000,
+      "credits": 4000
+    }
+  },
+  "results": {
+    "canonical_migration_order_verified": true,
+    "quarantined_migrations_excluded": true,
+    "unfiltered_execution_blocked_with_error_55000": true,
+    "sentinel_financial_data_preserved": true,
+    "uat_reconciler_rpc_absent": true,
+    "ledger_double_entry_balanced": true,
+    "idempotency_verified": true
+  }
+}

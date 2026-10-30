@@ -43,7 +43,13 @@ if (fs.existsSync(staffDynamicHtml)) {
   fs.copyFileSync(staffDynamicHtml, path.join(dist, 'studio/staff/fallback.html'));
 }
 
-const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local';
+const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || (function() {
+  try {
+    return require('node:child_process').execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'local';
+  }
+})();
 fs.writeFileSync(path.join(dist, 'build-info.json'), JSON.stringify({
   sha,
   presentation: 'apps/mobile',

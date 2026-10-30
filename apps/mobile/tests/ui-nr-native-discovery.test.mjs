@@ -274,7 +274,7 @@ test("10. BEHAVIOR H: Curated homepage placement does not create duplicate rende
   assert.equal(filteredLatest.some((s) => s.id === heroStory.id), false, "Hero story must not render again in latest section");
 });
 
-test("11. STAGING VERIFICATION (Read-Only): Live Supabase zero-native state returns valid empty projection", async () => {
+test("11. STAGING VERIFICATION (Read-Only): Live Supabase native feed projection conforms to public contract", async () => {
   assert.equal(typeof url, "string", "EXPO_PUBLIC_SUPABASE_URL must be configured");
   assert.equal(typeof key, "string", "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be configured");
 
@@ -292,8 +292,28 @@ test("11. STAGING VERIFICATION (Read-Only): Live Supabase zero-native state retu
   const body = await response.json();
   assert.equal(Array.isArray(body), true, "newsroom_public_published_stories must return an array");
 
-  // In zero-native staging, length is 0 (valid data state, not defect)
-  assert.equal(body.length, 0, "Staging currently has 0 native public_reader=true stories (expected zero-state)");
+  // If published stories exist on staging (e.g., from Newsroom editorial UAT), verify contract projection
+  for (const story of body) {
+    assert.equal(typeof story.id, "string", "Native story must have id");
+    assert.equal(typeof story.title, "string", "Native story must have title");
+    assert.equal(typeof story.slug, "string", "Native story must have slug");
+    assert.equal(typeof story.body_html === "string" || story.body_html === null, true, "body_html must be text or null");
+  }
+
+  // Non-existent slug returns empty array (zero-state verification)
+  const nonExistent = await fetch(`${url}/rest/v1/rpc/newsroom_public_published_stories`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ p_slug: "non-existent-canary-slug-zero-state" })
+  });
+  assert.equal(nonExistent.ok, true);
+  const emptyBody = await nonExistent.json();
+  assert.equal(Array.isArray(emptyBody), true);
+  assert.equal(emptyBody.length, 0, "Querying non-existent slug must return empty projection");
 });
 
 test("12. STAGING VERIFICATION (Read-Only): ag05_public_feed_rows returns legacy feed successfully", async () => {

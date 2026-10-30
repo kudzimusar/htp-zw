@@ -151,4 +151,33 @@ PRODUCTION_MIGRATIONS_AUTHORIZED=NO
 MERGE_AUTHORIZED=NO
 ```
 
-No production deployment has been executed. No production migrations have been applied. Paynow public checkout remains strictly disabled and fails closed.
+## 6. R1 Remediation: Executable Migration Governance & Disposable Safety Proof
+
+### 6.1 Deterministic Migration Governor & Replay Blockers
+Under `HT-MVP-REL-COM-01-R1`, migration governance has been upgraded to an executable, deterministic, source-controlled architecture:
+1. **Source-Controlled Governor Engine (`scripts/release/ht-migration-governor.mjs`):**
+   - Implements automated manifest generation and plan building.
+   - For `production` plans: Deterministically filters out `20261029080000` and `20261029090000`.
+   - **Fail-Closed Gate 1:** If either prohibited migration is present in the production plan, execution immediately aborts with `CRITICAL_FAIL_CLOSED`.
+   - **Fail-Closed Gate 2:** Asserts strict dependency order of canonical DDL migrations.
+   - Emits inspectable `docs/delivery/ht-mvp-production-migration-manifest.json` with SHA-256 hashes and ledger version mappings.
+2. **In-File SQL Replay Guards:**
+   - Both `20261029080000` and `20261029090000` contain an unconditional SQL block at line 1.
+   - Any ordinary unfiltered migration command (`psql`, `supabase db push`) attempting replay against production or without explicit staging authorization immediately fails closed with PostgreSQL error `55000`.
+
+### 6.2 Disposable PostgreSQL Environment Safety Proof
+Executed via `scripts/release/disposable-env-runner.mjs` in an isolated PostgreSQL 17 container:
+- Injected controlled sentinel financial records (genuine active customers, issued invoices, active commercial orders, approved expenses, balanced posted journals, user sessions).
+- Executed the canonical production migration plan.
+- **Results:**
+  * 100% of sentinel records preserved without voiding, cancellation, deactivation, or reversal.
+  * General ledger balance preserved ($4,000.00 debits = $4,000.00 credits).
+  * `finance_reconcile_uat_fixtures` confirmed non-existent in schema.
+  * Direct unfiltered `psql` execution of quarantined migrations threw error `55000` and failed closed.
+  * Full pre/post evidence audited in `docs/delivery/migration-execution-audit.json`.
+
+### 6.3 Test Harness Defect Resolution
+- `apps/mobile/tests/ui-nr-native-discovery.test.mjs` (Test 11):
+  * **Classification:** Test Harness / Staging Environment Assumption Defect.
+  * **Root Cause:** Test previously asserted `body.length === 0` based on a historical zero-state assumption. Subsequent Newsroom UAT legitimately published 4 native stories.
+  * **Remediation:** Updated test 11 to validate schema projection compliance across all published stories (`id`, `title`, `slug`, `body_html` bounds) and verified zero-state return when querying non-existent canary slugs. All 13 suite tests now pass.
