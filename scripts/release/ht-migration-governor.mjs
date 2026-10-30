@@ -67,8 +67,8 @@ export const STAGING_LEDGER_VERSION_MAP = {
 export const DESTINATION_ALLOWLIST = {
   disposable: {
     target: "disposable",
-    allowed_ports: [55432, 54322, 5432],
-    allowed_hosts: ["127.0.0.1", "localhost", "::1", null],
+    allowed_ports: [55432, 54322], // Dedicated forwarded test ports only; port 5432 is strictly prohibited for disposable tests to prevent collision
+    allowed_hosts: ["127.0.0.1", "localhost", "::1"],
     allowed_databases: ["postgres", "healthtimes_test", "ht_disposable"],
     allowed_destination_ids: ["disposable", "ht-disposable-pg", "localhost-test"],
     prohibited_project_refs: ["bzuvntbkevvuhfhqhkua"]
@@ -319,10 +319,43 @@ export function buildMigrationPlan(target = "production", migrationsDir = MIGRAT
 }
 
 /**
- * Attests the connected database identity by querying the live PostgreSQL connection directly.
+ * Robustly parses a PostgreSQL connection URI into endpoint components.
+ */
+export function parsePostgresUri(pgUri) {
+  if (!pgUri || typeof pgUri !== "string") {
+    throw new Error("CRITICAL_FAIL_CLOSED: Missing or invalid PostgreSQL connection URI.");
+  }
+  try {
+    const parsed = new URL(pgUri);
+    if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
+      throw new Error(`Invalid protocol: "${parsed.protocol}"`);
+    }
+    const host = parsed.hostname || "127.0.0.1";
+    const port = parsed.port ? Number(parsed.port) : 5432;
+    const database = (parsed.pathname || "").replace(/^\//, "") || "postgres";
+    return {
+      host,
+      port,
+      database,
+      username: parsed.username || "postgres"
+    };
+  } catch (err) {
+    throw new Error(`CRITICAL_FAIL_CLOSED: Failed to parse PostgreSQL connection URI: ${err.message}`);
+  }
+}
+
+/**
+ * Attests the connected database identity by querying the live PostgreSQL connection directly
+ * and verifying independent physical evidence (container identity, connection endpoint, and instance token).
  * Fails closed if the connected database cannot be proven, violates the allowlist, or mismatches the target.
  */
-export function attestConnectedDatabase({ queryFn, target, expectedDestinationId }) {
+export function attestConnectedDatabase({
+  queryFn,
+  target,
+  expectedDestinationId,
+  endpoint,
+  instanceAttestation
+}) {
   const normTarget = (target || "").toLowerCase();
 
   if (normTarget === "production") {
@@ -335,67 +368,192 @@ export function attestConnectedDatabase({ queryFn, target, expectedDestinationId
     throw new Error("CRITICAL_FAIL_CLOSED: Missing required queryFn to attest connected database identity.");
   }
 
-  const attestationSql = `
-    SELECT 
-      current_database() AS database_name,
-      current_user AS session_user,
-      inet_server_addr()::text AS server_address,
-      inet_server_port() AS server_port,
-      (SELECT count(*)::int FROM information_schema.schemata WHERE schema_name = 'supabase_migrations') AS has_migrations_schema,
-      (SELECT coalesce(value->>'project_ref', value->>'environment', '') FROM public.platform_settings WHERE key = 'app_environment' LIMIT 1) AS platform_env,
-      (SELECT coalesce(value->>'production_replay_action', '') FROM public.platform_settings WHERE key = 'production_migration_policy' LIMIT 1) AS migration_policy
-  `;
-
-  let rows;
-  try {
-    rows = queryFn(attestationSql);
-  } catch (err) {
-    throw new Error(`CRITICAL_FAIL_CLOSED: Database identity attestation query failed: ${err.message}`);
-  }
-
-  if (!rows || rows.length === 0) {
-    throw new Error("CRITICAL_FAIL_CLOSED: Database identity attestation query returned empty results.");
-  }
-
-  const dbInfo = rows[0];
-  const dbName = dbInfo.database_name;
-  const serverAddr = dbInfo.server_address;
-  const serverPort = Number(dbInfo.server_port);
-  const platformEnv = dbInfo.platform_env || "";
-
-  console.log(`[GOVERNOR ATTEST] Connected DB: "${dbName}" on ${serverAddr || "local"}:${serverPort}, user: "${dbInfo.session_user}", env: "${platformEnv}"`);
-
   if (normTarget === "disposable") {
     const config = DESTINATION_ALLOWLIST.disposable;
 
-    // 1. Destination ID must be an allowed disposable alias
+    // 1. Destination ID must be an allowed disposable alias (reject spoofed aliases and staging/production labels)
+    if (expectedDestinationId === STAGING_PROJECT_REF || expectedDestinationId === "production") {
+      throw new Error(
+        "CRITICAL_FAIL_CLOSED: Destination identity conflict! Staging or Production connection presented as disposable."
+      );
+    }
+
     if (!config.allowed_destination_ids.includes(expectedDestinationId)) {
       throw new Error(
         `CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [${config.allowed_destination_ids.join(", ")}], got "${expectedDestinationId}"`
       );
     }
 
-    // 2. Server port must be in allowed disposable port range
-    if (serverPort && !config.allowed_ports.includes(serverPort)) {
+    // 2. Connection endpoint validation (independent external network evidence)
+    if (!endpoint || typeof endpoint !== "object" || !endpoint.host || !endpoint.port) {
       throw new Error(
-        `CRITICAL_FAIL_CLOSED: Prohibited server port for disposable database: ${serverPort}. Allowed: [${config.allowed_ports.join(", ")}]`
+        "CRITICAL_FAIL_CLOSED: Connection endpoint (host and port) is mandatory for disposable database identity attestation."
       );
     }
 
-    // 3. Database name must match allowlist
+    // 2A. Host enforcement
+    if (!config.allowed_hosts.includes(endpoint.host)) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Prohibited network destination host for disposable database: "${endpoint.host}". Host must be in [${config.allowed_hosts.join(", ")}].`
+      );
+    }
+
+    // 2B. Port enforcement (Standard port 5432 is explicitly rejected to avoid collision)
+    if (!config.allowed_ports.includes(endpoint.port)) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Prohibited network destination port for disposable database: ${endpoint.port}. Port must be in [${config.allowed_ports.join(", ")}]. Standard port 5432 is prohibited to prevent collision with other PostgreSQL instances.`
+      );
+    }
+
+    // 2C. Database name enforcement
+    if (!config.allowed_databases.includes(endpoint.database)) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Prohibited database name for disposable environment: "${endpoint.database}". Allowed: [${config.allowed_databases.join(", ")}].`
+      );
+    }
+
+    // 3. Query the connected database for identity and schema state
+    const attestationSql = `
+      SELECT 
+        current_database() AS database_name,
+        current_user AS session_user,
+        inet_server_addr()::text AS server_address,
+        inet_server_port() AS server_port,
+        (SELECT count(*)::int FROM information_schema.schemata WHERE schema_name = 'supabase_migrations') AS has_migrations_schema,
+        (SELECT count(*)::int FROM information_schema.tables WHERE table_schema = 'supabase_migrations' AND table_name = 'disposable_instance_attestation') AS has_attestation_table,
+        CASE WHEN to_regclass('public.platform_settings') IS NOT NULL THEN
+          (SELECT coalesce(value->>'project_ref', value->>'environment', '') FROM public.platform_settings WHERE key = 'app_environment' LIMIT 1)
+        ELSE '' END AS platform_env,
+        CASE WHEN to_regclass('public.platform_settings') IS NOT NULL THEN
+          (SELECT coalesce(value->>'environment', '') FROM public.platform_settings WHERE key = 'app_environment' LIMIT 1)
+        ELSE '' END AS env_name,
+        CASE WHEN to_regclass('public.platform_settings') IS NOT NULL THEN
+          (SELECT coalesce(value->>'production_replay_action', '') FROM public.platform_settings WHERE key = 'production_migration_policy' LIMIT 1)
+        ELSE '' END AS migration_policy
+    `;
+
+    let rows;
+    try {
+      rows = queryFn(attestationSql);
+    } catch (err) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Database identity attestation query failed: ${err.message}`);
+    }
+
+    if (!rows || rows.length === 0) {
+      throw new Error("CRITICAL_FAIL_CLOSED: Database identity attestation query returned empty results.");
+    }
+
+    const dbInfo = rows[0];
+    const dbName = dbInfo.database_name;
+    const serverAddr = dbInfo.server_address;
+    const serverPort = Number(dbInfo.server_port);
+    const platformEnv = dbInfo.platform_env || "";
+    const envName = dbInfo.env_name || "";
+
+    // 4. Prohibit staging / production collision from connected database settings
+    if (platformEnv === STAGING_PROJECT_REF || envName === "staging" || envName === "production") {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Destination identity conflict! Connected database reports staging/production environment (${platformEnv || envName}) while target is disposable.`
+      );
+    }
+
+    // 5. Database name from live session must match allowlist
     if (!config.allowed_databases.includes(dbName)) {
       throw new Error(
-        `CRITICAL_FAIL_CLOSED: Prohibited database name for disposable environment: "${dbName}". Allowed: [${config.allowed_databases.join(", ")}]`
+        `CRITICAL_FAIL_CLOSED: Prohibited database name for disposable environment: "${dbName}". Allowed: [${config.allowed_databases.join(", ")}].`
       );
     }
 
-    // 4. Prohibit staging project ref collision
-    if (config.prohibited_project_refs.includes(expectedDestinationId) || platformEnv === STAGING_PROJECT_REF) {
+    // 6. Positive Proof of Provisioned Instance: Instance Attestation Table
+    if (dbInfo.has_attestation_table !== 1) {
       throw new Error(
-        `CRITICAL_FAIL_CLOSED: Destination identity conflict! Connected database reports staging project ref (${STAGING_PROJECT_REF}) while target is disposable.`
+        "CRITICAL_FAIL_CLOSED: Missing disposable instance attestation table (supabase_migrations.disposable_instance_attestation) in connected database. Connected database is not a provisioned disposable test instance."
       );
     }
-  } else if (normTarget === "staging") {
+
+    // 7. Positive Proof of Provisioned Instance: Instance Attestation Credentials
+    if (!instanceAttestation || typeof instanceAttestation !== "object" || !instanceAttestation.instanceId || !instanceAttestation.attestationToken) {
+      throw new Error(
+        "CRITICAL_FAIL_CLOSED: Missing required instance attestation credentials (instanceId and attestationToken)."
+      );
+    }
+
+    const safeInstanceId = String(instanceAttestation.instanceId).replace(/'/g, "''");
+    const attestQuery = `
+      SELECT instance_id, container_name, attestation_token, endpoint_host, endpoint_port, database_name, provisioned_at
+      FROM supabase_migrations.disposable_instance_attestation
+      WHERE instance_id = '${safeInstanceId}'
+      LIMIT 1;
+    `;
+
+    let attestRows;
+    try {
+      attestRows = queryFn(attestQuery);
+    } catch (err) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Failed to query disposable instance attestation record: ${err.message}`);
+    }
+
+    if (!attestRows || attestRows.length === 0) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Disposable instance attestation record not found for instance_id "${instanceAttestation.instanceId}".`
+      );
+    }
+
+    const attestRow = attestRows[0];
+
+    // 7A. Cryptographic token match
+    if (attestRow.attestation_token !== instanceAttestation.attestationToken) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Disposable instance attestation token mismatch for instance "${instanceAttestation.instanceId}". Connected database does not match the provisioned test instance.`
+      );
+    }
+
+    // 7B. Container identity match (if provided)
+    if (instanceAttestation.containerName && attestRow.container_name !== instanceAttestation.containerName) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Disposable instance container name mismatch! Expected "${instanceAttestation.containerName}", found "${attestRow.container_name}".`
+      );
+    }
+
+    // 7C. Endpoint host & port match
+    if (Number(attestRow.endpoint_port) !== Number(endpoint.port)) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Disposable instance attestation endpoint port mismatch! Attestation recorded ${attestRow.endpoint_port}, but connection endpoint is ${endpoint.port}.`
+      );
+    }
+
+    if (attestRow.endpoint_host !== endpoint.host) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Disposable instance attestation endpoint host mismatch! Attestation recorded ${attestRow.endpoint_host}, but connection endpoint is ${endpoint.host}.`
+      );
+    }
+
+    if (attestRow.database_name !== endpoint.database) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Disposable instance attestation database name mismatch! Attestation recorded ${attestRow.database_name}, but connection endpoint is ${endpoint.database}.`
+      );
+    }
+
+    console.log(
+      `[GOVERNOR ATTEST] Verified disposable database identity: instance "${attestRow.instance_id}" in container "${attestRow.container_name}" at ${endpoint.host}:${endpoint.port}/${dbName}`
+    );
+
+    return {
+      attested: true,
+      target: normTarget,
+      destinationId: expectedDestinationId,
+      databaseName: dbName,
+      serverAddress: serverAddr,
+      serverPort,
+      endpointHost: endpoint.host,
+      endpointPort: endpoint.port,
+      instanceId: attestRow.instance_id,
+      containerName: attestRow.container_name,
+      attestedAt: new Date().toISOString()
+    };
+  }
+
+  if (normTarget === "staging") {
     const config = DESTINATION_ALLOWLIST.staging;
     if (expectedDestinationId !== config.project_ref) {
       throw new Error(
@@ -407,19 +565,15 @@ export function attestConnectedDatabase({ queryFn, target, expectedDestinationId
         "CRITICAL_FAIL_CLOSED: Staging database is frozen; DDL mutations are not authorized in this task."
       );
     }
-  } else {
-    throw new Error(`CRITICAL_FAIL_CLOSED: Unknown target environment: "${target}".`);
+    return {
+      attested: true,
+      target: normTarget,
+      destinationId: expectedDestinationId,
+      attestedAt: new Date().toISOString()
+    };
   }
 
-  return {
-    attested: true,
-    target: normTarget,
-    destinationId: expectedDestinationId,
-    databaseName: dbName,
-    serverAddress: serverAddr,
-    serverPort,
-    attestedAt: new Date().toISOString()
-  };
+  throw new Error(`CRITICAL_FAIL_CLOSED: Unknown target environment: "${target}".`);
 }
 
 /**
@@ -575,12 +729,18 @@ export function verifyLedgerAndSequence({ target, plan, appliedVersions = [] }) 
 }
 
 /**
- * Creates a controlled, source-verified SQL execution adapter
+ * Creates a controlled, source-verified SQL execution adapter.
+ * Enforces that SQL mutations are refused until the connection is positively attested.
  */
 export function createGovernedSqlAdapter({
   pgUri,
-  psqlBin = "/opt/homebrew/opt/libpq/bin/psql"
+  psqlBin = "/opt/homebrew/opt/libpq/bin/psql",
+  instanceAttestation = null
 }) {
+  const endpoint = parsePostgresUri(pgUri);
+  let isAttested = false;
+  let attestationDetails = null;
+
   function queryJson(sql) {
     const cleanSql = sql.trim().replace(/;+$/, "");
     const wrapped = `SELECT coalesce(json_agg(t), '[]'::json) FROM (${cleanSql}) t;`;
@@ -589,7 +749,26 @@ export function createGovernedSqlAdapter({
     return JSON.parse(out || "[]");
   }
 
+  function attest(target, expectedDestinationId, instanceAttestationOverride) {
+    const attestationToUse = instanceAttestationOverride !== undefined ? instanceAttestationOverride : instanceAttestation;
+    const res = attestConnectedDatabase({
+      queryFn: queryJson,
+      target,
+      expectedDestinationId,
+      endpoint,
+      instanceAttestation: attestationToUse
+    });
+    isAttested = true;
+    attestationDetails = res;
+    return res;
+  }
+
   function executeSqlAtomic(sql) {
+    if (!isAttested) {
+      throw new Error(
+        "CRITICAL_FAIL_CLOSED: Governed SQL execution adapter refused execution: Database identity has not been attested. All mutations require positive database identity attestation."
+      );
+    }
     const cmd = `${psqlBin} "${pgUri}" -q -v ON_ERROR_STOP=1`;
     return execSync(cmd, { encoding: "utf8", input: sql });
   }
@@ -597,6 +776,10 @@ export function createGovernedSqlAdapter({
   return {
     queryJson,
     executeSqlAtomic,
+    attest,
+    isAttested: () => isAttested,
+    getAttestationDetails: () => attestationDetails,
+    getEndpoint: () => endpoint,
     getAppliedVersions() {
       const rows = queryJson("SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;");
       return rows.map((r) => r.version);
@@ -611,6 +794,7 @@ export function executeGovernedMigrations({
   target = "disposable",
   expectedDestinationId,
   sqlAdapter,
+  instanceAttestation = null,
   manifestPath = MANIFEST_PATH,
   auditPath = AUDIT_PATH,
   incrementalFiles = null
@@ -622,11 +806,15 @@ export function executeGovernedMigrations({
   verifyManifest(manifestPath);
 
   // 2. Attest connected database identity
-  const attestation = attestConnectedDatabase({
-    queryFn: (sql) => sqlAdapter.queryJson(sql),
-    target,
-    expectedDestinationId
-  });
+  const attestation = sqlAdapter.attest
+    ? sqlAdapter.attest(target, expectedDestinationId, instanceAttestation)
+    : attestConnectedDatabase({
+        queryFn: (sql) => sqlAdapter.queryJson(sql),
+        target,
+        expectedDestinationId,
+        endpoint: sqlAdapter.getEndpoint ? sqlAdapter.getEndpoint() : null,
+        instanceAttestation
+      });
 
   // 3. Build destination-specific migration plan
   const planObj = buildMigrationPlan(target);

@@ -22,13 +22,16 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import {
   CANONICAL_COMMERCIAL_DDL_SEQUENCE,
   QUARANTINED_STAGING_MIGRATIONS,
   KNOWN_CANONICAL_BASELINE_MIGRATIONS,
   DESTINATION_ALLOWLIST,
+  STAGING_PROJECT_REF,
   buildMigrationPlan,
   verifyManifest,
+  parsePostgresUri,
   attestConnectedDatabase,
   verifyLedgerAndSequence,
   createGovernedSqlAdapter,
@@ -40,10 +43,12 @@ const ROOT_DIR = path.resolve(process.cwd());
 const MIGRATIONS_DIR = path.join(ROOT_DIR, "supabase", "migrations");
 const AUDIT_PATH = path.join(ROOT_DIR, "docs", "delivery", "migration-execution-audit.json");
 
-const CONTAINER_NAME = "ht-disposable-pg-r3";
+const CONTAINER_NAME = "ht-disposable-pg-r3-r1";
 const PG_PORT = 55432;
 const PG_URI = `postgres://postgres:postgres@127.0.0.1:${PG_PORT}/postgres`;
 const PSQL_BIN = "/opt/homebrew/opt/libpq/bin/psql";
+const INSTANCE_ID = `ht-disp-inst-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+const ATTESTATION_TOKEN = crypto.randomBytes(32).toString("hex");
 
 function psql(sql, options = {}) {
   const cmd = `${PSQL_BIN} "${PG_URI}" -q -v ON_ERROR_STOP=1`;
@@ -108,6 +113,33 @@ async function run() {
       CREATE SCHEMA IF NOT EXISTS supabase_migrations;
       CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
       CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+
+      -- Provision Disposable Instance Attestation Table & Record
+      CREATE TABLE IF NOT EXISTS supabase_migrations.disposable_instance_attestation (
+        instance_id text PRIMARY KEY,
+        container_name text NOT NULL,
+        attestation_token text NOT NULL,
+        endpoint_host text NOT NULL,
+        endpoint_port integer NOT NULL,
+        database_name text NOT NULL,
+        provisioned_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      INSERT INTO supabase_migrations.disposable_instance_attestation (
+        instance_id,
+        container_name,
+        attestation_token,
+        endpoint_host,
+        endpoint_port,
+        database_name
+      ) VALUES (
+        '${INSTANCE_ID}',
+        '${CONTAINER_NAME}',
+        '${ATTESTATION_TOKEN}',
+        '127.0.0.1',
+        ${PG_PORT},
+        'postgres'
+      );
 
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon; END IF;
@@ -424,29 +456,57 @@ async function run() {
     console.log(`[PRE-SNAPSHOT] Customers: ${preCustomers.length} (active)`);
     console.log(`[PRE-SNAPSHOT] Ledger:   Debits $${preDebits.debits} = Credits $${preDebits.credits}`);
 
-    // Create Governed SQL Adapter
-    const sqlAdapter = createGovernedSqlAdapter({ pgUri: PG_URI });
+    // Create Governed SQL Adapter with provisioned instance credentials
+    const instanceAttestation = {
+      instanceId: INSTANCE_ID,
+      attestationToken: ATTESTATION_TOKEN,
+      containerName: CONTAINER_NAME
+    };
+    const sqlAdapter = createGovernedSqlAdapter({
+      pgUri: PG_URI,
+      instanceAttestation
+    });
 
     // 6. CONNECTED DATABASE ATTESTATION & DESTINATION SPOOFING NEGATIVE TESTS
     console.log("================================================================");
     console.log("[IDENTITY TESTS] Proving Live Database Attestation & Rejection of Conflicting Identities...");
     console.log("================================================================");
 
+    // Test 0: Execution adapter refuses SQL mutations before positive attestation
+    {
+      let caught = false;
+      let error = "";
+      try {
+        const unverifiedAdapter = createGovernedSqlAdapter({ pgUri: PG_URI });
+        unverifiedAdapter.executeSqlAtomic("SELECT 1;");
+      } catch (err) {
+        caught = true;
+        error = err.message;
+      }
+      if (!caught || !error.includes("Database identity has not been attested")) {
+        throw new Error("FAIL: Un-attested SQL execution adapter allowed mutations!");
+      }
+      console.log(`[PASS] Identity Test 0: Execution adapter refuses SQL mutations before attestation (${error.split("\n")[0]})`);
+      negativeTestResults.push({ test: "MUTATION_BEFORE_ATTESTATION_REFUSED", passed: true, error });
+    }
+
     // Test 1A: Connected database attestation success for valid disposable destination
     {
       const attestation = attestConnectedDatabase({
         queryFn: sqlAdapter.queryJson,
         target: "disposable",
-        expectedDestinationId: "disposable"
+        expectedDestinationId: "disposable",
+        endpoint: sqlAdapter.getEndpoint(),
+        instanceAttestation
       });
       if (!attestation.attested || attestation.databaseName !== "postgres") {
         throw new Error("FAIL: Valid disposable attestation failed!");
       }
-      console.log(`[PASS] Identity Test 1A: Valid disposable DB connection attested (${attestation.databaseName} on port ${attestation.serverPort})`);
+      console.log(`[PASS] Identity Test 1A: Valid disposable DB connection attested (${attestation.databaseName} on host ${attestation.endpointHost}:${attestation.endpointPort}, instance: ${attestation.instanceId})`);
       negativeTestResults.push({ test: "VALID_DISPOSABLE_ATTESTATION", passed: true });
     }
 
-    // Test 1B: Rejection of Destination Spoofing (target=disposable, destinationId=spoofed)
+    // Test 1B: Negative Requirement 1 — Rejection of Non-allowlisted network destination
     {
       let caught = false;
       let error = "";
@@ -454,18 +514,51 @@ async function run() {
         attestConnectedDatabase({
           queryFn: sqlAdapter.queryJson,
           target: "disposable",
-          expectedDestinationId: "staging-spoofed-alias"
+          expectedDestinationId: "disposable",
+          endpoint: { host: "192.168.1.100", port: PG_PORT, database: "postgres" },
+          instanceAttestation
         });
       } catch (err) {
         caught = true;
         error = err.message;
       }
-      if (!caught) throw new Error("FAIL: Destination spoofing was not rejected!");
-      console.log(`[PASS] Identity Test 1B: Destination spoofing rejected (${error})`);
-      negativeTestResults.push({ test: "DESTINATION_SPOOFING_REJECTED", passed: true, error });
+      if (!caught || !error.includes("Prohibited network destination host")) {
+        throw new Error("FAIL: Non-allowlisted network destination was not rejected!");
+      }
+      console.log(`[PASS] Identity Test 1B (Negative Req 1): Non-allowlisted network destination rejected (${error})`);
+      negativeTestResults.push({ test: "NON_ALLOWLISTED_HOST_REJECTED", passed: true, error });
     }
 
-    // Test 1C: Rejection of Target/Destination Cross-Environment Mismatch
+    // Test 1C: Negative Requirement 2 — Rejection of another PostgreSQL instance named 'postgres' (missing attestation table)
+    {
+      let caught = false;
+      let error = "";
+      try {
+        // Temporarily rename the attestation table in the live container to simulate another standard postgres database
+        psql("ALTER TABLE supabase_migrations.disposable_instance_attestation RENAME TO disposable_instance_attestation_bak;");
+        try {
+          attestConnectedDatabase({
+            queryFn: sqlAdapter.queryJson,
+            target: "disposable",
+            expectedDestinationId: "disposable",
+            endpoint: sqlAdapter.getEndpoint(),
+            instanceAttestation
+          });
+        } finally {
+          psql("ALTER TABLE supabase_migrations.disposable_instance_attestation_bak RENAME TO disposable_instance_attestation;");
+        }
+      } catch (err) {
+        caught = true;
+        error = err.message;
+      }
+      if (!caught || !error.includes("Missing disposable instance attestation table")) {
+        throw new Error("FAIL: Another PostgreSQL instance lacking attestation table was not rejected!");
+      }
+      console.log(`[PASS] Identity Test 1C (Negative Req 2): Unprovisioned standard PostgreSQL instance rejected (${error})`);
+      negativeTestResults.push({ test: "UNPROVISIONED_POSTGRES_INSTANCE_REJECTED", passed: true, error });
+    }
+
+    // Test 1D: Negative Requirement 3 — Rejection of an otherwise plausible database on port 5432
     {
       let caught = false;
       let error = "";
@@ -473,37 +566,184 @@ async function run() {
         attestConnectedDatabase({
           queryFn: sqlAdapter.queryJson,
           target: "disposable",
-          expectedDestinationId: "bzuvntbkevvuhfhqhkua" // Staging ID supplied for disposable target
+          expectedDestinationId: "disposable",
+          endpoint: { host: "127.0.0.1", port: 5432, database: "postgres" },
+          instanceAttestation
         });
       } catch (err) {
         caught = true;
         error = err.message;
       }
-      if (!caught) throw new Error("FAIL: Staging project ref on disposable target was not rejected!");
-      console.log(`[PASS] Identity Test 1C: Cross-environment destination collision rejected (${error})`);
-      negativeTestResults.push({ test: "CROSS_ENV_DESTINATION_REJECTED", passed: true, error });
+      if (!caught || !error.includes("Prohibited network destination port")) {
+        throw new Error("FAIL: Port 5432 was not rejected for disposable environment!");
+      }
+      console.log(`[PASS] Identity Test 1D (Negative Req 3): Plausible database on port 5432 rejected (${error})`);
+      negativeTestResults.push({ test: "PORT_5432_COLLISION_REJECTED", passed: true, error });
     }
 
-    // Test 1D: Rejection of Unauthorized Production Execution
+    // Test 1E: Negative Requirement 4 — Rejection of missing or mismatched instance attestation
+    {
+      let caughtMissing = false;
+      let errorMissing = "";
+      try {
+        attestConnectedDatabase({
+          queryFn: sqlAdapter.queryJson,
+          target: "disposable",
+          expectedDestinationId: "disposable",
+          endpoint: sqlAdapter.getEndpoint(),
+          instanceAttestation: null
+        });
+      } catch (err) {
+        caughtMissing = true;
+        errorMissing = err.message;
+      }
+      if (!caughtMissing || !errorMissing.includes("Missing required instance attestation credentials")) {
+        throw new Error("FAIL: Missing instance attestation was not rejected!");
+      }
+
+      let caughtMismatched = false;
+      let errorMismatched = "";
+      try {
+        attestConnectedDatabase({
+          queryFn: sqlAdapter.queryJson,
+          target: "disposable",
+          expectedDestinationId: "disposable",
+          endpoint: sqlAdapter.getEndpoint(),
+          instanceAttestation: {
+            instanceId: INSTANCE_ID,
+            attestationToken: "bad-token-" + crypto.randomBytes(16).toString("hex"),
+            containerName: CONTAINER_NAME
+          }
+        });
+      } catch (err) {
+        caughtMismatched = true;
+        errorMismatched = err.message;
+      }
+      if (!caughtMismatched || !errorMismatched.includes("Disposable instance attestation token mismatch")) {
+        throw new Error("FAIL: Mismatched attestation token was not rejected!");
+      }
+      console.log(`[PASS] Identity Test 1E (Negative Req 4): Missing / mismatched instance attestation rejected (${errorMismatched})`);
+      negativeTestResults.push({ test: "MISMATCHED_ATTESTATION_TOKEN_REJECTED", passed: true, error: errorMismatched });
+    }
+
+    // Test 1F: Negative Requirement 5 — Rejection of caller-supplied disposable label mismatching instance
     {
       let caught = false;
       let error = "";
+      try {
+        attestConnectedDatabase({
+          queryFn: sqlAdapter.queryJson,
+          target: "disposable",
+          expectedDestinationId: "spoofed-disposable-alias",
+          endpoint: sqlAdapter.getEndpoint(),
+          instanceAttestation
+        });
+      } catch (err) {
+        caught = true;
+        error = err.message;
+      }
+      if (!caught || !error.includes("Disposable destination identity mismatch")) {
+        throw new Error("FAIL: Caller-supplied disposable label mismatch was not rejected!");
+      }
+
+      let caughtContainer = false;
+      let errorContainer = "";
+      try {
+        attestConnectedDatabase({
+          queryFn: sqlAdapter.queryJson,
+          target: "disposable",
+          expectedDestinationId: "disposable",
+          endpoint: sqlAdapter.getEndpoint(),
+          instanceAttestation: {
+            instanceId: INSTANCE_ID,
+            attestationToken: ATTESTATION_TOKEN,
+            containerName: "imposter-container-name"
+          }
+        });
+      } catch (err) {
+        caughtContainer = true;
+        errorContainer = err.message;
+      }
+      if (!caughtContainer || !errorContainer.includes("Disposable instance container name mismatch")) {
+        throw new Error("FAIL: Mismatched container identity was not rejected!");
+      }
+      console.log(`[PASS] Identity Test 1F (Negative Req 5): Caller-supplied label and container mismatch rejected (${error})`);
+      negativeTestResults.push({ test: "LABEL_AND_CONTAINER_MISMATCH_REJECTED", passed: true, error });
+    }
+
+    // Test 1G: Negative Requirement 6 — Rejection of Staging or Production presented as disposable
+    {
+      // 6A: Caller passes staging project ref as destinationId
+      let caughtStagingId = false;
+      let errorStagingId = "";
+      try {
+        attestConnectedDatabase({
+          queryFn: sqlAdapter.queryJson,
+          target: "disposable",
+          expectedDestinationId: STAGING_PROJECT_REF,
+          endpoint: sqlAdapter.getEndpoint(),
+          instanceAttestation
+        });
+      } catch (err) {
+        caughtStagingId = true;
+        errorStagingId = err.message;
+      }
+      if (!caughtStagingId || !errorStagingId.includes("Staging or Production connection presented as disposable")) {
+        throw new Error("FAIL: Staging project ref presented as disposable was not rejected!");
+      }
+
+      // 6B: Connected database platform_settings contains staging project ref
+      let caughtStagingDb = false;
+      let errorStagingDb = "";
+      try {
+        psql(`
+          INSERT INTO public.platform_settings (key, category, description, value) VALUES
+            ('app_environment', 'system', 'Staging test marker', '{"project_ref": "${STAGING_PROJECT_REF}", "environment": "staging"}'::jsonb)
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+        `);
+        try {
+          attestConnectedDatabase({
+            queryFn: sqlAdapter.queryJson,
+            target: "disposable",
+            expectedDestinationId: "disposable",
+            endpoint: sqlAdapter.getEndpoint(),
+            instanceAttestation
+          });
+        } finally {
+          psql("DELETE FROM public.platform_settings WHERE key = 'app_environment';");
+        }
+      } catch (err) {
+        caughtStagingDb = true;
+        errorStagingDb = err.message;
+      }
+      if (!caughtStagingDb || !errorStagingDb.includes("reports staging/production environment")) {
+        throw new Error("FAIL: Staging environment reported by platform_settings was not rejected!");
+      }
+
+      // 6C: Production target without authorization
+      let caughtProd = false;
+      let errorProd = "";
       try {
         attestConnectedDatabase({
           queryFn: sqlAdapter.queryJson,
           target: "production",
-          expectedDestinationId: "production-canonical"
+          expectedDestinationId: "production-canonical",
+          endpoint: sqlAdapter.getEndpoint(),
+          instanceAttestation
         });
       } catch (err) {
-        caught = true;
-        error = err.message;
+        caughtProd = true;
+        errorProd = err.message;
       }
-      if (!caught) throw new Error("FAIL: Production execution was not rejected!");
-      console.log(`[PASS] Identity Test 1D: Production execution rejected fail-closed (${error})`);
-      negativeTestResults.push({ test: "PRODUCTION_EXECUTION_BLOCKED", passed: true, error });
+      if (!caughtProd || !errorProd.includes("Production database connections and migrations are strictly prohibited")) {
+        throw new Error("FAIL: Production target without authorization was not rejected!");
+      }
+
+      console.log(`[PASS] Identity Test 1G (Negative Req 6): Staging / Production presented as disposable rejected (${errorStagingId})`);
+      negativeTestResults.push({ test: "STAGING_OR_PROD_AS_DISPOSABLE_REJECTED", passed: true, error: errorStagingId });
     }
 
-    // Test 1E: Rejection of Migration Dependency Gap
+    // Test 1H: Rejection of Migration Dependency Gap
     {
       let caught = false;
       let error = "";
@@ -521,9 +761,16 @@ async function run() {
         error = err.message;
       }
       if (!caught) throw new Error("FAIL: Migration dependency gap was not rejected!");
-      console.log(`[PASS] Identity Test 1E: Migration dependency gap rejected fail-closed (${error})`);
+      console.log(`[PASS] Identity Test 1H: Migration dependency gap rejected fail-closed (${error})`);
       negativeTestResults.push({ test: "DEPENDENCY_GAP_REJECTED", passed: true, error });
     }
+
+    // Positively attest the adapter for governed execution
+    sqlAdapter.attest("disposable", "disposable");
+    if (!sqlAdapter.isAttested()) {
+      throw new Error("FAIL: sqlAdapter.isAttested() was false after calling attest()!");
+    }
+    console.log("[PASS] Governed SQL execution adapter positively attested for disposable execution.");
 
     // 7. CONTROLLED FAILURE & TRANSACTION INTEGRITY TESTS (REAL RUNNER)
     console.log("================================================================");
@@ -605,6 +852,7 @@ async function run() {
       target: "disposable",
       expectedDestinationId: "disposable",
       sqlAdapter,
+      instanceAttestation,
       incrementalFiles: CANONICAL_COMMERCIAL_DDL_SEQUENCE
     });
 
@@ -717,12 +965,14 @@ async function run() {
 
     // 11. RECORD EXECUTION AUDIT EVIDENCE
     const auditRecord = {
-      test_run_id: "HT-MVP-REL-COM-01-R3-DISPOSABLE-" + Date.now(),
+      test_run_id: "HT-MVP-REL-COM-01-R3-R1-DISPOSABLE-" + Date.now(),
       programme: "HealthTimes 2.0 MVP Unified Release",
-      unit_id: "HT-MVP-REL-COM-01-R3",
+      unit_id: "HT-MVP-REL-COM-01-R3-R1",
       timestamp: new Date().toISOString(),
       disposable_environment: {
         container_image: "postgres:17",
+        container_name: CONTAINER_NAME,
+        instance_id: INSTANCE_ID,
         port: PG_PORT,
         status: "VERIFIED_SAFE",
         attestation: execSummary.attestation
@@ -747,10 +997,18 @@ async function run() {
         ledger: postDebits
       },
       results: {
-        connected_database_identity: "VERIFIED_VIA_LIVE_SQL",
+        connected_database_identity: "VERIFIED_VIA_LIVE_SQL_AND_INSTANCE_ATTESTATION",
+        disposable_instance_identity: "VERIFIED",
+        connected_endpoint_attested: "127.0.0.1:55432/postgres",
+        non_allowlisted_destination_rejected: true,
+        same_name_port_collision_rejected: true,
+        staging_as_disposable_rejected: true,
+        production_as_disposable_rejected: true,
+        missing_identity_rejected: true,
         destination_spoofing_rejected: true,
         cross_env_destination_rejected: true,
         production_execution_blocked: true,
+        governed_execution_adapter_mutation_gate: "ENFORCED",
         per_migration_atomicity_proven: true,
         ledger_update_atomicity_proven: true,
         partial_failure_recovery_clean: true,
@@ -766,7 +1024,7 @@ async function run() {
     console.log(`[AUDIT] Execution audit evidence written to: ${AUDIT_PATH}`);
 
     console.log("================================================================");
-    console.log("R3 REAL-RUNNER SAFETY PROOF: ALL ATTESTATION & ATOMICITY TESTS PASSED.");
+    console.log("R3-R1 REAL-RUNNER SAFETY PROOF: ALL ATTESTATION & ATOMICITY TESTS PASSED.");
     console.log("================================================================");
   } finally {
     console.log(`[DOCKER] Cleaning up disposable container (${CONTAINER_NAME})...`);

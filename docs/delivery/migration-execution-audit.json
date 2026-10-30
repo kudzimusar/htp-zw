@@ -1,10 +1,12 @@
 {
-  "test_run_id": "HT-MVP-REL-COM-01-R3-DISPOSABLE-1793340152477",
+  "test_run_id": "HT-MVP-REL-COM-01-R3-R1-DISPOSABLE-1793342827375",
   "programme": "HealthTimes 2.0 MVP Unified Release",
-  "unit_id": "HT-MVP-REL-COM-01-R3",
-  "timestamp": "2026-10-30T06:02:32.477Z",
+  "unit_id": "HT-MVP-REL-COM-01-R3-R1",
+  "timestamp": "2026-10-30T06:47:07.375Z",
   "disposable_environment": {
     "container_image": "postgres:17",
+    "container_name": "ht-disposable-pg-r3-r1",
+    "instance_id": "ht-disp-inst-1793342820095-5b495b4c",
     "port": 55432,
     "status": "VERIFIED_SAFE",
     "attestation": {
@@ -14,28 +16,52 @@
       "databaseName": "postgres",
       "serverAddress": "172.17.0.6/32",
       "serverPort": 5432,
-      "attestedAt": "2026-10-30T06:02:31.859Z"
+      "endpointHost": "127.0.0.1",
+      "endpointPort": 55432,
+      "instanceId": "ht-disp-inst-1793342820095-5b495b4c",
+      "containerName": "ht-disposable-pg-r3-r1",
+      "attestedAt": "2026-10-30T06:47:06.705Z"
     }
   },
   "identity_and_negative_tests": [
+    {
+      "test": "MUTATION_BEFORE_ATTESTATION_REFUSED",
+      "passed": true,
+      "error": "CRITICAL_FAIL_CLOSED: Governed SQL execution adapter refused execution: Database identity has not been attested. All mutations require positive database identity attestation."
+    },
     {
       "test": "VALID_DISPOSABLE_ATTESTATION",
       "passed": true
     },
     {
-      "test": "DESTINATION_SPOOFING_REJECTED",
+      "test": "NON_ALLOWLISTED_HOST_REJECTED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [disposable, ht-disposable-pg, localhost-test], got \"staging-spoofed-alias\""
+      "error": "CRITICAL_FAIL_CLOSED: Prohibited network destination host for disposable database: \"192.168.1.100\". Host must be in [127.0.0.1, localhost, ::1]."
     },
     {
-      "test": "CROSS_ENV_DESTINATION_REJECTED",
+      "test": "UNPROVISIONED_POSTGRES_INSTANCE_REJECTED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [disposable, ht-disposable-pg, localhost-test], got \"bzuvntbkevvuhfhqhkua\""
+      "error": "CRITICAL_FAIL_CLOSED: Missing disposable instance attestation table (supabase_migrations.disposable_instance_attestation) in connected database. Connected database is not a provisioned disposable test instance."
     },
     {
-      "test": "PRODUCTION_EXECUTION_BLOCKED",
+      "test": "PORT_5432_COLLISION_REJECTED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Production database connections and migrations are strictly prohibited in this release certification task (PRODUCTION_MIGRATIONS_AUTHORIZED=false)."
+      "error": "CRITICAL_FAIL_CLOSED: Prohibited network destination port for disposable database: 5432. Port must be in [55432, 54322]. Standard port 5432 is prohibited to prevent collision with other PostgreSQL instances."
+    },
+    {
+      "test": "MISMATCHED_ATTESTATION_TOKEN_REJECTED",
+      "passed": true,
+      "error": "CRITICAL_FAIL_CLOSED: Disposable instance attestation token mismatch for instance \"ht-disp-inst-1793342820095-5b495b4c\". Connected database does not match the provisioned test instance."
+    },
+    {
+      "test": "LABEL_AND_CONTAINER_MISMATCH_REJECTED",
+      "passed": true,
+      "error": "CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [disposable, ht-disposable-pg, localhost-test], got \"spoofed-disposable-alias\""
+    },
+    {
+      "test": "STAGING_OR_PROD_AS_DISPOSABLE_REJECTED",
+      "passed": true,
+      "error": "CRITICAL_FAIL_CLOSED: Destination identity conflict! Staging or Production connection presented as disposable."
     },
     {
       "test": "DEPENDENCY_GAP_REJECTED",
@@ -52,7 +78,7 @@
     }
   ],
   "governed_execution_summary": {
-    "execution_id": "HT-GOV-EXEC-1793340152114",
+    "execution_id": "HT-GOV-EXEC-1793342827025",
     "status": "SUCCESS",
     "target": "disposable",
     "destinationId": "disposable",
@@ -63,7 +89,11 @@
       "databaseName": "postgres",
       "serverAddress": "172.17.0.6/32",
       "serverPort": 5432,
-      "attestedAt": "2026-10-30T06:02:31.859Z"
+      "endpointHost": "127.0.0.1",
+      "endpointPort": 55432,
+      "instanceId": "ht-disp-inst-1793342820095-5b495b4c",
+      "containerName": "ht-disposable-pg-r3-r1",
+      "attestedAt": "2026-10-30T06:47:06.705Z"
     },
     "total_applied": 6,
     "applied_migrations": [
@@ -71,51 +101,51 @@
         "file": "20261029020000_ht_mvp_com_final01_operational_completion.sql",
         "version": "20261029020000",
         "sha256": "10f83f9f0b262d8e535658ccd48feedb04aaa2ed746d80fcf8425df3b9b53832",
-        "durationMs": 44,
-        "appliedAt": "2026-10-30T06:02:31.944Z"
+        "durationMs": 40,
+        "appliedAt": "2026-10-30T06:47:06.786Z"
       },
       {
         "file": "20261029040000_ht_mvp_com_final01_r1_privilege_hardening.sql",
         "version": "20261029040000",
         "sha256": "65d3f5f6518b6a727a9d5ffe9c1f79331e2ea2e7f88f1e302c666d1ac5643779",
-        "durationMs": 41,
-        "appliedAt": "2026-10-30T06:02:31.985Z"
+        "durationMs": 37,
+        "appliedAt": "2026-10-30T06:47:06.823Z"
       },
       {
         "file": "20261029050000_ht_mvp_com_final01_r1_idempotency_fix.sql",
         "version": "20261029050000",
         "sha256": "33c47de725f0763e6e2d52e7546b8ac8cc0cd00acfbfb7fd9175c3400bed1d50",
-        "durationMs": 33,
-        "appliedAt": "2026-10-30T06:02:32.018Z"
+        "durationMs": 34,
+        "appliedAt": "2026-10-30T06:47:06.858Z"
       },
       {
         "file": "20261029060000_ht_mvp_com_final01_r2_r1_statement_reversal_parity.sql",
         "version": "20261029060000",
         "sha256": "5a7e84868390a9e54ca72233f07c5d1f2f4531658d35093f237c813512b8f726",
-        "durationMs": 33,
-        "appliedAt": "2026-10-30T06:02:32.051Z"
+        "durationMs": 37,
+        "appliedAt": "2026-10-30T06:47:06.895Z"
       },
       {
         "file": "20261029070000_ht_mvp_com_final01_r2_r1_invoice_line_casing_tolerance.sql",
         "version": "20261029070000",
         "sha256": "134c103273d0017e535ea7f13874b89a2a432874ff08f641f6933180ccfcbfa2",
-        "durationMs": 32,
-        "appliedAt": "2026-10-30T06:02:32.083Z"
+        "durationMs": 33,
+        "appliedAt": "2026-10-30T06:47:06.929Z"
       },
       {
         "file": "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql",
         "version": "20261030100000",
         "sha256": "c5d75f8f0ada98c482fccf2d4f4fad0e4f87686ad08b337f4bab7796ba30df3b",
-        "durationMs": 31,
-        "appliedAt": "2026-10-30T06:02:32.114Z"
+        "durationMs": 96,
+        "appliedAt": "2026-10-30T06:47:07.025Z"
       }
     ],
     "quarantined_migrations_excluded": [
       "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql",
       "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql"
     ],
-    "duration_ms": 312,
-    "timestamp": "2026-10-30T06:02:32.114Z"
+    "duration_ms": 458,
+    "timestamp": "2026-10-30T06:47:07.025Z"
   },
   "pre_migration_state": {
     "invoices": [
@@ -322,10 +352,18 @@
     }
   },
   "results": {
-    "connected_database_identity": "VERIFIED_VIA_LIVE_SQL",
+    "connected_database_identity": "VERIFIED_VIA_LIVE_SQL_AND_INSTANCE_ATTESTATION",
+    "disposable_instance_identity": "VERIFIED",
+    "connected_endpoint_attested": "127.0.0.1:55432/postgres",
+    "non_allowlisted_destination_rejected": true,
+    "same_name_port_collision_rejected": true,
+    "staging_as_disposable_rejected": true,
+    "production_as_disposable_rejected": true,
+    "missing_identity_rejected": true,
     "destination_spoofing_rejected": true,
     "cross_env_destination_rejected": true,
     "production_execution_blocked": true,
+    "governed_execution_adapter_mutation_gate": "ENFORCED",
     "per_migration_atomicity_proven": true,
     "ledger_update_atomicity_proven": true,
     "partial_failure_recovery_clean": true,

@@ -264,4 +264,58 @@ The governor execution engine employs a dedicated SQL execution adapter (`create
   5. Controlled sentinel financial records ($4,000 GL balance) remain completely intact.
 - **Transactional Architecture Distinction:** Per-migration atomicity guarantees that individual migration files succeed completely or fail completely with zero partial schema mutation. Whole-release rollback is governed by dependency checking and sequential integrity, preventing execution from continuing past a failed step.
 
+---
+
+## 9. R3-R1 Remediation: Final Disposable Database Identity Boundary
+
+### 9.1 Root Cause & Security Defect Resolution
+The independent Moderator review identified that relying solely on server-reported internal listening ports (`inet_server_port()`) and database names could not conclusively distinguish the authorized, provisioned test instance from another local PostgreSQL instance running on port 5432 with database `postgres`. Because Docker maps port 55432 to internal container port 5432, server-internal queries reported 5432, masking the external connection endpoint.
+
+To establish an unbreachable identity boundary, HT-MVP-REL-COM-01-R3-R1 introduced a three-fold independent evidence attestation framework:
+
+1. **Independent Connection Endpoint Verification (`parsePostgresUri`):**
+   - Parses the actual connection URI endpoint components (`host`, `port`, `database`).
+   - Enforces `allowed_hosts: ["127.0.0.1", "localhost", "::1"]`.
+   - Enforces `allowed_ports: [55432, 54322]`. Standard PostgreSQL port 5432 is strictly prohibited for disposable execution to prevent same-name/same-port collisions.
+   - Enforces `allowed_databases: ["postgres", "healthtimes_test", "ht_disposable"]`.
+
+2. **Instance-Specific Database Attestation Token (`supabase_migrations.disposable_instance_attestation`):**
+   - Controlled container provisioning establishes an isolated database attestation table containing:
+     * `instance_id`: Unique timestamped instance identifier (`ht-disp-inst-...`).
+     * `container_name`: Exact Docker container identity (`ht-disposable-pg-r3-r1`).
+     * `attestation_token`: Cryptographically random 256-bit token (`crypto.randomBytes(32).toString('hex')`).
+     * `endpoint_host` and `endpoint_port`: Verified connection endpoint coordinates.
+   - The migration governor queries this table and matches all credentials before certifying database identity.
+
+3. **Governed SQL Execution Adapter Mutation Gate:**
+   - `createGovernedSqlAdapter` tracks an internal `isAttested` lifecycle state.
+   - Any invocation of `executeSqlAtomic(sql)` without prior positive attestation throws `CRITICAL_FAIL_CLOSED: Governed SQL execution adapter refused execution: Database identity has not been attested`.
+   - Prevents un-attested connections from executing mutations.
+
+### 9.2 Mandatory Negative Verification Matrix (All 6 Scenarios Proven)
+In `tests/migration/migration-governor.test.mjs` and live container runner `scripts/release/disposable-env-runner.mjs`, all mandatory negative verification tests were executed and proven:
+
+| Requirement | Failure Scenario | Live Rejection Proof | Result |
+| :--- | :--- | :--- | :---: |
+| **Negative Req 1** | Non-allowlisted network destination (`192.168.1.100`) | `CRITICAL_FAIL_CLOSED: Prohibited network destination host for disposable database: "192.168.1.100"` | **PASS** |
+| **Negative Req 2** | Another PostgreSQL instance named `postgres` lacking attestation | `CRITICAL_FAIL_CLOSED: Missing disposable instance attestation table (supabase_migrations.disposable_instance_attestation)` | **PASS** |
+| **Negative Req 3** | Otherwise plausible database on standard port 5432 | `CRITICAL_FAIL_CLOSED: Prohibited network destination port for disposable database: 5432` | **PASS** |
+| **Negative Req 4** | Missing or mismatched instance attestation credentials | `CRITICAL_FAIL_CLOSED: Disposable instance attestation token mismatch for instance...` | **PASS** |
+| **Negative Req 5** | Caller-supplied disposable label or container mismatch | `CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [disposable, ...]` | **PASS** |
+| **Negative Req 6** | Staging or Production connection presented as disposable | `CRITICAL_FAIL_CLOSED: Destination identity conflict! Staging or Production connection presented as disposable` / reports staging | **PASS** |
+| **Mutation Gate** | Un-attested adapter SQL mutation attempt | `CRITICAL_FAIL_CLOSED: Governed SQL execution adapter refused execution: Database identity has not been attested` | **PASS** |
+
+### 9.3 Invariant & Financial Sentinel Preservation
+Post-migration verification in the attested disposable container confirmed all 9 release safety invariants remain 100% intact:
+- **GL Balance:** Debits $4,000.00 = Credits $4,000.00 (Zero discrepancy).
+- **Invoices:** 4/4 remain `issued` (0 voided).
+- **Orders:** 5/5 remain `approved` (0 cancelled).
+- **Expenses:** 4/4 remain `approved` (0 voided).
+- **Journals:** 4/4 remain `posted` (0 reversed).
+- **Customer:** Sentinel customer remains `active`.
+- **Reconciler RPC:** Confirmed dropped from public schema.
+- **Sessions:** Auth sessions preserved.
+- **Policy:** Registered in `platform_settings` as `EXCLUDE_STAGING_UAT_RECONCILIATION`.
+
+
 

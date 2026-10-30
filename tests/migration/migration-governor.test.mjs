@@ -6,7 +6,9 @@ import {
   scanMigrationCatalog,
   buildMigrationPlan,
   verifyManifest,
+  parsePostgresUri,
   attestConnectedDatabase,
+  createGovernedSqlAdapter,
   verifyLedgerAndSequence,
   wrapMigrationSqlWithAtomicLedger,
   QUARANTINED_STAGING_MIGRATIONS,
@@ -66,48 +68,203 @@ test("GOVERNOR: Tamper detection fails immediately on modified migration content
   }
 });
 
-test("GOVERNOR: Database attestation rejects destination spoofing and conflicting identities", () => {
-  const mockQueryFn = () => [
+test("GOVERNOR: PostgreSQL URI parsing extracts verified endpoint components", () => {
+  const parsed = parsePostgresUri("postgres://postgres:secret@127.0.0.1:55432/postgres");
+  assert.equal(parsed.host, "127.0.0.1");
+  assert.equal(parsed.port, 55432);
+  assert.equal(parsed.database, "postgres");
+  assert.equal(parsed.username, "postgres");
+
+  const defaultPort = parsePostgresUri("postgres://app_user:pwd@localhost/healthtimes_test");
+  assert.equal(defaultPort.host, "localhost");
+  assert.equal(defaultPort.port, 5432);
+  assert.equal(defaultPort.database, "healthtimes_test");
+
+  assert.throws(() => parsePostgresUri(""), /Missing or invalid PostgreSQL connection URI/);
+  assert.throws(() => parsePostgresUri("http://127.0.0.1:5432/db"), /Invalid protocol/);
+});
+
+test("GOVERNOR: Database attestation verifies trusted instance identity and rejects spoofing/unauthorized endpoints", () => {
+  const instanceId = "test-instance-001";
+  const attestationToken = "crypto-test-token-abcdef123456";
+  const containerName = "ht-disposable-pg-test";
+
+  const mockQueryFn = (sql) => {
+    if (sql.includes("disposable_instance_attestation") && sql.includes("SELECT instance_id")) {
+      return [
+        {
+          instance_id: instanceId,
+          container_name: containerName,
+          attestation_token: attestationToken,
+          endpoint_host: "127.0.0.1",
+          endpoint_port: 55432,
+          database_name: "postgres",
+          provisioned_at: new Date().toISOString()
+        }
+      ];
+    }
+    return [
+      {
+        database_name: "postgres",
+        session_user: "postgres",
+        server_address: "127.0.0.1",
+        server_port: 5432, // Internal listening port inside container
+        has_migrations_schema: 1,
+        has_attestation_table: 1,
+        platform_env: "",
+        env_name: "",
+        migration_policy: ""
+      }
+    ];
+  };
+
+  const validEndpoint = {
+    host: "127.0.0.1",
+    port: 55432,
+    database: "postgres"
+  };
+
+  const validAttestation = {
+    instanceId,
+    attestationToken,
+    containerName
+  };
+
+  // 1. Valid disposable attestation
+  const valid = attestConnectedDatabase({
+    queryFn: mockQueryFn,
+    target: "disposable",
+    expectedDestinationId: "disposable",
+    endpoint: validEndpoint,
+    instanceAttestation: validAttestation
+  });
+  assert.equal(valid.attested, true);
+  assert.equal(valid.instanceId, instanceId);
+  assert.equal(valid.containerName, containerName);
+  assert.equal(valid.endpointPort, 55432);
+
+  // 2. Negative Test 1: Non-allowlisted network destination
+  assert.throws(
+    () => attestConnectedDatabase({
+      queryFn: mockQueryFn,
+      target: "disposable",
+      expectedDestinationId: "disposable",
+      endpoint: { host: "192.168.1.100", port: 55432, database: "postgres" },
+      instanceAttestation: validAttestation
+    }),
+    /CRITICAL_FAIL_CLOSED: Prohibited network destination host for disposable database: "192.168.1.100"/
+  );
+
+  // 3. Negative Test 2: Another PostgreSQL instance named 'postgres' without attestation table
+  const unprovisionedMockQueryFn = (sql) => [
     {
       database_name: "postgres",
       session_user: "postgres",
       server_address: "127.0.0.1",
-      server_port: 55432,
+      server_port: 5432,
       has_migrations_schema: 1,
+      has_attestation_table: 0, // Attestation table absent!
       platform_env: "",
+      env_name: "",
       migration_policy: ""
     }
   ];
+  assert.throws(
+    () => attestConnectedDatabase({
+      queryFn: unprovisionedMockQueryFn,
+      target: "disposable",
+      expectedDestinationId: "disposable",
+      endpoint: validEndpoint,
+      instanceAttestation: validAttestation
+    }),
+    /CRITICAL_FAIL_CLOSED: Missing disposable instance attestation table/
+  );
 
-  // Valid disposable attestation
-  const valid = attestConnectedDatabase({
-    queryFn: mockQueryFn,
-    target: "disposable",
-    expectedDestinationId: "disposable"
-  });
-  assert.equal(valid.attested, true);
-
-  // Spoofed destination ID
+  // 4. Negative Test 3: Otherwise plausible database on port 5432
   assert.throws(
     () => attestConnectedDatabase({
       queryFn: mockQueryFn,
       target: "disposable",
-      expectedDestinationId: "spoofed-alias"
+      expectedDestinationId: "disposable",
+      endpoint: { host: "127.0.0.1", port: 5432, database: "postgres" },
+      instanceAttestation: validAttestation
+    }),
+    /CRITICAL_FAIL_CLOSED: Prohibited network destination port for disposable database: 5432/
+  );
+
+  // 5. Negative Test 4: Missing or mismatched instance attestation
+  assert.throws(
+    () => attestConnectedDatabase({
+      queryFn: mockQueryFn,
+      target: "disposable",
+      expectedDestinationId: "disposable",
+      endpoint: validEndpoint,
+      instanceAttestation: null
+    }),
+    /CRITICAL_FAIL_CLOSED: Missing required instance attestation credentials/
+  );
+
+  assert.throws(
+    () => attestConnectedDatabase({
+      queryFn: mockQueryFn,
+      target: "disposable",
+      expectedDestinationId: "disposable",
+      endpoint: validEndpoint,
+      instanceAttestation: { instanceId, attestationToken: "wrong-token-value", containerName }
+    }),
+    /CRITICAL_FAIL_CLOSED: Disposable instance attestation token mismatch/
+  );
+
+  // 6. Negative Test 5: Caller-supplied disposable label mismatch
+  assert.throws(
+    () => attestConnectedDatabase({
+      queryFn: mockQueryFn,
+      target: "disposable",
+      expectedDestinationId: "spoofed-disposable-label",
+      endpoint: validEndpoint,
+      instanceAttestation: validAttestation
     }),
     /CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch/
   );
 
-  // Staging project ref on disposable target
+  // 7. Negative Test 6: Staging or Production presented as disposable
   assert.throws(
     () => attestConnectedDatabase({
       queryFn: mockQueryFn,
       target: "disposable",
-      expectedDestinationId: STAGING_PROJECT_REF
+      expectedDestinationId: STAGING_PROJECT_REF,
+      endpoint: validEndpoint,
+      instanceAttestation: validAttestation
     }),
-    /CRITICAL_FAIL_CLOSED/
+    /CRITICAL_FAIL_CLOSED: Destination identity conflict! Staging or Production connection presented as disposable/
   );
 
-  // Production target without authorization
+  // 8. Negative Test 6B: Staging environment reported by connected database platform_settings
+  const stagingConnectedMockQueryFn = () => [
+    {
+      database_name: "postgres",
+      session_user: "postgres",
+      server_address: "127.0.0.1",
+      server_port: 5432,
+      has_migrations_schema: 1,
+      has_attestation_table: 1,
+      platform_env: STAGING_PROJECT_REF, // Staging project ref!
+      env_name: "staging",
+      migration_policy: ""
+    }
+  ];
+  assert.throws(
+    () => attestConnectedDatabase({
+      queryFn: stagingConnectedMockQueryFn,
+      target: "disposable",
+      expectedDestinationId: "disposable",
+      endpoint: validEndpoint,
+      instanceAttestation: validAttestation
+    }),
+    /CRITICAL_FAIL_CLOSED: Destination identity conflict! Connected database reports staging\/production environment/
+  );
+
+  // 9. Unauthorized Production Target
   assert.throws(
     () => attestConnectedDatabase({
       queryFn: mockQueryFn,
@@ -115,6 +272,18 @@ test("GOVERNOR: Database attestation rejects destination spoofing and conflictin
       expectedDestinationId: "production-canonical"
     }),
     /CRITICAL_FAIL_CLOSED: Production database connections and migrations are strictly prohibited/
+  );
+});
+
+test("GOVERNOR: Governed SQL execution adapter refuses mutations before positive attestation", () => {
+  const adapter = createGovernedSqlAdapter({
+    pgUri: "postgres://postgres:postgres@127.0.0.1:55432/postgres"
+  });
+
+  assert.equal(adapter.isAttested(), false);
+  assert.throws(
+    () => adapter.executeSqlAtomic("SELECT 1;"),
+    /CRITICAL_FAIL_CLOSED: Governed SQL execution adapter refused execution: Database identity has not been attested/
   );
 });
 
