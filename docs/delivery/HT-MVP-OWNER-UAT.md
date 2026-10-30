@@ -2,10 +2,14 @@
 ## Physical Verification Checklist Across All 7 Operating Personas
 
 - **Document ID:** `HT-MVP-OWNER-UAT`
-- **Release Candidate:** `release/ht-mvp-rc02-final-unified-candidate`
-- **Controlling Base SHA:** `d5af42d6b7018dfd3451ac9d621482e0edf9664f`
+- **Unit ID:** `HT-MVP-CLIENT-READINESS-01`
+- **Programme:** HealthTimes 2.0 — Final Unified MVP
+- **Accepted Governance SHA:** `3df501f8280ac6e983f3f640b70dc049626aa52b`
+- **Application Preview SHA:** `126f81c65e24d30167deb21c06c598e39bf8ea10`
+- **Application Preview URL:** `https://healthtimes-staging-czazp4yi8-11-11.vercel.app`
+- **Staging Supabase:** `bzuvntbkevvuhfhqhkua`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Section 45
-- **Target Delivery Date:** 24 October 2026
+- **Delivery Date:** 30 October 2026
 
 ---
 
@@ -14,9 +18,9 @@
 The Human Owner (Kudzai Musarurwa) performs physical acceptance testing across all **seven operational personas** using the interactive preview server. Each test item requires the Owner to execute a specific user journey, verify expected UI feedback, and confirm that role security boundaries are strictly enforced.
 
 **Testing Environment:**
-- Preview URL: `http://localhost:8099` (Reader) and `http://localhost:8099/studio` (Newsroom OS)
-- Database: Supabase Staging `gcdohgbmqhqwydgaxrcr`
-- Primary Owner Identity: `kudzimusar@gmail.com`
+- Preview URL: `https://healthtimes-staging-czazp4yi8-11-11.vercel.app` (Reader) and `/studio` (Newsroom OS)
+- Database: Supabase Staging `bzuvntbkevvuhfhqhkua` (110 applied migrations)
+- Primary Owner Identity: `kudzimusar@gmail.com` (Requires physical activation at `/studio/activate`)
 
 ---
 
