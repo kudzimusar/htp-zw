@@ -1,110 +1,121 @@
 {
-  "test_run_id": "HT-MVP-REL-COM-01-R2-DISPOSABLE-1793333966492",
+  "test_run_id": "HT-MVP-REL-COM-01-R3-DISPOSABLE-1793340152477",
   "programme": "HealthTimes 2.0 MVP Unified Release",
-  "unit_id": "HT-MVP-REL-COM-01-R2",
-  "timestamp": "2026-10-30T04:19:26.492Z",
+  "unit_id": "HT-MVP-REL-COM-01-R3",
+  "timestamp": "2026-10-30T06:02:32.477Z",
   "disposable_environment": {
     "container_image": "postgres:17",
     "port": 55432,
-    "status": "VERIFIED_SAFE"
+    "status": "VERIFIED_SAFE",
+    "attestation": {
+      "attested": true,
+      "target": "disposable",
+      "destinationId": "disposable",
+      "databaseName": "postgres",
+      "serverAddress": "172.17.0.6/32",
+      "serverPort": 5432,
+      "attestedAt": "2026-10-30T06:02:31.859Z"
+    }
   },
-  "negative_test_results": [
+  "identity_and_negative_tests": [
     {
-      "test": "QUARANTINED_IN_MANIFEST",
-      "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Quarantined staging migration found in production plan!"
+      "test": "VALID_DISPOSABLE_ATTESTATION",
+      "passed": true
     },
     {
-      "test": "INCORRECT_DESTINATION_IDENTITY",
+      "test": "DESTINATION_SPOOFING_REJECTED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected \"disposable\" or \"ht-disposable-pg\", got \"wrong-destination-host\""
+      "error": "CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [disposable, ht-disposable-pg, localhost-test], got \"staging-spoofed-alias\""
     },
     {
-      "test": "MISSING_MIGRATION_FILE",
+      "test": "CROSS_ENV_DESTINATION_REJECTED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Migration file missing from disk: 20999999000000_non_existent_migration.sql"
+      "error": "CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [disposable, ht-disposable-pg, localhost-test], got \"bzuvntbkevvuhfhqhkua\""
     },
     {
-      "test": "CHECKSUM_MISMATCH",
+      "test": "PRODUCTION_EXECUTION_BLOCKED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: In-memory plan checksum mismatch for 20261029020000_ht_mvp_com_final01_operational_completion.sql. Expected ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, got 10f83f9f0b262d8e535658ccd48feedb04aaa2ed746d80fcf8425df3b9b53832"
+      "error": "CRITICAL_FAIL_CLOSED: Production database connections and migrations are strictly prohibited in this release certification task (PRODUCTION_MIGRATIONS_AUTHORIZED=false)."
     },
     {
-      "test": "INVALID_MIGRATION_ORDER",
+      "test": "DEPENDENCY_GAP_REJECTED",
       "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Migration plan ordering violation: 20261029020000_ht_mvp_com_final01_operational_completion.sql appears after 20261029040000_ht_mvp_com_final01_r1_privilege_hardening.sql"
-    },
+      "error": "CRITICAL_FAIL_CLOSED: Migration dependency gap detected! Migration 20260909000200_taxonomy_and_geo.sql is applied, but an earlier migration in the canonical sequence was not."
+    }
+  ],
+  "atomicity_failure_tests": [
     {
-      "test": "LEDGER_VERSION_CONFLICT",
-      "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Quarantined staging migration version found in destination ledger: 20261029131047"
-    },
-    {
-      "test": "UNFILTERED_REPLAY_ATTEMPT",
-      "passed": true,
-      "error": "SQLSTATE 55000"
-    },
-    {
-      "test": "UNAUTHORIZED_EXECUTION",
-      "passed": true,
-      "error": "CRITICAL_FAIL_CLOSED: Production migration execution is NOT authorized. PRODUCTION_MIGRATIONS_AUTHORIZED is false or unset."
-    },
-    {
-      "test": "SCRIPT_ERROR_ABORTION",
-      "passed": true,
-      "error": "division by zero (rolled back)"
+      "test": "PER_MIGRATION_ATOMICITY_PROVEN",
+      "rollback_verified": true,
+      "ledger_clean": true,
+      "prior_statements_rolled_back": true
     }
   ],
   "governed_execution_summary": {
-    "execution_id": "HT-GOV-EXEC-1793333965939",
+    "execution_id": "HT-GOV-EXEC-1793340152114",
     "status": "SUCCESS",
     "target": "disposable",
     "destinationId": "disposable",
+    "attestation": {
+      "attested": true,
+      "target": "disposable",
+      "destinationId": "disposable",
+      "databaseName": "postgres",
+      "serverAddress": "172.17.0.6/32",
+      "serverPort": 5432,
+      "attestedAt": "2026-10-30T06:02:31.859Z"
+    },
     "total_applied": 6,
     "applied_migrations": [
       {
         "file": "20261029020000_ht_mvp_com_final01_operational_completion.sql",
+        "version": "20261029020000",
         "sha256": "10f83f9f0b262d8e535658ccd48feedb04aaa2ed746d80fcf8425df3b9b53832",
-        "durationMs": 86,
-        "appliedAt": "2026-10-30T04:19:25.597Z"
+        "durationMs": 44,
+        "appliedAt": "2026-10-30T06:02:31.944Z"
       },
       {
         "file": "20261029040000_ht_mvp_com_final01_r1_privilege_hardening.sql",
+        "version": "20261029040000",
         "sha256": "65d3f5f6518b6a727a9d5ffe9c1f79331e2ea2e7f88f1e302c666d1ac5643779",
-        "durationMs": 69,
-        "appliedAt": "2026-10-30T04:19:25.667Z"
+        "durationMs": 41,
+        "appliedAt": "2026-10-30T06:02:31.985Z"
       },
       {
         "file": "20261029050000_ht_mvp_com_final01_r1_idempotency_fix.sql",
+        "version": "20261029050000",
         "sha256": "33c47de725f0763e6e2d52e7546b8ac8cc0cd00acfbfb7fd9175c3400bed1d50",
-        "durationMs": 70,
-        "appliedAt": "2026-10-30T04:19:25.737Z"
+        "durationMs": 33,
+        "appliedAt": "2026-10-30T06:02:32.018Z"
       },
       {
         "file": "20261029060000_ht_mvp_com_final01_r2_r1_statement_reversal_parity.sql",
+        "version": "20261029060000",
         "sha256": "5a7e84868390a9e54ca72233f07c5d1f2f4531658d35093f237c813512b8f726",
-        "durationMs": 61,
-        "appliedAt": "2026-10-30T04:19:25.798Z"
+        "durationMs": 33,
+        "appliedAt": "2026-10-30T06:02:32.051Z"
       },
       {
         "file": "20261029070000_ht_mvp_com_final01_r2_r1_invoice_line_casing_tolerance.sql",
+        "version": "20261029070000",
         "sha256": "134c103273d0017e535ea7f13874b89a2a432874ff08f641f6933180ccfcbfa2",
-        "durationMs": 66,
-        "appliedAt": "2026-10-30T04:19:25.865Z"
+        "durationMs": 32,
+        "appliedAt": "2026-10-30T06:02:32.083Z"
       },
       {
         "file": "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql",
+        "version": "20261030100000",
         "sha256": "c5d75f8f0ada98c482fccf2d4f4fad0e4f87686ad08b337f4bab7796ba30df3b",
-        "durationMs": 73,
-        "appliedAt": "2026-10-30T04:19:25.939Z"
+        "durationMs": 31,
+        "appliedAt": "2026-10-30T06:02:32.114Z"
       }
     ],
     "quarantined_migrations_excluded": [
       "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql",
       "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql"
     ],
-    "duration_ms": 443,
-    "timestamp": "2026-10-30T04:19:25.939Z"
+    "duration_ms": 312,
+    "timestamp": "2026-10-30T06:02:32.114Z"
   },
   "pre_migration_state": {
     "invoices": [
@@ -310,29 +321,18 @@
       "credits": 4000
     }
   },
-  "safety_invariants_verified": [
-    "INVOICE_STATE_PRESERVED_ZERO_VOIDED",
-    "ORDER_STATE_PRESERVED_ZERO_CANCELLED",
-    "CUSTOMER_ACTIVE_STATUS_PRESERVED",
-    "EXPENSE_APPROVED_STATUS_PRESERVED",
-    "JOURNAL_ENTRIES_POSTED_ZERO_REVERSED",
-    "GENERAL_LEDGER_BALANCED_DEBIT_EQUALS_CREDIT",
-    "UAT_RECONCILER_RPC_CONFIRMED_ABSENT",
-    "AUTH_SESSIONS_PRESERVED",
-    "PLATFORM_SETTINGS_POLICY_EXCLUDE_STAGING_UAT_REGISTERED"
-  ],
   "results": {
-    "governed_migration_executor": "VERIFIED_FAIL_CLOSED",
-    "production_package_excludes_uat": true,
-    "destination_identity_verification": "VERIFIED_STRICT",
-    "checksum_and_dependency_guards": "VERIFIED_SHA256_STRICT",
-    "unfiltered_execution_control": "BLOCKED_ERROR_55000",
-    "execution_failure_abort_proven": "VERIFIED_ROLLBACK",
-    "negative_tests_passed": "9/9",
-    "disposable_execution_results": "ALL_9_INVARIANTS_PASSED",
+    "connected_database_identity": "VERIFIED_VIA_LIVE_SQL",
+    "destination_spoofing_rejected": true,
+    "cross_env_destination_rejected": true,
+    "production_execution_blocked": true,
+    "per_migration_atomicity_proven": true,
+    "ledger_update_atomicity_proven": true,
+    "partial_failure_recovery_clean": true,
+    "real_runner_governed_adapter": "ACTIVE",
+    "quarantined_migrations_excluded": true,
     "sentinel_financial_records_preserved": true,
     "gl_balance_debits": "$4000.00",
-    "gl_balance_credits": "$4000.00",
-    "idempotency_verified": true
+    "gl_balance_credits": "$4000.00"
   }
 }

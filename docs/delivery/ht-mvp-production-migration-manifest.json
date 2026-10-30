@@ -1,13 +1,14 @@
 {
   "schema_version": "1.0.0",
   "programme": "HealthTimes 2.0 MVP Unified Release",
-  "unit_id": "HT-MVP-REL-COM-01-R2",
+  "unit_id": "HT-MVP-REL-COM-01-R3",
   "policy": "STRICT_EXCLUSION_STAGING_UAT_RECONCILIATION",
-  "generated_at": "2026-10-30T04:16:17.941Z",
+  "generated_at": "2026-10-30T04:58:15.040Z",
   "governance": {
     "production_replay_action": "EXCLUDE_STAGING_UAT_RECONCILIATION",
     "unfiltered_execution_blocked": true,
     "in_file_sql_replay_guards": true,
+    "per_migration_atomicity_enforced": true,
     "uat_reconciler_status": "DROPPED"
   },
   "quarantined_staging_only_migrations": [
@@ -71,11 +72,12 @@
     "FAIL_IF_QUARANTINED_IN_PRODUCTION_PLAN",
     "FAIL_IF_CANONICAL_DDL_ORDER_VIOLATED",
     "FAIL_IF_TARGET_ENVIRONMENT_MISMATCH",
-    "FAIL_IF_DESTINATION_IDENTITY_MISMATCH",
+    "FAIL_IF_DESTINATION_IDENTITY_UNVERIFIED",
     "FAIL_IF_UNFILTERED_COMMAND_ATTEMPTS_QUARANTINED_REPLAY",
     "FAIL_IF_UAT_RECONCILER_RPC_EXISTS_AFTER_MIGRATION",
     "FAIL_IF_CHECKSUM_MISMATCH",
-    "FAIL_IF_UNREVIEWED_MIGRATION_DETECTED"
+    "FAIL_IF_UNREVIEWED_MIGRATION_DETECTED",
+    "FAIL_IF_PER_MIGRATION_ATOMICITY_VIOLATED"
   ],
   "catalog": [
     {

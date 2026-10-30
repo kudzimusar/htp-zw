@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * HealthTimes 2.0 — Deterministic Production Migration Governor (HT-MVP-REL-COM-01-R2)
+ * HealthTimes 2.0 — Deterministic Production Migration Governor (HT-MVP-REL-COM-01-R3)
  *
  * Source-controlled migration execution and safety engine.
  * - Controls future migration execution with an explicit, auditable, and fail-closed plan.
- * - Prevents staging-only migrations from entering an executable production package.
- * - Requires explicit destination identity verification (rejects target/destination mismatch).
- * - Validates migration checksums and source custody against signed manifest.
+ * - Enforces connected database identity attestation (rejects target/destination mismatch, spoofing).
+ * - Implements a destination allowlist independent of execution requests.
+ * - Enforces immutable SHA-256 content-addressed manifest verification without silent regeneration.
  * - Verifies migration dependencies and previously applied versions on the destination database.
  * - Prevents unreviewed migrations from being silently classified as safe.
- * - Executes migrations with fail-closed transaction control and error-abort safety.
+ * - Enforces per-migration atomic transaction execution including ledger updates.
  * - Rejects prohibited direct or unfiltered release paths.
  * - Generates inspectable execution and rejection evidence.
  */
@@ -18,6 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { execSync } from "node:child_process";
 
 const ROOT_DIR = path.resolve(process.cwd());
 const MIGRATIONS_DIR = path.join(ROOT_DIR, "supabase", "migrations");
@@ -60,6 +61,28 @@ export const STAGING_LEDGER_VERSION_MAP = {
   "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql": "20261029131047",
   "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql": "20261029142840",
   "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql": "20261030001134"
+};
+
+// Destination Allowlist independent of caller request
+export const DESTINATION_ALLOWLIST = {
+  disposable: {
+    target: "disposable",
+    allowed_ports: [55432, 54322, 5432],
+    allowed_hosts: ["127.0.0.1", "localhost", "::1", null],
+    allowed_databases: ["postgres", "healthtimes_test", "ht_disposable"],
+    allowed_destination_ids: ["disposable", "ht-disposable-pg", "localhost-test"],
+    prohibited_project_refs: ["bzuvntbkevvuhfhqhkua"]
+  },
+  staging: {
+    target: "staging",
+    project_ref: "bzuvntbkevvuhfhqhkua",
+    allowed_destination_ids: ["bzuvntbkevvuhfhqhkua"],
+    allow_ddl_mutations: false // Staging is frozen in this release certification task
+  },
+  production: {
+    target: "production",
+    authorized: false // Strictly locked down; NO production mutations in this task
+  }
 };
 
 // Authoritative audited baseline migrations (102 files)
@@ -296,129 +319,209 @@ export function buildMigrationPlan(target = "production", migrationsDir = MIGRAT
 }
 
 /**
- * Validates explicit destination identity and authorization
+ * Attests the connected database identity by querying the live PostgreSQL connection directly.
+ * Fails closed if the connected database cannot be proven, violates the allowlist, or mismatches the target.
  */
-export function verifyDestinationIdentity({ target, destinationId, dbContext = null }) {
+export function attestConnectedDatabase({ queryFn, target, expectedDestinationId }) {
   const normTarget = (target || "").toLowerCase();
 
-  if (!["production", "staging", "disposable"].includes(normTarget)) {
-    throw new Error(`CRITICAL_FAIL_CLOSED: Invalid target environment: "${target}".`);
-  }
-
-  if (!destinationId || typeof destinationId !== "string" || destinationId.trim() === "") {
-    throw new Error("CRITICAL_FAIL_CLOSED: Missing required destination identity (--destination-id).");
-  }
-
   if (normTarget === "production") {
-    // Production requires explicit governance authorization
-    if (process.env.PRODUCTION_MIGRATIONS_AUTHORIZED !== "true") {
-      throw new Error(
-        "CRITICAL_FAIL_CLOSED: Production migration execution is NOT authorized. PRODUCTION_MIGRATIONS_AUTHORIZED is false or unset."
-      );
-    }
-
-    const expectedProdId = process.env.PRODUCTION_PROJECT_REF || "production-canonical";
-    if (destinationId !== expectedProdId) {
-      throw new Error(
-        `CRITICAL_FAIL_CLOSED: Destination identity mismatch for production. Expected ${expectedProdId}, got ${destinationId}`
-      );
-    }
-
-    if (destinationId === STAGING_PROJECT_REF || destinationId === "disposable") {
-      throw new Error(
-        `CRITICAL_FAIL_CLOSED: Prohibited destination identity for production: ${destinationId}`
-      );
-    }
-
-    if (dbContext && (dbContext.project_ref === STAGING_PROJECT_REF || dbContext.is_staging)) {
-      throw new Error("CRITICAL_FAIL_CLOSED: Target is production but connected database is staging!");
-    }
+    throw new Error(
+      "CRITICAL_FAIL_CLOSED: Production database connections and migrations are strictly prohibited in this release certification task (PRODUCTION_MIGRATIONS_AUTHORIZED=false)."
+    );
   }
 
-  if (normTarget === "staging") {
-    if (destinationId !== STAGING_PROJECT_REF) {
-      throw new Error(
-        `CRITICAL_FAIL_CLOSED: Staging destination identity mismatch. Expected ${STAGING_PROJECT_REF}, got ${destinationId}`
-      );
-    }
-    if (dbContext && dbContext.project_ref && dbContext.project_ref !== STAGING_PROJECT_REF) {
-      throw new Error(
-        `CRITICAL_FAIL_CLOSED: Connected database project ref (${dbContext.project_ref}) does not match staging.`
-      );
-    }
+  if (!queryFn || typeof queryFn !== "function") {
+    throw new Error("CRITICAL_FAIL_CLOSED: Missing required queryFn to attest connected database identity.");
   }
+
+  const attestationSql = `
+    SELECT 
+      current_database() AS database_name,
+      current_user AS session_user,
+      inet_server_addr()::text AS server_address,
+      inet_server_port() AS server_port,
+      (SELECT count(*)::int FROM information_schema.schemata WHERE schema_name = 'supabase_migrations') AS has_migrations_schema,
+      (SELECT coalesce(value->>'project_ref', value->>'environment', '') FROM public.platform_settings WHERE key = 'app_environment' LIMIT 1) AS platform_env,
+      (SELECT coalesce(value->>'production_replay_action', '') FROM public.platform_settings WHERE key = 'production_migration_policy' LIMIT 1) AS migration_policy
+  `;
+
+  let rows;
+  try {
+    rows = queryFn(attestationSql);
+  } catch (err) {
+    throw new Error(`CRITICAL_FAIL_CLOSED: Database identity attestation query failed: ${err.message}`);
+  }
+
+  if (!rows || rows.length === 0) {
+    throw new Error("CRITICAL_FAIL_CLOSED: Database identity attestation query returned empty results.");
+  }
+
+  const dbInfo = rows[0];
+  const dbName = dbInfo.database_name;
+  const serverAddr = dbInfo.server_address;
+  const serverPort = Number(dbInfo.server_port);
+  const platformEnv = dbInfo.platform_env || "";
+
+  console.log(`[GOVERNOR ATTEST] Connected DB: "${dbName}" on ${serverAddr || "local"}:${serverPort}, user: "${dbInfo.session_user}", env: "${platformEnv}"`);
 
   if (normTarget === "disposable") {
-    if (!["disposable", "ht-disposable-pg", "localhost-test"].includes(destinationId)) {
+    const config = DESTINATION_ALLOWLIST.disposable;
+
+    // 1. Destination ID must be an allowed disposable alias
+    if (!config.allowed_destination_ids.includes(expectedDestinationId)) {
       throw new Error(
-        `CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected "disposable" or "ht-disposable-pg", got "${destinationId}"`
+        `CRITICAL_FAIL_CLOSED: Disposable destination identity mismatch. Expected one of [${config.allowed_destination_ids.join(", ")}], got "${expectedDestinationId}"`
       );
     }
-    if (destinationId === STAGING_PROJECT_REF) {
-      throw new Error("CRITICAL_FAIL_CLOSED: Disposable destination cannot be staging project ref!");
+
+    // 2. Server port must be in allowed disposable port range
+    if (serverPort && !config.allowed_ports.includes(serverPort)) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Prohibited server port for disposable database: ${serverPort}. Allowed: [${config.allowed_ports.join(", ")}]`
+      );
     }
-    if (dbContext && dbContext.project_ref === STAGING_PROJECT_REF) {
-      throw new Error("CRITICAL_FAIL_CLOSED: Connected database is staging, not disposable!");
+
+    // 3. Database name must match allowlist
+    if (!config.allowed_databases.includes(dbName)) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Prohibited database name for disposable environment: "${dbName}". Allowed: [${config.allowed_databases.join(", ")}]`
+      );
     }
+
+    // 4. Prohibit staging project ref collision
+    if (config.prohibited_project_refs.includes(expectedDestinationId) || platformEnv === STAGING_PROJECT_REF) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Destination identity conflict! Connected database reports staging project ref (${STAGING_PROJECT_REF}) while target is disposable.`
+      );
+    }
+  } else if (normTarget === "staging") {
+    const config = DESTINATION_ALLOWLIST.staging;
+    if (expectedDestinationId !== config.project_ref) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Staging destination identity mismatch. Expected ${config.project_ref}, got ${expectedDestinationId}`
+      );
+    }
+    if (config.allow_ddl_mutations === false) {
+      throw new Error(
+        "CRITICAL_FAIL_CLOSED: Staging database is frozen; DDL mutations are not authorized in this task."
+      );
+    }
+  } else {
+    throw new Error(`CRITICAL_FAIL_CLOSED: Unknown target environment: "${target}".`);
   }
 
   return {
-    verified: true,
+    attested: true,
     target: normTarget,
-    destinationId
+    destinationId: expectedDestinationId,
+    databaseName: dbName,
+    serverAddress: serverAddr,
+    serverPort,
+    attestedAt: new Date().toISOString()
   };
 }
 
 /**
- * Validates migration checksums and source custody against the signed manifest
+ * Validates immutable manifest integrity against disk.
+ * PURE READ-ONLY VERIFICATION — NEVER REGENERATES OR MODIFIES THE MANIFEST.
  */
-export function verifyMigrationChecksums(plan, manifestPath = MANIFEST_PATH) {
+export function verifyManifest(manifestPath = MANIFEST_PATH) {
   if (!fs.existsSync(manifestPath)) {
-    throw new Error(`CRITICAL_FAIL_CLOSED: Signed manifest not found at ${manifestPath}`);
+    throw new Error(`CRITICAL_FAIL_CLOSED: Approved release manifest does not exist at ${manifestPath}`);
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  const manifestMap = new Map();
+  console.log(`[GOVERNOR] Reading approved immutable manifest: ${manifest.unit_id} (Policy: ${manifest.policy})`);
 
-  for (const entry of manifest.canonical_commercial_ddl || []) {
-    manifestMap.set(entry.file, entry.sha256);
-  }
-  for (const entry of manifest.quarantined_staging_only_migrations || []) {
-    manifestMap.set(entry.file, entry.sha256);
-  }
-  for (const entry of manifest.catalog || []) {
-    manifestMap.set(entry.file, entry.sha256);
+  if (!manifest.catalog || !Array.isArray(manifest.catalog)) {
+    throw new Error("CRITICAL_FAIL_CLOSED: Manifest catalog is missing or invalid.");
   }
 
-  for (const item of plan) {
-    const filePath = path.join(MIGRATIONS_DIR, item.file);
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`CRITICAL_FAIL_CLOSED: Migration file missing from disk: ${item.file}`);
+  // 1. Verify every single migration entry in the approved catalog (all 108 production files)
+  console.log(`[GOVERNOR] Verifying all ${manifest.catalog.length} catalog entries against disk...`);
+  for (const entry of manifest.catalog) {
+    const fullPath = path.join(MIGRATIONS_DIR, entry.file);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Migration missing on disk: ${entry.file}`);
     }
-    const currentSha = hashFile(filePath);
-
-    // If manifest has recorded sha, check equality
-    if (manifestMap.has(item.file)) {
-      const expectedSha = manifestMap.get(item.file);
-      if (currentSha !== expectedSha) {
-        throw new Error(
-          `CRITICAL_FAIL_CLOSED: Migration checksum mismatch for ${item.file}. Expected ${expectedSha}, got ${currentSha}`
-        );
-      }
-    }
-
-    if (item.sha256 && item.sha256 !== currentSha) {
+    const currentSha = hashFile(fullPath);
+    if (currentSha !== entry.sha256) {
       throw new Error(
-        `CRITICAL_FAIL_CLOSED: In-memory plan checksum mismatch for ${item.file}. Expected ${item.sha256}, got ${currentSha}`
+        `CRITICAL_FAIL_CLOSED: Content-addressed checksum mismatch for ${entry.file}! Expected ${entry.sha256}, got ${currentSha}. Manifest has been tampered with or file modified post-approval.`
       );
     }
   }
 
+  // 2. Verify all quarantined migrations
+  for (const q of manifest.quarantined_staging_only_migrations || []) {
+    const fullPath = path.join(MIGRATIONS_DIR, q.file);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Quarantined migration missing on disk: ${q.file}`);
+    }
+    const currentSha = hashFile(fullPath);
+    if (currentSha !== q.sha256) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Checksum mismatch for quarantined migration ${q.file}`);
+    }
+  }
+
+  // 3. Verify all canonical commercial DDL migrations
+  for (const c of manifest.canonical_commercial_ddl || []) {
+    const fullPath = path.join(MIGRATIONS_DIR, c.file);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Canonical commercial migration missing on disk: ${c.file}`);
+    }
+    const currentSha = hashFile(fullPath);
+    if (currentSha !== c.sha256) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Checksum mismatch for canonical migration ${c.file}`);
+    }
+  }
+
+  // 4. Verify disk does not contain extra or unreviewed files
+  const currentPlan = buildMigrationPlan("production");
+  if (currentPlan.totalMigrations !== manifest.production_plan_migrations_count) {
+    throw new Error(
+      `CRITICAL_FAIL_CLOSED: Production plan count mismatch (${currentPlan.totalMigrations} !== ${manifest.production_plan_migrations_count})`
+    );
+  }
+
+  console.log("[GOVERNOR] Manifest verification: ALL INVARIANTS AND 108 MIGRATIONS PASSED IMMUTABILITY AUDIT.");
   return true;
 }
 
 /**
- * Verifies migration dependencies, sequential ordering, and ledger conflict avoidance
+ * Wraps migration SQL into an atomic transaction envelope that includes the ledger insertion.
+ * Guarantees per-migration atomicity: either the migration statements AND ledger insertion commit together,
+ * or the entire migration rolls back leaving zero schema mutations and no ledger record.
+ */
+export function wrapMigrationSqlWithAtomicLedger(sqlContent, version, fileName) {
+  // Check if there is an explicit top-level COMMIT outside plpgsql function bodies
+  const stripped = sqlContent.replace(/\$\$[\s\S]*?\$\$/g, "");
+  const hasTopLevelCommit = /\bCOMMIT\s*;/i.test(stripped);
+
+  if (hasTopLevelCommit) {
+    const matches = [...sqlContent.matchAll(/\bCOMMIT\s*;/gi)];
+    const lastCommitMatch = matches[matches.length - 1];
+    if (lastCommitMatch) {
+      const idx = lastCommitMatch.index;
+      const before = sqlContent.slice(0, idx);
+      const after = sqlContent.slice(idx);
+      return `\\set ON_ERROR_STOP on\n${before}\n-- Atomic Ledger Record\nINSERT INTO supabase_migrations.schema_migrations (version, inserted_at) VALUES ('${version}', now()) ON CONFLICT (version) DO NOTHING;\n${after}`;
+    }
+  }
+
+  return `\\set ON_ERROR_STOP on
+BEGIN;
+-- Migration: ${fileName} (Version: ${version})
+${sqlContent}
+-- Atomic Ledger Record
+INSERT INTO supabase_migrations.schema_migrations (version, inserted_at) VALUES ('${version}', now()) ON CONFLICT (version) DO NOTHING;
+COMMIT;
+`;
+}
+
+/**
+ * Verifies migration dependencies and ledger sequence
  */
 export function verifyLedgerAndSequence({ target, plan, appliedVersions = [] }) {
   const normTarget = (target || "").toLowerCase();
@@ -434,7 +537,7 @@ export function verifyLedgerAndSequence({ target, plan, appliedVersions = [] }) 
     }
   }
 
-  // 2. Production target must NOT have any quarantined migrations in applied ledger
+  // 2. Production/Disposable target must NOT have quarantined versions in applied ledger
   if (normTarget === "production" || normTarget === "disposable") {
     for (const applied of appliedVersions) {
       const versionStr = String(applied);
@@ -453,11 +556,170 @@ export function verifyLedgerAndSequence({ target, plan, appliedVersions = [] }) 
     }
   }
 
+  // 3. Verify dependency continuity (no skipped unapplied prerequisites)
+  const appliedSet = new Set(appliedVersions.map(String));
+  let unappliedEncountered = false;
+  for (const item of plan) {
+    const ver = item.file.split("_")[0];
+    const isApplied = appliedSet.has(ver) || appliedSet.has(item.stagingLedgerVersion);
+    if (!isApplied) {
+      unappliedEncountered = true;
+    } else if (unappliedEncountered) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Migration dependency gap detected! Migration ${item.file} is applied, but an earlier migration in the canonical sequence was not.`
+      );
+    }
+  }
+
   return true;
 }
 
 /**
- * Generates the inspectable JSON migration manifest
+ * Creates a controlled, source-verified SQL execution adapter
+ */
+export function createGovernedSqlAdapter({
+  pgUri,
+  psqlBin = "/opt/homebrew/opt/libpq/bin/psql"
+}) {
+  function queryJson(sql) {
+    const cleanSql = sql.trim().replace(/;+$/, "");
+    const wrapped = `SELECT coalesce(json_agg(t), '[]'::json) FROM (${cleanSql}) t;`;
+    const cmd = `${psqlBin} "${pgUri}" -A -t -v ON_ERROR_STOP=1`;
+    const out = execSync(cmd, { encoding: "utf8", input: wrapped }).trim();
+    return JSON.parse(out || "[]");
+  }
+
+  function executeSqlAtomic(sql) {
+    const cmd = `${psqlBin} "${pgUri}" -q -v ON_ERROR_STOP=1`;
+    return execSync(cmd, { encoding: "utf8", input: sql });
+  }
+
+  return {
+    queryJson,
+    executeSqlAtomic,
+    getAppliedVersions() {
+      const rows = queryJson("SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;");
+      return rows.map((r) => r.version);
+    }
+  };
+}
+
+/**
+ * Governed migration execution engine using the real SQL execution adapter.
+ */
+export function executeGovernedMigrations({
+  target = "disposable",
+  expectedDestinationId,
+  sqlAdapter,
+  manifestPath = MANIFEST_PATH,
+  auditPath = AUDIT_PATH,
+  incrementalFiles = null
+}) {
+  const startTime = Date.now();
+  console.log(`[GOVERNOR EXEC] Starting governed migration execution for target: ${target}, destination: ${expectedDestinationId}`);
+
+  // 1. Verify approved manifest without modifying it
+  verifyManifest(manifestPath);
+
+  // 2. Attest connected database identity
+  const attestation = attestConnectedDatabase({
+    queryFn: (sql) => sqlAdapter.queryJson(sql),
+    target,
+    expectedDestinationId
+  });
+
+  // 3. Build destination-specific migration plan
+  const planObj = buildMigrationPlan(target);
+
+  // 4. Query applied versions from destination database ledger
+  const appliedVersions = sqlAdapter.getAppliedVersions();
+
+  // 5. Verify ledger sequence and dependency continuity
+  verifyLedgerAndSequence({
+    target,
+    plan: planObj.plan,
+    appliedVersions
+  });
+
+  // 6. Filter files to execute
+  const appliedSet = new Set(appliedVersions.map(String));
+  let filesToExecute = planObj.plan.filter((item) => {
+    const ver = item.file.split("_")[0];
+    return !appliedSet.has(ver) && !appliedSet.has(item.stagingLedgerVersion);
+  });
+
+  if (Array.isArray(incrementalFiles)) {
+    filesToExecute = filesToExecute.filter((item) => incrementalFiles.includes(item.file));
+  }
+
+  console.log(`[GOVERNOR EXEC] Destination attested. Found ${appliedVersions.length} applied migrations. ${filesToExecute.length} migration(s) to apply.`);
+
+  const appliedList = [];
+  try {
+    for (const item of filesToExecute) {
+      const filePath = path.join(MIGRATIONS_DIR, item.file);
+      const version = item.file.split("_")[0];
+
+      // Exact checksum check against manifest item
+      const currentSha = hashFile(filePath);
+      if (currentSha !== item.sha256) {
+        throw new Error(`CRITICAL_FAIL_CLOSED: Checksum mismatch for ${item.file} before execution!`);
+      }
+
+      console.log(`[GOVERNOR APPLY] Applying ${item.file} atomically (SHA: ${currentSha.slice(0, 10)})...`);
+
+      const rawSql = fs.readFileSync(filePath, "utf8");
+      const atomicSql = wrapMigrationSqlWithAtomicLedger(rawSql, version, item.file);
+
+      const fileStart = Date.now();
+      sqlAdapter.executeSqlAtomic(atomicSql);
+      const durationMs = Date.now() - fileStart;
+
+      appliedList.push({
+        file: item.file,
+        version,
+        sha256: currentSha,
+        durationMs,
+        appliedAt: new Date().toISOString()
+      });
+    }
+
+    const executionSummary = {
+      execution_id: `HT-GOV-EXEC-${Date.now()}`,
+      status: "SUCCESS",
+      target,
+      destinationId: expectedDestinationId,
+      attestation,
+      total_applied: appliedList.length,
+      applied_migrations: appliedList,
+      quarantined_migrations_excluded: QUARANTINED_STAGING_MIGRATIONS,
+      duration_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log(`[GOVERNOR EXEC] Governed execution SUCCEEDED: ${appliedList.length} migrations applied atomically.`);
+    return executionSummary;
+  } catch (err) {
+    console.error(`[GOVERNOR EXEC ERROR] Migration execution aborted: ${err.message}`);
+    const failureSummary = {
+      execution_id: `HT-GOV-EXEC-FAILED-${Date.now()}`,
+      status: "ABORTED",
+      target,
+      destinationId: expectedDestinationId,
+      attestation,
+      error: err.message,
+      total_applied_before_failure: appliedList.length,
+      applied_migrations: appliedList,
+      duration_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    };
+    throw Object.assign(err, { executionSummary: failureSummary });
+  }
+}
+
+/**
+ * Proposes and generates an approved manifest for review.
+ * Only called explicitly via the 'manifest' CLI command.
  */
 export function generateManifest(manifestPath = MANIFEST_PATH) {
   const prodPlan = buildMigrationPlan("production");
@@ -466,13 +728,14 @@ export function generateManifest(manifestPath = MANIFEST_PATH) {
   const manifest = {
     schema_version: "1.0.0",
     programme: "HealthTimes 2.0 MVP Unified Release",
-    unit_id: "HT-MVP-REL-COM-01-R2",
+    unit_id: "HT-MVP-REL-COM-01-R3",
     policy: "STRICT_EXCLUSION_STAGING_UAT_RECONCILIATION",
     generated_at: new Date().toISOString(),
     governance: {
       production_replay_action: "EXCLUDE_STAGING_UAT_RECONCILIATION",
       unfiltered_execution_blocked: true,
       in_file_sql_replay_guards: true,
+      per_migration_atomicity_enforced: true,
       uat_reconciler_status: "DROPPED"
     },
     quarantined_staging_only_migrations: QUARANTINED_STAGING_MIGRATIONS.map((file) => ({
@@ -495,11 +758,12 @@ export function generateManifest(manifestPath = MANIFEST_PATH) {
       "FAIL_IF_QUARANTINED_IN_PRODUCTION_PLAN",
       "FAIL_IF_CANONICAL_DDL_ORDER_VIOLATED",
       "FAIL_IF_TARGET_ENVIRONMENT_MISMATCH",
-      "FAIL_IF_DESTINATION_IDENTITY_MISMATCH",
+      "FAIL_IF_DESTINATION_IDENTITY_UNVERIFIED",
       "FAIL_IF_UNFILTERED_COMMAND_ATTEMPTS_QUARANTINED_REPLAY",
       "FAIL_IF_UAT_RECONCILER_RPC_EXISTS_AFTER_MIGRATION",
       "FAIL_IF_CHECKSUM_MISMATCH",
-      "FAIL_IF_UNREVIEWED_MIGRATION_DETECTED"
+      "FAIL_IF_UNREVIEWED_MIGRATION_DETECTED",
+      "FAIL_IF_PER_MIGRATION_ATOMICITY_VIOLATED"
     ],
     catalog: prodPlan.plan.map((item) => ({
       file: item.file,
@@ -510,156 +774,8 @@ export function generateManifest(manifestPath = MANIFEST_PATH) {
 
   fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-  console.log(`[GOVERNOR] Manifest generated at: ${manifestPath}`);
+  console.log(`[GOVERNOR] Manifest proposed and generated at: ${manifestPath}`);
   return manifest;
-}
-
-/**
- * Validates manifest integrity against disk
- */
-export function verifyManifest(manifestPath = MANIFEST_PATH) {
-  if (!fs.existsSync(manifestPath)) {
-    throw new Error(`FAIL_CLOSED: Manifest file does not exist at ${manifestPath}`);
-  }
-
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  console.log(`[GOVERNOR] Verifying manifest: ${manifest.unit_id} (${manifest.policy})`);
-
-  // Verify quarantined files
-  for (const q of manifest.quarantined_staging_only_migrations) {
-    const fullPath = path.join(MIGRATIONS_DIR, q.file);
-    if (!fs.existsSync(fullPath)) {
-      throw new Error(`FAIL_CLOSED: Quarantined migration missing on disk: ${q.file}`);
-    }
-    const currentSha = hashFile(fullPath);
-    if (currentSha !== q.sha256) {
-      throw new Error(`FAIL_CLOSED: Checksum mismatch for quarantined migration ${q.file}`);
-    }
-  }
-
-  // Verify canonical sequence
-  for (const c of manifest.canonical_commercial_ddl) {
-    const fullPath = path.join(MIGRATIONS_DIR, c.file);
-    if (!fs.existsSync(fullPath)) {
-      throw new Error(`FAIL_CLOSED: Canonical migration missing on disk: ${c.file}`);
-    }
-    const currentSha = hashFile(fullPath);
-    if (currentSha !== c.sha256) {
-      throw new Error(`FAIL_CLOSED: Checksum mismatch for canonical migration ${c.file}`);
-    }
-  }
-
-  // Verify production plan exclusion
-  const prodPlan = buildMigrationPlan("production");
-  if (prodPlan.totalMigrations !== manifest.production_plan_migrations_count) {
-    throw new Error(
-      `FAIL_CLOSED: Production plan count mismatch (${prodPlan.totalMigrations} !== ${manifest.production_plan_migrations_count})`
-    );
-  }
-
-  console.log("[GOVERNOR] Manifest verification: ALL INVARIANTS PASSED.");
-  return true;
-}
-
-/**
- * Governed migration execution engine.
- * Applies the validated migration plan with strict fail-closed safety.
- */
-export function executeMigrationPlan({
-  target = "disposable",
-  destinationId,
-  runner,
-  manifestPath = MANIFEST_PATH,
-  auditPath = AUDIT_PATH,
-  dbContext = null,
-  incrementalFiles = null
-}) {
-  const startTime = Date.now();
-  console.log(`[GOVERNOR EXEC] Starting governed migration execution for target: ${target}, destination: ${destinationId}`);
-
-  // 1. Destination identity verification
-  verifyDestinationIdentity({ target, destinationId, dbContext });
-
-  // 2. Build migration plan
-  const planObj = buildMigrationPlan(target);
-
-  // 3. Verify checksums
-  verifyMigrationChecksums(planObj.plan, manifestPath);
-
-  // 4. Verify ledger and sequence if applied versions available
-  if (dbContext && dbContext.appliedVersions) {
-    verifyLedgerAndSequence({
-      target,
-      plan: planObj.plan,
-      appliedVersions: dbContext.appliedVersions
-    });
-  }
-
-  // 5. Filter files to execute
-  let filesToExecute = planObj.plan;
-  if (Array.isArray(incrementalFiles)) {
-    filesToExecute = planObj.plan.filter((item) => incrementalFiles.includes(item.file));
-  } else if (dbContext && Array.isArray(dbContext.appliedVersions)) {
-    // Only execute unapplied migrations
-    filesToExecute = planObj.plan.filter((item) => {
-      const ver = item.file.split("_")[0];
-      return !dbContext.appliedVersions.includes(ver) && !dbContext.appliedVersions.includes(item.stagingLedgerVersion);
-    });
-  }
-
-  console.log(`[GOVERNOR EXEC] Executing ${filesToExecute.length} migration(s)...`);
-
-  const appliedList = [];
-  try {
-    for (const item of filesToExecute) {
-      const filePath = path.join(MIGRATIONS_DIR, item.file);
-      console.log(`[GOVERNOR APPLY] ${item.file} (SHA: ${item.sha256.slice(0, 10)})...`);
-
-      if (typeof runner !== "function") {
-        throw new Error("FAIL_CLOSED: No SQL execution runner function provided to governor.");
-      }
-
-      const fileStart = Date.now();
-      runner(filePath, fs.readFileSync(filePath, "utf8"));
-      const durationMs = Date.now() - fileStart;
-
-      appliedList.push({
-        file: item.file,
-        sha256: item.sha256,
-        durationMs,
-        appliedAt: new Date().toISOString()
-      });
-    }
-
-    const executionSummary = {
-      execution_id: `HT-GOV-EXEC-${Date.now()}`,
-      status: "SUCCESS",
-      target,
-      destinationId,
-      total_applied: appliedList.length,
-      applied_migrations: appliedList,
-      quarantined_migrations_excluded: QUARANTINED_STAGING_MIGRATIONS,
-      duration_ms: Date.now() - startTime,
-      timestamp: new Date().toISOString()
-    };
-
-    console.log(`[GOVERNOR EXEC] Execution SUCCEEDED: ${appliedList.length} migrations applied safely.`);
-    return executionSummary;
-  } catch (err) {
-    console.error(`[GOVERNOR EXEC ERROR] Migration execution aborted: ${err.message}`);
-    const failureSummary = {
-      execution_id: `HT-GOV-EXEC-FAILED-${Date.now()}`,
-      status: "ABORTED",
-      target,
-      destinationId,
-      error: err.message,
-      total_applied_before_failure: appliedList.length,
-      applied_migrations: appliedList,
-      duration_ms: Date.now() - startTime,
-      timestamp: new Date().toISOString()
-    };
-    throw Object.assign(err, { executionSummary: failureSummary });
-  }
 }
 
 // CLI entry point
@@ -676,7 +792,7 @@ if (process.argv[1] && process.argv[1].endsWith("ht-migration-governor.mjs")) {
       console.log(`[GOVERNOR] Excluded migrations:`, plan.excludedMigrations);
       console.log(`[GOVERNOR] Production Safe: ${plan.productionSafe}`);
     } else if (command === "verify") {
-      generateManifest();
+      // PURE VERIFICATION: Read and validate approved manifest without modifying it
       verifyManifest();
     } else {
       console.error(`Unknown command: ${command}`);

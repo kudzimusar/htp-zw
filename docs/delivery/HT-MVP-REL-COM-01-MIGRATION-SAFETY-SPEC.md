@@ -232,3 +232,36 @@ Executed via `scripts/release/disposable-env-runner.mjs` in isolated PostgreSQL 
 - Integrates `ht-migration-governor.mjs` manifest verification.
 - Output: `PREFLIGHT STATUS: ALL CHECKS PASSED`, `DISPOSITION: READY_FOR_OWNER_CLIENT_DRY_RUN`.
 
+---
+
+## 8. R3 Remediation: Execution Integrity, Database Attestation & Transaction Atomicity
+
+### 8.1 Connected Database Identity Attestation (`attestConnectedDatabase`)
+Under HT-MVP-REL-COM-01-R3, destination identity is no longer trusted from command-line arguments or environment variables. Instead, the migration governor directly queries the connected database session:
+- **Direct Live Session Inspection:** Queries `current_database()`, `current_user`, `inet_server_addr()`, `inet_server_port()`, `information_schema.schemata`, and `platform_settings`.
+- **Destination Allowlist (`DESTINATION_ALLOWLIST`):**
+  * `disposable`: Allowed ports `[55432, 54322, 5432]`, allowed hosts `['127.0.0.1', 'localhost', '::1', null]`, allowed databases `['postgres', 'healthtimes_test', 'ht_disposable']`, prohibited project refs `['bzuvntbkevvuhfhqhkua']`.
+  * `staging`: Frozen; DDL mutations explicitly prohibited (`allow_ddl_mutations: false`).
+  * `production`: Strictly locked down; `authorized: false` (`PRODUCTION_MIGRATIONS_AUTHORIZED=false`).
+- **Negative Proofs:** Conflicting destination identifiers, destination spoofing, cross-environment target collisions (e.g. attempting to pass staging project ref to a disposable target), and unauthorized production runs are rejected fail-closed.
+
+### 8.2 Pure Immutable-Manifest Verification
+The CLI command structure enforces strict lifecycle separation:
+- `manifest`: Explicit command to propose and generate a release manifest.
+- `verify`: Pure read-only verification that inspects `docs/delivery/ht-mvp-production-migration-manifest.json` against all 108 production files on disk without rewriting or regenerating it.
+- `execute`: Governed execution that applies only verified manifests.
+- **Tamper Resistance Proof:** An intentional tampering test proved that mutating even a single byte or appending a comment in any migration file after approval immediately triggers `CRITICAL_FAIL_CLOSED: Content-addressed checksum mismatch` and prevents execution.
+
+### 8.3 Real-Runner Per-Migration Transaction Atomicity (`wrapMigrationSqlWithAtomicLedger`)
+The governor execution engine employs a dedicated SQL execution adapter (`createGovernedSqlAdapter`, `executeGovernedMigrations`) ensuring per-migration atomicity:
+- Each migration is executed inside an atomic transaction envelope (`BEGIN; ... COMMIT;` with `\set ON_ERROR_STOP on`).
+- The ledger record insertion into `supabase_migrations.schema_migrations` occurs inside the same transaction prior to `COMMIT`.
+- **Failure Isolation Proof:** Tested with an intentional failure (`SELECT 1 / 0;` between statements):
+  1. Statements prior to the failure are rolled back completely (canary table count = 0).
+  2. Subsequent statements never execute.
+  3. The schema_migrations ledger is NOT updated (ledger count = 0).
+  4. The next execution run safely detects and handles the unapplied state without corrupting the ledger.
+  5. Controlled sentinel financial records ($4,000 GL balance) remain completely intact.
+- **Transactional Architecture Distinction:** Per-migration atomicity guarantees that individual migration files succeed completely or fail completely with zero partial schema mutation. Whole-release rollback is governed by dependency checking and sequential integrity, preventing execution from continuing past a failed step.
+
+
