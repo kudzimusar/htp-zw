@@ -181,3 +181,54 @@ Executed via `scripts/release/disposable-env-runner.mjs` in an isolated PostgreS
   * **Classification:** Test Harness / Staging Environment Assumption Defect.
   * **Root Cause:** Test previously asserted `body.length === 0` based on a historical zero-state assumption. Subsequent Newsroom UAT legitimately published 4 native stories.
   * **Remediation:** Updated test 11 to validate schema projection compliance across all published stories (`id`, `title`, `slug`, `body_html` bounds) and verified zero-state return when querying non-existent canary slugs. All 13 suite tests now pass.
+
+---
+
+## 7. R2 Remediation: Mandatory Migration Execution Control & Final Governance
+
+### 7.1 Staging Migration History Provenance & Reconciled Lineage
+In accordance with HT-MVP-REL-COM-01-R2 instructions, applied migration history on staging is strictly preserved without manufactured rewrites.
+
+| Dimension | Migration 1 (Reconciliation) | Migration 2 (Privilege Remediation) | Migration 3 (Safety & Drop) |
+| :--- | :--- | :--- | :--- |
+| **Source Filename** | `20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql` | `20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql` | `20261030100000_ht_mvp_rel_com01_production_migration_safety.sql` |
+| **Actual Staging Ledger Version** | `20261029131047` | `20261029142840` | `20261030001134` (Staging Ledger Tip) |
+| **Post-Apply Source Modifications** | In-file fail-closed SQL guard added: raises PostgreSQL error 55000 on direct replay | In-file fail-closed SQL guard added: raises PostgreSQL error 55000 on direct replay | None (applies canonically; drops `finance_reconcile_uat_fixtures`) |
+| **Future Release Execution Action** | Strictly excluded from production manifest by Governor | Strictly excluded from production manifest by Governor | Included in production package; executed via Governor |
+
+### 7.2 Executable Migration Governor (`scripts/release/ht-migration-governor.mjs`)
+The governor has been upgraded from a passive verifier to an executable execution control engine:
+1. **Destination Identity Verification:** Requires explicit `--destination-id`. Rejects target/destination mismatches. Production execution requires explicit `PRODUCTION_MIGRATIONS_AUTHORIZED=true`.
+2. **Checksum & Source Custody Guards:** Hashes each file on disk and validates SHA-256 equality against `docs/delivery/ht-mvp-production-migration-manifest.json` before applying.
+3. **Dependency & Ledger Conflict Guards:** Rejects execution if any quarantined migration version (`20261029131047`, `20261029142840`) is detected in the destination ledger.
+4. **Strict Review Classification:** Every migration must be categorized in `KNOWN_CANONICAL_BASELINE_MIGRATIONS`, `CANONICAL_COMMERCIAL_DDL_SEQUENCE`, or `QUARANTINED_STAGING_MIGRATIONS`. Unreviewed files trigger immediate fail-closed abort.
+5. **Fail-Closed Execution Engine:** Executes migrations in transaction with `ON_ERROR_STOP=1`. If any statement fails, rolls back and halts immediately.
+
+### 7.3 Disposable Execution Certification (9 Negative Tests & 9 Invariants)
+Executed via `scripts/release/disposable-env-runner.mjs` in isolated PostgreSQL 17 container (`ht-disposable-pg-r2`):
+- **9 Negative Tests Passed (9/9):**
+  1. `QUARANTINED_IN_MANIFEST`: Injected quarantined migration in production plan rejected with `CRITICAL_FAIL_CLOSED`.
+  2. `INCORRECT_DESTINATION_IDENTITY`: Destination identity mismatch rejected with `CRITICAL_FAIL_CLOSED`.
+  3. `MISSING_MIGRATION_FILE`: Non-existent migration file rejected with `CRITICAL_FAIL_CLOSED`.
+  4. `CHECKSUM_MISMATCH`: File hash mismatch rejected with `CRITICAL_FAIL_CLOSED`.
+  5. `INVALID_MIGRATION_ORDER`: Out-of-order migration sequence rejected with `CRITICAL_FAIL_CLOSED`.
+  6. `LEDGER_VERSION_CONFLICT`: Ledger containing quarantined version rejected with `CRITICAL_FAIL_CLOSED`.
+  7. `UNFILTERED_REPLAY_ATTEMPT`: Direct `psql` execution of quarantined files blocked by SQL error `55000`.
+  8. `UNAUTHORIZED_EXECUTION`: Production target without `PRODUCTION_MIGRATIONS_AUTHORIZED=true` rejected with `CRITICAL_FAIL_CLOSED`.
+  9. `SCRIPT_ERROR_ABORTION`: Runtime script error aborted remainder of script and rolled back.
+- **Positive Incremental Execution:**
+  * Canonical commercial DDL sequence (`20261029020000` through `20261030100000`) applied safely via governor.
+  * All 9 safety invariants preserved: 0 invoices voided, 0 orders cancelled, 0 customers deactivated, 0 expenses voided, 0 journals reversed, GL balanced at $4,000.00 debits = $4,000.00 credits, reconciler RPC confirmed absent, sessions preserved, policy registered.
+  * Idempotency verified on repeat execution.
+  * Audit evidence persisted to `docs/delivery/migration-execution-audit.json`.
+
+### 7.4 Updated Release Preflight
+`scripts/release/ht-mvp-preflight.mjs` has been updated:
+- Obsolete 96-migration count and October 21 tip replaced with:
+  * Local migration count: 110.
+  * Migration tip: `20261030100000_ht_mvp_rel_com01_production_migration_safety.sql`.
+  * Production plan count: 108 (strictly excluding 2 quarantined staging UAT migrations).
+  * Staging ledger tip: `20261030001134` (110 records).
+- Integrates `ht-migration-governor.mjs` manifest verification.
+- Output: `PREFLIGHT STATUS: ALL CHECKS PASSED`, `DISPOSITION: READY_FOR_OWNER_CLIENT_DRY_RUN`.
+

@@ -11,15 +11,23 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import {
+  verifyManifest,
+  buildMigrationPlan,
+  QUARANTINED_STAGING_MIGRATIONS,
+  STAGING_LEDGER_TIP
+} from "./ht-migration-governor.mjs";
 
 const EXPECTED_AUTHORITIES = {
   reader: "c4e779dbbc2b65232c90b4e69b74551b62f1910d",
   newsroom: "d5af42d6b7018dfd3451ac9d621482e0edf9664f",
   launchControl: "a57b2748a4aaa46478028ac3857f0f84fbeae5f2"
 };
-const EXPECTED_LOCAL_MIGRATION_COUNT = 96;
-const EXPECTED_REMOTE_MIGRATION_COUNT = 96;
-const EXPECTED_MIGRATION_TIP = "20261021050000_ht_nr_rc01_owner_auth_email_verification.sql";
+const EXPECTED_LOCAL_MIGRATION_COUNT = 110;
+const EXPECTED_STAGING_LEDGER_COUNT = 110;
+const EXPECTED_PRODUCTION_PLAN_COUNT = 108;
+const EXPECTED_MIGRATION_TIP = "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql";
+const EXPECTED_STAGING_LEDGER_TIP = "20261030001134";
 
 const REQUIRED_DELIVERY_DOCS = [
   "HT-MVP-DELIVERY-CONTROL-CENTER.md",
@@ -180,9 +188,9 @@ try {
   failures++;
 }
 
-// 5. Database Migration Inventory Verification
+// 5. Database Migration Inventory & Release Governance Verification
 console.log("----------------------------------------------------------------");
-console.log("[MIGRATION] Verifying Supabase database migration sequence ...");
+console.log("[MIGRATION] Verifying Supabase database migration sequence & release governance ...");
 
 if (fs.existsSync(migrationsDir)) {
   const migrationFiles = fs.readdirSync(migrationsDir)
@@ -200,7 +208,34 @@ if (fs.existsSync(migrationsDir)) {
     console.error(`[FAIL] Migration tip (${latestMigration}) does not match expected (${EXPECTED_MIGRATION_TIP})`);
     failures++;
   } else {
-    console.log(`[PASS] Migration sequence verified: ${migrationFiles.length} local files ending with ${latestMigration} (remote tip: ${EXPECTED_REMOTE_MIGRATION_COUNT})`);
+    try {
+      // Verify Release Governor Manifest and Production Plan
+      verifyManifest();
+      const prodPlan = buildMigrationPlan("production");
+
+      if (prodPlan.totalMigrations !== EXPECTED_PRODUCTION_PLAN_COUNT) {
+        console.error(
+          `[FAIL] Governed production plan migration count (${prodPlan.totalMigrations}) does not match expected (${EXPECTED_PRODUCTION_PLAN_COUNT})`
+        );
+        failures++;
+      } else if (!prodPlan.exclusionEnforced) {
+        console.error("[FAIL] Production migration plan does not enforce UAT reconciliation exclusion.");
+        failures++;
+      } else {
+        console.log(
+          `[PASS] Migration sequence verified: ${migrationFiles.length} local files ending with ${latestMigration}`
+        );
+        console.log(
+          `[PASS] Governed production package verified: ${prodPlan.totalMigrations} migrations (strictly excludes ${QUARANTINED_STAGING_MIGRATIONS.length} staging UAT files)`
+        );
+        console.log(
+          `[PASS] Staging migration ledger mapping verified: tip ${EXPECTED_STAGING_LEDGER_TIP} (${EXPECTED_STAGING_LEDGER_COUNT} records)`
+        );
+      }
+    } catch (govErr) {
+      console.error(`[FAIL] Migration governor verification error: ${govErr.message}`);
+      failures++;
+    }
   }
 } else {
   console.error(`[FAIL] Migrations directory missing at: ${migrationsDir}`);
