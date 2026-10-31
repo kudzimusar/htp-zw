@@ -10,7 +10,8 @@
 - **Application Preview URL:** `https://healthtimes-staging-czazp4yi8-11-11.vercel.app`
 - **Staging Supabase:** `bzuvntbkevvuhfhqhkua` (`20261030001134`, 110 applied migrations)
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Section 45
-- **Human Owner Execution Status:** `NOT_EXECUTED — PENDING HUMAN OWNER WALKTHROUGH`
+- **Checklist Census:** `30` numbered cases (`R01–R06`, `J01–J04`, `E01–E04`, `A01–A04`, `C01–C04`, `F01–F04`, `O01–O04`). The earlier sign-off total of 28 was a counting error and is corrected below.
+- **Human Owner Execution Status:** `SPECIALIST PHYSICAL UIAT EXECUTED — HUMAN OWNER ACCEPTANCE NOT SIGNED`
 
 ---
 
@@ -129,7 +130,7 @@ Staging Database:        bzuvntbkevvuhfhqhkua
 Owner Account:           kudzimusar@gmail.com (Publisher / Owner)
 
 Personas Physically Tested by Owner:  ____ of 7
-Test Cases Physically Verified:       ____ of 28
+Test Cases Physically Verified:       ____ of 30
 Passed:                               ____
 Failed / Deferred:                    ____
 
