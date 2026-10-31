@@ -21,7 +21,7 @@ In strict accordance with exact-source governance:
 - **Release-Governance Authority SHA (`3df501f8280ac6e983f3f640b70dc049626aa52b`):** Represents the certified release governance, disposable-database destination attestation boundary, and preflight tooling.
 - **Application Preview SHA (`126f81c65e24d30167deb21c06c598e39bf8ea10`):** Represents the verified application runtime bundle deployed on Vercel (`dpl_F17gteDKYCS2w7J5CtZfJBFihKw5`).
 - The application runtime bundle is identical between `126f81c65e24d30167deb21c06c598e39bf8ea10` and `3df501f8280ac6e983f3f640b70dc049626aa52b`, as commit `3df501f8` modified only release governance scripts and test fixtures without altering application runtime source.
-- **Preview Protection Containment (`HT-MVP-CLIENT-READINESS-01-R1-FINAL`):** Vercel Preview SSO protection (`all_except_custom_domains`) is active on `healthtimes-staging`. The previously exposed bypass secret (fingerprint `00317e8682e5`) has been revoked provider-side on Vercel (verified HTTP `302` rejection) and replaced with a rotated secret (fingerprint `0fb0100c3825`) stored exclusively outside the repository.
+- **Preview Protection Containment (`HT-MVP-CLIENT-READINESS-01-R1-FINAL`):** Vercel Preview SSO protection (`all_except_custom_domains`) is active on `healthtimes-staging`. The specialist reports provider-side revocation of the previously exposed bypass credential (fingerprint `00317e8682e5`), with an HTTP `302` rejection of the old credential and an HTTP `200` response using the rotated credential (fingerprint `0fb0100c3825`), stored outside the repository. **Evidence boundary:** the Moderator independently verified that SSO protection is enabled, but could not retrieve Vercel's rotation audit record (provider event-history access returned HTTP `403`). The specialist's redacted HTTP test results are reported evidence, not independently observed provider-side revocation. Never disclose either credential.
 
 ---
 
@@ -46,7 +46,7 @@ HealthTimes 2.0 is delivered to the client for Staging review and Owner UAT acro
    - Staff administration and Role-Based Access Control (RBAC).
 
 3. **Database & Release-Governance Core (Platform Plane):**
-   - Supabase PostgreSQL 17 database with 110 migrations applied on Staging (`bzuvntbkevvuhfhqhkua`) and 108 canonical migrations certified in a fresh disposable PostgreSQL 17 instance (`HT-MVP-REL-COM-01-R3-R1`).
+   - Supabase PostgreSQL staging database with 110 applied ledger versions (`bzuvntbkevvuhfhqhkua`) and a reviewed 108-migration canonical production plan (2 staging-only migrations excluded). Disposable PostgreSQL 17 certification (`HT-MVP-REL-COM-01-R3-R1`) exercised **six incremental Commercial migrations against a constructed baseline**; it did not replay all 108 migrations from an empty database.
    - Row-Level Security (RLS) and `SECURITY DEFINER` capability-checked RPCs across public tables.
    - Hardened migration governor (`scripts/release/ht-migration-governor.mjs`) with content-addressed SHA-256 manifest verification, per-migration atomic ledger wrapping, and live destination attestation.
 
@@ -109,11 +109,11 @@ All financial records currently in Staging (`bzuvntbkevvuhfhqhkua`) are **synthe
 ### 4.1 Exact Staging Record Census
 | Ledger / Table | Total Rows | Status Breakdown | Financial / Audit Explanation |
 | :--- | :---: | :--- | :--- |
-| `finance_invoices` | **12** | `issued`: **3** (`$7,500.00`)<br>`paid`: **2** (`$3,000.00`)<br>`void`: **7** (`$23,200.00`) | Synthetic UAT invoices (`INV-2026-00001` through `INV-2026-00012`) issued to synthetic UAT customer `UAT04B Staging Partner Ltd`. |
+| `finance_invoices` | **12** | `issued`: **3** (`$7,500.00`)<br>`paid`: **2** (`$3,000.00`)<br>`void`: **7** (`$8,050.00`) | Synthetic staging invoices: three issued `INV-2026-0001`–`0003`, seven void `INV-2026-0004`–`0010` (each `$1,150.00`, linked to `UAT HealthCorp * Ltd` customers), and two paid `INV-UAT04B-*` invoices (each `$1,500.00`, linked to `UAT04B Staging Partner Ltd`). No real customer collections are evidenced. |
 | `commercial_orders` | **16** | `cancelled`: **16**<br>`uncancelled`: **0** | All 16 synthetic UAT commercial orders (`ORD-202610-*`) are in `cancelled` status (`0` active/uncancelled orders). |
 | `finance_expenses` | **12** | `void`: **11**<br>`rejected`: **1**<br>`posted / paid`: **0** | All 12 synthetic UAT expenses (`EXP-2026-00001` through `EXP-2026-00012`) are `void` or `rejected` (`$0.00` active expenses). |
-| `finance_payments` | **2** | `recorded`: **2** (`$3,000.00`) | Two `$1,500.00` synthetic UAT payments recorded against `INV-2026-00001` and `INV-2026-00009`. |
-| `finance_customers` | **23** | `active`: **4** (`UAT04B Staging Partner Ltd`)<br>`inactive`: **19** (`UAT HealthCorp * Ltd`) | Synthetic UAT customer fixtures; quarantined staging migration `20261030001134` deactivated historical `UAT HealthCorp` test rows. |
+| `finance_payments` | **2** | `recorded`: **2** (`$3,000.00`) | Two synthetic USD bank-transfer entries of `$1,500.00` each: `PAY-2026-0001` → `INV-UAT04B-1792947702191`; `PAY-2026-0002` → `INV-UAT04B-1792950919321`. Neither is a Paynow payment nor evidence of real bank settlement. |
+| `finance_customers` | **23** | `active`: **4** (UAT04B staging partners)<br>`inactive`: **19** (`UAT HealthCorp * Ltd`) | All are staging test customers. Historical UAT HealthCorp rows were deactivated during controlled staging cleanup; `20261030001134` is the applied ledger version of the **canonical** `20261030100000` production-migration-safety source, not a quarantined migration. |
 | `finance_journal_entries` | **41** | `posted`: **24** (55 lines)<br>`reversed`: **17** (41 lines) | Immutable double-entry journal ledger. |
 
 ### 4.2 Posted-Only vs. Reversal-Inclusive Trial Balance Reconciliation
@@ -128,7 +128,7 @@ All financial records currently in Staging (`bzuvntbkevvuhfhqhkua`) are **synthe
 - **Net Financial Statements on Staging (Synthetic UAT Balances):**
   - **Balance Sheet (`finance_get_balance_sheet`):** Total Assets = **`$10,500.00`** (`1000 Cash and Cash Equivalents`: `$3,000.00`; `1100 Accounts Receivable — Trade`: `$7,500.00`) = Total Liabilities (**`$0.00`**) + Total Equity / Current Period Net Surplus (**`$10,500.00`**). `is_balanced = true`.
   - **Profit & Loss (`finance_get_profit_and_loss`):** Total Revenue = **`$10,500.00`** (`4000 Advertising Revenue — Digital`: `$4,500.00`; `4010 Sponsored Content & Supplements`: `$6,000.00`), Total Expenses = **`$0.00`**, Net Operating Surplus = **`$10,500.00`**.
-- **Production Isolation Guarantee:** All staging UAT reconciliation migrations (`20261029070000` and `20261030001134`) are strictly quarantined and excluded from the canonical 108-migration production plan enforced by `scripts/release/ht-migration-governor.mjs`. A fresh production database initializes with a `$0.00` opening ledger and zero synthetic fixtures.
+- **Production migration exclusion policy:** The two quarantined **source files** are `20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql` and `20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql`, recorded in the Staging ledger under versions `20261029131047` and `20261029142840`, respectively. The source migrations `20261029070000_ht_mvp_com_final01_r2_r1_invoice_line_casing_tolerance.sql` and `20261030100000_ht_mvp_rel_com01_production_migration_safety.sql` are **canonical**, not quarantined; the latter was applied in Staging as ledger version `20261030001134`. The approved 108-migration Production plan excludes the two quarantined source files. **Execution-scope limitation:** the attested disposable run applied six incremental Commercial migrations after seeding a constructed baseline; full fresh replay of all 108 migrations and any future Production database state remain unverified and unauthorized.
 
 ---
 
