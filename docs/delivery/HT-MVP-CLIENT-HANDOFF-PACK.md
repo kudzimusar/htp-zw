@@ -1,167 +1,171 @@
 # HealthTimes 2.0 — Client Delivery & Handoff Package
-## Executive Acceptance Register, Capability Matrix, Training Guide & Delivery Checklist
+## Executive Acceptance Register, 7-Column Evidence Matrix, Staging Truth Census & Unsigned Client Certificate
 
 - **Document ID:** `HT-MVP-CLIENT-HANDOFF-PACK`
-- **Unit ID:** `HT-MVP-CLIENT-READINESS-01`
+- **Unit ID:** `HT-MVP-CLIENT-READINESS-01-R1-FINAL`
 - **Governing Standard:** 11-11 Tech UDPCS 1.0 Professional Delivery Standard
 - **Programme:** HealthTimes 2.0 — Final Unified MVP
-- **Accepted Final Governance SHA:** `3df501f8280ac6e983f3f640b70dc049626aa52b`
+- **Accepted Release-Governance Authority SHA:** `3df501f8280ac6e983f3f640b70dc049626aa52b`
 - **Application Preview SHA:** `126f81c65e24d30167deb21c06c598e39bf8ea10`
 - **Application Preview Deployment:** `dpl_F17gteDKYCS2w7J5CtZfJBFihKw5`
 - **Application Preview URL:** `https://healthtimes-staging-czazp4yi8-11-11.vercel.app`
 - **Staging Supabase Project:** `bzuvntbkevvuhfhqhkua`
-- **Staging Migration Tip:** `20261030001134` (110 applied migrations)
-- **Target Delivery Date:** 30 October 2026
+- **Staging Migration Tip:** `20261030001134` (110 applied migrations on Staging; 108 canonical production migrations + 2 quarantined staging-only UAT reconciliation migrations)
+- **Production Authorization:** `NONE` (`PRODUCTION_TOUCHED=NO`, `MERGE_PERFORMED=NO`)
+- **Client Acceptance Status:** `UNSIGNED — PENDING HUMAN OWNER UAT & SIGN-OFF`
 
 ---
 
 ### Executive Source & Lineage Notice
 In strict accordance with exact-source governance:
-- **Governance Authority SHA (`3df501f8`):** Represents the finalized, certified release governance, destination attestation boundary, and preflight tooling.
-- **Application Preview SHA (`126f81c6`):** Represents the verified application runtime bundle deployed on Vercel (`dpl_F17gteDKYCS2w7J5CtZfJBFihKw5`).
-- The application runtime bundle is identical between `126f81c6` and `3df501f8`, as commit `3df501f8` modified only release governance scripts and test fixtures without altering application runtime source.
+- **Release-Governance Authority SHA (`3df501f8280ac6e983f3f640b70dc049626aa52b`):** Represents the certified release governance, disposable-database destination attestation boundary, and preflight tooling.
+- **Application Preview SHA (`126f81c65e24d30167deb21c06c598e39bf8ea10`):** Represents the verified application runtime bundle deployed on Vercel (`dpl_F17gteDKYCS2w7J5CtZfJBFihKw5`).
+- The application runtime bundle is identical between `126f81c65e24d30167deb21c06c598e39bf8ea10` and `3df501f8280ac6e983f3f640b70dc049626aa52b`, as commit `3df501f8` modified only release governance scripts and test fixtures without altering application runtime source.
+- **Preview Protection Containment (`HT-MVP-CLIENT-READINESS-01-R1-FINAL`):** Vercel Preview SSO protection (`all_except_custom_domains`) is active on `healthtimes-staging`. The previously exposed bypass secret (fingerprint `00317e8682e5`) has been revoked provider-side on Vercel (verified HTTP `302` rejection) and replaced with a rotated secret (fingerprint `0fb0100c3825`) stored exclusively outside the repository.
 
 ---
 
 ## 1. Executive Deliverables Inventory
 
-HealthTimes 2.0 is delivered to the client as an integrated, multi-surface media ecosystem comprising:
+HealthTimes 2.0 is delivered to the client for Staging review and Owner UAT across four planes:
 
 1. **HealthTimes Reader Application (Experience Plane):**
-   - 12 fully integrated mobile and responsive web screens (phone, tablet, desktop).
+   - Mobile and responsive web surfaces (phone, tablet, desktop).
    - Dual-feed discovery (Curated Lead Story + Chronological Latest Health Feed).
    - Contextual topic, tag, and author exploration engine.
-   - Offline reading mode with local cache and zero hydration errors.
-   - Audio journalism player with background playback and scrubber controls.
-   - Contrast-compliant Dark Mode and dynamic typography controls.
+   - Offline reading cache and saved bookmarks.
+   - Audio journalism player and Dark Mode typography controls.
 
 2. **HealthTimes Newsroom Operating System (Control Plane):**
    - Unified 7-desk control room (`/studio`).
-   - Staff authentication with cryptographic magic link and password verification.
-   - Rich editorial drafting desk with real-time character/word counter and auto-save.
-   - Peer review queue with multi-level editorial approval and revision diff tracking.
-   - Homepage curation and layout manager for hero lead story placement.
-   - Media library with storage bucket integration and MIME-type enforcement.
-   - Commercial ad operations desk with zone targeting, flight scheduling, and analytics.
-   - Multi-channel audience distribution (WhatsApp, Newsletter, Push notifications).
-   - Double-entry General Ledger (GL) with 13-account Chart of Accounts, Trial Balance, P&L, and Balance Sheet.
+   - Staff authentication with password and magic-link session management (`newsroom_sessions` + `auth.sessions`).
+   - Editorial drafting, peer review queue, revision diff tracking, and homepage lead story curation.
+   - Commercial ad operations desk (advertisers, orders, campaigns, creatives, zone analytics).
+   - Multi-channel audience distribution staging (WhatsApp, Newsletter, Push notifications).
+   - Double-entry General Ledger (GL) with 13-account Chart of Accounts, Trial Balance, Profit & Loss, Balance Sheet, Invoices, Payments, and Expenses.
    - Staff administration and Role-Based Access Control (RBAC).
 
-3. **Database & Infrastructure Core (Platform Plane):**
-   - Supabase PostgreSQL 17 database with 110 migrations applied on Staging (`bzuvntbkevvuhfhqhkua`).
-   - Strict Row-Level Security (RLS) active across 100% of public tables.
-   - Zero-unconfirmed-email first-owner bootstrap security guarantee.
-   - Realtime event channel for instant content synchronization.
-   - Hardened SQL execution adapter with live instance attestation and per-migration atomicity.
+3. **Database & Release-Governance Core (Platform Plane):**
+   - Supabase PostgreSQL 17 database with 110 migrations applied on Staging (`bzuvntbkevvuhfhqhkua`) and 108 canonical migrations certified in a fresh disposable PostgreSQL 17 instance (`HT-MVP-REL-COM-01-R3-R1`).
+   - Row-Level Security (RLS) and `SECURITY DEFINER` capability-checked RPCs across public tables.
+   - Hardened migration governor (`scripts/release/ht-migration-governor.mjs`) with content-addressed SHA-256 manifest verification, per-migration atomic ledger wrapping, and live destination attestation.
 
-4. **Complete Delivery & Governance Documentation (Governance & Ops Planes):**
-   - Delivery Control Center, Capability Register, and 9-Dimension Gates.
-   - Standard Operating Procedures (SOP) and Incident Runbooks (SEV-1/2/3).
-   - Backup and Disaster Recovery (PITR) procedures.
-   - Legal, Privacy, and Tax Compliance registers.
+4. **Delivery & Operations Documentation (Governance & Ops Planes):**
+   - Fail-closed non-destructive RPC and preview custody verifier (`scripts/release/owner-acceptance-demonstration.mjs`).
+   - Standard Operating Procedures (SOP), Incident Runbooks, and Backup/Recovery (PITR) procedures.
+   - External Release Gates, Security/Privacy/Legal compliance registers, and V1.1/V1.2 deferred backlog.
 
 ---
 
-## 2. MVP Feature Acceptance Matrix
+## 2. Seven-Column Capability Acceptance & Evidence Matrix
 
-To uphold professional delivery standards, capabilities are evaluated across **five explicit dimensions**:
-1. **Source Certification:** Verified in source code, TypeScript compilation (`tsc --noEmit`), Git commit history, and immutable manifests.
-2. **Automated Tests:** Unit, integration, and contract test suites executed with 100% pass rates.
-3. **Physical UAT:** Interactive browser walkthroughs testing DOM elements, forms, accessibility locators, and state transitions.
-4. **Environment Readiness:** Provisioned infrastructure on Staging Supabase and Vercel Preview CDN.
-5. **Commercial Activation:** Live commercial readiness, real-money transactions, external provider credentials, and professional sign-offs.
+To maintain strict claim discipline, capabilities are reported across **seven distinct evidence columns**. Automated tests, non-destructive API/RPC checks, prior specialist Playwright browser runs, and Human Owner physical UAT are reported separately and never conflated. No capability is labeled `PRODUCTION READY` while Human Owner acceptance, external compliance gates, or production promotion authorization remain pending.
 
-*Rule: No functionality is marked physically certified merely because its HTTP route returns 200.*
-
-| Capability Area | Source Certification | Automated Tests | Physical UAT | Environment Readiness | Commercial Activation | Operational Status |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1. Reader & Search** | Certified (`126f81c6`) | PASS (74 tests) | Certified (Phone, Tablet, Desktop) | Ready (Vercel CDN + Supabase) | Publicly Accessible (5,786 URLs) | **PRODUCTION READY** |
-| **2. Newsroom Editorial** | Certified (`126f81c6`) | PASS (466 tests) | Certified (UAT-J01–J04, E01–E04) | Ready (110 Staging Migrations) | Operational (Staging Credentials) | **PRODUCTION READY** |
-| **3. Staff Auth & RBAC** | Certified (`126f81c6`) | PASS (4 SQL + Unit) | Certified (`com-final01-r2`) | Ready (6 Newsroom Roles) | Pending Owner Physical Activation | **OPERATIONAL** |
-| **4. Finance & Accounting**| Certified (`126f81c6`) | PASS (10/10 Governor) | Certified (12 Commercial Routes) | Ready ($31.3k TB Balanced, $10.5k BS) | Manual Invoicing & Bank Wire | **OPERATIONAL** |
-| **5. Advertising Operations**| Certified (`126f81c6`) | PASS (Contract tests) | Certified (Orders, Invoices, Aging) | Ready (Creatives Bucket Active) | Operational (Direct Bookings) | **OPERATIONAL** |
-| **6. Premium Access Gating**| Certified (`126f81c6`) | PASS (Teaser tests) | Certified (`body_html: null` verified)| Ready (Entitlements Schema Active) | Manual Provisioning Active | **OPERATIONAL** |
-| **7. Paynow Gateway** | Certified (`126f81c6`) | PASS (Hashing tests) | Certified (Sandbox edge handlers) | Ready (Staging credentials configured) | **STRICTLY DISABLED** | **RESTRICTED** |
-| **8. Mobile / PWA** | Certified (`126f81c6`) | PASS (Quality suite) | Certified (Zero horizontal overflow) | Ready (Responsive Web PWA) | App Store Submission Pending | **OPERATIONAL** |
-| **9. Ops Monitoring & Audit**| Certified (`3df501f8`) | PASS (Docker suite) | Certified (Preflight 100% green) | Ready (PITR Runbook, Audit logs) | Operational Runbooks Delivered | **PRODUCTION READY** |
+| Capability Area | 1. Source Implemented | 2. Automated Tests Passed | 3. API / RPC Verification Completed | 4. Physical Interactive Browser UAT Completed | 5. Human Owner UAT Completed | 6. Environment Ready | 7. Production / Commercial Activation Authorized |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1. Reader & Search** | YES (`126f81c6`) | PASS (74 unit/contract tests) | PASS (`ag05_public_sitemap_xml`: 5,786 URLs; teaser RPC verified) | YES — Prior specialist Playwright runs (`phase12-canonical-uat`); NOT re-run in R1 | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (Vercel Preview + Supabase Staging) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **2. Newsroom Editorial** | YES (`126f81c6`) | PASS (Editorial + studio test suites) | PASS (Publication & teaser contract verified) | YES — Prior specialist Playwright runs (`phase12-canonical-uat`); NOT re-run in R1 | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (`bzuvntbkevvuhfhqhkua`) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **3. Staff Auth & RBAC** | YES (`126f81c6`) | PASS (RBAC + session hygiene tests) | PASS (Commercial denied `finance_get_trial_balance` with `42501`; session cleanup verified) | PARTIAL — Specialist browser auth/routes verified in `HT-MVP-COM-FINAL-01-R2-R2` | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (Owner + UAT roles active; 0 leaked UAT sessions) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **4. Finance & Accounting** | YES (`126f81c6`) | PASS (Finance unit + migration governor 10/10) | PASS (`finance_get_trial_balance`, `balance_sheet`, `profit_and_loss`, `list_invoices`, `list_expenses`) | YES — Specialist Playwright verification of 12 commercial/finance routes (`HT-MVP-COM-FINAL-01-R2-R2`) | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (Synthetic UAT fixtures reconciled; $0 realized revenue) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **5. Advertising Operations** | YES (`126f81c6`) | PASS (Commercial contract tests) | PASS (`advertisers` read + `commercial_list_orders`: 16 cancelled, 0 uncancelled) | YES — Specialist Playwright verification (`HT-MVP-COM-FINAL-01-R2-R2`) | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (Direct staff booking + manual invoice workflow) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **6. Premium Access Gating** | YES (`126f81c6`) | PASS (Teaser & entitlement tests) | PASS (`ag05_public_story_teaser_document` returns `body_html: null`) | YES — Specialist Playwright verification (`HT-MVP-COM-FINAL-01-R2-R2`) | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (Manual entitlement provisioning only) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **7. Paynow Gateway** | YES (`126f81c6`) | PASS (Webhook/hash unit tests) | BLOCKED (`PAYNOW_PUBLIC_CHECKOUT=DISABLED`; `LIVE_USD_PAYMENT_CERTIFIED=NO`) | NO — Live USD browser checkout disabled due to sandbox ZIG currency mismatch | **NO** (`PENDING_HUMAN_OWNER`) | `RESTRICTED_SANDBOX_ONLY` (Live USD merchant credentials pending) | **NO** (`STRICTLY_DISABLED`) |
+| **8. Mobile / PWA** | YES (`126f81c6`) | PASS (Responsive/mobile quality suite) | PASS (Shared Supabase RPCs verified) | PARTIAL — Responsive web viewports verified in Playwright; native store builds not executed | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_WEB_PWA_READY` (App Store / Play Store credentials pending) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
+| **9. Ops Monitoring & Audit** | YES (`3df501f8`) | PASS (Migration governor & security tests) | PASS (`audit_logs` & `newsroom_sessions` verified on Staging) | N/A (Backend governance, CLI preflight, and SQL audit) | **NO** (`PENDING_HUMAN_OWNER`) | `STAGING_READY` (Runbooks & governor active) | **NO** (`PRODUCTION_NOT_AUTHORIZED`) |
 
 ---
 
-## 3. Available Client Access Paths
+## 3. Reconciled Owner Authentication & Staging Session State
+
+Independent inspection of Staging Supabase (`bzuvntbkevvuhfhqhkua`) establishes the exact authentication and session state:
+
+```text
+OWNER_ACCOUNT_EXISTS=YES
+OWNER_EMAIL=kudzimusar@gmail.com
+OWNER_PUBLISHER_ROLE_ACTIVE=YES
+OWNER_EMAIL_CONFIRMED_AT=2026-10-23T08:11:04.222585Z
+OWNER_LAST_SIGN_IN_AT=2026-10-26T17:19:03.902265Z
+OWNER_ACTIVE_NEWSROOM_SESSIONS=14
+OWNER_ACTIVE_AUTH_SESSIONS=1
+OWNER_PHYSICAL_UAT_COMPLETED=NO
+OWNER_CLIENT_ACCEPTANCE_SIGNED=NO
+COMMERCIAL_UAT_UNREVOKED_NEWSROOM_SESSIONS=0
+FINANCE_UAT_UNREVOKED_NEWSROOM_SESSIONS=0
+COMMERCIAL_UAT_AUTH_SESSIONS=0
+FINANCE_UAT_AUTH_SESSIONS=0
+```
+
+- **Staging Owner Account State:** The primary Owner account (`kudzimusar@gmail.com`) **already exists** in `auth.users` and `public.staff_profiles` with `status = 'active'` and an active `Publisher / Owner` role assignment in `public.staff_role_assignments`. It does **not** require initial account creation or first-time `/studio/activate` bootstrapping on Staging.
+- **Remaining Owner Action on Staging:** The Human Owner must perform the physical interactive browser UAT walkthrough across the 7 personas (`docs/delivery/HT-MVP-OWNER-UAT.md`) and execute the formal Client Acceptance Certificate (Section 10 below) if satisfied.
+- **Production Bootstrap Note:** When a separate Production Supabase instance is eventually authorized and provisioned, `/studio/activate` remains the designated first-owner bootstrap endpoint for elevating the confirmed Owner email on that fresh environment.
+- **Staging UAT Session Hygiene:** All synthetic test sessions for `uat-commercial@healthtimes.test` and `uat-finance@healthtimes.test` have been revoked (`0` unrevoked `newsroom_sessions`, `0` active `auth.sessions`), while all genuine Owner sessions for `kudzimusar@gmail.com` (`14` `newsroom_sessions`, `1` `auth.sessions`) have been preserved untouched.
+
+---
+
+## 4. Reconciled Staging Financial Truth (Synthetic UAT Fixtures vs. Realized Revenue)
+
+All financial records currently in Staging (`bzuvntbkevvuhfhqhkua`) are **synthetic UAT / staging verification fixtures** created during prior certification phases. **Realized commercial production revenue is `$0.00`.**
+
+### 4.1 Exact Staging Record Census
+| Ledger / Table | Total Rows | Status Breakdown | Financial / Audit Explanation |
+| :--- | :---: | :--- | :--- |
+| `finance_invoices` | **12** | `issued`: **3** (`$7,500.00`)<br>`paid`: **2** (`$3,000.00`)<br>`void`: **7** (`$23,200.00`) | Synthetic UAT invoices (`INV-2026-00001` through `INV-2026-00012`) issued to synthetic UAT customer `UAT04B Staging Partner Ltd`. |
+| `commercial_orders` | **16** | `cancelled`: **16**<br>`uncancelled`: **0** | All 16 synthetic UAT commercial orders (`ORD-202610-*`) are in `cancelled` status (`0` active/uncancelled orders). |
+| `finance_expenses` | **12** | `void`: **11**<br>`rejected`: **1**<br>`posted / paid`: **0** | All 12 synthetic UAT expenses (`EXP-2026-00001` through `EXP-2026-00012`) are `void` or `rejected` (`$0.00` active expenses). |
+| `finance_payments` | **2** | `recorded`: **2** (`$3,000.00`) | Two `$1,500.00` synthetic UAT payments recorded against `INV-2026-00001` and `INV-2026-00009`. |
+| `finance_customers` | **23** | `active`: **4** (`UAT04B Staging Partner Ltd`)<br>`inactive`: **19** (`UAT HealthCorp * Ltd`) | Synthetic UAT customer fixtures; quarantined staging migration `20261030001134` deactivated historical `UAT HealthCorp` test rows. |
+| `finance_journal_entries` | **41** | `posted`: **24** (55 lines)<br>`reversed`: **17** (41 lines) | Immutable double-entry journal ledger. |
+
+### 4.2 Posted-Only vs. Reversal-Inclusive Trial Balance Reconciliation
+- **Posted-Only Journal Lines (24 `posted` entries / 55 lines):**
+  - `POSTED_JOURNAL_DEBITS_USD = $22,400.00`
+  - `POSTED_JOURNAL_CREDITS_USD = $22,400.00`
+  - Comprises current active synthetic UAT invoices/payments plus reversing entries that zeroed out earlier UAT expense and voided-invoice journals.
+- **Posted + Reversed Journal Lines (41 `posted` + `reversed` entries / 96 lines — reported by `finance_get_trial_balance`):**
+  - `POSTED_AND_REVERSED_DEBITS_USD = $31,300.00`
+  - `POSTED_AND_REVERSED_CREDITS_USD = $31,300.00`
+  - `is_balanced = true` across all 13 Chart of Accounts buckets. The `$8,900.00` difference between `$31,300.00` and `$22,400.00` consists of the 17 original `reversed` journal entries whose offsetting reversal entries are in `posted` status.
+- **Net Financial Statements on Staging (Synthetic UAT Balances):**
+  - **Balance Sheet (`finance_get_balance_sheet`):** Total Assets = **`$10,500.00`** (`1000 Cash and Cash Equivalents`: `$3,000.00`; `1100 Accounts Receivable — Trade`: `$7,500.00`) = Total Liabilities (**`$0.00`**) + Total Equity / Current Period Net Surplus (**`$10,500.00`**). `is_balanced = true`.
+  - **Profit & Loss (`finance_get_profit_and_loss`):** Total Revenue = **`$10,500.00`** (`4000 Advertising Revenue — Digital`: `$4,500.00`; `4010 Sponsored Content & Supplements`: `$6,000.00`), Total Expenses = **`$0.00`**, Net Operating Surplus = **`$10,500.00`**.
+- **Production Isolation Guarantee:** All staging UAT reconciliation migrations (`20261029070000` and `20261030001134`) are strictly quarantined and excluded from the canonical 108-migration production plan enforced by `scripts/release/ht-migration-governor.mjs`. A fresh production database initializes with a `$0.00` opening ledger and zero synthetic fixtures.
+
+---
+
+## 5. Available Client Access Paths (Staging Preview)
+
+> **Access Note:** Because Vercel Deployment Protection (`all_except_custom_domains`) is enforced on `healthtimes-staging`, accessing the Preview URL requires either logging in via an authorized Vercel team session or supplying the rotated `x-vercel-protection-bypass` credential stored in the local operator secret store (`~/.healthtimes-secrets/vercel-bypass`).
 
 | Surface / Persona | Access URL | Authentication Required | Primary Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Public Reader** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/` | None (Public) | Dual-feed browsing, article reading, dark mode, audio player, sitemap. |
+| **Public Reader** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/` | Preview Protection + Public | Dual-feed browsing, article reading, dark mode, audio player, sitemap. |
 | **Staff Sign-In Portal** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/account-access` | Magic Link or Password | Newsroom session authentication, staff profile loading, role routing. |
 | **Newsroom Operating Room**| `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/studio` | Staff Session | 7-desk control room (Editorial, Review, Audience, Ads, Finance, Staff, Settings). |
-| **Owner First Activation** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/studio/activate` | `kudzimusar@gmail.com` | Primary Owner bootstrapping; elevates confirmed email to super-admin Publisher. |
-| **Commercial API Gateway**| `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/api/commerce` | Authenticated / Role Token | Order creation, advertiser directory, invoice issuance. |
-| **Communications API** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/api/communications` | Authenticated / Service Key | Multi-channel dispatch queue, WhatsApp webhook processor. |
-| **Newsroom Internal API** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/api/newsroom` | Authenticated / Staff Session| Editorial drafting, revision diffs, staff directory. |
-| **Build Info & Custody** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/build-info.json` | Bypass Token (Preview) | Exact SHA custody verification (`126f81c65e24d30167deb21c06c598e39bf8ea10`). |
+| **Owner Bootstrap Route** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/studio/activate` | `kudzimusar@gmail.com` | Already active on Staging; used for first-owner bootstrap on new environments. |
+| **Build Info & Custody** | `https://healthtimes-staging-czazp4yi8-11-11.vercel.app/build-info.json` | Bypass Header / Vercel Auth | Exact SHA custody verification (`126f81c65e24d30167deb21c06c598e39bf8ea10`). |
 
 ---
 
-## 4. Staff Role & Onboarding Guide
+## 6. Staff Role & Segregation of Duties Guide
 
-HealthTimes 2.0 enforces strict Role-Based Access Control (RBAC). The system establishes clear segregation of duties:
+HealthTimes 2.0 enforces Role-Based Access Control (RBAC) through capability-checked `SECURITY DEFINER` RPCs and Row-Level Security:
 
-```text
-                               ┌────────────────────────────────┐
-                               │   Publisher / Owner            │
-                               │   (Super-Admin Governance)     │
-                               └──────────────┬─────────────────┘
-                                              │
-         ┌────────────────────────┬───────────┴────────────┬────────────────────────┐
-         │                        │                        │                        │
-         ▼                        ▼                        ▼                        ▼
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│   Desk Editor    │    │ Commercial Mgr   │    │ Finance Manager  │    │ Audience Lead    │
-│  - Review Queue  │    │  - Ad Campaigns  │    │  - Gen. Ledger   │    │  - WhatsApp      │
-│  - Story Approval│    │  - Advertisers   │    │  - Invoices      │    │  - Newsletter    │
-│  - Lead Curation │    │  - Order Booking │    │  - Expenses      │    │  - Push Alerts   │
-└────────┬─────────┘    └──────────────────┘    │  - Balance Sheet │    └──────────────────┘
-         │                                      └──────────────────┘
-         ▼
-┌──────────────────┐
-│ Staff Journalist │
-│  - Story Draft   │
-│  - Auto-Save     │
-│  - Image Upload  │
-└──────────────────┘
-```
-
-### Role Separation Rules
-1. **Editorial vs. Commercial:** Journalists and Editors cannot create commercial orders or access the General Ledger.
-2. **Order Creation vs. Order Approval:** A Commercial Manager cannot approve commercial orders that they created.
-3. **Invoicing vs. Approvals:** Accounts Officers can prepare draft invoices; only Finance Managers or Publishers can approve or void invoices.
-4. **Expense Submission vs. Expense Payment:** Staff can submit expenses; only Finance Managers can approve or mark expenses as paid.
+1. **Editorial vs. Commercial/Finance:** Journalists and Editors cannot create commercial orders, issue invoices, or query financial statements.
+2. **Commercial vs. Finance Statement Separation:** Commercial Managers can manage `advertisers` and `commercial_list_orders`, but are rejected with HTTP/SQL `42501` (`finance.statement.view capability required`) if they invoke `finance_get_trial_balance`, `finance_get_balance_sheet`, or `finance_get_profit_and_loss`.
+3. **Order Creation vs. Order Approval:** Commercial Managers cannot self-approve orders where they are the creator.
+4. **Invoicing & Expense Controls:** Only Finance Managers or Publishers hold `finance.invoice.approve`, `finance.expense.approve`, and `finance.journal.reverse` capabilities.
 
 ---
 
-## 5. Known Limitations & Environment Boundaries
+## 7. Known Limitations & Paynow Parallel-Track Boundary
 
-In accordance with UDPCS 1.0 Section 48 (Claim Discipline & Honest Disclosure), the delivery team explicitly discloses the following operational boundaries:
+### 7.1 External Provider Boundaries
+1. **Meta WhatsApp Cloud API:** Broadcast dispatches compose, validate, and stage in `broadcast_dispatches`. Live outbound transmission requires a client-provisioned Meta Business System User Token.
+2. **Brevo Email Service:** Newsletter digests compose and preview in HTML. Outbound email delivery requires client DNS configuration (`SPF`, `DKIM`, `DMARC`) and a live Brevo API key.
+3. **Apple Push (APNs) & Google Play (FCM):** Native mobile push notifications require client enrollment in Apple Developer Program and Google Play Console.
+4. **Self-Service Advertiser Portal:** Deferred to V1.1. Ad campaigns are booked by newsroom commercial staff and invoiced via the Finance Desk.
 
-1. **Meta WhatsApp Cloud API:**
-   - *Status:* Staged with verified database queue fallback.
-   - *Behavior:* Broadcast messages compose, validate against length limits, and stage into `broadcast_dispatches`. Outbound transmission to real phone numbers requires the client to provision a Meta Business Manager System User Token.
-2. **Brevo Email Service:**
-   - *Status:* Staged with mock / staging queue.
-   - *Behavior:* Newsletter digests compose and preview responsively. Outbound email transmission to subscriber inboxes requires the client to configure DNS records (SPF, DKIM, DMARC) and supply a verified Brevo v3 API key.
-3. **Apple Push (APNs) & Google Play (FCM):**
-   - *Status:* Staged with in-app notification bell and notification center.
-   - *Behavior:* Background native lock-screen alerts require client enrollment in the Apple Developer Program and Google Play Console.
-4. **Self-Service Advertiser Portal:**
-   - *Status:* Deferred to V1.1.
-   - *Behavior:* Ad campaigns are booked directly by newsroom commercial staff, with invoices issued and tracked via the Finance Desk.
-
----
-
-## 6. Paynow USD-First Parallel-Track Boundary
-
-The Paynow payment gateway integration is maintained on an independent, separately governed track with strict fail-closed safety controls:
-
+### 7.2 Paynow USD-First Parallel-Track Boundary
 ```text
 USD_PRIORITY=PRIMARY
 ZIG_PRIORITY=SECONDARY
@@ -170,86 +174,66 @@ LIVE_USD_PAYMENT_CERTIFIED=NO
 PAYNOW_PUBLIC_CHECKOUT=DISABLED
 REAL_MONEY_TEST_REQUIRES_OWNER_AUTHORIZATION=YES
 ```
-
-- **Currency Architecture:** The system architecture is built USD-first. Staging tests confirmed that the Paynow sandbox maps USD payments to ZIG internally; this sandbox mismatch has been fully investigated and documented.
-- **Safety Restriction:** Automated public checkout is **DISABLED**. No automated card transactions occur on the live site.
-- **Client Action Required:** Live USD payment processing requires the client to obtain live merchant credentials from Paynow Zimbabwe and formally authorize live real-money testing.
-- **Commercial Workaround:** Commercial ad revenue and sponsorship billing operate via direct invoicing and manual bank wire transfer instructions, fully integrated with the General Ledger.
+- Automated public Paynow checkout is **DISABLED** (`PAYNOW_CHECKOUT_AVAILABLE=NO`).
+- Live USD payment certification requires live Paynow Zimbabwe USD merchant credentials and explicit Owner authorization for real-money transaction testing.
 
 ---
 
-## 7. External Release Gates (Census & Verification)
+## 8. External Release Gates Prior to Production Promotion
 
-Before the platform is promoted from Staging to live production operation, the following six external governance gates must be fulfilled:
+Before any promotion from Staging to Production is authorized, the following six external gates must be satisfied:
 
-| External Gate | Governing Authority | Status | Prerequisites / Next Steps |
+| External Gate | Governing Authority | Current Status | Required Action |
 | :--- | :--- | :---: | :--- |
-| **1. Owner Physical Auth** | Human Owner (Kudzi Musarurwa) | **OWNER_ACTION_REQUIRED** | Owner must log into `/studio/activate` using `kudzimusar@gmail.com` to establish live Publisher credentials. |
-| **2. Legal Counsel Gate** | Independent Legal Counsel | **NOT_EVIDENCED — REVIEW_REQUIRED** | Defamation policy, ZMC journalist guidelines, and medical disclaimers require formal sign-off by client-appointed counsel. |
-| **3. Tax & Audit Gate** | Certified Public Accountant (CPA) | **NOT_EVIDENCED — REVIEW_REQUIRED** | Chart of Accounts, VAT liability accounting, and GAAP double-entry ledger require formal review by client auditor. |
-| **4. Data Protection Gate** | Data Protection Officer (DPO) | **NOT_EVIDENCED — REVIEW_REQUIRED** | Compliance with the Zimbabwe Cyber and Data Protection Act [Chapter 12:07] requires formal DPO sign-off. |
-| **5. Operating Domain** | Client DNS Administrator | **PENDING DNS PROVISIONING** | Production domain `healthtimes.co.zw` DNS records must be pointed to Vercel production edge servers. |
-| **6. Paynow Live Gateway** | Paynow Zimbabwe & Client | **PENDING LIVE CREDENTIALS** | Live USD merchant credentials and Owner authorization required prior to enabling automated checkout. |
+| **1. Human Owner Physical UAT & Sign-Off** | Human Owner (Kudzai Musarurwa) | **PENDING (`NOT_EXECUTED`)** | Complete physical browser UAT in `HT-MVP-OWNER-UAT.md` using `kudzimusar@gmail.com` and sign Section 10 below. |
+| **2. Legal Counsel Gate** | Independent Legal Counsel | **NOT_EVIDENCED — REVIEW_REQUIRED** | Formal legal sign-off on defamation policy, ZMC compliance, and medical disclaimers. |
+| **3. Tax & Audit Gate** | Certified Public Accountant (CPA) | **NOT_EVIDENCED — REVIEW_REQUIRED** | Formal accountant sign-off on 13-account Chart of Accounts, VAT treatment, and double-entry rules. |
+| **4. Data Protection Gate** | Data Protection Officer (DPO) | **NOT_EVIDENCED — REVIEW_REQUIRED** | Formal DPO sign-off under Zimbabwe Cyber and Data Protection Act [Chapter 12:07]. |
+| **5. Production Domain & DNS** | Client DNS Administrator | **PENDING DNS PROVISIONING** | Point `healthtimes.co.zw` DNS records to authorized production endpoints after promotion approval. |
+| **6. Paynow Live USD Credentials** | Paynow Zimbabwe & Client | **PENDING LIVE CREDENTIALS** | Supply live USD merchant keys and authorize supervised live USD transaction test. |
 
 ---
 
-## 8. Security, Backup, Monitoring & Recovery Responsibilities
+## 9. Security, Backup, Monitoring & Recovery Responsibilities
 
-### Shared Responsibility Model
-- **Infrastructure Layer (Supabase & Vercel):** Physical server security, network DDoS protection, automated PostgreSQL daily backups, high availability.
-- **Platform Engineering Layer (11-11 Tech):** Zero plain-text credentials in repository, tamper-evident migration governance, atomic database ledger transactions, dependency gap detection.
-- **Operating Governance Layer (HealthTimes Owner):** User access revocation, password hygiene, approval of third-party contracts, tax filing, and regulatory editorial compliance.
-
-### Operational Recovery Runbooks
-- **Incident Response SOP:** Categorized severity tiers (SEV-1 outage: < 30 min response; SEV-2 defect: < 2 hrs; SEV-3 minor: < 8 hrs).
-- **Point-in-Time Recovery (PITR):** Documented procedure in `docs/delivery/HT-MVP-BACKUP-RECOVERY.md` for rolling back database state to any minute within a 7-day retention window.
-- **Audit Logging:** All sensitive staff actions (role assignment, session revocation, invoice voiding, journal reversals) are immutably recorded in `public.audit_logs`.
+- **Credential Hygiene:** Zero plain-text tokens, passwords, or bypass secrets are permitted in repository source or documentation. Automated regression tests (`tests/release/client-readiness-security.test.mjs`) scan tracked files for secret patterns and verify fail-closed session revocation.
+- **Database Recovery (PITR) & Audit Trail:** Documented in `docs/delivery/HT-MVP-BACKUP-RECOVERY.md` and `docs/delivery/HT-MVP-INCIDENT-RUNBOOK.md`. All sensitive role, session, and ledger actions are immutably logged in `public.audit_logs`.
 
 ---
 
-## 9. Deferred Post-MVP Features (V1.1 / V1.2 Register)
+## 10. Formal Client Delivery Sign-Off Certificate (UNSIGNED — FOR HUMAN OWNER COMPLETION)
 
-The following capabilities are formally scheduled for subsequent releases:
-
-1. **Self-Service Advertiser Portal (V1.1):** Direct advertiser credit-card booking and automated banner placement.
-2. **Automated Electronic ZIMRA Tax Filing (V1.1):** Direct API integration with the Zimbabwe Revenue Authority electronic tax portal.
-3. **Real-Time Collaborative Article Editing (V1.1):** Multi-cursor operational transformation for concurrent journalism drafting.
-4. **Offline Audio Download Queue (V1.2):** Background podcast caching for low-connectivity rural health workers.
-5. **Model Context Protocol (MCP) & AI Editorial Copilot (V1.2):** Autonomous fact-checking and automated clinical terminology validation.
-
----
-
-## 10. Formal Client Delivery Sign-Off Certificate
+> **Instruction:** This certificate must remain **unsigned** (`[ ]` unchecked and `( )` unselected) until the Human Owner (`kudzimusar@gmail.com`) personally completes physical UAT and records their disposition.
 
 ```text
 ================================================================
 HEALTHTIMES 2.0 FORMAL CLIENT ACCEPTANCE CERTIFICATE
 ================================================================
 Programme:              HealthTimes 2.0 — Final Unified MVP
-Governing Unit:         HT-MVP-CLIENT-READINESS-01
+Governing Unit:         HT-MVP-CLIENT-READINESS-01-R1-FINAL
 Governing Standard:     11-11 Tech UDPCS 1.0 Professional Standard
 Repository:             kudzimusar/htp-zw
 Accepted Governance:    3df501f8280ac6e983f3f640b70dc049626aa52b
 Application Preview:    https://healthtimes-staging-czazp4yi8-11-11.vercel.app (126f81c6)
 Staging Database:       bzuvntbkevvuhfhqhkua (110 migrations applied)
 
-CLIENT ACCEPTANCE CHECKLIST:
-[x] Reader mobile & responsive web experience inspected and verified.
-[x] 7-Desk Newsroom Operating System inspected and verified.
-[x] Role-Based Access Control (RBAC) and role separation verified.
-[x] Double-entry General Ledger and financial statements verified ($31.3k Trial Balance).
-[x] Non-destructive Owner UAT and Client Demonstration completed with 0 mutations.
-[x] Standard Operating Procedures (SOP) and Disaster Recovery runbooks delivered.
-[x] Client Disclosures, External Release Gates, and Paynow restrictions acknowledged.
+CLIENT ACCEPTANCE CHECKLIST (TO BE COMPLETED BY HUMAN OWNER):
+[ ] Reader mobile & responsive web experience physically inspected by Owner.
+[ ] 7-Desk Newsroom Operating System physically inspected by Owner.
+[ ] Role-Based Access Control (RBAC) and role separation reviewed by Owner.
+[ ] Staging General Ledger reconciliation ($22.4k posted / $31.3k reversal-inclusive synthetic UAT fixtures; $0 realized revenue) reviewed by Owner.
+[ ] Non-destructive RPC & Preview custody verification output reviewed by Owner.
+[ ] Standard Operating Procedures (SOP) and Disaster Recovery runbooks received.
+[ ] External Release Gates, Provider Boundaries, and Paynow USD restrictions acknowledged.
 
-ACCEPTANCE DISPOSITION:
+ACCEPTANCE DISPOSITION (SELECT ONE):
 ( ) ACCEPTED WITHOUT RESERVATIONS
-(X) ACCEPTED SUBJECT TO OWNER PHYSICAL AUTHENTICATION & EXTERNAL GATES
-( ) REJECTED (SPECIFY BLOCKERS)
+( ) ACCEPTED SUBJECT TO EXTERNAL GATES (LEGAL, TAX/CPA, DPO, DNS, PAYNOW LIVE USD)
+( ) REJECTED (SPECIFY BLOCKERS BELOW)
 
 Client Authorized Representative: ______________________________
 Designation:                      Product Owner / Publisher
 Signature:                        ______________________________
-Date:                             30 October 2026
+Date:                             ______________________________
 ================================================================
 ```
