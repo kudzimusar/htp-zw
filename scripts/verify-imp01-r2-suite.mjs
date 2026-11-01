@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-const PREVIEW_URL = process.env.PREVIEW_URL || 'https://healthtimes-staging-8gcagp8kg-11-11.vercel.app';
-const EXPECTED_SHA = process.env.EXPECTED_SHA || '29080cb8066a811a4b518ca3c03f88acbd9c3386';
+const PREVIEW_URL = process.env.PREVIEW_URL || 'https://healthtimes-staging-1ac7fun2o-11-11.vercel.app';
+const EXPECTED_SHA = process.env.EXPECTED_SHA || '0d034fc6ddb4870e4d8db96f85ee141ab72313ca';
 const SUPABASE_URL = 'https://bzuvntbkevvuhfhqhkua.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dXZudGJrZXZ2dWhmaHFoa3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjMxODAsImV4cCI6MjEwODMzOTE4MH0.hnblpWA1bw5XpJw81nXpScRE_LJk1MXLdT4XHCcpuu8';
 
@@ -641,14 +641,15 @@ async function run() {
       await page.fill('input[placeholder*="Email address" i]', commercial.email);
       await page.fill('input[placeholder*="Password" i]', commercial.password);
       await page.getByRole('button', { name: 'Sign in', exact: true }).last().click();
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
 
       console.log('Navigating to /studio/advertising...');
       await page.goto(`${PREVIEW_URL}/studio/advertising`, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(3000);
 
       // Switch to Advertisers tab
       const advTab = page.getByTestId('advertising-tab-advertisers');
+      await advTab.waitFor({ state: 'visible', timeout: 15000 });
       await advTab.click();
       await page.waitForTimeout(1500);
       await page.screenshot({ path: path.join(OUT_DIR, 'DEF009-advertisers-tab.jpg'), quality: 80 });

@@ -483,14 +483,32 @@ export function AdSlot({
     }));
   },[placement,adDecision?.source,adDecision?.creativeUrl]);
 
-  if(!adDecision || adDecision.source === "none" || !adDecision.creativeUrl) return null;
-
-  const destination=adDecision.destinationUrl?.trim() ?? "";
-  const clickable=/^https:\/\//i.test(destination);
   const desktop=width>=breakpoints.desktop;
   const tablet=width>=breakpoints.tablet && !desktop;
   const inArticle=placement==="article_after_intro";
   const articleEnd=placement==="article_end";
+
+  if(adDecision === null) {
+    return (
+      <View
+        style={[
+          styles.adSlot,
+          {backgroundColor:palette.paperMuted,borderColor:palette.border},
+          inArticle && styles.adSlotInArticle,
+          inArticle && width<breakpoints.tablet && styles.adSlotMobileRectangle,
+          tablet && styles.adSlotTablet,
+          desktop && styles.adSlotDesktop,
+          articleEnd && styles.adSlotArticleEnd
+        ]}
+        accessibilityLabel="Advertisement loading"
+      />
+    );
+  }
+
+  if(adDecision.source === "none" || !adDecision.creativeUrl) return null;
+
+  const destination=adDecision.destinationUrl?.trim() ?? "";
+  const clickable=/^https:\/\//i.test(destination);
   const fallbackAspect=placement==="hospaz-header-direct" ? 3/1 : inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 3/1 : tablet ? 4/1 : 16/5;
   const placementMaxWidth=articleEnd ? 980 : inArticle ? (desktop ? 900 : tablet ? 640 : 360) : desktop ? 900 : tablet ? 640 : 900;
   const creativeFrame=resolveAdCreativeFrame({
