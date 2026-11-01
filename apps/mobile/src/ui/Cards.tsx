@@ -67,6 +67,7 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
           onLoad={()=>setMediaState("ready")}
           onError={()=>setMediaState("failed")}
           accessible={mediaState==="ready"}
+          {...({ fetchPriority: "high", loading: "eager" } as any)}
           style={[
             styles.heroImage,
             {backgroundColor:palette.paperMuted},

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type {
@@ -284,6 +284,13 @@ export default function HomeScreen() {
       topStories = effectiveTop;
     }
   }
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && hero?.heroMedia?.publicUrl) {
+      const img = new window.Image();
+      img.src = hero.heroMedia.publicUrl;
+    }
+  }, [hero?.heroMedia?.publicUrl]);
 
   const excludedFromSections = new Set<string>();
   if (hero) excludedFromSections.add(storyIdentity(hero));

@@ -82,7 +82,7 @@ type PathResolution = {
 };
 
 const CACHE_MS = 120_000;
-const FEED_LIMIT = 200;
+const FEED_LIMIT = 50;
 let feedCache: { at: number; articles: ArticleDetail[] } | null = null;
 let inflightFeedPromise: Promise<ArticleDetail[]> | null = null;
 
@@ -218,7 +218,7 @@ async function nativeStoryForFeedRow(row: NativeFeedRow): Promise<ArticleDetail 
   };
 }
 
-const DETAIL_BATCH_SIZE = 8;
+const DETAIL_BATCH_SIZE = 16;
 
 async function mapInBatches<T, R>(
   items: T[],
@@ -252,44 +252,80 @@ async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
 
   const runLoad = async (): Promise<ArticleDetail[]> => {
     const fetchLimit = Math.max(FEED_LIMIT, boundedLimit);
-    let feed: FeedRow[] = [];
-    let legacyError: Error | null = null;
-    try {
-      feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: fetchLimit });
-    } catch (err) {
-      legacyError = err instanceof Error ? err : new Error(String(err));
-    }
 
+    // 1. High-performance batch RPC path: retrieves pre-joined teaser documents in 1 database round-trip
+    let batchDocs: MigratedStoryDocument[] | null = null;
     let nativeFeed: NativeFeedRow[] = [];
-    let nativeError: Error | null = null;
     try {
-      nativeFeed = await boundedRpcRows<NativeFeedRow>(
-        "newsroom_public_published_stories",
-        { p_slug: null },
-        fetchLimit
-      );
-    } catch (err) {
-      nativeError = err instanceof Error ? err : new Error(String(err));
+      const [docsRes, nativeRes] = await Promise.all([
+        rpc<MigratedStoryDocument[] | null>("ag05_public_feed_documents", { p_limit: fetchLimit }).catch(() => null),
+        boundedRpcRows<NativeFeedRow>(
+          "newsroom_public_published_stories",
+          { p_slug: null },
+          fetchLimit
+        ).catch(() => [])
+      ]);
+      batchDocs = docsRes;
+      nativeFeed = nativeRes;
+    } catch {
+      batchDocs = null;
+      nativeFeed = [];
     }
 
-    if (legacyError && nativeError) {
-      throw new Error(
-        `HealthTimes public feed request failed: legacy (${legacyError.message}); native (${nativeError.message})`
-      );
-    }
+    let mappedMigrated: (ArticleDetail | null)[] = [];
+    let mappedNative: (ArticleDetail | null)[] = [];
 
-    const [mappedMigrated, mappedNative] = await Promise.all([
-      mapInBatches(
-        (feed ?? []).map((row) => row.canonical_url),
-        DETAIL_BATCH_SIZE,
-        storyForCanonicalUrl
-      ),
-      mapInBatches(
-        nativeFeed ?? [],
+    if (batchDocs && Array.isArray(batchDocs) && batchDocs.length > 0) {
+      // Map native feed concurrently while synchronous batch docs map
+      const nativeMappingPromise = mapInBatches(
+        nativeFeed,
         DETAIL_BATCH_SIZE,
         nativeStoryForFeedRow
-      )
-    ]);
+      );
+      mappedMigrated = batchDocs.map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
+      mappedNative = await nativeMappingPromise;
+    } else {
+      // 2. Resilient fallback path using legacy feed rows
+      let feed: FeedRow[] = [];
+      let legacyError: Error | null = null;
+      try {
+        feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: fetchLimit });
+      } catch (err) {
+        legacyError = err instanceof Error ? err : new Error(String(err));
+      }
+
+      let fallbackNativeFeed: NativeFeedRow[] = nativeFeed;
+      if (!fallbackNativeFeed.length) {
+        try {
+          fallbackNativeFeed = await boundedRpcRows<NativeFeedRow>(
+            "newsroom_public_published_stories",
+            { p_slug: null },
+            fetchLimit
+          );
+        } catch (_) {}
+      }
+
+      if (legacyError && !fallbackNativeFeed.length) {
+        throw new Error(
+          `HealthTimes public feed request failed: legacy (${legacyError.message})`
+        );
+      }
+
+      const [resMigrated, resNative] = await Promise.all([
+        mapInBatches(
+          (feed ?? []).map((row) => row.canonical_url),
+          DETAIL_BATCH_SIZE,
+          storyForCanonicalUrl
+        ),
+        mapInBatches(
+          fallbackNativeFeed ?? [],
+          DETAIL_BATCH_SIZE,
+          nativeStoryForFeedRow
+        )
+      ]);
+      mappedMigrated = resMigrated;
+      mappedNative = resNative;
+    }
 
     const seenKeys = new Set<string>();
     const seenPaths = new Set<string>();
@@ -502,7 +538,7 @@ function publishedTime(value: string | null) {
 }
 
 async function corpusAuthors() {
-  const articles = await loadFeedDocuments(200);
+  const articles = await loadFeedDocuments(FEED_LIMIT);
   const authors = new Map<string, AuthorProfile>();
   for (const article of articles) {
     const author = article.author;
@@ -524,7 +560,7 @@ async function corpusAuthors() {
 const searchService: SearchService = {
   async search(query: SearchQuery): Promise<SearchResult> {
     const q = query.text.trim();
-    const all = await loadFeedDocuments(200);
+    const all = await loadFeedDocuments(FEED_LIMIT);
     const articleMatches = query.format && query.format !== "article"
       ? []
       : all
@@ -598,7 +634,7 @@ const searchService: SearchService = {
 const taxonomyService: TaxonomyService = {
   async getSnapshot() {
     const canonical = await certifiedTaxonomyFixtureService.getSnapshot();
-    const articles = await loadFeedDocuments(200);
+    const articles = await loadFeedDocuments(FEED_LIMIT);
     const observedSections = Array.from(
       new Map(
         articles
