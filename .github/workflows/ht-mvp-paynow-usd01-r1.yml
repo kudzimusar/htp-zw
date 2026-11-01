@@ -33,8 +33,8 @@ jobs:
           node --check lib/paynow-runtime.js
           node --check lib/paynow-protocol.js
           node --check api/commerce.js
-      - name: Install mobile contract test dependencies without execution scripts
-        run: npm ci --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+      - name: Install isolated TypeScript test loader without changing project lockfiles
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund typescript@6.0.3
       - name: Verify Paynow protocol, callback, USD recovery, and negative cases
         run: node --test tests/migration/paynow-protocol.spec.js tests/migration/paynow-edge-callback.test.mjs tests/migration/paynow-usd01-r1.spec.js
       - name: Verify payment/readiness, Finance and Premium contract guards
