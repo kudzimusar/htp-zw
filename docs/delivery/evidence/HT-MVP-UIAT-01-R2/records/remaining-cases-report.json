@@ -1,0 +1,52 @@
+{
+  "UAT_R02": {
+    "pillFound": true,
+    "initialUrl": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/",
+    "urlAfterClick": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/",
+    "urlChanged": false,
+    "initialAriaSelected": null,
+    "afterAriaSelected": null,
+    "afterAriaCurrent": null,
+    "isRouteAddressable": false,
+    "hasSelectedSemantics": false
+  },
+  "UAT_C01": {
+    "hospazVisible": true,
+    "rowDOM": {
+      "tagName": "DIV",
+      "cursor": "auto",
+      "role": null,
+      "tabIndex": null,
+      "hasOnClick": false
+    },
+    "urlBefore": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/studio/advertising",
+    "urlAfter": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/studio/advertising",
+    "urlChanged": false,
+    "modalOrDetailOpened": false,
+    "result": "FAIL",
+    "defect": "DEF-009"
+  },
+  "UAT_C02": {
+    "orderData": {
+      "hasApproveButton": false,
+      "hasCreateButton": false,
+      "bodySnippet": "☰ HealthTimes STUDIO STAGING 🔍 Search stories, staff, invoices... (⌘K) ⌘K + Create 🔔 Comfortable UC UAT Commercial Manager Commercial Manager ▾ Studio / Commercial Orders & Bookings Commercial Orders & Bookings Operational workspace. Production metrics, permissions, and publishing authority appear only from certified services. INVOICED TOTAL USD 0.00 0 open invoices COLLECTED REVENUE USD 3,000.0"
+    },
+    "roleBoundariesObserved": true,
+    "canSelfApproveOrders": false,
+    "result": "PASS"
+  },
+  "UAT_C03": {
+    "advertisingData": {
+      "hasPlacements": true,
+      "bodySnippet": "☰ HealthTimes STUDIO STAGING 🔍 Search stories, staff, invoices... (⌘K) ⌘K + Create 🔔 Comfortable UC UAT Commercial Manager Commercial Manager ▾ Studio / Advertising Manager Advertising Manager Operational workspace. Production metrics, permissions, and publishing authority appear only from certified services. Commercial Desk Approver Authority Advertising Manager Direct campaigns, advertiser accounts, disclosure compliance, and inventory placements. Refresh Overview + New Campaign Advertisers "
+    },
+    "result": "PASS"
+  },
+  "UAT_C04": {
+    "signOutVisible": true,
+    "urlAfterLogout": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/",
+    "loggedOut": true,
+    "result": "PASS"
+  }
+}

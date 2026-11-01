@@ -1,0 +1,497 @@
+{
+  "timestamp": "2026-11-01T02:55:53.241Z",
+  "environment": {
+    "previewUrl": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app",
+    "expectedSha": "126f81c65e24d30167deb21c06c598e39bf8ea10"
+  },
+  "benchmarks": {
+    "desktopHomeCold": [
+      {
+        "iteration": 1,
+        "wallTimeMs": 6089,
+        "ttfb": 35,
+        "domContentLoaded": 400,
+        "loadComplete": 401,
+        "fcp": 248,
+        "lcp": 5256,
+        "cls": 0.274,
+        "resourceCount": 250,
+        "totalTransferBytes": 1260026,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 2389,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 2386,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_homepage_presentations",
+            "duration": 2023,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_live_coverage",
+            "duration": 971,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_videos",
+            "duration": 909,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      },
+      {
+        "iteration": 2,
+        "wallTimeMs": 3859,
+        "ttfb": 26,
+        "domContentLoaded": 329,
+        "loadComplete": 329,
+        "fcp": 136,
+        "lcp": 2956,
+        "cls": 0.274,
+        "resourceCount": 250,
+        "totalTransferBytes": 1260026,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 390,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 375,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_homepage_presentations",
+            "duration": 342,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_live_coverage",
+            "duration": 309,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_videos",
+            "duration": 305,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      },
+      {
+        "iteration": 3,
+        "wallTimeMs": 4398,
+        "ttfb": 277,
+        "domContentLoaded": 757,
+        "loadComplete": 758,
+        "fcp": 404,
+        "lcp": 3416,
+        "cls": 0.274,
+        "resourceCount": 250,
+        "totalTransferBytes": 1260026,
+        "slowestResources": [
+          {
+            "name": "web/entry-c772dd83085e7da2e895e900d67ec793.js",
+            "duration": 331,
+            "size": 812907,
+            "initiatorType": "script"
+          },
+          {
+            "name": "rpc/newsroom_public_story_document",
+            "duration": 285,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_story_document",
+            "duration": 283,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_story_document",
+            "duration": 280,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 259,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      }
+    ],
+    "desktopHomeWarm": [
+      {
+        "iteration": 1,
+        "wallTimeMs": 3001,
+        "ttfb": 31,
+        "domContentLoaded": 101,
+        "loadComplete": 102,
+        "fcp": 68,
+        "lcp": 1884,
+        "cls": 0.274,
+        "resourceCount": 250,
+        "totalTransferBytes": 900,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 182,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 182,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_story_document",
+            "duration": 181,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 180,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 180,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      },
+      {
+        "iteration": 2,
+        "wallTimeMs": 2969,
+        "ttfb": 28,
+        "domContentLoaded": 117,
+        "loadComplete": 117,
+        "fcp": 56,
+        "lcp": 1672,
+        "cls": 0.289,
+        "resourceCount": 250,
+        "totalTransferBytes": 900,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 214,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 151,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_resolve_public_path",
+            "duration": 136,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_resolve_public_path",
+            "duration": 128,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_resolve_public_path",
+            "duration": 127,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      },
+      {
+        "iteration": 3,
+        "wallTimeMs": 3156,
+        "ttfb": 25,
+        "domContentLoaded": 108,
+        "loadComplete": 109,
+        "fcp": 60,
+        "lcp": 2108,
+        "cls": 0.274,
+        "resourceCount": 250,
+        "totalTransferBytes": 900,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 171,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 168,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 158,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 155,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_story_teaser_document",
+            "duration": 155,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      }
+    ],
+    "mobileHomeCold": [
+      {
+        "iteration": 1,
+        "wallTimeMs": 3800,
+        "ttfb": 52,
+        "domContentLoaded": 487,
+        "loadComplete": 695,
+        "fcp": 212,
+        "lcp": 2972,
+        "cls": 0.083,
+        "resourceCount": 250,
+        "totalTransferBytes": 1260626,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 527,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 525,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_homepage_presentations",
+            "duration": 515,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_live_coverage",
+            "duration": 486,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_videos",
+            "duration": 464,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      },
+      {
+        "iteration": 2,
+        "wallTimeMs": 3392,
+        "ttfb": 109,
+        "domContentLoaded": 425,
+        "loadComplete": 551,
+        "fcp": 216,
+        "lcp": 2388,
+        "cls": 0.083,
+        "resourceCount": 250,
+        "totalTransferBytes": 1260626,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 256,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 255,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_live_coverage",
+            "duration": 254,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_videos",
+            "duration": 254,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_homepage_presentations",
+            "duration": 253,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      },
+      {
+        "iteration": 3,
+        "wallTimeMs": 3588,
+        "ttfb": 30,
+        "domContentLoaded": 368,
+        "loadComplete": 556,
+        "fcp": 192,
+        "lcp": 2632,
+        "cls": 0.083,
+        "resourceCount": 250,
+        "totalTransferBytes": 1260626,
+        "slowestResources": [
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 409,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/ag05_public_feed_rows",
+            "duration": 399,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_homepage_presentations",
+            "duration": 374,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_live_coverage",
+            "duration": 355,
+            "size": 0,
+            "initiatorType": "fetch"
+          },
+          {
+            "name": "rpc/newsroom_public_videos",
+            "duration": 333,
+            "size": 0,
+            "initiatorType": "fetch"
+          }
+        ]
+      }
+    ],
+    "articleOpenInApp": [
+      {
+        "iteration": 1,
+        "durationMs": 1077
+      },
+      {
+        "iteration": 2,
+        "durationMs": 1030
+      },
+      {
+        "iteration": 3,
+        "durationMs": 1040
+      }
+    ],
+    "articleBackInApp": [
+      {
+        "iteration": 1,
+        "durationMs": 1042,
+        "urlAfterBack": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/"
+      },
+      {
+        "iteration": 2,
+        "durationMs": 1034,
+        "urlAfterBack": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/"
+      },
+      {
+        "iteration": 3,
+        "durationMs": 1043,
+        "urlAfterBack": "https://healthtimes-staging-czazp4yi8-11-11.vercel.app/"
+      }
+    ],
+    "categorySwitch": [
+      {
+        "category": "Latest",
+        "durationMs": 432
+      },
+      {
+        "category": "Zimbabwe",
+        "durationMs": 429
+      },
+      {
+        "category": "World",
+        "durationMs": 429
+      },
+      {
+        "category": "For You",
+        "durationMs": 434
+      }
+    ],
+    "search": {
+      "navigationMs": 3364,
+      "typingQuery": [
+        {
+          "query": "health",
+          "durationMs": 612
+        }
+      ]
+    },
+    "studio": {
+      "accountAccessNavMs": 1452,
+      "loginToStudioMs": 3191,
+      "deskSwitchTimes": [
+        {
+          "desk": "Commercial",
+          "durationMs": 534
+        },
+        {
+          "desk": "Editorial",
+          "durationMs": 522
+        },
+        {
+          "desk": "Finance",
+          "durationMs": 526
+        }
+      ]
+    },
+    "themeSwitch": [
+      {
+        "theme": "dark",
+        "durationMs": 226
+      },
+      {
+        "theme": "light",
+        "durationMs": 224
+      }
+    ]
+  }
+}
