@@ -81,6 +81,24 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     [resolvedDark]
   );
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", resolvedDark ? "dark" : "light");
+      document.documentElement.style.backgroundColor = palette.paper;
+      document.documentElement.style.color = palette.ink;
+      document.documentElement.style.setProperty("--ht-paper", palette.paper);
+      document.documentElement.style.setProperty("--ht-paper-muted", palette.paperMuted);
+      document.documentElement.style.setProperty("--ht-ink", palette.ink);
+      document.documentElement.style.setProperty("--ht-ink-muted", palette.inkMuted);
+      document.documentElement.style.setProperty("--ht-border", palette.border);
+      document.documentElement.style.setProperty("--ht-navy", palette.navy);
+      if (document.body) {
+        document.body.style.backgroundColor = palette.paper;
+        document.body.style.color = palette.ink;
+      }
+    }
+  }, [resolvedDark, palette]);
+
   const updateAppearance = async (next: AppearancePreference) => {
     setAppearanceState(next);
     await services.reader.setAppearance(next);
@@ -99,4 +117,8 @@ export function useAppearance() {
     throw new Error("useAppearance must be used inside AppearanceProvider.");
   }
   return value;
+}
+
+export function useOptionalAppearance() {
+  return useContext(AppearanceContext);
 }

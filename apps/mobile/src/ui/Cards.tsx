@@ -41,7 +41,7 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
   const mediaUrl=story.heroMedia?.publicUrl?.trim() || null;
   const [mediaState,setMediaState]=useState<"loading"|"ready"|"failed">(mediaUrl ? "loading" : "failed");
   useEffect(()=>{ setMediaState(mediaUrl ? "loading" : "failed"); },[mediaUrl]);
-  const hasMedia=Boolean(mediaUrl) && mediaState==="ready";
+  const hasMedia=Boolean(mediaUrl) && mediaState!=="failed";
   const imageHeadline=phone && hasMedia;
   return (
     <Pressable
@@ -66,14 +66,14 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
           onLoad={()=>setMediaState("ready")}
           onError={()=>setMediaState("failed")}
           accessible={mediaState==="ready"}
-          style={mediaState==="ready" ? [
+          style={[
             styles.heroImage,
             {backgroundColor:palette.paperMuted},
             phone && styles.heroImagePhone,
             tablet && styles.heroImageTablet,
             desktop && styles.heroImageDesktop,
             shortTabletLandscape && styles.heroImageShortTabletLandscape
-          ] : styles.heroImageProbe}
+          ]}
           accessibilityLabel={mediaState==="ready" ? (story.heroMedia?.altText ?? story.title) : undefined}
         />
       ) : null}

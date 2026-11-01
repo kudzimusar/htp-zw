@@ -38,9 +38,15 @@ for (const retired of ['app.js','v21.js','reader.js']) {
   }
 }
 
-const staffDynamicHtml = path.join(dist, 'studio/staff/[staffId].html');
-if (fs.existsSync(staffDynamicHtml)) {
-  fs.copyFileSync(staffDynamicHtml, path.join(dist, 'studio/staff/fallback.html'));
+for (const [sourceRel, targetRel] of [
+  ['studio/staff/[staffId].html', 'studio/staff/fallback.html'],
+  ['article/[id].html', 'article/fallback.html'],
+  ['author/[slug].html', 'author/fallback.html']
+]) {
+  const sourcePath = path.join(dist, sourceRel);
+  if (fs.existsSync(sourcePath)) {
+    fs.copyFileSync(sourcePath, path.join(dist, targetRel));
+  }
 }
 
 const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || (function() {

@@ -96,7 +96,12 @@ function premiumTeaserParagraph(
 type PremiumPreviewState="preview"|"warning"|"locked";
 
 export function ArticleReader({ initialStory = null }: { initialStory?: ArticleDetail | null }){
-  const { id }=useLocalSearchParams<{id:string}>();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const idFromPath = Platform.OS === "web" && typeof window !== "undefined"
+    ? decodeURIComponent(window.location.pathname.replace(/^\/article\/?/, "").split("/")[0] || "")
+    : "";
+  const resolvedId = (params.id && params.id !== "fallback" ? params.id : idFromPath) || "";
+  const id = resolvedId;
   const router=useRouter();
   const { palette }=useAppearance();
   const { width:rawWidth }=useWindowDimensions();
@@ -119,11 +124,11 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const trackedProgressEvents=useRef(new Set<string>());
   const premiumSessionKey=useRef("");
   const premiumPromptOpenedSession=useRef("");
-  const article=useAsync(()=>initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
-  const related=useAsync(()=>initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
+  const article=useAsync(()=>!id ? Promise.resolve(null) : initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
+  const related=useAsync(()=>!id ? Promise.resolve([]) : initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
-  const readPosition=useAsync(()=>services.reader.getReadPosition(String(id)),[id]);
+  const readPosition=useAsync(()=>!id ? Promise.resolve(0) : services.reader.getReadPosition(String(id)),[id]);
   const entitledArticle=useAsync(async()=>{
     const current=article.data;
     if(!current || current.accessPolicy!=="premium" || entitlement.data!==true) return null;

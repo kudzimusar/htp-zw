@@ -33,6 +33,7 @@ import {
   mapNativeStoryDocument,
   type NativeStoryDocument
 } from "./native-story-mapper";
+import { persistentReaderRepository } from "./reader-persistence";
 
 type FeedRow = {
   title: string;
@@ -83,6 +84,7 @@ type PathResolution = {
 const CACHE_MS = 120_000;
 const FEED_LIMIT = 120;
 let feedCache: { at: number; articles: ArticleDetail[] } | null = null;
+let inflightFeedPromise: Promise<ArticleDetail[]> | null = null;
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const client = getStagingSupabaseClient() as any;
@@ -238,75 +240,89 @@ function articleSort(a: ArticleDetail, b: ArticleDetail) {
   );
 }
 
-async function loadFeedDocuments(limit = FEED_LIMIT) {
+async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
   const boundedLimit = Math.max(1, Math.floor(limit));
   if (boundedLimit === FEED_LIMIT && feedCache && Date.now() - feedCache.at < CACHE_MS) {
     return feedCache.articles;
   }
-
-  let feed: FeedRow[] = [];
-  let legacyError: Error | null = null;
-  try {
-    feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: boundedLimit });
-  } catch (err) {
-    legacyError = err instanceof Error ? err : new Error(String(err));
+  if (boundedLimit === FEED_LIMIT && inflightFeedPromise) {
+    return inflightFeedPromise;
   }
 
-  let nativeFeed: NativeFeedRow[] = [];
-  let nativeError: Error | null = null;
-  try {
-    nativeFeed = await boundedRpcRows<NativeFeedRow>(
-      "newsroom_public_published_stories",
-      { p_slug: null },
-      boundedLimit
-    );
-  } catch (err) {
-    nativeError = err instanceof Error ? err : new Error(String(err));
-  }
+  const runLoad = async (): Promise<ArticleDetail[]> => {
+    let feed: FeedRow[] = [];
+    let legacyError: Error | null = null;
+    try {
+      feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: boundedLimit });
+    } catch (err) {
+      legacyError = err instanceof Error ? err : new Error(String(err));
+    }
 
-  if (legacyError && nativeError) {
-    throw new Error(
-      `HealthTimes public feed request failed: legacy (${legacyError.message}); native (${nativeError.message})`
-    );
-  }
+    let nativeFeed: NativeFeedRow[] = [];
+    let nativeError: Error | null = null;
+    try {
+      nativeFeed = await boundedRpcRows<NativeFeedRow>(
+        "newsroom_public_published_stories",
+        { p_slug: null },
+        boundedLimit
+      );
+    } catch (err) {
+      nativeError = err instanceof Error ? err : new Error(String(err));
+    }
 
-  const [mappedMigrated, mappedNative] = await Promise.all([
-    mapInBatches(
-      (feed ?? []).map((row) => row.canonical_url),
-      DETAIL_BATCH_SIZE,
-      storyForCanonicalUrl
-    ),
-    mapInBatches(
-      nativeFeed ?? [],
-      DETAIL_BATCH_SIZE,
-      nativeStoryForFeedRow
-    )
-  ]);
+    if (legacyError && nativeError) {
+      throw new Error(
+        `HealthTimes public feed request failed: legacy (${legacyError.message}); native (${nativeError.message})`
+      );
+    }
 
-  const seenKeys = new Set<string>();
-  const seenPaths = new Set<string>();
-  const articles = [...mappedMigrated, ...mappedNative]
-    .filter((article): article is ArticleDetail => Boolean(article))
-    .sort(articleSort)
-    .filter((article) => {
-      const storyKey = article.canonicalStoryId
-        ? "story:" + article.canonicalStoryId
-        : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
-      const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
+    const [mappedMigrated, mappedNative] = await Promise.all([
+      mapInBatches(
+        (feed ?? []).map((row) => row.canonical_url),
+        DETAIL_BATCH_SIZE,
+        storyForCanonicalUrl
+      ),
+      mapInBatches(
+        nativeFeed ?? [],
+        DETAIL_BATCH_SIZE,
+        nativeStoryForFeedRow
+      )
+    ]);
 
-      if (seenKeys.has(storyKey)) return false;
-      if (pathKey && seenPaths.has(pathKey)) return false;
+    const seenKeys = new Set<string>();
+    const seenPaths = new Set<string>();
+    const articles = [...mappedMigrated, ...mappedNative]
+      .filter((article): article is ArticleDetail => Boolean(article))
+      .sort(articleSort)
+      .filter((article) => {
+        const storyKey = article.canonicalStoryId
+          ? "story:" + article.canonicalStoryId
+          : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+        const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
 
-      seenKeys.add(storyKey);
-      if (pathKey) seenPaths.add(pathKey);
-      return true;
-    })
-    .slice(0, boundedLimit);
+        if (seenKeys.has(storyKey)) return false;
+        if (pathKey && seenPaths.has(pathKey)) return false;
+
+        seenKeys.add(storyKey);
+        if (pathKey) seenPaths.add(pathKey);
+        return true;
+      })
+      .slice(0, boundedLimit);
+
+    if (boundedLimit === FEED_LIMIT) {
+      feedCache = { at: Date.now(), articles };
+    }
+    return articles;
+  };
 
   if (boundedLimit === FEED_LIMIT) {
-    feedCache = { at: Date.now(), articles };
+    inflightFeedPromise = runLoad().finally(() => {
+      inflightFeedPromise = null;
+    });
+    return inflightFeedPromise;
   }
-  return articles;
+
+  return runLoad();
 }
 
 const CONTEXT_LIMIT = 50;
@@ -404,10 +420,12 @@ async function loadContext(kind: "category" | "tag" | "author", slug: string): P
 }
 
 async function resolveIdentity(id: string) {
-  const cached = (await loadFeedDocuments()).find(
-    (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
-  );
-  if (cached) return cached;
+  try {
+    const cached = (await loadFeedDocuments()).find(
+      (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
+    );
+    if (cached) return cached;
+  } catch (_) {}
 
   let requestedPath: string;
   if (/^https?:\/\//i.test(id)) {
@@ -432,7 +450,20 @@ async function resolveIdentity(id: string) {
     // Continue to native resolution fallback
   }
 
-  return nativeStoryForPath(requestedPath);
+  try {
+    const native = await nativeStoryForPath(requestedPath);
+    if (native) return native;
+  } catch (_) {}
+
+  try {
+    const downloaded = await persistentReaderRepository.getDownloadedArticles();
+    const match = downloaded.find(
+      (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
+    );
+    if (match) return match;
+  } catch (_) {}
+
+  return null;
 }
 
 const articleRepository: ArticleRepository = {

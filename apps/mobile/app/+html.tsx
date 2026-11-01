@@ -30,6 +30,30 @@ const deepLinkRestoreScript =
   'if(allowed)history.replaceState(null,"",route);' +
   '}catch(_){}})();';
 
+const themeInitScript =
+  '(function(){try{' +
+  'var key="ht:nm04:reader:appearance:v1";' +
+  'var raw=localStorage.getItem(key);' +
+  'var mode="system";' +
+  'if(raw){try{var p=JSON.parse(raw);mode=typeof p==="string"?p:(p&&p.mode)||mode;}catch(_){mode=raw;}}' +
+  'var systemDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;' +
+  'var isDark=mode==="dark"||(mode==="system"&&systemDark);' +
+  'var root=document.documentElement;' +
+  'root.setAttribute("data-theme",isDark?"dark":"light");' +
+  'var bg=isDark?"#0B1622":"#FFFFFF";' +
+  'var fg=isDark?"#F3F7FA":"#0B1F33";' +
+  'root.style.backgroundColor=bg;' +
+  'root.style.color=fg;' +
+  'root.style.setProperty("--ht-paper",bg);' +
+  'root.style.setProperty("--ht-ink",fg);' +
+  '}catch(_){}})();';
+
+const rootCss =
+  ':root{--ht-paper:#FFFFFF;--ht-paper-muted:#F6F8FA;--ht-ink:#0B1F33;--ht-ink-muted:#5B6776;--ht-border:#DCE3EA;--ht-navy:#071A2B;}' +
+  ':root[data-theme="dark"]{--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;}' +
+  '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;}}' +
+  'html,body,#root{max-width:100%;min-height:100%;overflow-x:hidden;background-color:var(--ht-paper);color:var(--ht-ink);}';
+
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="en">
@@ -45,8 +69,9 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="manifest" href={assetPath("manifest.json")} />
         <link rel="icon" href={assetPath("healthtimes-icon.svg")} />
         <ScrollViewStyleReset />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <style dangerouslySetInnerHTML={{
-          __html: "html,body,#root{max-width:100%;overflow-x:hidden}"
+          __html: rootCss
         }} />
         <script dangerouslySetInnerHTML={{ __html: deepLinkRestoreScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRegistration }} />

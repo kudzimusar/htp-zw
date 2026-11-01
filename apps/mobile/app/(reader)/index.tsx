@@ -9,7 +9,7 @@ import type {
   PublicHomepagePresentation
 } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
-import { EmptyState, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
+import { EmptyState, HomeSkeleton, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
@@ -197,9 +197,9 @@ export default function HomeScreen() {
   }, [resolvedEditionSlug]);
   const presentations = presentationState.data ?? [];
 
-  if (home.loading) return <Page><LoadingBlock label="Loading Home…" /></Page>;
+  if (home.loading) return <Page><HomeSkeleton /></Page>;
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
-  if (!home.data) return <Page><LoadingBlock label="Loading Home…" /></Page>;
+  if (!home.data) return <Page><HomeSkeleton /></Page>;
 
   const source=sortByPublicationDesc(home.data);
   const generalStories=source.filter((story)=>story.accessPolicy!=="premium");

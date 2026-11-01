@@ -22,6 +22,7 @@ import { stagingNewsroomFinanceService } from "./newsroom-finance";
 import { stagingNewsroomAiService } from "./newsroom-ai";
 import { stagingNewsroomAuthorsService } from "./newsroom-authors";
 import { stagingNewsroomSettingsService } from "./newsroom-settings";
+import { persistentReaderRepository } from "./reader-persistence";
 
 export const serviceMode = editorialDataMode;
 
@@ -32,9 +33,22 @@ const stagingReaderArticles: ArticleRepository = {
     return mergeReaderFeeds(migrated, current);
   },
   async getById(id) {
-    const migrated = await migratedCorpusServices.articles.getById(id);
-    if (migrated) return migrated;
-    return sourceParityServices.articles.getById(id).catch(() => null);
+    try {
+      const migrated = await migratedCorpusServices.articles.getById(id);
+      if (migrated) return migrated;
+    } catch (_) {}
+    try {
+      const current = await sourceParityServices.articles.getById(id).catch(() => null);
+      if (current) return current;
+    } catch (_) {}
+    try {
+      const downloaded = await persistentReaderRepository.getDownloadedArticles();
+      const match = downloaded.find(
+        (story) => story.id === id || story.slug === id || story.canonicalStoryId === id
+      );
+      if (match) return match;
+    } catch (_) {}
+    return null;
   },
   async getRelated(id) {
     const migrated = await migratedCorpusServices.articles.getRelated(id);

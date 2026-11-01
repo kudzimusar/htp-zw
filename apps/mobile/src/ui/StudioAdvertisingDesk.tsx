@@ -102,6 +102,7 @@ export function StudioAdvertisingDeskView({
   const isDesktop = width >= breakpoints.desktop;
 
   // Local creation form states
+  const [selectedAdvertiser, setSelectedAdvertiser] = useState<NewsroomAdvertiser | null>(null);
   const [showAdvertiserModal, setShowAdvertiserModal] = useState(false);
   const [newAdvName, setNewAdvName] = useState("");
   const [newAdvNotes, setNewAdvNotes] = useState("");
@@ -503,7 +504,17 @@ export function StudioAdvertisingDeskView({
             </View>
           ) : (
             filteredAdvertisers.map((a) => (
-              <View key={a.id} style={styles.itemCard}>
+              <Pressable
+                key={a.id}
+                accessibilityRole="button"
+                accessibilityLabel={"View details for " + a.name}
+                onPress={() => setSelectedAdvertiser(a)}
+                style={({ pressed }) => [
+                  styles.itemCard,
+                  { cursor: "pointer" as any },
+                  pressed && { opacity: 0.85, backgroundColor: "#F0F4F8" }
+                ]}
+              >
                 <View style={styles.rowBetween}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemTitle}>{a.name}</Text>
@@ -514,8 +525,13 @@ export function StudioAdvertisingDeskView({
                       Registered: {formatIso(a.createdAt)} • Active Campaigns: {a.activeCampaignsCount}
                     </Text>
                   </View>
+                  <View style={[styles.badge, { backgroundColor: "#E0F2FE" }]}>
+                    <Text style={[styles.badgeText, { color: "#075985" }]}>
+                      VIEW DETAILS →
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              </Pressable>
             ))
           )}
         </View>
@@ -541,6 +557,110 @@ export function StudioAdvertisingDeskView({
               </View>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* MODAL: Advertiser Details */}
+      {selectedAdvertiser && (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 640 }]}>
+            <View style={styles.rowBetween}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{selectedAdvertiser.name}</Text>
+                <Text style={styles.metaText}>ID: {selectedAdvertiser.id}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close advertiser details"
+                onPress={() => setSelectedAdvertiser(null)}
+                style={[styles.secondaryButton, { paddingVertical: 4, paddingHorizontal: 10 }]}
+              >
+                <Text style={styles.secondaryButtonText}>✕ Close</Text>
+              </Pressable>
+            </View>
+
+            <View style={{ marginTop: 8, padding: 12, backgroundColor: "#F8FAFC", borderRadius: 8, gap: 4 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280" }}>REGISTRATION</Text>
+              <Text style={{ fontSize: 13, color: colors.ink }}>
+                {formatIso(selectedAdvertiser.createdAt)}
+              </Text>
+
+              {!!selectedAdvertiser.contactNotes && (
+                <>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", marginTop: 6 }}>CONTACT NOTES</Text>
+                  <Text style={{ fontSize: 13, color: colors.ink }}>{selectedAdvertiser.contactNotes}</Text>
+                </>
+              )}
+
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", marginTop: 6 }}>CAMPAIGN METRICS</Text>
+              <Text style={{ fontSize: 13, color: colors.ink }}>
+                Active campaigns: {selectedAdvertiser.activeCampaignsCount} • Total associated:{" "}
+                {(overview?.campaigns.filter((c) => c.advertiserId === selectedAdvertiser.id) ?? []).length}
+              </Text>
+            </View>
+
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: colors.ink, marginBottom: 8 }}>
+                Associated Campaigns
+              </Text>
+              {(() => {
+                const advCampaigns = (overview?.campaigns ?? []).filter(
+                  (c) => c.advertiserId === selectedAdvertiser.id
+                );
+                if (advCampaigns.length === 0) {
+                  return (
+                    <Text style={[styles.metaText, { fontStyle: "italic", paddingVertical: 8 }]}>
+                      No campaigns currently registered for this advertiser.
+                    </Text>
+                  );
+                }
+                return advCampaigns.map((c) => {
+                  const statusStyle = STATUS_COLORS[c.status.toLowerCase()] ?? STATUS_COLORS.draft ?? { bg: "#F3F4F6", text: "#4B5563" };
+                  return (
+                    <View
+                      key={c.id}
+                      style={{
+                        padding: 10,
+                        backgroundColor: "#FFFFFF",
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 6,
+                        marginBottom: 6
+                      }}
+                    >
+                      <View style={styles.rowBetween}>
+                        <Text style={[styles.itemTitle, { fontSize: 14 }]}>{c.name}</Text>
+                        <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
+                          <Text style={[styles.badgeText, { color: statusStyle.text }]}>
+                            {c.status.toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.metaText, { marginTop: 4 }]}>
+                        Schedule: {formatIso(c.startAt)} to {formatIso(c.endAt)} • Creatives: {c.creativesCount}
+                      </Text>
+                      {!!c.reviewStatus && (
+                        <Text style={styles.metaText}>
+                          Review: {c.reviewStatus}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                });
+              })()}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.secondaryButton}
+                onPress={() => setSelectedAdvertiser(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Text style={styles.secondaryButtonText}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       )}
 

@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { Image, Platform, StyleSheet, Text, View } from "react-native";
+import { useOptionalAppearance } from "../theme/AppearanceProvider";
 
 const configuredBaseUrl =
   ((Constants.expoConfig?.experiments as { baseUrl?: string } | undefined)?.baseUrl ?? "")
@@ -16,7 +17,12 @@ export function HealthTimesBrand({
   inverse?: boolean;
   studio?: boolean;
 }) {
+  const appearance = useOptionalAppearance();
+  const palette = appearance?.palette;
   const markSize = compact ? 24 : 30;
+  const nameColor = inverse ? "#FFFFFF" : (palette?.ink ?? "#0B1F33");
+  const studioColor = inverse ? "#70D1D1" : (palette?.inkMuted ?? "#486581");
+
   return (
     <View style={styles.row}>
       {Platform.OS === "web" && (
@@ -29,8 +35,8 @@ export function HealthTimesBrand({
         />
       )}
       <View style={styles.copy}>
-        <Text style={[styles.name, compact && styles.nameCompact, inverse && styles.nameInverse]}>HealthTimes</Text>
-        {studio && <Text style={[styles.studio, inverse && styles.studioInverse]}>STUDIO</Text>}
+        <Text style={[styles.name, { color: nameColor }, compact && styles.nameCompact]}>HealthTimes</Text>
+        {studio && <Text style={[styles.studio, { color: studioColor }]}>STUDIO</Text>}
       </View>
     </View>
   );
@@ -39,9 +45,9 @@ export function HealthTimesBrand({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   copy: { justifyContent: "center" },
-  name: { fontSize: 22, fontWeight: "900", letterSpacing: -0.6, color: "#102A43" },
+  name: { fontSize: 22, fontWeight: "900", letterSpacing: -0.6 },
   nameCompact: { fontSize: 20 },
   nameInverse: { color: "#FFFFFF" },
-  studio: { marginTop: 1, fontSize: 8, fontWeight: "900", letterSpacing: 1.2, color: "#486581" },
+  studio: { marginTop: 1, fontSize: 8, fontWeight: "900", letterSpacing: 1.2 },
   studioInverse: { color: "#70D1D1" }
 });

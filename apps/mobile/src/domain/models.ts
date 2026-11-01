@@ -3157,7 +3157,11 @@ export function validateWhatsAppBroadcastCreateInput(
     "body",
     "broadcast_type",
     "channel_identity",
-    "related_story_id"
+    "related_story_id",
+    "message_mode",
+    "template_name",
+    "scheduled_at",
+    "timezone"
   ]);
 
   for (const key of Object.keys(record)) {
@@ -3185,6 +3189,44 @@ export function validateWhatsAppBroadcastCreateInput(
       valid: false,
       error: "Invalid broadcast type. Must be breaking_alert, daily_briefing, story_update, or health_alert."
     };
+  }
+
+  if (
+    record.message_mode !== undefined &&
+    record.message_mode !== null &&
+    record.message_mode !== "approved_template" &&
+    record.message_mode !== "session_message"
+  ) {
+    return {
+      valid: false,
+      error: "message_mode must be 'approved_template' or 'session_message'."
+    };
+  }
+
+  if (
+    record.template_name !== undefined &&
+    record.template_name !== null &&
+    typeof record.template_name !== "string"
+  ) {
+    return { valid: false, error: "template_name must be a string." };
+  }
+
+  if (
+    record.scheduled_at !== undefined &&
+    record.scheduled_at !== null &&
+    record.scheduled_at !== ""
+  ) {
+    if (typeof record.scheduled_at !== "string" || isNaN(new Date(record.scheduled_at).getTime())) {
+      return { valid: false, error: "scheduled_at must be a valid ISO date-time string." };
+    }
+  }
+
+  if (
+    record.timezone !== undefined &&
+    record.timezone !== null &&
+    typeof record.timezone !== "string"
+  ) {
+    return { valid: false, error: "timezone must be a string." };
   }
 
   if (

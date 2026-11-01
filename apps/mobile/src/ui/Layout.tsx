@@ -331,6 +331,95 @@ export function LoadingBlock({ label = "Loading HealthTimes…" }: { label?: str
   );
 }
 
+export function HomeSkeleton() {
+  const { palette } = useAppearance();
+  const width = useHydratedWindowWidth();
+  const phone = width < breakpoints.tablet;
+  const desktop = width >= breakpoints.desktop;
+
+  return (
+    <View
+      style={styles.homeSkeleton}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="Loading HealthTimes home..."
+      accessibilityLiveRegion="polite"
+    >
+      <View style={styles.skeletonFilterRow}>
+        {[80, 70, 95, 65, 85].map((w, i) => (
+          <View
+            key={i}
+            style={[
+              styles.skeletonPill,
+              { width: w, backgroundColor: palette.paperMuted, borderColor: palette.border }
+            ]}
+          />
+        ))}
+      </View>
+
+      <View
+        style={[
+          styles.skeletonHero,
+          {
+            borderBottomColor: palette.border,
+            flexDirection: phone ? "column" : "row",
+            minHeight: desktop ? 430 : phone ? 320 : 360
+          }
+        ]}
+      >
+        <View
+          style={[
+            styles.skeletonHeroMedia,
+            {
+              backgroundColor: palette.paperMuted,
+              width: phone ? "100%" : desktop ? "64%" : "58%",
+              aspectRatio: desktop ? 16 / 10 : 4 / 3
+            }
+          ]}
+        />
+        <View
+          style={[
+            styles.skeletonHeroBody,
+            { flex: phone ? undefined : 1, padding: phone ? spacing.md : spacing.lg }
+          ]}
+        >
+          <View style={[styles.skeletonLine, { width: 90, height: 12, backgroundColor: palette.paperMuted, marginBottom: 12 }]} />
+          <View style={[styles.skeletonLine, { width: "90%", height: 32, backgroundColor: palette.paperMuted, marginBottom: 8 }]} />
+          <View style={[styles.skeletonLine, { width: "75%", height: 32, backgroundColor: palette.paperMuted, marginBottom: 16 }]} />
+          <View style={[styles.skeletonLine, { width: "100%", height: 16, backgroundColor: palette.paperMuted, marginBottom: 6 }]} />
+          <View style={[styles.skeletonLine, { width: "60%", height: 16, backgroundColor: palette.paperMuted, marginBottom: 16 }]} />
+          <View style={[styles.skeletonLine, { width: 140, height: 12, backgroundColor: palette.paperMuted }]} />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.skeletonGrid,
+          { flexDirection: phone ? "column" : "row" }
+        ]}
+      >
+        {[1, 2, 3].map((item) => (
+          <View
+            key={item}
+            style={[
+              styles.skeletonGridCard,
+              { flex: phone ? undefined : 1, backgroundColor: palette.paper, borderColor: palette.border }
+            ]}
+          >
+            <View style={[styles.skeletonCardMedia, { backgroundColor: palette.paperMuted }]} />
+            <View style={{ padding: spacing.md, gap: 8 }}>
+              <View style={[styles.skeletonLine, { width: 70, height: 10, backgroundColor: palette.paperMuted }]} />
+              <View style={[styles.skeletonLine, { width: "95%", height: 18, backgroundColor: palette.paperMuted }]} />
+              <View style={[styles.skeletonLine, { width: "70%", height: 18, backgroundColor: palette.paperMuted }]} />
+              <View style={[styles.skeletonLine, { width: 100, height: 10, backgroundColor: palette.paperMuted, marginTop: 4 }]} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles=StyleSheet.create({
   safe:{flex:1},
   scrollContent:{flexGrow:1},
@@ -373,5 +462,15 @@ const styles=StyleSheet.create({
   loading:{paddingVertical:spacing.xxl,gap:spacing.sm},
   skeletonWide:{height:18,width:"90%",borderRadius:radius.sm},
   skeletonMid:{height:18,width:"60%",borderRadius:radius.sm},
-  loadingText:{fontSize:13}
+  loadingText:{fontSize:13},
+  homeSkeleton:{width:"100%",gap:spacing.lg,paddingTop:spacing.sm},
+  skeletonFilterRow:{flexDirection:"row",gap:spacing.xs,flexWrap:"wrap",paddingVertical:spacing.xs},
+  skeletonPill:{height:32,borderRadius:radius.sm,borderWidth:1},
+  skeletonHero:{borderBottomWidth:1,paddingBottom:spacing.lg,gap:spacing.md},
+  skeletonHeroMedia:{borderRadius:radius.sm},
+  skeletonHeroBody:{justifyContent:"center"},
+  skeletonLine:{borderRadius:4},
+  skeletonGrid:{gap:spacing.md,marginTop:spacing.md},
+  skeletonGridCard:{borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
+  skeletonCardMedia:{width:"100%",aspectRatio:16/9}
 });

@@ -142,6 +142,39 @@ test("HT-NR-06D: validateWhatsAppBroadcastCreateInput enforces title, body, and 
   });
   assert.equal(extraField.valid, false);
   assert.ok(extraField.error.includes("Unexpected field"));
+
+  // Valid input with template, mode, and scheduling
+  const validWithSchedule = validateWhatsAppBroadcastCreateInput({
+    title: "Cholera Outbreak Alert",
+    body: "Ministry of Health issues immediate water boiling advisory for Harare South.",
+    broadcast_type: "breaking_alert",
+    channel_identity: "healthtimes-whatsapp-channel",
+    message_mode: "approved_template",
+    template_name: "healthtimes_news_update",
+    scheduled_at: "2026-11-01T12:00:00.000Z",
+    timezone: "Africa/Harare"
+  });
+  assert.equal(validWithSchedule.valid, true);
+
+  // Invalid message_mode
+  const badMode = validateWhatsAppBroadcastCreateInput({
+    title: "Valid Title",
+    body: "Valid body text that is long enough.",
+    broadcast_type: "breaking_alert",
+    message_mode: "unapproved_custom"
+  });
+  assert.equal(badMode.valid, false);
+  assert.ok(badMode.error.includes("message_mode"));
+
+  // Invalid scheduled_at
+  const badSchedule = validateWhatsAppBroadcastCreateInput({
+    title: "Valid Title",
+    body: "Valid body text that is long enough.",
+    broadcast_type: "breaking_alert",
+    scheduled_at: "not-a-valid-date"
+  });
+  assert.equal(badSchedule.valid, false);
+  assert.ok(badSchedule.error.includes("scheduled_at"));
 });
 
 // =============================================================================

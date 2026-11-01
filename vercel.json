@@ -3,7 +3,15 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/studio/staff/:staffId",
+      "source": "/article/:id*",
+      "destination": "/article/fallback"
+    },
+    {
+      "source": "/author/:slug*",
+      "destination": "/author/fallback"
+    },
+    {
+      "source": "/studio/staff/:staffId*",
       "destination": "/studio/staff/fallback"
     }
   ]
