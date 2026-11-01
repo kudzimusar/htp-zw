@@ -357,7 +357,7 @@ export function HomeSkeleton() {
           {
             borderBottomColor: palette.border,
             flexDirection: phone ? "column" : "row",
-            minHeight: desktop ? 360 : phone ? 300 : 320
+            minHeight: desktop ? 280 : phone ? 300 : 320
           }
         ]}
       >
@@ -389,7 +389,11 @@ export function HomeSkeleton() {
       <View
         style={[
           styles.skeletonAdSlot,
-          { backgroundColor: palette.paperMuted, borderColor: palette.border }
+          {
+            backgroundColor: palette.paperMuted,
+            borderColor: palette.border,
+            minHeight: desktop ? 360 : 120
+          }
         ]}
       />
 
