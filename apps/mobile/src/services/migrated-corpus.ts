@@ -82,7 +82,7 @@ type PathResolution = {
 };
 
 const CACHE_MS = 120_000;
-const FEED_LIMIT = 120;
+const FEED_LIMIT = 200;
 let feedCache: { at: number; articles: ArticleDetail[] } | null = null;
 let inflightFeedPromise: Promise<ArticleDetail[]> | null = null;
 
@@ -242,18 +242,20 @@ function articleSort(a: ArticleDetail, b: ArticleDetail) {
 
 async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
   const boundedLimit = Math.max(1, Math.floor(limit));
-  if (boundedLimit === FEED_LIMIT && feedCache && Date.now() - feedCache.at < CACHE_MS) {
-    return feedCache.articles;
+  if (feedCache && Date.now() - feedCache.at < CACHE_MS && feedCache.articles.length >= boundedLimit) {
+    return feedCache.articles.slice(0, boundedLimit);
   }
-  if (boundedLimit === FEED_LIMIT && inflightFeedPromise) {
-    return inflightFeedPromise;
+  if (inflightFeedPromise) {
+    const inFlight = await inflightFeedPromise;
+    return inFlight.slice(0, boundedLimit);
   }
 
   const runLoad = async (): Promise<ArticleDetail[]> => {
+    const fetchLimit = Math.max(FEED_LIMIT, boundedLimit);
     let feed: FeedRow[] = [];
     let legacyError: Error | null = null;
     try {
-      feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: boundedLimit });
+      feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: fetchLimit });
     } catch (err) {
       legacyError = err instanceof Error ? err : new Error(String(err));
     }
@@ -264,7 +266,7 @@ async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
       nativeFeed = await boundedRpcRows<NativeFeedRow>(
         "newsroom_public_published_stories",
         { p_slug: null },
-        boundedLimit
+        fetchLimit
       );
     } catch (err) {
       nativeError = err instanceof Error ? err : new Error(String(err));
@@ -307,22 +309,18 @@ async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
         if (pathKey) seenPaths.add(pathKey);
         return true;
       })
-      .slice(0, boundedLimit);
+      .slice(0, fetchLimit);
 
-    if (boundedLimit === FEED_LIMIT) {
-      feedCache = { at: Date.now(), articles };
-    }
+    feedCache = { at: Date.now(), articles };
     return articles;
   };
 
-  if (boundedLimit === FEED_LIMIT) {
-    inflightFeedPromise = runLoad().finally(() => {
-      inflightFeedPromise = null;
-    });
-    return inflightFeedPromise;
-  }
+  inflightFeedPromise = runLoad().finally(() => {
+    inflightFeedPromise = null;
+  });
 
-  return runLoad();
+  const loaded = await inflightFeedPromise;
+  return loaded.slice(0, boundedLimit);
 }
 
 const CONTEXT_LIMIT = 50;

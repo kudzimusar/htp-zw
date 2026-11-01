@@ -13,13 +13,7 @@ import { HealthTimesBrand } from "./Brand";
 
 function useHydratedWindowWidth() {
   const { width } = useWindowDimensions();
-  const [responsiveReady, setResponsiveReady] = useState(Platform.OS !== "web");
-
-  useEffect(() => {
-    if (Platform.OS === "web") setResponsiveReady(true);
-  }, []);
-
-  return responsiveReady ? width : 0;
+  return width || (typeof window !== "undefined" ? window.innerWidth : 1200);
 }
 
 export function Page({
