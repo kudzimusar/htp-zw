@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-const PREVIEW_URL = process.env.PREVIEW_URL || 'https://healthtimes-staging-1ac7fun2o-11-11.vercel.app';
-const EXPECTED_SHA = process.env.EXPECTED_SHA || '0d034fc6ddb4870e4d8db96f85ee141ab72313ca';
+const PREVIEW_URL = process.env.PREVIEW_URL || 'https://healthtimes-staging-999138kgh-11-11.vercel.app';
+const EXPECTED_SHA = process.env.EXPECTED_SHA || '4abee2cbdc77dfb491949c86a99acefb7132df3f';
 const SUPABASE_URL = 'https://bzuvntbkevvuhfhqhkua.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dXZudGJrZXZ2dWhmaHFoa3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjMxODAsImV4cCI6MjEwODMzOTE4MH0.hnblpWA1bw5XpJw81nXpScRE_LJk1MXLdT4XHCcpuu8';
 
