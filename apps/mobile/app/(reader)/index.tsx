@@ -197,6 +197,14 @@ export default function HomeScreen() {
   }, [resolvedEditionSlug]);
   const presentations = presentationState.data ?? [];
 
+  const initialHeroMediaUrl = home.data?.[0]?.heroMedia?.publicUrl;
+  useEffect(() => {
+    if (typeof window !== "undefined" && initialHeroMediaUrl) {
+      const img = new window.Image();
+      img.src = initialHeroMediaUrl;
+    }
+  }, [initialHeroMediaUrl]);
+
   if (home.loading) return <Page><HomeSkeleton /></Page>;
   if (home.error) return <Page><Text style={{color:palette.inkMuted}}>{home.error.message}</Text></Page>;
   if (!home.data) return <Page><HomeSkeleton /></Page>;
@@ -284,13 +292,6 @@ export default function HomeScreen() {
       topStories = effectiveTop;
     }
   }
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && hero?.heroMedia?.publicUrl) {
-      const img = new window.Image();
-      img.src = hero.heroMedia.publicUrl;
-    }
-  }, [hero?.heroMedia?.publicUrl]);
 
   const excludedFromSections = new Set<string>();
   if (hero) excludedFromSections.add(storyIdentity(hero));
