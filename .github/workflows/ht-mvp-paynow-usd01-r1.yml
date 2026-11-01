@@ -37,6 +37,16 @@ jobs:
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund typescript@6.0.3
       - name: Verify Paynow protocol, callback, USD recovery, and negative cases
         run: node --test tests/migration/paynow-protocol.spec.js tests/migration/paynow-edge-callback.test.mjs tests/migration/paynow-usd01-r1.spec.js
+      - name: Start disposable PostgreSQL for full Finance migration certification
+        shell: bash
+        run: |
+          sudo systemctl start postgresql.service
+          if ! sudo -u postgres psql -qAt -c "SELECT 1 FROM pg_roles WHERE rolname = 'runner'" | grep -qx 1; then
+            sudo -u postgres createuser --superuser runner
+          fi
+          # Existing project test harness uses the /tmp Unix socket, not TCP.
+          sudo ln -sf /var/run/postgresql/.s.PGSQL.5432 /tmp/.s.PGSQL.5432
+          psql -h /tmp -p 5432 -d postgres -qAt -c 'SELECT 1;'
       - name: Verify payment/readiness, Finance and Premium contract guards
         run: node --test apps/mobile/tests/ht-ext01a-payment-finance-readiness.test.mjs
       - name: Non-activation and migration-safety gate
