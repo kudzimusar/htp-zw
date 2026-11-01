@@ -288,7 +288,15 @@ export function StudioAdvertisingDeskView({
             return (
               <Pressable
                 key={tab}
-                style={[styles.tabButton, isActive && styles.activeTabButton]}
+                accessibilityRole="tab"
+                accessibilityLabel={labels[tab]}
+                accessibilityState={{ selected: isActive }}
+                testID={`advertising-tab-${tab}`}
+                style={[
+                  styles.tabButton,
+                  isActive && styles.activeTabButton,
+                  { cursor: "pointer" as any }
+                ]}
                 onPress={() => onChangeTab(tab)}
               >
                 <Text style={[styles.tabText, isActive && styles.activeTabText]}>
@@ -508,6 +516,7 @@ export function StudioAdvertisingDeskView({
                 key={a.id}
                 accessibilityRole="button"
                 accessibilityLabel={"View details for " + a.name}
+                testID={`advertiser-card-${a.id}`}
                 onPress={() => setSelectedAdvertiser(a)}
                 style={({ pressed }) => [
                   styles.itemCard,
