@@ -82,9 +82,15 @@ type PathResolution = {
 };
 
 const CACHE_MS = 120_000;
-const FEED_LIMIT = 50;
+const HOMEPAGE_FEED_LIMIT = 50;
+const FEED_LIMIT = HOMEPAGE_FEED_LIMIT;
+const SEARCH_CANDIDATE_LIMIT = 200;
+const SEARCH_PUBLIC_LIMIT = 50;
 let feedCache: { at: number; articles: ArticleDetail[] } | null = null;
 let inflightFeedPromise: Promise<ArticleDetail[]> | null = null;
+
+let searchCandidateCache: { at: number; articles: ArticleDetail[] } | null = null;
+let inflightSearchCandidatePromise: Promise<ArticleDetail[]> | null = null;
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const client = getStagingSupabaseClient() as any;
@@ -359,6 +365,87 @@ async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
   return loaded.slice(0, boundedLimit);
 }
 
+async function loadSearchCandidates(searchQuery?: string): Promise<ArticleDetail[]> {
+  const trimmed = searchQuery?.trim() || "";
+
+  if (!trimmed && searchCandidateCache && Date.now() - searchCandidateCache.at < CACHE_MS) {
+    return searchCandidateCache.articles;
+  }
+
+  if (!trimmed && inflightSearchCandidatePromise) {
+    return inflightSearchCandidatePromise;
+  }
+
+  const runLoad = async (): Promise<ArticleDetail[]> => {
+    let batchDocs: MigratedStoryDocument[] | null = null;
+    let nativeFeed: NativeFeedRow[] = [];
+    try {
+      const [docsRes, nativeRes] = await Promise.all([
+        rpc<MigratedStoryDocument[] | null>("ag05_public_feed_documents", {
+          p_limit: SEARCH_CANDIDATE_LIMIT,
+          p_public_limit: SEARCH_PUBLIC_LIMIT,
+          p_search: trimmed || null
+        }).catch(() => null),
+        boundedRpcRows<NativeFeedRow>(
+          "newsroom_public_published_stories",
+          { p_slug: null },
+          SEARCH_CANDIDATE_LIMIT
+        ).catch(() => [])
+      ]);
+      batchDocs = docsRes;
+      nativeFeed = nativeRes;
+    } catch {
+      batchDocs = null;
+      nativeFeed = [];
+    }
+
+    if (batchDocs && Array.isArray(batchDocs) && batchDocs.length > 0) {
+      const nativeMappingPromise = mapInBatches(
+        nativeFeed,
+        DETAIL_BATCH_SIZE,
+        nativeStoryForFeedRow
+      );
+      const mappedMigrated = batchDocs.map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
+      const mappedNative = await nativeMappingPromise;
+
+      const seenKeys = new Set<string>();
+      const seenPaths = new Set<string>();
+      const articles = [...mappedMigrated, ...mappedNative]
+        .filter((article): article is ArticleDetail => Boolean(article))
+        .sort(articleSort)
+        .filter((article) => {
+          const storyKey = article.canonicalStoryId
+            ? "story:" + article.canonicalStoryId
+            : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+          const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
+
+          if (seenKeys.has(storyKey)) return false;
+          if (pathKey && seenPaths.has(pathKey)) return false;
+
+          seenKeys.add(storyKey);
+          if (pathKey) seenPaths.add(pathKey);
+          return true;
+        });
+
+      if (!trimmed) {
+        searchCandidateCache = { at: Date.now(), articles };
+      }
+      return articles;
+    }
+
+    return loadFeedDocuments(HOMEPAGE_FEED_LIMIT);
+  };
+
+  if (!trimmed) {
+    inflightSearchCandidatePromise = runLoad().finally(() => {
+      inflightSearchCandidatePromise = null;
+    });
+    return inflightSearchCandidatePromise;
+  }
+
+  return runLoad();
+}
+
 const CONTEXT_LIMIT = 50;
 
 async function loadContext(kind: "category" | "tag" | "author", slug: string): Promise<ArticleDetail[]> {
@@ -461,6 +548,13 @@ async function resolveIdentity(id: string) {
     if (cached) return cached;
   } catch (_) {}
 
+  if (searchCandidateCache) {
+    const candidateMatch = searchCandidateCache.articles.find(
+      (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
+    );
+    if (candidateMatch) return candidateMatch;
+  }
+
   let requestedPath: string;
   if (/^https?:\/\//i.test(id)) {
     const path = pathFromCanonicalUrl(id);
@@ -502,7 +596,7 @@ async function resolveIdentity(id: string) {
 
 const articleRepository: ArticleRepository = {
   async getHome() {
-    return loadFeedDocuments();
+    return loadFeedDocuments(HOMEPAGE_FEED_LIMIT);
   },
 
   async getById(id) {
@@ -516,7 +610,7 @@ const articleRepository: ArticleRepository = {
       const section = await loadContext("category", current.primarySection.slug);
       return section.filter((article) => article.id !== current.id).slice(0, 3);
     }
-    return (await loadFeedDocuments()).filter((article) => article.id !== current.id).slice(0, 3);
+    return (await loadFeedDocuments(HOMEPAGE_FEED_LIMIT)).filter((article) => article.id !== current.id).slice(0, 3);
   },
 
   async listBySection(sectionSlug) {
@@ -538,7 +632,7 @@ function publishedTime(value: string | null) {
 }
 
 async function corpusAuthors() {
-  const articles = await loadFeedDocuments(FEED_LIMIT);
+  const articles = await loadSearchCandidates();
   const authors = new Map<string, AuthorProfile>();
   for (const article of articles) {
     const author = article.author;
@@ -560,7 +654,7 @@ async function corpusAuthors() {
 const searchService: SearchService = {
   async search(query: SearchQuery): Promise<SearchResult> {
     const q = query.text.trim();
-    const all = await loadFeedDocuments(FEED_LIMIT);
+    const all = await loadSearchCandidates(q);
     const articleMatches = query.format && query.format !== "article"
       ? []
       : all
@@ -634,7 +728,7 @@ const searchService: SearchService = {
 const taxonomyService: TaxonomyService = {
   async getSnapshot() {
     const canonical = await certifiedTaxonomyFixtureService.getSnapshot();
-    const articles = await loadFeedDocuments(FEED_LIMIT);
+    const articles = await loadSearchCandidates();
     const observedSections = Array.from(
       new Map(
         articles
@@ -643,9 +737,14 @@ const taxonomyService: TaxonomyService = {
           .map((section) => [section.slug, { ...section, parentId: null }])
       ).values()
     );
+    type SectionEntry = { id: string; name: string; slug: string; parentId: string | null };
+    const sectionsMap = new Map<string, SectionEntry>();
+    for (const sec of canonical.sections) sectionsMap.set(sec.slug, sec);
+    for (const sec of observedSections) sectionsMap.set(sec.slug, { id: sec.id, name: sec.name, slug: sec.slug, parentId: null });
+    const combinedSections = Array.from(sectionsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     return {
       ...canonical,
-      sections: observedSections.length ? observedSections : canonical.sections
+      sections: combinedSections.length ? combinedSections : canonical.sections
     };
   }
 };

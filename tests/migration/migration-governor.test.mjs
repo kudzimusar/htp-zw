@@ -13,6 +13,7 @@ import {
   wrapMigrationSqlWithAtomicLedger,
   QUARANTINED_STAGING_MIGRATIONS,
   CANONICAL_COMMERCIAL_DDL_SEQUENCE,
+  CANONICAL_READER_DDL_SEQUENCE,
   KNOWN_CANONICAL_BASELINE_MIGRATIONS,
   STAGING_PROJECT_REF,
   STAGING_LEDGER_TIP
@@ -23,19 +24,19 @@ test("GOVERNOR: Approved manifest passes read-only immutability verification", (
   assert.equal(result, true);
 });
 
-test("GOVERNOR: All 110 migrations in repository are strictly classified with zero unreviewed files", () => {
+test("GOVERNOR: All 111 migrations in repository are strictly classified with zero unreviewed files", () => {
   const catalog = scanMigrationCatalog();
-  assert.equal(catalog.length, 110);
+  assert.equal(catalog.length, 111);
   for (const item of catalog) {
     assert.notEqual(item.classification, "UNKNOWN");
-    assert.match(item.classification, /^(CANONICAL_BASELINE|CANONICAL_COMMERCIAL_DDL|STAGING_ONLY_UAT_RECONCILIATION_QUARANTINED)$/);
+    assert.match(item.classification, /^(CANONICAL_BASELINE|CANONICAL_COMMERCIAL_DDL|CANONICAL_READER_DDL|STAGING_ONLY_UAT_RECONCILIATION_QUARANTINED)$/);
   }
 });
 
 test("GOVERNOR: Production migration plan strictly excludes quarantined staging UAT migrations", () => {
   const prodPlan = buildMigrationPlan("production");
   assert.equal(prodPlan.target, "production");
-  assert.equal(prodPlan.totalMigrations, 108);
+  assert.equal(prodPlan.totalMigrations, 109);
   assert.equal(prodPlan.exclusionEnforced, true);
   assert.equal(prodPlan.productionSafe, true);
 
@@ -52,6 +53,15 @@ test("GOVERNOR: Canonical commercial DDL sequence is preserved in exact order", 
     .map((p) => p.file);
 
   assert.deepEqual(commercialInPlan, CANONICAL_COMMERCIAL_DDL_SEQUENCE);
+});
+
+test("GOVERNOR: Canonical reader DDL sequence is preserved in exact order", () => {
+  const prodPlan = buildMigrationPlan("production");
+  const readerInPlan = prodPlan.plan
+    .filter((p) => CANONICAL_READER_DDL_SEQUENCE.includes(p.file))
+    .map((p) => p.file);
+
+  assert.deepEqual(readerInPlan, CANONICAL_READER_DDL_SEQUENCE);
 });
 
 test("GOVERNOR: Tamper detection fails immediately on modified migration content", () => {

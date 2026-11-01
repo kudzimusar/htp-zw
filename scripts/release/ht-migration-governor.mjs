@@ -26,7 +26,7 @@ const MANIFEST_PATH = path.join(ROOT_DIR, "docs", "delivery", "ht-mvp-production
 const AUDIT_PATH = path.join(ROOT_DIR, "docs", "delivery", "migration-execution-audit.json");
 
 export const STAGING_PROJECT_REF = "bzuvntbkevvuhfhqhkua";
-export const STAGING_LEDGER_TIP = "20261030001134";
+export const STAGING_LEDGER_TIP = "20261101210000";
 
 // Authoritative classification of all migrations introduced in the commercial and release units
 export const QUARANTINED_STAGING_MIGRATIONS = [
@@ -50,6 +50,10 @@ export const CANONICAL_COMMERCIAL_DDL_SEQUENCE = [
   "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql"
 ];
 
+export const CANONICAL_READER_DDL_SEQUENCE = [
+  "20261101210000_ht_mvp_r3_public_feed_documents.sql"
+];
+
 // Staging schema_migrations ledger timestamp to file mapping
 export const STAGING_LEDGER_VERSION_MAP = {
   "20261025123000_ht_mvp_uat04b_staff_directory_current_actor.sql": "20261025133040",
@@ -60,7 +64,8 @@ export const STAGING_LEDGER_VERSION_MAP = {
   "20261029070000_ht_mvp_com_final01_r2_r1_invoice_line_casing_tolerance.sql": "20261029070000",
   "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql": "20261029131047",
   "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql": "20261029142840",
-  "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql": "20261030001134"
+  "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql": "20261030001134",
+  "20261101210000_ht_mvp_r3_public_feed_documents.sql": "20261101210000"
 };
 
 // Destination Allowlist independent of caller request
@@ -220,6 +225,7 @@ export function scanMigrationCatalog(migrationsDir = MIGRATIONS_DIR) {
     const sha256 = hashFile(filePath);
     const isQuarantined = QUARANTINED_STAGING_MIGRATIONS.includes(file);
     const isCanonicalCommercial = CANONICAL_COMMERCIAL_DDL_SEQUENCE.includes(file);
+    const isCanonicalReader = CANONICAL_READER_DDL_SEQUENCE.includes(file);
     const isKnownBaseline = KNOWN_CANONICAL_BASELINE_MIGRATIONS.includes(file);
 
     let classification = "UNKNOWN";
@@ -227,6 +233,8 @@ export function scanMigrationCatalog(migrationsDir = MIGRATIONS_DIR) {
       classification = "STAGING_ONLY_UAT_RECONCILIATION_QUARANTINED";
     } else if (isCanonicalCommercial) {
       classification = "CANONICAL_COMMERCIAL_DDL";
+    } else if (isCanonicalReader) {
+      classification = "CANONICAL_READER_DDL";
     } else if (isKnownBaseline) {
       classification = "CANONICAL_BASELINE";
     } else {
@@ -281,6 +289,25 @@ export function buildMigrationPlan(target = "production", migrationsDir = MIGRAT
       if (plannedCommercialFiles[i] !== CANONICAL_COMMERCIAL_DDL_SEQUENCE[i]) {
         throw new Error(
           `CRITICAL_FAIL_CLOSED: Canonical commercial DDL sequence violation at index ${i}. Expected ${CANONICAL_COMMERCIAL_DDL_SEQUENCE[i]}, found ${plannedCommercialFiles[i]}`
+        );
+      }
+    }
+
+    // 4. FAIL-CLOSED INVARIANT 3: Assert ALL canonical reader DDL migrations are present in exact sequence
+    const plannedReaderFiles = plan
+      .filter((entry) => CANONICAL_READER_DDL_SEQUENCE.includes(entry.file))
+      .map((entry) => entry.file);
+
+    if (plannedReaderFiles.length !== CANONICAL_READER_DDL_SEQUENCE.length) {
+      throw new Error(
+        `CRITICAL_FAIL_CLOSED: Missing canonical reader DDL migrations. Expected ${CANONICAL_READER_DDL_SEQUENCE.length}, found ${plannedReaderFiles.length}`
+      );
+    }
+
+    for (let i = 0; i < CANONICAL_READER_DDL_SEQUENCE.length; i++) {
+      if (plannedReaderFiles[i] !== CANONICAL_READER_DDL_SEQUENCE[i]) {
+        throw new Error(
+          `CRITICAL_FAIL_CLOSED: Canonical reader DDL sequence violation at index ${i}. Expected ${CANONICAL_READER_DDL_SEQUENCE[i]}, found ${plannedReaderFiles[i]}`
         );
       }
     }
@@ -631,6 +658,18 @@ export function verifyManifest(manifestPath = MANIFEST_PATH) {
     }
   }
 
+  // 3B. Verify all canonical reader DDL migrations
+  for (const r of manifest.canonical_reader_ddl || []) {
+    const fullPath = path.join(MIGRATIONS_DIR, r.file);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Canonical reader migration missing on disk: ${r.file}`);
+    }
+    const currentSha = hashFile(fullPath);
+    if (currentSha !== r.sha256) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Checksum mismatch for canonical reader migration ${r.file}`);
+    }
+  }
+
   // 4. Verify disk does not contain extra or unreviewed files
   const currentPlan = buildMigrationPlan("production");
   if (currentPlan.totalMigrations !== manifest.production_plan_migrations_count) {
@@ -639,7 +678,7 @@ export function verifyManifest(manifestPath = MANIFEST_PATH) {
     );
   }
 
-  console.log("[GOVERNOR] Manifest verification: ALL INVARIANTS AND 108 MIGRATIONS PASSED IMMUTABILITY AUDIT.");
+  console.log(`[GOVERNOR] Manifest verification: ALL INVARIANTS AND ${currentPlan.totalMigrations} MIGRATIONS PASSED IMMUTABILITY AUDIT.`);
   return true;
 }
 

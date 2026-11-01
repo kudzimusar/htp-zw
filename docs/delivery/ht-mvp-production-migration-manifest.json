@@ -65,9 +65,17 @@
       "sha256": "c5d75f8f0ada98c482fccf2d4f4fad0e4f87686ad08b337f4bab7796ba30df3b"
     }
   ],
-  "staging_ledger_tip": "20261030001134",
-  "staging_ledger_records_count": 110,
-  "production_plan_migrations_count": 108,
+  "canonical_reader_ddl": [
+    {
+      "file": "20261101210000_ht_mvp_r3_public_feed_documents.sql",
+      "classification": "CANONICAL_READER_DDL",
+      "staging_ledger_version": "20261101210000",
+      "sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a"
+    }
+  ],
+  "staging_ledger_tip": "20261101210000",
+  "staging_ledger_records_count": 111,
+  "production_plan_migrations_count": 109,
   "fail_closed_invariants": [
     "FAIL_IF_QUARANTINED_IN_PRODUCTION_PLAN",
     "FAIL_IF_CANONICAL_DDL_ORDER_VIOLATED",
@@ -619,6 +627,11 @@
       "file": "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql",
       "classification": "CANONICAL_COMMERCIAL_DDL",
       "sha256": "c5d75f8f0ada98c482fccf2d4f4fad0e4f87686ad08b337f4bab7796ba30df3b"
+    },
+    {
+      "file": "20261101210000_ht_mvp_r3_public_feed_documents.sql",
+      "classification": "CANONICAL_READER_DDL",
+      "sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a"
     }
   ]
 }
