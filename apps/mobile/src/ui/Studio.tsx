@@ -244,7 +244,7 @@ function StudioShellInner({
   const width = useHydratedStudioWidth();
   const router = useRouter();
   const pathname = usePathname();
-  const desktop = width >= breakpoints.tablet;
+  const desktop=width>=breakpoints.tablet;
   const tablet = width >= 640 && width < breakpoints.tablet;
 
   // Preferences & Layout State

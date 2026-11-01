@@ -16,9 +16,9 @@ function formatDate(value: string | null) {
 
 function useHydratedCardDimensions() {
   const { width,height }=useWindowDimensions();
-  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
-  useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
-  return responsiveReady ? {width,height} : {width:0,height:0};
+  const windowWidth = width || (typeof window !== "undefined" ? window.innerWidth : 1200);
+  const windowHeight = height || (typeof window !== "undefined" ? window.innerHeight : 800);
+  return { width: windowWidth, height: windowHeight };
 }
 
 function useHydratedCardWidth() {
@@ -150,7 +150,7 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
 }
 
 export function StoryGrid({ stories }: { stories: ArticleSummary[] }) {
-  const { width }=useWindowDimensions();
+  const width = useHydratedCardWidth();
   const tablet=width >= breakpoints.tablet;
   const desktop=width >= breakpoints.desktop;
   return (
@@ -168,7 +168,7 @@ export function StoryGrid({ stories }: { stories: ArticleSummary[] }) {
 }
 
 export function StoryList({ stories }: { stories: ArticleSummary[] }) {
-  const { width }=useWindowDimensions();
+  const width = useHydratedCardWidth();
   const desktop=width >= breakpoints.desktop;
   return (
     <View style={[styles.storyList,desktop && styles.storyListDesktop]}>
@@ -316,7 +316,7 @@ function renderableVideoThumbnail(item:VideoItem){
 
 export function FeaturedVideoCard({item}:{item:VideoItem}){
   const { palette }=useAppearance();
-  const { width }=useWindowDimensions();
+  const width = useHydratedCardWidth();
   const [thumbnailFailed,setThumbnailFailed]=useState(false);
   const desktop=width>=breakpoints.desktop;
   const duration=item.durationSeconds?Math.floor(item.durationSeconds/60)+":"+String(item.durationSeconds%60).padStart(2,"0"):"";
@@ -437,7 +437,7 @@ export function AdSlot({
   sensitiveHealthContext?: boolean;
 }) {
   const { palette }=useAppearance();
-  const { width }=useWindowDimensions();
+  const width = useHydratedCardWidth();
   const impressionKey=useRef("");
   const [creativeSize,setCreativeSize]=useState<{width:number;height:number}|null>(null);
   const [creativeAspect,setCreativeAspect]=useState<number|null>(null);
