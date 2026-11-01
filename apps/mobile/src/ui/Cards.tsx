@@ -665,7 +665,7 @@ const styles=StyleSheet.create({
   audioCopy:{flex:1,gap:3},
   audioTitle:{fontSize:17,fontWeight:"900",lineHeight:22},
   audioUnavailable:{fontSize:10,fontWeight:"800",letterSpacing:.4,textTransform:"uppercase"},
-  adSlot:{width:"100%",minHeight:120,borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
+  adSlot:{width:"100%",minHeight:194,borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
   adSlotInArticle:{alignSelf:"center",maxWidth:760},
   adSlotMobileRectangle:{maxWidth:360,paddingVertical:spacing.lg},
   adSlotTablet:{maxWidth:640,minHeight:120},

@@ -357,7 +357,7 @@ export function HomeSkeleton() {
           {
             borderBottomColor: palette.border,
             flexDirection: phone ? "column" : "row",
-            minHeight: desktop ? 280 : phone ? 300 : 320
+            minHeight: desktop ? 280 : phone ? 270 : 320
           }
         ]}
       >
@@ -392,7 +392,7 @@ export function HomeSkeleton() {
           {
             backgroundColor: palette.paperMuted,
             borderColor: palette.border,
-            minHeight: desktop ? 360 : 120
+            minHeight: desktop ? 360 : phone ? 194 : 120
           }
         ]}
       />
@@ -475,7 +475,7 @@ const styles=StyleSheet.create({
   skeletonHeroMedia:{borderRadius:radius.sm},
   skeletonHeroBody:{justifyContent:"center"},
   skeletonLine:{borderRadius:4},
-  skeletonAdSlot:{width:"100%",minHeight:120,borderTopWidth:1,borderBottomWidth:1,marginVertical:spacing.sm},
+  skeletonAdSlot:{width:"100%",minHeight:194,borderTopWidth:1,borderBottomWidth:1,marginVertical:spacing.sm},
   skeletonGrid:{gap:spacing.md,marginTop:spacing.md},
   skeletonGridCard:{borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
   skeletonCardMedia:{width:"100%",aspectRatio:16/9}
