@@ -196,7 +196,7 @@ export function AppHeader() {
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
       <View style={[styles.headerInner, phone && styles.phoneHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
-          <HealthTimesBrand compact={phone} />
+          <HealthTimesBrand compact={phone} palette={palette} />
         </Pressable>
 
         {!phone && (

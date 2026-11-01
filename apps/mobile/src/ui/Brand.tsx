@@ -11,17 +11,25 @@ const logoUri = configuredBaseUrl + "/healthtimes-icon.svg";
 export function HealthTimesBrand({
   compact = false,
   inverse = false,
-  studio = false
+  studio = false,
+  palette: propPalette
 }: {
   compact?: boolean;
   inverse?: boolean;
   studio?: boolean;
+  palette?: { ink?: string; inkMuted?: string };
 }) {
   const appearance = useOptionalAppearance();
-  const palette = appearance?.palette;
+  const palette = propPalette ?? appearance?.palette;
+  const isDark =
+    appearance?.appearance === "dark" ||
+    (typeof document !== "undefined" &&
+      document.documentElement.getAttribute("data-theme") === "dark");
   const markSize = compact ? 24 : 30;
-  const nameColor = inverse ? "#FFFFFF" : (palette?.ink ?? "#0B1F33");
-  const studioColor = inverse ? "#70D1D1" : (palette?.inkMuted ?? "#486581");
+  const defaultInk = isDark ? "#F3F7FA" : "#0B1F33";
+  const defaultMuted = isDark ? "#A9B7C5" : "#486581";
+  const nameColor = inverse ? "#FFFFFF" : (palette?.ink ?? defaultInk);
+  const studioColor = inverse ? "#70D1D1" : (palette?.inkMuted ?? defaultMuted);
 
   return (
     <View style={styles.row}>
