@@ -491,7 +491,7 @@ export function AdSlot({
   const tablet=width>=breakpoints.tablet && !desktop;
   const inArticle=placement==="article_after_intro";
   const articleEnd=placement==="article_end";
-  const fallbackAspect=inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 8/1 : tablet ? 6/1 : 16/3;
+  const fallbackAspect=placement==="hospaz-header-direct" ? 3/1 : inArticle && width<breakpoints.tablet ? 6/5 : desktop ? 3/1 : tablet ? 4/1 : 16/5;
   const placementMaxWidth=articleEnd ? 980 : inArticle ? (desktop ? 900 : tablet ? 640 : 360) : desktop ? 900 : tablet ? 640 : 900;
   const creativeFrame=resolveAdCreativeFrame({
     viewportWidth:width,
@@ -539,8 +539,8 @@ export function AdSlot({
         {backgroundColor:palette.paperMuted,borderColor:palette.border},
         inArticle && styles.adSlotInArticle,
         inArticle && width<breakpoints.tablet && styles.adSlotMobileRectangle,
-        inArticle && tablet && styles.adSlotTablet,
-        inArticle && desktop && styles.adSlotDesktop,
+        tablet && styles.adSlotTablet,
+        desktop && styles.adSlotDesktop,
         articleEnd && styles.adSlotArticleEnd
       ]}
       accessibilityLabel={adDecision.disclosureLabel || "Advertisement"}
@@ -668,8 +668,8 @@ const styles=StyleSheet.create({
   adSlot:{width:"100%",minHeight:120,borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
   adSlotInArticle:{alignSelf:"center",maxWidth:760},
   adSlotMobileRectangle:{maxWidth:360,paddingVertical:spacing.lg},
-  adSlotTablet:{maxWidth:640},
-  adSlotDesktop:{maxWidth:900},
+  adSlotTablet:{maxWidth:640,minHeight:120},
+  adSlotDesktop:{maxWidth:900,minHeight:360},
   adSlotArticleEnd:{maxWidth:980,alignSelf:"center"},
   adLabel:{fontSize:9,fontWeight:"900",letterSpacing:1.4},
   adPlacement:{fontSize:12,fontWeight:"800",textAlign:"center"},
