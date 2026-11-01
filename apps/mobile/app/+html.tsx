@@ -52,6 +52,9 @@ const rootCss =
   ':root{--ht-paper:#FFFFFF;--ht-paper-muted:#F6F8FA;--ht-ink:#0B1F33;--ht-ink-muted:#5B6776;--ht-border:#DCE3EA;--ht-navy:#071A2B;}' +
   ':root[data-theme="dark"]{--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;}' +
   '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;}}' +
+  ':root[data-theme="dark"] [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#F3F7FA)!important;}' +
+  '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#F3F7FA)!important;}}' +
+  ':root[data-theme="light"] [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#0B1F33)!important;}' +
   'html,body,#root{max-width:100%;min-height:100%;overflow-x:hidden;background-color:var(--ht-paper);color:var(--ht-ink);}';
 
 export default function Root({ children }: PropsWithChildren) {

@@ -30,7 +30,8 @@ export function HealthTimesBrand({
   const markSize = compact ? 24 : 30;
   const defaultInk = isDark ? "#F3F7FA" : "#0B1F33";
   const defaultMuted = isDark ? "#A9B7C5" : "#486581";
-  const nameColor = inverse ? "#FFFFFF" : (isDark ? "#F3F7FA" : (palette?.ink ?? defaultInk));
+  const webInk = Platform.OS === "web" ? "var(--ht-ink)" : undefined;
+  const nameColor = inverse ? "#FFFFFF" : (webInk ?? (isDark ? "#F3F7FA" : (palette?.ink ?? defaultInk)));
   const studioColor = inverse ? "#70D1D1" : (isDark ? "#A9B7C5" : (palette?.inkMuted ?? defaultMuted));
 
   return (
