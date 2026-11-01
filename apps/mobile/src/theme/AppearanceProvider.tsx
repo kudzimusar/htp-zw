@@ -29,7 +29,20 @@ const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 export function AppearanceProvider({ children }: PropsWithChildren) {
   const systemScheme = useColorScheme();
-  const [appearance, setAppearanceState] = useState<AppearancePreference>("system");
+  const [appearance, setAppearanceState] = useState<AppearancePreference>(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const raw = localStorage.getItem("ht:nm04:reader:appearance:v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed === "light" || parsed === "dark" || parsed === "system") {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return "system";
+  });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -47,9 +60,17 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const isWebDark =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isAttrDark =
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-theme") === "dark";
+
   const resolvedDark =
     appearance === "dark" ||
-    (appearance === "system" && systemScheme === "dark");
+    (appearance === "system" && (systemScheme === "dark" || isWebDark || isAttrDark));
 
   const palette = useMemo<Palette>(
     () =>
