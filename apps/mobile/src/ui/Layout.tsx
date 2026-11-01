@@ -357,7 +357,7 @@ export function HomeSkeleton() {
           {
             borderBottomColor: palette.border,
             flexDirection: phone ? "column" : "row",
-            minHeight: desktop ? 430 : phone ? 320 : 360
+            minHeight: desktop ? 360 : phone ? 300 : 320
           }
         ]}
       >
@@ -385,6 +385,13 @@ export function HomeSkeleton() {
           <View style={[styles.skeletonLine, { width: 140, height: 12, backgroundColor: palette.paperMuted }]} />
         </View>
       </View>
+
+      <View
+        style={[
+          styles.skeletonAdSlot,
+          { backgroundColor: palette.paperMuted, borderColor: palette.border }
+        ]}
+      />
 
       <View
         style={[
@@ -458,12 +465,13 @@ const styles=StyleSheet.create({
   skeletonMid:{height:18,width:"60%",borderRadius:radius.sm},
   loadingText:{fontSize:13},
   homeSkeleton:{width:"100%",gap:spacing.lg,paddingTop:spacing.sm},
-  skeletonFilterRow:{flexDirection:"row",gap:spacing.xs,flexWrap:"wrap",paddingVertical:spacing.xs},
-  skeletonPill:{height:32,borderRadius:radius.sm,borderWidth:1},
-  skeletonHero:{borderBottomWidth:1,paddingBottom:spacing.lg,gap:spacing.md},
+  skeletonFilterRow:{flexDirection:"row",gap:spacing.lg,alignItems:"center",paddingVertical:spacing.sm},
+  skeletonPill:{height:44,borderRadius:radius.sm,borderWidth:1},
+  skeletonHero:{borderBottomWidth:1,paddingTop:spacing.md,paddingBottom:spacing.xl,gap:spacing.md},
   skeletonHeroMedia:{borderRadius:radius.sm},
   skeletonHeroBody:{justifyContent:"center"},
   skeletonLine:{borderRadius:4},
+  skeletonAdSlot:{width:"100%",minHeight:120,borderTopWidth:1,borderBottomWidth:1,marginVertical:spacing.sm},
   skeletonGrid:{gap:spacing.md,marginTop:spacing.md},
   skeletonGridCard:{borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
   skeletonCardMedia:{width:"100%",aspectRatio:16/9}

@@ -54,6 +54,7 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         imageHeadline && styles.heroPhoneMedia,
         hasMedia && tablet && styles.heroTablet,
         hasMedia && desktop && styles.heroDesktop,
+        !hasMedia && desktop && styles.heroTextOnlyDesktop,
         hasMedia && shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
       onPress={() => router.push(("/article/" + story.id) as never)}
@@ -577,6 +578,7 @@ const styles=StyleSheet.create({
   heroPhoneMedia:{paddingBottom:0,overflow:"hidden"},
   heroTablet:{flexDirection:"row",alignItems:"stretch",gap:spacing.xl,paddingTop:spacing.sm,minHeight:360},
   heroDesktop:{flexDirection:"row",alignItems:"stretch",gap:spacing.xxl,paddingTop:spacing.md,minHeight:430},
+  heroTextOnlyDesktop:{paddingTop:spacing.xl,paddingBottom:spacing.xxl,minHeight:280,justifyContent:"center"},
   heroShortTabletLandscape:{minHeight:0,gap:spacing.lg,paddingTop:0,paddingBottom:spacing.lg},
   heroImageProbe:{position:"absolute",width:1,height:1,opacity:0},
   heroImage:{width:"100%",aspectRatio:16/9},
@@ -663,7 +665,7 @@ const styles=StyleSheet.create({
   audioCopy:{flex:1,gap:3},
   audioTitle:{fontSize:17,fontWeight:"900",lineHeight:22},
   audioUnavailable:{fontSize:10,fontWeight:"800",letterSpacing:.4,textTransform:"uppercase"},
-  adSlot:{width:"100%",borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
+  adSlot:{width:"100%",minHeight:120,borderTopWidth:1,borderBottomWidth:1,alignItems:"center",justifyContent:"center",paddingVertical:spacing.md,paddingHorizontal:spacing.sm,gap:spacing.xs},
   adSlotInArticle:{alignSelf:"center",maxWidth:760},
   adSlotMobileRectangle:{maxWidth:360,paddingVertical:spacing.lg},
   adSlotTablet:{maxWidth:640},

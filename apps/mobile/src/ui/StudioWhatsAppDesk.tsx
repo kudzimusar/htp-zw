@@ -195,23 +195,7 @@ export function StudioWhatsAppDeskView({
   }, [broadcasts, statusFilter, typeFilter, searchQuery]);
 
   const handleCreateSubmit = async () => {
-    if (newMessageMode === "approved_template" && !newTemplateName.trim()) {
-      setCreateValidationMessage("Choose an approved template before saving this broadcast.");
-      return;
-    }
-    const scheduleResult = resolveWhatsAppBroadcastScheduleInput(
-      newScheduledDate,
-      newScheduledTime,
-      newTimezone
-    );
-    if (!scheduleResult.valid) {
-      setCreateValidationMessage(
-        scheduleResult.error || "Invalid schedule date, time, or timezone."
-      );
-      return;
-    }
-
-    const baseInput: NewsroomWhatsAppBroadcastCreateInput = {
+    const input: NewsroomWhatsAppBroadcastCreateInput = {
       title: newTitle.trim(),
       body: newBody.trim(),
       broadcast_type: newType,
@@ -219,19 +203,11 @@ export function StudioWhatsAppDeskView({
       related_story_id: newStoryId.trim() ? newStoryId.trim() : null
     };
 
-    const validation = validateWhatsAppBroadcastCreateInput(baseInput);
+    const validation = validateWhatsAppBroadcastCreateInput(input);
     if (!validation.valid) {
       setCreateValidationMessage(validation.error || "Invalid input");
       return;
     }
-
-    const input: NewsroomWhatsAppBroadcastCreateInput = {
-      ...baseInput,
-      message_mode: newMessageMode,
-      template_name: newMessageMode === "approved_template" ? newTemplateName.trim() : null,
-      scheduled_at: scheduleResult.utcIso,
-      timezone: scheduleResult.timezone ?? "Africa/Harare"
-    };
 
     setCreateValidationMessage(null);
     try {
@@ -240,11 +216,6 @@ export function StudioWhatsAppDeskView({
       setNewBody("");
       setNewStoryId("");
       setNewType("breaking_alert");
-      setNewMessageMode("approved_template");
-      setNewTemplateName("healthtimes_news_update");
-      setNewScheduledDate("");
-      setNewScheduledTime("");
-      setNewTimezone("Africa/Harare (CAT, UTC+2)");
       onCancelCreate();
     } catch {
       // Error handled by parent
@@ -532,26 +503,33 @@ export function StudioWhatsAppDeskView({
                 <Text style={styles.charCounter}>{newBody.length}/4096</Text>
               </View>
 
-              <View style={[styles.formGroup, styles.restrictedGovernanceBox]}>
+              <View
+                style={[styles.formGroup, styles.restrictedGovernanceBox]}
+                testID="whatsapp-dispatch-stage-notice"
+              >
                 <View style={styles.governanceHeader}>
                   <Text style={styles.label}>Message Governance & Scheduling</Text>
-                  <Text style={styles.restrictedBadge}>DISPATCH-STAGE CONTROLS</Text>
+                  <Text style={styles.restrictedBadge}>DEFERRED TO DISPATCH</Text>
                 </View>
                 <Text style={styles.governanceNotice}>
-                  Draft persistence records core editorial content (title, body, category, and related story). Template bindings and transmission windows are verified and activated during editorial approval prior to Cloud API dispatch.
+                  Draft persistence records core editorial content (title, body, category, and related story). Template bindings, conversation window rules, and transmission schedules are configured during editorial approval prior to Cloud API dispatch.
                 </Text>
 
-                <View style={{ marginTop: spacing.xs }}>
-                  <Text style={[styles.label, { fontSize: 11 }]}>Message governance</Text>
+                <View
+                  style={{ marginTop: spacing.xs, opacity: 0.6 }}
+                  pointerEvents="none"
+                >
+                  <Text style={[styles.label, { fontSize: 11 }]}>Message governance (Dispatch-stage)</Text>
                   <View style={styles.typeSelector}>
                     {(["approved_template", "session_message"] as const).map((mode) => (
                       <Pressable
                         key={mode}
+                        disabled
                         style={[styles.typeButton, newMessageMode === mode && styles.typeButtonSelected]}
                         onPress={() => setNewMessageMode(mode)}
                         accessibilityRole="button"
                         accessibilityLabel={mode === "approved_template" ? "Use approved WhatsApp template" : "Use session message"}
-                        accessibilityState={{ selected: newMessageMode === mode }}
+                        accessibilityState={{ selected: newMessageMode === mode, disabled: true }}
                       >
                         <Text style={[styles.typeButtonText, newMessageMode === mode && styles.typeButtonTextSelected]}>
                           {mode === "approved_template" ? "Approved template" : "24-hour session message"}
@@ -561,10 +539,11 @@ export function StudioWhatsAppDeskView({
                   </View>
                   {newMessageMode === "approved_template" && (
                     <TextInput
-                      style={[styles.textInput, { marginTop: spacing.xs }]}
+                      editable={false}
+                      style={[styles.textInput, { marginTop: spacing.xs, backgroundColor: "#F1F5F9" }]}
                       value={newTemplateName}
                       onChangeText={setNewTemplateName}
-                      placeholder="Approved template name"
+                      placeholder="Approved template name (configured at dispatch)"
                       placeholderTextColor={colors.inkMuted}
                       accessibilityLabel="Approved WhatsApp template name"
                     />
@@ -574,11 +553,15 @@ export function StudioWhatsAppDeskView({
                   </Text>
                 </View>
 
-                <View style={{ marginTop: spacing.xs }}>
-                  <Text style={[styles.label, { fontSize: 11 }]}>Schedule (Optional)</Text>
+                <View
+                  style={{ marginTop: spacing.xs, opacity: 0.6 }}
+                  pointerEvents="none"
+                >
+                  <Text style={[styles.label, { fontSize: 11 }]}>Schedule (Configured at Dispatch)</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                     <TextInput
-                      style={[styles.textInput, { flex: 1, minWidth: 150 }]}
+                      editable={false}
+                      style={[styles.textInput, { flex: 1, minWidth: 150, backgroundColor: "#F1F5F9" }]}
                       value={newScheduledDate}
                       onChangeText={setNewScheduledDate}
                       placeholder="YYYY-MM-DD (e.g. 2026-10-25)"
@@ -587,7 +570,8 @@ export function StudioWhatsAppDeskView({
                       testID="whatsapp-schedule-date-input"
                     />
                     <TextInput
-                      style={[styles.textInput, { flex: 1, minWidth: 120 }]}
+                      editable={false}
+                      style={[styles.textInput, { flex: 1, minWidth: 120, backgroundColor: "#F1F5F9" }]}
                       value={newScheduledTime}
                       onChangeText={setNewScheduledTime}
                       placeholder="HH:MM (e.g. 08:00)"
@@ -610,6 +594,7 @@ export function StudioWhatsAppDeskView({
                       return (
                         <Pressable
                           key={tz}
+                          disabled
                           style={[
                             styles.typeButton,
                             active && styles.typeButtonSelected
@@ -617,7 +602,7 @@ export function StudioWhatsAppDeskView({
                           onPress={() => setNewTimezone(label)}
                           accessibilityRole="button"
                           accessibilityLabel={`Set schedule timezone to ${label}`}
-                          accessibilityState={{ selected: active }}
+                          accessibilityState={{ selected: active, disabled: true }}
                           testID={`whatsapp-schedule-tz-${tz.replace("/", "-")}`}
                         >
                           <Text

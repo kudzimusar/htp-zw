@@ -49,11 +49,27 @@ const themeInitScript =
   '}catch(_){}})();';
 
 const rootCss =
-  ':root{--ht-paper:#FFFFFF;--ht-paper-muted:#F6F8FA;--ht-ink:#0B1F33;--ht-ink-muted:#5B6776;--ht-border:#DCE3EA;--ht-navy:#071A2B;}' +
-  ':root[data-theme="dark"]{--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;}' +
-  '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;}}' +
-  ':root[data-theme="dark"] [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#F3F7FA)!important;}' +
-  '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#F3F7FA)!important;}}' +
+  ':root{--ht-paper:#FFFFFF;--ht-paper-muted:#F6F8FA;--ht-ink:#0B1F33;--ht-ink-muted:#5B6776;--ht-border:#DCE3EA;--ht-navy:#071A2B;--ht-blue:#1263D6;--ht-premium:#8A6421;--ht-success:#1F7A4C;}' +
+  ':root[data-theme="dark"]{--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;--ht-blue:#6DA9FF;--ht-premium:#E6C16A;--ht-success:#63C58E;}' +
+  '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ht-paper:#0B1622;--ht-paper-muted:#122233;--ht-ink:#F3F7FA;--ht-ink-muted:#A9B7C5;--ht-border:#2A3C4F;--ht-navy:#050F19;--ht-blue:#6DA9FF;--ht-premium:#E6C16A;--ht-success:#63C58E;}}' +
+  ':root[data-theme="dark"] [style*="color:rgba(11,31,51"],:root[data-theme="dark"] [style*="color: rgba(11, 31, 51"],:root[data-theme="dark"] [style*="color: rgb(11, 31, 51"]{color:var(--ht-ink,#F3F7FA)!important;}' +
+  ':root[data-theme="dark"] [style*="color:rgba(91,103,118"],:root[data-theme="dark"] [style*="color: rgba(91, 103, 118"],:root[data-theme="dark"] [style*="color: rgb(91, 103, 118"]{color:var(--ht-ink-muted,#A9B7C5)!important;}' +
+  ':root[data-theme="dark"] [style*="color:rgba(138,100,33"],:root[data-theme="dark"] [style*="color: rgba(138, 100, 33"],:root[data-theme="dark"] [style*="color: rgb(138, 100, 33"]{color:var(--ht-premium,#E6C16A)!important;}' +
+  ':root[data-theme="dark"] [style*="background-color:rgba(255,255,255"],:root[data-theme="dark"] [style*="background-color: rgba(255, 255, 255"],:root[data-theme="dark"] [style*="background-color: rgb(255, 255, 255"]{background-color:var(--ht-paper,#0B1622)!important;}' +
+  ':root[data-theme="dark"] [style*="background-color:rgba(246,248,250"],:root[data-theme="dark"] [style*="background-color: rgba(246, 248, 250"],:root[data-theme="dark"] [style*="background-color: rgb(246, 248, 250"]{background-color:var(--ht-paper-muted,#122233)!important;}' +
+  ':root[data-theme="dark"] [style*="220,227,234"],:root[data-theme="dark"] [style*="220, 227, 234"]{border-color:var(--ht-border,#2A3C4F)!important;}' +
+  ':root[data-theme="dark"] input,:root[data-theme="dark"] textarea{background-color:var(--ht-paper,#0B1622)!important;color:var(--ht-ink,#F3F7FA)!important;border-color:var(--ht-border,#2A3C4F)!important;}' +
+  ':root[data-theme="dark"] input::placeholder,:root[data-theme="dark"] textarea::placeholder{color:var(--ht-ink-muted,#A9B7C5)!important;}' +
+  '@media (prefers-color-scheme: dark){' +
+    ':root:not([data-theme="light"]) [style*="color:rgba(11,31,51"],:root:not([data-theme="light"]) [style*="color: rgba(11, 31, 51"],:root:not([data-theme="light"]) [style*="color: rgb(11, 31, 51"]{color:var(--ht-ink,#F3F7FA)!important;}' +
+    ':root:not([data-theme="light"]) [style*="color:rgba(91,103,118"],:root:not([data-theme="light"]) [style*="color: rgba(91, 103, 118"],:root:not([data-theme="light"]) [style*="color: rgb(91, 103, 118"]{color:var(--ht-ink-muted,#A9B7C5)!important;}' +
+    ':root:not([data-theme="light"]) [style*="color:rgba(138,100,33"],:root:not([data-theme="light"]) [style*="color: rgba(138, 100, 33"],:root:not([data-theme="light"]) [style*="color: rgb(138, 100, 33"]{color:var(--ht-premium,#E6C16A)!important;}' +
+    ':root:not([data-theme="light"]) [style*="background-color:rgba(255,255,255"],:root:not([data-theme="light"]) [style*="background-color: rgba(255, 255, 255"],:root:not([data-theme="light"]) [style*="background-color: rgb(255, 255, 255"]{background-color:var(--ht-paper,#0B1622)!important;}' +
+    ':root:not([data-theme="light"]) [style*="background-color:rgba(246,248,250"],:root:not([data-theme="light"]) [style*="background-color: rgba(246, 248, 250"],:root:not([data-theme="light"]) [style*="background-color: rgb(246, 248, 250"]{background-color:var(--ht-paper-muted,#122233)!important;}' +
+    ':root:not([data-theme="light"]) [style*="220,227,234"],:root:not([data-theme="light"]) [style*="220, 227, 234"]{border-color:var(--ht-border,#2A3C4F)!important;}' +
+    ':root:not([data-theme="light"]) input,:root:not([data-theme="light"]) textarea{background-color:var(--ht-paper,#0B1622)!important;color:var(--ht-ink,#F3F7FA)!important;border-color:var(--ht-border,#2A3C4F)!important;}' +
+    ':root:not([data-theme="light"]) input::placeholder,:root:not([data-theme="light"]) textarea::placeholder{color:var(--ht-ink-muted,#A9B7C5)!important;}' +
+  '}' +
   ':root[data-theme="light"] [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#0B1F33)!important;}' +
   'html,body,#root{max-width:100%;overflow-x:hidden}' +
   'html,body,#root{min-height:100%;background-color:var(--ht-paper);color:var(--ht-ink);}';
@@ -70,6 +86,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="application-name" content="HealthTimes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="preconnect" href="https://bzuvntbkevvuhfhqhkua.supabase.co" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://bzuvntbkevvuhfhqhkua.supabase.co" />
         <link rel="manifest" href={assetPath("manifest.json")} />
         <link rel="icon" href={assetPath("healthtimes-icon.svg")} />
         <ScrollViewStyleReset />
