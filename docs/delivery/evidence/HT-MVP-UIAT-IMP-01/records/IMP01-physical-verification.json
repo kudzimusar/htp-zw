@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-11-01T05:28:21.834Z",
+  "previewUrl": "https://healthtimes-staging-8egptawhj-11-11.vercel.app",
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "74447c33fe12955636aa693610a6213790809810",
+      "presentation": "apps/mobile",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugHasTitle": true,
+      "reloadStatus": 200,
+      "reloadHasTitle": true,
+      "uuidStatus": 200,
+      "pass": true
+    },
+    "DEF013": {
+      "lightHtmlBg": "rgb(255, 255, 255)",
+      "lightBodyBg": "rgb(255, 255, 255)",
+      "lightTextColor": "rgb(11, 31, 51)",
+      "darkHtmlBg": "rgb(11, 22, 34)",
+      "darkBodyBg": "rgb(11, 22, 34)",
+      "darkTextColor": "rgb(243, 247, 250)",
+      "lightContrast": 16.69,
+      "darkContrast": 16.92,
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "offlineRendered": true,
+      "pass": true
+    },
+    "DEF008": {
+      "createdDraftFormOpen": true,
+      "failClosedEnforced": true,
+      "contractTestsPassed": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "DEF014": {
+      "totalLoadMs": 3310,
+      "ttfb": 30,
+      "domContentLoaded": 308,
+      "cls": 0,
+      "feedRpcCalls": 2,
+      "clsPass": true,
+      "pass": true
+    }
+  }
+}
