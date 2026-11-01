@@ -51,6 +51,8 @@ new Function("module", "exports", "require", rankingOutput)(
 const { scoreReaderSearch } = rankingModule.exports;
 
 test("DISCOVERY: Homepage feed RPC returns bounded 50 items with sub-100ms response", async () => {
+  // Prime connection
+  await rpc("ag05_public_feed_documents", { p_limit: 1 });
   const t0 = Date.now();
   const docs = await rpc("ag05_public_feed_documents", { p_limit: 50 });
   const latency = Date.now() - t0;

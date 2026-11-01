@@ -728,7 +728,7 @@ const searchService: SearchService = {
 const taxonomyService: TaxonomyService = {
   async getSnapshot() {
     const canonical = await certifiedTaxonomyFixtureService.getSnapshot();
-    const articles = await loadSearchCandidates();
+    const articles = await loadFeedDocuments();
     const observedSections = Array.from(
       new Map(
         articles
