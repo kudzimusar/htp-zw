@@ -60,10 +60,22 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const isWebDark =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const [systemDark, setSystemDark] = useState(() => {
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return systemScheme === "dark";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    media.addEventListener?.("change", handler);
+    return () => media.removeEventListener?.("change", handler);
+  }, []);
+
+  const isWebDark = systemDark;
   const isAttrDark =
     typeof document !== "undefined" &&
     document.documentElement.getAttribute("data-theme") === "dark";

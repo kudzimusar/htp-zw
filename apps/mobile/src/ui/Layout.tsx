@@ -323,7 +323,7 @@ export function LoadingBlock({ label = "Loading HealthTimes…" }: { label?: str
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
     >
-      <HealthTimesBrand compact />
+      <HealthTimesBrand compact palette={palette} />
       <View accessible={false} style={[styles.skeletonWide, { backgroundColor: palette.paperMuted }]} />
       <View accessible={false} style={[styles.skeletonMid, { backgroundColor: palette.paperMuted }]} />
       <Text accessible={false} style={[styles.loadingText, { color: palette.inkMuted }]}>{label}</Text>

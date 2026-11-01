@@ -17,19 +17,21 @@ export function HealthTimesBrand({
   compact?: boolean;
   inverse?: boolean;
   studio?: boolean;
-  palette?: { ink?: string; inkMuted?: string };
+  palette?: { ink?: string; inkMuted?: string; paper?: string };
 }) {
   const appearance = useOptionalAppearance();
   const palette = propPalette ?? appearance?.palette;
   const isDark =
     appearance?.appearance === "dark" ||
+    palette?.paper === "#0B1622" ||
     (typeof document !== "undefined" &&
-      document.documentElement.getAttribute("data-theme") === "dark");
+      (document.documentElement.getAttribute("data-theme") === "dark" ||
+       document.documentElement.style.getPropertyValue("--ht-paper") === "#0B1622"));
   const markSize = compact ? 24 : 30;
   const defaultInk = isDark ? "#F3F7FA" : "#0B1F33";
   const defaultMuted = isDark ? "#A9B7C5" : "#486581";
-  const nameColor = inverse ? "#FFFFFF" : (palette?.ink ?? defaultInk);
-  const studioColor = inverse ? "#70D1D1" : (palette?.inkMuted ?? defaultMuted);
+  const nameColor = inverse ? "#FFFFFF" : (isDark ? "#F3F7FA" : (palette?.ink ?? defaultInk));
+  const studioColor = inverse ? "#70D1D1" : (isDark ? "#A9B7C5" : (palette?.inkMuted ?? defaultMuted));
 
   return (
     <View style={styles.row}>
