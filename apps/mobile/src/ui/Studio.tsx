@@ -955,7 +955,7 @@ export function StudioAuthorityGate({ children }: PropsWithChildren) {
     );
   }
   const snapshot = authorization.data;
-  const allowed = snapshot?.status === "authorized" && snapshot.source === "server";
+  const allowed = snapshot?.status==="authorized" && snapshot.source==="server";
   if (!allowed) {
     return (
       <View style={styles.accessGate}>

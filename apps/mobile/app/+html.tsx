@@ -55,7 +55,8 @@ const rootCss =
   ':root[data-theme="dark"] [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#F3F7FA)!important;}' +
   '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#F3F7FA)!important;}}' +
   ':root[data-theme="light"] [aria-label="HealthTimes Home"] [dir="auto"]{color:var(--ht-ink,#0B1F33)!important;}' +
-  'html,body,#root{max-width:100%;min-height:100%;overflow-x:hidden;background-color:var(--ht-paper);color:var(--ht-ink);}';
+  'html,body,#root{max-width:100%;overflow-x:hidden}' +
+  'html,body,#root{min-height:100%;background-color:var(--ht-paper);color:var(--ht-ink);}';
 
 export default function Root({ children }: PropsWithChildren) {
   return (

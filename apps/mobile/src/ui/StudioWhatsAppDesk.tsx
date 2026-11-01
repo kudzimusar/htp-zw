@@ -532,96 +532,106 @@ export function StudioWhatsAppDeskView({
                 <Text style={styles.charCounter}>{newBody.length}/4096</Text>
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Message governance</Text>
-                <View style={styles.typeSelector}>
-                  {(["approved_template", "session_message"] as const).map((mode) => (
-                    <Pressable
-                      key={mode}
-                      style={[styles.typeButton, newMessageMode === mode && styles.typeButtonSelected]}
-                      onPress={() => setNewMessageMode(mode)}
-                      accessibilityRole="button"
-                      accessibilityLabel={mode === "approved_template" ? "Use approved WhatsApp template" : "Use session message"}
-                      accessibilityState={{ selected: newMessageMode === mode }}
-                    >
-                      <Text style={[styles.typeButtonText, newMessageMode === mode && styles.typeButtonTextSelected]}>
-                        {mode === "approved_template" ? "Approved template" : "24-hour session message"}
-                      </Text>
-                    </Pressable>
-                  ))}
+              <View style={[styles.formGroup, styles.restrictedGovernanceBox]}>
+                <View style={styles.governanceHeader}>
+                  <Text style={styles.label}>Message Governance & Scheduling</Text>
+                  <Text style={styles.restrictedBadge}>DISPATCH-STAGE CONTROLS</Text>
                 </View>
-                {newMessageMode === "approved_template" && (
-                  <TextInput
-                    style={styles.textInput}
-                    value={newTemplateName}
-                    onChangeText={setNewTemplateName}
-                    placeholder="Approved template name"
-                    placeholderTextColor={colors.inkMuted}
-                    accessibilityLabel="Approved WhatsApp template name"
-                  />
-                )}
-                <Text style={styles.charCounter}>
-                  Template broadcasts require Meta approval. Session messages are available only inside an active 24-hour reader conversation.
+                <Text style={styles.governanceNotice}>
+                  Draft persistence records core editorial content (title, body, category, and related story). Template bindings and transmission windows are verified and activated during editorial approval prior to Cloud API dispatch.
                 </Text>
-              </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Schedule (Optional)</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <TextInput
-                    style={[styles.textInput, { flex: 1, minWidth: 150 }]}
-                    value={newScheduledDate}
-                    onChangeText={setNewScheduledDate}
-                    placeholder="YYYY-MM-DD (e.g. 2026-10-25)"
-                    placeholderTextColor={colors.inkMuted}
-                    accessibilityLabel="Scheduled send date"
-                    testID="whatsapp-schedule-date-input"
-                  />
-                  <TextInput
-                    style={[styles.textInput, { flex: 1, minWidth: 120 }]}
-                    value={newScheduledTime}
-                    onChangeText={setNewScheduledTime}
-                    placeholder="HH:MM (e.g. 08:00)"
-                    placeholderTextColor={colors.inkMuted}
-                    accessibilityLabel="Scheduled send time"
-                    testID="whatsapp-schedule-time-input"
-                  />
-                </View>
-                <View
-                  style={[styles.typeSelector, { marginTop: spacing.xs }]}
-                  accessibilityLabel="Scheduled send timezone"
-                  testID="whatsapp-schedule-timezone-selector"
-                >
-                  {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
-                    const active = newTimezone.startsWith(tz);
-                    const label =
-                      tz === "Africa/Harare"
-                        ? "Africa/Harare (CAT, UTC+2)"
-                        : "UTC";
-                    return (
+                <View style={{ marginTop: spacing.xs }}>
+                  <Text style={[styles.label, { fontSize: 11 }]}>Message governance</Text>
+                  <View style={styles.typeSelector}>
+                    {(["approved_template", "session_message"] as const).map((mode) => (
                       <Pressable
-                        key={tz}
-                        style={[
-                          styles.typeButton,
-                          active && styles.typeButtonSelected
-                        ]}
-                        onPress={() => setNewTimezone(label)}
+                        key={mode}
+                        style={[styles.typeButton, newMessageMode === mode && styles.typeButtonSelected]}
+                        onPress={() => setNewMessageMode(mode)}
                         accessibilityRole="button"
-                        accessibilityLabel={`Set schedule timezone to ${label}`}
-                        accessibilityState={{ selected: active }}
-                        testID={`whatsapp-schedule-tz-${tz.replace("/", "-")}`}
+                        accessibilityLabel={mode === "approved_template" ? "Use approved WhatsApp template" : "Use session message"}
+                        accessibilityState={{ selected: newMessageMode === mode }}
                       >
-                        <Text
-                          style={[
-                            styles.typeButtonText,
-                            active && styles.typeButtonTextSelected
-                          ]}
-                        >
-                          {label}
+                        <Text style={[styles.typeButtonText, newMessageMode === mode && styles.typeButtonTextSelected]}>
+                          {mode === "approved_template" ? "Approved template" : "24-hour session message"}
                         </Text>
                       </Pressable>
-                    );
-                  })}
+                    ))}
+                  </View>
+                  {newMessageMode === "approved_template" && (
+                    <TextInput
+                      style={[styles.textInput, { marginTop: spacing.xs }]}
+                      value={newTemplateName}
+                      onChangeText={setNewTemplateName}
+                      placeholder="Approved template name"
+                      placeholderTextColor={colors.inkMuted}
+                      accessibilityLabel="Approved WhatsApp template name"
+                    />
+                  )}
+                  <Text style={styles.charCounter}>
+                    Template broadcasts require Meta approval. Session messages are available only inside an active 24-hour reader conversation.
+                  </Text>
+                </View>
+
+                <View style={{ marginTop: spacing.xs }}>
+                  <Text style={[styles.label, { fontSize: 11 }]}>Schedule (Optional)</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <TextInput
+                      style={[styles.textInput, { flex: 1, minWidth: 150 }]}
+                      value={newScheduledDate}
+                      onChangeText={setNewScheduledDate}
+                      placeholder="YYYY-MM-DD (e.g. 2026-10-25)"
+                      placeholderTextColor={colors.inkMuted}
+                      accessibilityLabel="Scheduled send date"
+                      testID="whatsapp-schedule-date-input"
+                    />
+                    <TextInput
+                      style={[styles.textInput, { flex: 1, minWidth: 120 }]}
+                      value={newScheduledTime}
+                      onChangeText={setNewScheduledTime}
+                      placeholder="HH:MM (e.g. 08:00)"
+                      placeholderTextColor={colors.inkMuted}
+                      accessibilityLabel="Scheduled send time"
+                      testID="whatsapp-schedule-time-input"
+                    />
+                  </View>
+                  <View
+                    style={[styles.typeSelector, { marginTop: spacing.xs }]}
+                    accessibilityLabel="Scheduled send timezone"
+                    testID="whatsapp-schedule-timezone-selector"
+                  >
+                    {SUPPORTED_PREVIEW_TIMEZONES.map((tz) => {
+                      const active = newTimezone.startsWith(tz);
+                      const label =
+                        tz === "Africa/Harare"
+                          ? "Africa/Harare (CAT, UTC+2)"
+                          : "UTC";
+                      return (
+                        <Pressable
+                          key={tz}
+                          style={[
+                            styles.typeButton,
+                            active && styles.typeButtonSelected
+                          ]}
+                          onPress={() => setNewTimezone(label)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Set schedule timezone to ${label}`}
+                          accessibilityState={{ selected: active }}
+                          testID={`whatsapp-schedule-tz-${tz.replace("/", "-")}`}
+                        >
+                          <Text
+                            style={[
+                              styles.typeButtonText,
+                              active && styles.typeButtonTextSelected
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
 
@@ -1462,6 +1472,36 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.inkMuted,
     textAlign: "right"
+  },
+  restrictedGovernanceBox: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#CBD5E1",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs
+  },
+  governanceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs
+  },
+  restrictedBadge: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#64748B",
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    letterSpacing: 0.5
+  },
+  governanceNotice: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#475569"
   },
   typeSelector: {
     flexDirection: "row",
