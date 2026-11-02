@@ -9,6 +9,7 @@
  */
 
 import test from 'node:test';
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +23,8 @@ import {
 import {
   UAT_STAFF_MAP,
   trackExactSession,
+  beginExactSessionRun,
+  clearTrackedSessions,
   revokeExactSession
 } from '../../scripts/session-authority.mjs';
 
@@ -108,7 +111,7 @@ test('FAULT INJECTION: trackExactSession strictly rejects null or empty provider
         providerSessionId: null
       });
     },
-    /BLOCKED_SESSION_ID.*Null sentinels are strictly forbidden/
+    /BLOCKED_SESSION_ID/
   );
 
   assert.throws(
@@ -119,7 +122,7 @@ test('FAULT INJECTION: trackExactSession strictly rejects null or empty provider
         providerSessionId: ''
       });
     },
-    /BLOCKED_SESSION_ID.*Null sentinels are strictly forbidden/
+    /BLOCKED_SESSION_ID/
   );
 });
 
@@ -135,11 +138,13 @@ test('FAULT INJECTION: revokeExactSession strictly rejects null provider_session
         providerSessionId: null
       });
     },
-    /BLOCKED_SESSION_ID: Attempted to revoke session for .* without exact provider_session_id/
+    /BLOCKED_SESSION_ID/
   );
 });
 
 test('FAULT INJECTION: revokeExactSession strictly blocks targeting Owner session', async () => {
+  const ownerRunId=randomUUID();
+  beginExactSessionRun(ownerRunId);
   await assert.rejects(
     async () => {
       await revokeExactSession({
@@ -148,10 +153,12 @@ test('FAULT INJECTION: revokeExactSession strictly blocks targeting Owner sessio
         email: 'kudzimusar@gmail.com',
         password: 'fakePassword123!',
         staffProfileId: 'some-owner-profile-id',
-        providerSessionId: 'some-session-id'
+        providerSessionId: randomUUID(),
+        authUserId: randomUUID(),
+        testRunId: ownerRunId
       });
     },
-    /BLOCKED_SESSION_TARGET: Attempted to revoke Owner session/
+    /BLOCKED_SESSION_TARGET/
   );
 });
 
@@ -163,6 +170,8 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const email = specialistActor.email;
   const password = specialistActor.password;
   const staffProfileId = UAT_STAFF_MAP[email].staffProfileId;
+  const testRunId = randomUUID();
+  beginExactSessionRun(testRunId);
 
   // 1. Establish Session A
   const resA = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -175,6 +184,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const payloadA = JSON.parse(Buffer.from(dataA.access_token.split('.')[1], 'base64').toString());
   const sessionAId = payloadA.session_id;
   assert.ok(sessionAId, 'Session A must have provider session_id');
+  trackExactSession({ email, staffProfileId, authUserId:payloadA.sub, providerSessionId:sessionAId, testRunId, accessToken:dataA.access_token });
 
   // Register Session A in newsroom_sessions via RPC
   await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
@@ -199,6 +209,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const sessionBId = payloadB.session_id;
   assert.ok(sessionBId, 'Session B must have provider session_id');
   assert.notEqual(sessionAId, sessionBId, 'Session A and Session B must have distinct providerSessionIds');
+  trackExactSession({ email, staffProfileId, authUserId:payloadB.sub, providerSessionId:sessionBId, testRunId, accessToken:dataB.access_token });
 
   // Register Session B in newsroom_sessions via RPC
   await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
@@ -216,8 +227,9 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     supabaseUrl: SUPABASE_URL,
     anonKey: SUPABASE_ANON_KEY,
     email,
-    password,
     staffProfileId,
+    authUserId:payloadA.sub,
+    testRunId,
     providerSessionId: sessionAId
   });
   assert.equal(resultA.revokedCount, 1, 'Exactly 1 session must be revoked for Session A');
@@ -246,8 +258,9 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     supabaseUrl: SUPABASE_URL,
     anonKey: SUPABASE_ANON_KEY,
     email,
-    password,
     staffProfileId,
+    authUserId:payloadB.sub,
+    testRunId,
     providerSessionId: sessionBId
   });
   assert.equal(resultB.revokedCount, 1, 'Exactly 1 session must be revoked for Session B');

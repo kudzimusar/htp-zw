@@ -11,8 +11,16 @@ import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { HealthTimesBrand } from "./Brand";
 
+// The static Expo web export renders without a request-specific viewport.
+// Header DOM (phone search vs desktop links) must match on the server and the
+// *first* client render; only update to the real viewport after hydration.
 function useHydratedWindowWidth() {
   const { width } = useWindowDimensions();
+  const [hydrated, setHydrated] = useState(Platform.OS !== "web");
+  useEffect(() => {
+    if (Platform.OS === "web") setHydrated(true);
+  }, []);
+  if (!hydrated) return 1200;
   return width || (typeof window !== "undefined" ? window.innerWidth : 1200);
 }
 

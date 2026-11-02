@@ -32,6 +32,7 @@ import {
   trackExactSession,
   getTrackedSessions,
   clearTrackedSessions,
+  beginExactSessionRun,
   revokeExactSession,
   extractBrowserProviderSessionId
 } from './session-authority.mjs';
@@ -59,6 +60,7 @@ fs.mkdirSync(path.dirname(OUT_RECORD), { recursive: true });
 export async function runIndependentCertification() {
   const runId = crypto.randomUUID();
   clearTrackedSessions();
+  beginExactSessionRun(runId);
 
   console.log('====================================================');
   console.log('HT-MVP-UIAT-01-R3-ICR05A-LR01 INDEPENDENT UAT CERTIFICATION');
@@ -385,7 +387,8 @@ export async function runIndependentCertification() {
           staffProfileId: UAT_STAFF_MAP[specialistActor.email].staffProfileId,
           authUserId: sessionInfo.authUserId,
           providerSessionId: sessionInfo.providerSessionId,
-          testRunId: runId
+          testRunId: runId,
+          accessToken: sessionInfo.accessToken
         });
         console.log(`[SESSION] Tracked exact specialist session: ${sessionInfo.providerSessionId}`);
       } else {
@@ -524,7 +527,8 @@ export async function runIndependentCertification() {
           staffProfileId: UAT_STAFF_MAP[commercialActor.email].staffProfileId,
           authUserId: sessionInfo.authUserId,
           providerSessionId: sessionInfo.providerSessionId,
-          testRunId: runId
+          testRunId: runId,
+          accessToken: sessionInfo.accessToken
         });
         console.log(`[SESSION] Tracked exact commercial session: ${sessionInfo.providerSessionId}`);
       } else {
@@ -892,7 +896,8 @@ export async function runIndependentCertification() {
           staffProfileId: UAT_STAFF_MAP[specialistActor.email].staffProfileId,
           authUserId: sessionInfo.authUserId,
           providerSessionId: sessionInfo.providerSessionId,
-          testRunId: runId
+          testRunId: runId,
+          accessToken: sessionInfo.accessToken
         });
         console.log(`[SESSION] Tracked exact studio session: ${sessionInfo.providerSessionId}`);
       } else {
@@ -955,16 +960,16 @@ export async function runIndependentCertification() {
     console.log(`Tracked ${tracked.length} exact UAT session(s) to revoke:`);
     for (const session of tracked) {
       console.log(`  -> Actor: ${session.email} | ProviderSessionId: ${session.providerSessionId}`);
-      const actorPassword = session.email === commercialActor.email ? commercialActor.password : specialistActor.password;
 
       try {
         const revResult = await revokeExactSession({
           supabaseUrl: SUPABASE_URL,
           anonKey: SUPABASE_ANON_KEY,
           email: session.email,
-          password: actorPassword,
           staffProfileId: session.staffProfileId,
-          providerSessionId: session.providerSessionId
+          providerSessionId: session.providerSessionId,
+          authUserId: session.authUserId,
+          testRunId: session.testRunId
         });
         console.log(`     Cleanly revoked session (count: ${revResult.revokedCount})`);
       } catch (err) {
