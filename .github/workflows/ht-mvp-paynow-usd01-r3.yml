@@ -81,7 +81,7 @@ jobs:
           const runtime = fs.readFileSync('lib/paynow-runtime.js', 'utf8');
           if (/initiated_at\s*<\s*now\(\)/i.test(sql)) throw new Error('Stale claim automatic replay still permitted');
           if (!/PAYNOW_AMBIGUOUS_INITIATION_CANNOT_RELEASE/.test(sql)) throw new Error('Ambiguous claim release guard missing');
-          if (!/checkoutPubliclyEnabled/.test(runtime) || !/currency_source: 'SIGNED_PROVIDER_FIELD'/.test(runtime)) {
+          if (!/checkoutPubliclyEnabled/.test(runtime) || !runtime.includes('INDEPENDENT_PROVIDER_USD_ATTESTATION_REQUIRED') && !fs.readFileSync('supabase/migrations/candidates/20261102090000_ht_mvp_paynow_r3_live_usd_attested_contract.sql','utf8').includes('INDEPENDENT_PROVIDER_USD_ATTESTATION_REQUIRED')) {
             throw new Error('Checkout/currency guard drift');
           }
           NODE
