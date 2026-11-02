@@ -24,8 +24,13 @@ export default function PaymentReturn(){
   const [message,setMessage]=useState("HealthTimes is confirming your payment with Paynow.");
   const [access,setAccess]=useState<"pending"|"sign-in"|"unavailable"|"operator-only">("pending");
   const [attempt,setAttempt]=useState(0);
+  // Static web export renders without a browser query string. Keep the first
+  // client render identical and resolve references only after hydration.
+  const [hydrated,setHydrated]=useState(false);
+  useEffect(()=>setHydrated(true),[]);
 
   useEffect(()=>{
+    if(!hydrated)return;
     if(!/^HT-(PREM|INV|CONN)-[0-9A-HJKMNP-TV-Z]{26}$/.test(reference)){
       setMessage("This payment return link is incomplete.");
       return;
@@ -103,7 +108,7 @@ export default function PaymentReturn(){
     };
     void check();
     return()=>{active=false;if(timer) clearTimeout(timer);};
-  },[reference,attempt]);
+  },[reference,attempt,hydrated]);
 
   return <Page>
     <View style={[styles.card,{backgroundColor:palette.paper,borderColor:palette.border}]}>
@@ -111,10 +116,10 @@ export default function PaymentReturn(){
       <Text accessibilityRole="header" style={[styles.title,{color:palette.ink}]}>Payment confirmation</Text>
       <Text style={[styles.message,{color:palette.inkMuted}]}>{message}</Text>
       {status?.provider_status ? <Text style={[styles.provider,{color:palette.inkMuted}]}>Provider status: {status.provider_status}</Text> : null}
-      {access==="sign-in" ? <Pressable accessibilityRole="button" onPress={()=>router.replace("/account-access" as never)} style={[styles.button,{backgroundColor:palette.blue}]}>
+      {hydrated && access==="sign-in" ? <Pressable accessibilityRole="button" onPress={()=>router.replace("/account-access" as never)} style={[styles.button,{backgroundColor:palette.blue}]}>
         <Text style={styles.buttonText}>Sign in to HealthTimes</Text>
       </Pressable> : null}
-      {access==="pending" && reference.startsWith("HT-PREM-") ? <Pressable accessibilityRole="button" onPress={()=>setAttempt(value=>value+1)} style={[styles.button,{backgroundColor:palette.blue}]}>
+      {hydrated && access==="pending" && reference.startsWith("HT-PREM-") ? <Pressable accessibilityRole="button" onPress={()=>setAttempt(value=>value+1)} style={[styles.button,{backgroundColor:palette.blue}]}>
         <Text style={styles.buttonText}>Check payment again</Text>
       </Pressable> : null}
       <Pressable accessibilityRole="button" onPress={()=>router.replace("/premium" as never)} style={[styles.button,{backgroundColor:palette.blue}]}>
