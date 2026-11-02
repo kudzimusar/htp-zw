@@ -2,7 +2,7 @@
 // R4 actual Chromium browser tests against the exported Expo web UI.
 // Only the *provider transport* is routed to deterministic fixtures;
 // the real React/Expo payment-return page is loaded, hydrated and interacted with.
-const { chromium } = require('playwright');
+const { chromium } = require(process.env.HT_PAYNOW_PLAYWRIGHT_MODULE || 'playwright');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const fs = require('node:fs');

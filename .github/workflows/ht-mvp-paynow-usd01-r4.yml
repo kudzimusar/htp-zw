@@ -60,7 +60,7 @@ jobs:
           npm run export:web --prefix apps/mobile
           npm install --prefix /tmp/ht-paynow-browser --no-package-lock --no-save --no-audit --no-fund playwright@1.56.1
           /tmp/ht-paynow-browser/node_modules/.bin/playwright install --with-deps chromium
-          NODE_PATH=/tmp/ht-paynow-browser/node_modules node tests/browser/paynow-r4-return.browser.cjs
+          HT_PAYNOW_PLAYWRIGHT_MODULE=/tmp/ht-paynow-browser/node_modules/playwright node tests/browser/paynow-r4-return.browser.cjs
       - name: TEST/LIVE isolation and provenance safety contract
         run: |
           node - <<'NODE'
