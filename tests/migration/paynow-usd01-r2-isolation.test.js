@@ -84,17 +84,28 @@ test('TEST callback relays signed status only to isolated Edge simulation, not m
  }finally{globalThis.fetch=orig;}
 });
 
-test('LIVE signed status without signed currency cannot be promoted, even if all gates are synthetically true',async()=>{
+test('LIVE signed status without currency must ask distinct USD-attested RPC; no direct reconciliation',async()=>{
  const raw=signed(fields(null),liveEnv.PAYNOW_LIVE_INTEGRATION_KEY);
- const orig=globalThis.fetch;let calls=0;
- globalThis.fetch=async(url)=>{
-  calls++;
-  if(String(url)===poll)return new Response(raw);
-  throw Error('Unexpected DB/provider call: '+url);
+ const orig=globalThis.fetch;
+ const calls=[];
+ globalThis.fetch=async(url,init={})=>{
+  const u=String(url);calls.push(u);
+  if(u===poll)return new Response(raw);
+  if(u.includes('/rpc/payment_record_paynow_live_status')){
+    const args=JSON.parse(init.body);
+    assert.equal(args.p_currency,null);
+    assert.equal(args.p_metadata.poll_confirmed,true);
+    assert.equal(args.p_metadata.signature_verified,true);
+    return Response.json({accepted:false,code:'INDEPENDENT_PROVIDER_USD_ATTESTATION_REQUIRED'});
+  }
+  throw Error('Unexpected unapproved DB/provider call '+u);
  };
  try{
-  await assert.rejects(()=>runtime.acceptCallback(raw,liveEnv),/PAYNOW_CURRENCY_UNVERIFIED/);
-  assert.equal(calls,1);
+  const result=await runtime.acceptCallback(raw,liveEnv);
+  assert.equal(result.accepted,false);
+  assert.equal(result.code,'INDEPENDENT_PROVIDER_USD_ATTESTATION_REQUIRED');
+  assert.equal(calls.filter(x=>x.includes('/rpc/payment_reconcile_premium_transaction')).length,0);
+  assert.equal(calls.length,2);
  }finally{globalThis.fetch=orig;}
 });
 
@@ -102,6 +113,8 @@ test('TEST signed status readback is never reported as verified monetary payment
  const old=globalThis.fetch;const queries=[];
  globalThis.fetch=async(url)=>{
   queries.push(String(url));
+  if(String(url).includes('/rest/v1/payment_transactions?'))
+   return Response.json([{id:'fixture-transaction'}]);
   if(String(url).includes('/rest/v1/rpc/payment_get_paynow_transaction_status'))
    return Response.json({merchant_reference:ref,payment_verified:false,internal_status:'PROVIDER_INITIATED'});
   if(String(url).includes('/provider_webhook_events?'))
@@ -109,11 +122,11 @@ test('TEST signed status readback is never reported as verified monetary payment
   throw Error('Unexpected URL '+url);
  };
  try {
-  const result=await runtime.transactionStatus(ref,base);
+  const result=await runtime.transactionStatus(ref,base,{operatorAuthorized:true});
   assert.equal(result.payment_verified,false);
   assert.equal(result.test_outcome,'TEST_SIMULATED_PAID');
   assert.equal(result.entitlement_granted,false);
-  assert.equal(queries.length,2);
+  assert.equal(queries.length,3); // ownership lookup, privileged status, simulator evidence
  } finally {globalThis.fetch=old;}
 });
 
