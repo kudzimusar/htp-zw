@@ -56,8 +56,8 @@ jobs:
           const edge = fs.readFileSync('supabase/functions/paynow-test-callback/index.ts','utf8');
           const runtime = fs.readFileSync('lib/paynow-runtime.js','utf8');
           if(!edge.includes('TEST_SIMULATED_PAID') || !edge.includes('NO_VERIFICATION_AUTHORITY')) throw Error('TEST classification missing');
-          if(/await rpc\\("payment_record_paynow_status"/.test(edge) || /await rpc\\("payment_reconcile_premium_transaction"/.test(edge)) throw Error('TEST Edge has monetary RPC');
-          if(/rpc\\(cfg, 'payment_record_paynow_status'/.test(runtime)) throw Error('TEST monetary legacy RPC retained');
+          for (const name of ['payment_record_paynow_status','payment_reconcile_premium_transaction']) if (edge.includes('await rpc("' + name + '"')) throw Error('TEST Edge has monetary RPC');
+          if(runtime.includes("rpc(cfg, 'payment_record_paynow_status'")) throw Error('TEST monetary legacy RPC retained');
           if(!runtime.includes('PAYNOW_LIVE_MONETARY_RPC_CERTIFIED') || !runtime.includes('payment_record_paynow_live_status')) throw Error('LIVE segregation missing');
           NODE
       - name: Non-activation and migration-safety gate
