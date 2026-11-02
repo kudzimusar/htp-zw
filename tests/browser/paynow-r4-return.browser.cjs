@@ -41,10 +41,15 @@ const server=http.createServer((req,res)=>{
       body:JSON.stringify(response.body||{})});
    });
    await page.goto(origin+'/payment/return?reference='+encodeURIComponent(reference),{waitUntil:'domcontentloaded',timeout:40000});
-   await page.getByText(expected,{exact:false}).first().waitFor({timeout:30000});
+   try { await page.getByText(expected,{exact:false}).first().waitFor({timeout:12000}); }
+   catch (error) {
+     console.error(JSON.stringify({scenario:label,expected,requests:calls,body:(await page.locator('body').innerText()).slice(0,2500),url:page.url()}));
+     throw error;
+   }
    if(button)assert.equal(await page.getByRole('button',{name:button}).count(),1);
    assert.equal(calls.length,expectCalls,label+' unexpected server calls');
    outcomes.push({scenario:label,passed:true,requests:calls.length});
+   console.log(JSON.stringify(outcomes.at(-1)));
   }finally{await page.close();}
  }
  try{
