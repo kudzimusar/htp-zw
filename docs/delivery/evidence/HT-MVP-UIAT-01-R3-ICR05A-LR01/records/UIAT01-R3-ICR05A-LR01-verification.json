@@ -1,0 +1,567 @@
+{
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05A-LR01",
+  "runId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+  "timestamp": "2026-11-02T10:57:43.852Z",
+  "previewUrl": "https://healthtimes-staging-b8namgenu-11-11.vercel.app",
+  "previewDeploymentId": "dpl_4zNzqAFPwkC2NUgnho9MGDxBX2F3",
+  "expectedApplicationSha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+  "leastPrivilege": {
+    "mode": "ALLOWLISTED_QUERY_TEMPLATES_ENFORCED",
+    "templatesCatalog": [
+      "NEWSROOM_ACTIVE_SESSIONS",
+      "AUTH_ACTIVE_SESSIONS",
+      "AUTH_ACTIVE_REFRESH_TOKENS",
+      "STAGING_MIGRATION_20261102160000_CHECK",
+      "STAGING_CREATE_STORY_PROSRC",
+      "HISTORIC_REVOCATIONS_AUDIT"
+    ],
+    "arbitrarySqlPermitted": false
+  },
+  "sessionGovernance": {
+    "sessionRevokeNullProviderIdPresent": false,
+    "trackedCurrentRunSessions": [
+      {
+        "email": "uat-specialist@healthtimes.test",
+        "staffProfileId": "5d01dd6e-2a6d-46fa-9c5c-846193add82a",
+        "authUserId": "a0000000-0000-0000-0000-000000000001",
+        "providerSessionId": "bfae4bc5-3dac-4428-b562-aa4a628691c1",
+        "testRunId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+        "trackedAt": "2026-11-02T10:58:05.572Z"
+      },
+      {
+        "email": "uat-commercial@healthtimes.test",
+        "staffProfileId": "5801b34b-04dc-433b-89e4-128874618dab",
+        "authUserId": "e8bd82c4-30e6-4587-bc65-7db66407bb3e",
+        "providerSessionId": "993fae99-d4f0-4d5e-b432-287eb3f3e5ef",
+        "testRunId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+        "trackedAt": "2026-11-02T10:58:16.669Z"
+      },
+      {
+        "email": "uat-specialist@healthtimes.test",
+        "staffProfileId": "5d01dd6e-2a6d-46fa-9c5c-846193add82a",
+        "authUserId": "a0000000-0000-0000-0000-000000000001",
+        "providerSessionId": "98236074-4e84-4441-81d5-91e86b04071a",
+        "testRunId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+        "trackedAt": "2026-11-02T10:59:17.586Z"
+      }
+    ]
+  },
+  "sessionAudit": {
+    "preTest": {
+      "stage": "PRE_TEST",
+      "timestamp": "2026-11-02T10:57:44.925Z",
+      "provenance": "Supabase Management API direct HTTPS query via allowlisted SELECT template",
+      "projectId": "bzuvntbkevvuhfhqhkua",
+      "leastPrivilegeMode": "ALLOWLISTED_QUERY_TEMPLATES_ENFORCED",
+      "templatesExecuted": {
+        "newsroomSessions": {
+          "templateId": "NEWSROOM_ACTIVE_SESSIONS",
+          "description": "Active newsroom sessions grouped by staff email",
+          "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+          "executedAt": "2026-11-02T10:57:43.876Z",
+          "httpStatus": 201,
+          "integrityDigestSha256": "ec975fe33c4b2856aa0d571b93562285e81bcbc2832a852eea0ddfc3f769febf",
+          "rowCount": 1,
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 15
+            }
+          ]
+        },
+        "authSessions": {
+          "templateId": "AUTH_ACTIVE_SESSIONS",
+          "description": "Active GoTrue auth sessions grouped by user email",
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+          "executedAt": "2026-11-02T10:57:43.911Z",
+          "httpStatus": 201,
+          "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+          "rowCount": 1,
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        },
+        "refreshTokens": {
+          "templateId": "AUTH_ACTIVE_REFRESH_TOKENS",
+          "description": "Active GoTrue refresh tokens grouped by user email",
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+          "executedAt": "2026-11-02T10:57:43.930Z",
+          "httpStatus": 201,
+          "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+          "rowCount": 1,
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        }
+      },
+      "counts": {
+        "testNewsroomSessions": 0,
+        "ownerNewsroomSessions": 15,
+        "testAuthSessions": 0,
+        "ownerAuthSessions": 2,
+        "testRefreshTokens": 0,
+        "ownerRefreshTokens": 2
+      },
+      "breakdown": {
+        "newsroom": {
+          "kudzimusar@gmail.com": 15
+        },
+        "auth": {
+          "kudzimusar@gmail.com": 2
+        },
+        "refresh": {
+          "kudzimusar@gmail.com": 2
+        }
+      }
+    },
+    "postTest": {
+      "stage": "POST_TEST",
+      "timestamp": "2026-11-02T10:59:23.880Z",
+      "provenance": "Supabase Management API direct HTTPS query via allowlisted SELECT template",
+      "projectId": "bzuvntbkevvuhfhqhkua",
+      "leastPrivilegeMode": "ALLOWLISTED_QUERY_TEMPLATES_ENFORCED",
+      "templatesExecuted": {
+        "newsroomSessions": {
+          "templateId": "NEWSROOM_ACTIVE_SESSIONS",
+          "description": "Active newsroom sessions grouped by staff email",
+          "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+          "executedAt": "2026-11-02T10:59:22.712Z",
+          "httpStatus": 201,
+          "integrityDigestSha256": "ec975fe33c4b2856aa0d571b93562285e81bcbc2832a852eea0ddfc3f769febf",
+          "rowCount": 1,
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 15
+            }
+          ]
+        },
+        "authSessions": {
+          "templateId": "AUTH_ACTIVE_SESSIONS",
+          "description": "Active GoTrue auth sessions grouped by user email",
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+          "executedAt": "2026-11-02T10:59:22.735Z",
+          "httpStatus": 201,
+          "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+          "rowCount": 1,
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        },
+        "refreshTokens": {
+          "templateId": "AUTH_ACTIVE_REFRESH_TOKENS",
+          "description": "Active GoTrue refresh tokens grouped by user email",
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+          "executedAt": "2026-11-02T10:59:22.761Z",
+          "httpStatus": 201,
+          "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+          "rowCount": 1,
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        }
+      },
+      "counts": {
+        "testNewsroomSessions": 0,
+        "ownerNewsroomSessions": 15,
+        "testAuthSessions": 0,
+        "ownerAuthSessions": 2,
+        "testRefreshTokens": 0,
+        "ownerRefreshTokens": 2
+      },
+      "breakdown": {
+        "newsroom": {
+          "kudzimusar@gmail.com": 15
+        },
+        "auth": {
+          "kudzimusar@gmail.com": 2
+        },
+        "refresh": {
+          "kudzimusar@gmail.com": 2
+        }
+      }
+    }
+  },
+  "databaseTitleAuthority": {
+    "stagingMigration20261102160000Applied": false,
+    "stagingMigrationAuthStatus": "BLOCKED_OWNER_AUTH_REQUIRED",
+    "stagingCreateStoryHasUntitledFallback": true,
+    "integrityDigest": "5e6a9bc73955cc11b16b3855050ceb725503cfd5343f124adacb78dfe8f918bf"
+  },
+  "canonical30Matrix": {
+    "registrySource": "HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md",
+    "totalCases": 30,
+    "passCount": 23,
+    "failCount": 0,
+    "blockedCount": 7,
+    "ownerAuthorizedDeferredCount": 0,
+    "blockedCases": [
+      {
+        "caseId": "UAT-R05",
+        "persona": "Anonymous Reader",
+        "reason": "Audio playback, pause and seek deferred pending Owner decision"
+      },
+      {
+        "caseId": "UAT-J01",
+        "persona": "Journalist / Reporter",
+        "reason": "Missing authorized test credentials in Staging DB staff_profiles"
+      },
+      {
+        "caseId": "UAT-J02",
+        "persona": "Publisher / Reporter",
+        "reason": "Backend migration 20261102160000 unapplied in Staging pending Owner approval"
+      },
+      {
+        "caseId": "UAT-J04",
+        "persona": "Journalist / Reporter",
+        "reason": "Missing authorized test credentials in Staging DB staff_profiles"
+      },
+      {
+        "caseId": "UAT-E01",
+        "persona": "Editor-in-Chief",
+        "reason": "Missing authorized test credentials in Staging DB staff_profiles"
+      },
+      {
+        "caseId": "UAT-E02",
+        "persona": "Editor-in-Chief",
+        "reason": "Missing authorized test credentials in Staging DB staff_profiles"
+      },
+      {
+        "caseId": "UAT-A03",
+        "persona": "Audience Specialist",
+        "reason": "Empty staging audience segment corpus (count=0)"
+      }
+    ]
+  },
+  "supplementalSafetyMatrix": {
+    "totalCases": 14,
+    "passCount": 14,
+    "failCount": 0,
+    "blockedCount": 0,
+    "cases": [
+      {
+        "id": "SUPP-SEARCH-01",
+        "name": "Canonical article hrefs and headline matching",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-SEARCH-02",
+        "name": "Tab-scoped negative search empty state and 0 cards",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-PERF-01",
+        "name": "Desktop Warm P75 LCP <= 2000ms",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-PERF-02",
+        "name": "Desktop Cold P75 LCP <= 2500ms",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-PERF-03",
+        "name": "Mobile Cold P75 LCP <= 2500ms",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-PERF-04",
+        "name": "Single-flight Feed RPC per navigation",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-A11Y-01",
+        "name": "Dark theme 6-surface contrast >= 4.5:1",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-OFFLINE-01",
+        "name": "Saved article offline rendering",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-ADVERTISER-01",
+        "name": "Advertiser details modal navigation and dismissal",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-SESSION-01",
+        "name": "Exact provider_session_id tracking and revocation",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-SESSION-02",
+        "name": "Concurrent session preservation under same UAT actor",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-AUDIT-01",
+        "name": "Allowlisted query template catalog least privilege",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-TITLE-01",
+        "name": "Real-schema parity testing on disposable PostgreSQL",
+        "status": "PASS"
+      },
+      {
+        "id": "SUPP-TITLE-02",
+        "name": "Authentic Studio UI client title validation error banner",
+        "status": "PASS"
+      }
+    ]
+  },
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+      "pass": true
+    },
+    "UAT_R03": {
+      "firstLoadStatus": 200,
+      "reloadStatus": 200,
+      "headlineMatch": true,
+      "pass": true
+    },
+    "UAT_R06": {
+      "lightThemeRatio": 17.85,
+      "darkThemeRatio": 16.64,
+      "premiumThemeRatio": 17.06,
+      "pass": true
+    },
+    "UAT_R04": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "reloadSurvives": true,
+      "storageAudit": {
+        "hasSavedKey": false,
+        "savedCount": 1,
+        "downloadsCount": 1,
+        "firstSavedId": "uat04b-test-story-001"
+      },
+      "pass": true
+    },
+    "UAT_A01": {
+      "noticeRendered": true,
+      "scheduleDisabled": true,
+      "pass": true
+    },
+    "UAT_A02": {
+      "draftCreatedSuccess": true,
+      "dbPersisted": true,
+      "zeroDispatches": true,
+      "pass": true
+    },
+    "UAT_C01": {
+      "advertisersTabRendered": true,
+      "advertiserName": "HOSPAZ",
+      "advertiserId": "cf07c2a2-b37e-41e5-a04f-12901d59af7f",
+      "modalOpened": true,
+      "modalTitleMatched": true,
+      "modalIdRendered": true,
+      "modalDismissed": true,
+      "pass": true
+    },
+    "supplementalSearch": {
+      "samples": [
+        {
+          "attempt": 1,
+          "query": "Cervical",
+          "contextCondition": "Cold Context",
+          "durationMs": 2322,
+          "cardHref": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "cardHeadline": "HEALTH NEWS\nPREMIUM\nWHO Donates US$350,000 Cervical Cancer, Cholera Equipment to Zimbabwe\nZimbabwe h",
+          "validLink": true,
+          "matchesQuery": true
+        },
+        {
+          "attempt": 2,
+          "query": "Lenacapavir",
+          "contextCondition": "Warm Context",
+          "durationMs": 1805,
+          "cardHref": "/article/zimbabwe-community-led-hiv-prevention-prep-choice-lenacapavir",
+          "cardHeadline": "HEALTH NEWS\nPREMIUM\nZimbabwe Puts Communities at the Heart of HIV Prevention as It Shapes PrEP Choic",
+          "validLink": true,
+          "matchesQuery": true
+        },
+        {
+          "attempt": 3,
+          "query": "Cervical",
+          "contextCondition": "Warm Context",
+          "durationMs": 1302,
+          "cardHref": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "cardHeadline": "HEALTH NEWS\nPREMIUM\nWHO Donates US$350,000 Cervical Cancer, Cholera Equipment to Zimbabwe\nZimbabwe h",
+          "validLink": true,
+          "matchesQuery": true
+        },
+        {
+          "attempt": 4,
+          "query": "Cancer",
+          "contextCondition": "Warm Context",
+          "durationMs": 1313,
+          "cardHref": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "cardHeadline": "HEALTH NEWS\nPREMIUM\nWHO Donates US$350,000 Cervical Cancer, Cholera Equipment to Zimbabwe\nZimbabwe h",
+          "validLink": true,
+          "matchesQuery": true
+        },
+        {
+          "attempt": 5,
+          "query": "Health",
+          "contextCondition": "Warm Context",
+          "durationMs": 1304,
+          "cardHref": "/article/zimbabwe-moves-towards-dedicated-menstrual-health-policy-and-law",
+          "cardHeadline": "FAMILY HEALTH\nPREMIUM\nZimbabwe Moves Towards Dedicated Menstrual Health Policy and Law\nZimbabwe is c",
+          "validLink": true,
+          "matchesQuery": true
+        }
+      ],
+      "p75DurationMs": 1805,
+      "medianDurationMs": 1313,
+      "negativeQueryPass": true,
+      "pass": true
+    },
+    "supplementalPerformance": {
+      "desktopWarm": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1312,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 2,
+            "lcp": 704,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 3,
+            "lcp": 576,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 4,
+            "lcp": 544,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 5,
+            "lcp": 680,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          }
+        ],
+        "p75Lcp": 704,
+        "medianLcp": 680,
+        "p75Cls": 0.001,
+        "singleRpcPass": true
+      },
+      "desktopCold": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1280,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 2,
+            "lcp": 1296,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 3,
+            "lcp": 1388,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 4,
+            "lcp": 148,
+            "cls": 0,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 5,
+            "lcp": 1376,
+            "cls": 0.001,
+            "feedRpcCalls": 0
+          }
+        ],
+        "p75Lcp": 1376,
+        "medianLcp": 1296,
+        "p75Cls": 0.001,
+        "singleRpcPass": true
+      },
+      "mobileCold": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1452,
+            "cls": 0,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 2,
+            "lcp": 1364,
+            "cls": 0,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 3,
+            "lcp": 1544,
+            "cls": 0,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 4,
+            "lcp": 1404,
+            "cls": 0,
+            "feedRpcCalls": 0
+          },
+          {
+            "run": 5,
+            "lcp": 1444,
+            "cls": 0,
+            "feedRpcCalls": 0
+          }
+        ],
+        "p75Lcp": 1452,
+        "medianLcp": 1444,
+        "p75Cls": 0,
+        "singleRpcPass": true
+      },
+      "pass": true
+    },
+    "UAT_R02": {
+      "hasZimParam": true,
+      "reloadedZimParam": true,
+      "backNavPass": true,
+      "pass": true
+    },
+    "supplementalStudio": {
+      "clientErrorBannerRendered": true,
+      "clientErrorCleared": true,
+      "backendTitleAuthority": "BLOCKED_MIGRATION_NOT_APPLIED_TO_STAGING",
+      "pass": true
+    }
+  },
+  "failures": []
+}
