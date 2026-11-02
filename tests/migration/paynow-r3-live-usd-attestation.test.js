@@ -36,8 +36,12 @@ test('R3 LIVE currency authority: disposable database rejects no proof; attested
  try{
   assert.equal(run('postgres','select 1;'),'1');
   run('postgres','create database '+db+';');created=true;
+  for(const role of ['service_role','anon','authenticated']){
+    if(run('postgres',"select 1 from pg_roles where rolname='"+role+"';")!=='1')
+      run('postgres','create role '+role+' nologin;');
+  }
   run(db,[
-   "do $ begin if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if; if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if; if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if; end $;",
+   '-- Roles are created conditionally in the disposable Postgres cluster.' ,
    'create table public.payment_transactions(',
    'id uuid primary key default gen_random_uuid(),provider text not null,purpose text not null,',
    'merchant_reference text unique not null,currency text not null,expected_amount numeric(18,2) not null,',
