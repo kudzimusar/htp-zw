@@ -57,6 +57,8 @@ jobs:
         run: node --test tests/migration/paynow-r3-live-usd-attestation.test.js
       - name: R5 atomic shared rate and identity-bound USD provider evidence (disposable PostgreSQL)
         run: node --test tests/migration/paynow-r5-shared-rate.test.js tests/migration/paynow-r5-evidence-trust.test.js
+      - name: R5 true HTTP socket ownership and operator-purpose regression (transport fixtures)
+        run: node --test tests/migration/paynow-r5-http-auth.test.js
       - name: Verify payment/readiness, Finance and Premium contract guards
         run: node --test apps/mobile/tests/ht-ext01a-payment-finance-readiness.test.mjs
       - name: Build real Expo web return route and run Chromium payment-return journeys
