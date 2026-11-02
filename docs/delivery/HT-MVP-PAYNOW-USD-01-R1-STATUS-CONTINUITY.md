@@ -73,10 +73,10 @@ Provider merchanttrace recovery is a **separate bounded authority decision**, no
 
 ## Exact-source engineering & Staging certification (2 November 2026)
 
-- **CI source head**: `b286d5088abbcac4cff8f62f8174b04d9e11fd69`, [GitHub Actions run 41364684074](https://github.com/kudzimusar/htp-zw/actions/runs/41364684074), completed SUCCESS.
-- **Protocol/Edge callback/ambiguous-recovery suite**: 36/36 passing. This includes valid and invalid signatures, duplicate fields, callback/poll disagreement, currency missing or mismatched, wrong amount/reference, timeout, authenticated Error release, and repeated-initiation prevention.
+- **Latest implementation-test source**: `b5e740e558feea7c86ace76de7ed021e499364c3`, [GitHub Actions run 41365028791](https://github.com/kudzimusar/htp-zw/actions/runs/41365028791), completed SUCCESS. The earlier 36/36 run 41364684074 also passed.
+- **Protocol/Edge callback/ambiguous-recovery/Premium USD 5.00 suite**: 42/42 passing. This includes valid and invalid signatures, duplicate fields, callback/poll disagreement, currency missing or mismatched, wrong amount/reference, timeout, authenticated Error release, repeated-initiation prevention, and synthetic Premium USD 5.00 Paid/duplicate/cancelled/failed/mismatch paths. These fixtures are not real provider USD payment evidence.
 - **Payment readiness, Finance, Premium contract suite**: 12/12 passing, including the disposable PostgreSQL migration and entitlement-replay test. No real provider/merchant money movement was performed.
-- **Vercel/API syntax**: Node syntax checks PASS; a separated preview deployment of CI head was requested, subject to independent runtime inspection. Public checkout activation was not requested.
+- **Vercel/API syntax**: Node syntax checks PASS; an isolated non-production preview of earlier source head `b286d5088abbcac4cff8f62f8174b04d9e11fd69` reached READY; later source/documentation revisions require their own exact-SHA preview evidence. Public checkout activation was not requested.
 - **Staging RPC implementation**: new TEST-only migration deployed without business-row changes; post-apply read-only audit: `no_stale_claim=true`, `rejects_ambiguous_release=true`, `claim_service_only=true`, `release_service_only=true`.
 - **Post-apply ledger integrity**: 5 intents; 4 provider initiated; 1 currency mismatch; 0 payment verified; 1 open exception; 0 Premium reconciliations and Paynow entitlements.
 - **Evidence classification**: deterministic CI PASS + Staging DDL/RPC inspection PASS. Provider USD charge/settlement physical certification **NOT DONE**. Public checkout **DISABLED**. Independent security/financial acceptance **PENDING**.
