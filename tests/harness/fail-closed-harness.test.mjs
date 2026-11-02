@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reconcileFailClosedChecks, enforceFailClosedExit } from '../../scripts/harness/fail-closed-engine.mjs';
+import {
+  reconcileFailClosedChecks,
+  enforceFailClosedExit,
+  REQUIRED_CHECKS_CONTRACT
+} from '../../scripts/harness/fail-closed-engine.mjs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -16,6 +20,7 @@ test('HARNESS: Reconciles discrepancy where checks.DEF008.pass is false and fail
         canOpenCreateForm: true,
         noticeVisible: true,
         hasDeferredBadge: true,
+        scheduleDisabled: true,
         draftCreatedSuccess: false, // UI banner race condition
         dbRowValid: true,
         zeroDispatches: true,
@@ -28,7 +33,6 @@ test('HARNESS: Reconciles discrepancy where checks.DEF008.pass is false and fail
 
   const outcome = reconcileFailClosedChecks(simulatedR3R1Results);
 
-  // Assert fail-closed engine caught the discrepancy
   assert.equal(outcome.success, false, 'Suite must not report success when checks.DEF008.pass is false');
   assert.ok(outcome.failureCount >= 1, 'Failure count must be at least 1');
   assert.ok(
@@ -44,26 +48,253 @@ test('HARNESS: Reconciles discrepancy where checks.DEF008.pass is false and fail
   assert.equal(exitCode, 1, 'enforceFailClosedExit must return 1 on failed assertions');
 });
 
-test('HARNESS: Clean results with all checks passed report success and exit 0', () => {
-  const cleanResults = {
+test('HARNESS: Missing required check fails contract enforcement with exit code 1', () => {
+  const incompleteResults = {
+    timestamp: new Date().toISOString(),
+    failures: [],
+    enforceContract: true,
+    checks: {
+      buildInfo: { status: 200, sha: '2a11409e4edbfbc1c90081ee9c07101d2b0da49e', pass: true },
+      DEF001: { slugStatus: 200, slugMatch: true, pass: true },
+      DEF013: { premiumDarkHeadingPass: true, premiumDarkBodyPass: true, pass: true },
+      DEF002: { hasSavedItem: true, hasOfflineItem: true, fullBodyRendered: true, reloadSurvives: true, pass: true },
+      // DEF008 missing!
+      DEF009: { detailsOpened: true, pass: true },
+      discoveryAndSecurity: {
+        searchDuration: 1800,
+        foundRank51Story: true,
+        foundPublicStory: true,
+        negativeSearchPass: true,
+        searchNavPass: true,
+        rpcStatus: 200,
+        premiumBodyLeaks: 0,
+        draftExposure: 0,
+        futureExposure: 0,
+        pass: true
+      },
+      DEF014: { telemetryRecorded: true, targetPassed: true, pass: true }
+    }
+  };
+
+  const outcome = reconcileFailClosedChecks(incompleteResults);
+  assert.equal(outcome.success, false, 'Missing check DEF008 must fail contract enforcement');
+  assert.ok(
+    incompleteResults.failures.some(f => f.check === 'DEF008'),
+    'Failures array must identify missing DEF008'
+  );
+
+  const exitCode = enforceFailClosedExit(incompleteResults);
+  assert.equal(exitCode, 1, 'enforceFailClosedExit must return 1 when required check is missing');
+});
+
+test('HARNESS: Undefined or non-boolean pass property fails suite', () => {
+  const undefinedPassResults = {
     timestamp: new Date().toISOString(),
     failures: [],
     checks: {
-      DEF001: { pass: true },
-      DEF002: { pass: true },
+      DEF001: { slugStatus: 200, slugMatch: true /* pass omitted */ }
+    }
+  };
+
+  const outcome = reconcileFailClosedChecks(undefinedPassResults);
+  assert.equal(outcome.success, false, 'Check with undefined pass must fail');
+  assert.ok(
+    undefinedPassResults.failures.some(f => f.check === 'DEF001'),
+    'Failures array must contain DEF001 failure'
+  );
+
+  const exitCode = enforceFailClosedExit(undefinedPassResults);
+  assert.equal(exitCode, 1, 'Must exit with 1 on undefined pass');
+});
+
+test('HARNESS: Mandatory security sub-checks fail closed on violation', () => {
+  // Test A: futureExposure > 0
+  const futureViolation = {
+    failures: [],
+    checks: {
+      discoveryAndSecurity: {
+        searchDuration: 1500,
+        foundRank51Story: true,
+        foundPublicStory: true,
+        negativeSearchPass: true,
+        searchNavPass: true,
+        rpcStatus: 200,
+        premiumBodyLeaks: 0,
+        draftExposure: 0,
+        futureExposure: 1, // VIOLATION
+        pass: false
+      }
+    }
+  };
+  const futureOutcome = reconcileFailClosedChecks(futureViolation);
+  assert.equal(futureOutcome.success, false);
+  assert.ok(futureViolation.failures.some(f => f.check === 'discoveryAndSecurity_ZeroFutureExposure'));
+
+  // Test B: premiumBodyLeaks > 0
+  const leakViolation = {
+    failures: [],
+    checks: {
+      discoveryAndSecurity: {
+        searchDuration: 1500,
+        foundRank51Story: true,
+        foundPublicStory: true,
+        negativeSearchPass: true,
+        searchNavPass: true,
+        rpcStatus: 200,
+        premiumBodyLeaks: 2, // VIOLATION
+        draftExposure: 0,
+        futureExposure: 0,
+        pass: false
+      }
+    }
+  };
+  const leakOutcome = reconcileFailClosedChecks(leakViolation);
+  assert.equal(leakOutcome.success, false);
+  assert.ok(leakViolation.failures.some(f => f.check === 'discoveryAndSecurity_ZeroPremiumLeaks'));
+
+  // Test C: draftExposure > 0
+  const draftViolation = {
+    failures: [],
+    checks: {
+      discoveryAndSecurity: {
+        searchDuration: 1500,
+        foundRank51Story: true,
+        foundPublicStory: true,
+        negativeSearchPass: true,
+        searchNavPass: true,
+        rpcStatus: 200,
+        premiumBodyLeaks: 0,
+        draftExposure: 1, // VIOLATION
+        futureExposure: 0,
+        pass: false
+      }
+    }
+  };
+  const draftOutcome = reconcileFailClosedChecks(draftViolation);
+  assert.equal(draftOutcome.success, false);
+  assert.ok(draftViolation.failures.some(f => f.check === 'discoveryAndSecurity_ZeroDraftExposure'));
+});
+
+test('HARNESS: Search latency boundary enforcement (<= 2500ms)', () => {
+  // 2501ms boundary violation
+  const failingLatency = {
+    failures: [],
+    checks: {
+      discoveryAndSecurity: {
+        searchDuration: 2501, // 1ms over target
+        pass: false
+      }
+    }
+  };
+  const failOutcome = reconcileFailClosedChecks(failingLatency);
+  assert.equal(failOutcome.success, false);
+  assert.ok(failingLatency.failures.some(f => f.check === 'discoveryAndSecurity_SearchLatency'));
+
+  // 2500ms exact target boundary pass
+  const passingLatency = {
+    failures: [],
+    checks: {
+      discoveryAndSecurity: {
+        searchDuration: 2500, // exactly at threshold
+        pass: true
+      }
+    }
+  };
+  const passOutcome = reconcileFailClosedChecks(passingLatency);
+  assert.equal(passOutcome.success, true);
+  assert.equal(passingLatency.failures.length, 0);
+});
+
+test('HARNESS: Role authorization & schedule input sub-check enforcement', () => {
+  // Commercial user not blocked
+  const rbacViolation = {
+    failures: [],
+    checks: {
+      DEF008: {
+        commercialBlocked: false, // VIOLATION
+        pass: false
+      }
+    }
+  };
+  const rbacOutcome = reconcileFailClosedChecks(rbacViolation);
+  assert.equal(rbacOutcome.success, false);
+  assert.ok(rbacViolation.failures.some(f => f.check === 'DEF008_CommercialBlocked'));
+
+  // Schedule date input not disabled
+  const scheduleViolation = {
+    failures: [],
+    checks: {
+      DEF008: {
+        scheduleDisabled: false, // VIOLATION
+        pass: false
+      }
+    }
+  };
+  const scheduleOutcome = reconcileFailClosedChecks(scheduleViolation);
+  assert.equal(scheduleOutcome.success, false);
+  assert.ok(scheduleViolation.failures.some(f => f.check === 'DEF008_ScheduleDisabled'));
+});
+
+test('HARNESS: Clean results adhering to contract report success and exit 0', () => {
+  const cleanResults = {
+    timestamp: new Date().toISOString(),
+    failures: [],
+    enforceContract: true,
+    checks: {
+      buildInfo: {
+        status: 200,
+        sha: '2a11409e4edbfbc1c90081ee9c07101d2b0da49e',
+        pass: true
+      },
+      DEF001: {
+        slugStatus: 200,
+        slugMatch: true,
+        pass: true
+      },
+      DEF013: {
+        premiumDarkHeadingPass: true,
+        premiumDarkBodyPass: true,
+        pass: true
+      },
+      DEF002: {
+        hasSavedItem: true,
+        hasOfflineItem: true,
+        fullBodyRendered: true,
+        reloadSurvives: true,
+        pass: true
+      },
       DEF008: {
         canOpenCreateForm: true,
         noticeVisible: true,
         hasDeferredBadge: true,
+        scheduleDisabled: true,
         draftCreatedSuccess: true,
         dbRowValid: true,
         zeroDispatches: true,
         commercialBlocked: true,
         pass: true
       },
-      DEF009: { pass: true },
-      DEF013: { pass: true },
-      DEF014: { pass: true }
+      DEF009: {
+        detailsOpened: true,
+        pass: true
+      },
+      discoveryAndSecurity: {
+        searchDuration: 1850,
+        foundRank51Story: true,
+        foundPublicStory: true,
+        negativeSearchPass: true,
+        searchNavPass: true,
+        rpcStatus: 200,
+        premiumBodyLeaks: 0,
+        draftExposure: 0,
+        futureExposure: 0,
+        pass: true
+      },
+      DEF014: {
+        telemetryRecorded: true,
+        targetPassed: true,
+        pass: true
+      }
     }
   };
 

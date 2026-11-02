@@ -1,0 +1,656 @@
+{
+  "timestamp": "2026-11-02T00:54:00.000Z",
+  "previewUrl": "https://healthtimes-staging-otv7mvhnw-11-11.vercel.app",
+  "expectedSha": "2a11409e4edbfbc1c90081ee9c07101d2b0da49e",
+  "enforceContract": true,
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "2a11409e4edbfbc1c90081ee9c07101d2b0da49e",
+      "presentation": "apps/mobile",
+      "serviceMode": "staging",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugMatch": true,
+      "refreshMatch": true,
+      "uuidStatus": 200,
+      "uuidMatch": true,
+      "pass": true
+    },
+    "DEF013": {
+      "themeMatrix": [
+        {
+          "surface": "Desktop",
+          "mode": "light",
+          "path": "/",
+          "bg": "rgb(255, 255, 255)",
+          "brandColor": "rgb(11, 31, 51)",
+          "headingColor": "rgb(11, 31, 51)",
+          "bodyColor": "rgb(91, 103, 118)",
+          "brandContrast": 16.69,
+          "headingContrast": 16.69,
+          "bodyContrast": 5.76
+        },
+        {
+          "surface": "Desktop",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Mobile",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Tablet",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Article",
+          "mode": "dark",
+          "path": "/article/uat04b-test-story-001",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Premium",
+          "mode": "dark",
+          "path": "/premium",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(230, 193, 106)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 10.59,
+          "bodyContrast": 8.91
+        }
+      ],
+      "premiumDarkHeadingPass": true,
+      "premiumDarkBodyPass": true,
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "paragraphCount": 5,
+      "reloadSurvives": true,
+      "preservedInBookmarks": true,
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "noticeVisible": true,
+      "hasDeferredBadge": true,
+      "scheduleDisabled": true,
+      "draftCreatedSuccess": true,
+      "persistedDraftId": "18afed61-e92c-45b6-9bbf-15631940908c",
+      "dbRowValid": true,
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "discoveryAndSecurity": {
+      "searchDuration": 2231,
+      "foundRank51Story": true,
+      "foundPublicStory": true,
+      "searchNavPass": true,
+      "negativeSearchPass": true,
+      "rpcStatus": 200,
+      "rowsReturned": 122,
+      "premiumBodyLeaks": 0,
+      "draftExposure": 0,
+      "futureExposure": 0,
+      "pass": true
+    },
+    "DEF014": {
+      "desktopCold": {
+        "samples": [
+          {
+            "lcp": 3572,
+            "lcpEntries": [
+              {
+                "startTime": 260,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 3024,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 3572,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 67,
+            "domContentLoaded": 680,
+            "loadEvent": 681,
+            "bundleDuration": 381,
+            "duration": 3996,
+            "rpcCalls": 1,
+            "feedRpcDuration": 1552
+          },
+          {
+            "lcp": 2144,
+            "lcpEntries": [
+              {
+                "startTime": 248,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1748,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 2144,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 85,
+            "domContentLoaded": 640,
+            "loadEvent": 640,
+            "bundleDuration": 353,
+            "duration": 2734,
+            "rpcCalls": 1,
+            "feedRpcDuration": 501
+          },
+          {
+            "lcp": 1920,
+            "lcpEntries": [
+              {
+                "startTime": 260,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1540,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1920,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 91,
+            "domContentLoaded": 700,
+            "loadEvent": 701,
+            "bundleDuration": 397,
+            "duration": 2528,
+            "rpcCalls": 1,
+            "feedRpcDuration": 350
+          },
+          {
+            "lcp": 2120,
+            "lcpEntries": [
+              {
+                "startTime": 208,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1660,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 2120,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 61,
+            "domContentLoaded": 623,
+            "loadEvent": 623,
+            "bundleDuration": 372,
+            "duration": 2647,
+            "rpcCalls": 1,
+            "feedRpcDuration": 548
+          },
+          {
+            "lcp": 1796,
+            "lcpEntries": [
+              {
+                "startTime": 204,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1460,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1796,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 65,
+            "domContentLoaded": 550,
+            "loadEvent": 550,
+            "bundleDuration": 308,
+            "duration": 2445,
+            "rpcCalls": 1,
+            "feedRpcDuration": 483
+          }
+        ],
+        "p75": 2144,
+        "median": 2120,
+        "min": 1796,
+        "max": 3572,
+        "pass": true
+      },
+      "desktopWarm": {
+        "samples": [
+          {
+            "lcp": 1112,
+            "lcpEntries": [
+              {
+                "startTime": 100,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 860,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1112,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 54,
+            "domContentLoaded": 208,
+            "loadEvent": 208,
+            "bundleDuration": 63,
+            "duration": 1840,
+            "rpcCalls": 1,
+            "feedRpcDuration": 316
+          },
+          {
+            "lcp": 1120,
+            "lcpEntries": [
+              {
+                "startTime": 108,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 988,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1120,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 61,
+            "domContentLoaded": 401,
+            "loadEvent": 402,
+            "bundleDuration": 240,
+            "duration": 1974,
+            "rpcCalls": 1,
+            "feedRpcDuration": 281
+          },
+          {
+            "lcp": 960,
+            "lcpEntries": [
+              {
+                "startTime": 92,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 852,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 960,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 49,
+            "domContentLoaded": 192,
+            "loadEvent": 192,
+            "bundleDuration": 52,
+            "duration": 1840,
+            "rpcCalls": 1,
+            "feedRpcDuration": 351
+          },
+          {
+            "lcp": 888,
+            "lcpEntries": [
+              {
+                "startTime": 212,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 788,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 888,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 148,
+            "domContentLoaded": 320,
+            "loadEvent": 321,
+            "bundleDuration": 88,
+            "duration": 1772,
+            "rpcCalls": 1,
+            "feedRpcDuration": 173
+          },
+          {
+            "lcp": 856,
+            "lcpEntries": [
+              {
+                "startTime": 128,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 732,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 856,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 62,
+            "domContentLoaded": 234,
+            "loadEvent": 234,
+            "bundleDuration": 68,
+            "duration": 1721,
+            "rpcCalls": 1,
+            "feedRpcDuration": 228
+          }
+        ],
+        "p75": 1112,
+        "median": 960,
+        "min": 856,
+        "max": 1120
+      },
+      "mobile": {
+        "samples": [
+          {
+            "lcp": 2088,
+            "lcpEntries": [
+              {
+                "startTime": 240,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1704,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 2088,
+                "size": 38988,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 59,
+            "domContentLoaded": 576,
+            "loadEvent": 577,
+            "bundleDuration": 303,
+            "duration": 2694,
+            "rpcCalls": 1,
+            "feedRpcDuration": 678
+          },
+          {
+            "lcp": 1892,
+            "lcpEntries": [
+              {
+                "startTime": 208,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1476,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1892,
+                "size": 38988,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 71,
+            "domContentLoaded": 603,
+            "loadEvent": 603,
+            "bundleDuration": 346,
+            "duration": 2466,
+            "rpcCalls": 1,
+            "feedRpcDuration": 395
+          },
+          {
+            "lcp": 2056,
+            "lcpEntries": [
+              {
+                "startTime": 204,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1672,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 2056,
+                "size": 38988,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 60,
+            "domContentLoaded": 697,
+            "loadEvent": 698,
+            "bundleDuration": 450,
+            "duration": 2662,
+            "rpcCalls": 1,
+            "feedRpcDuration": 531
+          },
+          {
+            "lcp": 1956,
+            "lcpEntries": [
+              {
+                "startTime": 240,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1544,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1956,
+                "size": 38988,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 78,
+            "domContentLoaded": 595,
+            "loadEvent": 596,
+            "bundleDuration": 324,
+            "duration": 2536,
+            "rpcCalls": 1,
+            "feedRpcDuration": 512
+          },
+          {
+            "lcp": 2084,
+            "lcpEntries": [
+              {
+                "startTime": 276,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1696,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 2084,
+                "size": 38988,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 75,
+            "domContentLoaded": 630,
+            "loadEvent": 630,
+            "bundleDuration": 329,
+            "duration": 2689,
+            "rpcCalls": 1,
+            "feedRpcDuration": 561
+          }
+        ],
+        "p75": 2084,
+        "median": 2056,
+        "min": 1892,
+        "max": 2088
+      },
+      "studioSamples": [
+        {
+          "route": "/studio",
+          "duration": 1184
+        },
+        {
+          "route": "/studio/stories",
+          "duration": 1149
+        },
+        {
+          "route": "/studio/advertising",
+          "duration": 1168
+        }
+      ],
+      "cls": 0.001,
+      "mobileCls": 0,
+      "desktopCls": 0.001,
+      "totalFeedRpcs": 1,
+      "unnecessaryFeedRpcs": 0,
+      "studioInteractionRegressions": 0,
+      "telemetryRecorded": true,
+      "targetPassed": true,
+      "pass": true
+    }
+  },
+  "failures": []
+}
