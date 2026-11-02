@@ -120,7 +120,20 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       if (action === 'status') {
         if (!allowed(req, 'status', 60)) return send(res, 429, { error: 'RATE_LIMITED' });
-        return send(res, 200, await paynow.transactionStatus(String(url.searchParams.get('reference') || '')));
+        // A merchant reference is NOT an authorization token. Only the
+        // authenticated owning subscriber or a separately authorized TEST
+        // operator may read this privileged status projection.
+        const testOperator = paynow.config().mode === 'test' &&
+          same(req.headers['x-healthtimes-unit'], paynow.UNIT_ID) &&
+          same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN);
+        const accessToken = cookies(req)[COOKIE_ACCESS];
+        if (!testOperator && !accessToken) {
+          return send(res, 401, { error: 'AUTHENTICATION_REQUIRED' });
+        }
+        return send(res, 200, await paynow.transactionStatus(
+          String(url.searchParams.get('reference') || ''),
+          process.env, { accessToken, operatorAuthorized: testOperator }
+        ));
       }
       const readiness = await paynow.readiness();
       return send(res, 200, action === 'readiness' ? readiness : publicAuthority(readiness));
@@ -220,6 +233,7 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     const code = safeError(error);
     const status = code === 'AUTHENTICATION_REQUIRED' ? 401 :
+      code === 'PAYMENT_STATUS_NOT_FOUND' ? 404 :
       code.endsWith('_INVALID') || code.includes('MISMATCH') ? 400 : 503;
     return send(res, status, { error: code, entitlementGranted: false });
   }
