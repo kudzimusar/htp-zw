@@ -47,11 +47,11 @@ const routes=[
         if(pageErrors.length) throw new Error(route.name+' page errors: '+pageErrors.join(' | '));
         if(consoleErrors.length) throw new Error(route.name+' console errors: '+consoleErrors.join(' | '));
         if(route.path==='/'&&viewport.name==='mobile'){
-          const tabs=await page.getByRole('tab').count();
+          const tabs=(await page.getByRole('tab').count())-(await page.getByRole('tab',{name:/Home filter$/}).count());
           if(tabs<5) throw new Error('mobile canonical navigation tabs missing: '+tabs);
         }
         if(route.path==='/'&&viewport.name==='desktop'){
-          const tabs=await page.getByRole('tab').count();
+          const tabs=(await page.getByRole('tab').count())-(await page.getByRole('tab',{name:/Home filter$/}).count());
           if(tabs!==0) throw new Error('desktop rendered mobile navigation tabs: '+tabs);
         }
         const file=path.join(out,viewport.name+'-'+route.name+'.png');
