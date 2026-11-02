@@ -462,6 +462,7 @@ export default function SearchScreen(){
                       key={author.id}
                       accessibilityRole="link"
                       accessibilityLabel={"View stories by "+author.displayName}
+                      {...({ href: `/author/${author.slug}` } as any)}
                       style={[styles.authorCard,{borderColor:palette.border,backgroundColor:palette.paper}]}
                       onPress={()=>router.push(("/author/"+author.slug) as never)}
                     >

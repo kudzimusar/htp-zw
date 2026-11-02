@@ -102,6 +102,7 @@ export function OwnerPreviewStoryWorkspace({
 
   // Form Fields
   const [title, setTitle] = useState(currentStory.title);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [slug, setSlug] = useState(currentStory.slug);
   const [standfirst, setStandfirst] = useState(currentStory.standfirst ?? "");
   const [body, setBody] = useState(currentStory.bodyHtml ?? "");
@@ -186,6 +187,16 @@ export function OwnerPreviewStoryWorkspace({
   };
 
   const handleSave = async (reason = "Manual save") => {
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      setTitleError("Story title is required before saving or submitting.");
+      setStatusMessage("Story title is required before saving or submitting draft.");
+      setSaveStatus("error");
+      setActiveTab("writing");
+      return;
+    }
+    setTitleError(null);
+
     setSaveStatus("saving");
     setStatusMessage("Preview saving (writes disabled)…");
     setTimeout(() => {
@@ -815,6 +826,8 @@ export function OwnerPreviewStoryWorkspace({
       statusMessage={statusMessage}
       title={title}
       setTitle={setTitle}
+      titleError={titleError}
+      setTitleError={setTitleError}
       slug={slug}
       setSlug={setSlug}
       standfirst={standfirst}

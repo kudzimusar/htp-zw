@@ -48,6 +48,7 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       accessibilityRole="link"
       accessibilityLabel={story.title}
       accessibilityHint="Opens the full HealthTimes article"
+      {...({ href: `/article/${story.id}` } as any)}
       style={[
         styles.hero,
         {borderBottomColor:palette.border},
@@ -128,6 +129,7 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
       accessibilityRole="link"
       accessibilityLabel={story.title}
       accessibilityHint="Opens the full HealthTimes article"
+      {...({ href: `/article/${story.id}` } as any)}
       style={[styles.storyCard,{borderBottomColor:palette.border}, compact && styles.storyCompact]}
       onPress={() => router.push(("/article/" + story.id) as never)}
     >

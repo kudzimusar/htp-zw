@@ -240,11 +240,12 @@ export default function HomeScreen() {
       } catch {
         // pushState fallback
       }
-    }
-    try {
-      router.setParams({ category: newFilter === "for-you" ? "" : newFilter });
-    } catch {
-      // router setParams fallback
+    } else {
+      try {
+        router.setParams({ category: newFilter === "for-you" ? "" : newFilter });
+      } catch {
+        // router setParams fallback
+      }
     }
   }, [activeFilter, router]);
   const home=useAsync(() => services.articles.getHome(), []);

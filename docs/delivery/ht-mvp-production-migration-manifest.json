@@ -71,11 +71,17 @@
       "classification": "CANONICAL_READER_DDL",
       "staging_ledger_version": "20261101210000",
       "sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a"
+    },
+    {
+      "file": "20261102160000_ht_mvp_r3_story_title_authority.sql",
+      "classification": "CANONICAL_READER_DDL",
+      "staging_ledger_version": "20261102160000",
+      "sha256": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b"
     }
   ],
-  "staging_ledger_tip": "20261101210000",
-  "staging_ledger_records_count": 111,
-  "production_plan_migrations_count": 109,
+  "staging_ledger_tip": "20261102160000",
+  "staging_ledger_records_count": 112,
+  "production_plan_migrations_count": 110,
   "fail_closed_invariants": [
     "FAIL_IF_QUARANTINED_IN_PRODUCTION_PLAN",
     "FAIL_IF_CANONICAL_DDL_ORDER_VIOLATED",
@@ -632,6 +638,11 @@
       "file": "20261101210000_ht_mvp_r3_public_feed_documents.sql",
       "classification": "CANONICAL_READER_DDL",
       "sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a"
+    },
+    {
+      "file": "20261102160000_ht_mvp_r3_story_title_authority.sql",
+      "classification": "CANONICAL_READER_DDL",
+      "sha256": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b"
     }
   ]
 }
