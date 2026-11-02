@@ -100,7 +100,7 @@ test('verified connectivity alone cannot certify authority or enable checkout', 
     assert.equal(closed.checkout_implementation_ready, false);
     assert.equal(closed.checkout_available, false);
     const certified = await runtime.readiness({ ...env, PAYNOW_PROVIDER_AUTHORITY_CERTIFIED: '1' });
-    assert.equal(certified.provider_authority_certified, true);
+    assert.equal(certified.provider_authority_certified, false);
     assert.equal(certified.checkout_available, false);
   } finally { globalThis.fetch = original; }
 });

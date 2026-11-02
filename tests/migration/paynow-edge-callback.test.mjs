@@ -21,26 +21,26 @@ const signed = (items) => {
 const request = (body) => new Request('https://example.test/', { method: 'POST', headers: {'content-type':'application/x-www-form-urlencoded'}, body });
 const tx = (purpose='PROVIDER_CONNECTIVITY_TEST') => ({ id:'fixture', purpose, expected_amount:1, currency:'USD', poll_url:pollUrl, provider_reference:null });
 
-test('valid callback requires a matching signed provider poll before ledger update', async () => {
+test('valid TEST callback writes noncommercial evidence after signed provider poll', async () => {
   const calls = [];
   const fetcher = async (url, init) => {
     calls.push([url, init]);
     if (url.includes('/payment_transactions?')) return Response.json([tx()]);
     if (url === pollUrl) { assert.equal(init.body, ''); return new Response(signed(entries), { status: 200 }); }
-    return Response.json({ accepted: true, duplicate: false, purpose: 'PROVIDER_CONNECTIVITY_TEST' });
+    return Response.json([{id:'simulated'}]);
   };
   const response = await handlePaynowTestCallback(request(signed(entries)), { ...options, fetcher });
   assert.equal(response.status, 200);
   const result = await response.json();
-  assert.equal(result.accepted, true);
+  assert.equal(result.accepted, false);
   assert.equal(result.provider_signature_verified, true);
-  assert.equal(result.provider_currency_verified, true);
+  assert.equal(result.provider_currency_verified, false);
   assert.equal(result.reconciliation_eligible, false);
   assert.equal(calls.length, 3);
   const record = JSON.parse(calls[2][1].body);
-  assert.equal(record.p_merchant_reference, entries[0][1]);
-  assert.equal(record.p_currency, 'USD');
-  assert.equal(record.p_amount, '1.00');
+  assert.equal(record.merchant_reference, entries[0][1]);
+  assert.equal(record.reported_currency, 'USD');
+  assert.equal(record.reported_amount, '1.00');
 });
 
 test('bad signature, duplicate fields, unsafe URL and oversized form never call providers or ledger', async () => {
@@ -179,26 +179,29 @@ test('duplicate events are reported without creating a second payment', async ()
     if (url.includes('/payment_transactions?')) return Response.json([tx()]);
     if (url === pollUrl) return new Response(signed(entries), { status: 200 });
     rpcCalls.push(url);
-    return Response.json({ accepted: true, duplicate: true, purpose: 'PROVIDER_CONNECTIVITY_TEST' });
+    return Response.json([]);
   };
   const response = await handlePaynowTestCallback(request(signed(entries)), { ...options, fetcher });
   assert.equal((await response.json()).duplicate, true);
   assert.equal(rpcCalls.length, 1);
-  assert.match(rpcCalls[0], /payment_record_paynow_status$/);
+  assert.match(rpcCalls[0], /provider_webhook_events/);
 });
 
-test('only verified Premium status proceeds to the established entitlement reconciliation', async () => {
+test('Premium signed TEST status never executes financial reconciliation', async () => {
   const premium = entries.map(([n, v]) => [n, n === 'reference' ? 'HT-PREM-01ARZ3NDEKTSV4RRFFQ69G5FAV' : v]);
   const calls = [];
   const fetcher = async (url) => {
     calls.push(url);
     if (url.includes('/payment_transactions?')) return Response.json([tx('PREMIUM_SUBSCRIPTION')]);
     if (url === pollUrl) return new Response(signed(premium), { status: 200 });
-    if (url.endsWith('/payment_record_paynow_status')) return Response.json({ accepted: true, purpose: 'PREMIUM_SUBSCRIPTION', internal_status: 'PAYMENT_VERIFIED', transaction_id: 'fixture' });
-    return Response.json({ reconciled: true });
+    if (url.includes('/provider_webhook_events?')) return Response.json([{id:'simulated'}]);
+    throw new Error('Unexpected monetary write '+url);
   };
-  assert.equal((await handlePaynowTestCallback(request(signed(premium)), { ...options, fetcher })).status, 200);
-  assert.match(calls[3], /payment_reconcile_premium_transaction$/);
+  const response=await handlePaynowTestCallback(request(signed(premium)),{...options,fetcher});
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).test_outcome,'TEST_SIMULATED_PAID');
+  assert.equal(calls.length,3);
+  assert.equal(calls.filter(url=>url.includes('/rpc/')).length,0);
 });
 
 test('wrong Supabase project and non-POST requests fail closed', async () => {

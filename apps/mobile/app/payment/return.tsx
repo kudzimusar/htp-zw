@@ -7,6 +7,7 @@ import { radius, spacing } from "../../src/theme/tokens";
 
 type PaymentStatus={
   payment_verified?:boolean;
+  test_outcome?:string|null;
   internal_status?:string;
   provider_status?:string|null;
   purpose?:string;
@@ -40,6 +41,16 @@ export default function PaymentReturn(){
         if(!active) return;
         if(response.ok){
           setStatus(next);
+          if(next.test_outcome?.startsWith("TEST_SIMULATED_")){
+            setMessage(next.test_outcome==="TEST_SIMULATED_PAID"
+              ? "Paynow TEST simulator confirmed a simulated payment. No money moved and no Premium subscription was activated."
+              : next.test_outcome==="TEST_SIMULATED_CANCELLED"
+                ? "Paynow TEST simulator recorded a cancellation. No Premium access was granted."
+                : next.test_outcome==="TEST_SIMULATED_FAILED"
+                  ? "Paynow TEST simulator recorded a failed payment. No Premium access was granted."
+                  : "Paynow TEST simulator is pending. No Premium access was granted.");
+            return;
+          }
           if(next.payment_verified===true){
             setMessage(next.purpose==="PROVIDER_CONNECTIVITY_TEST"
               ? "Provider test verified. No membership or accounting changes were made."

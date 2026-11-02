@@ -169,6 +169,29 @@ module.exports = async function handler(req, res) {
       return send(res, 200, await paynow.pollByReference(String(reference || '')));
     }
 
+    if (action === 'test-premium') {
+      // Controlled authenticated TEST subscriber journey, never public checkout.
+      const cfg = paynow.config();
+      if (cfg.mode !== 'test' ||
+          cfg.supabaseUrl !== 'https://bzuvntbkevvuhfhqhkua.supabase.co' ||
+          !same(req.headers['x-healthtimes-unit'], paynow.UNIT_ID) ||
+          !same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN) ||
+          !validCsrf(req) || !allowed(req, 'test-premium', 4, 300_000)) {
+        return send(res, 403, { error: 'TEST_PREMIUM_OPERATOR_AUTHORITY_REQUIRED', entitlementGranted: false });
+      }
+      const input = await body(req);
+      const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+      const result = await paynow.initiatePremium({
+        origin: requestOrigin(req), accessToken: cookies(req)[COOKIE_ACCESS],
+        idempotencyKey: String(parsed?.idempotencyKey || '')
+      });
+      return send(res, 200, {
+        status: 'test-simulator-only', checkoutUrl: result.trustedBrowserUrl,
+        merchantReference: result.merchantReference, entitlementGranted: false,
+        commercialPaymentVerified: false
+      });
+    }
+
     if (action === 'checkout') {
       // Browser query parameters such as paid=true, premium=true or success=1 are
       // deliberately ignored. Only verified server callback/poll authority can

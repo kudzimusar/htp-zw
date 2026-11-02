@@ -1,0 +1,74 @@
+name: HT-MVP-PAYNOW-USD-01-R2 USD-First Simulator Isolation
+
+on:
+  push:
+    branches:
+      - fix/ht-mvp-paynow-usd01-r2-test-simulator-closure
+  pull_request:
+    paths:
+      - 'lib/paynow-*'
+      - 'api/commerce.js'
+      - 'supabase/functions/paynow-test-callback/**'
+      - 'supabase/migrations/*paynow*'
+      - 'tests/migration/paynow-*'
+      - 'apps/mobile/tests/ht-ext01a-payment-finance-readiness.test.mjs'
+      - '.github/workflows/ht-mvp-paynow-usd01-r2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  usd01-contract-certification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.1'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Syntax checks (server-only)
+        run: |
+          node --check lib/paynow-runtime.js
+          node --check lib/paynow-protocol.js
+          node --check api/commerce.js
+      - name: Install isolated TypeScript test loader without changing project lockfiles
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund typescript@6.0.3
+      - name: Verify Paynow protocol, callback, USD recovery, and negative cases
+        run: node --test tests/migration/paynow-protocol.spec.js tests/migration/paynow-edge-callback.test.mjs tests/migration/paynow-usd01-r1.spec.js tests/migration/paynow-usd01-premium-contract.test.mjs tests/migration/paynow-usd01-r2-isolation.test.js
+      - name: Start disposable PostgreSQL for full Finance migration certification
+        shell: bash
+        run: |
+          sudo systemctl start postgresql.service
+          if ! sudo -u postgres psql -qAt -c "SELECT 1 FROM pg_roles WHERE rolname = 'runner'" | grep -qx 1; then
+            sudo -u postgres createuser --superuser runner
+          fi
+          # Existing project test harness uses the /tmp Unix socket, not TCP.
+          sudo ln -sf /var/run/postgresql/.s.PGSQL.5432 /tmp/.s.PGSQL.5432
+          psql -h /tmp -p 5432 -d postgres -qAt -c 'SELECT 1;'
+      - name: Verify payment/readiness, Finance and Premium contract guards
+        run: node --test apps/mobile/tests/ht-ext01a-payment-finance-readiness.test.mjs
+      - name: TEST/LIVE isolation and provenance safety contract
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const edge = fs.readFileSync('supabase/functions/paynow-test-callback/index.ts','utf8');
+          const runtime = fs.readFileSync('lib/paynow-runtime.js','utf8');
+          if(!edge.includes('TEST_SIMULATED_PAID') || !edge.includes('NO_VERIFICATION_AUTHORITY')) throw Error('TEST classification missing');
+          if(/await rpc\\("payment_record_paynow_status"/.test(edge) || /await rpc\\("payment_reconcile_premium_transaction"/.test(edge)) throw Error('TEST Edge has monetary RPC');
+          if(/rpc\\(cfg, 'payment_record_paynow_status'/.test(runtime)) throw Error('TEST monetary legacy RPC retained');
+          if(!runtime.includes('PAYNOW_LIVE_MONETARY_RPC_CERTIFIED') || !runtime.includes('payment_record_paynow_live_status')) throw Error('LIVE segregation missing');
+          NODE
+      - name: Non-activation and migration-safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const sql = fs.readFileSync('supabase/migrations/20261102080000_ht_mvp_paynow_usd01_ambiguous_initiation_safety.sql', 'utf8');
+          const runtime = fs.readFileSync('lib/paynow-runtime.js', 'utf8');
+          if (/initiated_at\s*<\s*now\(\)/i.test(sql)) throw new Error('Stale claim automatic replay still permitted');
+          if (!/PAYNOW_AMBIGUOUS_INITIATION_CANNOT_RELEASE/.test(sql)) throw new Error('Ambiguous claim release guard missing');
+          if (!/checkoutPubliclyEnabled/.test(runtime) || !/currency_source: 'SIGNED_PROVIDER_FIELD'/.test(runtime)) {
+            throw new Error('Checkout/currency guard drift');
+          }
+          NODE

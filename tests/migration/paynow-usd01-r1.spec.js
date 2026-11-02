@@ -127,6 +127,6 @@ test('USD amount/currency barrier and Premium reconciliation authority remain un
   assert.match(source,/payment_reconcile_premium_transaction/);
   assert.match(edge,/currency_verified: false/);
   assert.match(edge,/reconciliation_eligible: false/);
-  assert.match(edge,/payment_record_paynow_status/);
+  assert.doesNotMatch(edge,/await rpc\("payment_record_paynow_status"/);
   assert.doesNotMatch(source,/PAYNOW_MODE\s*=\s*'live'/);
 });
