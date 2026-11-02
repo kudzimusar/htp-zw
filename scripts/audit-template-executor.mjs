@@ -1,7 +1,7 @@
 /**
  * HT-MVP-UIAT-01-R3-ICR05A-LR01 Allowlisted Audit Template Executor
- * Enforces connection-level least privilege by restricting SQL execution
- * exclusively to fixed, pre-approved read-only query templates.
+ * Applies an application-level fixed-query allowlist; the underlying\n * Supabase Management API credential remains privileged (not DB read-only).\n * Restricts query execution
+ * exclusively to fixed, pre-approved SELECT templates.
  * 
  * Rejects:
  * - Arbitrary SQL strings
@@ -68,7 +68,7 @@ export function getSupabaseManagementToken() {
  * Executes an allowlisted audit template against the Supabase Management API.
  * 
  * Enforces:
- * 1. Template must exist in ALLOWED_AUDIT_TEMPLATES.
+ * 1. Application allowlist only: Management API token is NOT database read-only.\n * 2. Template must exist in ALLOWED_AUDIT_TEMPLATES.
  * 2. Arbitrary SQL strings are rejected.
  * 3. Project reference must match STAGING_PROJECT_REF exactly.
  * 4. Returned hashes are explicitly identified as SHA-256 integrity digests.

@@ -142,6 +142,28 @@ test('current primary Reader routes resolve through apps/mobile output', async (
   }
 });
 
+// ICR05B: actual exported Expo UI, not synthetic fixture HTML. The three
+// viewport classes must all hydrate and preserve responsive navigation.
+test('ICR05B Explore hydrates and responds across phone tablet and desktop', async ({ browser }) => {
+  test.setTimeout(120000);
+  for(const viewport of [
+    {name:'phone',width:390,height:844},
+    {name:'tablet',width:834,height:1112},
+    {name:'desktop',width:1440,height:1000}
+  ]){
+    const page=await browser.newPage({viewport:{width:viewport.width,height:viewport.height}});
+    try{
+      const failures=await gotoCanonical(page,'/explore',viewport.name+' Explore');
+      await page.getByText('Explore by topic',{exact:true}).first().waitFor({timeout:30000});
+      await assertNoHorizontalOverflow(page,viewport.name+' Explore');
+      const tabs=await page.getByRole('tab').count();
+      if(viewport.name==='phone')expect(tabs,'phone navigation must be visible').toBeGreaterThanOrEqual(5);
+      if(viewport.name==='desktop')expect(tabs,'desktop mobile navigation must be absent').toBe(0);
+      await assertNoFatalRuntime(failures,viewport.name+' Explore');
+    }finally{await page.close();}
+  }
+});
+
 test('Zimbabwe Premium article remains anonymous fail-closed with visible Premium access', async ({ page }) => {
   test.setTimeout(90000);
   const authority = await loadLiveTeaserAuthority(premiumReferencePath);
