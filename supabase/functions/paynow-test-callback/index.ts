@@ -142,7 +142,8 @@ export async function handlePaynowTestCallback(request: Request, options: Option
     }
   }
   if (!response.ok) return pollFailure("POLL_HTTP_FAILED", response.status);
-  try { polled = verifiedFields(await response.text(), options.key); }
+  const polledRaw = await response.text();
+  try { polled = verifiedFields(polledRaw, options.key); }
   catch { return pollFailure("POLL_SIGNATURE_OR_FORM_REJECTED", response.status); }
   try {
     trustedPollUrl(polled.pollurl);
@@ -150,59 +151,72 @@ export async function handlePaynowTestCallback(request: Request, options: Option
       if (callback[field] !== polled[field]) throw new Error("POLL_MISMATCH");
     }
   } catch { return pollFailure("POLL_TRANSACTION_MISMATCH", response.status); }
+  // R2 OWNER POLICY: this endpoint is Staging/Paynow TEST only. Even a signed
+  // Paid + matching provider poll is *simulation*, never USD settlement.
+  // DO NOT call payment_record_paynow_status or Premium reconciliation here.
   const currency = String(callback.currency || "").toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    // Record signed evidence only. This cannot grant entitlement or change a
-    // transaction, and does not claim a payment verification authority.
-    const semanticId = createHash("sha256").update(JSON.stringify([callback.reference, callback.paynowreference, callback.amount, callback.status, callback.pollurl])).digest("hex");
-    const payloadHash = createHash("sha256").update(raw).digest("hex");
-    try {
-      const event = await fetcher(`${STAGING_ORIGIN}/rest/v1/provider_webhook_events?on_conflict=provider,provider_event_id`, {
-        method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000),
-        headers: { ...headers, Prefer: "resolution=ignore-duplicates,return=representation" },
-        body: JSON.stringify({ provider: "paynow", provider_event_id: semanticId, event_type: callback.status,
-          signature_valid: true, payload_hash: payloadHash, payload: { source: "paynow_signed_status" },
-          status: "ignored", error: "CURRENCY_UNVERIFIED", transaction_id: transaction.id,
-          merchant_reference: callback.reference, provider_reference: callback.paynowreference,
-          reported_amount: callback.amount, reported_currency: null, verification_authority: "NO_VERIFICATION_AUTHORITY",
-          sanitized_metadata: { source: "paynow_callback_confirmed_by_poll", signature_verified: true,
-            transaction_matched: true, amount_verified: true, poll_verified: true, poll_transport: pollTransport, currency_verified: false,
-            reconciliation_eligible: false } })
-      });
-      if (!event.ok) throw new Error("EVENT_STORE_FAILED");
-      const rows = await event.json();
-      if (!Array.isArray(rows)) throw new Error("EVENT_STORE_FAILED");
-      return reply(200, { received: true, accepted: false, duplicate: rows.length === 0,
-        provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true,
-        poll_verified: true, poll_transport: pollTransport, provider_currency_verified: false, reconciliation_eligible: false, event_stored: true });
-    } catch { return reply(503, { error: "EVENT_STORAGE_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true, provider_currency_verified: false }); }
-  }
+  if (currency && !/^[A-Z]{3}$/.test(currency)) return reply(400, {
+    error: "CURRENCY_MALFORMED", provider_signature_verified: true,
+    provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true
+  });
+  const normalized = callback.status.trim().toLowerCase();
+  const classification = normalized === "paid"
+    ? "TEST_SIMULATED_PAID"
+    : normalized === "cancelled" || normalized === "canceled"
+      ? "TEST_SIMULATED_CANCELLED"
+      : normalized === "failed" || normalized === "error"
+        ? "TEST_SIMULATED_FAILED"
+        : "TEST_SIMULATED_PENDING";
+  const semanticId = createHash("sha256").update(JSON.stringify([
+    callback.reference, callback.paynowreference, callback.amount,
+    callback.status, callback.pollurl, currency || null
+  ])).digest("hex");
+  const payloadHash = createHash("sha256").update(raw).digest("hex");
+  const pollHash = createHash("sha256").update(polledRaw).digest("hex");
   try {
-    const eventId = createHash("sha256").update(raw).digest("hex");
-    const rpc = async (name: string, args: Record<string, unknown>) => {
-      const res = await fetcher(`${STAGING_ORIGIN}/rest/v1/rpc/${name}`, {
-        method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000),
-        headers,
-        body: JSON.stringify(args)
-      });
-      if (!res.ok) throw new Error("AUTHORITY_FAILED");
-      return await res.json();
-    };
-    const result = await rpc("payment_record_paynow_status", {
-      p_merchant_reference: callback.reference, p_provider_reference: callback.paynowreference,
-      p_amount: callback.amount, p_currency: currency, p_provider_status: callback.status,
-      p_poll_url: callback.pollurl, p_event_id: eventId, p_payload_hash: eventId,
-      p_metadata: { source: "paynow_callback_confirmed_by_poll", currency_source: "SIGNED_PROVIDER_FIELD", payment_channel: callback.paymentchannel || null, poll_http_status: response.status }
+    const event = await fetcher(`${STAGING_ORIGIN}/rest/v1/provider_webhook_events?on_conflict=provider,provider_event_id`, {
+      method: "POST", redirect: "error", signal: AbortSignal.timeout(15_000),
+      headers: { ...headers, Prefer: "resolution=ignore-duplicates,return=representation" },
+      body: JSON.stringify({
+        provider: "paynow", provider_event_id: semanticId, event_type: callback.status,
+        signature_valid: true, payload_hash: payloadHash,
+        payload: { source: "paynow_test_signed_status" },
+        status: "ignored", error: classification, transaction_id: transaction.id,
+        merchant_reference: callback.reference, provider_reference: callback.paynowreference,
+        reported_amount: callback.amount, reported_currency: currency || null,
+        verification_authority: "NO_VERIFICATION_AUTHORITY",
+        sanitized_metadata: {
+          source: "paynow_test_callback_confirmed_by_poll",
+          test_outcome: classification, provider_mode: "TEST",
+          product_currency: String(transaction.currency), simulator_receipt_currency: null,
+          currency_source: currency ? "SIGNED_PROVIDER_FIELD" : "NOT_IN_SIGNED_PROVIDER_FIELDS",
+          signature_verified: true, poll_verified: true,
+          transaction_matched: true, amount_verified: true,
+          poll_transport: pollTransport, poll_sha256: pollHash,
+          reconciliation_eligible: false, real_money_moved: false,
+          merchant_settlement_verified: false
+        }
+      })
     });
-    if (result?.accepted === true && result?.purpose === "PREMIUM_SUBSCRIPTION" &&
-        ["PAYMENT_VERIFIED", "RECONCILIATION_PENDING", "RECONCILED"].includes(result.internal_status)) {
-      await rpc("payment_reconcile_premium_transaction", { p_transaction_id: result.transaction_id });
-    }
-    return reply(200, { received: true, accepted: result?.accepted === true, duplicate: result?.duplicate === true,
-      provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true,
-      poll_verified: true, provider_currency_verified: currency === String(transaction.currency),
-      reconciliation_eligible: result?.accepted === true && transaction.purpose !== "PROVIDER_CONNECTIVITY_TEST" });
-  } catch { return reply(503, { error: "DATABASE_RECORDING_FAILED", provider_signature_verified: true, provider_transaction_matched: true, provider_amount_verified: true, poll_verified: true }); }
+    if (!event.ok) throw new Error("TEST_EVIDENCE_STORAGE_FAILED");
+    const rows = await event.json();
+    if (!Array.isArray(rows)) throw new Error("TEST_EVIDENCE_STORAGE_FAILED");
+    return reply(200, {
+      received: true, accepted: false, duplicate: rows.length === 0,
+      test_simulation_recorded: true, event_stored: true, test_outcome: classification,
+      provider_signature_verified: true, provider_transaction_matched: true,
+      provider_amount_verified: true, poll_verified: true, poll_transport: pollTransport,
+      provider_currency_verified: false, reconciliation_eligible: false,
+      commercial_payment_verified: false, entitlement_granted: false
+    });
+  } catch {
+    return reply(503, {
+      error: "EVENT_STORAGE_FAILED", provider_signature_verified: true,
+      provider_transaction_matched: true, provider_amount_verified: true,
+      poll_verified: true, provider_currency_verified: false,
+      reconciliation_eligible: false
+    });
+  }
 }
 
 if (typeof Deno !== "undefined") {

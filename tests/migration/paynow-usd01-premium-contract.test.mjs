@@ -27,7 +27,7 @@ function harness({providerStatus='Paid', currency='USD', amount='5.00', matchedA
     ? [{id:'fixture-premium-transaction',purpose:'PREMIUM_SUBSCRIPTION',expected_amount:matchedAmount,currency:'USD',poll_url:POLL,provider_reference:null}]
     : []);
   if(u===POLL)return new Response(message);
-  if(u.includes('/provider_webhook_events?'))return Response.json([{id:'ignored-evidence-only'}]);
+  if(u.includes('/provider_webhook_events?'))return Response.json(duplicate ? [] : [{id:'ignored-evidence-only'}]);
   if(u.endsWith('/payment_record_paynow_status')) {
    if(outcome==='mismatch')return Response.json({accepted:false,code:'CURRENCY_MISMATCH'});
    return Response.json({accepted:true,duplicate,purpose:'PREMIUM_SUBSCRIPTION',
@@ -42,22 +42,22 @@ function harness({providerStatus='Paid', currency='USD', amount='5.00', matchedA
  return {message,calls,fetcher};
 }
 
-test('synthetic signed USD 5.00 Premium Paid status reaches exactly one reconciliation request',async()=>{
+test('synthetic signed USD 5.00 Premium Paid stores only test evidence',async()=>{
  const h=harness();
  const response=await handlePaynowTestCallback(request(h.message),{...CONFIG,fetcher:h.fetcher});
  const output=await response.json();
  assert.equal(response.status,200);
- assert.equal(output.accepted,true);
- assert.equal(output.provider_currency_verified,true);
- assert.equal(output.reconciliation_eligible,true);
- const record=h.calls.filter(x=>x.url.endsWith('/payment_record_paynow_status'));
+ assert.equal(output.accepted,false);
+ assert.equal(output.provider_currency_verified,false);
+ assert.equal(output.reconciliation_eligible,false);
+ const record=h.calls.filter(x=>x.url.includes('/provider_webhook_events?'));
  const reconcile=h.calls.filter(x=>x.url.endsWith('/payment_reconcile_premium_transaction'));
  assert.equal(record.length,1);
- assert.equal(reconcile.length,1);
+ assert.equal(reconcile.length,0);
  const params=JSON.parse(record[0].body);
- assert.equal(params.p_amount,'5.00');
- assert.equal(params.p_currency,'USD');
- assert.equal(params.p_merchant_reference,REF);
+ assert.equal(params.reported_amount,'5.00');
+ assert.equal(params.reported_currency,'USD');
+ assert.equal(params.merchant_reference,REF);
  // This is an offline contract mock, NOT provider USD settlement or a real entitlement grant.
 });
 
@@ -66,7 +66,7 @@ test('synthetic duplicate Premium Paid status delegates to existing idempotent r
  const output=await handlePaynowTestCallback(request(h.message),{...CONFIG,fetcher:h.fetcher});
  assert.equal(output.status,200);
  assert.equal((await output.json()).duplicate,true);
- assert.equal(h.calls.filter(x=>x.url.endsWith('/payment_reconcile_premium_transaction')).length,1);
+ assert.equal(h.calls.filter(x=>x.url.endsWith('/payment_reconcile_premium_transaction')).length,0);
  // The authoritative SQL idempotency/unique-transaction behavior is tested separately.
 });
 
@@ -100,7 +100,7 @@ test('signed cancelled and failed Premium statuses never request entitlement rec
   const h=harness({providerStatus});
   const res=await handlePaynowTestCallback(request(h.message),{...CONFIG,fetcher:h.fetcher});
   assert.equal(res.status,200);
-  assert.equal(h.calls.filter(x=>x.url.endsWith('/payment_record_paynow_status')).length,1);
+  assert.equal(h.calls.filter(x=>x.url.endsWith('/payment_record_paynow_status')).length,0);
   assert.equal(h.calls.some(x=>x.url.endsWith('/payment_reconcile_premium_transaction')),false);
  }
 });

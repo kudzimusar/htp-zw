@@ -12,7 +12,7 @@ const cfg = Object.freeze({
   PAYNOW_MODE: 'test',
   PAYNOW_INTEGRATION_ID: '20637',
   PAYNOW_INTEGRATION_KEY: key,
-  SUPABASE_URL: 'https://fixture.supabase.co',
+  SUPABASE_URL: 'https://bzuvntbkevvuhfhqhkua.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'not-a-real-secret-'.repeat(3),
   VERCEL_GIT_COMMIT_SHA: 'usd01-no-real-payment'
 });
@@ -127,6 +127,6 @@ test('USD amount/currency barrier and Premium reconciliation authority remain un
   assert.match(source,/payment_reconcile_premium_transaction/);
   assert.match(edge,/currency_verified: false/);
   assert.match(edge,/reconciliation_eligible: false/);
-  assert.match(edge,/payment_record_paynow_status/);
+  assert.doesNotMatch(edge,/await rpc\("payment_record_paynow_status"/);
   assert.doesNotMatch(source,/PAYNOW_MODE\s*=\s*'live'/);
 });

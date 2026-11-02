@@ -77,7 +77,7 @@ test('callback and trusted poll must agree on every authority field', () => {
 });
 
 test('readiness gates and public offer stay separate', () => {
-  const cfg=runtime.config({PAYNOW_INTEGRATION_ID:'20637',PAYNOW_INTEGRATION_KEY:exampleKey,PAYNOW_MODE:'test',SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40)});
+  const cfg=runtime.config({PAYNOW_INTEGRATION_ID:'20637',PAYNOW_INTEGRATION_KEY:exampleKey,PAYNOW_MODE:'test',SUPABASE_URL:'https://bzuvntbkevvuhfhqhkua.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40)});
   assert.equal(cfg.credentialsPresent,true);
   assert.equal(cfg.ready,true);
   const closed=commerceApi._internals.publicAuthority({credentials_present:true,provider_authority_certified:false,checkout_implementation_ready:true,checkout_available:false});
@@ -100,7 +100,7 @@ test('verified connectivity alone cannot certify authority or enable checkout', 
     assert.equal(closed.checkout_implementation_ready, false);
     assert.equal(closed.checkout_available, false);
     const certified = await runtime.readiness({ ...env, PAYNOW_PROVIDER_AUTHORITY_CERTIFIED: '1' });
-    assert.equal(certified.provider_authority_certified, true);
+    assert.equal(certified.provider_authority_certified, false);
     assert.equal(certified.checkout_available, false);
   } finally { globalThis.fetch = original; }
 });
