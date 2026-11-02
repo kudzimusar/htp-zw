@@ -22,9 +22,19 @@ function TabIcon({kind,color,focused}:{kind:TabIconKind;color:ColorValue;focused
 export default function ReaderTabs() {
   const { width }=useWindowDimensions();
   const { palette }=useAppearance();
-  const [responsiveReady,setResponsiveReady]=useState(Platform.OS!=="web");
-  useEffect(()=>{ if(Platform.OS==="web") setResponsiveReady(true); },[]);
-  const desktop=responsiveReady && width >= breakpoints.desktop;
+  // Static HTML cannot know viewport; render the same first-client markup,
+  // then use the browser width (RN Dimensions may lag during web hydration).
+  const [webWidth,setWebWidth]=useState<number|null>(null);
+  useEffect(()=>{
+    if(Platform.OS!=="web")return;
+    const update=()=>setWebWidth(window.innerWidth);
+    update();
+    window.addEventListener("resize",update);
+    return ()=>window.removeEventListener("resize",update);
+  },[]);
+  const desktop=Platform.OS==="web"
+    ? webWidth!==null && webWidth >= breakpoints.desktop
+    : width >= breakpoints.desktop;
 
   const icon=(kind:TabIconKind)=>
     ({color,focused}:{color:ColorValue;focused:boolean;size:number})=><TabIcon kind={kind} color={color} focused={focused} />;

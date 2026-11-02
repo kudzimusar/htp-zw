@@ -21,7 +21,7 @@ function useHydratedWindowWidth() {
     if (Platform.OS === "web") setHydrated(true);
   }, []);
   if (!hydrated) return 1200;
-  return width || (typeof window !== "undefined" ? window.innerWidth : 1200);
+  return Platform.OS === "web" && typeof window !== "undefined" ? window.innerWidth : (width || 1200);
 }
 
 export function Page({

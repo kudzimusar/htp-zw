@@ -38,7 +38,7 @@ test('R5B SECURITY: one-row positive teardown; second same-account session prese
  if(target.endsWith('/rest/v1/rpc/newsroom_revoke_session')){
   const b=JSON.parse(opt.body);assert.equal(b.p_provider_session_id,sid);revoked.add(sid);return Response.json(1);
  }
- if(target.endsWith('/auth/v1/logout'))return new Response('',{status:204});
+ if(target.endsWith('/auth/v1/logout'))return new Response(null,{status:204});
  throw Error('Unexpected transport '+target);
  };
  try {
