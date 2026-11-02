@@ -3,12 +3,12 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {execFileSync}=require('node:child_process');
+const {execFileSync,spawn}=require('node:child_process');
 const migrationPath=path.resolve(__dirname,'../../supabase/migrations/candidates/20261102090000_ht_mvp_paynow_r3_live_usd_attested_contract.sql');
 const candidate=fs.readFileSync(migrationPath,'utf8');
 const ref='HT-PREM-01ARZ3NDEKTSV4RRFFQ69G5FAV';
 const poll='https://www.paynow.co.zw/Interface/CheckPayment/?guid=fixture';
-const meta=JSON.stringify({signature_verified:true,poll_confirmed:true,provider_mode:'LIVE'});
+const meta=JSON.stringify({signature_verified:true,poll_confirmed:true,provider_mode:'LIVE',integration_id:'9999'});
 function quote(s){return "'"+String(s).replaceAll("'","''")+"'";}
 function sqlCall(o={}){
  const {amount='5.00',currency=null,status='Paid',event='a'.repeat(64),reference=ref,metaJson=meta}=o;
@@ -25,12 +25,23 @@ test('R3 LIVE SQL has independent USD attestation and zero application insertion
  assert.match(candidate,/grant execute on function public\.payment_record_paynow_live_status/);
  assert.match(candidate,/USD_ATTESTED_PENDING_BANK_SETTLEMENT/);
 });
-test('R3 LIVE currency authority: disposable database rejects no proof; attested fixture replay is idempotent',()=>{
+test('R3 LIVE currency authority: disposable database rejects no proof; concurrent fixture replay is idempotent',async()=>{
  const db='ht_r3_paynow_'+process.pid;
  function run(database,source){
   return execFileSync('psql',['-h','/tmp','-p','5432','-d',database,'-v','ON_ERROR_STOP=1','-qAt'],{
    input:source,encoding:'utf8',stdio:['pipe','pipe','pipe']
   }).trim();
+ }
+ function runConcurrent(database,source){
+  return new Promise((resolve,reject)=>{
+   const child=spawn('psql',['-h','/tmp','-p','5432','-d',database,'-v','ON_ERROR_STOP=1','-qAt']);
+   let stdout='',stderr='';
+   child.stdout.on('data',b=>stdout+=b.toString());
+   child.stderr.on('data',b=>stderr+=b.toString());
+   child.on('error',reject);
+   child.on('exit',code=>code===0?resolve(JSON.parse(stdout.trim())):reject(new Error(stderr)));
+   child.stdin.end(source);
+  });
  }
  let created=false;
  try{
@@ -80,9 +91,14 @@ test('R3 LIVE currency authority: disposable database rejects no proof; attested
    "'independent_finance_fixture',now(),now() from public.payment_transactions;"
   ].join(' ');
   run(db,attestation);
-  const first=call();
+  const wrongIntegration=call({metaJson:JSON.stringify({
+    signature_verified:true,poll_confirmed:true,provider_mode:'LIVE',integration_id:'DIFFERENT'
+  })});
+  assert.equal(wrongIntegration.code,'LIVE_INTEGRATION_EVIDENCE_MISMATCH');
+  const simultaneous=await Promise.all([runConcurrent(db,sqlCall()),runConcurrent(db,sqlCall())]);
+  assert.deepEqual(simultaneous.map(r=>r.duplicate).sort(),[false,true]);
+  const first=simultaneous.find(r=>r.duplicate===false);
   assert.equal(first.accepted,true);
-  assert.equal(first.duplicate,false);
   assert.equal(first.bank_settled,false);
   assert.equal(call().duplicate,true);
   assert.equal(run(db,'select count(*) from public.provider_webhook_events;'),'1');

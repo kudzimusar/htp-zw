@@ -112,6 +112,9 @@ begin
   if v_proof.id is null then
     return jsonb_build_object('accepted',false,'code','INDEPENDENT_PROVIDER_USD_ATTESTATION_REQUIRED');
   end if;
+  if coalesce(p_metadata->>'integration_id','') <> v_proof.integration_id then
+    return jsonb_build_object('accepted',false,'code','LIVE_INTEGRATION_EVIDENCE_MISMATCH');
+  end if;
 
   insert into public.provider_webhook_events (
     provider, provider_event_id, event_type, signature_valid, payload_hash,
