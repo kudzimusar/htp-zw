@@ -67,6 +67,42 @@ const server=http.createServer((req,res)=>{
   await scenario('authenticated_cancelled',refPremium,{status:200,body:{internal_status:'CANCELLED'}},'payment was cancelled.');
   await scenario('authenticated_failed',refPremium,{status:200,body:{internal_status:'FAILED'}},'could not complete the payment.');
   await scenario('rate_limit',refPremium,{status:429,body:{error:'RATE_LIMITED'}},'Too many status checks.');
+  // Pending/refresh are real browser requests; a pending provider signal is
+  // neither a membership grant nor a reason to leak an operator token.
+  {
+    activeFixture={status:200,body:{internal_status:'PROVIDER_INITIATED',payment_verified:false}};
+    serverCalls=[];
+    const page=await browser.newPage();
+    try{
+      await page.goto(origin+'/payment/return?reference='+encodeURIComponent(refPremium),{waitUntil:'domcontentloaded'});
+      await page.getByRole('button',{name:'Check payment again'}).waitFor({timeout:20000});
+      await page.waitForTimeout(500);
+      const before=serverCalls.length;
+      assert.ok(before>=1,'pending payment should poll server');
+      await page.getByRole('button',{name:'Check payment again'}).click();
+      await page.waitForTimeout(600);
+      assert.ok(serverCalls.length>before,'manual retry must issue new authenticated status read');
+      assert.equal((await page.locator('body').innerText()).includes('Payment verified. HealthTimes'),false);
+      outcomes.push({scenario:'pending_then_manual_retry',passed:true,requests:serverCalls.length});
+      console.log(JSON.stringify(outcomes.at(-1)));
+    }finally{await page.close();}
+  }
+  {
+    activeFixture={status:200,body:{test_outcome:'TEST_SIMULATED_PAID',payment_verified:false}};
+    serverCalls=[];
+    const page=await browser.newPage();
+    try{
+      const url=origin+'/payment/return?reference='+encodeURIComponent(refPremium);
+      await page.goto(url,{waitUntil:'domcontentloaded'});
+      await page.getByText('No money moved and no Premium subscription was activated.',{exact:false}).waitFor({timeout:20000});
+      assert.ok(serverCalls.length>=1);
+      await page.reload({waitUntil:'domcontentloaded'});
+      await page.getByText('No money moved and no Premium subscription was activated.',{exact:false}).waitFor({timeout:20000});
+      assert.ok(serverCalls.length>=2,'refresh must requery nonmonetary status');
+      outcomes.push({scenario:'simulated_paid_browser_refresh',passed:true,requests:serverCalls.length});
+      console.log(JSON.stringify(outcomes.at(-1)));
+    }finally{await page.close();}
+  }
   process.stdout.write(JSON.stringify({browser:'Chromium',realExpoPage:true,mockedProviderTransport:true,results:outcomes})+'\n');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
