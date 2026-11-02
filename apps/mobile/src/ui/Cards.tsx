@@ -508,7 +508,7 @@ export function AdSlot({
     );
   }
 
-  if(adDecision.source === "none" || !adDecision.creativeUrl) return null;
+  if(!adDecision || adDecision.source === "none" || !adDecision.creativeUrl) return null;
 
   const destination=adDecision.destinationUrl?.trim() ?? "";
   const clickable=/^https:\/\//i.test(destination);

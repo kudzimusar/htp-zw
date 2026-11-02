@@ -445,7 +445,10 @@ export default function HomeScreen() {
               accessibilityState={{ selected: active }}
               aria-selected={active}
               aria-current={active ? "page" : undefined}
-              onPress={() => handleFilterChange(item.key)}
+              onPress={() => {
+                setActiveFilter(item.key);
+                handleFilterChange(item.key);
+              }}
               style={[
                 styles.editorialFilter,
                 { borderBottomColor: active ? palette.blue : "transparent" }
