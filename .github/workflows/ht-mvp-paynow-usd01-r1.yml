@@ -36,7 +36,7 @@ jobs:
       - name: Install isolated TypeScript test loader without changing project lockfiles
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund typescript@6.0.3
       - name: Verify Paynow protocol, callback, USD recovery, and negative cases
-        run: node --test tests/migration/paynow-protocol.spec.js tests/migration/paynow-edge-callback.test.mjs tests/migration/paynow-usd01-r1.spec.js
+        run: node --test tests/migration/paynow-protocol.spec.js tests/migration/paynow-edge-callback.test.mjs tests/migration/paynow-usd01-r1.spec.js tests/migration/paynow-usd01-premium-contract.test.mjs
       - name: Start disposable PostgreSQL for full Finance migration certification
         shell: bash
         run: |
