@@ -109,9 +109,14 @@ test('canonical Home is responsive on phone tablet and desktop without retired r
     await page.getByText('Top Stories', { exact: true }).first().waitFor({ timeout: 30000 });
     await assertNoHorizontalOverflow(page, viewport.name + ' Home');
 
-    const tabs = await page.getByRole('tab').count();
-    if (viewport.name === 'phone') expect(tabs, 'phone canonical bottom navigation').toBeGreaterThanOrEqual(5);
-    if (viewport.name === 'desktop') expect(tabs, 'desktop mobile bottom navigation absent').toBe(0);
+    // Home has FIVE separate editorial tabs (e.g. "Latest Home filter")
+    // at every viewport. Those are not the Reader mobile bottom navigation.
+    // Scope the assertion to navigation tabs rather than all ARIA tabs.
+    const allTabs = await page.getByRole('tab').count();
+    const editorialTabs = await page.getByRole('tab', { name: /Home filter$/ }).count();
+    const bottomNavTabs = allTabs - editorialTabs;
+    if (viewport.name === 'phone') expect(bottomNavTabs, 'phone canonical bottom navigation').toBeGreaterThanOrEqual(5);
+    if (viewport.name === 'desktop') expect(bottomNavTabs, 'desktop mobile bottom navigation absent').toBe(0);
 
     const html = await page.content();
     expect(html).not.toMatch(/<script[^>]+src=["'][^"']*(?:\/|^)app\.js["']/i);
