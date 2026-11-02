@@ -111,7 +111,7 @@ jobs:
             return {
               ...metrics,
               horizontalOverflow:metrics.scrollWidth>metrics.clientWidth+1,
-              mobileTabCount:await page.getByRole('tab').count()
+              mobileTabCount:(await page.getByRole('tab').count())-(await page.getByRole('tab',{name:/Home filter$/}).count())
             };
           }
 

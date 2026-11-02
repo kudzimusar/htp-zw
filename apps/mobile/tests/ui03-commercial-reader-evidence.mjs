@@ -522,7 +522,11 @@ async function sourceParityEvidence(){
     const react418=assertClean("smoke "+name,diag);
     if(name==="home"){
       await page.getByText("Top Stories",{exact:true}).first().waitFor({timeout:30000});
-      if(await page.getByRole("tab").count()!==0) throw new Error("Desktop Home rendered mobile tabs");
+      // Five Home editorial-filter tabs remain legitimate at desktop.
+      // Count only mobile bottom-navigation tabs, never all page tabs.
+      const allTabs=await page.getByRole("tab").count();
+      const editorialTabs=await page.getByRole("tab",{name:/Home filter$/}).count();
+      if(allTabs-editorialTabs!==0) throw new Error("Desktop Home rendered mobile bottom navigation");
     }
     smoke.push({
       name,route,status,

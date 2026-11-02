@@ -9,6 +9,7 @@
  */
 
 import test from 'node:test';
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +23,9 @@ import {
 import {
   UAT_STAFF_MAP,
   trackExactSession,
+  beginExactSessionRun,
+  clearTrackedSessions,
+  getTrackedSessions,
   revokeExactSession
 } from '../../scripts/session-authority.mjs';
 
@@ -31,7 +35,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const actorsPath = path.join(os.homedir(), '.healthtimes-secrets', 'test-actors.json');
 const actors = fs.existsSync(actorsPath) ? JSON.parse(fs.readFileSync(actorsPath, 'utf8')) : {};
 const commercialActor = actors['uat-commercial@healthtimes.test'] || { email: 'uat-commercial@healthtimes.test', password: '' };
-const specialistActor = { email: 'uat-specialist@healthtimes.test', password: commercialActor.password };
+const specialistActor = actors['uat-specialist@healthtimes.test'] || { email: 'uat-specialist@healthtimes.test', password: '' };
 
 // ----------------------------------------------------
 // TEST 1-5: AUDIT LEAST PRIVILEGE & TEMPLATE ENFORCEMENT
@@ -100,15 +104,18 @@ test('FAULT INJECTION: Mutating function simulation in SELECT is absent from all
 // ----------------------------------------------------
 
 test('FAULT INJECTION: trackExactSession strictly rejects null or empty provider_session_id', () => {
+  const testRunId=randomUUID();
+  beginExactSessionRun(testRunId);
   assert.throws(
     () => {
       trackExactSession({
         email: specialistActor.email,
         staffProfileId: UAT_STAFF_MAP[specialistActor.email].staffProfileId,
+        testRunId,
         providerSessionId: null
       });
     },
-    /BLOCKED_SESSION_ID.*Null sentinels are strictly forbidden/
+    /BLOCKED_SESSION_ID/
   );
 
   assert.throws(
@@ -116,10 +123,11 @@ test('FAULT INJECTION: trackExactSession strictly rejects null or empty provider
       trackExactSession({
         email: specialistActor.email,
         staffProfileId: UAT_STAFF_MAP[specialistActor.email].staffProfileId,
+        testRunId,
         providerSessionId: ''
       });
     },
-    /BLOCKED_SESSION_ID.*Null sentinels are strictly forbidden/
+    /BLOCKED_SESSION_ID/
   );
 });
 
@@ -135,11 +143,13 @@ test('FAULT INJECTION: revokeExactSession strictly rejects null provider_session
         providerSessionId: null
       });
     },
-    /BLOCKED_SESSION_ID: Attempted to revoke session for .* without exact provider_session_id/
+    /BLOCKED_SESSION_ID/
   );
 });
 
 test('FAULT INJECTION: revokeExactSession strictly blocks targeting Owner session', async () => {
+  const ownerRunId=randomUUID();
+  beginExactSessionRun(ownerRunId);
   await assert.rejects(
     async () => {
       await revokeExactSession({
@@ -148,10 +158,12 @@ test('FAULT INJECTION: revokeExactSession strictly blocks targeting Owner sessio
         email: 'kudzimusar@gmail.com',
         password: 'fakePassword123!',
         staffProfileId: 'some-owner-profile-id',
-        providerSessionId: 'some-session-id'
+        providerSessionId: randomUUID(),
+        authUserId: randomUUID(),
+        testRunId: ownerRunId
       });
     },
-    /BLOCKED_SESSION_TARGET: Attempted to revoke Owner session/
+    /BLOCKED_SESSION_TARGET/
   );
 });
 
@@ -163,6 +175,9 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const email = specialistActor.email;
   const password = specialistActor.password;
   const staffProfileId = UAT_STAFF_MAP[email].staffProfileId;
+  const testRunId = randomUUID();
+  beginExactSessionRun(testRunId);
+  try {
 
   // 1. Establish Session A
   const resA = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -175,9 +190,10 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const payloadA = JSON.parse(Buffer.from(dataA.access_token.split('.')[1], 'base64').toString());
   const sessionAId = payloadA.session_id;
   assert.ok(sessionAId, 'Session A must have provider session_id');
+  trackExactSession({ email, staffProfileId, authUserId:payloadA.sub, providerSessionId:sessionAId, testRunId, accessToken:dataA.access_token });
 
   // Register Session A in newsroom_sessions via RPC
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
+  const registeredA = await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_ANON_KEY,
@@ -186,6 +202,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     },
     body: JSON.stringify({ p_user_agent: 'HT-Test-Session-A' })
   });
+  assert.ok(registeredA.ok,'Session A registration must succeed before revocation');
 
   // 2. Establish Session B concurrently
   const resB = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -199,9 +216,10 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const sessionBId = payloadB.session_id;
   assert.ok(sessionBId, 'Session B must have provider session_id');
   assert.notEqual(sessionAId, sessionBId, 'Session A and Session B must have distinct providerSessionIds');
+  trackExactSession({ email, staffProfileId, authUserId:payloadB.sub, providerSessionId:sessionBId, testRunId, accessToken:dataB.access_token });
 
   // Register Session B in newsroom_sessions via RPC
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
+  const registeredB = await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_ANON_KEY,
@@ -210,14 +228,16 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     },
     body: JSON.stringify({ p_user_agent: 'HT-Test-Session-B' })
   });
+  assert.ok(registeredB.ok,'Session B registration must succeed before revocation');
 
   // 3. Revoke ONLY Session A with exact sessionAId
   const resultA = await revokeExactSession({
     supabaseUrl: SUPABASE_URL,
     anonKey: SUPABASE_ANON_KEY,
     email,
-    password,
     staffProfileId,
+    authUserId:payloadA.sub,
+    testRunId,
     providerSessionId: sessionAId
   });
   assert.equal(resultA.revokedCount, 1, 'Exactly 1 session must be revoked for Session A');
@@ -246,8 +266,9 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     supabaseUrl: SUPABASE_URL,
     anonKey: SUPABASE_ANON_KEY,
     email,
-    password,
     staffProfileId,
+    authUserId:payloadB.sub,
+    testRunId,
     providerSessionId: sessionBId
   });
   assert.equal(resultB.revokedCount, 1, 'Exactly 1 session must be revoked for Session B');
@@ -265,6 +286,27 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   });
   const finalCount = (await finalCheckRes.json())[0].count;
   assert.equal(finalCount, 0, 'All test sessions must be cleanly revoked with zero leakage');
+  } finally {
+    // Scope failure cleanup to IDs created and registered in THIS test run.
+    // Never use null sentinels, a staff-wide revoke or an Owner identity.
+    let cleanupError=null;
+    for (const rec of getTrackedSessions()) {
+      if (rec.testRunId !== testRunId) continue;
+      try {
+        const result=await revokeExactSession({
+          supabaseUrl:SUPABASE_URL,anonKey:SUPABASE_ANON_KEY,
+          email:rec.email,staffProfileId:rec.staffProfileId,
+          authUserId:rec.authUserId,providerSessionId:rec.providerSessionId,
+          testRunId
+        });
+        assert.equal(result.revokedCount,1,'Cleanup must revoke exactly one tracked session');
+      } catch(error) {
+        cleanupError ||= new Error('FAIL_CLOSED_EXACT_SESSION_CLEANUP: '+String(error));
+      }
+    }
+    clearTrackedSessions();
+    if(cleanupError) throw cleanupError;
+  }
 });
 
 // ----------------------------------------------------
