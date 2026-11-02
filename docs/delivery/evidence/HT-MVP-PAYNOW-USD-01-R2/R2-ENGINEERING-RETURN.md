@@ -2,7 +2,7 @@
 
 **Evidence recorded:** 2026-11-02 (Asia/Tokyo).  
 **R1 frozen parent:** `bdb2274e9cd145bbbbb114bcaf237ced712e87d8`.  
-**R2 tested application SHA:** `ab20258ec98108640299aefa980ce2b6c24f4de3`.  
+**R2 earlier tested engineering SHA (NOT final accepted R2 authority):** `ab20258ec98108640299aefa980ce2b6c24f4de3`.  
 **R2 implementation branch:** `fix/ht-mvp-paynow-usd01-r2-test-simulator-closure`.  
 **R2 Draft PR:** https://github.com/kudzimusar/htp-zw/pull/131  
 **Tracking:** https://github.com/kudzimusar/htp-zw/issues/128  
@@ -81,3 +81,9 @@ SECURITY_INDEPENDENT_REVIEW=NOT_YET_CERTIFIED
 FINANCE_INDEPENDENT_REVIEW=NOT_YET_CERTIFIED
 MODERATOR_REVIEW_REQUIRED=YES
 ```
+
+## 7. R3 continuity correction — 2 November 2026 (append-only)
+
+**Final Moderator-accepted R2 engineering source:** `0f24b9f6d26b773276a14717760ca749e13c862c` on `fix/ht-mvp-paynow-usd01-r2-test-simulator-closure`, Draft PR #131 (unmerged). **Final exact-head CI:** [41388004933](https://github.com/kudzimusar/htp-zw/actions/runs/41388004933), 49/49 Paynow plus 12/12 Finance/Premium = **61/61 PASS**. **Final exact-head READY Preview:** `dpl_Gqyghyswj3iVZqBqm7HPK6ey92J9` at `https://healthtimes-staging-6caqpb6tw-11-11.vercel.app`.
+
+The earlier `ab20258ec98108640299aefa980ce2b6c24f4de3` preview and automated results are historical intermediate engineering evidence, **not** the controlling R2 accepted SHA. Historical SQL evidence, R2 TEST callback v24, USD policy and all pending external gates remain unchanged. This addendum corrects only the continuity interpretation; it does not retroactively certify the physical merchant TEST session or LIVE USD settlement.
