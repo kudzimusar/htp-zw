@@ -13,8 +13,16 @@ const refConn='HT-CONN-01ARZ3NDEKTSV4RRFFQ69G5FAV';
 const types={'.js':'application/javascript','.css':'text/css','.html':'text/html','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2'};
 if(!fs.existsSync(dist)) throw Error('Expo web export missing. Run npm run export:web in apps/mobile.');
 const root=path.resolve(dist);
+let activeFixture=null;
+let serverCalls=[];
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
+ if(url.pathname==='/api/commerce'&&url.searchParams.get('action')==='status'){
+   serverCalls.push(req.url);
+   res.writeHead(activeFixture?.status||503,{'Content-Type':'application/json','Cache-Control':'no-store'});
+   res.end(JSON.stringify(activeFixture?.body||{error:'NO_BROWSER_FIXTURE'}));
+   return;
+ }
  let p=path.resolve(root,'.'+decodeURIComponent(url.pathname));
  if(!p.startsWith(root+path.sep)&&p!==root){res.writeHead(403);res.end();return;}
  if(fs.existsSync(p)&&fs.statSync(p).isDirectory())p=path.join(p,'index.html');
@@ -33,25 +41,21 @@ const server=http.createServer((req,res)=>{
  const outcomes=[];
  async function scenario(label,reference,response,expected,{expectCalls=1,button=null}={}){
   const page=await browser.newPage();
-  const calls=[];
+  activeFixture=response;
+  serverCalls=[];
   try{
    const seen=[];
    page.on('request',request=>{if(request.url().includes('/api/commerce'))seen.push(request.url());});
    page.on('pageerror',error=>{seen.push('PAGE_ERROR:'+String(error.message).slice(0,200));});
-   await page.route(url=>url.pathname==='/api/commerce' && url.searchParams.get('action')==='status',async route=>{
-    calls.push(route.request().url());
-    await route.fulfill({status:response.status||200,contentType:'application/json',
-      body:JSON.stringify(response.body||{})});
-   });
    await page.goto(origin+'/payment/return?reference='+encodeURIComponent(reference),{waitUntil:'domcontentloaded',timeout:40000});
    try { await page.getByText(expected,{exact:false}).first().waitFor({timeout:12000}); }
    catch (error) {
-     console.error(JSON.stringify({scenario:label,expected,requests:calls,seen,body:(await page.locator('body').innerText()).slice(0,2500),url:page.url()}));
+     console.error(JSON.stringify({scenario:label,expected,requests:serverCalls,seen,body:(await page.locator('body').innerText()).slice(0,2500),url:page.url()}));
      throw error;
    }
    if(button)assert.equal(await page.getByRole('button',{name:button}).count(),1);
-   assert.equal(calls.length,expectCalls,label+' unexpected server calls');
-   outcomes.push({scenario:label,passed:true,requests:calls.length});
+   assert.equal(serverCalls.length,expectCalls,label+' unexpected server calls');
+   outcomes.push({scenario:label,passed:true,requests:serverCalls.length});
    console.log(JSON.stringify(outcomes.at(-1)));
   }finally{await page.close();}
  }
