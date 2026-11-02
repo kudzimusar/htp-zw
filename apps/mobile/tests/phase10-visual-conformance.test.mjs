@@ -44,7 +44,7 @@ test("Phase 10 responsive shell hydrates deterministically before viewport struc
   assert.match(tabs,/Watch/);
   assert.match(tabs,/My HT/);
   assert.match(studio,/useHydratedStudioWidth/);
-  assert.match(studio,/useState\(Platform\.OS!==["']web["']\)/);
+  assert.match(studio,/useState\(Platform\.OS\s*!==\s*["']web["']\)/);
   assert.match(studio,/return responsiveReady \? width : 0/);
 });
 
