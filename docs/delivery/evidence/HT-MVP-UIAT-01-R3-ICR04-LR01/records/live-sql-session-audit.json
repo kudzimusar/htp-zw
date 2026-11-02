@@ -1,0 +1,129 @@
+{
+  "runId": "3901c01f-7772-49af-b1bc-cec0a43be267",
+  "preTest": {
+    "stage": "PRE_TEST",
+    "timestamp": "2026-11-02T09:32:16.591Z",
+    "provenance": "supabase-mcp-server / Supabase Management API v1 query",
+    "projectId": "bzuvntbkevvuhfhqhkua",
+    "queries": {
+      "newsroomSessions": {
+        "query": "select sp.email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "executedAt": "2026-11-02T09:32:16.591Z",
+        "status": 201,
+        "sha256": "404d972af8b280d4c240f9768456e58bc2b601805cba8979a416e905587694f0",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 15
+          }
+        ]
+      },
+      "authSessions": {
+        "query": "select u.email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "executedAt": "2026-11-02T09:32:16.577Z",
+        "status": 201,
+        "sha256": "2e7925b8210bb02ad49dbe1dcf4a7e9ebbdb09cdb0efbf0685b5d3e4b3382be4",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      },
+      "refreshTokens": {
+        "query": "select u.email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+        "executedAt": "2026-11-02T09:32:16.583Z",
+        "status": 201,
+        "sha256": "15be08bd99198613e837438de754329367424255f8118be6c3ad3c32b833d89f",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "counts": {
+      "testNewsroomSessions": 0,
+      "ownerNewsroomSessions": 15,
+      "testAuthSessions": 0,
+      "ownerAuthSessions": 2,
+      "testRefreshTokens": 0,
+      "ownerRefreshTokens": 2
+    },
+    "breakdown": {
+      "newsroom": {
+        "kudzimusar@gmail.com": 15
+      },
+      "auth": {
+        "kudzimusar@gmail.com": 2
+      },
+      "refresh": {
+        "kudzimusar@gmail.com": 2
+      }
+    }
+  },
+  "postTest": {
+    "stage": "POST_TEST",
+    "timestamp": "2026-11-02T09:33:15.146Z",
+    "provenance": "supabase-mcp-server / Supabase Management API v1 query",
+    "projectId": "bzuvntbkevvuhfhqhkua",
+    "queries": {
+      "newsroomSessions": {
+        "query": "select sp.email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "executedAt": "2026-11-02T09:33:15.146Z",
+        "status": 201,
+        "sha256": "404d972af8b280d4c240f9768456e58bc2b601805cba8979a416e905587694f0",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 15
+          }
+        ]
+      },
+      "authSessions": {
+        "query": "select u.email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "executedAt": "2026-11-02T09:33:15.139Z",
+        "status": 201,
+        "sha256": "2e7925b8210bb02ad49dbe1dcf4a7e9ebbdb09cdb0efbf0685b5d3e4b3382be4",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      },
+      "refreshTokens": {
+        "query": "select u.email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+        "executedAt": "2026-11-02T09:33:15.140Z",
+        "status": 201,
+        "sha256": "15be08bd99198613e837438de754329367424255f8118be6c3ad3c32b833d89f",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "counts": {
+      "testNewsroomSessions": 0,
+      "ownerNewsroomSessions": 15,
+      "testAuthSessions": 0,
+      "ownerAuthSessions": 2,
+      "testRefreshTokens": 0,
+      "ownerRefreshTokens": 2
+    },
+    "breakdown": {
+      "newsroom": {
+        "kudzimusar@gmail.com": 15
+      },
+      "auth": {
+        "kudzimusar@gmail.com": 2
+      },
+      "refresh": {
+        "kudzimusar@gmail.com": 2
+      }
+    }
+  }
+}

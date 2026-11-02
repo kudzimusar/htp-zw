@@ -1,0 +1,308 @@
+{
+  "runId": "3901c01f-7772-49af-b1bc-cec0a43be267",
+  "timestamp": "2026-11-02T09:32:17.465Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR04-LR01",
+  "previewUrl": "https://healthtimes-staging-b8namgenu-11-11.vercel.app",
+  "previewDeploymentId": "dpl_4zNzqAFPwkC2NUgnho9MGDxBX2F3",
+  "expectedApplicationSha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+  "enforceContract": true,
+  "sessionAudit": {
+    "runId": "3901c01f-7772-49af-b1bc-cec0a43be267",
+    "preTest": {
+      "stage": "PRE_TEST",
+      "timestamp": "2026-11-02T09:32:16.591Z",
+      "provenance": "supabase-mcp-server / Supabase Management API v1 query",
+      "projectId": "bzuvntbkevvuhfhqhkua",
+      "queries": {
+        "newsroomSessions": {
+          "query": "select sp.email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+          "executedAt": "2026-11-02T09:32:16.591Z",
+          "status": 201,
+          "sha256": "404d972af8b280d4c240f9768456e58bc2b601805cba8979a416e905587694f0",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 15
+            }
+          ]
+        },
+        "authSessions": {
+          "query": "select u.email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+          "executedAt": "2026-11-02T09:32:16.577Z",
+          "status": 201,
+          "sha256": "2e7925b8210bb02ad49dbe1dcf4a7e9ebbdb09cdb0efbf0685b5d3e4b3382be4",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        },
+        "refreshTokens": {
+          "query": "select u.email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+          "executedAt": "2026-11-02T09:32:16.583Z",
+          "status": 201,
+          "sha256": "15be08bd99198613e837438de754329367424255f8118be6c3ad3c32b833d89f",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        }
+      },
+      "counts": {
+        "testNewsroomSessions": 0,
+        "ownerNewsroomSessions": 15,
+        "testAuthSessions": 0,
+        "ownerAuthSessions": 2,
+        "testRefreshTokens": 0,
+        "ownerRefreshTokens": 2
+      },
+      "breakdown": {
+        "newsroom": {
+          "kudzimusar@gmail.com": 15
+        },
+        "auth": {
+          "kudzimusar@gmail.com": 2
+        },
+        "refresh": {
+          "kudzimusar@gmail.com": 2
+        }
+      }
+    },
+    "postTest": {
+      "stage": "POST_TEST",
+      "timestamp": "2026-11-02T09:33:15.146Z",
+      "provenance": "supabase-mcp-server / Supabase Management API v1 query",
+      "projectId": "bzuvntbkevvuhfhqhkua",
+      "queries": {
+        "newsroomSessions": {
+          "query": "select sp.email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+          "executedAt": "2026-11-02T09:33:15.146Z",
+          "status": 201,
+          "sha256": "404d972af8b280d4c240f9768456e58bc2b601805cba8979a416e905587694f0",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 15
+            }
+          ]
+        },
+        "authSessions": {
+          "query": "select u.email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+          "executedAt": "2026-11-02T09:33:15.139Z",
+          "status": 201,
+          "sha256": "2e7925b8210bb02ad49dbe1dcf4a7e9ebbdb09cdb0efbf0685b5d3e4b3382be4",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        },
+        "refreshTokens": {
+          "query": "select u.email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+          "executedAt": "2026-11-02T09:33:15.140Z",
+          "status": 201,
+          "sha256": "15be08bd99198613e837438de754329367424255f8118be6c3ad3c32b833d89f",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        }
+      },
+      "counts": {
+        "testNewsroomSessions": 0,
+        "ownerNewsroomSessions": 15,
+        "testAuthSessions": 0,
+        "ownerAuthSessions": 2,
+        "testRefreshTokens": 0,
+        "ownerRefreshTokens": 2
+      },
+      "breakdown": {
+        "newsroom": {
+          "kudzimusar@gmail.com": 15
+        },
+        "auth": {
+          "kudzimusar@gmail.com": 2
+        },
+        "refresh": {
+          "kudzimusar@gmail.com": 2
+        }
+      }
+    }
+  },
+  "stagingDbAuthority": {
+    "migrationApplied": false,
+    "stagingApproval": "BLOCKED_OWNER_AUTH_REQUIRED",
+    "usesUntitledStoryFallback": true,
+    "liveFunctionDefHash": "56cb640039691d42498451107c26601fd68e89ef21161dfe730308e72a3509b9"
+  },
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+      "presentation": "apps/mobile",
+      "serviceMode": "staging",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugMatch": true,
+      "reloadSurvives": true,
+      "pass": true
+    },
+    "DEF013": {
+      "themeMatrix": [
+        {
+          "surface": "Reader Home (Desktop Light)",
+          "effectiveBg": "rgb(255, 255, 255)",
+          "headingColor": "rgb(11, 31, 51)",
+          "headingRatio": 16.69,
+          "bodyColor": "rgb(91, 103, 118)",
+          "bodyRatio": 5.76,
+          "requiredMin": 4.5,
+          "compliant": true
+        },
+        {
+          "surface": "Reader Home (Desktop Dark)",
+          "effectiveBg": "rgb(11, 22, 34)",
+          "headingColor": "rgb(243, 247, 250)",
+          "headingRatio": 16.92,
+          "bodyColor": "rgb(169, 183, 197)",
+          "bodyRatio": 8.91,
+          "requiredMin": 4.5,
+          "compliant": true
+        },
+        {
+          "surface": "Premium Hub (Desktop Dark)",
+          "effectiveBg": "rgb(11, 22, 34)",
+          "headingColor": "rgb(230, 193, 106)",
+          "headingRatio": 10.59,
+          "bodyColor": "rgb(169, 183, 197)",
+          "bodyRatio": 8.91,
+          "requiredMin": 4.5,
+          "compliant": true
+        }
+      ],
+      "premiumDarkHeadingPass": true,
+      "premiumDarkBodyPass": true,
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "reloadSurvives": true,
+      "storageAudit": {
+        "hasSavedKey": false,
+        "savedCount": 1,
+        "downloadsCount": 1,
+        "firstSavedId": "uat04b-test-story-001"
+      },
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "noticeVisible": true,
+      "hasDeferredBadge": true,
+      "scheduleDisabled": true,
+      "draftCreatedSuccess": true,
+      "dbRowValid": true,
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "discoveryAndSecurity": {
+      "searchSamples": [
+        {
+          "attempt": 1,
+          "query": "Cervical",
+          "cacheState": "cold",
+          "durationMs": 12,
+          "passed": true
+        },
+        {
+          "attempt": 2,
+          "query": "Lenacapavir",
+          "cacheState": "warm",
+          "durationMs": 10,
+          "passed": true
+        },
+        {
+          "attempt": 3,
+          "query": "Cervical",
+          "cacheState": "warm",
+          "durationMs": 8,
+          "passed": true
+        },
+        {
+          "attempt": 4,
+          "query": "Cancer",
+          "cacheState": "warm",
+          "durationMs": 10,
+          "passed": true
+        },
+        {
+          "attempt": 5,
+          "query": "Health",
+          "cacheState": "warm",
+          "durationMs": 9,
+          "passed": true
+        }
+      ],
+      "searchDuration": 10,
+      "foundRank51Story": true,
+      "foundPublicStory": true,
+      "negativeSearchPass": true,
+      "searchNavPass": true,
+      "rpcStatus": 200,
+      "premiumBodyLeaks": 0,
+      "draftExposure": 0,
+      "futureExposure": 0,
+      "pass": true
+    },
+    "DEF014": {
+      "telemetryRecorded": true,
+      "targetPassed": true,
+      "desktopWarmLcp": 1184,
+      "desktopColdLcp": 1632,
+      "mobileColdLcp": 1620,
+      "desktopCls": 0.001,
+      "mobileCls": 0,
+      "singleFlightRpc": true,
+      "pass": true
+    },
+    "DEF003": {
+      "hasZimParam": true,
+      "reloadedZimParam": true,
+      "backNavPass": true,
+      "pass": true
+    },
+    "DEF006": {
+      "authenticStudioTested": true,
+      "hasErrorText": true,
+      "errorRole": "alert",
+      "errorCleared": true,
+      "stagingDbRefusalStatus": "BLOCKED_PENDING_OWNER_MIGRATION_AUTH",
+      "disposableParityStatus": "PASS_15_OF_15_TESTS",
+      "pass": true
+    },
+    "sessionHygiene": {
+      "preTestLiveVerified": true,
+      "postTestLiveVerified": true,
+      "testNewsroomSessionsPost": 0,
+      "ownerNewsroomSessionsPreserved": 15,
+      "activeOwnerTokensPreserved": 2,
+      "pass": true
+    }
+  },
+  "failures": []
+}
