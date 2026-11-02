@@ -56,7 +56,7 @@ jobs:
       - name: Build real Expo web return route and run Chromium payment-return journeys
         timeout-minutes: 10
         run: |
-          npm ci --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+          npm install --prefix apps/mobile --package-lock=false --ignore-scripts --no-audit --no-fund
           npm run export:web --prefix apps/mobile
           npm install --prefix /tmp/ht-paynow-browser --no-package-lock --no-save --no-audit --no-fund playwright@1.56.1
           /tmp/ht-paynow-browser/node_modules/.bin/playwright install --with-deps chromium
