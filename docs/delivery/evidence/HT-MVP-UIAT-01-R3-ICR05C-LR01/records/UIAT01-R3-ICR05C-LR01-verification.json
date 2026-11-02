@@ -1,0 +1,68 @@
+{
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-LR01",
+  "timestamp": "2026-11-03T08:45:00.000Z",
+  "startingSha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
+  "finalSha": "7af2fc5aa6544eef7a96d39b8f4b18c312795baa",
+  "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
+  "previewUrl": "https://healthtimes-staging-l5433waw9-11-11.vercel.app",
+  "previewDeploymentId": "dpl_6XurS1ZPXgGFGr7wVy3bKATa8dcQ",
+  "canonical30Matrix": {
+    "totalCases": 30,
+    "passCount": 23,
+    "failCount": 0,
+    "blockedCount": 7,
+    "ownerAuthorizedDeferredCount": 0,
+    "registrySource": "HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md",
+    "blockedCases": [
+      { "caseId": "UAT-R05", "persona": "Anonymous Reader", "reason": "Audio streaming deferred out of MVP scope" },
+      { "caseId": "UAT-J01", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-J02", "persona": "Publisher/Reporter", "reason": "Staging DB newsroom_create_story title authority migration 20261102160000 unapplied pending Owner authorization" },
+      { "caseId": "UAT-J04", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-E01", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-E02", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-A03", "persona": "Audience Specialist", "reason": "Empty Staging contact_segments audience corpus (count=0)" }
+    ]
+  },
+  "supplementalSafetyMatrix": {
+    "totalCases": 14,
+    "passCount": 14,
+    "failCount": 0,
+    "blockedCount": 0
+  },
+  "sessionGovernance": {
+    "deterministicHarness": {
+      "total": 22,
+      "pass": 22,
+      "fail": 0,
+      "skipped": 0
+    },
+    "livePhysicalStatus": "BLOCKED_OWNER_UAT_CREDENTIALS",
+    "ownerAuditAuthority": "BLOCKED_OWNER_UAT_CREDENTIALS",
+    "sessionRevokeNullProviderIdPresent": false,
+    "stagingMigration20261102160000Applied": false
+  },
+  "nativeCiReconciliation": {
+    "defectClassification": "PRODUCT_RUNTIME_DEFECT",
+    "rootCause": "React Native Hermes uncaught TypeError: undefined is not a function at HomeScreen mount caused by new window.Image() and window popstate/URL constructs",
+    "filesModified": [
+      "apps/mobile/app/(reader)/index.tsx",
+      "apps/mobile/src/ui/Cards.tsx",
+      "apps/mobile/src/ui/Studio.tsx"
+    ],
+    "remediatedWorkflows": [
+      {
+        "name": "UI-02 Phase 6A Native Cross-Device",
+        "runId": 41450037544,
+        "failingCells": ["android_phone", "android_tablet", "ios_phone", "ios_tablet"],
+        "status": "REMEDIATED"
+      },
+      {
+        "name": "Phase 10 Candidate Visual Conformance",
+        "runId": 41450037178,
+        "failingCells": ["ios_simulator_screenshots"],
+        "status": "REMEDIATED"
+      }
+    ]
+  },
+  "failures": []
+}

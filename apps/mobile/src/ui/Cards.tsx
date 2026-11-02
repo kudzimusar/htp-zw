@@ -16,8 +16,8 @@ function formatDate(value: string | null) {
 
 function useHydratedCardDimensions() {
   const { width,height }=useWindowDimensions();
-  const windowWidth = width || (typeof window !== "undefined" ? window.innerWidth : 1200);
-  const windowHeight = height || (typeof window !== "undefined" ? window.innerHeight : 800);
+  const windowWidth = width || (Platform.OS === "web" && typeof window !== "undefined" ? window.innerWidth : 1200) || 1200;
+  const windowHeight = height || (Platform.OS === "web" && typeof window !== "undefined" ? window.innerHeight : 800) || 800;
   return { width: windowWidth, height: windowHeight };
 }
 
