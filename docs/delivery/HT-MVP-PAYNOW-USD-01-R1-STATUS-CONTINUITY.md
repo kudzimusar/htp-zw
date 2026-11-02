@@ -66,10 +66,20 @@ The original `payment_claim_paynow_initiation` SQL reopened `PROVIDER_PENDING` i
 Candidate remediation:
 1. The server may release `PROVIDER_PENDING` only on an explicitly cryptographically verified Paynow `Status=Error`, never timeout, HTTP failure, bad signature or post-response database failure.
 2. The database removes automatic five-minute reclaim and restricts release to `PAYNOW_INITIATION_REJECTED`; other ambiguous states remain pending until explicit merchanttrace investigation.
-3. No existing payment rows are changed by the candidate migration. It must be reviewed and verified in Staging before staging deployment.
+3. Applied the exact, non-destructive candidate migration to Staging Supabase `bzuvntbkevvuhfhqhkua` only; migration returned `success=true`. Post-migration read-only function and privilege inspection verified no five-minute claim reset, ambiguous release guard present, and both RPCs service-role-only. No historical payment row state or aggregate count changed.
 4. `tests/migration/paynow-usd01-r1.spec.js` adds deterministic, network-free failure/replay tests; no merchant credentials or provider transactions.
 
 Provider merchanttrace recovery is a **separate bounded authority decision**, not permission to initiate another transaction while the prior attempt is ambiguous.
+
+## Exact-source engineering & Staging certification (2 November 2026)
+
+- **CI source head**: `b286d5088abbcac4cff8f62f8174b04d9e11fd69`, [GitHub Actions run 41364684074](https://github.com/kudzimusar/htp-zw/actions/runs/41364684074), completed SUCCESS.
+- **Protocol/Edge callback/ambiguous-recovery suite**: 36/36 passing. This includes valid and invalid signatures, duplicate fields, callback/poll disagreement, currency missing or mismatched, wrong amount/reference, timeout, authenticated Error release, and repeated-initiation prevention.
+- **Payment readiness, Finance, Premium contract suite**: 12/12 passing, including the disposable PostgreSQL migration and entitlement-replay test. No real provider/merchant money movement was performed.
+- **Vercel/API syntax**: Node syntax checks PASS; a separated preview deployment of CI head was requested, subject to independent runtime inspection. Public checkout activation was not requested.
+- **Staging RPC implementation**: new TEST-only migration deployed without business-row changes; post-apply read-only audit: `no_stale_claim=true`, `rejects_ambiguous_release=true`, `claim_service_only=true`, `release_service_only=true`.
+- **Post-apply ledger integrity**: 5 intents; 4 provider initiated; 1 currency mismatch; 0 payment verified; 1 open exception; 0 Premium reconciliations and Paynow entitlements.
+- **Evidence classification**: deterministic CI PASS + Staging DDL/RPC inspection PASS. Provider USD charge/settlement physical certification **NOT DONE**. Public checkout **DISABLED**. Independent security/financial acceptance **PENDING**.
 
 ## Premium / Finance control
 
