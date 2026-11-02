@@ -106,9 +106,13 @@ export const stagingNewsroomStoryService: NewsroomStoryService = {
   },
 
   async createStory(input: CreateStoryInput) {
+    const cleanTitle = (input.title ?? "").trim();
+    if (!cleanTitle) {
+      throw new Error("Story title is required before saving or submitting.");
+    }
     await ensureNewsroomSession();
     const payload: Record<string, unknown> = {
-      title: input.title,
+      title: cleanTitle,
       slug: input.slug || null,
       standfirst: input.standfirst || null,
       body: input.body ?? input.bodyHtml ?? input.body_html ?? null,
@@ -138,7 +142,13 @@ export const stagingNewsroomStoryService: NewsroomStoryService = {
     await ensureNewsroomSession();
 
     const p_patch: Record<string, unknown> = {};
-    if (patch.title !== undefined) p_patch.title = patch.title;
+    if (patch.title !== undefined) {
+      const cleanTitle = (patch.title ?? "").trim();
+      if (!cleanTitle) {
+        throw new Error("Story title cannot be empty.");
+      }
+      p_patch.title = cleanTitle;
+    }
     if (patch.slug !== undefined) p_patch.slug = patch.slug;
     if (patch.standfirst !== undefined) p_patch.standfirst = patch.standfirst;
     if (patch.body !== undefined || patch.bodyHtml !== undefined || patch.body_html !== undefined) {

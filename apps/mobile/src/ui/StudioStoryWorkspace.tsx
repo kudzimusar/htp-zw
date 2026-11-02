@@ -61,6 +61,7 @@ export function StudioStoryWorkspace({
 
   // Form Fields
   const [title, setTitle] = useState("");
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
   const [standfirst, setStandfirst] = useState("");
   const [body, setBody] = useState("");
@@ -152,6 +153,7 @@ export function StudioStoryWorkspace({
   const loadStory = async (id: string) => {
     setLoading(true);
     setLoadError(null);
+    setTitleError(null);
     try {
       const data = await services.newsroomStories.getStory(id);
       if (!data) {
@@ -214,6 +216,7 @@ export function StudioStoryWorkspace({
     } else {
       dirtyRevisionRef.current = 0;
       setIsDirty(false);
+      setTitleError(null);
       setSaveStatus("idle");
     }
   }, [storyId]);
@@ -273,6 +276,16 @@ export function StudioStoryWorkspace({
     if (!storyId || isReadOnly) return false;
 
     const isAuto = reason.toLowerCase() === "autosave";
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      if (!isAuto) {
+        setTitleError("Story title is required before saving.");
+        setStatusMessage("Story title is required before saving.");
+        setSaveStatus("error");
+      }
+      return false;
+    }
+
     const savingRevision = dirtyRevisionRef.current;
 
     setSaveStatus(isAuto ? "autosaving" : "saving");
@@ -349,6 +362,16 @@ export function StudioStoryWorkspace({
 
   // User-invoked Save / Create handler
   const handleSave = async (reason = "Manual save") => {
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      setTitleError("Story title is required before saving or submitting.");
+      setStatusMessage("Story title is required before saving or submitting draft.");
+      setSaveStatus("error");
+      setActiveTab("writing");
+      return;
+    }
+    setTitleError(null);
+
     if (!storyId) {
       if (!canCreate) {
         setStatusMessage("Creation authority required: story.create.");
@@ -358,7 +381,7 @@ export function StudioStoryWorkspace({
       setStatusMessage("Creating new story on server…");
       try {
         const createInput: CreateStoryInput = {
-          title: title || "Untitled story",
+          title: cleanTitle,
           slug: slug || null,
           standfirst: standfirst || null,
           body: body || null,
@@ -488,6 +511,13 @@ export function StudioStoryWorkspace({
   // Workflow transition
   const handleTransition = async (nextStatus: string, reason?: string) => {
     if (!storyId) return;
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      setTitleError("Story title is required before transitioning workflow state.");
+      setStatusMessage("Story title is required before transitioning workflow state.");
+      setActiveTab("writing");
+      return;
+    }
     if (nextStatus === "Scheduled") {
       const validSchedule = scheduledAt.trim() !== "" && !Number.isNaN(Date.parse(scheduledAt));
       if (!validSchedule) {
@@ -707,6 +737,8 @@ export function StudioStoryWorkspace({
       statusMessage={statusMessage}
       title={title}
       setTitle={setTitle}
+      titleError={titleError}
+      setTitleError={setTitleError}
       slug={slug}
       setSlug={setSlug}
       standfirst={standfirst}
@@ -813,6 +845,8 @@ export type StudioStoryWorkspaceViewProps = {
   statusMessage: string | null;
   title: string;
   setTitle: (v: string) => void;
+  titleError?: string | null;
+  setTitleError?: (v: string | null) => void;
   slug: string;
   setSlug: (v: string) => void;
   standfirst: string;
@@ -911,6 +945,8 @@ export function StudioStoryWorkspaceView({
   isPreview = false,
   title,
   setTitle,
+  titleError,
+  setTitleError,
   slug,
   setSlug,
   standfirst,
@@ -1046,6 +1082,9 @@ export function StudioStoryWorkspaceView({
               </Pressable>
             ) : (
               <Pressable
+                testID="save-story-button"
+                accessibilityLabel={storyId ? "Save Story" : "Create Story"}
+                accessibilityRole="button"
                 style={[
                   styles.saveButton,
                   loading && styles.disabledButton
@@ -1119,17 +1158,33 @@ export function StudioStoryWorkspaceView({
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Headline / Title *</Text>
             <TextInput
-              style={styles.headlineInput}
+              testID="story-title-input"
+              style={[
+                styles.headlineInput,
+                titleError ? { borderColor: colors.live, borderWidth: 1 } : null
+              ]}
               value={title}
               editable={!isReadOnly}
               onChangeText={(text) => {
                 setTitle(text);
+                if (titleError && text.trim() && setTitleError) setTitleError(null);
                 markDirty();
               }}
               placeholder="Enter comprehensive editorial headline"
               placeholderTextColor={colors.inkMuted}
               accessibilityLabel="Story headline"
+              accessibilityHint={titleError ?? undefined}
             />
+            {titleError ? (
+              <Text
+                testID="story-title-error"
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+                style={{ color: colors.live, fontSize: 13, marginTop: 4, fontWeight: "600" }}
+              >
+                {titleError}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.fieldGroup}>

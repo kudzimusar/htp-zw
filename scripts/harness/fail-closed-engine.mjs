@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 /**
  * Fail-Closed Assertion Engine & Required-Check Contract
  * HealthTimes 2.0 MVP Certification Harness
@@ -223,6 +226,35 @@ export function enforceFailClosedExit(results, options = {}) {
     }
     return 1;
   }
+  console.log('\n[FAIL-CLOSED ENFORCEMENT] All checks verified cleanly.');
+  return 0;
+}
+
+export function writeAndEnforceResults(results, outFilePath, options = {}) {
+  const reconciliation = reconcileFailClosedChecks(results, options);
+
+  if (outFilePath) {
+    try {
+      const dir = path.dirname(outFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(outFilePath, JSON.stringify(results, null, 2), 'utf8');
+      console.log(`\n[FAIL-CLOSED HARNESS] Results record safely persisted to: ${outFilePath}`);
+    } catch (err) {
+      console.error(`[FAIL-CLOSED HARNESS] Failed to persist results JSON to ${outFilePath}:`, err);
+      process.exit(1);
+    }
+  }
+
+  if (!reconciliation.success || (results.failures && results.failures.length > 0)) {
+    console.error(`\n[FAIL-CLOSED ENFORCEMENT] Suite failed with ${results.failures.length} failure(s):`);
+    for (const f of results.failures) {
+      console.error(`  - [${f.check}]: ${f.error}`);
+    }
+    process.exit(1);
+  }
+
   console.log('\n[FAIL-CLOSED ENFORCEMENT] All checks verified cleanly.');
   return 0;
 }

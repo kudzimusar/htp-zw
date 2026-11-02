@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type {
   ArticleSummary,
@@ -165,10 +165,88 @@ function OpportunityLinks({links}:{links:PublicationLink[]}){
   );
 }
 
+function parseFilter(val?: string | string[] | null): HomeFilter | null {
+  if (!val) return null;
+  const s = Array.isArray(val) ? val[0] : val;
+  if (!s || typeof s !== "string") return null;
+  const lower = s.toLowerCase().trim();
+  if (lower === "for-you" || lower === "foryou") return "for-you";
+  if (lower === "latest") return "latest";
+  if (lower === "zimbabwe") return "zimbabwe";
+  if (lower === "world") return "world";
+  if (lower === "premium") return "premium";
+  return null;
+}
+
 export default function HomeScreen() {
-  const router=useRouter();
-  const { palette }=useAppearance();
-  const [activeFilter,setActiveFilter]=useState<HomeFilter>("for-you");
+  const router = useRouter();
+  const params = useLocalSearchParams<{ category?: string; filter?: string }>();
+  const { palette } = useAppearance();
+
+  const getInitialFilter = (): HomeFilter => {
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        const cat = url.searchParams.get("category") || url.searchParams.get("filter");
+        const parsed = parseFilter(cat);
+        if (parsed) return parsed;
+      } catch {
+        // window url parse fallback
+      }
+    }
+    return parseFilter(params.category || params.filter) ?? "for-you";
+  };
+
+  const [activeFilter, setActiveFilter] = useState<HomeFilter>(getInitialFilter);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPopState = () => {
+      try {
+        const url = new URL(window.location.href);
+        const cat = url.searchParams.get("category") || url.searchParams.get("filter");
+        const parsed = parseFilter(cat);
+        setActiveFilter(parsed ?? "for-you");
+      } catch {
+        // popstate fallback
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    const fromParams = parseFilter(params.category || params.filter);
+    if (fromParams && fromParams !== activeFilter) {
+      setActiveFilter(fromParams);
+    } else if (!fromParams && !params.category && !params.filter && activeFilter !== "for-you") {
+      setActiveFilter("for-you");
+    }
+  }, [params.category, params.filter]);
+
+  const handleFilterChange = useCallback((newFilter: HomeFilter) => {
+    if (newFilter === activeFilter) return;
+    setActiveFilter(newFilter);
+    if (typeof window !== "undefined" && window.history) {
+      try {
+        const url = new URL(window.location.href);
+        if (newFilter === "for-you") {
+          url.searchParams.delete("category");
+          url.searchParams.delete("filter");
+        } else {
+          url.searchParams.set("category", newFilter);
+        }
+        window.history.pushState({ category: newFilter }, "", url.toString());
+      } catch {
+        // pushState fallback
+      }
+    }
+    try {
+      router.setParams({ category: newFilter === "for-you" ? "" : newFilter });
+    } catch {
+      // router setParams fallback
+    }
+  }, [activeFilter, router]);
   const home=useAsync(() => services.articles.getHome(), []);
   const live=useAsync(() => services.live.list(), []);
   const video=useAsync(() => services.video.list(), []);
@@ -353,23 +431,26 @@ export default function HomeScreen() {
         showsHorizontalScrollIndicator={false}
         style={styles.editorialFilterRail}
         contentContainerStyle={styles.editorialFilters}
+        accessibilityRole="tablist"
         accessibilityLabel="Editorial filters"
       >
-        {filters.map((item)=>{
-          const active=activeFilter===item.key;
+        {filters.map((item) => {
+          const active = activeFilter === item.key;
           return (
             <Pressable
               key={item.key}
-              accessibilityRole="button"
-              accessibilityLabel={item.label+" Home filter"}
-              accessibilityState={{selected:active}}
-              onPress={()=>setActiveFilter(item.key)}
+              accessibilityRole="tab"
+              accessibilityLabel={item.label + " Home filter"}
+              accessibilityState={{ selected: active }}
+              aria-selected={active}
+              aria-current={active ? "page" : undefined}
+              onPress={() => handleFilterChange(item.key)}
               style={[
                 styles.editorialFilter,
-                {borderBottomColor:active?palette.blue:"transparent"}
+                { borderBottomColor: active ? palette.blue : "transparent" }
               ]}
             >
-              <Text style={[styles.editorialFilterText,{color:active?palette.ink:palette.inkMuted}]}>
+              <Text style={[styles.editorialFilterText, { color: active ? palette.ink : palette.inkMuted }]}>
                 {item.label}
               </Text>
             </Pressable>

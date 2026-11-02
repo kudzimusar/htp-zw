@@ -310,16 +310,16 @@ test('HARNESS: Clean results adhering to contract report success and exit 0', ()
 
 test('HARNESS: Negative child-process execution verifies process exits with code 1 on failed assertion', () => {
   const fixturePath = path.resolve('/tmp/test-fail-closed-fixture.mjs');
+  const outJsonPath = path.resolve('/tmp/test-fail-closed-output.json');
   const fixtureCode = `
-    import { enforceFailClosedExit } from '${path.resolve('scripts/harness/fail-closed-engine.mjs')}';
+    import { writeAndEnforceResults } from '${path.resolve('scripts/harness/fail-closed-engine.mjs')}';
     const failingData = {
       failures: [],
       checks: {
         DEF008: { pass: false, draftCreatedSuccess: false }
       }
     };
-    const code = enforceFailClosedExit(failingData);
-    process.exit(code);
+    writeAndEnforceResults(failingData, '${outJsonPath}');
   `;
   fs.writeFileSync(fixturePath, fixtureCode, 'utf8');
 
@@ -336,4 +336,107 @@ test('HARNESS: Negative child-process execution verifies process exits with code
 
   assert.equal(processExitedWithError, true, 'Process must exit with error code');
   assert.equal(exitStatus, 1, 'Exit code must be exactly 1');
+  assert.ok(fs.existsSync(outJsonPath), 'Results JSON must be written before process exit');
+  const savedData = JSON.parse(fs.readFileSync(outJsonPath, 'utf8'));
+  assert.ok(savedData.failures.length >= 1, 'Saved JSON must contain failure details');
+  fs.unlinkSync(outJsonPath);
+});
+
+test('HARNESS: Child process exits with code 1 on missing required contract check', () => {
+  const fixturePath = path.resolve('/tmp/test-missing-contract-fixture.mjs');
+  const outJsonPath = path.resolve('/tmp/test-missing-contract-output.json');
+  const fixtureCode = `
+    import { writeAndEnforceResults } from '${path.resolve('scripts/harness/fail-closed-engine.mjs')}';
+    const incompleteData = {
+      enforceContract: true,
+      failures: [],
+      checks: {
+        buildInfo: { status: 200, sha: 'test-sha', pass: true }
+      }
+    };
+    writeAndEnforceResults(incompleteData, '${outJsonPath}');
+  `;
+  fs.writeFileSync(fixturePath, fixtureCode, 'utf8');
+
+  let processExitedWithError = false;
+  let exitStatus = null;
+  try {
+    execSync(`node "${fixturePath}"`, { stdio: 'pipe' });
+  } catch (err) {
+    processExitedWithError = true;
+    exitStatus = err.status;
+  } finally {
+    if (fs.existsSync(fixturePath)) fs.unlinkSync(fixturePath);
+  }
+
+  assert.equal(processExitedWithError, true, 'Missing contract check must exit non-zero');
+  assert.equal(exitStatus, 1, 'Exit code must be 1');
+  assert.ok(fs.existsSync(outJsonPath), 'Results JSON must be saved even on contract failure');
+  const savedData = JSON.parse(fs.readFileSync(outJsonPath, 'utf8'));
+  assert.ok(savedData.failures.some(f => f.error.includes('Required check')), 'Must record missing contract check');
+  fs.unlinkSync(outJsonPath);
+});
+
+test('HARNESS: Child process exits with code 1 on malformed check object', () => {
+  const fixturePath = path.resolve('/tmp/test-malformed-fixture.mjs');
+  const outJsonPath = path.resolve('/tmp/test-malformed-output.json');
+  const fixtureCode = `
+    import { writeAndEnforceResults } from '${path.resolve('scripts/harness/fail-closed-engine.mjs')}';
+    const malformedData = {
+      failures: [],
+      checks: {
+        DEF001: null
+      }
+    };
+    writeAndEnforceResults(malformedData, '${outJsonPath}');
+  `;
+  fs.writeFileSync(fixturePath, fixtureCode, 'utf8');
+
+  let processExitedWithError = false;
+  let exitStatus = null;
+  try {
+    execSync(`node "${fixturePath}"`, { stdio: 'pipe' });
+  } catch (err) {
+    processExitedWithError = true;
+    exitStatus = err.status;
+  } finally {
+    if (fs.existsSync(fixturePath)) fs.unlinkSync(fixturePath);
+  }
+
+  assert.equal(processExitedWithError, true, 'Malformed check must exit non-zero');
+  assert.equal(exitStatus, 1, 'Exit code must be 1');
+  assert.ok(fs.existsSync(outJsonPath), 'Results JSON must be saved on malformed response');
+  fs.unlinkSync(outJsonPath);
+});
+
+test('HARNESS: Child process exits with code 1 on teardown session hygiene failure', () => {
+  const fixturePath = path.resolve('/tmp/test-teardown-fixture.mjs');
+  const outJsonPath = path.resolve('/tmp/test-teardown-output.json');
+  const fixtureCode = `
+    import { writeAndEnforceResults } from '${path.resolve('scripts/harness/fail-closed-engine.mjs')}';
+    const teardownFailureData = {
+      failures: [{ check: 'SessionHygieneTeardown', error: 'Unrevoked test session detected post-test' }],
+      checks: {
+        DEF001: { pass: true }
+      }
+    };
+    writeAndEnforceResults(teardownFailureData, '${outJsonPath}');
+  `;
+  fs.writeFileSync(fixturePath, fixtureCode, 'utf8');
+
+  let processExitedWithError = false;
+  let exitStatus = null;
+  try {
+    execSync(`node "${fixturePath}"`, { stdio: 'pipe' });
+  } catch (err) {
+    processExitedWithError = true;
+    exitStatus = err.status;
+  } finally {
+    if (fs.existsSync(fixturePath)) fs.unlinkSync(fixturePath);
+  }
+
+  assert.equal(processExitedWithError, true, 'Teardown failure must exit non-zero');
+  assert.equal(exitStatus, 1, 'Exit code must be 1');
+  assert.ok(fs.existsSync(outJsonPath), 'Results JSON must be saved on teardown failure');
+  fs.unlinkSync(outJsonPath);
 });
