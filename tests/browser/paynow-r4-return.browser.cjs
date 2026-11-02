@@ -35,7 +35,10 @@ const server=http.createServer((req,res)=>{
   const page=await browser.newPage();
   const calls=[];
   try{
-   await page.route('**/api/commerce?action=status**',async route=>{
+   const seen=[];
+   page.on('request',request=>{if(request.url().includes('/api/commerce'))seen.push(request.url());});
+   page.on('pageerror',error=>{seen.push('PAGE_ERROR:'+String(error.message).slice(0,200));});
+   await page.route(url=>url.pathname==='/api/commerce' && url.searchParams.get('action')==='status',async route=>{
     calls.push(route.request().url());
     await route.fulfill({status:response.status||200,contentType:'application/json',
       body:JSON.stringify(response.body||{})});
@@ -43,7 +46,7 @@ const server=http.createServer((req,res)=>{
    await page.goto(origin+'/payment/return?reference='+encodeURIComponent(reference),{waitUntil:'domcontentloaded',timeout:40000});
    try { await page.getByText(expected,{exact:false}).first().waitFor({timeout:12000}); }
    catch (error) {
-     console.error(JSON.stringify({scenario:label,expected,requests:calls,body:(await page.locator('body').innerText()).slice(0,2500),url:page.url()}));
+     console.error(JSON.stringify({scenario:label,expected,requests:calls,seen,body:(await page.locator('body').innerText()).slice(0,2500),url:page.url()}));
      throw error;
    }
    if(button)assert.equal(await page.getByRole('button',{name:button}).count(),1);
