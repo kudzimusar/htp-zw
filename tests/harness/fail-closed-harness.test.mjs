@@ -72,7 +72,15 @@ test('HARNESS: Missing required check fails contract enforcement with exit code 
         futureExposure: 0,
         pass: true
       },
-      DEF014: { telemetryRecorded: true, targetPassed: true, pass: true }
+      DEF014: { telemetryRecorded: true, targetPassed: true, pass: true },
+      sessionHygiene: {
+        preTestLiveVerified: true,
+        postTestLiveVerified: true,
+        testNewsroomSessionsPost: 0,
+        ownerNewsroomSessionsPreserved: 15,
+        activeOwnerTokensPreserved: 2,
+        pass: true
+      }
     }
   };
 
@@ -294,6 +302,14 @@ test('HARNESS: Clean results adhering to contract report success and exit 0', ()
         telemetryRecorded: true,
         targetPassed: true,
         pass: true
+      },
+      sessionHygiene: {
+        preTestLiveVerified: true,
+        postTestLiveVerified: true,
+        testNewsroomSessionsPost: 0,
+        ownerNewsroomSessionsPreserved: 15,
+        activeOwnerTokensPreserved: 2,
+        pass: true
       }
     }
   };
@@ -439,4 +455,60 @@ test('HARNESS: Child process exits with code 1 on teardown session hygiene failu
   assert.equal(exitStatus, 1, 'Exit code must be 1');
   assert.ok(fs.existsSync(outJsonPath), 'Results JSON must be saved on teardown failure');
   fs.unlinkSync(outJsonPath);
+});
+
+test('HARNESS: Session hygiene sub-checks fail closed on violation', () => {
+  // Test unrevoked sessions failure
+  const unrevokedSessions = {
+    failures: [],
+    checks: {
+      sessionHygiene: {
+        preTestLiveVerified: true,
+        postTestLiveVerified: true,
+        testNewsroomSessionsPost: 2, // VIOLATION: > 0
+        ownerNewsroomSessionsPreserved: 15,
+        activeOwnerTokensPreserved: 2,
+        pass: false
+      }
+    }
+  };
+  const unrevokedOutcome = reconcileFailClosedChecks(unrevokedSessions);
+  assert.equal(unrevokedOutcome.success, false);
+  assert.ok(unrevokedSessions.failures.some(f => f.check === 'sessionHygiene_UnrevokedTestSessions'));
+
+  // Test owner sessions altered
+  const ownerAltered = {
+    failures: [],
+    checks: {
+      sessionHygiene: {
+        preTestLiveVerified: true,
+        postTestLiveVerified: true,
+        testNewsroomSessionsPost: 0,
+        ownerNewsroomSessionsPreserved: 14, // VIOLATION: !== 15
+        activeOwnerTokensPreserved: 2,
+        pass: false
+      }
+    }
+  };
+  const ownerOutcome = reconcileFailClosedChecks(ownerAltered);
+  assert.equal(ownerOutcome.success, false);
+  assert.ok(ownerAltered.failures.some(f => f.check === 'sessionHygiene_OwnerSessionsAltered'));
+
+  // Test owner refresh tokens compromised
+  const tokensCompromised = {
+    failures: [],
+    checks: {
+      sessionHygiene: {
+        preTestLiveVerified: true,
+        postTestLiveVerified: true,
+        testNewsroomSessionsPost: 0,
+        ownerNewsroomSessionsPreserved: 15,
+        activeOwnerTokensPreserved: 0, // VIOLATION: < 2
+        pass: false
+      }
+    }
+  };
+  const tokenOutcome = reconcileFailClosedChecks(tokensCompromised);
+  assert.equal(tokenOutcome.success, false);
+  assert.ok(tokensCompromised.failures.some(f => f.check === 'sessionHygiene_OwnerTokensRevoked'));
 });

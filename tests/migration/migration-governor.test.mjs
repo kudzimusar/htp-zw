@@ -24,9 +24,9 @@ test("GOVERNOR: Approved manifest passes read-only immutability verification", (
   assert.equal(result, true);
 });
 
-test("GOVERNOR: All 111 migrations in repository are strictly classified with zero unreviewed files", () => {
+test("GOVERNOR: All 112 migrations in repository are strictly classified with zero unreviewed files", () => {
   const catalog = scanMigrationCatalog();
-  assert.equal(catalog.length, 111);
+  assert.equal(catalog.length, 112);
   for (const item of catalog) {
     assert.notEqual(item.classification, "UNKNOWN");
     assert.match(item.classification, /^(CANONICAL_BASELINE|CANONICAL_COMMERCIAL_DDL|CANONICAL_READER_DDL|STAGING_ONLY_UAT_RECONCILIATION_QUARANTINED)$/);
@@ -36,7 +36,7 @@ test("GOVERNOR: All 111 migrations in repository are strictly classified with ze
 test("GOVERNOR: Production migration plan strictly excludes quarantined staging UAT migrations", () => {
   const prodPlan = buildMigrationPlan("production");
   assert.equal(prodPlan.target, "production");
-  assert.equal(prodPlan.totalMigrations, 109);
+  assert.equal(prodPlan.totalMigrations, 110);
   assert.equal(prodPlan.exclusionEnforced, true);
   assert.equal(prodPlan.productionSafe, true);
 

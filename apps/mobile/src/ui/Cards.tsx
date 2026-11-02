@@ -48,6 +48,7 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
       accessibilityRole="link"
       accessibilityLabel={story.title}
       accessibilityHint="Opens the full HealthTimes article"
+      {...({ href: `/article/${story.id}` } as any)}
       style={[
         styles.hero,
         {borderBottomColor:palette.border},
@@ -57,7 +58,10 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         !hasMedia && desktop && styles.heroTextOnlyDesktop,
         hasMedia && shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
-      onPress={() => router.push(("/article/" + story.id) as never)}
+      onPress={(e: any) => {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        router.push(("/article/" + story.id) as never);
+      }}
     >
       {mediaUrl && mediaState!=="failed" ? (
         <Image
@@ -128,8 +132,12 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
       accessibilityRole="link"
       accessibilityLabel={story.title}
       accessibilityHint="Opens the full HealthTimes article"
+      {...({ href: `/article/${story.id}` } as any)}
       style={[styles.storyCard,{borderBottomColor:palette.border}, compact && styles.storyCompact]}
-      onPress={() => router.push(("/article/" + story.id) as never)}
+      onPress={(e: any) => {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        router.push(("/article/" + story.id) as never);
+      }}
     >
       {story.heroMedia?.publicUrl ? (
         <Image
@@ -506,7 +514,7 @@ export function AdSlot({
     );
   }
 
-  if(adDecision.source === "none" || !adDecision.creativeUrl) return null;
+  if(!adDecision || adDecision.source === "none" || !adDecision.creativeUrl) return null;
 
   const destination=adDecision.destinationUrl?.trim() ?? "";
   const clickable=/^https:\/\//i.test(destination);

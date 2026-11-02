@@ -81,6 +81,22 @@ export const REQUIRED_CHECKS_CONTRACT = {
   DEF014: {
     requiredProps: ['telemetryRecorded', 'targetPassed', 'pass'],
     validator: (c) => c.telemetryRecorded === true && c.targetPassed === true
+  },
+  sessionHygiene: {
+    requiredProps: [
+      'preTestLiveVerified',
+      'postTestLiveVerified',
+      'testNewsroomSessionsPost',
+      'ownerNewsroomSessionsPreserved',
+      'activeOwnerTokensPreserved',
+      'pass'
+    ],
+    validator: (c) =>
+      c.preTestLiveVerified === true &&
+      c.postTestLiveVerified === true &&
+      c.testNewsroomSessionsPost === 0 &&
+      c.ownerNewsroomSessionsPreserved === 15 &&
+      c.activeOwnerTokensPreserved >= 2
   }
 };
 
@@ -180,6 +196,26 @@ export function reconcileFailClosedChecks(results, options = {}) {
 
     if (checkVal.desktopClsPass === false) {
       addFailure(`${checkKey}_DesktopCLS`, `Fail-Closed Reconciler: sub-check "${checkKey}.desktopClsPass" is false`);
+    }
+
+    if (checkVal.preTestLiveVerified === false) {
+      addFailure(`${checkKey}_PreTestLiveVerified`, `Fail-Closed Reconciler: sub-check "${checkKey}.preTestLiveVerified" is false`);
+    }
+
+    if (checkVal.postTestLiveVerified === false) {
+      addFailure(`${checkKey}_PostTestLiveVerified`, `Fail-Closed Reconciler: sub-check "${checkKey}.postTestLiveVerified" is false`);
+    }
+
+    if (typeof checkVal.testNewsroomSessionsPost === 'number' && checkVal.testNewsroomSessionsPost > 0) {
+      addFailure(`${checkKey}_UnrevokedTestSessions`, `Fail-Closed Reconciler: testNewsroomSessionsPost is ${checkVal.testNewsroomSessionsPost} (expected 0)`);
+    }
+
+    if (typeof checkVal.ownerNewsroomSessionsPreserved === 'number' && checkVal.ownerNewsroomSessionsPreserved !== 15) {
+      addFailure(`${checkKey}_OwnerSessionsAltered`, `Fail-Closed Reconciler: ownerNewsroomSessionsPreserved is ${checkVal.ownerNewsroomSessionsPreserved} (expected 15)`);
+    }
+
+    if (typeof checkVal.activeOwnerTokensPreserved === 'number' && checkVal.activeOwnerTokensPreserved < 2) {
+      addFailure(`${checkKey}_OwnerTokensRevoked`, `Fail-Closed Reconciler: activeOwnerTokensPreserved is ${checkVal.activeOwnerTokensPreserved} (expected >= 2)`);
     }
   }
 

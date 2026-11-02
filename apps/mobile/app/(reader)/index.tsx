@@ -240,11 +240,12 @@ export default function HomeScreen() {
       } catch {
         // pushState fallback
       }
-    }
-    try {
-      router.setParams({ category: newFilter === "for-you" ? "" : newFilter });
-    } catch {
-      // router setParams fallback
+    } else {
+      try {
+        router.setParams({ category: newFilter === "for-you" ? "" : newFilter });
+      } catch {
+        // router setParams fallback
+      }
     }
   }, [activeFilter, router]);
   const home=useAsync(() => services.articles.getHome(), []);
@@ -444,7 +445,10 @@ export default function HomeScreen() {
               accessibilityState={{ selected: active }}
               aria-selected={active}
               aria-current={active ? "page" : undefined}
-              onPress={() => handleFilterChange(item.key)}
+              onPress={() => {
+                setActiveFilter(item.key);
+                handleFilterChange(item.key);
+              }}
               style={[
                 styles.editorialFilter,
                 { borderBottomColor: active ? palette.blue : "transparent" }

@@ -51,7 +51,8 @@ export const CANONICAL_COMMERCIAL_DDL_SEQUENCE = [
 ];
 
 export const CANONICAL_READER_DDL_SEQUENCE = [
-  "20261101210000_ht_mvp_r3_public_feed_documents.sql"
+  "20261101210000_ht_mvp_r3_public_feed_documents.sql",
+  "20261102160000_ht_mvp_r3_story_title_authority.sql"
 ];
 
 // Staging schema_migrations ledger timestamp to file mapping
@@ -65,7 +66,8 @@ export const STAGING_LEDGER_VERSION_MAP = {
   "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql": "20261029131047",
   "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql": "20261029142840",
   "20261030100000_ht_mvp_rel_com01_production_migration_safety.sql": "20261030001134",
-  "20261101210000_ht_mvp_r3_public_feed_documents.sql": "20261101210000"
+  "20261101210000_ht_mvp_r3_public_feed_documents.sql": "20261101210000",
+  "20261102160000_ht_mvp_r3_story_title_authority.sql": "20261102160000"
 };
 
 // Destination Allowlist independent of caller request
