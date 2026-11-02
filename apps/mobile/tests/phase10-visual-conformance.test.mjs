@@ -28,11 +28,16 @@ test("Phase 10 Home hydration keeps React Hook order stable",()=>{
 });
 
 test("Phase 10 responsive shell hydrates deterministically before viewport structural changes",()=>{
-  assert.match(tabs,/useState\(Platform\.OS!==["']web["']\)/);
-  assert.match(tabs,/responsiveReady && width >= breakpoints\.desktop/);
+  // True SSR/first-client parity is a deterministic webWidth=null, then
+  // window.innerWidth applied only in an effect. The old string-only test
+  // expected an implementation that is no longer authoritative.
+  assert.match(tabs,/useState<number\|null>\(null\)/);
+  assert.match(tabs,/setWebWidth\(window\.innerWidth\)/);
+  assert.match(tabs,/webWidth!==null && webWidth >= breakpoints\.desktop/);
   assert.match(tabs,/tabBar=\{desktop \? \(\) => null : undefined\}/);
   assert.match(layout,/function useHydratedWindowWidth\(\)/);
-  assert.match(layout,/return responsiveReady \? width : 0/);
+  assert.match(layout,/if \(!hydrated\) return 1200/);
+  assert.match(layout,/window\.innerWidth/);
   assert.match(tabs,/Home/);
   assert.match(tabs,/Explore/);
   assert.match(tabs,/Live/);
@@ -47,8 +52,8 @@ test("Phase 10 Studio shell defers responsive structural changes until after web
   assert.match(studio,/function useHydratedStudioWidth\(\)/);
   assert.match(studio,/return responsiveReady \? width : 0/);
   assert.match(studio,/const desktop=width>=breakpoints\.tablet/);
-  assert.match(studio,/desktop && <View style=\{styles\.sidebar\}/);
-  assert.match(studio,/!desktop && <ScrollView horizontal/);
+  assert.match(studio,/\{desktop && \(\s*<View style=\{\[styles\.sidebar/);
+  assert.match(studio,/<Modal visible=\{isMobileDrawerOpen\}/);
 });
 
 test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
