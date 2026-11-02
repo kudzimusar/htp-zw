@@ -47,6 +47,9 @@ test('USD Premium product remains canonical and TEST credentials never activate 
 
 test('LIVE mode never falls back to TEST secrets or Staging, requires every approval and segregated identity',()=>{
  assert.equal(runtime.config({...base,PAYNOW_MODE:'live'}).credentialsPresent,false);
+ assert.equal(runtime.config({...base,SUPABASE_URL:'https://untrusted.supabase.co'}).ready,false);
+ assert.equal(runtime.config({...liveEnv,PAYNOW_LIVE_INTEGRATION_ID:base.PAYNOW_INTEGRATION_ID}).ready,false);
+ assert.equal(runtime.config({...liveEnv,PAYNOW_LIVE_INTEGRATION_KEY:base.PAYNOW_INTEGRATION_KEY}).ready,false);
  assert.equal(runtime.config({...liveEnv, PAYNOW_LIVE_FINANCE_APPROVED:'0'}).ready,false);
  assert.equal(runtime.config({...liveEnv, SUPABASE_URL:base.SUPABASE_URL}).ready,false);
  assert.equal(runtime.config({...liveEnv, PAYNOW_LIVE_CALLBACK_URL:'https://attacker.example/callback'}).ready,false);
