@@ -58,7 +58,10 @@ export function HeroStory({ story }: { story: ArticleSummary }) {
         !hasMedia && desktop && styles.heroTextOnlyDesktop,
         hasMedia && shortTabletLandscape && styles.heroShortTabletLandscape
       ]}
-      onPress={() => router.push(("/article/" + story.id) as never)}
+      onPress={(e: any) => {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        router.push(("/article/" + story.id) as never);
+      }}
     >
       {mediaUrl && mediaState!=="failed" ? (
         <Image
@@ -131,7 +134,10 @@ export function StoryCard({ story, compact = false }: { story: ArticleSummary; c
       accessibilityHint="Opens the full HealthTimes article"
       {...({ href: `/article/${story.id}` } as any)}
       style={[styles.storyCard,{borderBottomColor:palette.border}, compact && styles.storyCompact]}
-      onPress={() => router.push(("/article/" + story.id) as never)}
+      onPress={(e: any) => {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        router.push(("/article/" + story.id) as never);
+      }}
     >
       {story.heroMedia?.publicUrl ? (
         <Image
