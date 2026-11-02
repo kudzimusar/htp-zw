@@ -25,6 +25,8 @@ jobs:
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Parse-check the gated physical fault suite without running live sessions
+        run: node --check tests/harness/icr05a-fault-injection.test.mjs
       - name: Run 10 ICR05A consistency and 12 ICR05B session negative-path checks
         shell: bash
         run: |
@@ -66,6 +68,14 @@ jobs:
             echo "::error title=BLOCKED_OWNER_UAT_CREDENTIALS::ICR05A live session test cannot run without Owner-authorized test identities and a Staging audit token."
             exit 78
           }
+          node - <<'NODE'
+          const actors=JSON.parse(process.env.UAT_ACTORS_JSON || '{}');
+          const emails=['uat-specialist@healthtimes.test','uat-commercial@healthtimes.test'];
+          if(emails.some(email=>!actors[email]||actors[email].email!==email||typeof actors[email].password!=='string'||!actors[email].password)){
+            console.error('BLOCKED_OWNER_UAT_CREDENTIALS: both distinct real test actors and passwords required');
+            process.exit(78);
+          }
+          NODE
           mkdir -p "$HOME/.healthtimes-secrets"
           chmod 700 "$HOME/.healthtimes-secrets"
           printf '%s' "$UAT_ACTORS_JSON" > "$HOME/.healthtimes-secrets/test-actors.json"

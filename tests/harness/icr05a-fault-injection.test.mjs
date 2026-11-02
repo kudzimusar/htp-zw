@@ -25,6 +25,7 @@ import {
   trackExactSession,
   beginExactSessionRun,
   clearTrackedSessions,
+  getTrackedSessions,
   revokeExactSession
 } from '../../scripts/session-authority.mjs';
 
@@ -34,7 +35,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const actorsPath = path.join(os.homedir(), '.healthtimes-secrets', 'test-actors.json');
 const actors = fs.existsSync(actorsPath) ? JSON.parse(fs.readFileSync(actorsPath, 'utf8')) : {};
 const commercialActor = actors['uat-commercial@healthtimes.test'] || { email: 'uat-commercial@healthtimes.test', password: '' };
-const specialistActor = { email: 'uat-specialist@healthtimes.test', password: commercialActor.password };
+const specialistActor = actors['uat-specialist@healthtimes.test'] || { email: 'uat-specialist@healthtimes.test', password: '' };
 
 // ----------------------------------------------------
 // TEST 1-5: AUDIT LEAST PRIVILEGE & TEMPLATE ENFORCEMENT
@@ -103,11 +104,14 @@ test('FAULT INJECTION: Mutating function simulation in SELECT is absent from all
 // ----------------------------------------------------
 
 test('FAULT INJECTION: trackExactSession strictly rejects null or empty provider_session_id', () => {
+  const testRunId=randomUUID();
+  beginExactSessionRun(testRunId);
   assert.throws(
     () => {
       trackExactSession({
         email: specialistActor.email,
         staffProfileId: UAT_STAFF_MAP[specialistActor.email].staffProfileId,
+        testRunId,
         providerSessionId: null
       });
     },
@@ -119,6 +123,7 @@ test('FAULT INJECTION: trackExactSession strictly rejects null or empty provider
       trackExactSession({
         email: specialistActor.email,
         staffProfileId: UAT_STAFF_MAP[specialistActor.email].staffProfileId,
+        testRunId,
         providerSessionId: ''
       });
     },
@@ -172,6 +177,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   const staffProfileId = UAT_STAFF_MAP[email].staffProfileId;
   const testRunId = randomUUID();
   beginExactSessionRun(testRunId);
+  try {
 
   // 1. Establish Session A
   const resA = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -187,7 +193,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   trackExactSession({ email, staffProfileId, authUserId:payloadA.sub, providerSessionId:sessionAId, testRunId, accessToken:dataA.access_token });
 
   // Register Session A in newsroom_sessions via RPC
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
+  const registeredA = await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_ANON_KEY,
@@ -196,6 +202,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     },
     body: JSON.stringify({ p_user_agent: 'HT-Test-Session-A' })
   });
+  assert.ok(registeredA.ok,'Session A registration must succeed before revocation');
 
   // 2. Establish Session B concurrently
   const resB = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -212,7 +219,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   trackExactSession({ email, staffProfileId, authUserId:payloadB.sub, providerSessionId:sessionBId, testRunId, accessToken:dataB.access_token });
 
   // Register Session B in newsroom_sessions via RPC
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
+  const registeredB = await fetch(`${SUPABASE_URL}/rest/v1/rpc/newsroom_register_session`, {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_ANON_KEY,
@@ -221,6 +228,7 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
     },
     body: JSON.stringify({ p_user_agent: 'HT-Test-Session-B' })
   });
+  assert.ok(registeredB.ok,'Session B registration must succeed before revocation');
 
   // 3. Revoke ONLY Session A with exact sessionAId
   const resultA = await revokeExactSession({
@@ -278,6 +286,27 @@ test('EXACT SESSION SECURITY: Concurrent unrelated sessions for same UAT actor r
   });
   const finalCount = (await finalCheckRes.json())[0].count;
   assert.equal(finalCount, 0, 'All test sessions must be cleanly revoked with zero leakage');
+  } finally {
+    // Scope failure cleanup to IDs created and registered in THIS test run.
+    // Never use null sentinels, a staff-wide revoke or an Owner identity.
+    let cleanupError=null;
+    for (const rec of getTrackedSessions()) {
+      if (rec.testRunId !== testRunId) continue;
+      try {
+        const result=await revokeExactSession({
+          supabaseUrl:SUPABASE_URL,anonKey:SUPABASE_ANON_KEY,
+          email:rec.email,staffProfileId:rec.staffProfileId,
+          authUserId:rec.authUserId,providerSessionId:rec.providerSessionId,
+          testRunId
+        });
+        assert.equal(result.revokedCount,1,'Cleanup must revoke exactly one tracked session');
+      } catch(error) {
+        cleanupError ||= new Error('FAIL_CLOSED_EXACT_SESSION_CLEANUP: '+String(error));
+      }
+    }
+    clearTrackedSessions();
+    if(cleanupError) throw cleanupError;
+  }
 });
 
 // ----------------------------------------------------
