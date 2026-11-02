@@ -126,7 +126,7 @@ test('TEST signed status readback is never reported as verified monetary payment
   assert.equal(result.payment_verified,false);
   assert.equal(result.test_outcome,'TEST_SIMULATED_PAID');
   assert.equal(result.entitlement_granted,false);
-  assert.equal(queries.length,2);
+  assert.equal(queries.length,3); // ownership lookup, privileged status, simulator evidence
  } finally {globalThis.fetch=old;}
 });
 
