@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const paynow = require('../lib/paynow-runtime');
+const { enforceSharedLimit } = require('../lib/paynow-distributed-rate');
 const {
   COMMERCE_CAPABILITY_VERSION,
   CANONICAL_PREMIUM_PLAN,
@@ -11,7 +12,6 @@ const {
 
 const COOKIE_ACCESS = 'htp_nr_access';
 const COOKIE_CSRF = 'htp_nr_csrf';
-const rate = globalThis.__HTP_PAYNOW_RATE__ || (globalThis.__HTP_PAYNOW_RATE__ = new Map());
 
 function send(res, status, value) {
   res.statusCode = status;
@@ -50,14 +50,21 @@ function validCsrf(req) {
   return same(jar[COOKIE_CSRF], req.headers['x-htp-csrf']);
 }
 
-function allowed(req, action, limit = 12, windowMs = 60_000) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].slice(0, 80);
-  const key = `${ip}:${action}`;
-  const now = Date.now();
-  const row = rate.get(key);
-  if (!row || now - row.start > windowMs) { rate.set(key, { start: now, count: 1 }); return true; }
-  row.count += 1;
-  return row.count <= limit;
+async function rateGate(req,res,action,limit,windowSeconds){
+  try{
+    const result=await enforceSharedLimit(req,action,limit,windowSeconds);
+    if(!result.allowed){
+      res.setHeader('Retry-After',String(result.retry_after_seconds||1));
+      send(res,429,{error:'RATE_LIMITED',entitlementGranted:false});
+      return false;
+    }
+    return true;
+  }catch{
+    // No shared database RPC, untrusted Vercel IP or missing server-only HMAC
+    // means no safe rate authority. NEVER fall back to an instance-local Map.
+    send(res,503,{error:'RATE_CONTROL_UNAVAILABLE',entitlementGranted:false});
+    return false;
+  }
 }
 
 function requestOrigin(req) {
@@ -119,7 +126,6 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       if (action === 'status') {
-        if (!allowed(req, 'status', 60)) return send(res, 429, { error: 'RATE_LIMITED' });
         // A merchant reference is NOT an authorization token. Only the
         // authenticated owning subscriber or a separately authorized TEST
         // operator may read this privileged status projection.
@@ -130,6 +136,7 @@ module.exports = async function handler(req, res) {
         if (!testOperator && !accessToken) {
           return send(res, 401, { error: 'AUTHENTICATION_REQUIRED' });
         }
+        if(!await rateGate(req,res,'status',60,60)) return;
         return send(res, 200, await paynow.transactionStatus(
           String(url.searchParams.get('reference') || ''),
           process.env, { accessToken, operatorAuthorized: testOperator }
@@ -142,8 +149,8 @@ module.exports = async function handler(req, res) {
 
     if (action === 'internal-test-poll') {
       if (String(process.env.PAYNOW_INTERNAL_POLL_TOKEN || '').length < 32 ||
-          !same(req.headers['x-healthtimes-internal-poll'], process.env.PAYNOW_INTERNAL_POLL_TOKEN) ||
-          !allowed(req, 'internal-test-poll', 60)) return send(res, 403, { error: 'INTERNAL_POLL_AUTHORITY_REQUIRED' });
+          !same(req.headers['x-healthtimes-internal-poll'], process.env.PAYNOW_INTERNAL_POLL_TOKEN)) return send(res, 403, { error: 'INTERNAL_POLL_AUTHORITY_REQUIRED' });
+      if(!await rateGate(req,res,'internal-test-poll',60,60)) return;
       const input = await body(req);
       const parsed = typeof input === 'string' && input ? JSON.parse(input) : input;
       if (!parsed || Object.keys(parsed).length !== 1 || typeof parsed.reference !== 'string') {
@@ -153,17 +160,18 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'callback' || action === 'webhook') {
-      if (!allowed(req, 'callback', 120)) return send(res, 429, { error: 'RATE_LIMITED' });
+      // Do not let an IP bucket suppress genuine Paynow callback retries:
+      // acceptCallback cryptographically verifies signed callback and fresh poll.
       const result = await paynow.acceptCallback(await body(req));
       return send(res, 200, { received: true, accepted: result.accepted, duplicate: result.duplicate === true });
     }
 
     if (action === 'connectivity') {
       if (!same(req.headers['x-healthtimes-unit'], paynow.UNIT_ID) ||
-          !same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN) ||
-          !allowed(req, 'connectivity', 8, 300_000)) {
+          !same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN)) {
         return send(res, 403, { error: 'CONNECTIVITY_AUTHORITY_REQUIRED' });
       }
+      if(!await rateGate(req,res,'connectivity',8,300)) return;
       const input = await body(req);
       const parsed = typeof input === 'string' && input ? JSON.parse(input) : input;
       return send(res, 200, await paynow.initiateConnectivity({
@@ -174,11 +182,12 @@ module.exports = async function handler(req, res) {
     if (action === 'poll') {
       if (!same(req.headers['x-healthtimes-unit'], paynow.UNIT_ID) ||
           !same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN) ||
-          !allowed(req, 'poll', 20)) {
+          false) {
         return send(res, 403, { error: 'POLL_AUTHORITY_REQUIRED' });
       }
       const input = await body(req);
       const reference = typeof input === 'string' ? JSON.parse(input).reference : input?.reference;
+      if(!await rateGate(req,res,'poll',20,60)) return;
       return send(res, 200, await paynow.pollByReference(String(reference || '')));
     }
 
@@ -189,11 +198,12 @@ module.exports = async function handler(req, res) {
           cfg.supabaseUrl !== 'https://bzuvntbkevvuhfhqhkua.supabase.co' ||
           !same(req.headers['x-healthtimes-unit'], paynow.UNIT_ID) ||
           !same(req.headers['x-healthtimes-operator'], process.env.PAYNOW_TEST_OPERATOR_TOKEN) ||
-          !validCsrf(req) || !allowed(req, 'test-premium', 4, 300_000)) {
+          !validCsrf(req)) {
         return send(res, 403, { error: 'TEST_PREMIUM_OPERATOR_AUTHORITY_REQUIRED', entitlementGranted: false });
       }
       const input = await body(req);
       const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+      if(!await rateGate(req,res,'test-premium',4,300)) return;
       const result = await paynow.initiatePremium({
         origin: requestOrigin(req), accessToken: cookies(req)[COOKIE_ACCESS],
         idempotencyKey: String(parsed?.idempotencyKey || '')
@@ -214,11 +224,12 @@ module.exports = async function handler(req, res) {
         status: 'configuration-required', checkoutUrl: null, entitlementGranted: false,
         providerReadiness: readiness
       });
-      if (!validCsrf(req) || !allowed(req, 'checkout', 8, 300_000)) {
+      if (!validCsrf(req)) {
         return send(res, 403, { status: 'unavailable', checkoutUrl: null, entitlementGranted: false });
       }
       const input = await body(req);
       const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+      if(!await rateGate(req,res,'checkout',8,300)) return;
       const result = await paynow.initiatePremium({
         origin: requestOrigin(req), accessToken: cookies(req)[COOKIE_ACCESS],
         idempotencyKey: String(parsed?.idempotencyKey || '')
@@ -239,4 +250,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._internals = { cookies, validCsrf, allowed, requestOrigin, publicAuthority, safeError };
+module.exports._internals = { cookies, validCsrf, rateGate, requestOrigin, publicAuthority, safeError };
