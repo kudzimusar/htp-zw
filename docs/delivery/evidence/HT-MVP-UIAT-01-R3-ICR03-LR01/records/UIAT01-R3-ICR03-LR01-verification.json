@@ -1,0 +1,658 @@
+{
+  "timestamp": "2026-11-02T07:20:55.594Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR03-LR01",
+  "previewUrl": "https://healthtimes-staging-b8namgenu-11-11.vercel.app",
+  "previewDeploymentId": "dpl_4zNzqAFPwkC2NUgnho9MGDxBX2F3",
+  "expectedSha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+  "enforceContract": true,
+  "sessionHygiene": {
+    "preTest": {
+      "retrievedAt": "2026-11-02T07:20:55.594Z",
+      "source": "supabase_staging_direct_sql",
+      "queries": {
+        "newsroomSessions": "select sp.email, count(*) from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "authSessions": "select u.email, count(*) from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "refreshTokens": "select u.email, count(*) from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;"
+      },
+      "status": "VALID",
+      "testNewsroomSessions": 0,
+      "testUnrevokedTokens": 0,
+      "ownerNewsroomSessions": 15,
+      "ownerAuthSessions": 2,
+      "ownerUnrevokedTokens": 2,
+      "activeOwners": {
+        "kudzimusar@gmail.com": {
+          "newsroomSessions": 15,
+          "authSessions": 2,
+          "refreshTokens": 2
+        }
+      }
+    },
+    "postTest": {
+      "retrievedAt": "2026-11-02T07:22:45.144Z",
+      "source": "supabase_staging_direct_sql",
+      "queries": {
+        "newsroomSessions": "select sp.email, count(*) from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "authSessions": "select u.email, count(*) from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "refreshTokens": "select u.email, count(*) from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;"
+      },
+      "status": "VALID",
+      "testNewsroomSessions": 0,
+      "testUnrevokedTokens": 0,
+      "ownerNewsroomSessions": 15,
+      "ownerAuthSessions": 2,
+      "ownerUnrevokedTokens": 2,
+      "activeOwners": {
+        "kudzimusar@gmail.com": {
+          "newsroomSessions": 15,
+          "authSessions": 2,
+          "refreshTokens": 2
+        }
+      }
+    }
+  },
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+      "presentation": "apps/mobile",
+      "serviceMode": "staging",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugMatch": true,
+      "reloadSurvives": true,
+      "pass": true
+    },
+    "DEF013": {
+      "themeMatrix": [
+        {
+          "surface": "Reader Home (Desktop Light)",
+          "effectiveBg": "rgb(255, 255, 255)",
+          "headingColor": "rgb(11, 31, 51)",
+          "headingRatio": 16.69,
+          "bodyColor": "rgb(91, 103, 118)",
+          "bodyRatio": 5.76,
+          "requiredMin": 4.5,
+          "compliant": true
+        },
+        {
+          "surface": "Reader Home (Desktop Dark)",
+          "effectiveBg": "rgb(11, 22, 34)",
+          "headingColor": "rgb(243, 247, 250)",
+          "headingRatio": 16.92,
+          "bodyColor": "rgb(169, 183, 197)",
+          "bodyRatio": 8.91,
+          "requiredMin": 4.5,
+          "compliant": true
+        },
+        {
+          "surface": "Premium Hub (Desktop Dark)",
+          "effectiveBg": "rgb(11, 22, 34)",
+          "headingColor": "rgb(230, 193, 106)",
+          "headingRatio": 10.59,
+          "bodyColor": "rgb(169, 183, 197)",
+          "bodyRatio": 8.91,
+          "requiredMin": 4.5,
+          "compliant": true
+        }
+      ],
+      "premiumDarkHeadingPass": true,
+      "premiumDarkBodyPass": true,
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "reloadSurvives": true,
+      "storageAudit": {
+        "hasSavedKey": true,
+        "savedCount": 1,
+        "downloadsCount": 1,
+        "firstSavedId": "uat04b-test-story-001"
+      },
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "noticeVisible": true,
+      "hasDeferredBadge": true,
+      "scheduleDisabled": true,
+      "draftCreatedSuccess": true,
+      "dbRowValid": true,
+      "broadcastId": "79a0cab6-feb7-4c7d-be50-727fd8ed9c58",
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "discoveryAndSecurity": {
+      "searchSamples": [
+        {
+          "attempt": 1,
+          "query": "Cervical",
+          "returnedStoryTitle": "WHO Donates US$350,000 Cervical Cancer, Cholera Equipment to Zimbabwe",
+          "returnedHref": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "networkRequests": 39,
+          "durationMs": 2213,
+          "cacheState": "cold",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 2,
+          "query": "Lenacapavir",
+          "returnedStoryTitle": "Zimbabwe Puts Communities at the Heart of HIV Prevention as It Shapes PrEP Choice and Lenacapavir Rollout",
+          "returnedHref": "/article/zimbabwe-community-led-hiv-prevention-prep-choice-lenacapavir",
+          "networkRequests": 28,
+          "durationMs": 876,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 3,
+          "query": "Cervical",
+          "returnedStoryTitle": "WHO Donates US$350,000 Cervical Cancer, Cholera Equipment to Zimbabwe",
+          "returnedHref": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "networkRequests": 27,
+          "durationMs": 1390,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 4,
+          "query": "Cancer",
+          "returnedStoryTitle": "WHO Donates US$350,000 Cervical Cancer, Cholera Equipment to Zimbabwe",
+          "returnedHref": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "networkRequests": 12,
+          "durationMs": 870,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 5,
+          "query": "Health",
+          "returnedStoryTitle": "Zimbabwe Moves Towards Dedicated Menstrual Health Policy and Law",
+          "returnedHref": "/article/zimbabwe-moves-towards-dedicated-menstrual-health-policy-and-law",
+          "networkRequests": 12,
+          "durationMs": 770,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        }
+      ],
+      "searchSummary": {
+        "sampleCount": 5,
+        "minMs": 770,
+        "medianMs": 876,
+        "p75Ms": 1390,
+        "maxMs": 2213,
+        "coldDurationMs": 2213,
+        "slaTargetMs": 2500,
+        "perAttemptPassCount": 5,
+        "p75Pass": true,
+        "coldOutlierBreached": false
+      },
+      "searchDuration": 1390,
+      "foundRank51Story": true,
+      "foundPublicStory": true,
+      "negativeSearchPass": true,
+      "negativeArticleCardsCount": 0,
+      "searchNavPass": true,
+      "rpcStatus": 200,
+      "premiumBodyLeaks": 0,
+      "draftExposure": 0,
+      "futureExposure": 0,
+      "futureAdversarialFixtureStatus": "BLOCKED_NO_FUTURE_FIXTURE_IN_STAGING_DB",
+      "pass": true
+    },
+    "DEF014": {
+      "telemetryRecorded": true,
+      "targetPassed": true,
+      "desktopWarm": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1820,
+            "cls": 0,
+            "ttfb": 70,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 514,
+            "wallTime": 2002,
+            "lcpEntries": [
+              {
+                "startTime": 252,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1820,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 2,
+            "lcp": 1184,
+            "cls": 0.001,
+            "ttfb": 52,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 208,
+            "wallTime": 1458,
+            "lcpEntries": [
+              {
+                "startTime": 104,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 720,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1184,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 3,
+            "lcp": 760,
+            "cls": 0.001,
+            "ttfb": 47,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 141,
+            "wallTime": 1429,
+            "lcpEntries": [
+              {
+                "startTime": 92,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 644,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 760,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 4,
+            "lcp": 768,
+            "cls": 0.001,
+            "ttfb": 64,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 166,
+            "wallTime": 1438,
+            "lcpEntries": [
+              {
+                "startTime": 108,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 660,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 768,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 5,
+            "lcp": 824,
+            "cls": 0.001,
+            "ttfb": 39,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 166,
+            "wallTime": 1451,
+            "lcpEntries": [
+              {
+                "startTime": 92,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 720,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 824,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ]
+          }
+        ],
+        "p75Lcp": 1184,
+        "medianLcp": 824,
+        "p75Cls": 0.001,
+        "singleRpcPass": true
+      },
+      "desktopCold": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1808,
+            "cls": 0.001,
+            "ttfb": 205,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 440,
+            "wallTime": 2092,
+            "lcpEntries": [
+              {
+                "startTime": 416,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1808,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 2,
+            "lcp": 1440,
+            "cls": 0.001,
+            "ttfb": 63,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 372,
+            "wallTime": 1787,
+            "lcpEntries": [
+              {
+                "startTime": 276,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1440,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 3,
+            "lcp": 1632,
+            "cls": 0.001,
+            "ttfb": 61,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 524,
+            "wallTime": 1881,
+            "lcpEntries": [
+              {
+                "startTime": 300,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1632,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 4,
+            "lcp": 1504,
+            "cls": 0.001,
+            "ttfb": 65,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 381,
+            "wallTime": 1853,
+            "lcpEntries": [
+              {
+                "startTime": 236,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1504,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 5,
+            "lcp": 1532,
+            "cls": 0.001,
+            "ttfb": 69,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 344,
+            "wallTime": 1874,
+            "lcpEntries": [
+              {
+                "startTime": 216,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1532,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          }
+        ],
+        "p75Lcp": 1632,
+        "medianLcp": 1532,
+        "p75Cls": 0.001,
+        "singleRpcPass": true
+      },
+      "mobileCold": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1588,
+            "cls": 0,
+            "ttfb": 56,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 505,
+            "wallTime": 1763,
+            "lcpEntries": [
+              {
+                "startTime": 224,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1588,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 2,
+            "lcp": 1620,
+            "cls": 0,
+            "ttfb": 61,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 503,
+            "wallTime": 1843,
+            "lcpEntries": [
+              {
+                "startTime": 232,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1620,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 3,
+            "lcp": 1740,
+            "cls": 0,
+            "ttfb": 59,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 326,
+            "wallTime": 2111,
+            "lcpEntries": [
+              {
+                "startTime": 244,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1740,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 4,
+            "lcp": 1608,
+            "cls": 0,
+            "ttfb": 69,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 513,
+            "wallTime": 1856,
+            "lcpEntries": [
+              {
+                "startTime": 224,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1608,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          },
+          {
+            "run": 5,
+            "lcp": 1600,
+            "cls": 0,
+            "ttfb": 68,
+            "feedRpcCalls": 1,
+            "feedRpcDuration": 428,
+            "wallTime": 1910,
+            "lcpEntries": [
+              {
+                "startTime": 220,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1600,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ]
+          }
+        ],
+        "p75Lcp": 1620,
+        "medianLcp": 1608,
+        "p75Cls": 0,
+        "singleRpcPass": true
+      },
+      "coldLcpPass": true,
+      "warmLcpPass": true,
+      "mobileLcpPass": true,
+      "desktopClsPass": true,
+      "mobileClsPass": true,
+      "pass": true
+    },
+    "DEF003": {
+      "initialForYouSelected": true,
+      "hasZimParam": true,
+      "zimSelected": true,
+      "reloadedZimSelected": true,
+      "reloadedZimParam": true,
+      "worldParam": true,
+      "backToZimParam": true,
+      "backToRootParam": true,
+      "pass": true
+    },
+    "DEF006": {
+      "hasErrorText": true,
+      "errorRole": "alert",
+      "errorCleared": true,
+      "dbAuthorityVerified": true,
+      "pass": true
+    },
+    "sessionHygiene": {
+      "preTestLiveVerified": true,
+      "postTestLiveVerified": true,
+      "testNewsroomSessionsPost": 0,
+      "ownerNewsroomSessionsPreserved": 15,
+      "activeOwnerTokensPreserved": 2,
+      "pass": true
+    }
+  },
+  "failures": []
+}
