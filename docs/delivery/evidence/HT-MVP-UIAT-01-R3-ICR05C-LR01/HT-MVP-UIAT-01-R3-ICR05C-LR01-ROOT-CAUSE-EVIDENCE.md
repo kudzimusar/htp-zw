@@ -1,9 +1,9 @@
 # HT-MVP-UIAT-01-R3-ICR05C-LR01 — Native CI Failure Root Cause & Remediation Evidence
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R2-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R3-LR01`  
 **Parent Issues:** #145, #143, #141, #139, #137, #134  
-**Starting Remote SHA:** `375ee115c05bdbc742f3af5b106c2072f5a86890`  
-**Candidate Head SHA:** `bbe79bb70381529e21b8fdf1cb944bf65bca173b`  
+**Starting Remote SHA:** `384ae659bdf89c650030338ec3fd04903d4cca43`  
+**Candidate Code SHA:** `cee1c7cfd55040876fa303071fc589e1b519d7ec`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -11,7 +11,7 @@
 
 ## 1. Executive Summary & Defect Classification
 
-Across the ICR05C evaluation and remediation cycle, three distinct root causes affecting native mobile execution and data integrity were identified, forensic log evidence established, and source remediations implemented:
+Across the ICR05C evaluation and remediation cycle, six distinct root causes affecting native mobile execution, commercial conformance, and data integrity were identified, forensic log evidence established, and source remediations implemented:
 
 1. **Defect 1: Hermes Runtime `new window.Image()` Crash (`PRODUCT_RUNTIME_DEFECT`)**
    - **Environment:** React Native Android Emulator (API 34) & iOS Simulator (iOS 17.5).
@@ -30,6 +30,22 @@ Across the ICR05C evaluation and remediation cycle, three distinct root causes a
    - **Remediation (iOS Phone):** Added scheme priming to `ui02-phase6a-phone.yaml` after Home screenshot, waiting on `visible: "Search HealthTimes"` to preserve the exact required count of 4 for `visible: "Top Stories"`.
    - **Root Cause (iOS Tablet):** On wide tablet viewports (744px width), a `Pressable` with `flexDirection: "row"` and transparent background fails UIKit hit-testing in the empty space between the left label and right value when tapped at center (`50%,70%`).
    - **Remediation (iOS Tablet):** Added `{backgroundColor: palette.paper}` to the row `Pressable` style in `apps/mobile/app/(reader)/my.tsx`, giving the entire bounding box solid geometry for reliable UIKit hit-testing.
+   - **Resolution:** Verified in UI-02 run [41564344855](https://github.com/kudzimusar/htp-zw/actions/runs/41564344855) where iOS phone, iOS tablet, and Android tablet all passed 100%.
+
+4. **Defect 4: Fail-Closed Premium Preview Read Security (`SECURITY_PERSISTENCE_CLOSURE`)**
+   - **Environment:** `apps/mobile/src/services/reader-persistence.ts`.
+   - **Root Cause:** If `AsyncStorage.getItem` threw an error or the ledger contained corrupt JSON, generic `readJson` swallowed the exception and returned `{}`, which `getPremiumPreviewWindow()` treated as a clean first visit, granting a new preview window. Scope read failure also fell back to generating a new scope.
+   - **Remediation:** Introduced `readSecurityJson<T>()` distinguishing `MISSING` (legitimate first visit) from `READ_FAILED` and `CORRUPT`. Read errors and corrupt data strictly fail closed (`null` preview window, `false` prompt request). Scope read failures strictly throw and fail closed. Non-security preferences retain normal fallback resilience. Added 11 automated test scenarios in `apps/mobile/tests/reader-persistence-fail-closed.test.mjs`.
+
+5. **Defect 5: WordPress External Media HTTP 415 in UI-03 Commercial Conformance (`EXTERNAL_NETWORK_RESILIENCE`)**
+   - **Environment:** `apps/mobile/tests/ui03-commercial-reader-evidence.mjs` and `apps/mobile/src/source-parity/snapshot.ts` (Run [41564344813](https://github.com/kudzimusar/htp-zw/actions/runs/41564344813)).
+   - **Root Cause:** 5 articles in `sourceParityArticles` had unmirrored image URLs pointing directly to `https://healthtimes.co.zw/wp-content/uploads/...`. During `smoke home`, headless Chrome fetched these images directly from the live remote LiteSpeed server, which returned `415 Unsupported Media Type` to GitHub Actions Azure runner IPs.
+   - **Remediation:** Expanded `SOURCE_PARITY_MEDIA_MIRRORS` in `snapshot.ts` to mirror all 7 WordPress media assets to proven Supabase Storage bucket `migrated-media/wordpress/` (which returns HTTP 200 with CORS `*`). Added automatic `/wp-content/uploads/` rewrite in `publicMirrorForSourceMedia()`. Added route interceptors in `ui03-commercial-reader-evidence.mjs` across all pages. Verified 0 console errors and 0 HTTP 415s across all smoke and dark-mode routes.
+
+6. **Defect 6: Android 14 Notification Permission Dialog Intercepting Watch Intent (`TEST_HARNESS_SYSTEM_DIALOG`)**
+   - **Environment:** Maestro native suite on Android 14 emulator (`ui02-phase6a-phone.yaml`, Run [41564344855](https://github.com/kudzimusar/htp-zw/actions/runs/41564344855)).
+   - **Root Cause:** Step 63 tapped the external YouTube link (`tapOn: text: ".*YouTube.*"`). On Android 14, YouTube launched for the first time and displayed a system modal POST_NOTIFICATIONS permission prompt: `"Allow YouTube to send you notifications? [Don’t allow] [Allow]"`. Maestro `stopApp` stopped only the HealthTimes application, leaving YouTube's permission dialog on top of the screen. When `launchApp` executed, the modal dialog remained in foreground, causing Step 67 (`extendedWaitUntil: visible: "Top Stories"`) to fail.
+   - **Remediation:** Added dialog dismissal `runFlow: when: visible: ".*(Don’t allow|Don't allow|Allow).*" commands: - tapOn: text: ".*(Don’t allow|Don't allow).*" optional: true` and Android `back` navigation after the external intent and after `launchApp`.
 
 ---
 
@@ -168,9 +184,10 @@ async function writeJson<T>(key: string, value: T): Promise<void> {
 | Test Suite / Gate | Command | Expected | Actual Result | Status |
 |:---|:---|:---:|:---:|:---:|
 | TypeScript Typecheck | `npm --prefix apps/mobile run typecheck` | 0 errors | 0 errors | **PASS** |
-| Reader Persistence Fail-Closed | `npm --prefix apps/mobile run test:persistence` | 6 pass, 0 fail | 6 pass, 0 fail | **PASS** |
-| Reader Product Contracts | `npm --prefix apps/mobile run test:reader-product` | 16 pass, 0 fail | 16 pass, 0 fail | **PASS** |
+| Reader Persistence Fail-Closed | `npm --prefix apps/mobile run test:reader-product` | 26 pass, 0 fail | 26 pass, 0 fail (11/11 fail-closed scenarios pass) | **PASS** |
+| UI-03 Commercial Conformance | `node apps/mobile/tests/ui03-commercial-reader-evidence.mjs source-parity` | 0 console errors, 0 HTTP 415 | 0 errors across all routes & dark mode | **PASS** |
 | Native Flow Realization | `node --test apps/mobile/tests/ui02-phase6a-native-realization.test.mjs apps/mobile/tests/ui02-phase6a-native.test.mjs` | 23 pass, 0 fail | 23 pass, 0 fail | **PASS** |
 | Deterministic Session Harness | `node --test tests/harness/icr05a-consistency.test.mjs tests/harness/icr05b-session-negative.test.mjs` | 22 pass, 0 fail | 22 pass, 0 fail | **PASS** |
-| Browser Smoke Suite | `node scripts/ui/ui-rel04-current-browser-smoke.cjs` | 8/8 routes clean | 8/8 routes clean | **PASS** |
+| Phase 10 Candidate Visual | GitHub Actions run `41564345012` | 3/3 jobs green | 3/3 SUCCESS (iOS Simulator 32m47s, Android Emulator 18m46s, Web/PWA 3m17s) | **PASS** |
 | Web PWA Export Build | `npm --prefix apps/mobile run export:web -- --clear` | Clean exit 0 | Clean exit 0 (all routes generated) | **PASS** |
+| Prebuilt Vercel Staging Deploy | `npx vercel deploy --prebuilt` | HTTP 200 on /build-info.json | Returns HTTP 200 with SHA `cee1c7cfd55040876fa303071fc589e1b519d7ec` | **PASS** |

@@ -1,13 +1,13 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R2-LR01",
-  "timestamp": "2026-11-03T11:05:00.000Z",
-  "startingSha": "375ee115c05bdbc742f3af5b106c2072f5a86890",
-  "finalSha": "bbe79bb70381529e21b8fdf1cb944bf65bca173b",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R3-LR01",
+  "timestamp": "2026-11-03T12:15:00.000Z",
+  "startingSha": "384ae659bdf89c650030338ec3fd04903d4cca43",
+  "candidateCodeSha": "cee1c7cfd55040876fa303071fc589e1b519d7ec",
   "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
   "parentDraftPr": "https://github.com/kudzimusar/htp-zw/pull/144",
   "candidateDraftPr": "https://github.com/kudzimusar/htp-zw/pull/146",
-  "previewUrl": "https://healthtimes-staging-kilgm0jgh-11-11.vercel.app",
-  "previewDeploymentId": "dpl_DD4zdt8TVdvbHL9CC67N1AeZK7fr",
+  "previewUrl": "https://healthtimes-staging-iom40dczq-11-11.vercel.app",
+  "previewDeploymentId": "dpl_CmQLggh8QfBz2c6RLWx4To5mNHxH",
   "previewProjectId": "prj_52i0Btvqk2slEnaj5bL0CjOX1AqN",
   "canonical30Matrix": {
     "totalCases": 30,
@@ -50,30 +50,40 @@
       "React Native Hermes uncaught TypeError: undefined is not a function at HomeScreen mount caused by new window.Image() and window popstate/URL constructs",
       "React Native iOS simulator uncaught AsyncStorage.setItem() POSIX EIO error on RCTAsyncLocalStorage_V1/manifest.json causing save-article assertion timeout",
       "False-positive in-memory persistence masking persistent storage failures in reader-persistence.ts and article/[id].tsx corrected to fail closed",
-      "iOS custom-scheme trust priming prompt handling in Maestro ui02-phase6a-phone.yaml and tablet row touch hit-testing in my.tsx"
+      "Fail-closed premium preview read security: storage read failures or corrupt JSON in reader-persistence.ts fail closed (null window, false prompt) and never reset/regrant preview access",
+      "UI-03 commercial reader conformance HTTP 415 error on smoke home resolved by mirroring all 7 WordPress media assets to Supabase Storage",
+      "UI-02 native Android 14 phone Watch intent failure resolved by dismissing YouTube POST_NOTIFICATIONS modal dialog in ui02-phase6a-phone.yaml"
     ],
     "filesModified": [
       "apps/mobile/app/(reader)/index.tsx",
       "apps/mobile/src/ui/Cards.tsx",
       "apps/mobile/src/ui/Studio.tsx",
       "apps/mobile/src/services/reader-persistence.ts",
+      "apps/mobile/src/source-parity/snapshot.ts",
       "apps/mobile/app/article/[id].tsx",
       "apps/mobile/e2e/ui02-phase6a-phone.yaml",
       "apps/mobile/app/(reader)/my.tsx",
       "apps/mobile/package.json",
       "apps/mobile/tests/reader-persistence-fail-closed.test.mjs",
+      "apps/mobile/tests/ui03-commercial-reader-evidence.mjs",
       "scripts/ui/ui-rel04-current-browser-smoke.cjs"
     ],
     "remediatedWorkflows": [
       {
         "name": "UI-02 Phase 6A Native Cross-Device",
-        "runId": 41557784648,
-        "failingCells": ["ios_phone", "ios_tablet"],
+        "runId": 41564344855,
+        "failingCells": ["android_phone (step 67 YouTube notification dialog)"],
+        "status": "REMEDIATED_IN_SOURCE"
+      },
+      {
+        "name": "UI-03 Commercial Reader Conformance",
+        "runId": 41564344813,
+        "failingCells": ["smoke_home (HTTP 415 on external WordPress images)"],
         "status": "REMEDIATED_IN_SOURCE"
       },
       {
         "name": "Phase 10 Candidate Visual Conformance",
-        "runId": 41557784562,
+        "runId": 41564345012,
         "failingCells": [],
         "status": "SUCCESS"
       }

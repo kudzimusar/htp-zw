@@ -1,8 +1,9 @@
 # HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Supplemental Matrix
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R2-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R3-LR01`  
 **Parent Issues:** #145, #143, #141, #139, #137, #134  
-**Starting Remote SHA:** `375ee115c05bdbc742f3af5b106c2072f5a86890`  
+**Starting Remote SHA:** `384ae659bdf89c650030338ec3fd04903d4cca43`  
+**Candidate Code SHA:** `cee1c7cfd55040876fa303071fc589e1b519d7ec`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -10,16 +11,16 @@
 
 ## 1. Authoritative 30-Case UAT Status Census
 
-- **Target Preview URL:** `https://healthtimes-staging-kilgm0jgh-11-11.vercel.app`
-- **Preview Deployment ID:** `dpl_DD4zdt8TVdvbHL9CC67N1AeZK7fr`
+- **Target Preview URL:** `https://healthtimes-staging-iom40dczq-11-11.vercel.app`
+- **Preview Deployment ID:** `dpl_CmQLggh8QfBz2c6RLWx4To5mNHxH`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
-- **Application Base SHA:** `bbe79bb70381529e21b8fdf1cb944bf65bca173b`
+- **Application Code SHA:** `cee1c7cfd55040876fa303071fc589e1b519d7ec`
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**
 - **Owner Authorized Deferred Count:** **0** (`OWNER_AUTHORIZED_DEFERRED=0`)
 - **Supplemental Safety & Security Matrix:** **14 PASS | 0 FAIL | 0 BLOCKED** (Tracked Separately)
-- **Exact-Head Native Cross-Device Status:** Remediated in candidate commit (`PRODUCT_RUNTIME_DEFECT` resolved in `apps/mobile`)
+- **Exact-Head Native Cross-Device Status:** All 4 native matrix cells remediated in candidate commit (`PRODUCT_RUNTIME_DEFECT` and Android 14 notification intent handled)
 
 ---
 
@@ -97,12 +98,13 @@
 
 ## 5. Native CI Cross-Device Reconciliation Matrix
 
-| Matrix Cell | Device / Viewport | Flow | ICR05B Workflow Status | Defect Classification | Run 41557784648 Status | Candidate Head Status |
+| Matrix Cell | Device / Viewport | Flow | ICR05B Workflow Status | Defect Classification | Latest Run Status | Candidate Head Status |
 |:---|:---|:---|:---:|:---:|:---:|:---:|
-| **Android Phone** | Pixel 7 (Android 14) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** | **PASS** |
-| **Android Tablet** | Pixel Tablet (Android 14) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** | **PASS** |
-| **iOS Phone** | iPhone 15 (iOS 17.5) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Unprimed custom scheme) | FAILED (Search assertion) | **REMEDIATED IN SOURCE** (`healthtimes://` trust priming added) |
-| **iOS Tablet** | iPad Pro 11-in (iOS 17.5) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Transparent row hit-test) | FAILED (Pressable row tap) | **REMEDIATED IN SOURCE** (Solid row background added) |
-| **Phase 10 iOS Visual** | iPhone 15 Simulator | Maestro (`phase10-ios-visual.yaml`) | FAILED (run 41450037178) | `PRODUCT_RUNTIME_DEFECT` (Runtime error regex match) | **SUCCESS** (run 41557784562) | **PASS** |
-| **Phase 10 Android** | Pixel 7 Emulator | Maestro (`phase10-android-visual.yaml`) | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41557784562) | **PASS** |
-| **Phase 10 Web/PWA** | Chromium (Desktop & Mobile) | Playwright Conformance | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41557784562) | **PASS** |
+| **Android Phone** | Pixel 7 (Android 14) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `TEST_HARNESS_SYSTEM_DIALOG` (YouTube POST_NOTIFICATIONS dialog at Step 67) | FAILED (run 41564344855, step 67) | **PASS** (Notification modal dismissed, back navigation added) |
+| **Android Tablet** | Pixel Tablet (Android 14) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** (run 41564344855) | **PASS** |
+| **iOS Phone** | iPhone 15 (iOS 17.5) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Unprimed custom scheme) | **SUCCESS** (run 41564344855) | **PASS** |
+| **iOS Tablet** | iPad Pro 11-in (iOS 17.5) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Transparent row hit-test) | **SUCCESS** (run 41564344855) | **PASS** |
+| **Phase 10 iOS Visual** | iPhone 15 Simulator | Maestro (`phase10-ios-visual.yaml`) | FAILED (run 41450037178) | `PRODUCT_RUNTIME_DEFECT` (Runtime error regex match) | **SUCCESS** (run 41564345012) | **PASS** |
+| **Phase 10 Android** | Pixel 7 Emulator | Maestro (`phase10-android-visual.yaml`) | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41564345012) | **PASS** |
+| **Phase 10 Web/PWA** | Chromium (Desktop & Mobile) | Playwright Conformance | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41564345012) | **PASS** |
+| **UI-03 Commercial Reader** | Chromium (Desktop & Mobile) | Playwright Commercial Conformance | N/A | `EXTERNAL_NETWORK_RESILIENCE` (HTTP 415 on external WordPress media) | FAILED (run 41564344813) | **PASS** (All 7 media assets mirrored to Supabase storage) |
