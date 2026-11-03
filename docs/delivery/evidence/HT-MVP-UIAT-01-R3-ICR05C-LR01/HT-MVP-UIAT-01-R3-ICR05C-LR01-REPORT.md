@@ -1,198 +1,69 @@
-# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Final Physical Session Gate, Native CI Remediation and Independent Acceptance Report
+# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Final Native Certification Closure, Exact-SHA Custody and Independent Acceptance Report (R5-PUSH01)
 
 **Programme:** HealthTimes 2.0 — Final Unified MVP  
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R4-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R5-PUSH01`  
 **Priority:** P0 — Consolidated Long-Run Execution  
 **Controlling Issue:** [#145](https://github.com/kudzimusar/htp-zw/issues/145)  
-**Parent Authority:** Issues #143, #141, #139, #137, #134  
-**Starting Remote SHA:** `51d3d5580867564cb11e940b1e9a3e7d40404fd4`  
-**Candidate Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
-**Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
-**Parent PR:** [#144](https://github.com/kudzimusar/htp-zw/pull/144) (`fix/ht-mvp-uiat01-r3-icr05b-final-ci-session-evidence`)  
-**Candidate PR:** [#146](https://github.com/kudzimusar/htp-zw/pull/146) (`cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`)  
+**Draft PR:** [#146](https://github.com/kudzimusar/htp-zw/pull/146) (`cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`)  
+**Parent Authority SHA:** `534ff0859944d96b20ec5b7d1f1ded7086d9174b`  
+**Accepted R4 Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
+**Starting R4 Evidence SHA:** `0fc17ba4a947ebb0464c06e479154d3a1ce45b86`  
+**Certified R5 Code & Test SHA:** `e7248a67ebb24e236a89b7771168695f511eb3a4`  
 **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`  
 **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`  
 **Vercel Project:** `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`)  
-**Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)  
 
 ---
 
-## 1. Executive Summary & Moderator Disposition
+## 1. Complete Exact-Head Native Certification Matrix (Run `41614064581`)
 
-The 11-11 Tech Programme Moderator established the disposition for ICR05C-R4:
-`R4 AUTHORIZED — EXECUTE REMAINING CERTIFICATION CLOSURE`
+Workflow run [`41614064581`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064581) executed on exact commit `e7248a67ebb24e236a89b7771168695f511eb3a4` and completed with **`SUCCESS`** across all 6 jobs:
 
-The engineering foundations established across previous iterations remain accepted:
-1. Canonical Chromium UAT passes 8/8 without hydration warnings or suppressions (Run [41450037333](https://github.com/kudzimusar/htp-zw/actions/runs/41450037333)).
-2. Phase 10 Candidate Visual Conformance is 100% SUCCESS across all 3 jobs (Run [41564345012](https://github.com/kudzimusar/htp-zw/actions/runs/41564345012): iOS Simulator 32m47s, Android Emulator 18m46s, Web/PWA 3m17s).
-3. Native Reader product gates pass 33/33 (including 17 dedicated fail-closed persistence & security scenarios in `apps/mobile/tests/reader-persistence-fail-closed.test.mjs`).
-4. Source parity and media integrity test suite passes 36/36 with verified byte-backed mirrors across all 7 assets (`apps/mobile/tests/source-parity-media-integrity.test.mjs`).
-5. Commercial reader conformance test suite passes 18/18 (`apps/mobile/tests/ui03-commercial-reader-evidence.mjs`).
-6. Deterministic session security and consistency harness passes 22/22 with zero failures, zero skipped tests, and zero synthetic mocks (`icr05a-consistency.test.mjs`, `icr05b-session-negative.test.mjs`).
-7. Canonical 30-case matrix strictly preserved at **23 PASS / 0 FAIL / 7 BLOCKED** with **`OWNER_AUTHORIZED_DEFERRED=0`**.
-8. 14 supplemental safety checks strictly tracked separately at **14 PASS / 0 FAIL / 0 BLOCKED**.
-
-This remediation assignment (`HT-MVP-UIAT-01-R3-ICR05C-R4-LR01`) executes the full R4 scope:
-- **Work Package A (P0: Premium Preview Security Closure):**
-  - Enforced strict fail-closed handling for present-but-empty and whitespace-only ledger entries: `readSecurityJson<T>()` returns `{ status: "CORRUPT" }` and denies preview windows/prompts without treating empty records as clean first-use.
-  - Enforced strict fail-closed handling for present-but-empty and whitespace-only security scopes: `getSecurityScope()` returns `{ status: "CORRUPT" }` and throws immediately without regenerating scopes.
-  - Enforced partial initialization invariants: inconsistent states where one security key exists and the other is legitimately missing fail closed immediately (`null` window, `false` prompt).
-  - Enforced structural ledger validation: verified all entries contain valid non-empty string IDs and positive finite timestamps.
-  - Covered all 17 mandatory negative-path scenarios in `apps/mobile/tests/reader-persistence-fail-closed.test.mjs` (23/23 tests PASS).
-- **Work Package B (P0: Source-Parity Media Mirror Integrity & Transparent Authority):**
-  - Enforced verified media mapping boundary in `apps/mobile/src/source-parity/snapshot.ts`: `publicMirrorForSourceMedia()` maps known URLs to proven Supabase Storage paths while strictly returning `null` for unmapped WordPress or external assets, preventing broken 404/415 requests while preserving `heroMedia.sourceProvenance.sourceUrl` for canonical attribution.
-  - Live verified HTTP 200, Content-Type, and byte sizes (>10KB) across all 7 Supabase Storage objects in `apps/mobile/tests/source-parity-media-integrity.test.mjs` (36/36 tests PASS).
-  - Eliminated synthetic RPC route masking in `apps/mobile/tests/ui03-commercial-reader-evidence.mjs`, ensuring direct and transparent verification of live Staging Supabase RPC endpoints.
-- **Work Package C (P0: Correct Exact-SHA Custody):**
-  - Enforced rigorous SHA accounting distinguishing tested candidate code SHA (`fe5669278768c2a5cab44670425fcf05a7a7d1a7`), deployed preview SHA (`fe5669278768c2a5cab44670425fcf05a7a7d1a7`), and post-commit evidence tracking.
-- **Work Package D (Native CI & Visual Conformance Verification):**
-  - Verified local and CI cross-device compliance across iOS, Android, and Web/PWA.
-- **Work Package E (Exact-Head Prebuilt Vercel Staging Deployment):**
-  - Deployed prebuilt web bundle to `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`).
-  - Preview Deployment ID: `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`.
-  - Preview URL: `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`.
-  - Live inspection verified: `/build-info.json` returns HTTP 200 with exact candidate code SHA `fe5669278768c2a5cab44670425fcf05a7a7d1a7`, `presentation: apps/mobile`, `serviceMode: staging`. `/` and `/studio` return HTTP 200 with fully rendered DOM.
-- **Work Package F (Independent Review Attribution):**
-  - Attributed `INDEPENDENT_REVIEWER=INDEPENDENT_REVIEW_MISSING` pursuant to instructions never to self-certify.
-- **Work Package G (Canonical Matrix & Session Authority):**
-  - Preserved canonical 30-case matrix strictly at 23 PASS / 0 FAIL / 7 BLOCKED.
-  - Recorded `UAT-R05` as blocked pending explicit Owner feature or deferral decision (`OWNER_AUTHORIZED_DEFERRED=0`).
-  - Recorded `DEF006_STAGING_MIGRATION_APPLIED=NO` and `LIVE_PHYSICAL_10_OF_10=BLOCKED_OWNER_UAT_CREDENTIALS`.
+| Required Gate | Job ID | Device / Simulator Identity | OS Version | Maestro Commands | Screens | Runtime Errors | Artifact ID | Outcome |
+|:---|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Phase 6A Contracts** | `125842968056` | Ubuntu 24.04 (Node 22) | Linux | 23/23 tests | N/A | 0 | N/A | **PASS (`SUCCESS`)** |
+| **Android Phone** | `125842967918` | `sdk_gphone64_x86_64 (pixel_7_pro)` | Android 16 (API 36) | 139 (`115` completed, `24` skipped, `0` failed) | 22 | 0 | `13222815225` | **PASS (`SUCCESS`)** |
+| **Android Tablet** | `125842967539` | `sdk_gphone64_x86_64 (pixel_tablet)` | Android 16 (API 36) | 37 (`29` completed, `8` skipped, `0` failed) | 6 | 0 | `13222325454` | **PASS (`SUCCESS`)** |
+| **iOS Phone** | `125842968089` | `iPhone Air (1F0A9C4B-2DFC-444E-B162-696E5078A72B)` | iOS 26.5 | 145 (`120` completed, `25` skipped, `0` failed) | 22 | 0 | `13223005800` | **PASS (`SUCCESS`)** |
+| **iOS Tablet** | `125842968203` | `iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)` | iOS 26.5 | 47 (`37` completed, `10` skipped, `0` failed) | 6 | 0 | `13222426562` | **PASS (`SUCCESS`)** |
+| **Aggregate Native Evidence** | `125859288116` | Exact-Head Matrix Aggregator | Linux | All 4 cells verified (`matrix-blocked=0`) | 56 | 0 | `13221778888` | **PASS (`SUCCESS`)** |
 
 ---
 
-## 2. Work Package A — Fail-Closed Persistence & Security Closure
+## 2. Complete Exact-Head CI Matrix on `e7248a67ebb24e236a89b7771168695f511eb3a4`
 
-### A. Vulnerability Remediation
-1. **Empty/Whitespace Ledger Payload:**
-   - Previous behavior: `raw === ""` was mapped to `MISSING`, allowing an empty ledger string to be treated as a clean first visit.
-   - Remediated behavior: Only `raw === null || raw === undefined` is treated as `MISSING`. Any string where `raw.trim() === ""` is categorized as `CORRUPT`.
-2. **Empty/Whitespace Security Scope:**
-   - Previous behavior: `ensurePremiumPreviewScope()` checked `if (existing?.trim())` and fell through to generating a new scope on empty strings.
-   - Remediated behavior: Added `getSecurityScope()`. Empty/whitespace stored scope returns `CORRUPT` and throws an error, strictly preventing unauthorized scope regeneration.
-3. **Partial Initialization & Structure Invariant:**
-   - Inconsistent states where one key is present while the other is missing fail closed immediately (`null` preview window, `false` prompt request).
-   - All entries in the ledger are structurally validated for valid `storyId`, `scopeId`, and positive finite timestamps before any preview duration is calculated.
-
-### B. Automated Verification Matrix
-Verified with 23/23 tests in `apps/mobile/tests/reader-persistence-fail-closed.test.mjs` covering all 17 mandatory negative-path scenarios:
-- Scenario 1: Both keys legitimately absent (clean first visit) grants 20s preview.
-- Scenario 2: Empty ledger fails closed (null window, false prompt; never reset).
-- Scenario 3: Whitespace-only ledger fails closed.
-- Scenario 4: Malformed ledger JSON fails closed.
-- Scenario 5: Invalid ledger structure fails closed.
-- Scenario 6: Empty scope fails closed and does NOT regenerate scope.
-- Scenario 7: Whitespace-only scope fails closed and does NOT regenerate scope.
-- Scenario 8: Storage read failure on scope fails closed.
-- Scenario 9: Storage write failure on scope fails closed.
-- Scenario 10: Storage read failure on ledger fails closed.
-- Scenario 11: Storage write failure on ledger fails closed.
-- Scenario 12: Existing scope with absent ledger (partial state) fails closed.
-- Scenario 13: Absent scope with existing ledger (partial state) fails closed.
-- Scenario 14: Interrupted first-use initialization leaves partial state that fails closed.
-- Scenario 15: Expired preview returns 0 remaining seconds and does not reset.
-- Scenario 16: Previously consumed preview after application restart preserves expiry.
-- Scenario 17: Storage recovery after failure allows subsequent retry to succeed durably.
+| Workflow Name | Run ID | Job / Gate Details | Outcome |
+|:---|:---:|:---|:---:|
+| **UI-02 Phase 6A Native Cross-Device Evidence** | [`41614064581`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064581) | All 6 jobs (`125842968056`, `125842967918`, `125842967539`, `125842968089`, `125842968203`, `125859288116`) | **SUCCESS** |
+| **Phase 10 Candidate Visual Conformance** | [`41614064336`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064336) | iOS (`125842967435`), Android (`125842967798`), Web/PWA (`125842967114`) | **SUCCESS (3/3)** |
+| **Phase 10 Web/PWA Evidence** | [`41614064453`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064453) | Web/PWA visual evidence | **SUCCESS** |
+| **Chromium UAT — Canonical Reader** | [`41614064333`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064333) | Canonical Chromium 8/8 | **SUCCESS** |
+| **Native Reader Product Gates** | [`41614064733`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064733) | 33/33 (including 17 fail-closed persistence scenarios) | **SUCCESS** |
+| **UI-03 Commercial Reader Conformance** | [`41614064268`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064268) | Live Staging RPC + commercial reader conformance | **SUCCESS** |
+| **NM-07 Phase 6 Migrated Corpus Reader** | [`41614064339`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064339) | Migrated corpus reader verification | **SUCCESS** |
+| **AG-05 + NM-07 Phase 7 Premium + HOSPAZ** | [`41614064530`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064530) | Premium & HOSPAZ direct advertising authority | **SUCCESS** |
+| **Native Binary Certification** | [`41614064362`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064362) | Android & iOS native compilation | **SUCCESS** |
+| **Native Mobile Foundation + Security + Certification** | [`41614064506`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064506) | Full mobile foundation & security gates | **SUCCESS** |
+| **UI-01 Phase 3 Discovery Conformance** | [`41614064383`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064383) | Search & discovery conformance | **SUCCESS** |
+| **UI-01 Phase 4 Media Conformance** | [`41614064356`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064356) | Live, Watch, Listen conformance | **SUCCESS** |
+| **UI-04 Phase 5 Reader Ownership Conformance** | [`41614064525`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064525) | Saved, My HealthTimes, Edition conformance | **SUCCESS** |
+| **UI-04 Edition Full Reload Persistence** | [`41614064521`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064521) | Edition persistence across reload | **SUCCESS** |
+| **UI-05 Phase 6B Accessibility & Responsive** | [`41614064451`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064451) | Accessibility & responsive states | **SUCCESS** |
+| **UI-06 Phase 6C Final Recertification** | [`41614064337`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064337) | Cross-device edition recertification | **SUCCESS** |
+| **Validate HealthTimes 2.0** | [`41614064357`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064357) | Repository validation | **SUCCESS** |
+| **ICR05B — Deterministic Security Evidence** | [`41614064384`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064384) | Job `125842966515` (22/22 deterministic checks) | **SUCCESS** |
+| **ICR05B — Physical Live Fault Injection** | [`41614064384`](https://github.com/kudzimusar/htp-zw/actions/runs/41614064384) | Job `125842966839` (Step 4 credential preflight) | **`BLOCKED_OWNER_UAT_CREDENTIALS`** |
 
 ---
 
-## 3. Work Package B — Source-Parity Media Mirror Integrity
+## 3. Source-Parity Transparency, Preview Custody & Independent Review Handoff
 
-### A. Media Rewriting Boundary
-- Updated `publicMirrorForSourceMedia(sourceUrl)` in `apps/mobile/src/source-parity/snapshot.ts`:
-  - Verified explicit mapping against `SOURCE_PARITY_MEDIA_MIRRORS`.
-  - Allowed direct Supabase Storage URLs to pass through without modification.
-  - Return `null` for unmapped WordPress or third-party media to fail closed rather than synthesizing unverified Supabase URLs.
-  - Preserved original source URL on `heroMedia.sourceProvenance.sourceUrl` for attribution and provenance.
-
-### B. Media Provenance Register
-All 7 media assets verified live against Supabase Storage bucket `migrated-media/wordpress/`:
-- **MEDIA-01:** `zimbabwe-social-contracting-hiv-financing-dialogue.jpg` (HTTP 200, image/jpeg, 202 KB)
-- **MEDIA-02:** `enerst-chikwati-ahf-zimbabwe-country-director.jpeg` (HTTP 200, image/jpeg, 110 KB)
-- **MEDIA-03:** `enhanced_1200x665.jpg` (HTTP 200, image/jpeg, 83 KB)
-- **MEDIA-04:** `dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png` (HTTP 200, image/png, 1,052 KB)
-- **MEDIA-05:** `Chief-Nyamaropa.jpeg` (HTTP 200, image/jpeg, 83 KB)
-- **MEDIA-06:** `aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png` (HTTP 200, image/png, 1,152 KB)
-- **MEDIA-07:** `zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg` (HTTP 200, image/jpeg, 221 KB)
-
----
-
-## 4. Work Package C — Authorized Physical Live Session Certification
-
-### A. Prerequisite Security Verification
-The physical Staging session certification suite requires:
-1. Isolated test actor credentials for `uat-specialist@healthtimes.test` and `uat-commercial@healthtimes.test`.
-2. Supabase Staging Management audit token (`HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN`).
-
-Pursuant to Moderator instructions:
-- Secrets must never be entered in chat, issue comments, code files, or public PR runners.
-- Secrets must be provisioned by the repository Owner directly into GitHub Actions Secrets (`secrets.HEALTHTIMES_UAT_ACTORS_JSON` and `secrets.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN`).
-- Local environment inspection of `~/.healthtimes-secrets/test-actors.json` reveals only commercial and finance actors; `uat-specialist` is absent.
-
-### B. Fail-Closed Certification Disposition
-Per explicit directive: *"If credentials absent, STOP live tests and return BLOCKED_OWNER_UAT_CREDENTIALS, do not fabricate completion or weaken test gates."*
-
-- **`LIVE_PHYSICAL_10_OF_10`:** `BLOCKED_OWNER_UAT_CREDENTIALS`
-- **`LIVE_PHYSICAL_OWNER_AUTH`:** `BLOCKED_OWNER_UAT_CREDENTIALS`
-- **`DETERMINISTIC_HARNESS_22_OF_22`:** `PASS (22/22)`
-
----
-
-## 5. Work Package D — Independent Review Attribution
-
-- **Reviewer Identity:** `INDEPENDENT_REVIEWER=INDEPENDENT_REVIEW_MISSING`
-- **Review Status:** `PENDING_EXTERNAL_ASSIGNMENT`
-- **Review Disposition:** `BLOCKED_MISSING_INDEPENDENT_REVIEWER`
-- **Declaration:** In compliance with governance instructions, the implementing specialist does not self-certify or synthesize an external review. Formal independent review must be conducted by an attributable third party assigned by the Programme Moderator or Owner.
-
----
-
-## 6. Work Package E — Mandatory Receipt Block
-
-```receipt
-UNIT_ID=HT-MVP-UIAT-01-R3-ICR05C-R4-LR01
-STARTING_HEAD=51d3d5580867564cb11e940b1e9a3e7d40404fd4
-CANDIDATE_CODE_SHA=fe5669278768c2a5cab44670425fcf05a7a7d1a7
-FINAL_BRANCH=cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert
-PARENT_DRAFT_PR=https://github.com/kudzimusar/htp-zw/pull/144
-CANDIDATE_DRAFT_PR=https://github.com/kudzimusar/htp-zw/pull/146
-APP_PREVIEW_DEPLOYMENT=dpl_D8NqSBugFsXrqCc1rQh3c22vKj21
-APP_PREVIEW_URL=https://healthtimes-staging-3blub5s3c-11-11.vercel.app
-APP_PREVIEW_SHA=fe5669278768c2a5cab44670425fcf05a7a7d1a7
-APP_PREVIEW_PROJECT=prj_52i0Btvqk2slEnaj5bL0CjOX1AqN
-CANONICAL_CHROMIUM_CI=SUCCESS (41450037333 8/8)
-NATIVE_READER_CI=SUCCESS (33/33 with fail-closed persistence suite)
-SOURCE_PARITY_MEDIA_CI=SUCCESS (36/36 with verified byte-backed mirrors)
-UI03_COMMERCIAL_READER=SUCCESS (18/18 with transparent authority verification)
-DETERMINISTIC_HARNESS_22_OF_22=PASS (22/22)
-LIVE_PHYSICAL_10_OF_10=BLOCKED_OWNER_UAT_CREDENTIALS
-LIVE_PHYSICAL_OWNER_AUTH=BLOCKED_OWNER_UAT_CREDENTIALS
-LIVE_SESSION_ACTOR_SUB_STAFF_RUN_MAPPING=VERIFIED_BY_SECURITY_HARNESS
-EXACT_ONE_REVOKED_AND_CONCURRENT_PRESERVATION=VERIFIED_BY_SECURITY_HARNESS
-OWNER_SESSION_READBACK=PRESERVED_AT_15
-UI02_ANDROID_PHONE=REMEDIATED_IN_SOURCE (Android 14 POST_NOTIFICATIONS modal dismissed)
-UI02_ANDROID_TABLET=SUCCESS (Run 41564344855)
-UI02_IOS_PHONE=SUCCESS (Run 41564344855)
-UI02_IOS_TABLET=SUCCESS (Run 41564344855)
-PHASE10_IOS_VISUAL=SUCCESS (Run 41564345012 32m47s)
-PHASE10_ANDROID_VISUAL=SUCCESS (Run 41564345012 18m46s)
-PHASE10_WEB_PWA=SUCCESS (Run 41564345012 3m17s)
-NATIVE_FAILURE_ROOT_CAUSES=STORAGE_FAIL_CLOSED_CORRUPT_JSON_AND_WP_MEDIA_415_AND_ANDROID_14_NOTIFICATION_PROMPT
-NATIVE_MATRIX_EXACT_HEAD_CI=REMEDIATED_IN_SOURCE
-INDEPENDENT_REVIEWER=INDEPENDENT_REVIEW_MISSING
-INDEPENDENT_REVIEW_STATUS=PENDING_EXTERNAL_ASSIGNMENT
-INDEPENDENT_REVIEW_DISPOSITION=BLOCKED_MISSING_INDEPENDENT_REVIEWER
-CANONICAL_CASE_IDS_UNCHANGED=YES
-CANONICAL_30_PASS=23
-CANONICAL_30_FAIL=0
-CANONICAL_30_BLOCKED=7
-OWNER_AUTHORIZED_DEFERRED=0
-DEF006_STAGING_MIGRATION_APPLIED=NO
-PRODUCTION_TOUCHED=NO
-MERGE_PERFORMED=NO
-PAYNOW_CHANGED=NO
-EXTERNAL_MESSAGES=0
-OWNER_DECISIONS_REQUIRED=1) Provision Staging test credentials in GitHub Secrets; 2) Approve Staging migration 20261102160000; 3) Final UAT signoff on 7 blocked cases; 4) Assign independent nonimplementing reviewer
-EVIDENCE_PATH=docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR05C-LR01/
-MODERATOR_REVIEW_REQUIRED=YES
-```
+- **UI-03 Test Interception Classification:**
+  - `loadAcceptedPremiumTeaserAuthority()` executes live against Staging Supabase RPC `ag05_public_story_teaser_document` (`https://bzuvntbkevvuhfhqhkua.supabase.co`).
+  - `installPremiumAuthorityRoutes()` intercepts `https://healthtimes.co.zw/wp-json/wp/v2/posts**` with HTTP 200 `[]` as **scoped fixture isolation** (confirming no unauthenticated protected `content` field is requested by the client), **not** live external WordPress API availability proof.
+  - All 7 mapped WordPress media objects are verified live (HTTP 200) against Supabase Storage (`migrated-media/wordpress/`).
+- **Staging Preview Custody:**
+  - Deployment `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21` on `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`) serves application code SHA `fe5669278768c2a5cab44670425fcf05a7a7d1a7`.
+  - Automated custody test `tests/harness/icr05c-custody-verifier.test.mjs` verifies zero runtime diff between `fe5669278768c2a5cab44670425fcf05a7a7d1a7` and `e7248a67ebb24e236a89b7771168695f511eb3a4`.
+- **Independent Review Status:**
+  - `INDEPENDENT_REVIEW_MISSING` (`PENDING_EXTERNAL_ASSIGNMENT`). The implementing specialist does not self-approve PR #146.

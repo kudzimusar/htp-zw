@@ -1,14 +1,166 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R4-LR01",
-  "timestamp": "2026-11-03T14:55:00.000Z",
-  "startingSha": "51d3d5580867564cb11e940b1e9a3e7d40404fd4",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R5-PUSH01",
+  "timestamp": "2026-11-03T10:25:30.000Z",
+  "parentAuthoritySha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
+  "acceptedR4ApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
+  "startingR4EvidenceSha": "0fc17ba4a947ebb0464c06e479154d3a1ce45b86",
+  "startingRemoteSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+  "r5RemediationCommitSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+  "deployedApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "candidateCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
+  "runtimeDiffSinceR4ApplicationCode": "NONE (0 runtime files changed; commit e7248a67ebb24e236a89b7771168695f511eb3a4 modifies only apps/mobile/e2e/ui02-phase6a-tablet.yaml)",
   "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
   "parentDraftPr": "https://github.com/kudzimusar/htp-zw/pull/144",
   "candidateDraftPr": "https://github.com/kudzimusar/htp-zw/pull/146",
   "previewUrl": "https://healthtimes-staging-3blub5s3c-11-11.vercel.app",
   "previewDeploymentId": "dpl_D8NqSBugFsXrqCc1rQh3c22vKj21",
   "previewProjectId": "prj_52i0Btvqk2slEnaj5bL0CjOX1AqN",
+  "ui02ExactHeadMatrix": {
+    "workflowRunId": 41614064581,
+    "workflowUrl": "https://github.com/kudzimusar/htp-zw/actions/runs/41614064581",
+    "testedSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+    "runAttempt": 1,
+    "contractsJob": {
+      "jobId": 125842968056,
+      "name": "Phase 6A contract + frozen Reader regressions",
+      "status": "SUCCESS"
+    },
+    "cells": {
+      "androidPhone": {
+        "jobId": 125842967918,
+        "artifactId": 13222815225,
+        "artifactName": "ui02-phase6a-native-evidence-android-phone-attempt-1",
+        "platform": "Android",
+        "deviceClass": "phone",
+        "deviceIdentity": "sdk_gphone64_x86_64 (pixel_7_pro)",
+        "osVersion": "16",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 22,
+        "maestroCommandsTotal": 139,
+        "maestroCommandsCompleted": 115,
+        "maestroCommandsSkipped": 24,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "status": "SUCCESS"
+      },
+      "androidTablet": {
+        "jobId": 125842967539,
+        "artifactId": 13222325454,
+        "artifactName": "ui02-phase6a-native-evidence-android-tablet-attempt-1",
+        "platform": "Android",
+        "deviceClass": "tablet",
+        "deviceIdentity": "sdk_gphone64_x86_64 (pixel_tablet)",
+        "osVersion": "16",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 6,
+        "maestroCommandsTotal": 37,
+        "maestroCommandsCompleted": 29,
+        "maestroCommandsSkipped": 8,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "status": "SUCCESS"
+      },
+      "iosPhone": {
+        "jobId": 125842968089,
+        "artifactId": 13223005800,
+        "artifactName": "ui02-phase6a-native-evidence-ios-phone-attempt-1",
+        "platform": "iOS",
+        "deviceClass": "phone",
+        "deviceIdentity": "iPhone Air (1F0A9C4B-2DFC-444E-B162-696E5078A72B)",
+        "osVersion": "iOS 26.5",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 22,
+        "maestroCommandsTotal": 145,
+        "maestroCommandsCompleted": 120,
+        "maestroCommandsSkipped": 25,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "status": "SUCCESS"
+      },
+      "iosTablet": {
+        "jobId": 125842968203,
+        "artifactId": 13222426562,
+        "artifactName": "ui02-phase6a-native-evidence-ios-tablet-attempt-1",
+        "platform": "iOS",
+        "deviceClass": "tablet",
+        "deviceIdentity": "iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)",
+        "osVersion": "iOS 26.5",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 6,
+        "maestroCommandsTotal": 47,
+        "maestroCommandsCompleted": 37,
+        "maestroCommandsSkipped": 10,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "assertionsPreserved": true,
+        "status": "SUCCESS"
+      }
+    },
+    "aggregateJob": {
+      "jobId": 125859288116,
+      "artifactId": 13221778888,
+      "artifactName": "ui02-phase6a-native-evidence-attempt-1",
+      "programmeDisposition": "READY FOR UI MODERATOR REVIEW",
+      "status": "SUCCESS"
+    }
+  },
+  "exactHeadCiWorkflows": {
+    "testedSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+    "ui02NativeCrossDevice": { "runId": 41614064581, "status": "SUCCESS" },
+    "chromiumUat": { "runId": 41614064333, "status": "SUCCESS" },
+    "nativeReaderProductGates": { "runId": 41614064733, "secondaryRunId": 41614057888, "status": "SUCCESS" },
+    "ui03CommercialReader": { "runId": 41614064268, "status": "SUCCESS" },
+    "nm07MigratedCorpus": { "runId": 41614064339, "status": "SUCCESS" },
+    "ag05Nm07PremiumHospaz": { "runId": 41614064530, "status": "SUCCESS" },
+    "phase10VisualConformance": {
+      "runId": 41614064336,
+      "status": "SUCCESS",
+      "iosJobId": 125842967435,
+      "androidJobId": 125842967798,
+      "webJobId": 125842967114
+    },
+    "phase10WebPwaEvidence": { "runId": 41614064453, "status": "SUCCESS" },
+    "nativeBinaryCertification": { "runId": 41614064362, "status": "SUCCESS" },
+    "nativeMobileFoundationSuite": { "runId": 41614064506, "status": "SUCCESS" },
+    "ui01Phase3Discovery": { "runId": 41614064383, "status": "SUCCESS" },
+    "ui01Phase4Media": { "runId": 41614064356, "status": "SUCCESS" },
+    "ui04Phase5ReaderOwnership": { "runId": 41614064525, "status": "SUCCESS" },
+    "ui04EditionFullReload": { "runId": 41614064521, "status": "SUCCESS" },
+    "ui05Phase6bAccessibility": { "runId": 41614064451, "status": "SUCCESS" },
+    "ui06Phase6cRecertification": { "runId": 41614064337, "status": "SUCCESS" },
+    "validateHealthTimes": { "runId": 41614064357, "status": "SUCCESS" },
+    "sessionAndEvidenceCertification": {
+      "runId": 41614064384,
+      "deterministicSecurityJob": { "jobId": 125842966515, "status": "SUCCESS" },
+      "physicalLiveFaultInjectionJob": { "jobId": 125842966839, "status": "BLOCKED_OWNER_UAT_CREDENTIALS" }
+    }
+  },
+  "iosTabletForensicInvestigation": {
+    "failedWorkflowRunId": 41587007329,
+    "failedJobId": 125754753429,
+    "failedArtifactId": 13210032036,
+    "simulatorIdentity": "iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)",
+    "osVersion": "iOS 26.5",
+    "classification": "TEST_HARNESS_IOS26_RECAP_DIGITIZER_TOUCH_CANCELLATION_ON_SPRINGBOARD_ALERT",
+    "applicationRuntimeDefect": false,
+    "metroErrorsCount": 0,
+    "nativeRuntimeErrorsCount": 0,
+    "remediatedInCommit": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+    "recertifiedInRun": 41614064581,
+    "recertifiedInJob": 125842968203,
+    "recertifiedArtifactId": 13222426562
+  },
+  "ui03TransparencyClassification": {
+    "liveStagingSupabaseRpc": "VERIFIED_LIVE_STAGING_RPC_ag05_public_story_teaser_document",
+    "browserSourceParity": "VERIFIED_DETERMINISTIC_SOURCE_PARITY_SNAPSHOT",
+    "wordpressPostsInterception": "SCOPED_FIXTURE_ISOLATION_EMPTY_ARRAY_NOT_LIVE_WP_API_PROOF",
+    "verifiedSupabaseMediaObjects": "VERIFIED_7_OF_7_LIVE_HTTP_200_BYTE_BACKED_MIRRORS",
+    "publicReaderRouteTests": "VERIFIED_18_OF_18_UNIT_AND_CHROMIUM_EVIDENCE"
+  },
   "canonical30Matrix": {
     "totalCases": 30,
     "passCount": 23,
@@ -43,120 +195,6 @@
     "ownerAuditAuthority": "BLOCKED_OWNER_UAT_CREDENTIALS",
     "sessionRevokeNullProviderIdPresent": false,
     "stagingMigration20261102160000Applied": false
-  },
-  "nativeCiReconciliation": {
-    "defectClassification": "PRODUCT_RUNTIME_DEFECT",
-    "rootCauses": [
-      "React Native Hermes uncaught TypeError: undefined is not a function at HomeScreen mount caused by new window.Image() and window popstate/URL constructs",
-      "React Native iOS simulator uncaught AsyncStorage.setItem() POSIX EIO error on RCTAsyncLocalStorage_V1/manifest.json causing save-article assertion timeout",
-      "False-positive in-memory persistence masking persistent storage failures in reader-persistence.ts and article/[id].tsx corrected to fail closed",
-      "Fail-closed premium preview read security: storage read failures or corrupt JSON in reader-persistence.ts fail closed (null window, false prompt) and never reset/regrant preview access",
-      "Fail-closed premium preview security closure: present-but-empty or whitespace-only scope and ledger payloads fail closed (CORRUPT) rather than resetting to first-use; partial key initialization strictly denied (17 test scenarios)",
-      "Source-parity media mirror integrity: publicMirrorForSourceMedia returns verified Supabase Storage mirrors for mapped assets and fails closed (null) for unmapped external media, preserving heroMedia.sourceProvenance.sourceUrl",
-      "Eliminated synthetic RPC masking in UI-03 test harness to preserve transparent Staging Supabase authority verification",
-      "UI-03 commercial reader conformance HTTP 415 error on smoke home resolved by mirroring all 7 WordPress media assets to Supabase Storage",
-      "UI-02 native Android 14 phone Watch intent failure resolved by dismissing YouTube POST_NOTIFICATIONS modal dialog in ui02-phase6a-phone.yaml"
-    ],
-    "filesModified": [
-      "apps/mobile/app/(reader)/index.tsx",
-      "apps/mobile/src/ui/Cards.tsx",
-      "apps/mobile/src/ui/Studio.tsx",
-      "apps/mobile/src/services/reader-persistence.ts",
-      "apps/mobile/src/source-parity/snapshot.ts",
-      "apps/mobile/app/article/[id].tsx",
-      "apps/mobile/e2e/ui02-phase6a-phone.yaml",
-      "apps/mobile/app/(reader)/my.tsx",
-      "apps/mobile/package.json",
-      "apps/mobile/tests/reader-persistence-fail-closed.test.mjs",
-      "apps/mobile/tests/source-parity-media-integrity.test.mjs",
-      "apps/mobile/tests/ui03-commercial-reader-evidence.mjs",
-      "scripts/ui/ui-rel04-current-browser-smoke.cjs"
-    ],
-    "mediaProvenanceRegister": [
-      {
-        "assetId": "MEDIA-01",
-        "storySlug": "zimbabwe-social-contracting-hiv-financing-dialogue",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
-        "httpStatus": 200,
-        "contentType": "image/jpeg",
-        "sizeBytes": 202636
-      },
-      {
-        "assetId": "MEDIA-02",
-        "storySlug": "ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
-        "httpStatus": 200,
-        "contentType": "image/jpeg",
-        "sizeBytes": 110903
-      },
-      {
-        "assetId": "MEDIA-03",
-        "storySlug": "most-ebola-deaths-in-drc-are-happening-outside-treatment-centres-as-care-barriers-deepen",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg",
-        "httpStatus": 200,
-        "contentType": "image/jpeg",
-        "sizeBytes": 83457
-      },
-      {
-        "assetId": "MEDIA-04",
-        "storySlug": "meet-dr-neddy-zimbabwes-fourth-female-orthopaedic-surgeon",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
-        "httpStatus": 200,
-        "contentType": "image/png",
-        "sizeBytes": 1052601
-      },
-      {
-        "assetId": "MEDIA-05",
-        "storySlug": "chief-nyamaropa-orders-woman-to-pay-cow-over-alleged-hiv-transmission",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg",
-        "httpStatus": 200,
-        "contentType": "image/jpeg",
-        "sizeBytes": 83350
-      },
-      {
-        "assetId": "MEDIA-06",
-        "storySlug": "fiji-hiv-emergency-epidemic-spreads-beyond-drug-users",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
-        "httpStatus": 200,
-        "contentType": "image/png",
-        "sizeBytes": 1152062
-      },
-      {
-        "assetId": "MEDIA-07",
-        "storySlug": "not-in-my-constituency-zimbabwe-teenage-pregnancy-tags",
-        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg",
-        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg",
-        "httpStatus": 200,
-        "contentType": "image/jpeg",
-        "sizeBytes": 221852
-      }
-    ],
-    "remediatedWorkflows": [
-      {
-        "name": "UI-02 Phase 6A Native Cross-Device",
-        "runId": 41564344855,
-        "failingCells": ["android_phone (step 67 YouTube notification dialog)"],
-        "status": "REMEDIATED_IN_SOURCE"
-      },
-      {
-        "name": "UI-03 Commercial Reader Conformance",
-        "runId": 41564344813,
-        "failingCells": ["smoke_home (HTTP 415 on external WordPress images)"],
-        "status": "REMEDIATED_IN_SOURCE"
-      },
-      {
-        "name": "Phase 10 Candidate Visual Conformance",
-        "runId": 41564345012,
-        "failingCells": [],
-        "status": "SUCCESS"
-      }
-    ]
   },
   "independentReview": {
     "reviewer": "INDEPENDENT_REVIEW_MISSING",

@@ -1,9 +1,11 @@
-# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Supplemental Matrix
+# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Native CI Matrix (R5-PUSH01)
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R4-LR01`  
-**Parent Issues:** #145, #143, #141, #139, #137, #134  
-**Starting Remote SHA:** `51d3d5580867564cb11e940b1e9a3e7d40404fd4`  
-**Candidate Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R5-PUSH01`  
+**Parent Issues:** [#145](https://github.com/kudzimusar/htp-zw/issues/145), #143, #141, #139, #137, #134  
+**Parent Authority SHA:** `534ff0859944d96b20ec5b7d1f1ded7086d9174b`  
+**Accepted R4 Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
+**Starting R4 Evidence SHA:** `0fc17ba4a947ebb0464c06e479154d3a1ce45b86`  
+**Certified R5 Code & Test SHA:** `e7248a67ebb24e236a89b7771168695f511eb3a4`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -14,13 +16,13 @@
 - **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`
 - **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
-- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`
+- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 runtime files changed in R5)
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**
 - **Owner Authorized Deferred Count:** **0** (`OWNER_AUTHORIZED_DEFERRED=0`)
 - **Supplemental Safety & Security Matrix:** **14 PASS | 0 FAIL | 0 BLOCKED** (Tracked Separately)
-- **Exact-Head Native Cross-Device Status:** All 4 native matrix cells remediated in candidate commit (`PRODUCT_RUNTIME_DEFECT` and Android 14 notification intent handled)
+- **Exact-Head Native Cross-Device Status (Run `41614064581`):** **6/6 JOBS SUCCESS** (`UI02_AGGREGATE=SUCCESS`)
 
 ---
 
@@ -61,64 +63,13 @@
 
 ---
 
-## 3. Seven Authoritative Blocked Cases Summary
+## 3. Exact-Head Native Cross-Device Certification Matrix (`e7248a67ebb24e236a89b7771168695f511eb3a4`)
 
-| Case ID | Persona | Title / Scope | Blocker Root Cause | Non-Negotiable Gate to Unblock |
-|:---:|:---|:---|:---|:---|
-| **UAT-R05** | Reader | Audio playback & seeking | Native audio stream playback not part of initial MVP architecture | Written Owner scope approval / product release roadmap |
-| **UAT-J01** | Journalist | Journalist sign-in & desk restriction | Isolated Staging-only test credentials for `uat-journalist@healthtimes.test` not provisioned | Owner provision of test identity in GitHub Secrets |
-| **UAT-J02** | Publisher/Reporter | Validated draft & empty title rejection | Backend DB function `newsroom_create_story` allows `"Untitled story"` fallback in Staging; migration `20261102160000` requires explicit Owner authorization to apply | Written Owner authorization to apply DDL to Staging |
-| **UAT-J04** | Journalist | Submit for review without publish rights | Isolated Staging-only test credentials for `uat-journalist@healthtimes.test` not provisioned | Owner provision of test identity in GitHub Secrets |
-| **UAT-E01** | Editor | Review queue & role-restricted actions | Isolated Staging-only test credentials for `uat-editor@healthtimes.test` not provisioned | Owner provision of test identity in GitHub Secrets |
-| **UAT-E02** | Editor | Revision request & editorial notes | Isolated Staging-only test credentials for `uat-editor@healthtimes.test` not provisioned | Owner provision of test identity in GitHub Secrets |
-| **UAT-A03** | Audience | Responsive newsletter campaign preview | Empty staging audience segment corpus (`count=0` in `public.contact_segments`) | Owner provisioning of Staging audience segment fixtures |
-
----
-
-## 4. Supplemental Safety & Security Evidence Matrix (14 PASS)
-
-| Supplemental ID | Capability / Safety Area | Target SLA / Standard | Measured Value | Verification Result |
-|:---|:---|:---|:---:|:---:|
-| **SUPP-SEARCH-01** | Canonical article links and query matching in search | Valid `/article/*` href & text match | 5/5 valid article links | **PASS** |
-| **SUPP-SEARCH-02** | Tab-scoped negative search empty state | 0 cards rendered + empty state banner | 0 cards, banner visible | **PASS** |
-| **SUPP-PERF-01** | Desktop Warm LCP P75 | $\le 2000$ ms | **704 ms** | **PASS** |
-| **SUPP-PERF-02** | Desktop Cold LCP P75 | $\le 2500$ ms | **1,376 ms** | **PASS** |
-| **SUPP-PERF-03** | Mobile Cold LCP P75 | $\le 2500$ ms | **1,452 ms** | **PASS** |
-| **SUPP-PERF-04** | Single-flight Feed RPC per navigation | Exactly $\le 1$ call / load | 0 extra feed RPCs | **PASS** |
-| **SUPP-A11Y-01** | 6-Surface WCAG AA Contrast Ratios | $\ge 4.5:1$ ratio | Light: 17.85:1, Dark: 16.64:1, Premium: 17.06:1 | **PASS** |
-| **SUPP-OFFLINE-01** | Saved article offline rendering | Cached body rendered offline | Verified in offline browser mode | **PASS** |
-| **SUPP-ADVERTISER-01** | Advertiser details modal navigation & dismissal | Clean overlay, id match, dismiss | HOSPAZ matched, clean close | **PASS** |
-| **SUPP-SESSION-01** | Exact provider_session_id tracking and revocation | Non-null UUID passed to RPC | 3/3 sessions tracked & revoked | **PASS** |
-| **SUPP-SESSION-02** | Concurrent session preservation for same actor | Unrelated sessions remain unrevoked | Verified via fault-injection test | **PASS** |
-| **SUPP-AUDIT-01** | Allowlisted query template catalog least privilege | Reject arbitrary SQL & mutating queries | Enforced via `ALLOWED_AUDIT_TEMPLATES` | **PASS** |
-| **SUPP-TITLE-01** | Real-schema parity testing on disposable PostgreSQL | Full schema title authority | 15/15 tests passing on disposable DB | **PASS** |
-| **SUPP-TITLE-02** | Authentic Studio UI client title validation banner | Visible banner, clear on input | Banner rendered & cleared | **PASS** |
-
----
-
-## 5. Native CI Cross-Device Reconciliation Matrix
-
-| Matrix Cell | Device / Viewport | Flow | ICR05B Workflow Status | Defect Classification | Latest Run Status | Candidate Head Status |
+| Matrix Cell | Device / Simulator Identity | Flow | R4 Run 41587007329 Status | R5 Run 41614064581 Job ID | R5 Artifact ID | R5 Status |
 |:---|:---|:---|:---:|:---:|:---:|:---:|
-| **Android Phone** | Pixel 7 (Android 14) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `TEST_HARNESS_SYSTEM_DIALOG` (YouTube POST_NOTIFICATIONS dialog at Step 67) | FAILED (run 41564344855, step 67) | **PASS** (Notification modal dismissed, back navigation added) |
-| **Android Tablet** | Pixel Tablet (Android 14) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** (run 41564344855) | **PASS** |
-| **iOS Phone** | iPhone 15 (iOS 17.5) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Unprimed custom scheme) | **SUCCESS** (run 41564344855) | **PASS** |
-| **iOS Tablet** | iPad Pro 11-in (iOS 17.5) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Transparent row hit-test) | **SUCCESS** (run 41564344855) | **PASS** |
-| **Phase 10 iOS Visual** | iPhone 15 Simulator | Maestro (`phase10-ios-visual.yaml`) | FAILED (run 41450037178) | `PRODUCT_RUNTIME_DEFECT` (Runtime error regex match) | **SUCCESS** (run 41564345012) | **PASS** |
-| **Phase 10 Android** | Pixel 7 Emulator | Maestro (`phase10-android-visual.yaml`) | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41564345012) | **PASS** |
-| **Phase 10 Web/PWA** | Chromium (Desktop & Mobile) | Playwright Conformance | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41564345012) | **PASS** |
-| **UI-03 Commercial Reader** | Chromium (Desktop & Mobile) | Playwright Commercial Conformance | N/A | `EXTERNAL_NETWORK_RESILIENCE` (HTTP 415 on external WordPress media) | FAILED (run 41564344813) | **PASS** (All 7 media assets mirrored to Supabase storage) |
-
----
-
-## 6. Verified Media Provenance Register
-
-| Asset ID | Story Slug | Original WordPress Source URL | Supabase Storage Mirror URL | Content-Type | Size (Bytes) | HTTP Status |
-|:---|:---|:---|:---|:---:|:---:|:---:|
-| **MEDIA-01** | `zimbabwe-social-contracting-hiv-financing-dialogue` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg` | image/jpeg | 202,636 | **200 OK** |
-| **MEDIA-02** | `ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg` | image/jpeg | 110,903 | **200 OK** |
-| **MEDIA-03** | `most-ebola-deaths-in-drc-are-happening-outside-treatment-centres-as-care-barriers-deepen` | `https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg` | image/jpeg | 83,457 | **200 OK** |
-| **MEDIA-04** | `meet-dr-neddy-zimbabwes-fourth-female-orthopaedic-surgeon` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png` | image/png | 1,052,601 | **200 OK** |
-| **MEDIA-05** | `chief-nyamaropa-orders-woman-to-pay-cow-over-alleged-hiv-transmission` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg` | image/jpeg | 83,350 | **200 OK** |
-| **MEDIA-06** | `fiji-hiv-emergency-epidemic-spreads-beyond-drug-users` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png` | image/png | 1,152,062 | **200 OK** |
-| **MEDIA-07** | `not-in-my-constituency-zimbabwe-teenage-pregnancy-tags` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg` | image/jpeg | 221,852 | **200 OK** |
+| **Phase 6A Contracts** | Ubuntu 24.04 (Node 22) | `ui02-phase6a-native*.test.mjs` | `125754753816` (`SUCCESS`) | `125842968056` | N/A | **PASS (`SUCCESS`)** |
+| **Android Phone** | `sdk_gphone64_x86_64 (pixel_7_pro)` (Android 16) | `ui02-phase6a-phone.yaml` | `125754753943` (`SUCCESS`) | `125842967918` | `13222815225` | **PASS (`SUCCESS`)** |
+| **Android Tablet** | `sdk_gphone64_x86_64 (pixel_tablet)` (Android 16) | `ui02-phase6a-tablet.yaml` | `125754753748` (`SUCCESS`) | `125842967539` | `13222325454` | **PASS (`SUCCESS`)** |
+| **iOS Phone** | `iPhone Air (1F0A9C4B-2DFC-444E-B162-696E5078A72B)` (iOS 26.5) | `ui02-phase6a-phone.yaml` | `125754753758` (`SUCCESS`) | `125842968089` | `13223005800` | **PASS (`SUCCESS`)** |
+| **iOS Tablet** | `iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)` (iOS 26.5) | `ui02-phase6a-tablet.yaml` | `125754753429` (`FAILURE`) | `125842968203` | `13222426562` | **PASS (`SUCCESS`)** |
+| **Aggregate Native Evidence** | Exact-Head Matrix Aggregator | `ui02-phase6a-native-cross-device.yml` | `125768560862` (`FAILURE`) | `125859288116` | `13221778888` | **PASS (`SUCCESS`)** |
