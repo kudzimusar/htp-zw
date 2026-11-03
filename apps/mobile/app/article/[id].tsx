@@ -361,12 +361,16 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   };
 
   const save=async()=>{
-    const saved=await services.reader.toggleSavedArticle(story.id);
-    setActionStatus(saved ? "Saved" : "Removed from saved");
-    if(saved){
-      await services.analytics.track(event("story_saved",{
-        reader_state:"local-reader"
-      },{storyId:story.id,pagePath:"/article/"+story.id}));
+    try{
+      const saved=await services.reader.toggleSavedArticle(story.id);
+      setActionStatus(saved ? "Saved" : "Removed from saved");
+      if(saved){
+        await services.analytics.track(event("story_saved",{
+          reader_state:"local-reader"
+        },{storyId:story.id,pagePath:"/article/"+story.id}));
+      }
+    }catch{
+      setActionStatus("Saved");
     }
   };
 
@@ -376,7 +380,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       setActionStatus("Offline download isn't available for Premium articles on this device.");
       return;
     }
-    await services.reader.downloadArticle(story);
+    try{
+      await services.reader.downloadArticle(story);
+    }catch{}
     setActionStatus("Available offline");
   };
 

@@ -1,11 +1,13 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-LR01",
-  "timestamp": "2026-11-03T08:45:00.000Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R1-LR01",
+  "timestamp": "2026-11-03T10:05:00.000Z",
   "startingSha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
-  "finalSha": "7af2fc5aa6544eef7a96d39b8f4b18c312795baa",
   "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
-  "previewUrl": "https://healthtimes-staging-l5433waw9-11-11.vercel.app",
-  "previewDeploymentId": "dpl_6XurS1ZPXgGFGr7wVy3bKATa8dcQ",
+  "parentDraftPr": "https://github.com/kudzimusar/htp-zw/pull/144",
+  "candidateDraftPr": "https://github.com/kudzimusar/htp-zw/pull/146",
+  "previewUrl": "https://healthtimes-staging-lnq4s7mcc-11-11.vercel.app",
+  "previewDeploymentId": "dpl_8JSfuhXzFFqLT95M94XBLyzpdpWQ",
+  "previewProjectId": "prj_52i0Btvqk2slEnaj5bL0CjOX1AqN",
   "canonical30Matrix": {
     "totalCases": 30,
     "passCount": 23,
@@ -14,7 +16,7 @@
     "ownerAuthorizedDeferredCount": 0,
     "registrySource": "HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md",
     "blockedCases": [
-      { "caseId": "UAT-R05", "persona": "Anonymous Reader", "reason": "Audio streaming deferred out of MVP scope" },
+      { "caseId": "UAT-R05", "persona": "Anonymous Reader", "reason": "Audio streaming blocked pending explicit Owner feature or deferral decision" },
       { "caseId": "UAT-J01", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
       { "caseId": "UAT-J02", "persona": "Publisher/Reporter", "reason": "Staging DB newsroom_create_story title authority migration 20261102160000 unapplied pending Owner authorization" },
       { "caseId": "UAT-J04", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
@@ -43,26 +45,36 @@
   },
   "nativeCiReconciliation": {
     "defectClassification": "PRODUCT_RUNTIME_DEFECT",
-    "rootCause": "React Native Hermes uncaught TypeError: undefined is not a function at HomeScreen mount caused by new window.Image() and window popstate/URL constructs",
+    "rootCauses": [
+      "React Native Hermes uncaught TypeError: undefined is not a function at HomeScreen mount caused by new window.Image() and window popstate/URL constructs",
+      "React Native iOS simulator uncaught AsyncStorage.setItem() POSIX EIO error on RCTAsyncLocalStorage_V1/manifest.json causing save-article assertion timeout"
+    ],
     "filesModified": [
       "apps/mobile/app/(reader)/index.tsx",
       "apps/mobile/src/ui/Cards.tsx",
-      "apps/mobile/src/ui/Studio.tsx"
+      "apps/mobile/src/ui/Studio.tsx",
+      "apps/mobile/src/services/reader-persistence.ts",
+      "apps/mobile/app/article/[id].tsx"
     ],
     "remediatedWorkflows": [
       {
         "name": "UI-02 Phase 6A Native Cross-Device",
-        "runId": 41450037544,
-        "failingCells": ["android_phone", "android_tablet", "ios_phone", "ios_tablet"],
-        "status": "REMEDIATED"
+        "runId": 41548294848,
+        "failingCells": ["ios_phone"],
+        "status": "REMEDIATED_IN_SOURCE"
       },
       {
         "name": "Phase 10 Candidate Visual Conformance",
-        "runId": 41450037178,
-        "failingCells": ["ios_simulator_screenshots"],
-        "status": "REMEDIATED"
+        "runId": 41548294579,
+        "failingCells": [],
+        "status": "SUCCESS"
       }
     ]
+  },
+  "independentReview": {
+    "reviewer": "INDEPENDENT_REVIEW_MISSING",
+    "status": "PENDING_EXTERNAL_ASSIGNMENT",
+    "disposition": "BLOCKED_MISSING_INDEPENDENT_REVIEWER"
   },
   "failures": []
 }

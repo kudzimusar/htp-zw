@@ -19,18 +19,42 @@ const defaultPreferences: EditionPreference = {
   followedTopics: ["Public Health", "Research"]
 };
 
+const inMemoryCache = new Map<string, string>();
+
 async function readJson<T>(key: string, fallback: T): Promise<T> {
-  const value = await AsyncStorage.getItem(key);
-  if (!value) return fallback;
   try {
-    return JSON.parse(value) as T;
+    const value = await AsyncStorage.getItem(key);
+    if (value !== null && value !== undefined) {
+      inMemoryCache.set(key, value);
+      try {
+        return JSON.parse(value) as T;
+      } catch {
+        return fallback;
+      }
+    }
   } catch {
-    return fallback;
+    // If persistent storage read fails, fall back to in-memory cache
   }
+  const cached = inMemoryCache.get(key);
+  if (cached !== undefined) {
+    try {
+      return JSON.parse(cached) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
 }
 
 async function writeJson<T>(key: string, value: T) {
-  await AsyncStorage.setItem(key, JSON.stringify(value));
+  const serialized = JSON.stringify(value);
+  inMemoryCache.set(key, serialized);
+  try {
+    await AsyncStorage.setItem(key, serialized);
+  } catch (err) {
+    // Log warning and retain in-memory state so application does not crash
+    console.warn("AsyncStorage write fallback to in-memory cache:", key, err);
+  }
 }
 
 function clampProgress(value: number) {
@@ -46,12 +70,20 @@ type PremiumPreviewLedgerEntry = {
 };
 
 async function ensurePremiumPreviewScope() {
-  const existing=await AsyncStorage.getItem(keys.premiumPreviewScope);
-  if(existing?.trim()) return existing;
+  try {
+    const existing=await AsyncStorage.getItem(keys.premiumPreviewScope);
+    if(existing?.trim()) return existing;
+  } catch {}
+  const memExisting = inMemoryCache.get(keys.premiumPreviewScope);
+  if (memExisting?.trim()) return memExisting;
+
   // This identifier is a local UX/session scope only. It is not an entitlement
   // credential and must never authorize Premium content.
   const created="anonymous-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);
-  await AsyncStorage.setItem(keys.premiumPreviewScope,created);
+  inMemoryCache.set(keys.premiumPreviewScope, created);
+  try {
+    await AsyncStorage.setItem(keys.premiumPreviewScope,created);
+  } catch {}
   return created;
 }
 
