@@ -52,6 +52,12 @@ type SecurityReadResult<T> =
   | { status: "CORRUPT"; error: Error }
   | { status: "READ_FAILED"; error: Error };
 
+type SecurityScopeResult =
+  | { status: "VALID"; scopeId: string }
+  | { status: "MISSING"; scopeId: null }
+  | { status: "CORRUPT"; error: Error }
+  | { status: "READ_FAILED"; error: Error };
+
 async function readSecurityJson<T>(key: string): Promise<SecurityReadResult<T>> {
   let raw: string | null;
   try {
@@ -63,8 +69,17 @@ async function readSecurityJson<T>(key: string): Promise<SecurityReadResult<T>> 
     };
   }
 
-  if (raw === null || raw === undefined || raw === "") {
+  // A1: Only genuine absence (null or undefined) is MISSING
+  if (raw === null || raw === undefined) {
     return { status: "MISSING", data: null };
+  }
+
+  // A1: Present-but-empty or whitespace-only is CORRUPT, not MISSING
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return {
+      status: "CORRUPT",
+      error: new Error(`Security payload for ${key} is empty or whitespace-only`)
+    };
   }
 
   try {
@@ -84,23 +99,46 @@ async function readSecurityJson<T>(key: string): Promise<SecurityReadResult<T>> 
   }
 }
 
-async function ensurePremiumPreviewScope(): Promise<string> {
-  let existing: string | null;
+async function getSecurityScope(): Promise<SecurityScopeResult> {
+  let raw: string | null;
   try {
-    existing = await AsyncStorage.getItem(keys.premiumPreviewScope);
+    raw = await AsyncStorage.getItem(keys.premiumPreviewScope);
   } catch (err) {
-    // If reading scope throws an error, fail closed — do NOT generate a new scope!
-    throw new Error(
-      "Unable to read premium preview security scope: " +
-        (err instanceof Error ? err.message : String(err))
-    );
+    return {
+      status: "READ_FAILED",
+      error: err instanceof Error ? err : new Error(String(err))
+    };
   }
 
-  if (existing?.trim()) {
-    return existing.trim();
+  // A2: Only genuine absence is MISSING
+  if (raw === null || raw === undefined) {
+    return { status: "MISSING", scopeId: null };
   }
 
-  // Key is legitimately missing (clean first visit): generate new scope and persist
+  // A2: Present-but-empty or whitespace-only scope is CORRUPT, not MISSING
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return {
+      status: "CORRUPT",
+      error: new Error("Stored premium preview security scope is empty or whitespace-only")
+    };
+  }
+
+  return { status: "VALID", scopeId: raw.trim() };
+}
+
+export async function ensurePremiumPreviewScope(): Promise<string> {
+  const scopeResult = await getSecurityScope();
+  if (scopeResult.status === "READ_FAILED") {
+    throw scopeResult.error;
+  }
+  if (scopeResult.status === "CORRUPT") {
+    throw scopeResult.error;
+  }
+  if (scopeResult.status === "VALID") {
+    return scopeResult.scopeId;
+  }
+
+  // Legitimate first-use initialization ONLY (status === "MISSING")
   // This identifier is a local UX/session scope only. It is not an entitlement
   // credential and must never authorize Premium content.
   const created = "anonymous-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
@@ -192,22 +230,73 @@ export const persistentReaderRepository: ReaderRepository = {
     if (!storyId || !Number.isFinite(durationSeconds) || durationSeconds !== 20) return null;
 
     try {
-      const scopeId = await ensurePremiumPreviewScope();
-      const readResult = await readSecurityJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger);
-
-      // Invariant: Storage read errors or corrupted data MUST NEVER reset or grant a preview
-      if (readResult.status === "READ_FAILED" || readResult.status === "CORRUPT") {
+      const scopeResult = await getSecurityScope();
+      if (scopeResult.status === "READ_FAILED" || scopeResult.status === "CORRUPT") {
         return null;
       }
 
-      const ledger = readResult.status === "VALID" ? readResult.data : {};
+      const ledgerResult = await readSecurityJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger);
+      if (ledgerResult.status === "READ_FAILED" || ledgerResult.status === "CORRUPT") {
+        return null;
+      }
+
+      // A3: Partial state invariant:
+      // If one security key exists and the other is legitimately missing, the state is inconsistent
+      // (e.g. interrupted initialization or out-of-band deletion). Deny preview access!
+      if (scopeResult.status === "VALID" && ledgerResult.status === "MISSING") {
+        return null;
+      }
+      if (scopeResult.status === "MISSING" && ledgerResult.status === "VALID") {
+        return null;
+      }
+
+      let scopeId: string;
+      let ledger: Record<string, PremiumPreviewLedgerEntry>;
+
+      if (scopeResult.status === "MISSING" && ledgerResult.status === "MISSING") {
+        // Legitimate clean first-use initialization policy: both keys absent
+        scopeId = "anonymous-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
+        ledger = {};
+        await AsyncStorage.setItem(keys.premiumPreviewScope, scopeId);
+      } else if (scopeResult.status === "VALID" && ledgerResult.status === "VALID") {
+        // Both keys are VALID
+        scopeId = scopeResult.scopeId;
+        ledger = ledgerResult.data;
+      } else {
+        // Any other combination fails closed
+        return null;
+      }
+
+      // Validate ledger entries integrity: all entries must have valid structure
+      for (const [k, entry] of Object.entries(ledger)) {
+        if (
+          !entry ||
+          typeof entry !== "object" ||
+          typeof entry.storyId !== "string" ||
+          !entry.storyId ||
+          typeof entry.scopeId !== "string" ||
+          !entry.scopeId ||
+          typeof entry.startedAt !== "number" ||
+          !Number.isFinite(entry.startedAt) ||
+          entry.startedAt <= 0
+        ) {
+          return null; // Structurally invalid ledger entry -> DENIED
+        }
+        if (
+          entry.promptRequestedAt !== undefined &&
+          (!Number.isFinite(entry.promptRequestedAt) || entry.promptRequestedAt <= 0)
+        ) {
+          return null;
+        }
+      }
+
       const ledgerKey = scopeId + "|" + storyId;
       const now = Date.now();
       const existing = ledger[ledgerKey];
 
       let startedAt: number;
       if (!existing) {
-        // Legitimate clean first visit for this story
+        // Legitimate clean first visit for this specific story
         startedAt = now;
         ledger[ledgerKey] = { storyId, scopeId, startedAt };
         await writeJson(keys.premiumPreviewLedger, ledger);
@@ -231,15 +320,42 @@ export const persistentReaderRepository: ReaderRepository = {
     if (!storyId) return false;
 
     try {
-      const scopeId = await ensurePremiumPreviewScope();
-      const readResult = await readSecurityJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger);
-
-      // Invariant: Storage read errors or corrupted data MUST NEVER authorize or reset prompt state
-      if (readResult.status === "READ_FAILED" || readResult.status === "CORRUPT") {
+      const scopeResult = await getSecurityScope();
+      if (scopeResult.status !== "VALID") {
         return false;
       }
 
-      const ledger = readResult.status === "VALID" ? readResult.data : {};
+      const ledgerResult = await readSecurityJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger);
+      if (ledgerResult.status !== "VALID") {
+        return false;
+      }
+
+      const scopeId = scopeResult.scopeId;
+      const ledger = ledgerResult.data;
+
+      // Validate ledger entries integrity
+      for (const [k, entry] of Object.entries(ledger)) {
+        if (
+          !entry ||
+          typeof entry !== "object" ||
+          typeof entry.storyId !== "string" ||
+          !entry.storyId ||
+          typeof entry.scopeId !== "string" ||
+          !entry.scopeId ||
+          typeof entry.startedAt !== "number" ||
+          !Number.isFinite(entry.startedAt) ||
+          entry.startedAt <= 0
+        ) {
+          return false;
+        }
+        if (
+          entry.promptRequestedAt !== undefined &&
+          (!Number.isFinite(entry.promptRequestedAt) || entry.promptRequestedAt <= 0)
+        ) {
+          return false;
+        }
+      }
+
       const ledgerKey = scopeId + "|" + storyId;
       const existing = ledger[ledgerKey];
       if (!existing || !Number.isFinite(existing.startedAt) || existing.promptRequestedAt) return false;

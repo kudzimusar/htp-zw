@@ -159,7 +159,7 @@ test("Recovery after storage failure: subsequent retry succeeds and persists dur
   assert.deepEqual(await repo.getSavedArticleIds(), ["retry-story"]);
 });
 
-test("Work Package A - Scenario 1: Clean first visit grants legitimate 20-second preview", async () => {
+test("Work Package A - Scenario 1: Both keys legitimately absent (clean first visit) grants 20-second preview", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
@@ -172,44 +172,47 @@ test("Work Package A - Scenario 1: Clean first visit grants legitimate 20-second
   assert.ok(Date.parse(preview.startedAt) > 0);
   assert.ok(Date.parse(preview.expiresAt) > Date.parse(preview.startedAt));
 
-  // Verify storage was initialized
+  // Verify storage was initialized with both keys
   assert.ok(storage.store.has("ht:ag05:premium-preview:scope:v1"));
   assert.ok(storage.store.has("ht:ag05:premium-preview:ledger:v1"));
 });
 
-test("Work Package A - Scenario 2: Storage read failure on ledger fails closed (null window, false prompt)", async () => {
+test("Work Package A - Scenario 2: Empty ledger fails closed (null window, false prompt; never reset to first use)", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
 
-  // Pre-seed scope and existing consumed ledger
-  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-user-1");
-  const existingLedger = {
-    "scope-user-1|story-consumed": {
-      storyId: "story-consumed",
-      scopeId: "scope-user-1",
-      startedAt: Date.now() - 30000,
-      promptRequestedAt: Date.now() - 10000
-    }
-  };
-  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify(existingLedger));
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-valid-1");
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", "");
 
-  // Storage read fails on ledger
-  storage.setFailReadKeys(["ht:ag05:premium-preview:ledger:v1"]);
+  const windowResult = await repo.getPremiumPreviewWindow("story-empty-ledger", 20);
+  assert.equal(windowResult, null, "MUST fail closed on present-but-empty ledger; never treat as missing/first-use");
 
-  const windowResult = await repo.getPremiumPreviewWindow("story-consumed", 20);
-  assert.equal(windowResult, null, "MUST fail closed on ledger read failure; never reset/grant preview");
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-empty-ledger");
+  assert.equal(promptResult, false, "MUST fail closed on empty ledger");
 
-  const promptResult = await repo.requestPremiumPreviewPrompt("story-consumed");
-  assert.equal(promptResult, false, "MUST fail closed on ledger read failure; never grant prompt");
-
-  // Invariant: Storage was not modified or overwritten
-  storage.setFailReadKeys([]);
-  const rawLedger = storage.store.get("ht:ag05:premium-preview:ledger:v1");
-  assert.deepEqual(JSON.parse(rawLedger), existingLedger);
+  // Invariant: empty ledger must not be overwritten with a new ledger
+  assert.equal(storage.store.get("ht:ag05:premium-preview:ledger:v1"), "");
 });
 
-test("Work Package A - Scenario 3: Corrupt/malformed JSON in ledger fails closed (null window, false prompt)", async () => {
+test("Work Package A - Scenario 3: Whitespace-only ledger fails closed (null window, false prompt)", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-valid-2");
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", "   \n\t  ");
+
+  const windowResult = await repo.getPremiumPreviewWindow("story-ws-ledger", 20);
+  assert.equal(windowResult, null, "MUST fail closed on whitespace-only ledger");
+
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-ws-ledger");
+  assert.equal(promptResult, false, "MUST fail closed on whitespace-only ledger");
+
+  assert.equal(storage.store.get("ht:ag05:premium-preview:ledger:v1"), "   \n\t  ");
+});
+
+test("Work Package A - Scenario 4: Malformed ledger JSON fails closed (null window, false prompt)", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
@@ -227,46 +230,68 @@ test("Work Package A - Scenario 3: Corrupt/malformed JSON in ledger fails closed
   assert.equal(storage.store.get("ht:ag05:premium-preview:ledger:v1"), "{ MALFORMED_JSON_CORRUPTED_ENTRY ");
 });
 
-test("Work Package A - Scenario 4: Expired preview returns 0 remaining seconds and does not reset", async () => {
+test("Work Package A - Scenario 5: Invalid ledger structure fails closed (null window, false prompt)", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
 
-  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-user-3");
-  const startedAt = Date.now() - 25000; // 25s ago (> 20s)
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-user-5");
+
+  // Array instead of object
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify(["not", "an", "object"]));
+  assert.equal(await repo.getPremiumPreviewWindow("story-struct-1", 20), null);
+  assert.equal(await repo.requestPremiumPreviewPrompt("story-struct-1"), false);
+
+  // Primitive number instead of object
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", "12345");
+  assert.equal(await repo.getPremiumPreviewWindow("story-struct-2", 20), null);
+  assert.equal(await repo.requestPremiumPreviewPrompt("story-struct-2"), false);
+
+  // Object entry missing required timestamps or storyId
   storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify({
-    "scope-user-3|story-expired": {
-      storyId: "story-expired",
-      scopeId: "scope-user-3",
-      startedAt
-    }
+    "scope-user-5|story-bad-entry": { storyId: "", startedAt: -50 }
   }));
-
-  const windowResult = await repo.getPremiumPreviewWindow("story-expired", 20);
-  assert.ok(windowResult);
-  assert.equal(windowResult.remainingSeconds, 0, "Expired preview window must have 0 remaining seconds");
-  assert.equal(Date.parse(windowResult.startedAt), startedAt, "startedAt must NOT be reset");
+  assert.equal(await repo.getPremiumPreviewWindow("story-bad-entry", 20), null);
+  assert.equal(await repo.requestPremiumPreviewPrompt("story-bad-entry"), false);
 });
 
-test("Work Package A - Scenario 5: Consumed prompt is one-shot and cannot be re-granted", async () => {
+test("Work Package A - Scenario 6: Empty scope fails closed and does NOT regenerate scope", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
 
-  // Initialize preview
-  const preview = await repo.getPremiumPreviewWindow("story-prompt-flow", 20);
-  assert.ok(preview);
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "");
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify({}));
 
-  // First prompt request succeeds
-  const firstPrompt = await repo.requestPremiumPreviewPrompt("story-prompt-flow");
-  assert.equal(firstPrompt, true, "First prompt request must succeed");
+  const windowResult = await repo.getPremiumPreviewWindow("story-empty-scope", 20);
+  assert.equal(windowResult, null, "Must fail closed if scope is present but empty");
 
-  // Subsequent prompt request is rejected (already consumed)
-  const secondPrompt = await repo.requestPremiumPreviewPrompt("story-prompt-flow");
-  assert.equal(secondPrompt, false, "Second prompt request must fail (consumed)");
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-empty-scope");
+  assert.equal(promptResult, false, "Must fail closed if scope is present but empty");
+
+  // Invariant: empty scope MUST NOT be replaced with a freshly generated scope!
+  assert.equal(storage.store.get("ht:ag05:premium-preview:scope:v1"), "");
 });
 
-test("Work Package A - Scenario 6: Storage read failure on scope fails closed (null window, false prompt)", async () => {
+test("Work Package A - Scenario 7: Whitespace-only scope fails closed and does NOT regenerate scope", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "   \t\n  ");
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify({}));
+
+  const windowResult = await repo.getPremiumPreviewWindow("story-ws-scope", 20);
+  assert.equal(windowResult, null, "Must fail closed if scope is whitespace-only");
+
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-ws-scope");
+  assert.equal(promptResult, false, "Must fail closed if scope is whitespace-only");
+
+  // Invariant: whitespace scope MUST NOT be replaced with a freshly generated scope!
+  assert.equal(storage.store.get("ht:ag05:premium-preview:scope:v1"), "   \t\n  ");
+});
+
+test("Work Package A - Scenario 8: Storage read failure on scope fails closed (null window, false prompt)", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
@@ -280,12 +305,12 @@ test("Work Package A - Scenario 6: Storage read failure on scope fails closed (n
   assert.equal(promptResult, false, "Must fail closed if scope read fails");
 });
 
-test("Work Package A - Scenario 7: Storage write failure on scope fails closed (null window, false prompt)", async () => {
+test("Work Package A - Scenario 9: Storage write failure on scope fails closed (null window, false prompt)", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
 
-  // Scope is absent, write will fail
+  // Both keys absent: clean first use, but scope write fails
   storage.setFailWriteKeys(["ht:ag05:premium-preview:scope:v1"]);
 
   const windowResult = await repo.getPremiumPreviewWindow("story-scope-write-err", 20);
@@ -295,11 +320,42 @@ test("Work Package A - Scenario 7: Storage write failure on scope fails closed (
   assert.equal(promptResult, false, "Must fail closed if scope cannot be persisted");
 });
 
-test("Work Package A - Scenario 8: Storage write failure on ledger fails closed (null window, false prompt)", async () => {
+test("Work Package A - Scenario 10: Storage read failure on ledger fails closed (null window, false prompt)", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
 
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-user-10");
+  const existingLedger = {
+    "scope-user-10|story-consumed": {
+      storyId: "story-consumed",
+      scopeId: "scope-user-10",
+      startedAt: Date.now() - 30000,
+      promptRequestedAt: Date.now() - 10000
+    }
+  };
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify(existingLedger));
+
+  storage.setFailReadKeys(["ht:ag05:premium-preview:ledger:v1"]);
+
+  const windowResult = await repo.getPremiumPreviewWindow("story-consumed", 20);
+  assert.equal(windowResult, null, "MUST fail closed on ledger read failure; never reset/grant preview");
+
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-consumed");
+  assert.equal(promptResult, false, "MUST fail closed on ledger read failure; never grant prompt");
+
+  storage.setFailReadKeys([]);
+  const rawLedger = storage.store.get("ht:ag05:premium-preview:ledger:v1");
+  assert.deepEqual(JSON.parse(rawLedger), existingLedger);
+});
+
+test("Work Package A - Scenario 11: Storage write failure on ledger fails closed (null window, false prompt)", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-valid-11");
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify({}));
   storage.setFailWriteKeys(["ht:ag05:premium-preview:ledger:v1"]);
 
   const windowResult = await repo.getPremiumPreviewWindow("story-ledger-write-err", 20);
@@ -309,22 +365,72 @@ test("Work Package A - Scenario 8: Storage write failure on ledger fails closed 
   assert.equal(promptResult, false, "Must fail closed if ledger update cannot be saved");
 });
 
-test("Work Package A - Scenario 9: Ledger read throws, but writes would succeed: fails closed", async () => {
+test("Work Package A - Scenario 12: Existing scope with absent ledger (partial state) fails closed", async () => {
   const { storage, mocks } = createMockStorage();
   const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
   const repo = repoModule.persistentReaderRepository;
 
-  // Writes work normally, only reads fail
-  storage.setFailReadKeys(["ht:ag05:premium-preview:ledger:v1"]);
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-isolated");
+  // Ledger key is completely absent (null in AsyncStorage)
 
-  const windowResult = await repo.getPremiumPreviewWindow("story-read-fail-write-ok", 20);
-  assert.equal(windowResult, null, "Must fail closed even if writes would succeed");
+  const windowResult = await repo.getPremiumPreviewWindow("story-partial-scope", 20);
+  assert.equal(windowResult, null, "Inconsistent partial state (scope exists without ledger) MUST fail closed");
 
-  storage.setFailReadKeys([]);
-  assert.equal(storage.store.has("ht:ag05:premium-preview:ledger:v1"), false, "Must NOT have written a new ledger");
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-partial-scope");
+  assert.equal(promptResult, false, "Inconsistent partial state MUST fail closed");
 });
 
-test("Work Package A - Scenario 10: App restart after consumed preview preserves expiry and consumed prompt", async () => {
+test("Work Package A - Scenario 13: Absent scope with existing ledger (partial state) fails closed", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  // Scope key is completely absent (null in AsyncStorage)
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify({
+    "scope-prior|story-x": { storyId: "story-x", scopeId: "scope-prior", startedAt: Date.now() }
+  }));
+
+  const windowResult = await repo.getPremiumPreviewWindow("story-x", 20);
+  assert.equal(windowResult, null, "Inconsistent partial state (ledger exists without scope) MUST fail closed");
+
+  const promptResult = await repo.requestPremiumPreviewPrompt("story-x");
+  assert.equal(promptResult, false, "Inconsistent partial state MUST fail closed");
+});
+
+test("Work Package A - Scenario 14: Interrupted first-use initialization leaves partial state that fails closed", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  // Simulate an interrupted operation: scope was written on first use, but app crashed before ledger was written
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "interrupted-scope");
+
+  const windowResult = await repo.getPremiumPreviewWindow("any-story", 20);
+  assert.equal(windowResult, null, "Interrupted partial initialization must deny unintended preview access");
+});
+
+test("Work Package A - Scenario 15: Expired preview returns 0 remaining seconds and does not reset", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  storage.store.set("ht:ag05:premium-preview:scope:v1", "scope-user-15");
+  const startedAt = Date.now() - 25000; // 25s ago (> 20s)
+  storage.store.set("ht:ag05:premium-preview:ledger:v1", JSON.stringify({
+    "scope-user-15|story-expired": {
+      storyId: "story-expired",
+      scopeId: "scope-user-15",
+      startedAt
+    }
+  }));
+
+  const windowResult = await repo.getPremiumPreviewWindow("story-expired", 20);
+  assert.ok(windowResult);
+  assert.equal(windowResult.remainingSeconds, 0, "Expired preview window must have 0 remaining seconds");
+  assert.equal(Date.parse(windowResult.startedAt), startedAt, "startedAt must NOT be reset");
+});
+
+test("Work Package A - Scenario 16: Previously consumed preview after application restart preserves expiry and consumed prompt", async () => {
   const { storage, mocks } = createMockStorage();
 
   // First session: preview consumed
@@ -353,6 +459,26 @@ test("Work Package A - Scenario 10: App restart after consumed preview preserves
   } finally {
     Date.now = originalNow;
   }
+});
+
+test("Work Package A - Scenario 17: Storage recovery after failure allows subsequent retry to succeed durably", async () => {
+  const { storage, mocks } = createMockStorage();
+  const repoModule = loadTs("src/services/reader-persistence.ts", { mocks });
+  const repo = repoModule.persistentReaderRepository;
+
+  // Step 1: Storage failure
+  storage.setFailReadKeys(["ht:ag05:premium-preview:scope:v1"]);
+  const failedWindow = await repo.getPremiumPreviewWindow("story-recover", 20);
+  assert.equal(failedWindow, null, "Must fail closed during outage");
+
+  // Step 2: Storage recovers
+  storage.setFailReadKeys([]);
+
+  // Step 3: Clean first use succeeds
+  const recoveredWindow = await repo.getPremiumPreviewWindow("story-recover", 20);
+  assert.ok(recoveredWindow, "Must succeed once storage recovers");
+  assert.equal(recoveredWindow.storyId, "story-recover");
+  assert.equal(recoveredWindow.remainingSeconds, 20);
 });
 
 test("Work Package A - Scenario 11: Ordinary non-security preferences preserve fallback resilience", async () => {
