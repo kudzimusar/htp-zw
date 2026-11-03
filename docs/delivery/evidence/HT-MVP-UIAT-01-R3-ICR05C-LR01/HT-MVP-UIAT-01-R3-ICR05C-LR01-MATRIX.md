@@ -10,9 +10,10 @@
 
 ## 1. Authoritative 30-Case UAT Status Census
 
-- **Target Preview URL:** `https://healthtimes-staging-lnq4s7mcc-11-11.vercel.app`
-- **Preview Deployment ID:** `dpl_8JSfuhXzFFqLT95M94XBLyzpdpWQ`
+- **Target Preview URL:** `https://healthtimes-staging-8f9o9775q-11-11.vercel.app`
+- **Preview Deployment ID:** `dpl_7XMzkczzyT26aEuWZ7qV7pW2Xvmi`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
+- **Application Base SHA:** `a7e609dfe183d8ed1bbe7f30bbe91f863dc5a0b1`
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**

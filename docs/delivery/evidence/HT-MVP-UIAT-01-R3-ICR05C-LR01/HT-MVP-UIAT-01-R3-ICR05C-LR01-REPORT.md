@@ -9,8 +9,8 @@
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Parent PR:** [#144](https://github.com/kudzimusar/htp-zw/pull/144) (`fix/ht-mvp-uiat01-r3-icr05b-final-ci-session-evidence`)  
 **Candidate PR:** [#146](https://github.com/kudzimusar/htp-zw/pull/146) (`cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`)  
-**Target Preview URL:** `https://healthtimes-staging-lnq4s7mcc-11-11.vercel.app`  
-**Preview Deployment ID:** `dpl_8JSfuhXzFFqLT95M94XBLyzpdpWQ`  
+**Target Preview URL:** `https://healthtimes-staging-8f9o9775q-11-11.vercel.app`  
+**Preview Deployment ID:** `dpl_7XMzkczzyT26aEuWZ7qV7pW2Xvmi`  
 **Vercel Project:** `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`)  
 **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)  
 
@@ -138,10 +138,12 @@ Audited `scripts/session-authority.mjs` at candidate head:
 UNIT_ID=HT-MVP-UIAT-01-R3-ICR05C-R1-LR01
 STARTING_HEAD=534ff0859944d96b20ec5b7d1f1ded7086d9174b
 FINAL_BRANCH=cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert
+FINAL_REMOTE_SHA=a7e609dfe183d8ed1bbe7f30bbe91f863dc5a0b1
 PARENT_DRAFT_PR=https://github.com/kudzimusar/htp-zw/pull/144
 CANDIDATE_DRAFT_PR=https://github.com/kudzimusar/htp-zw/pull/146
-APP_PREVIEW_DEPLOYMENT=dpl_8JSfuhXzFFqLT95M94XBLyzpdpWQ
-APP_PREVIEW_URL=https://healthtimes-staging-lnq4s7mcc-11-11.vercel.app
+APP_PREVIEW_DEPLOYMENT=dpl_7XMzkczzyT26aEuWZ7qV7pW2Xvmi
+APP_PREVIEW_URL=https://healthtimes-staging-8f9o9775q-11-11.vercel.app
+APP_PREVIEW_SHA=a7e609dfe183d8ed1bbe7f30bbe91f863dc5a0b1
 APP_PREVIEW_PROJECT=prj_52i0Btvqk2slEnaj5bL0CjOX1AqN
 CANONICAL_CHROMIUM_CI=SUCCESS (41450037333 8/8)
 NATIVE_READER_CI=SUCCESS (41450039499 16/16)
