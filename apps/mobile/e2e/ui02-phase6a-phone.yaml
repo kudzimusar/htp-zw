@@ -187,9 +187,28 @@ appId: zw.co.healthtimes.app.dev
     text: ".*YouTube.*"
     index: 0
 - takeScreenshot: watch-external-youtube
+- runFlow:
+    when:
+      visible: ".*(Don’t allow|Don't allow|Allow).*"
+    commands:
+      - tapOn:
+          text: ".*(Don’t allow|Don't allow).*"
+          optional: true
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - stopApp
 
 - launchApp
+- runFlow:
+    when:
+      visible: ".*(Don’t allow|Don't allow|Allow).*"
+    commands:
+      - tapOn:
+          text: ".*(Don’t allow|Don't allow).*"
+          optional: true
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 120000

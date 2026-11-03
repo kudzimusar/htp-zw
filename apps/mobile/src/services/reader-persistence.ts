@@ -46,12 +46,61 @@ type PremiumPreviewLedgerEntry = {
   promptRequestedAt?: number;
 };
 
-async function ensurePremiumPreviewScope(): Promise<string> {
-  try {
-    const existing = await AsyncStorage.getItem(keys.premiumPreviewScope);
-    if (existing?.trim()) return existing;
-  } catch {}
+type SecurityReadResult<T> =
+  | { status: "VALID"; data: T }
+  | { status: "MISSING"; data: null }
+  | { status: "CORRUPT"; error: Error }
+  | { status: "READ_FAILED"; error: Error };
 
+async function readSecurityJson<T>(key: string): Promise<SecurityReadResult<T>> {
+  let raw: string | null;
+  try {
+    raw = await AsyncStorage.getItem(key);
+  } catch (err) {
+    return {
+      status: "READ_FAILED",
+      error: err instanceof Error ? err : new Error(String(err))
+    };
+  }
+
+  if (raw === null || raw === undefined || raw === "") {
+    return { status: "MISSING", data: null };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as T;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return { status: "VALID", data: parsed };
+    }
+    return {
+      status: "CORRUPT",
+      error: new Error(`Security payload for ${key} is not an object`)
+    };
+  } catch (err) {
+    return {
+      status: "CORRUPT",
+      error: err instanceof Error ? err : new Error(String(err))
+    };
+  }
+}
+
+async function ensurePremiumPreviewScope(): Promise<string> {
+  let existing: string | null;
+  try {
+    existing = await AsyncStorage.getItem(keys.premiumPreviewScope);
+  } catch (err) {
+    // If reading scope throws an error, fail closed — do NOT generate a new scope!
+    throw new Error(
+      "Unable to read premium preview security scope: " +
+        (err instanceof Error ? err.message : String(err))
+    );
+  }
+
+  if (existing?.trim()) {
+    return existing.trim();
+  }
+
+  // Key is legitimately missing (clean first visit): generate new scope and persist
   // This identifier is a local UX/session scope only. It is not an entitlement
   // credential and must never authorize Premium content.
   const created = "anonymous-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
@@ -144,16 +193,30 @@ export const persistentReaderRepository: ReaderRepository = {
 
     try {
       const scopeId = await ensurePremiumPreviewScope();
-      const ledger = await readJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger, {});
+      const readResult = await readSecurityJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger);
+
+      // Invariant: Storage read errors or corrupted data MUST NEVER reset or grant a preview
+      if (readResult.status === "READ_FAILED" || readResult.status === "CORRUPT") {
+        return null;
+      }
+
+      const ledger = readResult.status === "VALID" ? readResult.data : {};
       const ledgerKey = scopeId + "|" + storyId;
       const now = Date.now();
       const existing = ledger[ledgerKey];
-      let startedAt = Number(existing?.startedAt ?? NaN);
 
-      if (!Number.isFinite(startedAt) || startedAt <= 0 || startedAt > now) {
+      let startedAt: number;
+      if (!existing) {
+        // Legitimate clean first visit for this story
         startedAt = now;
         ledger[ledgerKey] = { storyId, scopeId, startedAt };
         await writeJson(keys.premiumPreviewLedger, ledger);
+      } else {
+        startedAt = Number(existing.startedAt ?? NaN);
+        // If entry exists but has invalid timestamps, fail closed:
+        if (!Number.isFinite(startedAt) || startedAt <= 0 || startedAt > now) {
+          return null;
+        }
       }
 
       return previewWindow(scopeId, storyId, startedAt, durationSeconds, now);
@@ -169,7 +232,14 @@ export const persistentReaderRepository: ReaderRepository = {
 
     try {
       const scopeId = await ensurePremiumPreviewScope();
-      const ledger = await readJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger, {});
+      const readResult = await readSecurityJson<Record<string, PremiumPreviewLedgerEntry>>(keys.premiumPreviewLedger);
+
+      // Invariant: Storage read errors or corrupted data MUST NEVER authorize or reset prompt state
+      if (readResult.status === "READ_FAILED" || readResult.status === "CORRUPT") {
+        return false;
+      }
+
+      const ledger = readResult.status === "VALID" ? readResult.data : {};
       const ledgerKey = scopeId + "|" + storyId;
       const existing = ledger[ledgerKey];
       if (!existing || !Number.isFinite(existing.startedAt) || existing.promptRequestedAt) return false;

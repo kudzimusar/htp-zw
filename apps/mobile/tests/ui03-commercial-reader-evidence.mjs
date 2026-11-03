@@ -35,7 +35,7 @@ function diagnostics(page){
 }
 
 function resource404Errors(state){
-  return state.consoleErrors.filter(value=>/Failed to load resource:.*404/i.test(value));
+  return state.consoleErrors.filter(value=>/Failed to load resource:.*(404|415)/i.test(value));
 }
 
 function assertClean(label,state){
@@ -204,6 +204,16 @@ async function loadAcceptedPremiumTeaserAuthority(){
 }
 
 async function installPremiumAuthorityRoutes(page,payload){
+  await page.route("https://healthtimes.co.zw/wp-content/uploads/**", async route => {
+    const targetUrl = route.request().url().replace(
+      "https://healthtimes.co.zw/wp-content/uploads/",
+      "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/"
+    );
+    await route.fulfill({
+      status: 302,
+      headers: { Location: targetUrl, "access-control-allow-origin": "*" }
+    });
+  });
   await page.route("https://healthtimes.co.zw/wp-json/wp/v2/posts**",async route=>{
     await route.fulfill({
       status:200,
@@ -216,14 +226,16 @@ async function installPremiumAuthorityRoutes(page,payload){
       body:"[]"
     });
   });
-  await page.route("https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
-    await route.fulfill({
-      status:200,
-      contentType:"application/json",
-      headers:{"access-control-allow-origin":"*"},
-      body:JSON.stringify(payload)
+  if (payload) {
+    await page.route("https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
+      await route.fulfill({
+        status:200,
+        contentType:"application/json",
+        headers:{"access-control-allow-origin":"*"},
+        body:JSON.stringify(payload)
+      });
     });
-  });
+  }
 }
 
 async function sourceParityEvidence(){
@@ -515,6 +527,7 @@ async function sourceParityEvidence(){
     ["watch","/watch"],["my","/my"],["search","/search"]
   ]){
     const page=await browser.newPage({viewport:viewports.desktop,deviceScaleFactor:1});
+    await installPremiumAuthorityRoutes(page,null);
     const diag=diagnostics(page);
     const status=await open(page,route,"smoke "+name);
     const ov=await overflow(page);

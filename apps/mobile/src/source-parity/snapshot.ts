@@ -10,16 +10,35 @@ import type {
 export const SOURCE_PARITY_VERIFIED_AT = "2026-09-21T00:00:00Z";
 export const SOURCE_PARITY_PUBLIC_BASE_URL = "https://healthtimes.co.zw";
 
-const SOURCE_PARITY_MEDIA_MIRRORS:Record<string,string>={
+const SOURCE_PARITY_MEDIA_MIRRORS: Record<string, string> = {
   "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg":
     "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
   "https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg":
-    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg"
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg"
 };
 
-function publicMirrorForSourceMedia(sourceUrl:string|undefined){
-  if(!sourceUrl) return null;
-  return SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl] ?? sourceUrl;
+function publicMirrorForSourceMedia(sourceUrl: string | undefined) {
+  if (!sourceUrl) return null;
+  if (SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl]) {
+    return SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl];
+  }
+  if (sourceUrl.startsWith("https://healthtimes.co.zw/wp-content/uploads/")) {
+    return sourceUrl.replace(
+      "https://healthtimes.co.zw/wp-content/uploads/",
+      "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/"
+    );
+  }
+  return sourceUrl;
 }
 
 const canonicalSections = {
