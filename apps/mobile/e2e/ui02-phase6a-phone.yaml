@@ -7,6 +7,24 @@ appId: zw.co.healthtimes.app.dev
     timeout: 240000
 - takeScreenshot: home-light
 
+# iOS first-use custom-scheme trust can dismiss the system sheet without
+# settling the requested deep link. Prime the scheme on Home before the
+# real Search/Article routes so assertions prove actual screens.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: "healthtimes://"
+      - runFlow:
+          when:
+            visible: "Open in .*HealthTimes Dev.*"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Search HealthTimes"
+          timeout: 45000
+      - assertNotVisible: "Open in .*HealthTimes Dev.*"
+
 # Search keyboard/focus
 - openLink: "healthtimes://search"
 - runFlow:

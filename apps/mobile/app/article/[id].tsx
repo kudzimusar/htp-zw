@@ -370,7 +370,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         },{storyId:story.id,pagePath:"/article/"+story.id}));
       }
     }catch{
-      setActionStatus("Saved");
+      setActionStatus("Failed to save article");
     }
   };
 
@@ -382,8 +382,10 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     }
     try{
       await services.reader.downloadArticle(story);
-    }catch{}
-    setActionStatus("Available offline");
+      setActionStatus("Available offline");
+    }catch{
+      setActionStatus("Offline download failed");
+    }
   };
 
   const dismissPremiumPrompt=()=>{
