@@ -1,13 +1,13 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R3-LR01",
-  "timestamp": "2026-11-03T12:15:00.000Z",
-  "startingSha": "384ae659bdf89c650030338ec3fd04903d4cca43",
-  "candidateCodeSha": "cee1c7cfd55040876fa303071fc589e1b519d7ec",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R4-LR01",
+  "timestamp": "2026-11-03T14:55:00.000Z",
+  "startingSha": "51d3d5580867564cb11e940b1e9a3e7d40404fd4",
+  "candidateCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
   "parentDraftPr": "https://github.com/kudzimusar/htp-zw/pull/144",
   "candidateDraftPr": "https://github.com/kudzimusar/htp-zw/pull/146",
-  "previewUrl": "https://healthtimes-staging-iom40dczq-11-11.vercel.app",
-  "previewDeploymentId": "dpl_CmQLggh8QfBz2c6RLWx4To5mNHxH",
+  "previewUrl": "https://healthtimes-staging-3blub5s3c-11-11.vercel.app",
+  "previewDeploymentId": "dpl_D8NqSBugFsXrqCc1rQh3c22vKj21",
   "previewProjectId": "prj_52i0Btvqk2slEnaj5bL0CjOX1AqN",
   "canonical30Matrix": {
     "totalCases": 30,
@@ -51,6 +51,9 @@
       "React Native iOS simulator uncaught AsyncStorage.setItem() POSIX EIO error on RCTAsyncLocalStorage_V1/manifest.json causing save-article assertion timeout",
       "False-positive in-memory persistence masking persistent storage failures in reader-persistence.ts and article/[id].tsx corrected to fail closed",
       "Fail-closed premium preview read security: storage read failures or corrupt JSON in reader-persistence.ts fail closed (null window, false prompt) and never reset/regrant preview access",
+      "Fail-closed premium preview security closure: present-but-empty or whitespace-only scope and ledger payloads fail closed (CORRUPT) rather than resetting to first-use; partial key initialization strictly denied (17 test scenarios)",
+      "Source-parity media mirror integrity: publicMirrorForSourceMedia returns verified Supabase Storage mirrors for mapped assets and fails closed (null) for unmapped external media, preserving heroMedia.sourceProvenance.sourceUrl",
+      "Eliminated synthetic RPC masking in UI-03 test harness to preserve transparent Staging Supabase authority verification",
       "UI-03 commercial reader conformance HTTP 415 error on smoke home resolved by mirroring all 7 WordPress media assets to Supabase Storage",
       "UI-02 native Android 14 phone Watch intent failure resolved by dismissing YouTube POST_NOTIFICATIONS modal dialog in ui02-phase6a-phone.yaml"
     ],
@@ -65,8 +68,74 @@
       "apps/mobile/app/(reader)/my.tsx",
       "apps/mobile/package.json",
       "apps/mobile/tests/reader-persistence-fail-closed.test.mjs",
+      "apps/mobile/tests/source-parity-media-integrity.test.mjs",
       "apps/mobile/tests/ui03-commercial-reader-evidence.mjs",
       "scripts/ui/ui-rel04-current-browser-smoke.cjs"
+    ],
+    "mediaProvenanceRegister": [
+      {
+        "assetId": "MEDIA-01",
+        "storySlug": "zimbabwe-social-contracting-hiv-financing-dialogue",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
+        "httpStatus": 200,
+        "contentType": "image/jpeg",
+        "sizeBytes": 202636
+      },
+      {
+        "assetId": "MEDIA-02",
+        "storySlug": "ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
+        "httpStatus": 200,
+        "contentType": "image/jpeg",
+        "sizeBytes": 110903
+      },
+      {
+        "assetId": "MEDIA-03",
+        "storySlug": "most-ebola-deaths-in-drc-are-happening-outside-treatment-centres-as-care-barriers-deepen",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg",
+        "httpStatus": 200,
+        "contentType": "image/jpeg",
+        "sizeBytes": 83457
+      },
+      {
+        "assetId": "MEDIA-04",
+        "storySlug": "meet-dr-neddy-zimbabwes-fourth-female-orthopaedic-surgeon",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
+        "httpStatus": 200,
+        "contentType": "image/png",
+        "sizeBytes": 1052601
+      },
+      {
+        "assetId": "MEDIA-05",
+        "storySlug": "chief-nyamaropa-orders-woman-to-pay-cow-over-alleged-hiv-transmission",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg",
+        "httpStatus": 200,
+        "contentType": "image/jpeg",
+        "sizeBytes": 83350
+      },
+      {
+        "assetId": "MEDIA-06",
+        "storySlug": "fiji-hiv-emergency-epidemic-spreads-beyond-drug-users",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
+        "httpStatus": 200,
+        "contentType": "image/png",
+        "sizeBytes": 1152062
+      },
+      {
+        "assetId": "MEDIA-07",
+        "storySlug": "not-in-my-constituency-zimbabwe-teenage-pregnancy-tags",
+        "originalSourceUrl": "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg",
+        "supabaseMirrorUrl": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg",
+        "httpStatus": 200,
+        "contentType": "image/jpeg",
+        "sizeBytes": 221852
+      }
     ],
     "remediatedWorkflows": [
       {

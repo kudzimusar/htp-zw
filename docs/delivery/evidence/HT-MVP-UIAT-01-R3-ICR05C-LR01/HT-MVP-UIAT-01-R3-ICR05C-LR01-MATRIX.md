@@ -1,9 +1,9 @@
 # HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Supplemental Matrix
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R3-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R4-LR01`  
 **Parent Issues:** #145, #143, #141, #139, #137, #134  
-**Starting Remote SHA:** `384ae659bdf89c650030338ec3fd04903d4cca43`  
-**Candidate Code SHA:** `cee1c7cfd55040876fa303071fc589e1b519d7ec`  
+**Starting Remote SHA:** `51d3d5580867564cb11e940b1e9a3e7d40404fd4`  
+**Candidate Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -11,10 +11,10 @@
 
 ## 1. Authoritative 30-Case UAT Status Census
 
-- **Target Preview URL:** `https://healthtimes-staging-iom40dczq-11-11.vercel.app`
-- **Preview Deployment ID:** `dpl_CmQLggh8QfBz2c6RLWx4To5mNHxH`
+- **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`
+- **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
-- **Application Code SHA:** `cee1c7cfd55040876fa303071fc589e1b519d7ec`
+- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**
@@ -108,3 +108,17 @@
 | **Phase 10 Android** | Pixel 7 Emulator | Maestro (`phase10-android-visual.yaml`) | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41564345012) | **PASS** |
 | **Phase 10 Web/PWA** | Chromium (Desktop & Mobile) | Playwright Conformance | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41564345012) | **PASS** |
 | **UI-03 Commercial Reader** | Chromium (Desktop & Mobile) | Playwright Commercial Conformance | N/A | `EXTERNAL_NETWORK_RESILIENCE` (HTTP 415 on external WordPress media) | FAILED (run 41564344813) | **PASS** (All 7 media assets mirrored to Supabase storage) |
+
+---
+
+## 6. Verified Media Provenance Register
+
+| Asset ID | Story Slug | Original WordPress Source URL | Supabase Storage Mirror URL | Content-Type | Size (Bytes) | HTTP Status |
+|:---|:---|:---|:---|:---:|:---:|:---:|
+| **MEDIA-01** | `zimbabwe-social-contracting-hiv-financing-dialogue` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg` | image/jpeg | 202,636 | **200 OK** |
+| **MEDIA-02** | `ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg` | image/jpeg | 110,903 | **200 OK** |
+| **MEDIA-03** | `most-ebola-deaths-in-drc-are-happening-outside-treatment-centres-as-care-barriers-deepen` | `https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg` | image/jpeg | 83,457 | **200 OK** |
+| **MEDIA-04** | `meet-dr-neddy-zimbabwes-fourth-female-orthopaedic-surgeon` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png` | image/png | 1,052,601 | **200 OK** |
+| **MEDIA-05** | `chief-nyamaropa-orders-woman-to-pay-cow-over-alleged-hiv-transmission` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg` | image/jpeg | 83,350 | **200 OK** |
+| **MEDIA-06** | `fiji-hiv-emergency-epidemic-spreads-beyond-drug-users` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png` | image/png | 1,152,062 | **200 OK** |
+| **MEDIA-07** | `not-in-my-constituency-zimbabwe-teenage-pregnancy-tags` | `https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg` | `https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg` | image/jpeg | 221,852 | **200 OK** |

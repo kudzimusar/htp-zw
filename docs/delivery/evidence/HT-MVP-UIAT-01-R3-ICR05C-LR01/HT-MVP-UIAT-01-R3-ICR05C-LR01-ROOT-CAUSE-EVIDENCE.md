@@ -1,9 +1,9 @@
 # HT-MVP-UIAT-01-R3-ICR05C-LR01 — Native CI Failure Root Cause & Remediation Evidence
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R3-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R4-LR01`  
 **Parent Issues:** #145, #143, #141, #139, #137, #134  
-**Starting Remote SHA:** `384ae659bdf89c650030338ec3fd04903d4cca43`  
-**Candidate Code SHA:** `cee1c7cfd55040876fa303071fc589e1b519d7ec`  
+**Starting Remote SHA:** `51d3d5580867564cb11e940b1e9a3e7d40404fd4`  
+**Candidate Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -11,7 +11,7 @@
 
 ## 1. Executive Summary & Defect Classification
 
-Across the ICR05C evaluation and remediation cycle, six distinct root causes affecting native mobile execution, commercial conformance, and data integrity were identified, forensic log evidence established, and source remediations implemented:
+Across the ICR05C evaluation and remediation cycle, eight distinct root causes affecting native mobile execution, commercial conformance, security fail-closed semantics, and data integrity were identified, forensic log evidence established, and source remediations implemented:
 
 1. **Defect 1: Hermes Runtime `new window.Image()` Crash (`PRODUCT_RUNTIME_DEFECT`)**
    - **Environment:** React Native Android Emulator (API 34) & iOS Simulator (iOS 17.5).
@@ -35,7 +35,7 @@ Across the ICR05C evaluation and remediation cycle, six distinct root causes aff
 4. **Defect 4: Fail-Closed Premium Preview Read Security (`SECURITY_PERSISTENCE_CLOSURE`)**
    - **Environment:** `apps/mobile/src/services/reader-persistence.ts`.
    - **Root Cause:** If `AsyncStorage.getItem` threw an error or the ledger contained corrupt JSON, generic `readJson` swallowed the exception and returned `{}`, which `getPremiumPreviewWindow()` treated as a clean first visit, granting a new preview window. Scope read failure also fell back to generating a new scope.
-   - **Remediation:** Introduced `readSecurityJson<T>()` distinguishing `MISSING` (legitimate first visit) from `READ_FAILED` and `CORRUPT`. Read errors and corrupt data strictly fail closed (`null` preview window, `false` prompt request). Scope read failures strictly throw and fail closed. Non-security preferences retain normal fallback resilience. Added 11 automated test scenarios in `apps/mobile/tests/reader-persistence-fail-closed.test.mjs`.
+   - **Remediation:** Introduced `readSecurityJson<T>()` distinguishing `MISSING` (legitimate first visit) from `READ_FAILED` and `CORRUPT`. Read errors and corrupt data strictly fail closed (`null` preview window, `false` prompt request). Scope read failures strictly throw and fail closed. Non-security preferences retain normal fallback resilience.
 
 5. **Defect 5: WordPress External Media HTTP 415 in UI-03 Commercial Conformance (`EXTERNAL_NETWORK_RESILIENCE`)**
    - **Environment:** `apps/mobile/tests/ui03-commercial-reader-evidence.mjs` and `apps/mobile/src/source-parity/snapshot.ts` (Run [41564344813](https://github.com/kudzimusar/htp-zw/actions/runs/41564344813)).
@@ -46,6 +46,16 @@ Across the ICR05C evaluation and remediation cycle, six distinct root causes aff
    - **Environment:** Maestro native suite on Android 14 emulator (`ui02-phase6a-phone.yaml`, Run [41564344855](https://github.com/kudzimusar/htp-zw/actions/runs/41564344855)).
    - **Root Cause:** Step 63 tapped the external YouTube link (`tapOn: text: ".*YouTube.*"`). On Android 14, YouTube launched for the first time and displayed a system modal POST_NOTIFICATIONS permission prompt: `"Allow YouTube to send you notifications? [Don’t allow] [Allow]"`. Maestro `stopApp` stopped only the HealthTimes application, leaving YouTube's permission dialog on top of the screen. When `launchApp` executed, the modal dialog remained in foreground, causing Step 67 (`extendedWaitUntil: visible: "Top Stories"`) to fail.
    - **Remediation:** Added dialog dismissal `runFlow: when: visible: ".*(Don’t allow|Don't allow|Allow).*" commands: - tapOn: text: ".*(Don’t allow|Don't allow).*" optional: true` and Android `back` navigation after the external intent and after `launchApp`.
+
+7. **Defect 7: Present-but-Empty / Whitespace-Only / Partial State Security Bypass (`SECURITY_PERSISTENCE_CLOSURE`)**
+   - **Environment:** `apps/mobile/src/services/reader-persistence.ts`.
+   - **Root Cause:** Present-but-empty (`""`) or whitespace strings stored in AsyncStorage were categorized as `MISSING` by truthy/falsy checks, causing the system to treat corrupted or cleared security entries as clean first-use visits and grant unauthorized preview resets. Furthermore, partial initialization (e.g., scope exists but ledger is missing, or vice versa) was not guarded.
+   - **Remediation:** Updated `readSecurityJson<T>()` so only genuine absence (`null` or `undefined`) is treated as `MISSING`. Any string where `raw.trim() === ""` is strictly `CORRUPT`. Created `getSecurityScope()` to return `CORRUPT` and throw on empty/whitespace scopes. Enforced invariant that partial states strictly fail closed. Covered 17 mandatory negative-path scenarios in `apps/mobile/tests/reader-persistence-fail-closed.test.mjs`.
+
+8. **Defect 8: Unverified Media Path Fabrication and Synthetic Authority Masking (`DATA_INTEGRITY_&_AUTHORITY_VERIFICATION`)**
+   - **Environment:** `apps/mobile/src/source-parity/snapshot.ts` and `apps/mobile/tests/ui03-commercial-reader-evidence.mjs`.
+   - **Root Cause:** Blindly regex-replacing any `https://healthtimes.co.zw/wp-content/uploads/` URL with a Supabase Storage path created fabricated URLs for assets not present in storage. In addition, synthetic RPC route interception masked live Staging Supabase RPC verification.
+   - **Remediation:** Restricted media mirroring strictly to known entries in `SOURCE_PARITY_MEDIA_MIRRORS`, returning `null` for unmapped assets while preserving `heroMedia.sourceProvenance.sourceUrl` for canonical provenance. Removed synthetic RPC route masking to ensure live Staging RPC verification. Added dedicated suite `apps/mobile/tests/source-parity-media-integrity.test.mjs` verifying live HTTP 200, Content-Type, and size for all 7 assets.
 
 ---
 
@@ -100,81 +110,63 @@ useEffect(() => {
 }, [initialHeroMediaUrl]);
 ```
 
-### B. Durable Fail-Closed Persistence in `reader-persistence.ts` (Defect 2)
+### B. Durable Fail-Closed Persistence & Security Closure in `reader-persistence.ts` (Defects 2, 4, 7)
 ```typescript
-// Removed inMemoryCache map completely
-async function readJson<T>(key: string, fallback: T): Promise<T> {
+async function readSecurityJson<T>(key: string): Promise<SecurityReadResult<T>> {
+  let raw: string | null;
   try {
-    const value = await AsyncStorage.getItem(key);
-    if (value !== null && value !== undefined) {
-      try {
-        return JSON.parse(value) as T;
-      } catch {
-        return fallback;
-      }
-    }
-  } catch {
-    // If storage read fails, return fallback
+    raw = await AsyncStorage.getItem(key);
+  } catch (err) {
+    return {
+      status: "READ_FAILED",
+      error: err instanceof Error ? err : new Error(String(err))
+    };
   }
-  return fallback;
+
+  // A1: Only genuine absence (null or undefined) is MISSING
+  if (raw === null || raw === undefined) {
+    return { status: "MISSING", data: null };
+  }
+
+  // A1: Present-but-empty or whitespace-only is CORRUPT, not MISSING
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return {
+      status: "CORRUPT",
+      error: new Error(`Security payload for ${key} is empty or whitespace-only`)
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as T;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return { status: "VALID", data: parsed };
+    }
+    return {
+      status: "CORRUPT",
+      error: new Error(`Security payload for ${key} is not a valid JSON object`)
+    };
+  } catch (err) {
+    return {
+      status: "CORRUPT",
+      error: err instanceof Error ? err : new Error(String(err))
+    };
+  }
 }
+```
 
-async function writeJson<T>(key: string, value: T): Promise<void> {
-  const serialized = JSON.stringify(value);
-  await AsyncStorage.setItem(key, serialized);
+### C. Media Mirror Rewriting Boundary in `snapshot.ts` (Defects 5, 8)
+```typescript
+export function publicMirrorForSourceMedia(sourceUrl: string | undefined): string | null {
+  if (!sourceUrl) return null;
+  if (SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl]) {
+    return SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl];
+  }
+  if (sourceUrl.startsWith("https://bzuvntbkevvuhfhqhkua.supabase.co/")) {
+    return sourceUrl;
+  }
+  // B1: Unknown or unverified media must NEVER be blindly rewritten to unverified Supabase paths.
+  return null;
 }
-```
-
-### C. Explicit Error Feedback in `apps/mobile/app/article/[id].tsx` (Defect 2)
-```typescript
-  const save=async()=>{
-    try{
-      const saved=await services.reader.toggleSavedArticle(story.id);
-      setActionStatus(saved ? "Saved" : "Removed from saved");
-      if(saved){
-        await services.analytics.track(event("story_saved",{
-          reader_state:"local-reader"
-        },{storyId:story.id,pagePath:"/article/"+story.id}));
-      }
-    }catch{
-      setActionStatus("Failed to save article");
-    }
-  };
-
-  const download=async()=>{
-    if(story.isPremium){
-      setActionStatus("Offline download isn't available for Premium articles on this device.");
-      return;
-    }
-    try{
-      await services.reader.downloadArticle(story);
-      setActionStatus("Available offline");
-    }catch{
-      setActionStatus("Offline download failed");
-    }
-  };
-```
-
-### D. iOS Custom-Scheme Priming in `ui02-phase6a-phone.yaml` (Defect 3)
-```yaml
-- takeScreenshot: ui02-evidence-01-home-initial
-- openLink: healthtimes://
-- assertVisible:
-    textRegex: "Search HealthTimes"
-    timeout: 10000
-```
-
-### E. Solid Background Row Hit-Testing in `apps/mobile/app/(reader)/my.tsx` (Defect 3)
-```typescript
-<Pressable
-  key={row.label}
-  onPress={row.onPress}
-  style={({ pressed }) => [
-    styles.settingRow,
-    { backgroundColor: palette.paper },
-    pressed && { opacity: 0.7 }
-  ]}
->
 ```
 
 ---
@@ -184,10 +176,11 @@ async function writeJson<T>(key: string, value: T): Promise<void> {
 | Test Suite / Gate | Command | Expected | Actual Result | Status |
 |:---|:---|:---:|:---:|:---:|
 | TypeScript Typecheck | `npm --prefix apps/mobile run typecheck` | 0 errors | 0 errors | **PASS** |
-| Reader Persistence Fail-Closed | `npm --prefix apps/mobile run test:reader-product` | 26 pass, 0 fail | 26 pass, 0 fail (11/11 fail-closed scenarios pass) | **PASS** |
-| UI-03 Commercial Conformance | `node apps/mobile/tests/ui03-commercial-reader-evidence.mjs source-parity` | 0 console errors, 0 HTTP 415 | 0 errors across all routes & dark mode | **PASS** |
+| Reader Persistence Fail-Closed (17 Scenarios) | `npm --prefix apps/mobile run test:reader-product` | 33 pass, 0 fail | 33 pass, 0 fail (17/17 fail-closed scenarios pass) | **PASS** |
+| Source Parity & Media Mirror Integrity | `npm --prefix apps/mobile run test:source-parity` | 36 pass, 0 fail | 36 pass, 0 fail (all 7 Supabase mirrors verified live) | **PASS** |
+| UI-03 Commercial Conformance | `npm --prefix apps/mobile run test:ui03` | 18 pass, 0 fail | 18 pass, 0 fail | **PASS** |
 | Native Flow Realization | `node --test apps/mobile/tests/ui02-phase6a-native-realization.test.mjs apps/mobile/tests/ui02-phase6a-native.test.mjs` | 23 pass, 0 fail | 23 pass, 0 fail | **PASS** |
 | Deterministic Session Harness | `node --test tests/harness/icr05a-consistency.test.mjs tests/harness/icr05b-session-negative.test.mjs` | 22 pass, 0 fail | 22 pass, 0 fail | **PASS** |
 | Phase 10 Candidate Visual | GitHub Actions run `41564345012` | 3/3 jobs green | 3/3 SUCCESS (iOS Simulator 32m47s, Android Emulator 18m46s, Web/PWA 3m17s) | **PASS** |
-| Web PWA Export Build | `npm --prefix apps/mobile run export:web -- --clear` | Clean exit 0 | Clean exit 0 (all routes generated) | **PASS** |
-| Prebuilt Vercel Staging Deploy | `npx vercel deploy --prebuilt` | HTTP 200 on /build-info.json | Returns HTTP 200 with SHA `cee1c7cfd55040876fa303071fc589e1b519d7ec` | **PASS** |
+| Web PWA Export Build | `npm --prefix apps/mobile run export:web -- --clear` | Clean exit 0 | Clean exit 0 (150 static routes generated) | **PASS** |
+| Prebuilt Vercel Staging Deploy | `npx vercel deploy --prebuilt` | HTTP 200 on /build-info.json | Returns HTTP 200 with SHA `fe5669278768c2a5cab44670425fcf05a7a7d1a7` | **PASS** |
