@@ -1,8 +1,8 @@
 # HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Supplemental Matrix
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R2-LR01`  
 **Parent Issues:** #145, #143, #141, #139, #137, #134  
-**Starting SHA:** `534ff0859944d96b20ec5b7d1f1ded7086d9174b`  
+**Starting Remote SHA:** `375ee115c05bdbc742f3af5b106c2072f5a86890`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -10,10 +10,10 @@
 
 ## 1. Authoritative 30-Case UAT Status Census
 
-- **Target Preview URL:** `https://healthtimes-staging-8f9o9775q-11-11.vercel.app`
-- **Preview Deployment ID:** `dpl_7XMzkczzyT26aEuWZ7qV7pW2Xvmi`
+- **Target Preview URL:** `https://healthtimes-staging-kilgm0jgh-11-11.vercel.app`
+- **Preview Deployment ID:** `dpl_DD4zdt8TVdvbHL9CC67N1AeZK7fr`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
-- **Application Base SHA:** `a7e609dfe183d8ed1bbe7f30bbe91f863dc5a0b1`
+- **Application Base SHA:** `bbe79bb70381529e21b8fdf1cb944bf65bca173b`
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**
@@ -30,7 +30,7 @@
 | **UAT-R01** | Anonymous Reader | 375×667<br>768×1024<br>1440×900 | Home feed, hero, latest and publication visibility | PASS | None required (Preserved) | **PASS** | Anonymous | `534ff08` | Verified rank 1 hero intact |
 | **UAT-R02** | Anonymous Reader | 375×667 (Mobile) | Category filter with clean route and active state | PASS (remediated) | URL param sync, popstate listener, guarded `Platform.OS === "web"` | **PASS** | Anonymous | `534ff08` | Physically tested; URL and state synced |
 | **UAT-R03** | Anonymous Reader | 375×667<br>1440×900 | Article body/teaser and clean not-found | PASS (remediated) | Article direct routing & reload fix (`DEF-001` resolved) | **PASS** | Anonymous | `534ff08` | HTTP 200, headline preserved on reload |
-| **UAT-R04** | Anonymous Reader | 375×667<br>1440×900 | Bookmark and Saved persistence | PASS (remediated) | In-memory persistence & offline download fix (`DEF-002` resolved) | **PASS** | Anonymous | `534ff08` | Offline reading functional; distinct storage keys |
+| **UAT-R04** | Anonymous Reader | 375×667<br>1440×900 | Bookmark and Saved persistence | PASS (remediated) | Durable fail-closed persistence (`DEF-002` resolved; in-memory fallback eliminated) | **PASS** | Anonymous | `bbe79bb` | Durable storage verified; write rejections fail closed without masking |
 | **UAT-R05** | Anonymous Reader | 375×667 (Mobile) | Audio playback, pause and seek | BLOCKED | None (Out of Scope for MVP) | **BLOCKED** | Anonymous | `534ff08` | Feature absence in MVP scope; blocked pending Owner feature or deferral decision |
 | **UAT-R06** | Anonymous Reader | 375×667<br>768×1024<br>1440×900 | Dark theme, light theme, contrast & persistence | PASS (remediated) | Tokens & theme contrast update (`DEF-013` resolved) | **PASS** | Anonymous | `534ff08` | Contrast ratio $\ge 4.5:1$ across all 6 surfaces |
 | **UAT-J01** | Journalist / Reporter | 1440×900 (Desktop) | Journalist sign-in and desk restrictions | BLOCKED | None | **BLOCKED** | None available | Staging DB | Missing authorized test credentials in Staging |
@@ -97,12 +97,12 @@
 
 ## 5. Native CI Cross-Device Reconciliation Matrix
 
-| Matrix Cell | Device / Viewport | Flow | ICR05B Workflow Status | Defect Classification | Run 41548294848 Status | Candidate Status |
+| Matrix Cell | Device / Viewport | Flow | ICR05B Workflow Status | Defect Classification | Run 41557784648 Status | Candidate Head Status |
 |:---|:---|:---|:---:|:---:|:---:|:---:|
 | **Android Phone** | Pixel 7 (Android 14) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** | **PASS** |
 | **Android Tablet** | Pixel Tablet (Android 14) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** | **PASS** |
-| **iOS Phone** | iPhone 15 (iOS 17.5) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (AsyncStorage manifest I/O) | FAILED (step 20 "Saved") | **REMEDIATED IN SOURCE** |
-| **iOS Tablet** | iPad Pro 11-in (iOS 17.5) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (`new window.Image()`) | **SUCCESS** | **PASS** |
-| **Phase 10 iOS Visual** | iPhone 15 Simulator | Maestro (`phase10-ios-visual.yaml`) | FAILED (run 41450037178) | `PRODUCT_RUNTIME_DEFECT` (Runtime error regex match) | **SUCCESS** (run 41548294579) | **PASS** |
-| **Phase 10 Android** | Pixel 7 Emulator | Maestro (`phase10-android-visual.yaml`) | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41548294579) | **PASS** |
-| **Phase 10 Web/PWA** | Chromium (Desktop & Mobile) | Playwright Conformance | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41548294579) | **PASS** |
+| **iOS Phone** | iPhone 15 (iOS 17.5) | Maestro (`ui02-phase6a-phone.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Unprimed custom scheme) | FAILED (Search assertion) | **REMEDIATED IN SOURCE** (`healthtimes://` trust priming added) |
+| **iOS Tablet** | iPad Pro 11-in (iOS 17.5) | Maestro (`ui02-phase6a-tablet.yaml`) | FAILED (run 41450037544) | `PRODUCT_RUNTIME_DEFECT` (Transparent row hit-test) | FAILED (Pressable row tap) | **REMEDIATED IN SOURCE** (Solid row background added) |
+| **Phase 10 iOS Visual** | iPhone 15 Simulator | Maestro (`phase10-ios-visual.yaml`) | FAILED (run 41450037178) | `PRODUCT_RUNTIME_DEFECT` (Runtime error regex match) | **SUCCESS** (run 41557784562) | **PASS** |
+| **Phase 10 Android** | Pixel 7 Emulator | Maestro (`phase10-android-visual.yaml`) | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41557784562) | **PASS** |
+| **Phase 10 Web/PWA** | Chromium (Desktop & Mobile) | Playwright Conformance | SUCCESS (run 41450037178) | N/A | **SUCCESS** (run 41557784562) | **PASS** |
