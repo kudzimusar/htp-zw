@@ -153,6 +153,7 @@ export default function MyHealthTimesScreen(){
                 }}
                 style={({ pressed, focused }: any)=>[
                   styles.row,
+                  {backgroundColor:palette.paper},
                   index<group.items.length-1 && {borderBottomWidth:1,borderBottomColor:palette.border},
                   !item.path&&!item.url&&styles.rowDisabled,
                   focused && [styles.actionFocused,{borderColor:palette.blue}],

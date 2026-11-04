@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type {
   ArticleSummary,
   CuratedHomepageSectionKey,
@@ -184,7 +184,7 @@ export default function HomeScreen() {
   const { palette } = useAppearance();
 
   const getInitialFilter = (): HomeFilter => {
-    if (typeof window !== "undefined") {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
       try {
         const url = new URL(window.location.href);
         const cat = url.searchParams.get("category") || url.searchParams.get("filter");
@@ -200,7 +200,7 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState<HomeFilter>(getInitialFilter);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
     const onPopState = () => {
       try {
         const url = new URL(window.location.href);
@@ -227,7 +227,7 @@ export default function HomeScreen() {
   const handleFilterChange = useCallback((newFilter: HomeFilter) => {
     if (newFilter === activeFilter) return;
     setActiveFilter(newFilter);
-    if (typeof window !== "undefined" && window.history) {
+    if (Platform.OS === "web" && typeof window !== "undefined" && window.history) {
       try {
         const url = new URL(window.location.href);
         if (newFilter === "for-you") {
@@ -278,7 +278,7 @@ export default function HomeScreen() {
 
   const initialHeroMediaUrl = home.data?.[0]?.heroMedia?.publicUrl;
   useEffect(() => {
-    if (typeof window !== "undefined" && initialHeroMediaUrl) {
+    if (Platform.OS === "web" && typeof window !== "undefined" && typeof window.Image === "function" && initialHeroMediaUrl) {
       const img = new window.Image();
       img.src = initialHeroMediaUrl;
     }

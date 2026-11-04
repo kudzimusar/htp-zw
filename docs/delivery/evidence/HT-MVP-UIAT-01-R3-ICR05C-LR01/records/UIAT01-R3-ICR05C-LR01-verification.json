@@ -1,0 +1,243 @@
+{
+  "unitId": "HT-MVP-UIAT-01-R3-ICR06-R4-LR01",
+  "timestamp": "2026-11-04T10:50:00.000Z",
+  "parentAuthoritySha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
+  "acceptedR4ApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
+  "startingR4EvidenceSha": "0fc17ba4a947ebb0464c06e479154d3a1ce45b86",
+  "startingRemoteSha": "9c4a11618733a4d4b5f7dc9baa323fdd855aaef7",
+  "r5RemediationCommitSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+  "phase10RemediationCommitSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
+  "previouslySuccessfulR2EngineeringSha": "f5bd386d919b862702597193d839c0b38ac62bc7",
+  "moderatorCiEnforcementSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
+  "icr06R3CandidateSha": "9c4a11618733a4d4b5f7dc9baa323fdd855aaef7",
+  "deployedApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
+  "candidateCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
+  "runtimeDiffSinceR4ApplicationCode": "NONE (0 runtime files changed across apps/mobile/app, apps/mobile/src, api, app, lib, supabase)",
+  "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
+  "parentDraftPr": "https://github.com/kudzimusar/htp-zw/pull/144",
+  "candidateDraftPr": "https://github.com/kudzimusar/htp-zw/pull/146",
+  "previewUrl": "https://healthtimes-staging-3blub5s3c-11-11.vercel.app",
+  "previewDeploymentId": "dpl_D8NqSBugFsXrqCc1rQh3c22vKj21",
+  "previewProjectId": "prj_52i0Btvqk2slEnaj5bL0CjOX1AqN",
+  "ui02ExactHeadMatrix": {
+    "workflowRunId": 41614064581,
+    "workflowUrl": "https://github.com/kudzimusar/htp-zw/actions/runs/41614064581",
+    "testedSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+    "runAttempt": 1,
+    "contractsJob": {
+      "jobId": 125842968056,
+      "name": "Phase 6A contract + frozen Reader regressions",
+      "status": "SUCCESS"
+    },
+    "cells": {
+      "androidPhone": {
+        "jobId": 125842967918,
+        "artifactId": 13222815225,
+        "artifactName": "ui02-phase6a-native-evidence-android-phone-attempt-1",
+        "platform": "Android",
+        "deviceClass": "phone",
+        "deviceIdentity": "sdk_gphone64_x86_64 (pixel_7_pro)",
+        "osVersion": "16",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 22,
+        "maestroCommandsTotal": 139,
+        "maestroCommandsCompleted": 115,
+        "maestroCommandsSkipped": 24,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "status": "SUCCESS"
+      },
+      "androidTablet": {
+        "jobId": 125842967539,
+        "artifactId": 13222325454,
+        "artifactName": "ui02-phase6a-native-evidence-android-tablet-attempt-1",
+        "platform": "Android",
+        "deviceClass": "tablet",
+        "deviceIdentity": "sdk_gphone64_x86_64 (pixel_tablet)",
+        "osVersion": "16",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 6,
+        "maestroCommandsTotal": 37,
+        "maestroCommandsCompleted": 29,
+        "maestroCommandsSkipped": 8,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "status": "SUCCESS"
+      },
+      "iosPhone": {
+        "jobId": 125842968089,
+        "artifactId": 13223005800,
+        "artifactName": "ui02-phase6a-native-evidence-ios-phone-attempt-1",
+        "platform": "iOS",
+        "deviceClass": "phone",
+        "deviceIdentity": "iPhone Air (1F0A9C4B-2DFC-444E-B162-696E5078A72B)",
+        "osVersion": "iOS 26.5",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 22,
+        "maestroCommandsTotal": 145,
+        "maestroCommandsCompleted": 120,
+        "maestroCommandsSkipped": 25,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "status": "SUCCESS"
+      },
+      "iosTablet": {
+        "jobId": 125842968203,
+        "artifactId": 13222426562,
+        "artifactName": "ui02-phase6a-native-evidence-ios-tablet-attempt-1",
+        "platform": "iOS",
+        "deviceClass": "tablet",
+        "deviceIdentity": "iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)",
+        "osVersion": "iOS 26.5",
+        "candidateSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+        "screensCaptured": 6,
+        "maestroCommandsTotal": 47,
+        "maestroCommandsCompleted": 37,
+        "maestroCommandsSkipped": 10,
+        "maestroCommandsFailed": 0,
+        "nativeRuntimeErrors": 0,
+        "retriesOccurred": false,
+        "assertionsPreserved": true,
+        "status": "SUCCESS"
+      }
+    },
+    "aggregateJob": {
+      "jobId": 125859288116,
+      "artifactId": 13221778888,
+      "artifactName": "ui02-phase6a-native-evidence-attempt-1",
+      "programmeDisposition": "READY FOR UI MODERATOR REVIEW",
+      "status": "SUCCESS"
+    }
+  },
+  "ui03TransparencyClassification": {
+    "liveStagingSupabaseRpc": "VERIFIED_LIVE_STAGING_RPC_ag05_public_story_teaser_document",
+    "browserSourceParity": "VERIFIED_DETERMINISTIC_SOURCE_PARITY_SNAPSHOT",
+    "wordpressPostsInterception": "SCOPED_FIXTURE_ISOLATION_EMPTY_ARRAY_NOT_LIVE_WP_API_PROOF",
+    "verifiedSupabaseMediaObjects": "VERIFIED_7_OF_7_LIVE_HTTP_200_BYTE_BACKED_MIRRORS",
+    "publicReaderRouteTests": "VERIFIED_18_OF_18_UNIT_AND_CHROMIUM_EVIDENCE"
+  },
+  "canonical30Matrix": {
+    "totalCases": 30,
+    "passCount": 23,
+    "failCount": 0,
+    "blockedCount": 7,
+    "ownerAuthorizedDeferredCount": 0,
+    "registrySource": "HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md",
+    "stagingMigrationCanonicalFile": "supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql",
+    "stagingMigrationDescriptiveAlias": "20261102160000_newsroom_create_story_title_authority.sql",
+    "stagingMigrationApplied": false,
+    "blockedCases": [
+      { "caseId": "UAT-R05", "persona": "Anonymous Reader", "reason": "Audio streaming blocked pending explicit Owner feature or deferral decision" },
+      { "caseId": "UAT-J01", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-J02", "persona": "Publisher/Reporter", "reason": "Staging DB newsroom_create_story title authority migration 20261102160000_ht_mvp_r3_story_title_authority.sql unapplied pending Owner authorization" },
+      { "caseId": "UAT-J04", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-E01", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-E02", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-A03", "persona": "Audience Specialist", "reason": "Empty Staging contact_segments audience corpus (count=0)" }
+    ]
+  },
+  "supplementalSafetyMatrix": {
+    "totalCases": 14,
+    "passCount": 14,
+    "failCount": 0,
+    "blockedCount": 0
+  },
+  "sessionGovernance": {
+    "deterministicHarness": { "total": 22, "pass": 22, "fail": 0, "skipped": 0 },
+    "livePhysicalStatus": "BLOCKED_OWNER_UAT_CREDENTIALS",
+    "ownerAuditAuthority": "BLOCKED_OWNER_UAT_CREDENTIALS",
+    "sessionRevokeNullProviderIdPresent": false,
+    "stagingMigrationApplied": false
+  },
+  "independentReview": {
+    "status": "BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE",
+    "disposition": "BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE",
+    "reason": "Implementation workspace cannot self-certify. Formal independent review requires distinct reviewer assignment by Owner."
+  },
+  "failures": [],
+  "moderatorCiEnforcementHead": {
+    "commitSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
+    "phase10VisualConformance": {
+      "runId": 41780992191,
+      "runAttempt": 1,
+      "status": "SUCCESS",
+      "webJob": { "jobId": 126412652313, "status": "SUCCESS", "artifactId": 13298588970 },
+      "iosJob": { "jobId": 126412652527, "status": "SUCCESS", "artifactId": 13299507629 },
+      "androidJob": { "jobId": 126412652730, "status": "SUCCESS", "artifactId": 13300072371 }
+    },
+    "nativeBinaryCertification": {
+      "runId": 41780992413,
+      "runAttempt": 2,
+      "status": "SUCCESS",
+      "readinessJob": { "jobId": 126429768525, "status": "SUCCESS" },
+      "iosSimulatorBinaryJob": { "jobId": 126429723997, "status": "SUCCESS" },
+      "androidDebugBinaryJob": { "jobId": 126429722651, "status": "SUCCESS" }
+    },
+    "ui02MixedAttemptRun": {
+      "runId": 41780992206,
+      "runAttempt": 2,
+      "upstreamDeviceAndContractStatus": "SUCCESS",
+      "aggregateStatus": "FAILURE",
+      "classification": "UI02_AGGREGATE_MIXED_ATTEMPT_ARTIFACT_SELECTION_DEFECT",
+      "contractsJob": { "jobId": 126429759091, "status": "SUCCESS" },
+      "androidPhone": { "jobId": 126429708123, "sourceAttempt": 1, "artifactId": 13300262966, "status": "SUCCESS" },
+      "androidTablet": { "jobId": 126429708897, "sourceAttempt": 1, "artifactId": 13299844628, "status": "SUCCESS" },
+      "iosTablet": { "jobId": 126429746045, "sourceAttempt": 1, "artifactId": 13301230604, "status": "SUCCESS" },
+      "iosPhoneAttempt1FailedArtifactId": 13300298812,
+      "iosPhoneAttempt2Retry": { "jobId": 126429706722, "sourceAttempt": 2, "artifactId": 13303755005, "status": "SUCCESS" },
+      "failedAggregateJob": { "jobId": 126442613997, "runAttempt": 2, "artifactId": 13303285803, "status": "FAILURE" }
+    }
+  },
+  "icr06R3CandidateCi": {
+    "commitSha": "9c4a11618733a4d4b5f7dc9baa323fdd855aaef7",
+    "phase10VisualConformance": {
+      "runId": 41812008942,
+      "runAttempt": 1,
+      "status": "SUCCESS",
+      "webJob": { "jobId": 126513305147, "status": "SUCCESS", "artifactId": 13311989274 },
+      "androidJob": { "jobId": 126513302148, "status": "SUCCESS", "artifactId": 13313603027 },
+      "iosJob": { "jobId": 126513302028, "status": "SUCCESS", "artifactId": 13313852801 }
+    },
+    "nativeBinaryCertification": {
+      "runId": 41812008980,
+      "runAttempt": 1,
+      "status": "SUCCESS",
+      "readinessJob": { "jobId": 126513302537, "status": "SUCCESS", "artifactId": 13311934875 },
+      "iosSimulatorBinaryJob": { "jobId": 126513302213, "status": "SUCCESS", "artifactId": 13312924922 },
+      "androidDebugBinaryJob": { "jobId": 126513301897, "status": "SUCCESS", "artifactId": 13313578097 }
+    },
+    "ui02NativeCrossDevice": {
+      "runId": 41812008951,
+      "runAttempt": 1,
+      "upstreamDeviceAndContractStatus": "SUCCESS",
+      "aggregateStatus": "FAILURE",
+      "contractsJob": { "jobId": 126513301657, "status": "SUCCESS" },
+      "androidPhone": { "jobId": 126513302194, "sourceAttempt": 1, "artifactId": 13313414537, "status": "SUCCESS" },
+      "androidTablet": { "jobId": 126513301244, "sourceAttempt": 1, "artifactId": 13313867886, "status": "SUCCESS" },
+      "iosPhone": { "jobId": 126513301621, "sourceAttempt": 1, "artifactId": 13314188557, "status": "SUCCESS" },
+      "iosTablet": { "jobId": 126513303346, "sourceAttempt": 1, "artifactId": 13314372723, "status": "SUCCESS" },
+      "failedAggregateJob": {
+        "jobId": 126525748704,
+        "artifactId": 13313769951,
+        "status": "FAILURE",
+        "rootCause": "MAESTRO_INTERNAL_RUNNER_SCHEMA_MANIFEST_COUNTED_AS_DUPLICATE_CELL_MANIFEST"
+      }
+    }
+  },
+  "icr06R4ProvenanceAndAggregationClosure": {
+    "aggregatorModule": "scripts/native/ui02-phase6a-aggregate.mjs",
+    "workflowFile": ".github/workflows/ui02-phase6a-native-cross-device.yml",
+    "regressionSuite": "tests/harness/ui02-phase6a-aggregation.test.mjs",
+    "regressionScenariosTotal": 20,
+    "regressionScenariosPassed": 20,
+    "workflowPermissionsActionsRead": true,
+    "paginatedFailClosedMetadataFetch": true,
+    "authoritativeArtifactAndJobIdentityRequired": true,
+    "maestroInternalRunnerManifestIgnored": true,
+    "fullPngCrc32AndZlibIdatInflateVerified": true,
+    "independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW"
+  }
+}

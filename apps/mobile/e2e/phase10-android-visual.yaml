@@ -1,0 +1,61 @@
+appId: zw.co.healthtimes.app.staging
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- runFlow:
+    when:
+      visible: "Close app"
+    commands:
+      - tapOn: "Wait"
+- extendedWaitUntil:
+    visible: "Top Stories"
+    timeout: 240000
+- extendedWaitUntil:
+    notVisible: "Loading Home…"
+    timeout: 30000
+- assertNotVisible: "FunctionCallException"
+- assertNotVisible: "System UI isn't responding"
+- takeScreenshot: home
+
+- openLink: "healthtimes://premium"
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- extendedWaitUntil:
+    visible: "HEALTHTIMES PREMIUM"
+    timeout: 45000
+- extendedWaitUntil:
+    notVisible: "Checking membership options…"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Loading Premium journalism…"
+    timeout: 30000
+- assertNotVisible: "Premium journalism is temporarily unavailable"
+- assertNotVisible: "System UI isn't responding"
+- takeScreenshot: premium
+
+- openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- extendedWaitUntil:
+    visible: "Watch"
+    timeout: 45000
+- extendedWaitUntil:
+    visible: "Featured video"
+    timeout: 45000
+- extendedWaitUntil:
+    notVisible: "Loading videos…"
+    timeout: 30000
+- assertNotVisible: "Videos are temporarily unavailable"
+- assertNotVisible: "System UI isn't responding"
+- takeScreenshot: watch
