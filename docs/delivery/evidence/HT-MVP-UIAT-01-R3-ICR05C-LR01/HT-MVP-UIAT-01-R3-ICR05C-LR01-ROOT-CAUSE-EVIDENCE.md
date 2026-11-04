@@ -100,3 +100,13 @@
   - `watch.png` (220,900 B, SHA-256 `8c8d030d...`, 1440×3120).
   - Actionable native runtime errors: `0`.
   - Overall Phase 10 status: **`PASS (3/3)`**.
+
+---
+
+## Moderator forensic qualification — 4 November 2026
+
+The previous retry job `126280637640` proves that **Android emulator/capture preflight failed** and the requested diagnostic log was absent at upload time. It does **not** establish the precise failing inline shell command. The divergent API-35 inline provisioning, absent cache and KVM differences are credible engineering risk factors and a justified reason to converge on the previously proven API-36 runner; they are **not independently proven as the unique root cause**. Classify the earlier retry as `ANDROID_EMULATOR_CAPTURE_PREFLIGHT_FAILED_EXACT_COMMAND_UNPROVEN`.
+
+The successful corrected provisioning run `41763784097` on `058689b...` shows Maestro exit code 0, all three screenshots originating in the Maestro flow, zero logged actionable runtime errors and all three GitHub job conclusions `SUCCESS`. Subsequent Moderator inspection detected a latent fail-open runner path: when Maestro failed, fallback ADB captures could still satisfy the previous manifest's screenshot checks. This is a control defect, **not evidence that the historical successful run fabricated screenshots**.
+
+The Moderator patched this at `3fac20e916c9fb28861270e1a5264b0aaf8d8a67` and added regression coverage at `c48f2dcf0e2eaf0cb30c0d299309cf789d658c79`. New exact-head runs, manual artifact-level inspection and an independent non-author review remain required. Historical cases and existing release holds remain unchanged.
