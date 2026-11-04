@@ -137,3 +137,15 @@ test('ICR05C custody verifier: verifies exact-head UI-02 native matrix records m
     assert.equal(cell.nativeRuntimeErrors, 0, `Cell ${key} must have 0 native runtime errors`);
   }
 });
+
+
+test('Phase 10 Android evidence is fail-closed: no Maestro failure fallback or unsupported visual certification flags', () => {
+  const runner = readFileSync(join(repoRoot, 'scripts/native/phase10-candidate-android-run.sh'), 'utf8');
+  assert.match(runner, /timeout 120s adb wait-for-device/, 'ADB registration must be bounded');
+  assert.match(runner, /if \[\[ "\$MAESTRO_EXIT" -ne 0 \]\]; then/, 'Maestro nonzero must be checked');
+  assert.match(runner, /exit "\$MAESTRO_EXIT"/, 'Maestro failure must exit nonzero');
+  assert.doesNotMatch(runner, /ensure_screenshot|Resilient fallback capture/, 'Fallback screenshots must never substitute for route evidence');
+  assert.match(runner, /Missing Maestro screenshot/, 'All three Maestro-produced screenshots are required');
+  assert.doesNotMatch(runner, /"resolved": True|"loadingOrErrorSurfaceRemaining": False|"systemDialogRemaining": False/, 'Automated capture must not assert unreviewed visual conditions');
+  assert.match(runner, /"independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW"/, 'Automated result must preserve independent review gate');
+});
