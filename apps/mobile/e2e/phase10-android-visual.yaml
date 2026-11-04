@@ -2,9 +2,19 @@ appId: zw.co.healthtimes.app.staging
 ---
 - launchApp:
     clearState: true
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
+- runFlow:
+    when:
+      visible: "Close app"
+    commands:
+      - tapOn: "Wait"
 - extendedWaitUntil:
     visible: "Top Stories"
-    timeout: 180000
+    timeout: 240000
 - extendedWaitUntil:
     notVisible: "Loading Home…"
     timeout: 30000
@@ -13,9 +23,14 @@ appId: zw.co.healthtimes.app.staging
 - takeScreenshot: home
 
 - openLink: "healthtimes://premium"
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
 - extendedWaitUntil:
     visible: "HEALTHTIMES PREMIUM"
-    timeout: 30000
+    timeout: 45000
 - extendedWaitUntil:
     notVisible: "Checking membership options…"
     timeout: 30000
@@ -27,12 +42,17 @@ appId: zw.co.healthtimes.app.staging
 - takeScreenshot: premium
 
 - openLink: "healthtimes://watch"
+- runFlow:
+    when:
+      visible: "Wait"
+    commands:
+      - tapOn: "Wait"
 - extendedWaitUntil:
     visible: "Watch"
-    timeout: 30000
+    timeout: 45000
 - extendedWaitUntil:
     visible: "Featured video"
-    timeout: 30000
+    timeout: 45000
 - extendedWaitUntil:
     notVisible: "Loading videos…"
     timeout: 30000

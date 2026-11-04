@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -149,3 +149,11 @@ test('Phase 10 Android evidence is fail-closed: no Maestro failure fallback or u
   assert.doesNotMatch(runner, /"resolved": True|"loadingOrErrorSurfaceRemaining": False|"systemDialogRemaining": False/, 'Automated capture must not assert unreviewed visual conditions');
   assert.match(runner, /"independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW"/, 'Automated result must preserve independent review gate');
 });
+
+test('Phase 10 Android controlled execution: verified negative-paths fail closed under simulation', () => {
+  const res = spawnSync('node', ['--test', join(repoRoot, 'tests/harness/phase10-android-negative-path.test.mjs')], {
+    encoding: 'utf8'
+  });
+  assert.equal(res.status, 0, `Negative path test suite failed:\n${res.stdout}\n${res.stderr}`);
+});
+

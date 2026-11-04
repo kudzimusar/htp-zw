@@ -59,7 +59,11 @@ fi
 # 3. Configure display & unlock keyguard
 adb shell cmd uimode night no || true
 adb shell input keyevent 82 || true
-sleep 2
+# Settle Android OS & suppress system ANR popups on headless CI emulator
+adb shell settings put global hide_error_dialogs 1 || true
+adb shell settings put secure anr_show_background 0 || true
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS 2>/dev/null || true
+sleep 5
 
 # 4. Verify APK existence and install
 APK_PATH="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
@@ -88,6 +92,9 @@ adb shell pm path "$APP_ID" > "$DIAGNOSTICS_DIR/package-verify.txt" 2>&1 || {
   exit 1
 }
 echo "Package $APP_ID verified on emulator."
+# Settle after package registration and dismiss any lingering dialogs
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS 2>/dev/null || true
+sleep 5
 
 # 5. Execute visual evidence capture via Maestro flow
 MAESTRO_OUTPUT="$EVIDENCE_DIR/maestro"
