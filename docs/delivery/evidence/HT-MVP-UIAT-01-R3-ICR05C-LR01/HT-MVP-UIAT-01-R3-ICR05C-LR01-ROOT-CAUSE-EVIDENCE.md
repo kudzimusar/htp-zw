@@ -66,3 +66,37 @@
   - `Android tablet real emulator evidence` (Job `125842967539`, Artifact `13222325454`): **SUCCESS** (`37` commands: `29` completed, `8` skipped, `0` failed; `6/6` screenshots captured; `0` native runtime errors).
   - `Phase 6A contract + frozen Reader regressions` (Job `125842968056`): **SUCCESS**.
   - `aggregate exact-head native evidence` (Job `125859288116`, Artifact `13221778888`): **SUCCESS** (`READY FOR UI MODERATOR REVIEW`).
+
+---
+
+## 3. Work Package A & B — Forensic Investigation & Remediation of Phase 10 Android Emulator Failure (Run `41635266596`)
+
+### A. Authoritative Failed Run & Retry Audit
+- **Workflow Run:** [`41635266596`](https://github.com/kudzimusar/htp-zw/actions/runs/41635266596) (`Phase 10 Candidate Visual Conformance`)
+- **Failed Attempt 1:** Job `125914749339` failed during `./gradlew assembleRelease` at kotlin-stdlib maven download due to transient upstream network timeout.
+- **Failed Attempt 2 (Job Retry):** Job `126280637640` successfully assembled the candidate Android APK, but failed during inline emulator provisioning:
+  - Failed step: `Boot emulator and capture Reader` (`scripts/native/phase10-candidate-android-run.sh` / inline `sdkmanager` flow).
+  - Post-failure failure: `actions/upload-artifact@v4` threw fatal error `File not found: /tmp/phase10-candidate-emulator.log` with `if-no-files-found: error`.
+
+### B. Forensic Findings & Root Cause
+1. **Divergent Infrastructure Pattern:** Unlike the battle-tested UI-02 Phase 6A native workflow (`.github/workflows/ui02-phase6a-native-cross-device.yml`) which uses `reactivecircus/android-emulator-runner@v2` with API 36, KVM static node udev rules, and pre-cached AVD snapshots (`actions/cache@v4` on `avd-36-pixel_7_pro-v3`), Phase 10 attempted to inline `sdkmanager` download API 35 Google APIs system images without caching on standard Ubuntu runners.
+2. **Fragile Preflight & Artifact Upload:** When emulator boot failed or timed out, the log artifact `/tmp/phase10-candidate-emulator.log` was never created, turning an emulator diagnostic into an uncaught fatal CI step error.
+
+### C. Minimum Authorized Remediation (`058689b420a1481ccca3ee2c9c7c349ff9cd009a`)
+1. **Converged Provisioning:** Aligned `.github/workflows/phase10-visual-conformance.yml` with the proven Phase 6A pattern:
+   - Added KVM permission script with `udev` rule creation (`/dev/kvm`).
+   - Added Maestro CLI installer (`curl -fsSL "https://get.maestro.mobile.dev"`).
+   - Added AVD caching via `actions/cache@v4` (`~/.android/avd/*`).
+   - Utilized `reactivecircus/android-emulator-runner@v2` with `api-level: 36`, `target: google_apis`, `arch: x86_64`, `profile: pixel_7_pro`.
+2. **Dedicated Visual Maestro Flow:** Created [`apps/mobile/e2e/phase10-android-visual.yaml`](../../../apps/mobile/e2e/phase10-android-visual.yaml) navigating Home ("Top Stories"), Premium ("HEALTHTIMES PREMIUM"), and Watch ("Watch", "Featured video") with assertions and screen captures (`home`, `premium`, `watch`).
+3. **Robust Test Runner & Fail-Closed Diagnostics:** Implemented [`scripts/native/phase10-candidate-android-run.sh`](../../../scripts/native/phase10-candidate-android-run.sh) handling device discovery, APK installation verification (`zw.co.healthtimes.app.staging`), logcat capture, PNG dimensions/header validation, runtime crash detection, and structured JSON manifest emission.
+
+### D. Authoritative Recertification (Run [`41763784097`](https://github.com/kudzimusar/htp-zw/actions/runs/41763784097))
+- **Candidate Web/PWA Conformance** (`126357291599`): **SUCCESS** (Artifact `13291399266`, 4.68 MB).
+- **Candidate iOS Simulator Screenshots** (`126357291481`): **SUCCESS** (Artifact `13292054744`, 3.52 MB).
+- **Candidate Android Emulator Screenshots** (`126357291909`): **SUCCESS** (Artifact `13292913629`, 3.84 MB).
+  - `home.png` (884,342 B, SHA-256 `4bf6f773...`, 1440×3120).
+  - `premium.png` (286,556 B, SHA-256 `ffeca2d1...`, 1440×3120).
+  - `watch.png` (220,900 B, SHA-256 `8c8d030d...`, 1440×3120).
+  - Actionable native runtime errors: `0`.
+  - Overall Phase 10 status: **`PASS (3/3)`**.

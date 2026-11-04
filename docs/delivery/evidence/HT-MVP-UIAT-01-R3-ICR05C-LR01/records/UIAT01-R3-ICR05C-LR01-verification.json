@@ -1,14 +1,15 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR05C-R5-PUSH01",
-  "timestamp": "2026-11-03T10:25:30.000Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR06-PHASE10-ANDROID-LR01",
+  "timestamp": "2026-11-04T03:30:00.000Z",
   "parentAuthoritySha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
   "acceptedR4ApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "startingR4EvidenceSha": "0fc17ba4a947ebb0464c06e479154d3a1ce45b86",
-  "startingRemoteSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+  "startingRemoteSha": "61bc62a7871c3cf7adb7753ae6284418e8f331dc",
   "r5RemediationCommitSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
+  "phase10RemediationCommitSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
   "deployedApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "candidateCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
-  "runtimeDiffSinceR4ApplicationCode": "NONE (0 runtime files changed; commit e7248a67ebb24e236a89b7771168695f511eb3a4 modifies only apps/mobile/e2e/ui02-phase6a-tablet.yaml)",
+  "runtimeDiffSinceR4ApplicationCode": "NONE (0 runtime files changed across apps/mobile/app, apps/mobile/src, api, app, lib, supabase)",
   "branch": "cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert",
   "parentDraftPr": "https://github.com/kudzimusar/htp-zw/pull/144",
   "candidateDraftPr": "https://github.com/kudzimusar/htp-zw/pull/146",
@@ -109,50 +110,71 @@
     }
   },
   "exactHeadCiWorkflows": {
-    "testedSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
-    "ui02NativeCrossDevice": { "runId": 41614064581, "status": "SUCCESS" },
-    "chromiumUat": { "runId": 41614064333, "status": "SUCCESS" },
-    "nativeReaderProductGates": { "runId": 41614064733, "secondaryRunId": 41614057888, "status": "SUCCESS" },
-    "ui03CommercialReader": { "runId": 41614064268, "status": "SUCCESS" },
-    "nm07MigratedCorpus": { "runId": 41614064339, "status": "SUCCESS" },
-    "ag05Nm07PremiumHospaz": { "runId": 41614064530, "status": "SUCCESS" },
+    "testedSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
+    "ui02NativeCrossDevice": { "runId": 41763783738, "status": "SUCCESS" },
     "phase10VisualConformance": {
-      "runId": 41614064336,
+      "runId": 41763784097,
       "status": "SUCCESS",
-      "iosJobId": 125842967435,
-      "androidJobId": 125842967798,
-      "webJobId": 125842967114
+      "attempt1FailedRunId": 41635266596,
+      "attempt1FailedJobId": 125914749339,
+      "attempt1FailureRootCause": "TRANSIENT_MAVEN_GRADLE_DEPENDENCY_RESOLUTION_TIMEOUT",
+      "attempt2RetryJobId": 126280637640,
+      "attempt2FailureRootCause": "PROVISIONING_DUPLICATION_UNCACHED_SYSTEM_IMAGE_EMULATOR_PREFLIGHT_FAILURE",
+      "correctiveRunId": 41763784097,
+      "correctiveSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
+      "webJobId": 126357291599,
+      "webStatus": "SUCCESS",
+      "webArtifactId": 13291399266,
+      "iosJobId": 126357291481,
+      "iosStatus": "SUCCESS",
+      "iosArtifactId": 13292054744,
+      "androidJobId": 126357291909,
+      "androidStatus": "SUCCESS",
+      "androidArtifactId": 13292913629,
+      "androidScreenshots": {
+        "home": {
+          "file": "home.png",
+          "sha256": "4bf6f7737738d8f6818507145d39dca6d4d20f52a825368b4ea87f233354563c",
+          "dimensions": [1440, 3120],
+          "sizeBytes": 884342
+        },
+        "premium": {
+          "file": "premium.png",
+          "sha256": "ffeca2d1abd85d60ebbd5b8181a3e449bc9b2b861a5e172a8d76dcbc3595fa87",
+          "dimensions": [1440, 3120],
+          "sizeBytes": 286556
+        },
+        "watch": {
+          "file": "watch.png",
+          "sha256": "8c8d030d7fd53c922cb1a09046523f07a55895973a1f21abeee7e3524b76c41b",
+          "dimensions": [1440, 3120],
+          "sizeBytes": 220900
+        }
+      },
+      "androidDiagnosticsUploaded": true,
+      "androidRuntimeErrors": 0,
+      "androidVisualCertification": "PASS"
     },
-    "phase10WebPwaEvidence": { "runId": 41614064453, "status": "SUCCESS" },
-    "nativeBinaryCertification": { "runId": 41614064362, "status": "SUCCESS" },
-    "nativeMobileFoundationSuite": { "runId": 41614064506, "status": "SUCCESS" },
-    "ui01Phase3Discovery": { "runId": 41614064383, "status": "SUCCESS" },
-    "ui01Phase4Media": { "runId": 41614064356, "status": "SUCCESS" },
-    "ui04Phase5ReaderOwnership": { "runId": 41614064525, "status": "SUCCESS" },
-    "ui04EditionFullReload": { "runId": 41614064521, "status": "SUCCESS" },
-    "ui05Phase6bAccessibility": { "runId": 41614064451, "status": "SUCCESS" },
-    "ui06Phase6cRecertification": { "runId": 41614064337, "status": "SUCCESS" },
-    "validateHealthTimes": { "runId": 41614064357, "status": "SUCCESS" },
+    "phase10WebPwaEvidence": { "runId": 41763783748, "status": "SUCCESS" },
+    "chromiumUat": { "runId": 41763783707, "status": "SUCCESS" },
+    "nativeReaderProductGates": { "runId": 41763783713, "status": "SUCCESS" },
+    "ui03CommercialReader": { "runId": 41763783727, "status": "SUCCESS" },
+    "nm07MigratedCorpus": { "runId": 41763783750, "status": "SUCCESS" },
+    "ag05Nm07PremiumHospaz": { "runId": 41763783723, "status": "SUCCESS" },
+    "nativeBinaryCertification": { "runId": 41763783711, "status": "SUCCESS" },
+    "nativeMobileFoundationSuite": { "runId": 41763783749, "status": "SUCCESS" },
+    "ui01Phase3Discovery": { "runId": 41763783720, "status": "SUCCESS" },
+    "ui01Phase4Media": { "runId": 41763783709, "status": "SUCCESS" },
+    "ui04Phase5ReaderOwnership": { "runId": 41763783756, "status": "SUCCESS" },
+    "ui04EditionFullReload": { "runId": 41763783704, "status": "SUCCESS" },
+    "ui05Phase6bAccessibility": { "runId": 41763783752, "status": "SUCCESS" },
+    "ui06Phase6cRecertification": { "runId": 41763783732, "status": "SUCCESS" },
+    "validateHealthTimes": { "runId": 41763783751, "status": "SUCCESS" },
     "sessionAndEvidenceCertification": {
-      "runId": 41614064384,
-      "deterministicSecurityJob": { "jobId": 125842966515, "status": "SUCCESS" },
-      "physicalLiveFaultInjectionJob": { "jobId": 125842966839, "status": "BLOCKED_OWNER_UAT_CREDENTIALS" }
+      "runId": 41763783721,
+      "deterministicSecurityJob": { "jobId": 126357288674, "status": "SUCCESS" },
+      "physicalLiveFaultInjectionJob": { "jobId": 126357288924, "status": "BLOCKED_OWNER_UAT_CREDENTIALS" }
     }
-  },
-  "iosTabletForensicInvestigation": {
-    "failedWorkflowRunId": 41587007329,
-    "failedJobId": 125754753429,
-    "failedArtifactId": 13210032036,
-    "simulatorIdentity": "iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)",
-    "osVersion": "iOS 26.5",
-    "classification": "TEST_HARNESS_IOS26_RECAP_DIGITIZER_TOUCH_CANCELLATION_ON_SPRINGBOARD_ALERT",
-    "applicationRuntimeDefect": false,
-    "metroErrorsCount": 0,
-    "nativeRuntimeErrorsCount": 0,
-    "remediatedInCommit": "e7248a67ebb24e236a89b7771168695f511eb3a4",
-    "recertifiedInRun": 41614064581,
-    "recertifiedInJob": 125842968203,
-    "recertifiedArtifactId": 13222426562
   },
   "ui03TransparencyClassification": {
     "liveStagingSupabaseRpc": "VERIFIED_LIVE_STAGING_RPC_ag05_public_story_teaser_document",
@@ -168,10 +190,13 @@
     "blockedCount": 7,
     "ownerAuthorizedDeferredCount": 0,
     "registrySource": "HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md",
+    "stagingMigrationCanonicalFile": "supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql",
+    "stagingMigrationDescriptiveAlias": "20261102160000_newsroom_create_story_title_authority.sql",
+    "stagingMigrationApplied": false,
     "blockedCases": [
       { "caseId": "UAT-R05", "persona": "Anonymous Reader", "reason": "Audio streaming blocked pending explicit Owner feature or deferral decision" },
       { "caseId": "UAT-J01", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
-      { "caseId": "UAT-J02", "persona": "Publisher/Reporter", "reason": "Staging DB newsroom_create_story title authority migration 20261102160000 unapplied pending Owner authorization" },
+      { "caseId": "UAT-J02", "persona": "Publisher/Reporter", "reason": "Staging DB newsroom_create_story title authority migration 20261102160000_ht_mvp_r3_story_title_authority.sql unapplied pending Owner authorization" },
       { "caseId": "UAT-J04", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
       { "caseId": "UAT-E01", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
       { "caseId": "UAT-E02", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
@@ -194,12 +219,12 @@
     "livePhysicalStatus": "BLOCKED_OWNER_UAT_CREDENTIALS",
     "ownerAuditAuthority": "BLOCKED_OWNER_UAT_CREDENTIALS",
     "sessionRevokeNullProviderIdPresent": false,
-    "stagingMigration20261102160000Applied": false
+    "stagingMigrationApplied": false
   },
   "independentReview": {
-    "reviewer": "INDEPENDENT_REVIEW_MISSING",
-    "status": "PENDING_EXTERNAL_ASSIGNMENT",
-    "disposition": "BLOCKED_MISSING_INDEPENDENT_REVIEWER"
+    "status": "BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE",
+    "disposition": "BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE",
+    "reason": "Implementation workspace cannot self-certify. Formal independent review requires distinct reviewer assignment by Owner."
   },
   "failures": []
 }

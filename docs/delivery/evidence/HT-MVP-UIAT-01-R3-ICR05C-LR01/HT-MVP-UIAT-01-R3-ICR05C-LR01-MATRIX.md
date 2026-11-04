@@ -16,13 +16,14 @@
 - **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`
 - **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
-- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 runtime files changed in R5)
+- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 runtime files changed in R5 and Phase 10)
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**
 - **Owner Authorized Deferred Count:** **0** (`OWNER_AUTHORIZED_DEFERRED=0`)
 - **Supplemental Safety & Security Matrix:** **14 PASS | 0 FAIL | 0 BLOCKED** (Tracked Separately)
-- **Exact-Head Native Cross-Device Status (Run `41614064581`):** **6/6 JOBS SUCCESS** (`UI02_AGGREGATE=SUCCESS`)
+- **Exact-Head Native Cross-Device Status (Runs `41614064581` / `41763783738`):** **SUCCESS** (`UI02_AGGREGATE=SUCCESS`)
+- **Phase 10 Visual Conformance Recertification (Run `41763784097`):** **3/3 JOBS SUCCESS** (`PHASE10_AGGREGATE=SUCCESS`)
 
 ---
 
@@ -37,7 +38,7 @@
 | **UAT-R05** | Anonymous Reader | 375×667 (Mobile) | Audio playback, pause and seek | BLOCKED | None (Out of Scope for MVP) | **BLOCKED** | Anonymous | `534ff08` | Feature absence in MVP scope; blocked pending Owner feature or deferral decision |
 | **UAT-R06** | Anonymous Reader | 375×667<br>768×1024<br>1440×900 | Dark theme, light theme, contrast & persistence | PASS (remediated) | Tokens & theme contrast update (`DEF-013` resolved) | **PASS** | Anonymous | `534ff08` | Contrast ratio $\ge 4.5:1$ across all 6 surfaces |
 | **UAT-J01** | Journalist / Reporter | 1440×900 (Desktop) | Journalist sign-in and desk restrictions | BLOCKED | None | **BLOCKED** | None available | Staging DB | Missing authorized test credentials in Staging |
-| **UAT-J02** | Publisher/Reporter | 1440×900 (Desktop) | Validated draft, counters and autosave | BLOCKED (`DEF-006`) | Client form banner + DB migration authored (pending Owner Staging application) | **BLOCKED** | Publisher substitute | Staging DB | Client UI validated; Backend migration `20261102160000` certified on disposable DB; Staging application blocked pending Owner approval |
+| **UAT-J02** | Publisher/Reporter | 1440×900 (Desktop) | Validated draft, counters and autosave | BLOCKED (`DEF-006`) | Client form banner + DB migration authored (pending Owner Staging application) | **BLOCKED** | Publisher substitute | Staging DB | Client UI validated; Backend migration `supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql` certified on disposable DB; Staging application blocked pending Owner approval |
 | **UAT-J03** | Journalist / Reporter | 1440×900 (Desktop) | Valid image attribution and invalid MIME rejection | PASS | None required (Preserved) | **PASS** | Publisher substitute | `534ff08` | JPEG saved with attribution; MIME rejected |
 | **UAT-J04** | Journalist / Reporter | 1440×900 (Desktop) | Submit for review without publish permission | BLOCKED | None | **BLOCKED** | None available | Staging DB | Missing authorized test credentials in Staging |
 | **UAT-E01** | Editor-in-Chief | 1440×900 (Desktop) | Review queue and role-restricted actions | BLOCKED | None | **BLOCKED** | None available | Staging DB | Missing authorized test credentials in Staging |
