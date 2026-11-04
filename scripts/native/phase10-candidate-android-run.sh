@@ -6,6 +6,7 @@ EXPECTED_SHA="${EXPECTED_SHA:-$(git rev-parse HEAD)}"
 RUN_ATTEMPT="${RUN_ATTEMPT:-1}"
 EVIDENCE_DIR="phase10-evidence/after/android"
 DIAGNOSTICS_DIR="$EVIDENCE_DIR/diagnostics"
+rm -rf "$EVIDENCE_DIR"  # Prevent stale evidence from previous attempts
 mkdir -p "$DIAGNOSTICS_DIR"
 
 echo "=== Phase 10 Candidate Android Execution Started ==="
@@ -22,12 +23,16 @@ ls -la /dev/kvm > "$DIAGNOSTICS_DIR/kvm.txt" 2>&1 || echo "KVM not present at /d
 
 # 2. Wait for ADB and boot completion
 echo "Waiting for Android emulator to register with ADB..."
-adb wait-for-device
+if ! timeout 120s adb wait-for-device; then
+  echo "ERROR: ADB device registration timed out" >&2
+  adb devices -l > "$DIAGNOSTICS_DIR/adb-devices.txt" 2>&1 || true
+  exit 1
+fi
 
 echo "Querying device properties..."
 adb devices -l > "$DIAGNOSTICS_DIR/adb-devices.txt" 2>&1 || true
 DEVICE_MODEL="$(adb shell getprop ro.product.model 2>/dev/null | tr -d '\r' || echo 'Unknown')"
-API_LEVEL="$(adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || echo '36')"
+API_LEVEL="$(adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || echo 'Unknown')"
 OS_RELEASE="$(adb shell getprop ro.build.version.release 2>/dev/null | tr -d '\r' || echo 'Unknown')"
 {
   echo "DEVICE_MODEL=$DEVICE_MODEL"
@@ -78,7 +83,7 @@ adb install -r "$APK_PATH" > "$DIAGNOSTICS_DIR/apk-install.log" 2>&1 || {
   exit 1
 }
 
-adb shell pm list packages | grep "$APP_ID" > "$DIAGNOSTICS_DIR/package-verify.txt" 2>&1 || {
+adb shell pm path "$APP_ID" > "$DIAGNOSTICS_DIR/package-verify.txt" 2>&1 || {
   echo "ERROR: Package $APP_ID was not verified by package manager"
   exit 1
 }
@@ -97,6 +102,10 @@ set -e
 
 echo "Maestro completed with exit code: $MAESTRO_EXIT"
 cat "$DIAGNOSTICS_DIR/maestro.log"
+if [[ "$MAESTRO_EXIT" -ne 0 ]]; then
+  echo "ERROR: Maestro route assertions/capture failed; screenshots must not be used as substitute certification" >&2
+  exit "$MAESTRO_EXIT"
+fi
 
 # Check if screenshots were produced by Maestro
 for name in home premium watch; do
@@ -107,41 +116,13 @@ for name in home premium watch; do
   fi
 done
 
-# Resilient fallback capture if any screenshot is missing
-ensure_screenshot() {
-  local screen_name="$1"
-  local target_file="$EVIDENCE_DIR/$screen_name.png"
-  if [[ -s "$target_file" ]]; then
-    return 0
+# No fallback screenshots: only a successful Maestro flow establishes route readiness.
+for name in home premium watch; do
+  if [[ ! -s "$EVIDENCE_DIR/$name.png" ]]; then
+    echo "ERROR: Missing Maestro screenshot $name.png after successful flow" >&2
+    exit 1
   fi
-
-  echo "Screenshot $screen_name.png missing from Maestro output. Running fallback capture..."
-  case "$screen_name" in
-    home)
-      adb shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 || true
-      sleep 12
-      ;;
-    premium)
-      adb shell am start -a android.intent.action.VIEW -d "healthtimes://premium" "$APP_ID" || true
-      sleep 8
-      ;;
-    watch)
-      adb shell am start -a android.intent.action.VIEW -d "healthtimes://watch" "$APP_ID" || true
-      sleep 8
-      ;;
-  esac
-
-  adb exec-out screencap -p > "$target_file"
-  if [[ ! -s "$target_file" ]]; then
-    echo "ERROR: Fallback capture failed for $screen_name"
-    return 1
-  fi
-  echo "Fallback capture succeeded for $screen_name"
-}
-
-ensure_screenshot home
-ensure_screenshot premium
-ensure_screenshot watch
+done
 
 # 6. Validate all required PNGs (magic bytes, size, dimensions)
 python3 - <<'PY'
@@ -176,8 +157,9 @@ grep -Ei \
 RUNTIME_ERROR_COUNT="$(awk 'NF{count++} END{print count+0}' "$DIAGNOSTICS_DIR/runtime-errors.log")"
 echo "ACTIONABLE_RUNTIME_ERROR_COUNT=$RUNTIME_ERROR_COUNT"
 if [[ "$RUNTIME_ERROR_COUNT" -gt 0 ]]; then
-  echo "WARNING: Actionable runtime error strings found in logcat:"
+  echo "ERROR: Actionable runtime error strings found in logcat:" >&2
   cat "$DIAGNOSTICS_DIR/runtime-errors.log"
+  exit 1
 fi
 
 # 8. Generate manifest.json and manifest.sha256
@@ -210,10 +192,9 @@ for name, route in [("home", "/"), ("premium", "/premium"), ("watch", "/watch")]
         "sha256": hashlib.sha256(raw).hexdigest(),
         "dimensions": [w, h],
         "sizeBytes": len(raw),
-        "resolved": True,
-        "loadingOrErrorSurfaceRemaining": False,
-        "systemDialogRemaining": False,
-        "logBoxOrRuntimeErrorVisible": False
+        "captureMethod": "MAESTRO_FLOW",
+        "automatedRouteAssertionsPassed": True,
+        "independentVisualInspection": "PENDING"
     })
 
 manifest = {
@@ -225,7 +206,10 @@ manifest = {
     "package": app_id,
     "method": "reactivecircus/android-emulator-runner@v2 + Maestro",
     "actionableNativeRuntimeErrorCount": runtime_errors,
-    "diagnosticsUploaded": True,
+    "diagnosticsCollected": True,
+    "diagnosticsArtifactUpload": "PENDING_GITHUB_ACTIONS_UPLOAD",
+    "maestroExitCode": 0,
+    "independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW",
     "androidVisualCertification": "PASS" if runtime_errors == 0 else "FAIL",
     "screens": screens
 }
