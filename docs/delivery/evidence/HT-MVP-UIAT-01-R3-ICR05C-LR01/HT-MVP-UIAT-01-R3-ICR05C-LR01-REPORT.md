@@ -83,3 +83,20 @@ Workflow run [`41763784097`](https://github.com/kudzimusar/htp-zw/actions/runs/4
   - Automated custody test `tests/harness/icr05c-custody-verifier.test.mjs` verifies zero runtime diff between `fe5669278768c2a5cab44670425fcf05a7a7d1a7` and `058689b420a1481ccca3ee2c9c7c349ff9cd009a`.
 - **Independent Review Status:**
   - `INDEPENDENT_REVIEW_STATUS=BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE`. The implementing specialist does not self-approve PR #146. Formal independent review requires distinct reviewer assignment by Owner.
+
+---
+
+## Moderator correction — 4 November 2026 (subsequent to specialist return)
+
+**Disposition: REMEDIATE; no final independent or Owner release acceptance.** This addendum is an append-only correction, not a replacement for historical successful runs.
+
+GitHub's run [41763784097](https://github.com/kudzimusar/htp-zw/actions/runs/41763784097) on `058689b420a1481ccca3ee2c9c7c349ff9cd009a` genuinely completed 3/3 jobs. Its Android job `126357291909` log explicitly reports **Maestro exit code 0** and three screenshots copied from Maestro; **no fallback capture occurred in that run**. The companion run [41763783738](https://github.com/kudzimusar/htp-zw/actions/runs/41763783738) actually completed **6/6 jobs**, including the aggregate job `126370337228` (not five total).
+
+**Newly identified certification-harness defect:** the original Android runner did not fail when Maestro exited nonzero; instead it could take fallback screenshots via ADB, mark route status `resolved=True` without proof, and set unsupported negative visual assertions. This was a latent **potential false-positive certification path**, even though it was not taken during the historical successful run. The original ADB wait was also unbounded, and the package lookup used a substring match.
+
+**Moderator corrective commits:**
+- `3fac20e916c9fb28861270e1a5264b0aaf8d8a67`: bounded ADB registration, exact package path query, fail on nonzero Maestro, no fallback images, require Maestro-generated route screenshots, fail on detected runtime errors, and mark independent visual inspection as pending.
+- `c48f2dcf0e2eaf0cb30c0d299309cf789d658c79`: regression guard against a return to fallback/unsupported-assertion behavior.
+- Corrected root-cause classification and custody in the verification record without altering historical run results.
+
+**Certification boundary:** These corrections require a **new exact-head Phase 10 run and companion CI evidence**. Neither the earlier `058689b...` green run nor the specialist's later evidence-only head certifies the corrected runner. Formal independent review remains `BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE`. The authenticated Owner session gate remains `BLOCKED_OWNER_UAT_CREDENTIALS`; the staging migration remains unapplied; canonical UAT remains 23 PASS / 0 FAIL / 7 BLOCKED. No merge, production, Paynow or deployment authorization was granted.
