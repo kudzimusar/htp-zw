@@ -334,9 +334,168 @@
     "correctiveRunnerCommitSha": "3fac20e916c9fb28861270e1a5264b0aaf8d8a67",
     "regressionTestCommitSha": "c48f2dcf0e2eaf0cb30c0d299309cf789d658c79",
     "correctiveScope": "Bound ADB wait; require Maestro success and Maestro-owned screenshots; prohibit fallback capture; remove unsupported visual-inspection assertions; preserve independent review hold.",
-    "correctiveExactHeadCi": "NOT_YET_VERIFIED_AT_TIME_OF_MODERATOR_RECORD",
+    "correctiveExactHeadCi": "VERIFIED_PASS_RUN_41775397669_AND_41775397921",
     "independentReviewer": "NOT_ASSIGNED",
     "finalReleaseDisposition": "BLOCKED_OWNER_UAT_MIGRATION_AND_INDEPENDENT_REVIEW",
     "ownerAuthorizedDeferred": 0
+  },
+  "exactHeadR2Certification": {
+    "candidateHeadCommitSha": "f5bd386d919b862702597193d839c0b38ac62bc7",
+    "controlledNegativePathTestSuite": {
+      "file": "tests/harness/phase10-android-negative-path.test.mjs",
+      "status": "PASS",
+      "totalTests": 6,
+      "passTests": 6,
+      "failTests": 0,
+      "verifiedVectors": [
+        "Nonzero Maestro exit fails closed immediately with error code (no passing manifest)",
+        "Missing Maestro screenshot fails closed and is NOT replaced by fallback ADB screencap",
+        "ADB device registration timeout fails closed",
+        "Package manager identity verification failure fails closed",
+        "Actionable runtime error strings in logcat fail certification gate",
+        "Successful execution produces honest manifest without false visual guarantees"
+      ]
+    },
+    "phase10VisualConformance": {
+      "runId": 41775397669,
+      "status": "SUCCESS",
+      "totalJobs": 3,
+      "completedJobs": 3,
+      "webJob": {
+        "jobId": 126394446061,
+        "duration": "3m51s",
+        "status": "SUCCESS",
+        "artifactId": 13296806728,
+        "artifactName": "phase10-candidate-web-pwa-screenshots"
+      },
+      "iosJob": {
+        "jobId": 126394446070,
+        "duration": "27m59s",
+        "status": "SUCCESS",
+        "artifactId": 13298012284,
+        "artifactName": "phase10-candidate-ios-screenshots"
+      },
+      "androidJob": {
+        "jobId": 126394445819,
+        "duration": "28m31s",
+        "status": "SUCCESS",
+        "artifactId": 13297757108,
+        "artifactName": "phase10-candidate-android-screenshots",
+        "device": "sdk_gphone64_x86_64",
+        "apiLevel": "36",
+        "package": "zw.co.healthtimes.app.staging",
+        "maestroExitCode": 0,
+        "actionableNativeRuntimeErrorCount": 0,
+        "fallbackScreenshotsUsed": false,
+        "diagnosticsCollected": true,
+        "independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW",
+        "androidVisualCertification": "PASS",
+        "screenshots": [
+          {
+            "name": "home",
+            "route": "/",
+            "file": "home.png",
+            "sha256": "a27a5816d270717a4acecc50c8007d84a52f5cb807e764dd3d36db9c4929b22e",
+            "dimensions": [1440, 3120],
+            "sizeBytes": 883645,
+            "captureMethod": "MAESTRO_FLOW",
+            "automatedRouteAssertionsPassed": true,
+            "independentVisualInspection": "PENDING"
+          },
+          {
+            "name": "premium",
+            "route": "/premium",
+            "file": "premium.png",
+            "sha256": "1bb820ae7cefbb47302daf4a89ea79b48092f79ab3f548d8359ee6d350536f1f",
+            "dimensions": [1440, 3120],
+            "sizeBytes": 285747,
+            "captureMethod": "MAESTRO_FLOW",
+            "automatedRouteAssertionsPassed": true,
+            "independentVisualInspection": "PENDING"
+          },
+          {
+            "name": "watch",
+            "route": "/watch",
+            "file": "watch.png",
+            "sha256": "ccf1c83277f479dc984108e34353d1ab4e7c71798026293c150c65a9822431db",
+            "dimensions": [1440, 3120],
+            "sizeBytes": 220308,
+            "captureMethod": "MAESTRO_FLOW",
+            "automatedRouteAssertionsPassed": true,
+            "independentVisualInspection": "PENDING"
+          }
+        ]
+      }
+    },
+    "ui02NativeCrossDevice": {
+      "runId": 41775397921,
+      "status": "SUCCESS",
+      "totalJobs": 6,
+      "completedJobs": 6,
+      "contractsJob": {
+        "jobId": 126394446205,
+        "name": "Phase 6A contract + frozen Reader regressions",
+        "duration": "30s",
+        "status": "SUCCESS"
+      },
+      "iosPhoneJob": {
+        "jobId": 126394446375,
+        "duration": "28m24s",
+        "status": "SUCCESS",
+        "artifactId": 13298380341,
+        "artifactName": "ui02-phase6a-native-evidence-ios-phone-attempt-1"
+      },
+      "iosTabletJob": {
+        "jobId": 126394446352,
+        "duration": "41m7s",
+        "status": "SUCCESS",
+        "artifactId": 13297624410,
+        "artifactName": "ui02-phase6a-native-evidence-ios-tablet-attempt-1"
+      },
+      "androidTabletJob": {
+        "jobId": 126394446500,
+        "duration": "27m0s",
+        "status": "SUCCESS",
+        "artifactId": 13297443027,
+        "artifactName": "ui02-phase6a-native-evidence-android-tablet-attempt-1"
+      },
+      "androidPhoneJob": {
+        "jobId": 126394446539,
+        "duration": "32m4s",
+        "status": "SUCCESS",
+        "artifactId": 13298241448,
+        "artifactName": "ui02-phase6a-native-evidence-android-phone-attempt-1"
+      },
+      "aggregateJob": {
+        "jobId": 126408391094,
+        "duration": "16s",
+        "status": "SUCCESS",
+        "artifactId": 13298801755,
+        "artifactName": "ui02-phase6a-native-evidence-attempt-1"
+      }
+    },
+    "nativeBinaryCertification": {
+      "runId": 41775397572,
+      "status": "SUCCESS",
+      "totalJobs": 3,
+      "completedJobs": 3,
+      "readinessJob": {
+        "jobId": 126394445325,
+        "duration": "59s",
+        "status": "SUCCESS"
+      },
+      "iosSimulatorBinaryJob": {
+        "jobId": 126394445595,
+        "duration": "13m29s",
+        "status": "SUCCESS",
+        "artifactName": "healthtimes-ios-simulator-app"
+      },
+      "androidDebugBinaryJob": {
+        "jobId": 126394445602,
+        "duration": "17m15s",
+        "status": "SUCCESS",
+        "artifactName": "healthtimes-android-debug-apk"
+      }
+    }
   }
 }

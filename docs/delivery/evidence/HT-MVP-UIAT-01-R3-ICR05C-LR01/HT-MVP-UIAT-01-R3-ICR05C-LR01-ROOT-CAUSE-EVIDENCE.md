@@ -110,3 +110,57 @@ The previous retry job `126280637640` proves that **Android emulator/capture pre
 The successful corrected provisioning run `41763784097` on `058689b...` shows Maestro exit code 0, all three screenshots originating in the Maestro flow, zero logged actionable runtime errors and all three GitHub job conclusions `SUCCESS`. Subsequent Moderator inspection detected a latent fail-open runner path: when Maestro failed, fallback ADB captures could still satisfy the previous manifest's screenshot checks. This is a control defect, **not evidence that the historical successful run fabricated screenshots**.
 
 The Moderator patched this at `3fac20e916c9fb28861270e1a5264b0aaf8d8a67` and added regression coverage at `c48f2dcf0e2eaf0cb30c0d299309cf789d658c79`. New exact-head runs, manual artifact-level inspection and an independent non-author review remain required. Historical cases and existing release holds remain unchanged.
+
+---
+
+## 5. Phase 10 Android R2 Exact-Head Execution & Diagnostic Forensic (`f5bd386d`)
+
+### Diagnostic Forensic on Initial Head `ad609844` (Run `41771594954` / Job `126382677661`)
+Artifact download of `phase10-candidate-android-screenshots` (`13296421433`) revealed:
+- **Maestro Exit Code:** 1.
+- **Hierarchy Analysis:** `screen-hierarchy/step-004-assertCondition-Top_Stories.json` showed an unhandled cold-boot Android OS alert:
+  ```json
+  {
+    "text": "System UI isn't responding",
+    "resource-id": "android:id/alertTitle",
+    "buttons": ["Wait", "Close app"]
+  }
+  ```
+- **Root Cause:** Cold-boot CPU contention during `launchApp: clearState: true` on headless API-36 runner raised an asynchronous System UI ANR modal dialog, intercepting Maestro's view of `"Top Stories"` until the 180s assertion window expired.
+
+### Engineering Remediation in Commit `f5bd386d`
+1. **Runner Preflight (`scripts/native/phase10-candidate-android-run.sh`):**
+   - Configured OS global and secure settings to suppress system error dialogs on headless runners:
+     `adb shell settings put global hide_error_dialogs 1 || true`
+     `adb shell settings put secure anr_show_background 0 || true`
+   - Added `CLOSE_SYSTEM_DIALOGS` broadcast and post-boot settle buffers.
+2. **Maestro Flow (`apps/mobile/e2e/phase10-android-visual.yaml`):**
+   - Added conditional dismiss handlers: `when: visible: "Wait" commands: - tapOn: "Wait"` and `when: visible: "Close app" commands: - tapOn: "Wait"`.
+   - Aligned initial screen load timeout on `"Top Stories"` to `240000` (matching the proven `ui02-phase6a-phone.yaml` timeout).
+3. **Fail-Closed Gate Preservation:**
+   - Zero fallback screenshot code.
+   - Nonzero Maestro exits fail closed immediately.
+   - Required screenshots verified for file existence, non-empty size, and PNG magic header.
+   - All subjective visual claims removed from manifest (`independentVisualReviewStatus: "PENDING_NON_AUTHOR_REVIEW"`).
+
+### Controlled Negative-Path Execution Verification (`tests/harness/phase10-android-negative-path.test.mjs`)
+Implemented 6 executable negative/positive path assertions in temporary subshell sandboxes:
+- Nonzero Maestro exit fails closed immediately with error code 42 (PASS).
+- Missing screenshot fails closed without fallback capture (PASS).
+- ADB registration timeout fails closed (PASS).
+- Package identity failure fails closed (PASS).
+- Logcat runtime errors fail closed (PASS).
+- Positive execution produces honest manifest without false visual guarantees (PASS).
+Total execution time: ~6.7s (**6/6 PASS**).
+
+### Exact-Head Run Verification on Commit `f5bd386d`
+- **Phase 10 Candidate Visual Conformance (Run `41775397669`):**
+  - **Android Emulator Job `126394445819`:** Duration `28m31s`, Status `SUCCESS`.
+  - Artifact `phase10-candidate-android-screenshots` (ID `13297757108`):
+    - `home.png` (883,645 bytes, sha256: `a27a5816d270717a4acecc50c8007d84a52f5cb807e764dd3d36db9c4929b22e`, 1440×3120).
+    - `premium.png` (285,747 bytes, sha256: `1bb820ae7cefbb47302daf4a89ea79b48092f79ab3f548d8359ee6d350536f1f`, 1440×3120).
+    - `watch.png` (220,308 bytes, sha256: `ccf1c83277f479dc984108e34353d1ab4e7c71798026293c150c65a9822431db`, 1440×3120).
+  - Web/PWA Job `126394446061`: Duration `3m51s`, Status `SUCCESS`, Artifact `13296806728`.
+  - iOS Simulator Job `126394446070`: Duration `27m59s`, Status `SUCCESS`, Artifact `13298012284`.
+- **UI-02 Native Cross-Device Evidence (Run `41775397921`):** **6/6 SUCCESS** (Contracts `30s`, iOS Phone `28m24s`, iOS Tablet `41m7s`, Android Tablet `27m0s`, Android Phone `32m4s`, Aggregate `16s`).
+- **Native Binary Certification (Run `41775397572`):** **3/3 SUCCESS** (Readiness, iOS Simulator App, Android Debug APK).
