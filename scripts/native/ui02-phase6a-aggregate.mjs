@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { crc32, inflateSync } from "node:zlib";
 
 export const REQUIRED_PHONE_SCREENS = [
   "home-light",
@@ -106,34 +107,122 @@ function walkFiles(dirPath) {
   return results.sort();
 }
 
-function inspectPngFile(filePath) {
+/**
+ * Full PNG structure, chunk framing, CRC32, and IDAT zlib inflate verification.
+ * Note: This verifies binary image integrity and decompression; it does NOT
+ * replace mandatory independent human visual review of rendered content.
+ */
+export function inspectPngFile(filePath) {
   if (!existsSync(filePath)) {
     return { valid: false, reason: "MISSING_PNG_FILE" };
   }
   const buf = readFileSync(filePath);
-  if (
-    buf.length < 24 ||
-    !buf.subarray(0, 8).equals(PNG_SIGNATURE) ||
-    buf.subarray(12, 16).toString("ascii") !== "IHDR"
-  ) {
-    return { valid: false, reason: "INVALID_PNG_HEADER" };
+  if (buf.length < 33 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    return { valid: false, reason: "INVALID_PNG_SIGNATURE" };
   }
-  const width = buf.readUInt32BE(16);
-  const height = buf.readUInt32BE(20);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return { valid: false, reason: "INVALID_PNG_DIMENSIONS" };
+
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  let interlace = 0;
+  let seenIhdr = false;
+  let seenIend = false;
+  const idatChunks = [];
+
+  while (offset < buf.length) {
+    if (offset + 8 > buf.length) {
+      return { valid: false, reason: "TRUNCATED_PNG_CHUNK_HEADER" };
+    }
+    const length = buf.readUInt32BE(offset);
+    const type = buf.subarray(offset + 4, offset + 8).toString("ascii");
+    if (offset + 12 + length > buf.length) {
+      return { valid: false, reason: `TRUNCATED_PNG_CHUNK_DATA:${type}` };
+    }
+
+    if (typeof crc32 === "function") {
+      const actualCrc = crc32(buf.subarray(offset + 4, offset + 8 + length)) >>> 0;
+      const expectedCrc = buf.readUInt32BE(offset + 8 + length) >>> 0;
+      if (actualCrc !== expectedCrc) {
+        return { valid: false, reason: `INVALID_PNG_CHUNK_CRC:${type}` };
+      }
+    }
+
+    const data = buf.subarray(offset + 8, offset + 8 + length);
+    if (!seenIhdr) {
+      if (type !== "IHDR" || length !== 13) {
+        return { valid: false, reason: "MISSING_OR_INVALID_IHDR" };
+      }
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data.readUInt8(8);
+      colorType = data.readUInt8(9);
+      const compression = data.readUInt8(10);
+      const filter = data.readUInt8(11);
+      interlace = data.readUInt8(12);
+      if (
+        !Number.isFinite(width) ||
+        !Number.isFinite(height) ||
+        width <= 0 ||
+        height <= 0 ||
+        compression !== 0 ||
+        filter !== 0 ||
+        (interlace !== 0 && interlace !== 1)
+      ) {
+        return { valid: false, reason: "INVALID_PNG_IHDR_PARAMETERS" };
+      }
+      seenIhdr = true;
+    } else if (type === "IDAT") {
+      idatChunks.push(data);
+    } else if (type === "IEND") {
+      if (length !== 0) {
+        return { valid: false, reason: "INVALID_PNG_IEND_LENGTH" };
+      }
+      seenIend = true;
+      offset += 12 + length;
+      break;
+    }
+    offset += 12 + length;
   }
+
+  if (!seenIhdr || !seenIend || idatChunks.length === 0 || offset !== buf.length) {
+    return { valid: false, reason: "INCOMPLETE_PNG_CHUNK_STREAM" };
+  }
+
+  let decompressed;
+  try {
+    decompressed = inflateSync(Buffer.concat(idatChunks));
+  } catch {
+    return { valid: false, reason: "INVALID_PNG_IDAT_DEFLATE_STREAM" };
+  }
+
+  const channelsByColorType = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+  const channels = channelsByColorType[colorType] ?? 0;
+  if (channels === 0 || ![1, 2, 4, 8, 16].includes(bitDepth)) {
+    return { valid: false, reason: "UNSUPPORTED_PNG_COLOR_OR_BIT_DEPTH" };
+  }
+
+  if (interlace === 0) {
+    const expectedScanlineBytes = height * (1 + Math.ceil((width * channels * bitDepth) / 8));
+    if (decompressed.length !== expectedScanlineBytes) {
+      return { valid: false, reason: "PNG_DECOMPRESSED_SCANLINE_SIZE_MISMATCH" };
+    }
+  } else if (decompressed.length < height) {
+    return { valid: false, reason: "PNG_DECOMPRESSED_STREAM_TOO_SMALL" };
+  }
+
   return {
     valid: true,
     width,
     height,
     sizeBytes: buf.length,
+    decompressedBytes: decompressed.length,
     sha256: sha256Buffer(buf)
   };
 }
 
 function parseArtifactDirName(dirName) {
-  // Aggregate artifacts are named ui02-phase6a-native-evidence-attempt-<N>
   if (/^ui02-phase6a-native-evidence-attempt-\d+$/i.test(dirName)) {
     return { isAggregate: true };
   }
@@ -166,6 +255,33 @@ function findCellDef(platform, deviceClass) {
 }
 
 /**
+ * Distinguish Maestro's internal CLI runner manifest
+ * ($schema: "https://storage.googleapis.com/maestro-schemas/artifact-manifest/v1.schema.json")
+ * from candidate UI-02 Phase 6A cell manifests.
+ */
+function isMaestroInternalRunnerManifest(filePath) {
+  try {
+    const raw = readFileSync(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      typeof parsed.$schema === "string" &&
+      parsed.$schema.includes("maestro-schemas/artifact-manifest") &&
+      Array.isArray(parsed.entries) &&
+      parsed.phase === undefined &&
+      parsed.candidateSha === undefined
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+/**
  * Validate a single candidate artifact directory under downloadedRoot.
  */
 function evaluateCandidateArtifact({
@@ -174,7 +290,7 @@ function evaluateCandidateArtifact({
   expectedSha,
   expectedWorkflowRunId,
   currentAttempt,
-  artifactsByName,
+  artifactsList,
   jobsList
 }) {
   const dirParse = parseArtifactDirName(artifactDirName);
@@ -183,28 +299,13 @@ function evaluateCandidateArtifact({
   }
 
   const allFiles = walkFiles(artifactDirPath);
-  const manifestPaths = allFiles.filter((p) => p.endsWith("/manifest.json") || p === join(artifactDirPath, "manifest.json"));
+  const candidateManifestPaths = allFiles
+    .filter((p) => p.endsWith("/manifest.json") || p === join(artifactDirPath, "manifest.json"))
+    .filter((p) => !isMaestroInternalRunnerManifest(p));
 
-  const apiArtifact = artifactsByName.get(artifactDirName) ?? null;
-  const metaPath = join(artifactDirPath, "artifact-metadata.json");
-  let localMeta = null;
-  if (existsSync(metaPath)) {
-    try {
-      localMeta = JSON.parse(readFileSync(metaPath, "utf8"));
-    } catch {
-      return {
-        valid: false,
-        artifactRoot: artifactDirName,
-        platform: dirParse.parsed?.platform ?? null,
-        deviceClass: dirParse.parsed?.deviceClass ?? null,
-        attempt: dirParse.parsed?.attempt ?? null,
-        reason: "MALFORMED_ARTIFACT_METADATA"
-      };
-    }
-  }
-
-  // Check if any non-empty native-errors.log exists in the directory even before manifest parsing
-  const errorLogs = allFiles.filter((p) => p.endsWith("/native-errors.log") || p === join(artifactDirPath, "native-errors.log"));
+  const errorLogs = allFiles.filter(
+    (p) => p.endsWith("/native-errors.log") || p === join(artifactDirPath, "native-errors.log")
+  );
   const nonEmptyErrorLines = [];
   for (const errPath of errorLogs) {
     const lines = readFileSync(errPath, "utf8")
@@ -214,7 +315,7 @@ function evaluateCandidateArtifact({
     nonEmptyErrorLines.push(...lines);
   }
 
-  if (manifestPaths.length === 0) {
+  if (candidateManifestPaths.length === 0) {
     return {
       valid: false,
       artifactRoot: artifactDirName,
@@ -222,11 +323,14 @@ function evaluateCandidateArtifact({
       deviceClass: dirParse.parsed?.deviceClass ?? null,
       attempt: dirParse.parsed?.attempt ?? null,
       hasRuntimeErrors: nonEmptyErrorLines.length > 0,
-      reason: nonEmptyErrorLines.length > 0 ? "ACTIONABLE_NATIVE_RUNTIME_ERRORS" : "MISSING_MANIFEST"
+      reason:
+        nonEmptyErrorLines.length > 0
+          ? "ACTIONABLE_NATIVE_RUNTIME_ERRORS"
+          : "MISSING_MANIFEST"
     };
   }
 
-  if (manifestPaths.length > 1) {
+  if (candidateManifestPaths.length > 1) {
     return {
       valid: false,
       isConflict: true,
@@ -238,7 +342,7 @@ function evaluateCandidateArtifact({
     };
   }
 
-  const manifestPath = manifestPaths[0];
+  const manifestPath = candidateManifestPaths[0];
   const manifestDir = dirname(manifestPath);
   let manifest;
   let manifestRaw;
@@ -270,9 +374,10 @@ function evaluateCandidateArtifact({
   const platform = manifest.platform ?? dirParse.parsed?.platform ?? null;
   const deviceClass = manifest.deviceClass ?? dirParse.parsed?.deviceClass ?? null;
   const manifestAttempt = Number(manifest.runAttempt ?? NaN);
-  const attempt = Number.isInteger(manifestAttempt) && manifestAttempt > 0
-    ? manifestAttempt
-    : (dirParse.parsed?.attempt ?? null);
+  const attempt =
+    Number.isInteger(manifestAttempt) && manifestAttempt > 0
+      ? manifestAttempt
+      : (dirParse.parsed?.attempt ?? null);
 
   const cellDef = findCellDef(platform, deviceClass);
   if (!cellDef) {
@@ -286,7 +391,6 @@ function evaluateCandidateArtifact({
     };
   }
 
-  // If directory name encodes platform/deviceClass/attempt, manifest must match it
   if (dirParse.parsed) {
     if (
       dirParse.parsed.platform !== platform ||
@@ -304,7 +408,6 @@ function evaluateCandidateArtifact({
     }
   }
 
-  // Validate attempt number bounds
   if (!Number.isInteger(manifestAttempt) || manifestAttempt < 1 || manifestAttempt > currentAttempt) {
     return {
       valid: false,
@@ -316,59 +419,136 @@ function evaluateCandidateArtifact({
     };
   }
 
-  // Validate workflow-run identity
-  const manifestRunId =
-    manifest.workflowRunId !== undefined && manifest.workflowRunId !== null && String(manifest.workflowRunId) !== ""
-      ? String(manifest.workflowRunId)
-      : null;
-  const metaRunId =
-    localMeta?.workflowRunId !== undefined && localMeta?.workflowRunId !== null && String(localMeta.workflowRunId) !== ""
-      ? String(localMeta.workflowRunId)
-      : null;
-  const apiRunId =
-    apiArtifact?.workflow_run?.id !== undefined && apiArtifact?.workflow_run?.id !== null
-      ? String(apiArtifact.workflow_run.id)
-      : null;
-
-  const observedRunIds = new Set([manifestRunId, metaRunId, apiRunId].filter(Boolean));
-  if (observedRunIds.size > 1) {
+  // B2.1: Enforce authoritative same-run GitHub artifact identity from artifactsApiData.
+  // Never accept self-declared manifest.artifactId as a substitute for GitHub API provenance.
+  const matchingApiArtifacts = artifactsList.filter(
+    (a) => a && a.name === artifactDirName && !a.expired
+  );
+  if (matchingApiArtifacts.length === 0) {
     return {
       valid: false,
       artifactRoot: artifactDirName,
       platform,
       deviceClass,
       attempt: manifestAttempt,
-      reason: "CONFLICTING_WORKFLOW_RUN_IDS"
+      reason: "MISSING_AUTHORITATIVE_ARTIFACT_ID"
+    };
+  }
+  if (matchingApiArtifacts.length > 1) {
+    return {
+      valid: false,
+      isConflict: true,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "DUPLICATE_OR_CONFLICTING_ARTIFACT_IDENTITY"
     };
   }
 
-  const resolvedWorkflowRunId = manifestRunId ?? metaRunId ?? apiRunId ?? null;
-  if (expectedWorkflowRunId !== null && expectedWorkflowRunId !== undefined && String(expectedWorkflowRunId) !== "") {
-    const expectedRunStr = String(expectedWorkflowRunId);
-    if (!resolvedWorkflowRunId) {
-      return {
-        valid: false,
-        artifactRoot: artifactDirName,
-        platform,
-        deviceClass,
-        attempt: manifestAttempt,
-        reason: "MISSING_WORKFLOW_RUN_PROVENANCE"
-      };
-    }
-    if (resolvedWorkflowRunId !== expectedRunStr) {
-      return {
-        valid: false,
-        artifactRoot: artifactDirName,
-        platform,
-        deviceClass,
-        attempt: manifestAttempt,
-        workflowRunId: resolvedWorkflowRunId,
-        reason: "UNRELATED_WORKFLOW_RUN"
-      };
-    }
+  const apiArtifact = matchingApiArtifacts[0];
+  const apiArtifactId = Number(apiArtifact.id ?? NaN);
+  if (!Number.isInteger(apiArtifactId) || apiArtifactId <= 0) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "MISSING_AUTHORITATIVE_ARTIFACT_ID"
+    };
   }
 
-  // Validate candidate SHA
+  // Ensure no other artifact in the run shares this artifact ID
+  const sameIdArtifacts = artifactsList.filter((a) => Number(a?.id) === apiArtifactId);
+  if (sameIdArtifacts.length > 1) {
+    return {
+      valid: false,
+      isConflict: true,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "DUPLICATE_OR_CONFLICTING_ARTIFACT_IDENTITY"
+    };
+  }
+
+  if (
+    manifest.artifactId !== undefined &&
+    manifest.artifactId !== null &&
+    Number(manifest.artifactId) !== apiArtifactId
+  ) {
+    return {
+      valid: false,
+      isConflict: true,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "CONFLICTING_MANIFEST_AND_API_ARTIFACT_ID"
+    };
+  }
+
+  // B2.2 & B2.3: Validate workflow-run identity and candidate SHA on both API artifact and manifest
+  const expectedRunStr =
+    expectedWorkflowRunId !== null && expectedWorkflowRunId !== undefined
+      ? String(expectedWorkflowRunId).trim()
+      : "";
+  if (!expectedRunStr) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "MISSING_EXPECTED_WORKFLOW_RUN_ID"
+    };
+  }
+
+  const apiRunId =
+    apiArtifact?.workflow_run?.id !== undefined && apiArtifact?.workflow_run?.id !== null
+      ? String(apiArtifact.workflow_run.id).trim()
+      : "";
+  if (!apiRunId) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "MISSING_WORKFLOW_RUN_PROVENANCE"
+    };
+  }
+  if (apiRunId !== expectedRunStr) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      workflowRunId: apiRunId,
+      reason: "UNRELATED_WORKFLOW_RUN"
+    };
+  }
+
+  const manifestRunId =
+    manifest.workflowRunId !== undefined &&
+    manifest.workflowRunId !== null &&
+    String(manifest.workflowRunId).trim() !== ""
+      ? String(manifest.workflowRunId).trim()
+      : null;
+  if (manifestRunId !== null && manifestRunId !== expectedRunStr) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      workflowRunId: manifestRunId,
+      reason: "UNRELATED_WORKFLOW_RUN"
+    };
+  }
+
   if (!expectedSha || typeof manifest.candidateSha !== "string" || manifest.candidateSha !== expectedSha) {
     return {
       valid: false,
@@ -381,9 +561,95 @@ function evaluateCandidateArtifact({
     };
   }
 
+  const apiHeadSha = apiArtifact?.workflow_run?.head_sha ?? null;
+  if (!apiHeadSha || apiHeadSha !== expectedSha) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      candidateSha: apiHeadSha,
+      reason: "MISMATCHED_API_ARTIFACT_HEAD_SHA"
+    };
+  }
+
+  // B2.6 & B2.7: Enforce authoritative upstream GitHub job identity, attempt match, and conclusion.
+  // Never accept self-declared manifest.jobId without authoritative jobsApiData match.
+  const cellJobs = jobsList.filter((j) => cellDef.jobNamePattern.test(String(j?.name ?? "")));
+  if (cellJobs.length === 0) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "MISSING_AUTHORITATIVE_JOB_ID"
+    };
+  }
+
+  const attemptMatchingJobs = cellJobs.filter(
+    (j) => Number(j?.run_attempt ?? j?.attempt ?? NaN) === manifestAttempt
+  );
+  if (attemptMatchingJobs.length === 0) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "ARTIFACT_JOB_ATTEMPT_MISMATCH"
+    };
+  }
+
+  // Deduplicate if the same job object was fetched identically, but flag conflict if distinct job IDs or conclusions exist for the same cell+attempt
+  const uniqueJobIds = new Set(attemptMatchingJobs.map((j) => j?.id));
+  const uniqueConclusions = new Set(attemptMatchingJobs.map((j) => j?.conclusion));
+  if (uniqueJobIds.size > 1 || uniqueConclusions.size > 1) {
+    return {
+      valid: false,
+      isConflict: true,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "DUPLICATE_OR_CONFLICTING_JOB_IDENTITY"
+    };
+  }
+
+  const matchingJob = attemptMatchingJobs[0];
+  const apiJobId = Number(matchingJob?.id ?? NaN);
+  if (!Number.isInteger(apiJobId) || apiJobId <= 0) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "MISSING_AUTHORITATIVE_JOB_ID"
+    };
+  }
+
   if (
-    apiArtifact?.workflow_run?.head_sha &&
-    apiArtifact.workflow_run.head_sha !== expectedSha
+    manifest.jobId !== undefined &&
+    manifest.jobId !== null &&
+    Number(manifest.jobId) !== apiJobId
+  ) {
+    return {
+      valid: false,
+      isConflict: true,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "CONFLICTING_MANIFEST_AND_API_JOB_ID"
+    };
+  }
+
+  if (
+    matchingJob.run_id !== undefined &&
+    matchingJob.run_id !== null &&
+    String(matchingJob.run_id) !== expectedRunStr
   ) {
     return {
       valid: false,
@@ -391,8 +657,33 @@ function evaluateCandidateArtifact({
       platform,
       deviceClass,
       attempt: manifestAttempt,
-      candidateSha: apiArtifact.workflow_run.head_sha,
-      reason: "MISMATCHED_API_ARTIFACT_HEAD_SHA"
+      reason: "UNRELATED_JOB_WORKFLOW_RUN"
+    };
+  }
+
+  if (
+    matchingJob.head_sha !== undefined &&
+    matchingJob.head_sha !== null &&
+    matchingJob.head_sha !== expectedSha
+  ) {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: "MISMATCHED_JOB_HEAD_SHA"
+    };
+  }
+
+  if (matchingJob.conclusion !== "success") {
+    return {
+      valid: false,
+      artifactRoot: artifactDirName,
+      platform,
+      deviceClass,
+      attempt: manifestAttempt,
+      reason: `UPSTREAM_JOB_NOT_SUCCESS:${matchingJob.conclusion ?? "null"}`
     };
   }
 
@@ -413,7 +704,7 @@ function evaluateCandidateArtifact({
     };
   }
 
-  // Validate zero actionable native runtime errors
+  // B2.10: Validate zero actionable native runtime errors
   const runtimeErrorCount = Number(manifest.nativeRuntimeErrorLineCount ?? NaN);
   const screenErrorCount = Array.isArray(manifest.screens)
     ? manifest.screens.reduce(
@@ -443,7 +734,7 @@ function evaluateCandidateArtifact({
     };
   }
 
-  // Validate screens list and PNG files on disk
+  // B2.8 & B2.9: Validate screens list, checksums, and full PNG decode on disk
   if (!Array.isArray(manifest.screens) || manifest.screens.length === 0) {
     return {
       valid: false,
@@ -567,32 +858,10 @@ function evaluateCandidateArtifact({
       sha256: pngInfo.sha256,
       width: pngInfo.width,
       height: pngInfo.height,
-      sizeBytes: pngInfo.sizeBytes
+      sizeBytes: pngInfo.sizeBytes,
+      decompressedBytes: pngInfo.decompressedBytes
     });
   }
-
-  // Match job record if jobsList is provided
-  const matchingJob = jobsList.find(
-    (j) =>
-      cellDef.jobNamePattern.test(String(j?.name ?? "")) &&
-      Number(j?.run_attempt ?? manifestAttempt) === manifestAttempt
-  ) ?? jobsList.find((j) => cellDef.jobNamePattern.test(String(j?.name ?? ""))) ?? null;
-
-  if (matchingJob && matchingJob.conclusion && matchingJob.conclusion !== "success") {
-    return {
-      valid: false,
-      artifactRoot: artifactDirName,
-      platform,
-      deviceClass,
-      attempt: manifestAttempt,
-      reason: `UPSTREAM_JOB_NOT_SUCCESS:${matchingJob.conclusion}`
-    };
-  }
-
-  const resolvedArtifactId =
-    apiArtifact?.id ?? localMeta?.artifactId ?? manifest.artifactId ?? null;
-  const resolvedJobId =
-    matchingJob?.id ?? localMeta?.jobId ?? manifest.jobId ?? null;
 
   return {
     valid: true,
@@ -605,9 +874,10 @@ function evaluateCandidateArtifact({
     cellKey: cellDef.cellKey,
     label: cellDef.label,
     attempt: manifestAttempt,
-    workflowRunId: resolvedWorkflowRunId,
-    artifactId: resolvedArtifactId !== null ? Number(resolvedArtifactId) : null,
-    jobId: resolvedJobId !== null ? Number(resolvedJobId) : null,
+    workflowRunId: expectedRunStr,
+    artifactId: apiArtifactId,
+    jobId: apiJobId,
+    jobConclusion: matchingJob.conclusion,
     candidateSha: expectedSha,
     deviceIdentity: manifest.deviceIdentity,
     osVersion: manifest.osVersion,
@@ -631,22 +901,45 @@ export function reconcileUi02NativeMatrix({
   jobsApiData = null
 }) {
   const normalizedAttempt = Number(currentAttempt ?? 1);
-  const artifactsByName = new Map();
-  if (Array.isArray(artifactsApiData?.artifacts)) {
-    for (const art of artifactsApiData.artifacts) {
-      if (art?.name) {
-        // Keep the latest non-expired artifact entry for a given name
-        artifactsByName.set(art.name, art);
-      }
-    }
-  }
-  const jobsList = Array.isArray(jobsApiData?.jobs) ? jobsApiData.jobs : [];
+  const apiProvenanceErrors = [];
 
-  const candidateDirs = existsSync(downloadedRoot)
-    ? readdirSync(downloadedRoot)
-        .filter((name) => statSync(join(downloadedRoot, name)).isDirectory())
-        .sort()
-    : [];
+  if (
+    !artifactsApiData ||
+    typeof artifactsApiData !== "object" ||
+    artifactsApiData.ok === false ||
+    !Array.isArray(artifactsApiData.artifacts)
+  ) {
+    apiProvenanceErrors.push(
+      `GITHUB_ARTIFACTS_METADATA_API_UNAVAILABLE${
+        artifactsApiData?.error ? ":" + artifactsApiData.error : ""
+      }`
+    );
+  }
+
+  if (
+    !jobsApiData ||
+    typeof jobsApiData !== "object" ||
+    jobsApiData.ok === false ||
+    !Array.isArray(jobsApiData.jobs)
+  ) {
+    apiProvenanceErrors.push(
+      `GITHUB_JOBS_METADATA_API_UNAVAILABLE${
+        jobsApiData?.error ? ":" + jobsApiData.error : ""
+      }`
+    );
+  }
+
+  const artifactsList =
+    apiProvenanceErrors.length === 0 ? artifactsApiData.artifacts : [];
+  const jobsList =
+    apiProvenanceErrors.length === 0 ? jobsApiData.jobs : [];
+
+  const candidateDirs =
+    apiProvenanceErrors.length === 0 && existsSync(downloadedRoot)
+      ? readdirSync(downloadedRoot)
+          .filter((name) => statSync(join(downloadedRoot, name)).isDirectory())
+          .sort()
+      : [];
 
   const evaluated = [];
   for (const dirName of candidateDirs) {
@@ -656,7 +949,7 @@ export function reconcileUi02NativeMatrix({
       expectedSha,
       expectedWorkflowRunId,
       currentAttempt: normalizedAttempt,
-      artifactsByName,
+      artifactsList,
       jobsList
     });
     if (!res.ignored) {
@@ -672,11 +965,15 @@ export function reconcileUi02NativeMatrix({
   const runtimeErrorCells = [];
 
   for (const cellDef of EXPECTED_MATRIX_CELLS) {
+    if (apiProvenanceErrors.length > 0) {
+      unavailableMatrixCells.push(`${cellDef.label}: NOT CAPTURED / NOT CERTIFIED`);
+      continue;
+    }
+
     const cellCandidates = evaluated.filter(
       (c) => c.platform === cellDef.platform && c.deviceClass === cellDef.deviceClass
     );
 
-    // Record any invalid candidates immediately in excludedArtifacts
     for (const cand of cellCandidates) {
       if (!cand.valid) {
         excludedArtifacts.push({
@@ -689,17 +986,17 @@ export function reconcileUi02NativeMatrix({
       }
     }
 
-    // Check for explicit multi-manifest conflicts inside a single artifact
     const explicitConflicts = cellCandidates.filter((c) => c.isConflict);
     if (explicitConflicts.length > 0) {
       duplicateMatrixCells.push(
-        `${cellDef.label}: conflicting manifests inside ${explicitConflicts.map((c) => c.artifactRoot).join(", ")}`
+        `${cellDef.label}: conflicting artifact/job/manifest identity in ${explicitConflicts
+          .map((c) => `${c.artifactRoot} (${c.reason})`)
+          .join(", ")}`
       );
       unavailableMatrixCells.push(`${cellDef.label}: NOT CAPTURED / NOT CERTIFIED`);
       continue;
     }
 
-    // Group same-run/same-SHA candidates by attempt to detect duplicate/conflicting attempts
     const validCandidates = cellCandidates.filter((c) => c.valid);
     const byAttempt = new Map();
     for (const cand of validCandidates) {
@@ -708,7 +1005,6 @@ export function reconcileUi02NativeMatrix({
       byAttempt.set(cand.attempt, list);
     }
 
-    // Check if any attempt has duplicate valid artifacts
     let hasDuplicateAttempt = false;
     for (const [att, list] of byAttempt.entries()) {
       if (list.length > 1) {
@@ -723,17 +1019,15 @@ export function reconcileUi02NativeMatrix({
       continue;
     }
 
-    // Determine highest valid attempt
     const sortedValidAttempts = Array.from(byAttempt.keys()).sort((a, b) => b - a);
     const highestValidAttempt = sortedValidAttempts[0] ?? null;
 
-    // Check if there is a same-run, same-SHA failed attempt with a HIGHER attempt number than highestValidAttempt,
-    // or if there is a runtime-error candidate that was not superseded by a later valid attempt
     const runtimeErrorCandidates = cellCandidates.filter(
       (c) =>
         !c.valid &&
         c.hasRuntimeErrors &&
-        (highestValidAttempt === null || (Number.isInteger(c.attempt) && c.attempt >= highestValidAttempt))
+        (highestValidAttempt === null ||
+          (Number.isInteger(c.attempt) && c.attempt >= highestValidAttempt))
     );
     if (runtimeErrorCandidates.length > 0) {
       runtimeErrorCells.push(cellDef.label);
@@ -741,7 +1035,6 @@ export function reconcileUi02NativeMatrix({
       continue;
     }
 
-    // Also check if a same-attempt invalid candidate coexists with the highest valid attempt
     if (highestValidAttempt !== null) {
       const sameAttemptInvalid = cellCandidates.filter(
         (c) => !c.valid && c.attempt === highestValidAttempt
@@ -762,7 +1055,6 @@ export function reconcileUi02NativeMatrix({
 
     const winner = byAttempt.get(highestValidAttempt)[0];
 
-    // Mark any earlier valid attempts as superseded
     for (const att of sortedValidAttempts.slice(1)) {
       const older = byAttempt.get(att)[0];
       excludedArtifacts.push({
@@ -775,7 +1067,6 @@ export function reconcileUi02NativeMatrix({
       });
     }
 
-    // Annotate any earlier failed attempts for this cell with supersededByAttempt
     for (const ex of excludedArtifacts) {
       if (
         ex.platform === cellDef.platform &&
@@ -794,7 +1085,11 @@ export function reconcileUi02NativeMatrix({
       artifactId: winner.artifactId,
       artifactName: winner.artifactRoot,
       jobId: winner.jobId,
-      manifestSha256: winner.manifestSha256
+      jobConclusion: winner.jobConclusion,
+      manifestSha256: winner.manifestSha256,
+      screenshotIntegrityVerification:
+        "PNG_SIGNATURE_IHDR_CRC32_AND_ZLIB_IDAT_INFLATE_VERIFIED",
+      independentVisualReviewStatus: "PENDING_NON_AUTHOR_REVIEW"
     };
 
     selectedManifests.push({
@@ -809,6 +1104,7 @@ export function reconcileUi02NativeMatrix({
       sourceAttempt: winner.attempt,
       workflowRunId: winner.workflowRunId,
       jobId: winner.jobId,
+      jobConclusion: winner.jobConclusion,
       artifactId: winner.artifactId,
       artifactName: winner.artifactRoot,
       candidateSha: winner.candidateSha,
@@ -817,12 +1113,14 @@ export function reconcileUi02NativeMatrix({
       screensCaptured: winner.screensCaptured,
       manifestSha256: winner.manifestSha256,
       screenshotChecksums: winner.screenshotChecksums,
+      screenshotIntegrityVerification:
+        "PNG_SIGNATURE_IHDR_CRC32_AND_ZLIB_IDAT_INFLATE_VERIFIED",
+      independentVisualReviewStatus: "PENDING_NON_AUTHOR_REVIEW",
       nativeRuntimeErrorLineCount: 0,
       status: "SUCCESS"
     };
   }
 
-  // Also record any rejected candidates whose platform/deviceClass was unknown or mismatched
   for (const cand of evaluated) {
     if (
       !cand.valid &&
@@ -840,19 +1138,36 @@ export function reconcileUi02NativeMatrix({
     }
   }
 
+  const contractJobs = jobsList.filter((j) =>
+    /Phase 6A contract/i.test(String(j?.name ?? ""))
+  );
+  const contractJobRecord =
+    contractJobs.find(
+      (j) => Number(j?.run_attempt ?? normalizedAttempt) === normalizedAttempt
+    ) ??
+    contractJobs.sort(
+      (a, b) => Number(b?.run_attempt ?? 0) - Number(a?.run_attempt ?? 0)
+    )[0] ??
+    null;
+
+  const contractJobId = Number(contractJobRecord?.id ?? NaN);
   const contractGatePassed =
+    apiProvenanceErrors.length === 0 &&
     jobResults?.contract === "success" &&
     jobResults?.ios === "success" &&
-    jobResults?.android === "success";
+    jobResults?.android === "success" &&
+    Number.isInteger(contractJobId) &&
+    contractJobId > 0 &&
+    contractJobRecord?.conclusion === "success";
 
   const ready =
+    apiProvenanceErrors.length === 0 &&
     unavailableMatrixCells.length === 0 &&
     duplicateMatrixCells.length === 0 &&
     runtimeErrorCells.length === 0 &&
     selectedManifests.length === EXPECTED_MATRIX_CELLS.length &&
     contractGatePassed;
 
-  // Prepare outputDir cleanly
   rmSync(outputDir, { recursive: true, force: true });
   mkdirSync(outputDir, { recursive: true });
 
@@ -866,7 +1181,9 @@ export function reconcileUi02NativeMatrix({
           file: relative(outputDir, file),
           sha256: sha256File(file),
           cell: winner.cellKey,
-          sourceAttempt: winner.attempt
+          sourceAttempt: winner.attempt,
+          artifactId: winner.artifactId,
+          jobId: winner.jobId
         });
       }
     }
@@ -876,15 +1193,6 @@ export function reconcileUi02NativeMatrix({
   const sourceAttempts = Array.from(
     new Set(selectedManifests.map((s) => s.winner.attempt))
   ).sort((a, b) => a - b);
-
-  const contractJobRecord =
-    jobsList.find(
-      (j) =>
-        /Phase 6A contract/i.test(String(j?.name ?? "")) &&
-        Number(j?.run_attempt ?? normalizedAttempt) === normalizedAttempt
-    ) ??
-    jobsList.find((j) => /Phase 6A contract/i.test(String(j?.name ?? ""))) ??
-    null;
 
   const aggregate = {
     phase: "UI-02 Phase 6A Native Cross-Device Realization",
@@ -898,9 +1206,18 @@ export function reconcileUi02NativeMatrix({
     reconciliationMode: "SAME_RUN_EXACT_SHA_LATEST_VALID_CELL_SELECTION",
     evidenceSource:
       "real native iOS Simulator and Android Emulator; no resized-browser substitution",
+    screenshotIntegrityVerification:
+      "PNG_SIGNATURE_IHDR_CRC32_AND_ZLIB_IDAT_INFLATE_VERIFIED",
+    independentVisualReviewStatus: "PENDING_NON_AUTHOR_REVIEW",
+    apiProvenanceStatus:
+      apiProvenanceErrors.length === 0
+        ? "VERIFIED"
+        : `BLOCKED:${apiProvenanceErrors.join(";")}`,
+    apiProvenanceErrors,
     contractGate: {
       status: contractGatePassed ? "PASS" : "BLOCKED",
-      jobId: contractJobRecord?.id ? Number(contractJobRecord.id) : null,
+      jobId: Number.isInteger(contractJobId) && contractJobId > 0 ? contractJobId : null,
+      jobConclusion: contractJobRecord?.conclusion ?? null,
       jobResult: jobResults?.contract ?? "unknown"
     },
     selectedCells,
@@ -962,9 +1279,17 @@ function runCli() {
   if (existsSync(artifactsApiFile)) {
     try {
       artifactsApiData = JSON.parse(readFileSync(artifactsApiFile, "utf8"));
-    } catch {
-      artifactsApiData = null;
+    } catch (err) {
+      artifactsApiData = {
+        ok: false,
+        error: `MALFORMED_ARTIFACTS_API_JSON:${err instanceof Error ? err.message : String(err)}`
+      };
     }
+  } else {
+    artifactsApiData = {
+      ok: false,
+      error: `MISSING_ARTIFACTS_API_FILE:${artifactsApiFile}`
+    };
   }
 
   let jobsApiData = null;
@@ -972,9 +1297,17 @@ function runCli() {
   if (existsSync(jobsApiFile)) {
     try {
       jobsApiData = JSON.parse(readFileSync(jobsApiFile, "utf8"));
-    } catch {
-      jobsApiData = null;
+    } catch (err) {
+      jobsApiData = {
+        ok: false,
+        error: `MALFORMED_JOBS_API_JSON:${err instanceof Error ? err.message : String(err)}`
+      };
     }
+  } else {
+    jobsApiData = {
+      ok: false,
+      error: `MISSING_JOBS_API_FILE:${jobsApiFile}`
+    };
   }
 
   const result = reconcileUi02NativeMatrix({

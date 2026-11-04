@@ -1,7 +1,7 @@
-# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Final Native Certification Closure, Exact-SHA Custody and Independent Acceptance Report (R5-PUSH01 / ICR06-R3-LR01)
+# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Final Native Certification Closure, Exact-SHA Custody and Independent Acceptance Report (R5-PUSH01 / ICR06-R4-LR01)
 
 **Programme:** HealthTimes 2.0 — Final Unified MVP  
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR06-R3-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR06-R4-LR01`  
 **Priority:** P0 — Consolidated Long-Run Execution  
 **Controlling Issue:** [#145](https://github.com/kudzimusar/htp-zw/issues/145)  
 **Draft PR:** [#146](https://github.com/kudzimusar/htp-zw/pull/146) (`cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`)  
@@ -12,6 +12,7 @@
 **Phase 10 Android R1 Remediation SHA:** `058689b420a1481ccca3ee2c9c7c349ff9cd009a`  
 **Previously Successful R2 Engineering SHA:** `f5bd386d919b862702597193d839c0b38ac62bc7`  
 **Moderator CI Enforcement SHA:** `b82286340df9ef7d24f0f12598ddda3150b3adc1`  
+**ICR06-R3 Candidate SHA:** `9c4a11618733a4d4b5f7dc9baa323fdd855aaef7`  
 **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`  
 **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`  
 **Vercel Project:** `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`)  
@@ -78,35 +79,31 @@ GitHub's run [41763784097](https://github.com/kudzimusar/htp-zw/actions/runs/417
 
 ## 4. Final Exact-Head Phase 10 Android R2 Recertification & Negative-Path Evidence (Commit `f5bd386d`)
 
-**Execution Head:** [`f5bd386d919b862702597193d839c0b38ac62bc7`](https://github.com/kudzimusar/htp-zw/commit/f5bd386d919b862702597193d839c0b38ac62bc7)  
-**Parent Accepted Authority:** `534ff0859944d96b20ec5b7d1f1ded7086d9174b`  
-**Accepted Application Runtime:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 diff in runtime dirs)  
-
-### A. Controlled Negative-Path Execution Suite (`6/6 PASS`)
-Implemented in [`tests/harness/phase10-android-negative-path.test.mjs`](https://github.com/kudzimusar/htp-zw/blob/main/tests/harness/phase10-android-negative-path.test.mjs) and verified in CI (`6/6 PASS`).
-
-### B. CI Visual Evidence & Native Cross-Device Completion on Exact Head `f5bd386d`
 - **Phase 10 Candidate Visual Conformance (Run [`41775397669`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397669)):** **3/3 SUCCESS** (Android `126394445819` / Artifact `13297757108`, Web/PWA `126394446061` / Artifact `13296806728`, iOS `126394446070` / Artifact `13298012284`).
 - **UI-02 Phase 6A Native Cross-Device Evidence (Run [`41775397921`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397921)):** **6/6 SUCCESS** (Aggregate Artifact `13298801755`).
 - **Native Binary Certification (Run [`41775397572`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397572)):** **3/3 SUCCESS**.
 
 ---
 
-## 5. Moderator CI Enforcement Head (`b8228634`) & ICR06-R3 UI-02 Cross-Attempt Aggregation Repair
+## 5. Moderator CI Enforcement Head (`b8228634`), ICR06-R3 (`9c4a1161`), and ICR06-R4 Provenance & Maestro Schema Closure
 
-**Moderator CI Enforcement SHA:** [`b82286340df9ef7d24f0f12598ddda3150b3adc1`](https://github.com/kudzimusar/htp-zw/commit/b82286340df9ef7d24f0f12598ddda3150b3adc1) (`ci(phase10): enforce six Android screenshot fail-closed negative paths on PR head`)
+### A. Verified CI Results on `b82286340df9ef7d24f0f12598ddda3150b3adc1` and `9c4a11618733a4d4b5f7dc9baa323fdd855aaef7`
 
-### A. Verified CI Results on `b82286340df9ef7d24f0f12598ddda3150b3adc1`
+| Workflow Name | `b8228634` Run & Status | `9c4a1161` Run & Status | `9c4a1161` Jobs & Artifacts |
+|:---|:---|:---|:---|
+| **Phase 10 Candidate Visual Conformance** | [`41780992191`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992191) (**3/3 PASS**) | [`41812008942`](https://github.com/kudzimusar/htp-zw/actions/runs/41812008942) (**3/3 PASS**) | Web: `126513305147` (`13311989274`)<br>Android: `126513302148` (`13313603027`)<br>iOS: `126513302028` (`13313852801`) |
+| **Native Binary Certification** | [`41780992413`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992413) (**3/3 PASS** att 2) | [`41812008980`](https://github.com/kudzimusar/htp-zw/actions/runs/41812008980) (**3/3 PASS** att 1) | Readiness: `126513302537` (`13311934875`)<br>iOS: `126513302213` (`13312924922`)<br>Android: `126513301897` (`13313578097`) |
+| **UI-02 Phase 6A Native Cross-Device Evidence** | [`41780992206`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992206) (**5/6 PASS**, Aggregate `126442613997` FAIL) | [`41812008951`](https://github.com/kudzimusar/htp-zw/actions/runs/41812008951) (**5/6 PASS** on att 1, Aggregate `126525748704` FAIL) | Contracts: `126513301657` (`SUCCESS`)<br>Android Phone: `126513302194` (`13313414537`, `SUCCESS`)<br>Android Tablet: `126513301244` (`13313867886`, `SUCCESS`)<br>iOS Phone: `126513301621` (`13314188557`, `SUCCESS`)<br>iOS Tablet: `126513303346` (`13314372723`, `SUCCESS`)<br>Aggregate: `126525748704` (`13313769951`, `FAILURE`) |
+| **Companion CI Suites on `9c4a1161`** | All PASS | All PASS (`16/16` workflows) | `41812008902` (Chromium), `41812008804` & `41812001689` (Reader Product), `41812008789` (UI-03), `41812008871` (NM-07), `41812008808` (AG-05/HOSPAZ), `41812008792` (Phase 10 Web), `41812008762` (Mobile Foundation), `41812008853` (UI-01 P3), `41812008802` (UI-01 P4), `41812008950` (UI-04 P5), `41812008912` (UI-04 Reload), `41812008887` (UI-05 P6B), `41812008862` (UI-06 P6C), `41812008923` (Validate), `41812008765` (ICR05B deterministic PASS / live session `BLOCKED_OWNER_UAT_CREDENTIALS`) |
 
-| Workflow Name | Run ID | Attempt | Jobs & Outcomes | Artifacts |
-|:---|:---:|:---:|:---|:---|
-| **Phase 10 Candidate Visual Conformance** | [`41780992191`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992191) | 1 | **3/3 SUCCESS** (including 6-vector Android fail-closed negative-path CI step)<br>• Web/PWA: `126412652313` (`SUCCESS`)<br>• iOS Simulator: `126412652527` (`SUCCESS`)<br>• Android Emulator: `126412652730` (`SUCCESS`) | Web: `13298588970`<br>iOS: `13299507629`<br>Android: `13300072371` |
-| **Native Binary Certification** | [`41780992413`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992413) | 2 | **3/3 SUCCESS after controlled retry**<br>• Readiness: `126429768525` (`SUCCESS`)<br>• iOS Simulator: `126429723997` (`SUCCESS`)<br>• Android Debug: `126429722651` (`SUCCESS`) | `healthtimes-native-config-matrix`<br>`healthtimes-ios-simulator-app`<br>`healthtimes-android-debug-apk` |
-| **UI-02 Phase 6A Native Cross-Device Evidence** | [`41780992206`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992206) | 2 | **5/5 Upstream Device + Contract Jobs SUCCESS; Aggregate Job FAILURE**<br>• Contracts: `126429759091` (`SUCCESS`)<br>• Android Phone (Attempt 1): `126429708123` (`SUCCESS`)<br>• Android Tablet (Attempt 1): `126429708897` (`SUCCESS`)<br>• iOS Tablet (Attempt 1): `126429746045` (`SUCCESS`)<br>• iOS Phone (Attempt 2 retry): `126429706722` (`SUCCESS`)<br>• Aggregate Native Evidence (Attempt 2): `126442613997` (`FAILURE`) | Android Phone (Att 1): `13300262966`<br>Android Tablet (Att 1): `13299844628`<br>iOS Tablet (Att 1): `13301230604`<br>iOS Phone (Att 1 failed): `13300298812`<br>iOS Phone (Att 2 retry): `13303755005`<br>Aggregate (Att 2 failed): `13303285803` |
-
-### B. Root Cause & Engineering Remediation (`UI02_AGGREGATE_MIXED_ATTEMPT_ARTIFACT_SELECTION_DEFECT`)
-- **Root Cause:** In `.github/workflows/ui02-phase6a-native-cross-device.yml`, `aggregate-evidence` previously downloaded only `pattern: ui02-phase6a-native-evidence-*-attempt-${{ github.run_attempt }}` and required `int(m.get("runAttempt",-1))==current_attempt`. When Attempt 2 reran only the failed `iOS phone` job (`ui02-phase6a-native-evidence-ios-phone-attempt-2`, Artifact `13303755005`), the 3 passing Attempt-1 device artifacts (`13300262966`, `13299844628`, `13301230604`) were excluded from download and reconciliation.
-- **Remediation Implemented (`HT-MVP-UIAT-01-R3-ICR06-R3-LR01`):**
-  1. Created [`scripts/native/ui02-phase6a-aggregate.mjs`](../../../scripts/native/ui02-phase6a-aggregate.mjs) (`reconcileUi02NativeMatrix`) to discover all candidate artifacts across attempts of the same workflow run, validate exact `candidateSha`, `workflowRunId`, `platform`, `deviceClass`, `runAttempt`, PNG signatures/dimensions, and zero `nativeRuntimeErrorLineCount`, exclude failed/corrupted/mismatched/unrelated-run artifacts, detect unresolved same-attempt conflicts, and select the latest valid attempt per cell while recording full attempt/job/artifact/checksum provenance.
-  2. Updated [`.github/workflows/ui02-phase6a-native-cross-device.yml`](../../../.github/workflows/ui02-phase6a-native-cross-device.yml) and [`scripts/native/ui02-phase6a-manifest.mjs`](../../../scripts/native/ui02-phase6a-manifest.mjs) to record `workflowRunId`, download `ui02-phase6a-native-evidence-*-attempt-*` within the current workflow run, query run artifact/job provenance metadata, and invoke `scripts/native/ui02-phase6a-aggregate.mjs`.
-  3. Built deterministic 10-scenario regression suite [`tests/harness/ui02-phase6a-aggregation.test.mjs`](../../../tests/harness/ui02-phase6a-aggregation.test.mjs) (**10/10 PASS**), wired into both `contract-and-regressions` and [`tests/harness/icr05c-custody-verifier.test.mjs`](../../../tests/harness/icr05c-custody-verifier.test.mjs).
+### B. ICR06-R4 Root Cause of Job `126525748704` & Provenance Hardening
+1. **Why Aggregate Job `126525748704` Rejected All 4 Passing Attempt-1 Device Artifacts on `9c4a1161`:**
+   - Maestro's CLI (`maestro test --test-output-dir "$EVIDENCE_DIR"`) writes an internal runner artifact manifest at `<timestamp>/ui02-phase6a-(phone|tablet)/manifest.json` (`"$schema": "https://storage.googleapis.com/maestro-schemas/artifact-manifest/v1.schema.json"`).
+   - Meanwhile, `scripts/native/ui02-phase6a-manifest.mjs` writes the UI-02 Phase 6A cell manifest at `<EVIDENCE_DIR>/manifest.json`.
+   - In `9c4a1161`, `evaluateCandidateArtifact` matched every file ending in `/manifest.json` without filtering out Maestro's internal `$schema` runner manifest, causing all four valid device cells to be rejected with `MULTIPLE_MANIFESTS_IN_SINGLE_ARTIFACT`.
+2. **ICR06-R4 Remediation (`HT-MVP-UIAT-01-R3-ICR06-R4-LR01`):**
+   - **Maestro Internal `$schema` Manifest Filtering:** `isMaestroInternalRunnerManifest()` in [`scripts/native/ui02-phase6a-aggregate.mjs`](../../../scripts/native/ui02-phase6a-aggregate.mjs) ignores Maestro's internal `maestro-schemas/artifact-manifest` file while continuing to fail closed (`MULTIPLE_MANIFESTS_IN_SINGLE_ARTIFACT`) if multiple UI-02 cell manifests exist in a single artifact. Verified directly against the 4 real extracted device artifacts and 56 real screenshots from Run `41614064581`.
+   - **Workflow `actions: read` Permission & Paginated Fail-Closed Metadata Fetching (Workstream B1):** Added `actions: read` to [`.github/workflows/ui02-phase6a-native-cross-device.yml`](../../../.github/workflows/ui02-phase6a-native-cross-device.yml) and replaced the silent catch-all helper with a paginated fetcher (`per_page=100`, `total_count` completeness check) that records explicit `ok: false` and diagnostic errors on HTTP/auth/pagination failures.
+   - **Strict Authoritative `artifactId` & `jobId` Provenance (Workstream B2):** `reconcileUi02NativeMatrix` now requires valid `artifactsApiData` and `jobsApiData` from the GitHub REST API, never falls back to self-declared `manifest.artifactId` or `manifest.jobId`, enforces exact `run_attempt` matching between each artifact and its upstream GitHub job (`ARTIFACT_JOB_ATTEMPT_MISMATCH`), verifies `conclusion === "success"`, and blocks on duplicate/conflicting artifact or job identities.
+   - **Full PNG Chunk `CRC32` + `IDAT` Zlib Inflate Verification & Honest Visual Status (Workstream B3):** `inspectPngFile()` validates the 8-byte PNG signature, `IHDR` parameters, per-chunk `CRC32` checksums (`node:zlib.crc32`), `IDAT` zlib stream inflation (`node:zlib.inflateSync`), expected scanline byte length, and terminal `IEND` chunk, while setting `independentVisualReviewStatus: "PENDING_NON_AUTHOR_REVIEW"`.
+   - **20-Scenario Deterministic Regression Suite (Workstream C):** Extended [`tests/harness/ui02-phase6a-aggregation.test.mjs`](../../../tests/harness/ui02-phase6a-aggregation.test.mjs) to **20/20 passing scenarios** (`56/56` combined with Phase 6A, Phase 10 negative-path, and custody verifier suites).

@@ -153,12 +153,16 @@ test("Phase 6A evidence is same-run exact-SHA reconciled across attempts and fai
   const workflow=readRepo(".github/workflows/ui02-phase6a-native-cross-device.yml");
   const manifest=readRepo("scripts/native/ui02-phase6a-manifest.mjs");
   const aggregate=readRepo("scripts/native/ui02-phase6a-aggregate.mjs");
+  assert.ok(workflow.includes("actions: read"));
   assert.ok(workflow.includes('RUN_ATTEMPT: ${{ github.run_attempt }}'));
   assert.ok(workflow.includes('WORKFLOW_RUN_ID: ${{ github.run_id }}'));
   assert.ok(workflow.includes('pattern: ui02-phase6a-native-evidence-*-attempt-*'));
   assert.ok(workflow.includes('node scripts/native/ui02-phase6a-aggregate.mjs'));
   assert.ok(aggregate.includes("runtimeErrorCells"));
   assert.ok(aggregate.includes("SAME_RUN_EXACT_SHA_LATEST_VALID_CELL_SELECTION"));
+  assert.ok(aggregate.includes("MISSING_AUTHORITATIVE_ARTIFACT_ID"));
+  assert.ok(aggregate.includes("MISSING_AUTHORITATIVE_JOB_ID"));
+  assert.ok(aggregate.includes("ARTIFACT_JOB_ATTEMPT_MISMATCH"));
   assert.ok(manifest.includes("Actionable native runtime errors detected"));
   assert.ok(manifest.includes("runAttempt"));
 });

@@ -1,14 +1,15 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR06-R3-LR01",
-  "timestamp": "2026-11-04T08:05:00.000Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR06-R4-LR01",
+  "timestamp": "2026-11-04T10:50:00.000Z",
   "parentAuthoritySha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
   "acceptedR4ApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "startingR4EvidenceSha": "0fc17ba4a947ebb0464c06e479154d3a1ce45b86",
-  "startingRemoteSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
+  "startingRemoteSha": "9c4a11618733a4d4b5f7dc9baa323fdd855aaef7",
   "r5RemediationCommitSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
   "phase10RemediationCommitSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
   "previouslySuccessfulR2EngineeringSha": "f5bd386d919b862702597193d839c0b38ac62bc7",
   "moderatorCiEnforcementSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
+  "icr06R3CandidateSha": "9c4a11618733a4d4b5f7dc9baa323fdd855aaef7",
   "deployedApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "candidateCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "runtimeDiffSinceR4ApplicationCode": "NONE (0 runtime files changed across apps/mobile/app, apps/mobile/src, api, app, lib, supabase)",
@@ -111,76 +112,6 @@
       "status": "SUCCESS"
     }
   },
-  "exactHeadCiWorkflows": {
-    "testedSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
-    "ui02NativeCrossDevice": {
-      "runId": 41763783738,
-      "status": "SUCCESS"
-    },
-    "phase10VisualConformance": {
-      "runId": 41763784097,
-      "status": "SUCCESS",
-      "attempt1FailedRunId": 41635266596,
-      "attempt1FailedJobId": 125914749339,
-      "attempt1FailureRootCause": "TRANSIENT_MAVEN_GRADLE_DEPENDENCY_RESOLUTION_TIMEOUT",
-      "attempt2RetryJobId": 126280637640,
-      "attempt2FailureRootCause": "ANDROID_EMULATOR_CAPTURE_PREFLIGHT_FAILED_EXACT_COMMAND_UNPROVEN",
-      "correctiveRunId": 41763784097,
-      "correctiveSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
-      "webJobId": 126357291599,
-      "webStatus": "SUCCESS",
-      "webArtifactId": 13291399266,
-      "iosJobId": 126357291481,
-      "iosStatus": "SUCCESS",
-      "iosArtifactId": 13292054744,
-      "androidJobId": 126357291909,
-      "androidStatus": "SUCCESS",
-      "androidArtifactId": 13292913629,
-      "androidScreenshots": {
-        "home": {
-          "file": "home.png",
-          "sha256": "4bf6f7737738d8f6818507145d39dca6d4d20f52a825368b4ea87f233354563c",
-          "dimensions": [1440, 3120],
-          "sizeBytes": 884342
-        },
-        "premium": {
-          "file": "premium.png",
-          "sha256": "ffeca2d1abd85d60ebbd5b8181a3e449bc9b2b861a5e172a8d76dcbc3595fa87",
-          "dimensions": [1440, 3120],
-          "sizeBytes": 286556
-        },
-        "watch": {
-          "file": "watch.png",
-          "sha256": "8c8d030d7fd53c922cb1a09046523f07a55895973a1f21abeee7e3524b76c41b",
-          "dimensions": [1440, 3120],
-          "sizeBytes": 220900
-        }
-      },
-      "androidDiagnosticsUploaded": true,
-      "androidRuntimeErrors": 0,
-      "androidVisualCertification": "PASS"
-    },
-    "phase10WebPwaEvidence": { "runId": 41763783748, "status": "SUCCESS" },
-    "chromiumUat": { "runId": 41763783707, "status": "SUCCESS" },
-    "nativeReaderProductGates": { "runId": 41763783713, "status": "SUCCESS" },
-    "ui03CommercialReader": { "runId": 41763783727, "status": "SUCCESS" },
-    "nm07MigratedCorpus": { "runId": 41763783750, "status": "SUCCESS" },
-    "ag05Nm07PremiumHospaz": { "runId": 41763783723, "status": "SUCCESS" },
-    "nativeBinaryCertification": { "runId": 41763783711, "status": "SUCCESS" },
-    "nativeMobileFoundationSuite": { "runId": 41763783749, "status": "SUCCESS" },
-    "ui01Phase3Discovery": { "runId": 41763783720, "status": "SUCCESS" },
-    "ui01Phase4Media": { "runId": 41763783709, "status": "SUCCESS" },
-    "ui04Phase5ReaderOwnership": { "runId": 41763783756, "status": "SUCCESS" },
-    "ui04EditionFullReload": { "runId": 41763783704, "status": "SUCCESS" },
-    "ui05Phase6bAccessibility": { "runId": 41763783752, "status": "SUCCESS" },
-    "ui06Phase6cRecertification": { "runId": 41763783732, "status": "SUCCESS" },
-    "validateHealthTimes": { "runId": 41763783751, "status": "SUCCESS" },
-    "sessionAndEvidenceCertification": {
-      "runId": 41763783721,
-      "deterministicSecurityJob": { "jobId": 126357288674, "status": "SUCCESS" },
-      "physicalLiveFaultInjectionJob": { "jobId": 126357288924, "status": "BLOCKED_OWNER_UAT_CREDENTIALS" }
-    }
-  },
   "ui03TransparencyClassification": {
     "liveStagingSupabaseRpc": "VERIFIED_LIVE_STAGING_RPC_ag05_public_story_teaser_document",
     "browserSourceParity": "VERIFIED_DETERMINISTIC_SOURCE_PARITY_SNAPSHOT",
@@ -227,53 +158,6 @@
     "reason": "Implementation workspace cannot self-certify. Formal independent review requires distinct reviewer assignment by Owner."
   },
   "failures": [],
-  "moderatorPostReview20261104": {
-    "reviewScope": "CI evidence integrity and fail-closed screenshot gate; not independent code certification",
-    "reviewedHistoricalCodeSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
-    "historicalPhase10RunId": 41763784097,
-    "historicalAndroidJobId": 126357291909,
-    "historicalMaestroExitCode": 0,
-    "historicalScreenshotsCapturedByMaestro": ["home.png", "premium.png", "watch.png"],
-    "historicalFallbackUsed": false,
-    "confirmedPotentialFalsePositive": "Prior runner allowed fallback screenshots after Maestro nonzero, while manifest overstated visual inspection.",
-    "correctiveRunnerCommitSha": "3fac20e916c9fb28861270e1a5264b0aaf8d8a67",
-    "regressionTestCommitSha": "c48f2dcf0e2eaf0cb30c0d299309cf789d658c79",
-    "correctiveScope": "Bound ADB wait; require Maestro success and Maestro-owned screenshots; prohibit fallback capture; remove unsupported visual-inspection assertions; preserve independent review hold.",
-    "correctiveExactHeadCi": "VERIFIED_PASS_RUN_41775397669_AND_41775397921",
-    "independentReviewer": "NOT_ASSIGNED",
-    "finalReleaseDisposition": "BLOCKED_OWNER_UAT_MIGRATION_AND_INDEPENDENT_REVIEW",
-    "ownerAuthorizedDeferred": 0
-  },
-  "exactHeadR2Certification": {
-    "candidateHeadCommitSha": "f5bd386d919b862702597193d839c0b38ac62bc7",
-    "controlledNegativePathTestSuite": {
-      "file": "tests/harness/phase10-android-negative-path.test.mjs",
-      "status": "PASS",
-      "totalTests": 6,
-      "passTests": 6,
-      "failTests": 0
-    },
-    "phase10VisualConformance": {
-      "runId": 41775397669,
-      "status": "SUCCESS",
-      "webJobId": 126394446061,
-      "webArtifactId": 13296806728,
-      "iosJobId": 126394446070,
-      "iosArtifactId": 13298012284,
-      "androidJobId": 126394445819,
-      "androidArtifactId": 13297757108
-    },
-    "ui02NativeCrossDevice": {
-      "runId": 41775397921,
-      "status": "SUCCESS",
-      "aggregateJobId": 126408391094,
-      "aggregateArtifactId": 13298801755
-    },
-    "nativeBinaryCertification": {
-      "runId": 41775397572,
-      "status": "SUCCESS"
-    }
-  },
   "moderatorCiEnforcementHead": {
     "commitSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
     "phase10VisualConformance": {
@@ -305,14 +189,55 @@
       "iosPhoneAttempt1FailedArtifactId": 13300298812,
       "iosPhoneAttempt2Retry": { "jobId": 126429706722, "sourceAttempt": 2, "artifactId": 13303755005, "status": "SUCCESS" },
       "failedAggregateJob": { "jobId": 126442613997, "runAttempt": 2, "artifactId": 13303285803, "status": "FAILURE" }
-    },
-    "icr06R3AggregationRepair": {
-      "aggregatorModule": "scripts/native/ui02-phase6a-aggregate.mjs",
-      "regressionSuite": "tests/harness/ui02-phase6a-aggregation.test.mjs",
-      "regressionScenariosTotal": 10,
-      "regressionScenariosPassed": 10,
-      "reconcilesMixedAttemptsWithinSameWorkflowRunAndExactSha": true,
-      "failsClosedOnMissingCorruptMismatchedUnrelatedDuplicateOrRuntimeError": true
     }
+  },
+  "icr06R3CandidateCi": {
+    "commitSha": "9c4a11618733a4d4b5f7dc9baa323fdd855aaef7",
+    "phase10VisualConformance": {
+      "runId": 41812008942,
+      "runAttempt": 1,
+      "status": "SUCCESS",
+      "webJob": { "jobId": 126513305147, "status": "SUCCESS", "artifactId": 13311989274 },
+      "androidJob": { "jobId": 126513302148, "status": "SUCCESS", "artifactId": 13313603027 },
+      "iosJob": { "jobId": 126513302028, "status": "SUCCESS", "artifactId": 13313852801 }
+    },
+    "nativeBinaryCertification": {
+      "runId": 41812008980,
+      "runAttempt": 1,
+      "status": "SUCCESS",
+      "readinessJob": { "jobId": 126513302537, "status": "SUCCESS", "artifactId": 13311934875 },
+      "iosSimulatorBinaryJob": { "jobId": 126513302213, "status": "SUCCESS", "artifactId": 13312924922 },
+      "androidDebugBinaryJob": { "jobId": 126513301897, "status": "SUCCESS", "artifactId": 13313578097 }
+    },
+    "ui02NativeCrossDevice": {
+      "runId": 41812008951,
+      "runAttempt": 1,
+      "upstreamDeviceAndContractStatus": "SUCCESS",
+      "aggregateStatus": "FAILURE",
+      "contractsJob": { "jobId": 126513301657, "status": "SUCCESS" },
+      "androidPhone": { "jobId": 126513302194, "sourceAttempt": 1, "artifactId": 13313414537, "status": "SUCCESS" },
+      "androidTablet": { "jobId": 126513301244, "sourceAttempt": 1, "artifactId": 13313867886, "status": "SUCCESS" },
+      "iosPhone": { "jobId": 126513301621, "sourceAttempt": 1, "artifactId": 13314188557, "status": "SUCCESS" },
+      "iosTablet": { "jobId": 126513303346, "sourceAttempt": 1, "artifactId": 13314372723, "status": "SUCCESS" },
+      "failedAggregateJob": {
+        "jobId": 126525748704,
+        "artifactId": 13313769951,
+        "status": "FAILURE",
+        "rootCause": "MAESTRO_INTERNAL_RUNNER_SCHEMA_MANIFEST_COUNTED_AS_DUPLICATE_CELL_MANIFEST"
+      }
+    }
+  },
+  "icr06R4ProvenanceAndAggregationClosure": {
+    "aggregatorModule": "scripts/native/ui02-phase6a-aggregate.mjs",
+    "workflowFile": ".github/workflows/ui02-phase6a-native-cross-device.yml",
+    "regressionSuite": "tests/harness/ui02-phase6a-aggregation.test.mjs",
+    "regressionScenariosTotal": 20,
+    "regressionScenariosPassed": 20,
+    "workflowPermissionsActionsRead": true,
+    "paginatedFailClosedMetadataFetch": true,
+    "authoritativeArtifactAndJobIdentityRequired": true,
+    "maestroInternalRunnerManifestIgnored": true,
+    "fullPngCrc32AndZlibIdatInflateVerified": true,
+    "independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW"
   }
 }

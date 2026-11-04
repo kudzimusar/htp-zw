@@ -156,7 +156,7 @@ test('Phase 10 Android controlled execution: verified negative-paths fail closed
   assert.equal(res.status, 0, `Negative path test suite failed:\n${res.stdout}\n${res.stderr}`);
 });
 
-test('UI-02 Phase 6A cross-attempt aggregation: 10 deterministic positive and fail-closed scenarios pass', () => {
+test('UI-02 Phase 6A cross-attempt aggregation: 20 deterministic positive and fail-closed scenarios pass', () => {
   const res = spawnSync('node', ['--test', join(repoRoot, 'tests/harness/ui02-phase6a-aggregation.test.mjs')], {
     encoding: 'utf8'
   });
