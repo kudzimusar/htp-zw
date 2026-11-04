@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 
@@ -10,6 +11,9 @@ const osVersion=process.env.OS_VERSION ?? "";
 const deviceClass=process.env.DEVICE_CLASS ?? "phone";
 const orientation=process.env.ORIENTATION ?? "portrait";
 const runAttempt=Number(process.env.RUN_ATTEMPT ?? "0");
+const rawWorkflowRunId=process.env.WORKFLOW_RUN_ID ?? process.env.GITHUB_RUN_ID ?? "";
+const workflowRunId=rawWorkflowRunId ? String(rawWorkflowRunId) : null;
+const jobName=process.env.JOB_NAME ?? process.env.GITHUB_JOB ?? null;
 
 const routes={
   "home-light":"/",
@@ -126,6 +130,7 @@ const screens=pngPaths.map((path)=>{
   const file=relative(dir,path);
   const key=basename(path,".png");
   const geometry=screenshotGeometryByKey.get(key) ?? null;
+  const sha256=createHash("sha256").update(readFileSync(path)).digest("hex");
   const keyboard=key==="search-keyboard"
     ? "CAPTURED — native keyboard/focus evidence"
     : "NOT APPLICABLE";
@@ -142,6 +147,7 @@ const screens=pngPaths.map((path)=>{
     "screen resolved and captured";
   return {
     candidateSha:sha,
+    workflowRunId,
     runAttempt,
     platform,
     deviceClass,
@@ -154,6 +160,7 @@ const screens=pngPaths.map((path)=>{
     screen:key,
     route:routes[key] ?? "unknown",
     screenshotFilename:file,
+    sha256,
     resolvedState:states[key] ?? "resolved",
     nativeRuntimeErrors:nativeErrors,
     layoutSafeAreaResult:"CAPTURED — native screenshot and completed journey available for moderator safe-area/system-UI inspection",
@@ -166,6 +173,8 @@ const screens=pngPaths.map((path)=>{
 const manifest={
   phase:"UI-02 Phase 6A Native Cross-Device Realization",
   candidateSha:sha,
+  workflowRunId,
+  jobName,
   runAttempt,
   platform,
   deviceClass,
@@ -194,4 +203,4 @@ const manifest={
   }
 };
 writeFileSync(join(dir,"manifest.json"),JSON.stringify(manifest,null,2));
-console.log(JSON.stringify({screens:screens.length,nativeRuntimeErrorLineCount:nativeErrors.length},null,2));
+console.log(JSON.stringify({screens:screens.length,nativeRuntimeErrorLineCount:nativeErrors.length,workflowRunId,runAttempt},null,2));

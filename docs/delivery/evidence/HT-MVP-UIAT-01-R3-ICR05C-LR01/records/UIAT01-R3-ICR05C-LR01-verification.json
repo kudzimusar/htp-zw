@@ -1,12 +1,14 @@
 {
-  "unitId": "HT-MVP-UIAT-01-R3-ICR06-PHASE10-ANDROID-LR01",
-  "timestamp": "2026-11-04T03:30:00.000Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR06-R3-LR01",
+  "timestamp": "2026-11-04T08:05:00.000Z",
   "parentAuthoritySha": "534ff0859944d96b20ec5b7d1f1ded7086d9174b",
   "acceptedR4ApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "startingR4EvidenceSha": "0fc17ba4a947ebb0464c06e479154d3a1ce45b86",
-  "startingRemoteSha": "61bc62a7871c3cf7adb7753ae6284418e8f331dc",
+  "startingRemoteSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
   "r5RemediationCommitSha": "e7248a67ebb24e236a89b7771168695f511eb3a4",
   "phase10RemediationCommitSha": "058689b420a1481ccca3ee2c9c7c349ff9cd009a",
+  "previouslySuccessfulR2EngineeringSha": "f5bd386d919b862702597193d839c0b38ac62bc7",
+  "moderatorCiEnforcementSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
   "deployedApplicationCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "candidateCodeSha": "fe5669278768c2a5cab44670425fcf05a7a7d1a7",
   "runtimeDiffSinceR4ApplicationCode": "NONE (0 runtime files changed across apps/mobile/app, apps/mobile/src, api, app, lib, supabase)",
@@ -138,28 +140,19 @@
         "home": {
           "file": "home.png",
           "sha256": "4bf6f7737738d8f6818507145d39dca6d4d20f52a825368b4ea87f233354563c",
-          "dimensions": [
-            1440,
-            3120
-          ],
+          "dimensions": [1440, 3120],
           "sizeBytes": 884342
         },
         "premium": {
           "file": "premium.png",
           "sha256": "ffeca2d1abd85d60ebbd5b8181a3e449bc9b2b861a5e172a8d76dcbc3595fa87",
-          "dimensions": [
-            1440,
-            3120
-          ],
+          "dimensions": [1440, 3120],
           "sizeBytes": 286556
         },
         "watch": {
           "file": "watch.png",
           "sha256": "8c8d030d7fd53c922cb1a09046523f07a55895973a1f21abeee7e3524b76c41b",
-          "dimensions": [
-            1440,
-            3120
-          ],
+          "dimensions": [1440, 3120],
           "sizeBytes": 220900
         }
       },
@@ -167,76 +160,25 @@
       "androidRuntimeErrors": 0,
       "androidVisualCertification": "PASS"
     },
-    "phase10WebPwaEvidence": {
-      "runId": 41763783748,
-      "status": "SUCCESS"
-    },
-    "chromiumUat": {
-      "runId": 41763783707,
-      "status": "SUCCESS"
-    },
-    "nativeReaderProductGates": {
-      "runId": 41763783713,
-      "status": "SUCCESS"
-    },
-    "ui03CommercialReader": {
-      "runId": 41763783727,
-      "status": "SUCCESS"
-    },
-    "nm07MigratedCorpus": {
-      "runId": 41763783750,
-      "status": "SUCCESS"
-    },
-    "ag05Nm07PremiumHospaz": {
-      "runId": 41763783723,
-      "status": "SUCCESS"
-    },
-    "nativeBinaryCertification": {
-      "runId": 41763783711,
-      "status": "SUCCESS"
-    },
-    "nativeMobileFoundationSuite": {
-      "runId": 41763783749,
-      "status": "SUCCESS"
-    },
-    "ui01Phase3Discovery": {
-      "runId": 41763783720,
-      "status": "SUCCESS"
-    },
-    "ui01Phase4Media": {
-      "runId": 41763783709,
-      "status": "SUCCESS"
-    },
-    "ui04Phase5ReaderOwnership": {
-      "runId": 41763783756,
-      "status": "SUCCESS"
-    },
-    "ui04EditionFullReload": {
-      "runId": 41763783704,
-      "status": "SUCCESS"
-    },
-    "ui05Phase6bAccessibility": {
-      "runId": 41763783752,
-      "status": "SUCCESS"
-    },
-    "ui06Phase6cRecertification": {
-      "runId": 41763783732,
-      "status": "SUCCESS"
-    },
-    "validateHealthTimes": {
-      "runId": 41763783751,
-      "status": "SUCCESS"
-    },
+    "phase10WebPwaEvidence": { "runId": 41763783748, "status": "SUCCESS" },
+    "chromiumUat": { "runId": 41763783707, "status": "SUCCESS" },
+    "nativeReaderProductGates": { "runId": 41763783713, "status": "SUCCESS" },
+    "ui03CommercialReader": { "runId": 41763783727, "status": "SUCCESS" },
+    "nm07MigratedCorpus": { "runId": 41763783750, "status": "SUCCESS" },
+    "ag05Nm07PremiumHospaz": { "runId": 41763783723, "status": "SUCCESS" },
+    "nativeBinaryCertification": { "runId": 41763783711, "status": "SUCCESS" },
+    "nativeMobileFoundationSuite": { "runId": 41763783749, "status": "SUCCESS" },
+    "ui01Phase3Discovery": { "runId": 41763783720, "status": "SUCCESS" },
+    "ui01Phase4Media": { "runId": 41763783709, "status": "SUCCESS" },
+    "ui04Phase5ReaderOwnership": { "runId": 41763783756, "status": "SUCCESS" },
+    "ui04EditionFullReload": { "runId": 41763783704, "status": "SUCCESS" },
+    "ui05Phase6bAccessibility": { "runId": 41763783752, "status": "SUCCESS" },
+    "ui06Phase6cRecertification": { "runId": 41763783732, "status": "SUCCESS" },
+    "validateHealthTimes": { "runId": 41763783751, "status": "SUCCESS" },
     "sessionAndEvidenceCertification": {
       "runId": 41763783721,
-      "deterministicSecurityJob": {
-        "jobId": 126357288674,
-        "status": "SUCCESS"
-      },
-      "physicalLiveFaultInjectionJob": {
-        "jobId": 126357288924,
-        "status": "BLOCKED_OWNER_UAT_CREDENTIALS"
-      }
+      "deterministicSecurityJob": { "jobId": 126357288674, "status": "SUCCESS" },
+      "physicalLiveFaultInjectionJob": { "jobId": 126357288924, "status": "BLOCKED_OWNER_UAT_CREDENTIALS" }
     }
   },
   "ui03TransparencyClassification": {
@@ -257,41 +199,13 @@
     "stagingMigrationDescriptiveAlias": "20261102160000_newsroom_create_story_title_authority.sql",
     "stagingMigrationApplied": false,
     "blockedCases": [
-      {
-        "caseId": "UAT-R05",
-        "persona": "Anonymous Reader",
-        "reason": "Audio streaming blocked pending explicit Owner feature or deferral decision"
-      },
-      {
-        "caseId": "UAT-J01",
-        "persona": "Journalist",
-        "reason": "Missing Owner-provisioned Staging test actor credentials"
-      },
-      {
-        "caseId": "UAT-J02",
-        "persona": "Publisher/Reporter",
-        "reason": "Staging DB newsroom_create_story title authority migration 20261102160000_ht_mvp_r3_story_title_authority.sql unapplied pending Owner authorization"
-      },
-      {
-        "caseId": "UAT-J04",
-        "persona": "Journalist",
-        "reason": "Missing Owner-provisioned Staging test actor credentials"
-      },
-      {
-        "caseId": "UAT-E01",
-        "persona": "Editor",
-        "reason": "Missing Owner-provisioned Staging test actor credentials"
-      },
-      {
-        "caseId": "UAT-E02",
-        "persona": "Editor",
-        "reason": "Missing Owner-provisioned Staging test actor credentials"
-      },
-      {
-        "caseId": "UAT-A03",
-        "persona": "Audience Specialist",
-        "reason": "Empty Staging contact_segments audience corpus (count=0)"
-      }
+      { "caseId": "UAT-R05", "persona": "Anonymous Reader", "reason": "Audio streaming blocked pending explicit Owner feature or deferral decision" },
+      { "caseId": "UAT-J01", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-J02", "persona": "Publisher/Reporter", "reason": "Staging DB newsroom_create_story title authority migration 20261102160000_ht_mvp_r3_story_title_authority.sql unapplied pending Owner authorization" },
+      { "caseId": "UAT-J04", "persona": "Journalist", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-E01", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-E02", "persona": "Editor", "reason": "Missing Owner-provisioned Staging test actor credentials" },
+      { "caseId": "UAT-A03", "persona": "Audience Specialist", "reason": "Empty Staging contact_segments audience corpus (count=0)" }
     ]
   },
   "supplementalSafetyMatrix": {
@@ -301,12 +215,7 @@
     "blockedCount": 0
   },
   "sessionGovernance": {
-    "deterministicHarness": {
-      "total": 22,
-      "pass": 22,
-      "fail": 0,
-      "skipped": 0
-    },
+    "deterministicHarness": { "total": 22, "pass": 22, "fail": 0, "skipped": 0 },
     "livePhysicalStatus": "BLOCKED_OWNER_UAT_CREDENTIALS",
     "ownerAuditAuthority": "BLOCKED_OWNER_UAT_CREDENTIALS",
     "sessionRevokeNullProviderIdPresent": false,
@@ -324,11 +233,7 @@
     "historicalPhase10RunId": 41763784097,
     "historicalAndroidJobId": 126357291909,
     "historicalMaestroExitCode": 0,
-    "historicalScreenshotsCapturedByMaestro": [
-      "home.png",
-      "premium.png",
-      "watch.png"
-    ],
+    "historicalScreenshotsCapturedByMaestro": ["home.png", "premium.png", "watch.png"],
     "historicalFallbackUsed": false,
     "confirmedPotentialFalsePositive": "Prior runner allowed fallback screenshots after Maestro nonzero, while manifest overstated visual inspection.",
     "correctiveRunnerCommitSha": "3fac20e916c9fb28861270e1a5264b0aaf8d8a67",
@@ -346,156 +251,68 @@
       "status": "PASS",
       "totalTests": 6,
       "passTests": 6,
-      "failTests": 0,
-      "verifiedVectors": [
-        "Nonzero Maestro exit fails closed immediately with error code (no passing manifest)",
-        "Missing Maestro screenshot fails closed and is NOT replaced by fallback ADB screencap",
-        "ADB device registration timeout fails closed",
-        "Package manager identity verification failure fails closed",
-        "Actionable runtime error strings in logcat fail certification gate",
-        "Successful execution produces honest manifest without false visual guarantees"
-      ]
+      "failTests": 0
     },
     "phase10VisualConformance": {
       "runId": 41775397669,
       "status": "SUCCESS",
-      "totalJobs": 3,
-      "completedJobs": 3,
-      "webJob": {
-        "jobId": 126394446061,
-        "duration": "3m51s",
-        "status": "SUCCESS",
-        "artifactId": 13296806728,
-        "artifactName": "phase10-candidate-web-pwa-screenshots"
-      },
-      "iosJob": {
-        "jobId": 126394446070,
-        "duration": "27m59s",
-        "status": "SUCCESS",
-        "artifactId": 13298012284,
-        "artifactName": "phase10-candidate-ios-screenshots"
-      },
-      "androidJob": {
-        "jobId": 126394445819,
-        "duration": "28m31s",
-        "status": "SUCCESS",
-        "artifactId": 13297757108,
-        "artifactName": "phase10-candidate-android-screenshots",
-        "device": "sdk_gphone64_x86_64",
-        "apiLevel": "36",
-        "package": "zw.co.healthtimes.app.staging",
-        "maestroExitCode": 0,
-        "actionableNativeRuntimeErrorCount": 0,
-        "fallbackScreenshotsUsed": false,
-        "diagnosticsCollected": true,
-        "independentVisualReviewStatus": "PENDING_NON_AUTHOR_REVIEW",
-        "androidVisualCertification": "PASS",
-        "screenshots": [
-          {
-            "name": "home",
-            "route": "/",
-            "file": "home.png",
-            "sha256": "a27a5816d270717a4acecc50c8007d84a52f5cb807e764dd3d36db9c4929b22e",
-            "dimensions": [1440, 3120],
-            "sizeBytes": 883645,
-            "captureMethod": "MAESTRO_FLOW",
-            "automatedRouteAssertionsPassed": true,
-            "independentVisualInspection": "PENDING"
-          },
-          {
-            "name": "premium",
-            "route": "/premium",
-            "file": "premium.png",
-            "sha256": "1bb820ae7cefbb47302daf4a89ea79b48092f79ab3f548d8359ee6d350536f1f",
-            "dimensions": [1440, 3120],
-            "sizeBytes": 285747,
-            "captureMethod": "MAESTRO_FLOW",
-            "automatedRouteAssertionsPassed": true,
-            "independentVisualInspection": "PENDING"
-          },
-          {
-            "name": "watch",
-            "route": "/watch",
-            "file": "watch.png",
-            "sha256": "ccf1c83277f479dc984108e34353d1ab4e7c71798026293c150c65a9822431db",
-            "dimensions": [1440, 3120],
-            "sizeBytes": 220308,
-            "captureMethod": "MAESTRO_FLOW",
-            "automatedRouteAssertionsPassed": true,
-            "independentVisualInspection": "PENDING"
-          }
-        ]
-      }
+      "webJobId": 126394446061,
+      "webArtifactId": 13296806728,
+      "iosJobId": 126394446070,
+      "iosArtifactId": 13298012284,
+      "androidJobId": 126394445819,
+      "androidArtifactId": 13297757108
     },
     "ui02NativeCrossDevice": {
       "runId": 41775397921,
       "status": "SUCCESS",
-      "totalJobs": 6,
-      "completedJobs": 6,
-      "contractsJob": {
-        "jobId": 126394446205,
-        "name": "Phase 6A contract + frozen Reader regressions",
-        "duration": "30s",
-        "status": "SUCCESS"
-      },
-      "iosPhoneJob": {
-        "jobId": 126394446375,
-        "duration": "28m24s",
-        "status": "SUCCESS",
-        "artifactId": 13298380341,
-        "artifactName": "ui02-phase6a-native-evidence-ios-phone-attempt-1"
-      },
-      "iosTabletJob": {
-        "jobId": 126394446352,
-        "duration": "41m7s",
-        "status": "SUCCESS",
-        "artifactId": 13297624410,
-        "artifactName": "ui02-phase6a-native-evidence-ios-tablet-attempt-1"
-      },
-      "androidTabletJob": {
-        "jobId": 126394446500,
-        "duration": "27m0s",
-        "status": "SUCCESS",
-        "artifactId": 13297443027,
-        "artifactName": "ui02-phase6a-native-evidence-android-tablet-attempt-1"
-      },
-      "androidPhoneJob": {
-        "jobId": 126394446539,
-        "duration": "32m4s",
-        "status": "SUCCESS",
-        "artifactId": 13298241448,
-        "artifactName": "ui02-phase6a-native-evidence-android-phone-attempt-1"
-      },
-      "aggregateJob": {
-        "jobId": 126408391094,
-        "duration": "16s",
-        "status": "SUCCESS",
-        "artifactId": 13298801755,
-        "artifactName": "ui02-phase6a-native-evidence-attempt-1"
-      }
+      "aggregateJobId": 126408391094,
+      "aggregateArtifactId": 13298801755
     },
     "nativeBinaryCertification": {
       "runId": 41775397572,
+      "status": "SUCCESS"
+    }
+  },
+  "moderatorCiEnforcementHead": {
+    "commitSha": "b82286340df9ef7d24f0f12598ddda3150b3adc1",
+    "phase10VisualConformance": {
+      "runId": 41780992191,
+      "runAttempt": 1,
       "status": "SUCCESS",
-      "totalJobs": 3,
-      "completedJobs": 3,
-      "readinessJob": {
-        "jobId": 126394445325,
-        "duration": "59s",
-        "status": "SUCCESS"
-      },
-      "iosSimulatorBinaryJob": {
-        "jobId": 126394445595,
-        "duration": "13m29s",
-        "status": "SUCCESS",
-        "artifactName": "healthtimes-ios-simulator-app"
-      },
-      "androidDebugBinaryJob": {
-        "jobId": 126394445602,
-        "duration": "17m15s",
-        "status": "SUCCESS",
-        "artifactName": "healthtimes-android-debug-apk"
-      }
+      "webJob": { "jobId": 126412652313, "status": "SUCCESS", "artifactId": 13298588970 },
+      "iosJob": { "jobId": 126412652527, "status": "SUCCESS", "artifactId": 13299507629 },
+      "androidJob": { "jobId": 126412652730, "status": "SUCCESS", "artifactId": 13300072371 }
+    },
+    "nativeBinaryCertification": {
+      "runId": 41780992413,
+      "runAttempt": 2,
+      "status": "SUCCESS",
+      "readinessJob": { "jobId": 126429768525, "status": "SUCCESS" },
+      "iosSimulatorBinaryJob": { "jobId": 126429723997, "status": "SUCCESS" },
+      "androidDebugBinaryJob": { "jobId": 126429722651, "status": "SUCCESS" }
+    },
+    "ui02MixedAttemptRun": {
+      "runId": 41780992206,
+      "runAttempt": 2,
+      "upstreamDeviceAndContractStatus": "SUCCESS",
+      "aggregateStatus": "FAILURE",
+      "classification": "UI02_AGGREGATE_MIXED_ATTEMPT_ARTIFACT_SELECTION_DEFECT",
+      "contractsJob": { "jobId": 126429759091, "status": "SUCCESS" },
+      "androidPhone": { "jobId": 126429708123, "sourceAttempt": 1, "artifactId": 13300262966, "status": "SUCCESS" },
+      "androidTablet": { "jobId": 126429708897, "sourceAttempt": 1, "artifactId": 13299844628, "status": "SUCCESS" },
+      "iosTablet": { "jobId": 126429746045, "sourceAttempt": 1, "artifactId": 13301230604, "status": "SUCCESS" },
+      "iosPhoneAttempt1FailedArtifactId": 13300298812,
+      "iosPhoneAttempt2Retry": { "jobId": 126429706722, "sourceAttempt": 2, "artifactId": 13303755005, "status": "SUCCESS" },
+      "failedAggregateJob": { "jobId": 126442613997, "runAttempt": 2, "artifactId": 13303285803, "status": "FAILURE" }
+    },
+    "icr06R3AggregationRepair": {
+      "aggregatorModule": "scripts/native/ui02-phase6a-aggregate.mjs",
+      "regressionSuite": "tests/harness/ui02-phase6a-aggregation.test.mjs",
+      "regressionScenariosTotal": 10,
+      "regressionScenariosPassed": 10,
+      "reconcilesMixedAttemptsWithinSameWorkflowRunAndExactSha": true,
+      "failsClosedOnMissingCorruptMismatchedUnrelatedDuplicateOrRuntimeError": true
     }
   }
 }

@@ -239,7 +239,7 @@ adb logcat -d '*:E' 2>/dev/null \
 DEVICE_NAME="$(adb shell getprop ro.product.model | tr -d '\r')"
 OS_VERSION="$(adb shell getprop ro.build.version.release | tr -d '\r')"
 
-EVIDENCE_DIR="$EVIDENCE_DIR" CANDIDATE_SHA="$CANDIDATE_SHA" RUN_ATTEMPT="$RUN_ATTEMPT" NATIVE_PLATFORM="Android" DEVICE_CLASS="$DEVICE_CLASS" DEVICE_IDENTITY="$DEVICE_NAME ($DEVICE_PROFILE)" OS_VERSION="$OS_VERSION" ORIENTATION="portrait" node scripts/native/ui02-phase6a-manifest.mjs
+EVIDENCE_DIR="$EVIDENCE_DIR" CANDIDATE_SHA="$CANDIDATE_SHA" WORKFLOW_RUN_ID="${WORKFLOW_RUN_ID:-${GITHUB_RUN_ID:-}}" RUN_ATTEMPT="$RUN_ATTEMPT" NATIVE_PLATFORM="Android" DEVICE_CLASS="$DEVICE_CLASS" DEVICE_IDENTITY="$DEVICE_NAME ($DEVICE_PROFILE)" OS_VERSION="$OS_VERSION" ORIENTATION="portrait" node scripts/native/ui02-phase6a-manifest.mjs
 
 if [[ "$RECOVERY_USED" -eq 1 ]]; then
   EVIDENCE_DIR="$EVIDENCE_DIR" node --input-type=module <<'NODE'

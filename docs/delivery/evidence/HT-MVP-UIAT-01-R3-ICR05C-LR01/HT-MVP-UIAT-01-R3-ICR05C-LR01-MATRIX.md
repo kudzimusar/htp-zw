@@ -1,11 +1,13 @@
-# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Native CI Matrix (R5-PUSH01)
+# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Authoritative 30-Case Client Acceptance & Native CI Matrix (R5-PUSH01 / ICR06-R3-LR01)
 
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR05C-R5-PUSH01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR06-R3-LR01`  
 **Parent Issues:** [#145](https://github.com/kudzimusar/htp-zw/issues/145), #143, #141, #139, #137, #134  
 **Parent Authority SHA:** `534ff0859944d96b20ec5b7d1f1ded7086d9174b`  
 **Accepted R4 Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
 **Starting R4 Evidence SHA:** `0fc17ba4a947ebb0464c06e479154d3a1ce45b86`  
 **Certified R5 Code & Test SHA:** `e7248a67ebb24e236a89b7771168695f511eb3a4`  
+**Previously Successful R2 Engineering SHA:** `f5bd386d919b862702597193d839c0b38ac62bc7`  
+**Moderator CI Enforcement SHA:** `b82286340df9ef7d24f0f12598ddda3150b3adc1`  
 **Execution Branch:** `cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`  
 **Target Repository:** `kudzimusar/htp-zw`  
 
@@ -16,14 +18,14 @@
 - **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`
 - **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`
 - **Vercel Project ID:** `prj_52i0Btvqk2slEnaj5bL0CjOX1AqN` (`healthtimes-staging`)
-- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 runtime files changed in R5 and Phase 10)
+- **Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 runtime files changed in R5, Phase 10, and ICR06-R3)
 - **Staging Database:** Supabase `bzuvntbkevvuhfhqhkua` (AWS us-east-1)
 - **Canonical 30-Case Registry Source:** Restored strictly from [`HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md`](https://github.com/kudzimusar/htp-zw/blob/main/docs/delivery/evidence/HT-MVP-UIAT-01-R3-ICR04-LR01/HT-MVP-UIAT-01-R3-ICR04-LR01-MATRIX.md)
 - **Final Canonical Reconciliation:** **23 PASS | 0 FAIL | 7 BLOCKED**
 - **Owner Authorized Deferred Count:** **0** (`OWNER_AUTHORIZED_DEFERRED=0`)
 - **Supplemental Safety & Security Matrix:** **14 PASS | 0 FAIL | 0 BLOCKED** (Tracked Separately)
-- **Exact-Head Native Cross-Device Status (Runs `41614064581` / `41763783738`):** **SUCCESS** (`UI02_AGGREGATE=SUCCESS`)
-- **Phase 10 Visual Conformance Recertification (Run `41763784097`):** **3/3 JOBS SUCCESS** (`PHASE10_AGGREGATE=SUCCESS`)
+- **Phase 10 Visual Conformance (`b8228634` Run `41780992191`):** **3/3 JOBS SUCCESS** (`PHASE10=3_OF_3_PASS`)
+- **Native Binary Certification (`b8228634` Run `41780992413`):** **3/3 JOBS SUCCESS** (`NATIVE_BINARY=3_OF_3_PASS`)
 
 ---
 
@@ -64,13 +66,13 @@
 
 ---
 
-## 3. Exact-Head Native Cross-Device Certification Matrix (`e7248a67ebb24e236a89b7771168695f511eb3a4`)
+## 3. Native Cross-Device Certification Matrix Evolution (`e7248a67` -> `f5bd386d` -> `b8228634`)
 
-| Matrix Cell | Device / Simulator Identity | Flow | R4 Run 41587007329 Status | R5 Run 41614064581 Job ID | R5 Artifact ID | R5 Status |
-|:---|:---|:---|:---:|:---:|:---:|:---:|
-| **Phase 6A Contracts** | Ubuntu 24.04 (Node 22) | `ui02-phase6a-native*.test.mjs` | `125754753816` (`SUCCESS`) | `125842968056` | N/A | **PASS (`SUCCESS`)** |
-| **Android Phone** | `sdk_gphone64_x86_64 (pixel_7_pro)` (Android 16) | `ui02-phase6a-phone.yaml` | `125754753943` (`SUCCESS`) | `125842967918` | `13222815225` | **PASS (`SUCCESS`)** |
-| **Android Tablet** | `sdk_gphone64_x86_64 (pixel_tablet)` (Android 16) | `ui02-phase6a-tablet.yaml` | `125754753748` (`SUCCESS`) | `125842967539` | `13222325454` | **PASS (`SUCCESS`)** |
-| **iOS Phone** | `iPhone Air (1F0A9C4B-2DFC-444E-B162-696E5078A72B)` (iOS 26.5) | `ui02-phase6a-phone.yaml` | `125754753758` (`SUCCESS`) | `125842968089` | `13223005800` | **PASS (`SUCCESS`)** |
-| **iOS Tablet** | `iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)` (iOS 26.5) | `ui02-phase6a-tablet.yaml` | `125754753429` (`FAILURE`) | `125842968203` | `13222426562` | **PASS (`SUCCESS`)** |
-| **Aggregate Native Evidence** | Exact-Head Matrix Aggregator | `ui02-phase6a-native-cross-device.yml` | `125768560862` (`FAILURE`) | `125859288116` | `13221778888` | **PASS (`SUCCESS`)** |
+| Matrix Cell | Device / Simulator Identity | R5 Run `41614064581` (`e7248a67`) | R2 Run `41775397921` (`f5bd386d`) | Moderator Head Run `41780992206` (`b8228634`) |
+|:---|:---|:---:|:---:|:---:|
+| **Phase 6A Contracts** | Ubuntu 24.04 (Node 22) | `125842968056` (`SUCCESS`) | `126394446205` (`SUCCESS`) | `126429759091` (`SUCCESS`) |
+| **Android Phone** | `sdk_gphone64_x86_64 (pixel_7_pro)` (Android 16) | `125842967918` / `13222815225` (`SUCCESS`) | `126394446539` / `13298241448` (`SUCCESS`) | `126429708123` / `13300262966` (Att 1 `SUCCESS`) |
+| **Android Tablet** | `sdk_gphone64_x86_64 (pixel_tablet)` (Android 16) | `125842967539` / `13222325454` (`SUCCESS`) | `126394446500` / `13297443027` (`SUCCESS`) | `126429708897` / `13299844628` (Att 1 `SUCCESS`) |
+| **iOS Phone** | `iPhone Air (1F0A9C4B-2DFC-444E-B162-696E5078A72B)` (iOS 26.5) | `125842968089` / `13223005800` (`SUCCESS`) | `126394446375` / `13298380341` (`SUCCESS`) | `126429706722` / `13303755005` (Att 2 `SUCCESS`) |
+| **iOS Tablet** | `iPad mini (A17 Pro) (A1BBB2ED-CC79-4E5C-82CF-1489A77F232D)` (iOS 26.5) | `125842968203` / `13222426562` (`SUCCESS`) | `126394446352` / `13297624410` (`SUCCESS`) | `126429746045` / `13301230604` (Att 1 `SUCCESS`) |
+| **Aggregate Native Evidence** | Exact-Head Matrix Aggregator | `125859288116` / `13221778888` (`SUCCESS`) | `126408391094` / `13298801755` (`SUCCESS`) | `126442613997` / `13303285803` (`FAILURE` — mixed-attempt pattern defect repaired in ICR06-R3) |

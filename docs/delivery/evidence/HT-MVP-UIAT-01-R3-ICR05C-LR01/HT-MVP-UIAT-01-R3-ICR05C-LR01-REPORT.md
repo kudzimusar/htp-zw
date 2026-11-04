@@ -1,7 +1,7 @@
-# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Final Native Certification Closure, Exact-SHA Custody and Independent Acceptance Report (R5-PUSH01 / ICR06-PHASE10-ANDROID)
+# HT-MVP-UIAT-01-R3-ICR05C-LR01 — Final Native Certification Closure, Exact-SHA Custody and Independent Acceptance Report (R5-PUSH01 / ICR06-R3-LR01)
 
 **Programme:** HealthTimes 2.0 — Final Unified MVP  
-**Unit ID:** `HT-MVP-UIAT-01-R3-ICR06-PHASE10-ANDROID-LR01`  
+**Unit ID:** `HT-MVP-UIAT-01-R3-ICR06-R3-LR01`  
 **Priority:** P0 — Consolidated Long-Run Execution  
 **Controlling Issue:** [#145](https://github.com/kudzimusar/htp-zw/issues/145)  
 **Draft PR:** [#146](https://github.com/kudzimusar/htp-zw/pull/146) (`cert/ht-mvp-uiat01-r3-icr05c-final-physical-cert`)  
@@ -9,7 +9,9 @@
 **Accepted R4 Application Code SHA:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7`  
 **Starting R4 Evidence SHA:** `0fc17ba4a947ebb0464c06e479154d3a1ce45b86`  
 **Certified R5 Code & Test SHA:** `e7248a67ebb24e236a89b7771168695f511eb3a4`  
-**Phase 10 Android Remediation Commit SHA:** `058689b420a1481ccca3ee2c9c7c349ff9cd009a`  
+**Phase 10 Android R1 Remediation SHA:** `058689b420a1481ccca3ee2c9c7c349ff9cd009a`  
+**Previously Successful R2 Engineering SHA:** `f5bd386d919b862702597193d839c0b38ac62bc7`  
+**Moderator CI Enforcement SHA:** `b82286340df9ef7d24f0f12598ddda3150b3adc1`  
 **Target Preview URL:** `https://healthtimes-staging-3blub5s3c-11-11.vercel.app`  
 **Preview Deployment ID:** `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21`  
 **Vercel Project:** `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`)  
@@ -43,33 +45,6 @@ Workflow run [`41763784097`](https://github.com/kudzimusar/htp-zw/actions/runs/4
 | **Candidate iOS Simulator Screenshots** | `126357291481` | macOS 15 (iPhone 16) | `13292054744` (3.52 MB) | iOS Reader Home, Premium, Watch screens | 0 | **PASS (`SUCCESS`)** |
 | **Candidate Android Emulator Screenshots** | `126357291909` | Ubuntu 24.04 (KVM Pixel 7 Pro, API 36) | `13292913629` (3.84 MB) | `home.png` (`4bf6f773...`, 884 KB)<br>`premium.png` (`ffeca2d1...`, 286 KB)<br>`watch.png` (`8c8d030d...`, 220 KB) | 0 | **PASS (`SUCCESS`)** |
 
-- **Android Diagnostics Package Uploaded:** Includes `adb-devices.txt`, `apk-info.txt`, `apk-install.log`, `boot-properties.txt`, `device-info.txt`, `kvm.txt`, `logcat.log` (6.13 MB), `maestro.log`, `package-verify.txt`, `runtime-errors.log` (0 bytes).
-- **Candidate Companion UI-02 Native Run [`41763783738`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783738):** All 5 jobs completed with **`SUCCESS`** (Android phone `126357290341`, Android tablet `126357290657`, iOS phone `126357290703`, iOS tablet `126357290722`, Phase 6A contracts `126357290643`).
-
-### B. CI Matrix Across Unified PR #146 Head
-
-| Workflow Name | Run ID | Job / Gate Details | Outcome |
-|:---|:---:|:---|:---:|
-| **UI-02 Phase 6A Native Cross-Device Evidence** | [`41763783738`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783738) | All 5 jobs (Android phone, Android tablet, iOS phone, iOS tablet, Phase 6A contracts) | **SUCCESS** |
-| **Phase 10 Candidate Visual Conformance** | [`41763784097`](https://github.com/kudzimusar/htp-zw/actions/runs/41763784097) | Web/PWA (`126357291599`), iOS (`126357291481`), Android (`126357291909`) | **SUCCESS (3/3)** |
-| **Phase 10 Web/PWA Evidence** | [`41763783748`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783748) | Web/PWA visual evidence | **SUCCESS** |
-| **Chromium UAT — Canonical Reader** | [`41763783707`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783707) | Canonical Chromium 8/8 | **SUCCESS** |
-| **Native Reader Product Gates** | [`41763783713`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783713) | 33/33 (including 17 fail-closed persistence scenarios) | **SUCCESS** |
-| **UI-03 Commercial Reader Conformance** | [`41763783727`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783727) | Live Staging RPC + commercial reader conformance | **SUCCESS** |
-| **NM-07 Phase 6 Migrated Corpus Reader** | [`41763783750`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783750) | Migrated corpus reader verification | **SUCCESS** |
-| **AG-05 + NM-07 Phase 7 Premium + HOSPAZ** | [`41763783723`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783723) | Premium & HOSPAZ direct advertising authority | **SUCCESS** |
-| **Native Binary Certification** | [`41763783711`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783711) | Android & iOS native compilation | **SUCCESS** |
-| **Native Mobile Foundation + Security + Certification** | [`41763783749`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783749) | Full mobile foundation & security gates | **SUCCESS** |
-| **UI-01 Phase 3 Discovery Conformance** | [`41763783720`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783720) | Search & discovery conformance | **SUCCESS** |
-| **UI-01 Phase 4 Media Conformance** | [`41763783709`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783709) | Live, Watch, Listen conformance | **SUCCESS** |
-| **UI-04 Phase 5 Reader Ownership Conformance** | [`41763783756`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783756) | Saved, My HealthTimes, Edition conformance | **SUCCESS** |
-| **UI-04 Edition Full Reload Persistence** | [`41763783704`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783704) | Edition persistence across reload | **SUCCESS** |
-| **UI-05 Phase 6B Accessibility & Responsive** | [`41763783752`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783752) | Accessibility & responsive states | **SUCCESS** |
-| **UI-06 Phase 6C Final Recertification** | [`41763783732`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783732) | Cross-device edition recertification | **SUCCESS** |
-| **Validate HealthTimes 2.0** | [`41763783751`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783751) | Repository validation | **SUCCESS** |
-| **ICR05B — Deterministic Security Evidence** | [`41763783721`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783721) | Job `126357288674` (22/22 deterministic checks) | **SUCCESS** |
-| **ICR05B — Physical Live Fault Injection** | [`41763783721`](https://github.com/kudzimusar/htp-zw/actions/runs/41763783721) | Job `126357288924` (Step 4 credential preflight) | **`BLOCKED_OWNER_UAT_CREDENTIALS`** |
-
 ---
 
 ## 3. Source-Parity Transparency, Preview Custody & Independent Review Handoff
@@ -80,7 +55,7 @@ Workflow run [`41763784097`](https://github.com/kudzimusar/htp-zw/actions/runs/4
   - All 7 mapped WordPress media objects are verified live (HTTP 200) against Supabase Storage (`migrated-media/wordpress/`).
 - **Staging Preview Custody:**
   - Deployment `dpl_D8NqSBugFsXrqCc1rQh3c22vKj21` on `healthtimes-staging` (`prj_52i0Btvqk2slEnaj5bL0CjOX1AqN`) serves application code SHA `fe5669278768c2a5cab44670425fcf05a7a7d1a7`.
-  - Automated custody test `tests/harness/icr05c-custody-verifier.test.mjs` verifies zero runtime diff between `fe5669278768c2a5cab44670425fcf05a7a7d1a7` and `058689b420a1481ccca3ee2c9c7c349ff9cd009a`.
+  - Automated custody test `tests/harness/icr05c-custody-verifier.test.mjs` verifies zero runtime diff between `fe5669278768c2a5cab44670425fcf05a7a7d1a7` and `HEAD`.
 - **Independent Review Status:**
   - `INDEPENDENT_REVIEW_STATUS=BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE`. The implementing specialist does not self-approve PR #146. Formal independent review requires distinct reviewer assignment by Owner.
 
@@ -99,8 +74,6 @@ GitHub's run [41763784097](https://github.com/kudzimusar/htp-zw/actions/runs/417
 - `c48f2dcf0e2eaf0cb30c0d299309cf789d658c79`: regression guard against a return to fallback/unsupported-assertion behavior.
 - Corrected root-cause classification and custody in the verification record without altering historical run results.
 
-**Certification boundary:** These corrections require a **new exact-head Phase 10 run and companion CI evidence**. Neither the earlier `058689b...` green run nor the specialist's later evidence-only head certifies the corrected runner. Formal independent review remains `BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE`. The authenticated Owner session gate remains `BLOCKED_OWNER_UAT_CREDENTIALS`; the staging migration remains unapplied; canonical UAT remains 23 PASS / 0 FAIL / 7 BLOCKED. No merge, production, Paynow or deployment authorization was granted.
-
 ---
 
 ## 4. Final Exact-Head Phase 10 Android R2 Recertification & Negative-Path Evidence (Commit `f5bd386d`)
@@ -108,44 +81,32 @@ GitHub's run [41763784097](https://github.com/kudzimusar/htp-zw/actions/runs/417
 **Execution Head:** [`f5bd386d919b862702597193d839c0b38ac62bc7`](https://github.com/kudzimusar/htp-zw/commit/f5bd386d919b862702597193d839c0b38ac62bc7)  
 **Parent Accepted Authority:** `534ff0859944d96b20ec5b7d1f1ded7086d9174b`  
 **Accepted Application Runtime:** `fe5669278768c2a5cab44670425fcf05a7a7d1a7` (0 diff in runtime dirs)  
-**Draft PR:** [#146](https://github.com/kudzimusar/htp-zw/pull/146)  
-**Controlling Issue:** [#145](https://github.com/kudzimusar/htp-zw/issues/145)  
 
 ### A. Controlled Negative-Path Execution Suite (`6/6 PASS`)
-
-To satisfy the Moderator directive for executable proof that false-pass fallback paths fail closed, a dedicated negative-path suite was authored at [`tests/harness/phase10-android-negative-path.test.mjs`](https://github.com/kudzimusar/htp-zw/blob/main/tests/harness/phase10-android-negative-path.test.mjs) and integrated into the primary custody verifier [`tests/harness/icr05c-custody-verifier.test.mjs`](https://github.com/kudzimusar/htp-zw/blob/main/tests/harness/icr05c-custody-verifier.test.mjs):
-
-1. **Vector 1 (Nonzero Maestro exit):** Runner fails closed immediately with error code 42; no passing manifest is generated.
-2. **Vector 2 (Missing screenshot):** Runner fails closed with error code 1 when Maestro fails to capture any required route; no fallback ADB screencap is substituted; no manifest is generated.
-3. **Vector 3 (ADB registration timeout):** Runner fails closed when ADB device registration does not settle within the bounded 120s window.
-4. **Vector 4 (Package identity mismatch):** Runner fails closed when `pm path zw.co.healthtimes.app.staging` fails or does not match the exact target package.
-5. **Vector 5 (Actionable runtime errors):** Actionable Android runtime crash patterns in logcat fail the certification gate.
-6. **Vector 6 (Honest manifest):** Successful runs produce honest telemetry with `independentVisualReviewStatus: "PENDING_NON_AUTHOR_REVIEW"` and no unreviewed visual assertions (`resolved`, `systemDialogRemaining` omitted).
-
-Local verification: `node --test tests/harness/phase10-android-negative-path.test.mjs` executes in ~6.7s with **6 PASS / 0 FAIL**.
+Implemented in [`tests/harness/phase10-android-negative-path.test.mjs`](https://github.com/kudzimusar/htp-zw/blob/main/tests/harness/phase10-android-negative-path.test.mjs) and verified in CI (`6/6 PASS`).
 
 ### B. CI Visual Evidence & Native Cross-Device Completion on Exact Head `f5bd386d`
+- **Phase 10 Candidate Visual Conformance (Run [`41775397669`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397669)):** **3/3 SUCCESS** (Android `126394445819` / Artifact `13297757108`, Web/PWA `126394446061` / Artifact `13296806728`, iOS `126394446070` / Artifact `13298012284`).
+- **UI-02 Phase 6A Native Cross-Device Evidence (Run [`41775397921`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397921)):** **6/6 SUCCESS** (Aggregate Artifact `13298801755`).
+- **Native Binary Certification (Run [`41775397572`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397572)):** **3/3 SUCCESS**.
 
-| Workflow Name | Run ID | Jobs & Status | Artifacts & Hashes |
-|:---|:---:|:---|:---|
-| **Phase 10 Candidate Visual Conformance** | [`41775397669`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397669) | **3/3 SUCCESS**<br>• Android: Job `126394445819` (28m31s, PASS)<br>• Web/PWA: Job `126394446061` (3m51s, PASS)<br>• iOS: Job `126394446070` (27m59s, PASS) | `phase10-candidate-android-screenshots` (ID `13297757108`):<br>- `home.png` (883,645 B, SHA-256 `a27a5816...`, 1440×3120)<br>- `premium.png` (285,747 B, SHA-256 `1bb820ae...`, 1440×3120)<br>- `watch.png` (220,308 B, SHA-256 `ccf1c832...`, 1440×3120)<br>`phase10-candidate-web-pwa-screenshots` (ID `13296806728`)<br>`phase10-candidate-ios-screenshots` (ID `13298012284`) |
-| **UI-02 Phase 6A Native Cross-Device Evidence** | [`41775397921`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397921) | **6/6 SUCCESS**<br>• Contracts: Job `126394446205` (30s, PASS)<br>• iOS Phone: Job `126394446375` (28m24s, PASS)<br>• iOS Tablet: Job `126394446352` (41m7s, PASS)<br>• Android Tablet: Job `126394446500` (27m0s, PASS)<br>• Android Phone: Job `126394446539` (32m4s, PASS)<br>• Aggregate: Job `126408391094` (16s, PASS) | `ui02-phase6a-native-evidence-attempt-1` (ID `13298801755`)<br>`ui02-phase6a-native-evidence-ios-phone-attempt-1` (ID `13298380341`)<br>`ui02-phase6a-native-evidence-ios-tablet-attempt-1` (ID `13297624410`)<br>`ui02-phase6a-native-evidence-android-tablet-attempt-1` (ID `13297443027`)<br>`ui02-phase6a-native-evidence-android-phone-attempt-1` (ID `13298241448`) |
-| **Native Binary Certification** | [`41775397572`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397572) | **3/3 SUCCESS**<br>• Readiness: Job `126394445325` (59s)<br>• iOS Simulator: Job `126394445595` (13m29s)<br>• Android Debug: Job `126394445602` (17m15s) | `healthtimes-ios-simulator-app`<br>`healthtimes-android-debug-apk`<br>`healthtimes-native-config-matrix` |
-| **Chromium UAT — Canonical Reader** | [`41775397504`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397504) | Canonical 8/8 PASS | Verified Home/Explore hydration |
-| **Native Reader Product Gates** | [`41775397690`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397690) | 33/33 PASS | Full fail-closed persistence suite |
-| **NM-07 Phase 6 Migrated Corpus Reader** | [`41775397594`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397594) | Migrated corpus PASS | Live Staging RPC readback |
-| **Validate HealthTimes 2.0** | [`41775397592`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397592) | Repository validation PASS | Lint, typecheck, contract verification |
-| **Native Mobile Foundation** | [`41775397564`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397564) | Full suite PASS | Foundation, staging, contracts, security |
+---
 
-### C. Persistent Governance Holds Preserved
+## 5. Moderator CI Enforcement Head (`b8228634`) & ICR06-R3 UI-02 Cross-Attempt Aggregation Repair
 
-1. **Independent Review Boundary:**
-   `INDEPENDENT_REVIEW_STATUS=BLOCKED_INDEPENDENT_REVIEWER_NOT_AVAILABLE`. The implementing specialist workspace does not approve PR #146. Formal independent review requires distinct non-author assignment by the Owner.
-2. **Authenticated Owner Session Gate:**
-   `LIVE_PHYSICAL_10_OF_10=BLOCKED_OWNER_UAT_CREDENTIALS`. Workflow `HT-MVP-UIAT-01-R3-ICR05B — Session and Evidence Certification` run [`41775397675`](https://github.com/kudzimusar/htp-zw/actions/runs/41775397675) passed 22/22 deterministic tests and halted cleanly at step 4 with expected exit code 78 due to protected Owner secrets.
-3. **Canonical 30-Case Matrix:**
-   Strictly **23 PASS / 0 FAIL / 7 BLOCKED**. Blocked cases: `UAT-R05, UAT-J01, UAT-J02, UAT-J04, UAT-E01, UAT-E02, UAT-A03`. `OWNER_AUTHORIZED_DEFERRED=0`.
-4. **Staging Database Migration:**
-   `supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql` remains unapplied pending Owner authorization.
-5. **Production, Merge & Financial Gates:**
-   `PRODUCTION_TOUCHED=NO`, `MERGE_PERFORMED=NO`, `PAYNOW_CHANGED=NO`. No releases or branch merges executed.
+**Moderator CI Enforcement SHA:** [`b82286340df9ef7d24f0f12598ddda3150b3adc1`](https://github.com/kudzimusar/htp-zw/commit/b82286340df9ef7d24f0f12598ddda3150b3adc1) (`ci(phase10): enforce six Android screenshot fail-closed negative paths on PR head`)
+
+### A. Verified CI Results on `b82286340df9ef7d24f0f12598ddda3150b3adc1`
+
+| Workflow Name | Run ID | Attempt | Jobs & Outcomes | Artifacts |
+|:---|:---:|:---:|:---|:---|
+| **Phase 10 Candidate Visual Conformance** | [`41780992191`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992191) | 1 | **3/3 SUCCESS** (including 6-vector Android fail-closed negative-path CI step)<br>• Web/PWA: `126412652313` (`SUCCESS`)<br>• iOS Simulator: `126412652527` (`SUCCESS`)<br>• Android Emulator: `126412652730` (`SUCCESS`) | Web: `13298588970`<br>iOS: `13299507629`<br>Android: `13300072371` |
+| **Native Binary Certification** | [`41780992413`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992413) | 2 | **3/3 SUCCESS after controlled retry**<br>• Readiness: `126429768525` (`SUCCESS`)<br>• iOS Simulator: `126429723997` (`SUCCESS`)<br>• Android Debug: `126429722651` (`SUCCESS`) | `healthtimes-native-config-matrix`<br>`healthtimes-ios-simulator-app`<br>`healthtimes-android-debug-apk` |
+| **UI-02 Phase 6A Native Cross-Device Evidence** | [`41780992206`](https://github.com/kudzimusar/htp-zw/actions/runs/41780992206) | 2 | **5/5 Upstream Device + Contract Jobs SUCCESS; Aggregate Job FAILURE**<br>• Contracts: `126429759091` (`SUCCESS`)<br>• Android Phone (Attempt 1): `126429708123` (`SUCCESS`)<br>• Android Tablet (Attempt 1): `126429708897` (`SUCCESS`)<br>• iOS Tablet (Attempt 1): `126429746045` (`SUCCESS`)<br>• iOS Phone (Attempt 2 retry): `126429706722` (`SUCCESS`)<br>• Aggregate Native Evidence (Attempt 2): `126442613997` (`FAILURE`) | Android Phone (Att 1): `13300262966`<br>Android Tablet (Att 1): `13299844628`<br>iOS Tablet (Att 1): `13301230604`<br>iOS Phone (Att 1 failed): `13300298812`<br>iOS Phone (Att 2 retry): `13303755005`<br>Aggregate (Att 2 failed): `13303285803` |
+
+### B. Root Cause & Engineering Remediation (`UI02_AGGREGATE_MIXED_ATTEMPT_ARTIFACT_SELECTION_DEFECT`)
+- **Root Cause:** In `.github/workflows/ui02-phase6a-native-cross-device.yml`, `aggregate-evidence` previously downloaded only `pattern: ui02-phase6a-native-evidence-*-attempt-${{ github.run_attempt }}` and required `int(m.get("runAttempt",-1))==current_attempt`. When Attempt 2 reran only the failed `iOS phone` job (`ui02-phase6a-native-evidence-ios-phone-attempt-2`, Artifact `13303755005`), the 3 passing Attempt-1 device artifacts (`13300262966`, `13299844628`, `13301230604`) were excluded from download and reconciliation.
+- **Remediation Implemented (`HT-MVP-UIAT-01-R3-ICR06-R3-LR01`):**
+  1. Created [`scripts/native/ui02-phase6a-aggregate.mjs`](../../../scripts/native/ui02-phase6a-aggregate.mjs) (`reconcileUi02NativeMatrix`) to discover all candidate artifacts across attempts of the same workflow run, validate exact `candidateSha`, `workflowRunId`, `platform`, `deviceClass`, `runAttempt`, PNG signatures/dimensions, and zero `nativeRuntimeErrorLineCount`, exclude failed/corrupted/mismatched/unrelated-run artifacts, detect unresolved same-attempt conflicts, and select the latest valid attempt per cell while recording full attempt/job/artifact/checksum provenance.
+  2. Updated [`.github/workflows/ui02-phase6a-native-cross-device.yml`](../../../.github/workflows/ui02-phase6a-native-cross-device.yml) and [`scripts/native/ui02-phase6a-manifest.mjs`](../../../scripts/native/ui02-phase6a-manifest.mjs) to record `workflowRunId`, download `ui02-phase6a-native-evidence-*-attempt-*` within the current workflow run, query run artifact/job provenance metadata, and invoke `scripts/native/ui02-phase6a-aggregate.mjs`.
+  3. Built deterministic 10-scenario regression suite [`tests/harness/ui02-phase6a-aggregation.test.mjs`](../../../tests/harness/ui02-phase6a-aggregation.test.mjs) (**10/10 PASS**), wired into both `contract-and-regressions` and [`tests/harness/icr05c-custody-verifier.test.mjs`](../../../tests/harness/icr05c-custody-verifier.test.mjs).

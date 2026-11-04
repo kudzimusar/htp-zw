@@ -70,12 +70,12 @@ test('ICR05C custody verifier: verifies actual Git ancestry and exact file scope
     'R5 remediation commit must modify only apps/mobile/e2e/ui02-phase6a-tablet.yaml'
   );
 
-  // Verify zero application runtime files changed between R4 code SHA and R5 remediation SHA
+  // Verify zero application runtime files changed between R4 code SHA and HEAD
   const runtimeDiff = git(
     'diff',
     '--name-only',
     r4Code,
-    r5Code,
+    'HEAD',
     '--',
     'apps/mobile/app',
     'apps/mobile/src',
@@ -84,7 +84,7 @@ test('ICR05C custody verifier: verifies actual Git ancestry and exact file scope
     'lib',
     'supabase'
   );
-  assert.equal(runtimeDiff, '', 'Application runtime directories must have zero diff between R4 code SHA and R5 remediation SHA');
+  assert.equal(runtimeDiff, '', 'Application runtime directories must have zero diff between R4 code SHA and HEAD');
 });
 
 test('ICR05C custody verifier: verifies actual UI-03 source file authority vs documented classification', () => {
@@ -138,7 +138,6 @@ test('ICR05C custody verifier: verifies exact-head UI-02 native matrix records m
   }
 });
 
-
 test('Phase 10 Android evidence is fail-closed: no Maestro failure fallback or unsupported visual certification flags', () => {
   const runner = readFileSync(join(repoRoot, 'scripts/native/phase10-candidate-android-run.sh'), 'utf8');
   assert.match(runner, /timeout 120s adb wait-for-device/, 'ADB registration must be bounded');
@@ -157,3 +156,9 @@ test('Phase 10 Android controlled execution: verified negative-paths fail closed
   assert.equal(res.status, 0, `Negative path test suite failed:\n${res.stdout}\n${res.stderr}`);
 });
 
+test('UI-02 Phase 6A cross-attempt aggregation: 10 deterministic positive and fail-closed scenarios pass', () => {
+  const res = spawnSync('node', ['--test', join(repoRoot, 'tests/harness/ui02-phase6a-aggregation.test.mjs')], {
+    encoding: 'utf8'
+  });
+  assert.equal(res.status, 0, `UI-02 aggregation test suite failed:\n${res.stdout}\n${res.stderr}`);
+});
