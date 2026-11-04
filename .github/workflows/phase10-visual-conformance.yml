@@ -583,86 +583,77 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
       - run: npm install --prefix apps/mobile --no-audit --no-fund
       - name: Generate staging Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install
-      - name: Build staging debug APK
+      - name: Build staging release APK
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease --no-daemon
-      - name: Boot emulator and capture Reader
+      - name: Install Maestro
         shell: bash
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Restore Android emulator cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-36-pixel_7_pro-v3
+      - name: Boot emulator and capture Android visual evidence
+        uses: reactivecircus/android-emulator-runner@v2
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          disable-animations: true
+          enable-hw-keyboard: false
+          disk-size: 6000M
+          heap-size: 1024M
+          script: bash scripts/native/phase10-candidate-android-run.sh
+      - name: Verify Android visual evidence integrity
+        shell: bash
         run: |
           set -euo pipefail
-          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-          export ANDROID_AVD_HOME="$RUNNER_TEMP/phase10-avd"
-          mkdir -p "$ANDROID_AVD_HOME"
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
-          echo no | "$AVDMANAGER" create avd -n phase10candidate -k "system-images;android-35;google_apis;x86_64" --force
-          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
-          "$ANDROID_HOME/emulator/emulator" -list-avds
-          test -f "$ANDROID_AVD_HOME/phase10candidate.ini"
-          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
-          "$ANDROID_HOME/emulator/emulator" -accel-check || true
-          nohup "$ANDROID_HOME/emulator/emulator" -avd phase10candidate -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-metrics >/tmp/phase10-candidate-emulator.log 2>&1 &
-          emulator_pid=$!
-          device_ready=0
-          for attempt in $(seq 1 120); do
-            if ! kill -0 "$emulator_pid" 2>/dev/null; then
-              echo "Android emulator exited before adb registered a device"
-              cat /tmp/phase10-candidate-emulator.log
+          for name in home premium watch; do
+            p="phase10-evidence/after/android/$name.png"
+            if [[ ! -s "$p" ]]; then
+              echo "Missing required Android screenshot: $p"
               exit 1
             fi
-            if adb devices | awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
-              device_ready=1
-              break
-            fi
-            sleep 2
           done
-          if [[ "$device_ready" != "1" ]]; then
-            echo "Android emulator did not register with adb"
-            adb devices -l || true
-            cat /tmp/phase10-candidate-emulator.log
-            exit 1
-          fi
-          boot_ready=0
-          for attempt in $(seq 1 120); do
-            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
-              boot_ready=1
-              break
-            fi
-            sleep 2
-          done
-          if [[ "$boot_ready" != "1" ]]; then
-            echo "Android emulator registered but did not complete boot"
-            adb devices -l || true
-            cat /tmp/phase10-candidate-emulator.log
-            exit 1
-          fi
-          adb shell input keyevent 82 || true
-          mkdir -p phase10-evidence/after/android
-          adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          adb shell monkey -p zw.co.healthtimes.app.staging -c android.intent.category.LAUNCHER 1
-          sleep 20
-          adb exec-out screencap -p > phase10-evidence/after/android/home.png
-          adb shell am start -a android.intent.action.VIEW -d "healthtimes://premium" zw.co.healthtimes.app.staging || true
-          sleep 4
-          adb exec-out screencap -p > phase10-evidence/after/android/premium.png
-          adb shell am start -a android.intent.action.VIEW -d "healthtimes://watch" zw.co.healthtimes.app.staging || true
-          sleep 4
-          adb exec-out screencap -p > phase10-evidence/after/android/watch.png
-          printf '{"sha":"%s","capturedAt":"%s"}\n' "$EXPECTED_SHA" "$(date -u +%FT%TZ)" > phase10-evidence/after/android/manifest.json
+          test -s phase10-evidence/after/android/manifest.json
+          python3 -c 'import json; m=json.load(open("phase10-evidence/after/android/manifest.json")); assert m.get("androidVisualCertification") == "PASS", "androidVisualCertification must be PASS"'
+          echo "Android visual evidence integrity verified."
       - uses: actions/upload-artifact@v4
+        id: upload-android
         if: always()
         with:
           name: phase10-candidate-android-screenshots
-          path: |
-            phase10-evidence/after/android/
-            /tmp/phase10-candidate-emulator.log
-          if-no-files-found: error
+          path: phase10-evidence/after/android/
+          if-no-files-found: warn
           retention-days: 30
+      - name: Record Android artifact identity
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Phase-10 resolved Android visual evidence"
+            echo ""
+            echo "- Candidate SHA: ${{ github.event.pull_request.head.sha || github.sha }}"
+            echo "- Artifact ID: ${{ steps.upload-android.outputs.artifact-id }}"
+            echo "- Artifact digest: ${{ steps.upload-android.outputs.artifact-digest }}"
+            echo "- Artifact URL: ${{ steps.upload-android.outputs.artifact-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
