@@ -15,15 +15,20 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: home
 
 - openLink: "healthtimes://premium"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open in .*HealthTimes.*"
+# iOS may present its system confirmation after openLink returns. Retry only
+# this prompt-handling step; the destination and all evidence remain required.
+- retry:
+    maxRetries: 3
     commands:
-      - tapOn: "Open"
-- extendedWaitUntil:
-    visible: "HEALTHTIMES PREMIUM"
-    timeout: 30000
+      - runFlow:
+          when:
+            platform: iOS
+            visible: "Open in .*HealthTimes.*"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "HEALTHTIMES PREMIUM"
+          timeout: 10000
 - extendedWaitUntil:
     notVisible: "Checking membership options…"
     timeout: 30000
@@ -38,17 +43,22 @@ appId: zw.co.healthtimes.app.dev
 - takeScreenshot: premium
 
 - openLink: "healthtimes://watch"
-- runFlow:
-    when:
-      platform: iOS
-      visible: "Open in .*HealthTimes.*"
+# iOS may present its system confirmation after openLink returns. Retry only
+# this prompt-handling step; the destination and all evidence remain required.
+- retry:
+    maxRetries: 3
     commands:
-      - tapOn: "Open"
+      - runFlow:
+          when:
+            platform: iOS
+            visible: "Open in .*HealthTimes.*"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Featured video"
+          timeout: 10000
 - extendedWaitUntil:
     visible: "Watch"
-    timeout: 30000
-- extendedWaitUntil:
-    visible: "Featured video"
     timeout: 30000
 - extendedWaitUntil:
     notVisible: "Loading videos…"
