@@ -201,41 +201,42 @@ if (fs.existsSync(migrationsDir)) {
   const latestMigration = migrationFiles[migrationFiles.length - 1];
   console.log(`[MIGRATION] Migration tip: ${latestMigration}`);
 
+  // Fail independently on each invariant: the historical count/tip checks must
+  // never short-circuit the checksum-bound migration governor.
   if (migrationFiles.length !== EXPECTED_LOCAL_MIGRATION_COUNT) {
-    console.error(`[FAIL] Local migration count (${migrationFiles.length}) does not match expected (${EXPECTED_LOCAL_MIGRATION_COUNT})`);
+    console.error(`[FAIL] Local migration count (${migrationFiles.length}) does not match approved baseline (${EXPECTED_LOCAL_MIGRATION_COUNT}) — classification and manifest review required`);
     failures++;
-  } else if (latestMigration !== EXPECTED_MIGRATION_TIP) {
-    console.error(`[FAIL] Migration tip (${latestMigration}) does not match expected (${EXPECTED_MIGRATION_TIP})`);
+  }
+  if (latestMigration !== EXPECTED_MIGRATION_TIP) {
+    console.error(`[FAIL] Migration tip (${latestMigration}) does not match approved baseline (${EXPECTED_MIGRATION_TIP}) — new migrations need review`);
     failures++;
-  } else {
-    try {
-      // Verify Release Governor Manifest and Production Plan
-      verifyManifest();
-      const prodPlan = buildMigrationPlan("production");
+  }
 
-      if (prodPlan.totalMigrations !== EXPECTED_PRODUCTION_PLAN_COUNT) {
-        console.error(
-          `[FAIL] Governed production plan migration count (${prodPlan.totalMigrations}) does not match expected (${EXPECTED_PRODUCTION_PLAN_COUNT})`
-        );
-        failures++;
-      } else if (!prodPlan.exclusionEnforced) {
-        console.error("[FAIL] Production migration plan does not enforce UAT reconciliation exclusion.");
-        failures++;
-      } else {
-        console.log(
-          `[PASS] Migration sequence verified: ${migrationFiles.length} local files ending with ${latestMigration}`
-        );
-        console.log(
-          `[PASS] Governed production package verified: ${prodPlan.totalMigrations} migrations (strictly excludes ${QUARANTINED_STAGING_MIGRATIONS.length} staging UAT files)`
-        );
-        console.log(
-          `[PASS] Staging migration ledger mapping verified: tip ${EXPECTED_STAGING_LEDGER_TIP} (${EXPECTED_STAGING_LEDGER_COUNT} records)`
-        );
-      }
-    } catch (govErr) {
-      console.error(`[FAIL] Migration governor verification error: ${govErr.message}`);
+  try {
+    // A new/unknown migration must be reported even while legacy preflight
+    // expectations are stale; do not approve by bumping hard-coded counts.
+    verifyManifest();
+    const prodPlan = buildMigrationPlan("production");
+
+    if (prodPlan.totalMigrations !== EXPECTED_PRODUCTION_PLAN_COUNT) {
+      console.error(
+        `[FAIL] Governed production plan migration count (${prodPlan.totalMigrations}) does not match approved baseline (${EXPECTED_PRODUCTION_PLAN_COUNT})`
+      );
       failures++;
+    } else if (!prodPlan.exclusionEnforced) {
+      console.error("[FAIL] Production migration plan does not enforce UAT reconciliation exclusion.");
+      failures++;
+    } else {
+      console.log(
+        `[PASS] Checksum-bound governed production package verified: ${prodPlan.totalMigrations} migrations; quarantines ${QUARANTINED_STAGING_MIGRATIONS.length} staging UAT files`
+      );
+      console.log(
+        `[INFO] Source-recorded staging ledger tip ${EXPECTED_STAGING_LEDGER_TIP}, ${EXPECTED_STAGING_LEDGER_COUNT} records (historical; NOT a live DB attestation)`
+      );
     }
+  } catch (govErr) {
+    console.error(`[FAIL] Migration governor verification error: ${govErr.message}`);
+    failures++;
   }
 } else {
   console.error(`[FAIL] Migrations directory missing at: ${migrationsDir}`);
