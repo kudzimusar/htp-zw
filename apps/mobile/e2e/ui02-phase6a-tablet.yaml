@@ -2,9 +2,29 @@ appId: zw.co.healthtimes.app.dev
 ---
 - launchApp:
     clearState: true
-- extendedWaitUntil:
-    visible: "Top Stories"
-    timeout: 240000
+# The Android landscape tablet hero can place the section just below the
+# viewport. Wait for the loaded Home filter, then require the real heading
+# after scrolling; waiting alone cannot reveal an off-screen element.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "For You Home filter"
+          timeout: 240000
+      - scrollUntilVisible:
+          element:
+            text: "Top Stories"
+          direction: DOWN
+          timeout: 30000
+      - assertVisible: "Top Stories"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible: "Top Stories"
+          timeout: 240000
 
 # iOS first-use custom-scheme trust can dismiss the system sheet without
 # settling the requested deep link, or iOS 26.5 backboardd can cancel the
