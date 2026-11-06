@@ -1844,6 +1844,67 @@ test("12. Section 2–13 Disposable PostgreSQL Runtime Certification (Supabase e
     `));
     assert.equal(signedMismatch.accepted, false);
     assert.equal(signedMismatch.code, 'CURRENCY_MISMATCH');
+
+    // R4: LIVE candidate must COMPILE on the *actual* HealthTimes schema, after
+    // the full payment, provider and historical currency migrations above.
+    // This test uses only the disposable PostgreSQL database; never Staging.
+    const r4LiveSql=fs.readFileSync(path.join(repoRoot,
+      'supabase/migrations/candidates/20261102090000_ht_mvp_paynow_r3_live_usd_attested_contract.sql'),'utf8');
+    runDbSql(dbName,r4LiveSql);
+    const r4Proof=JSON.parse(runDbSql(dbName,`
+      select jsonb_build_object(
+        'live_rpc_exists',to_regprocedure('public.payment_record_paynow_live_status(text,text,numeric,text,text,text,text,text,jsonb)') is not null,
+        'attestation_table_exists',to_regclass('public.payment_live_usd_attestations') is not null,
+        'no_app_insert',not has_table_privilege('service_role','public.payment_live_usd_attestations','INSERT'),
+        'no_anon_execute',not has_function_privilege('anon','public.payment_record_paynow_live_status(text,text,numeric,text,text,text,text,text,jsonb)','EXECUTE'),
+        'historical_mismatch',(select internal_status from public.payment_transactions where merchant_reference='HT-CONN-01M61ANPB2N0Y8QYEK426TP347'),
+        'live_without_proof',(public.payment_record_paynow_live_status(
+          'HT-CONN-01M61ANPB2N0Y8QYEK426TP347','66738535',1.00,null,'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          repeat('a',64),repeat('b',64),
+          '{"signature_verified":true,"poll_confirmed":true,"provider_mode":"LIVE","integration_id":"9999"}'::jsonb)->>'accepted')::boolean,
+        'existing_exception_count',(select count(*) from public.payment_exceptions where exception_code='CURRENCY_MISMATCH')
+      )::text;
+    `));
+    assert.equal(r4Proof.live_rpc_exists,true);
+    assert.equal(r4Proof.attestation_table_exists,true);
+    assert.equal(r4Proof.no_app_insert,true);
+    assert.equal(r4Proof.no_anon_execute,true);
+    assert.equal(r4Proof.historical_mismatch,'CURRENCY_MISMATCH');
+    assert.equal(r4Proof.live_without_proof,false);
+    assert.ok(r4Proof.existing_exception_count>=1);
+
+    // R5: real HealthTimes schema-parity rehearsal of evidence-authority gates.
+    // Never applied to Staging; the test DB is dropped in this test's finally.
+    const r5EvidenceSql=fs.readFileSync(path.join(repoRoot,
+      'supabase/migrations/candidates/20261102131000_ht_mvp_paynow_r5_identity_bound_usd_evidence.sql'),'utf8');
+    runDbSql(dbName,r5EvidenceSql);
+    const r5Proof=JSON.parse(runDbSql(dbName,`
+      select jsonb_build_object(
+        'document_storage_exists',to_regclass('public.payment_live_usd_evidence_objects') is not null,
+        'reviews_exist',to_regclass('public.payment_live_usd_evidence_approvals') is not null,
+        'review_assignments_exist',to_regclass('public.payment_live_usd_review_assignments') is not null,
+        'no_app_document_read',not has_table_privilege('service_role','public.payment_live_usd_evidence_objects','SELECT'),
+        'no_anon_approve',not has_function_privilege('anon','public.payment_live_usd_approve_evidence(uuid,text,text)','EXECUTE'),
+        'authenticated_review_rpc',has_function_privilege('authenticated','public.payment_live_usd_approve_evidence(uuid,text,text)','EXECUTE'),
+        'old_live_failure_isolation',(public.payment_record_paynow_live_status(
+          'HT-CONN-01M61ANPB2N0Y8QYEK426TP347','66738535',1.00,null,'Paid',
+          'https://www.paynow.co.zw/Interface/CheckPayment/?guid=9f24be04-f4a6-4dff-8ab5-455263ba7b6b',
+          repeat('a',64),repeat('b',64),
+          '{"signature_verified":true,"poll_confirmed":true,"provider_mode":"LIVE","integration_id":"9999"}'::jsonb)->>'accepted')::boolean,
+        'historical_status',(select internal_status from public.payment_transactions where merchant_reference='HT-CONN-01M61ANPB2N0Y8QYEK426TP347')
+      )::text;
+    `));
+    assert.equal(r5Proof.document_storage_exists,true);
+    assert.equal(r5Proof.reviews_exist,true);
+    assert.equal(r5Proof.review_assignments_exist,true);
+    assert.equal(r5Proof.no_app_document_read,true);
+    assert.equal(r5Proof.no_anon_approve,true);
+    assert.equal(r5Proof.authenticated_review_rpc,true);
+    assert.equal(r5Proof.old_live_failure_isolation,false);
+    assert.equal(r5Proof.historical_status,'CURRENCY_MISMATCH');
+
+
   } finally {
     try {
       runDbSql("postgres", `drop database if exists ${dbName};`);

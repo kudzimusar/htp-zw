@@ -7,6 +7,7 @@ import { radius, spacing } from "../../src/theme/tokens";
 
 type PaymentStatus={
   payment_verified?:boolean;
+  test_outcome?:string|null;
   internal_status?:string;
   provider_status?:string|null;
   purpose?:string;
@@ -21,12 +22,29 @@ export default function PaymentReturn(){
   const reference=typeof params.reference==="string" ? params.reference : "";
   const [status,setStatus]=useState<PaymentStatus|null>(null);
   const [message,setMessage]=useState("HealthTimes is confirming your payment with Paynow.");
+  const [access,setAccess]=useState<"pending"|"sign-in"|"unavailable"|"operator-only">("pending");
+  const [attempt,setAttempt]=useState(0);
+  // Static web export renders without a browser query string. Keep the first
+  // client render identical and resolve references only after hydration.
+  const [hydrated,setHydrated]=useState(false);
+  useEffect(()=>setHydrated(true),[]);
 
   useEffect(()=>{
+    if(!hydrated)return;
     if(!/^HT-(PREM|INV|CONN)-[0-9A-HJKMNP-TV-Z]{26}$/.test(reference)){
       setMessage("This payment return link is incomplete.");
       return;
     }
+    // A connectivity test has no subscriber owner. A reference is not a
+    // bearer credential and an operator token must never reach this browser.
+    if(reference.startsWith("HT-CONN-")){
+      setAccess("operator-only");
+      setMessage("This was a controlled Paynow TEST transaction. Only an authorized HealthTimes test operator can verify its provider result. No money or Premium access is granted.");
+      return;
+    }
+    setStatus(null);
+    setAccess("pending");
+    setMessage("HealthTimes is confirming your payment with Paynow.");
     let active=true;
     let timer:ReturnType<typeof setTimeout>|undefined;
     let attempts=0;
@@ -38,8 +56,32 @@ export default function PaymentReturn(){
         });
         const next=await response.json() as PaymentStatus;
         if(!active) return;
+        if(response.status===401){
+          setAccess("sign-in");
+          setMessage("Your session has expired or you are signed out. Sign in to your HealthTimes account and check this payment again. No Premium access is granted without verified payment.");
+          return;
+        }
+        if(response.status===403 || response.status===404){
+          setAccess("unavailable");
+          setMessage("This payment reference is not available to your account. For security, payment details cannot be displayed.");
+          return;
+        }
+        if(response.status===429){
+          setMessage("Too many status checks. Please retry later from your signed-in account.");
+          return;
+        }
         if(response.ok){
           setStatus(next);
+          if(next.test_outcome?.startsWith("TEST_SIMULATED_")){
+            setMessage(next.test_outcome==="TEST_SIMULATED_PAID"
+              ? "Paynow TEST simulator confirmed a simulated payment. No money moved and no Premium subscription was activated."
+              : next.test_outcome==="TEST_SIMULATED_CANCELLED"
+                ? "Paynow TEST simulator recorded a cancellation. No Premium access was granted."
+                : next.test_outcome==="TEST_SIMULATED_FAILED"
+                  ? "Paynow TEST simulator recorded a failed payment. No Premium access was granted."
+                  : "Paynow TEST simulator is pending. No Premium access was granted.");
+            return;
+          }
           if(next.payment_verified===true){
             setMessage(next.purpose==="PROVIDER_CONNECTIVITY_TEST"
               ? "Provider test verified. No membership or accounting changes were made."
@@ -66,7 +108,7 @@ export default function PaymentReturn(){
     };
     void check();
     return()=>{active=false;if(timer) clearTimeout(timer);};
-  },[reference]);
+  },[reference,attempt,hydrated]);
 
   return <Page>
     <View style={[styles.card,{backgroundColor:palette.paper,borderColor:palette.border}]}>
@@ -74,6 +116,12 @@ export default function PaymentReturn(){
       <Text accessibilityRole="header" style={[styles.title,{color:palette.ink}]}>Payment confirmation</Text>
       <Text style={[styles.message,{color:palette.inkMuted}]}>{message}</Text>
       {status?.provider_status ? <Text style={[styles.provider,{color:palette.inkMuted}]}>Provider status: {status.provider_status}</Text> : null}
+      {hydrated && access==="sign-in" ? <Pressable accessibilityRole="button" onPress={()=>router.replace("/account-access" as never)} style={[styles.button,{backgroundColor:palette.blue}]}>
+        <Text style={styles.buttonText}>Sign in to HealthTimes</Text>
+      </Pressable> : null}
+      {hydrated && access==="pending" && reference.startsWith("HT-PREM-") ? <Pressable accessibilityRole="button" onPress={()=>setAttempt(value=>value+1)} style={[styles.button,{backgroundColor:palette.blue}]}>
+        <Text style={styles.buttonText}>Check payment again</Text>
+      </Pressable> : null}
       <Pressable accessibilityRole="button" onPress={()=>router.replace("/premium" as never)} style={[styles.button,{backgroundColor:palette.blue}]}>
         <Text style={styles.buttonText}>Return to Premium</Text>
       </Pressable>
