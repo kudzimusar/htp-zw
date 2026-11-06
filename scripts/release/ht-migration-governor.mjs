@@ -18,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const ROOT_DIR = path.resolve(process.cwd());
 const MIGRATIONS_DIR = path.join(ROOT_DIR, "supabase", "migrations");
@@ -775,7 +775,7 @@ export function verifyLedgerAndSequence({ target, plan, appliedVersions = [] }) 
  */
 export function createGovernedSqlAdapter({
   pgUri,
-  psqlBin = "/opt/homebrew/opt/libpq/bin/psql",
+  psqlBin = process.env.HT_MIGRATION_PSQL_BIN || "psql",
   instanceAttestation = null
 }) {
   const endpoint = parsePostgresUri(pgUri);
@@ -785,8 +785,11 @@ export function createGovernedSqlAdapter({
   function queryJson(sql) {
     const cleanSql = sql.trim().replace(/;+$/, "");
     const wrapped = `SELECT coalesce(json_agg(t), '[]'::json) FROM (${cleanSql}) t;`;
-    const cmd = `${psqlBin} "${pgUri}" -A -t -v ON_ERROR_STOP=1`;
-    const out = execSync(cmd, { encoding: "utf8", input: wrapped }).trim();
+    // A database URI may contain shell metacharacters. Never interpolate it
+    // into a command string or invoke a shell (also works on Linux CI runners).
+    const out = execFileSync(psqlBin, [pgUri, "-A", "-t", "-v", "ON_ERROR_STOP=1"], {
+      encoding: "utf8", input: wrapped, windowsHide: true
+    }).trim();
     return JSON.parse(out || "[]");
   }
 
@@ -810,8 +813,9 @@ export function createGovernedSqlAdapter({
         "CRITICAL_FAIL_CLOSED: Governed SQL execution adapter refused execution: Database identity has not been attested. All mutations require positive database identity attestation."
       );
     }
-    const cmd = `${psqlBin} "${pgUri}" -q -v ON_ERROR_STOP=1`;
-    return execSync(cmd, { encoding: "utf8", input: sql });
+    return execFileSync(psqlBin, [pgUri, "-q", "-v", "ON_ERROR_STOP=1"], {
+      encoding: "utf8", input: sql, windowsHide: true
+    });
   }
 
   return {
