@@ -49,7 +49,7 @@ jobs:
       - name: Install workspaces
         run: |
           npm install --no-audit --no-fund
-          npm install --prefix apps/mobile --no-audit --no-fund
+          npm ci --prefix apps/mobile --no-audit --no-fund
       - name: Run Phase 10 visual contract
         run: node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
       - name: Typecheck shared Reader
@@ -307,7 +307,7 @@ jobs:
           node-version: '22'
 
       - name: Install canonical Reader
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+        run: npm ci --prefix apps/mobile --no-audit --no-fund
 
       - name: Generate iOS native project
         working-directory: apps/mobile
@@ -594,7 +594,7 @@ jobs:
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
-      - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - run: npm ci --prefix apps/mobile --no-audit --no-fund
       - name: Generate staging Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install

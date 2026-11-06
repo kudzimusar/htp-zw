@@ -51,7 +51,7 @@ jobs:
           node-version: '22'
 
       - name: Install mobile workspace
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+        run: npm ci --prefix apps/mobile --no-audit --no-fund
 
       - name: Validate universal source and NM-01 through NM-06 gates
         run: |
@@ -150,7 +150,7 @@ jobs:
           java-version: '17'
 
       - name: Install mobile workspace
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+        run: npm ci --prefix apps/mobile --no-audit --no-fund
 
       - name: Generate Android native project
         working-directory: apps/mobile
@@ -198,7 +198,7 @@ jobs:
           node-version: '22'
 
       - name: Install mobile workspace
-        run: npm install --prefix apps/mobile --no-audit --no-fund
+        run: npm ci --prefix apps/mobile --no-audit --no-fund
 
       - name: Generate iOS native project
         working-directory: apps/mobile
