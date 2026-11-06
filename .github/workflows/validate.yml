@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Verify migration governor safe process invocation and attestation gate
+        run: node --test tests/migration/migration-governor-process-safety.test.mjs
+
       - name: Validate JavaScript syntax
         run: |
           node --check app.js
