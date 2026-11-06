@@ -605,6 +605,21 @@ export function attestConnectedDatabase({
   throw new Error(`CRITICAL_FAIL_CLOSED: Unknown target environment: "${target}".`);
 }
 
+/** Compare the approved ordered catalog with the independently generated plan. */
+export function verifyManifestCatalog(catalog, plan) {
+  if (!Array.isArray(catalog) || !Array.isArray(plan) || catalog.length !== plan.length) {
+    throw new Error("CRITICAL_FAIL_CLOSED: Manifest catalog and migration plan differ in length.");
+  }
+  for (let i = 0; i < plan.length; i++) {
+    const expected = plan[i];
+    const actual = catalog[i];
+    if (!actual || actual.file !== expected.file || actual.classification !== expected.classification || actual.sha256 !== expected.sha256) {
+      throw new Error(`CRITICAL_FAIL_CLOSED: Manifest catalog does not match the migration plan at index ${i}.`);
+    }
+  }
+  return true;
+}
+
 /**
  * Validates immutable manifest integrity against disk.
  * PURE READ-ONLY VERIFICATION — NEVER REGENERATES OR MODIFIES THE MANIFEST.
@@ -679,6 +694,7 @@ export function verifyManifest(manifestPath = MANIFEST_PATH) {
       `CRITICAL_FAIL_CLOSED: Production plan count mismatch (${currentPlan.totalMigrations} !== ${manifest.production_plan_migrations_count})`
     );
   }
+  verifyManifestCatalog(manifest.catalog, currentPlan.plan);
 
   console.log(`[GOVERNOR] Manifest verification: ALL INVARIANTS AND ${currentPlan.totalMigrations} MIGRATIONS PASSED IMMUTABILITY AUDIT.`);
   return true;
