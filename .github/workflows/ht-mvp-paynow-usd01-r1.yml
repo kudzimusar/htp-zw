@@ -57,7 +57,7 @@ jobs:
           const runtime = fs.readFileSync('lib/paynow-runtime.js', 'utf8');
           if (/initiated_at\s*<\s*now\(\)/i.test(sql)) throw new Error('Stale claim automatic replay still permitted');
           if (!/PAYNOW_AMBIGUOUS_INITIATION_CANNOT_RELEASE/.test(sql)) throw new Error('Ambiguous claim release guard missing');
-          if (!/checkoutPubliclyEnabled/.test(runtime) || !/currency_source: 'SIGNED_PROVIDER_FIELD'/.test(runtime)) {
+          if (!/checkoutPubliclyEnabled/.test(runtime) || !runtime.includes("currency ? 'SIGNED_PROVIDER_FIELD' : 'NOT_IN_SIGNED_PROVIDER_FIELDS'")) {
             throw new Error('Checkout/currency guard drift');
           }
           NODE

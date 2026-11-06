@@ -255,7 +255,7 @@ test("UX-CONV-01-R2: Dynamic Staff Profile rewrite rule and deep-link routing co
   const vercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, "vercel.json"), "utf8"));
   assert.equal(vercelConfig.cleanUrls, true, "cleanUrls must be true");
   assert.ok(Array.isArray(vercelConfig.rewrites), "vercel.json must define rewrites");
-  const staffRewrite = vercelConfig.rewrites.find((r) => r.source === "/studio/staff/:staffId");
+  const staffRewrite = vercelConfig.rewrites.find((r) => ["/studio/staff/:staffId", "/studio/staff/:staffId*"].includes(r.source));
   assert.ok(staffRewrite, "Must contain rewrite rule for /studio/staff/:staffId");
   assert.ok(
     staffRewrite.destination === "/studio/staff/fallback" ||

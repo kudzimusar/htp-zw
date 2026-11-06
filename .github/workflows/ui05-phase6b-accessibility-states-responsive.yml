@@ -27,7 +27,7 @@ env:
 jobs:
   phase6b-quality:
     name: Exact-head accessibility / states / responsive evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4

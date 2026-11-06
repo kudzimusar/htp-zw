@@ -26,7 +26,7 @@ env:
 jobs:
   discovery-web:
     name: Explore + Intelligent Search exact-head evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4

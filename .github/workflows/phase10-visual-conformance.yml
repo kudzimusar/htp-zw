@@ -26,7 +26,7 @@ env:
 jobs:
   candidate-web:
     name: Candidate Web/PWA conformance + screenshots
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -557,7 +557,7 @@ jobs:
 
   candidate-android:
     name: Candidate Android emulator screenshots
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: staging

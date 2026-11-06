@@ -36,7 +36,7 @@ env:
 jobs:
   reader-convergence:
     name: Migrated corpus Reader convergence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -108,7 +108,7 @@ jobs:
 
   readonly-staging:
     name: Read-only staging corpus and CP5 invariants
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

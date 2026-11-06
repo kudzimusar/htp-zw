@@ -74,6 +74,8 @@ const {
 const studioLiveUiModule = loadTs("src/ui/StudioLiveDesk.tsx", {
   mocks: {
     react: {
+      createContext: (value) => ({ Provider: "Provider", _value: value }),
+      useContext: (context) => context._value,
       useState: (init) => [typeof init === "function" ? init() : init, () => {}],
       useMemo: (fn) => fn(),
       useEffect: () => {},
@@ -135,6 +137,8 @@ const { StudioLiveDeskView } = studioLiveUiModule;
 const readerLiveModule = loadTs("app/(reader)/live.tsx", {
   mocks: {
     react: {
+      createContext: (value) => ({ Provider: "Provider", _value: value }),
+      useContext: (context) => context._value,
       useState: (init) => [typeof init === "function" ? init() : init, () => {}],
       useMemo: (fn) => fn(),
       useEffect: () => {},

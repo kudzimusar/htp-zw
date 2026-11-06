@@ -26,7 +26,7 @@ env:
 jobs:
   final-web:
     name: Final exact-head Web/PWA visual evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4

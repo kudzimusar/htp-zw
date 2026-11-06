@@ -40,6 +40,8 @@ const { buildPreviewVideos } = previewData;
 const uiModule = loadTs("src/ui/StudioVideoDesk.tsx", {
   mocks: {
     react: {
+      createContext: (value) => ({ Provider: "Provider", _value: value }),
+      useContext: (context) => context._value,
       useState: (init) => [typeof init === "function" ? init() : init, () => {}],
       useMemo: (fn) => fn(),
       useEffect: () => {},

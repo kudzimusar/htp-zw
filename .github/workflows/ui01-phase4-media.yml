@@ -26,7 +26,7 @@ env:
 jobs:
   media-web:
     name: Live + Watch + Listen exact-head evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
