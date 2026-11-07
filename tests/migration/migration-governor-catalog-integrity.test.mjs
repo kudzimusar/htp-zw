@@ -31,7 +31,7 @@ test('manifest verification rejects a duplicate that hides an omitted migration'
     // A disposable copy of the pre-integration approved catalog, not a
     // reclassification or execution of the real unreviewed migration.
     for (const file of fs.readdirSync(path.join(root, 'supabase/migrations'))) {
-      if (file.endsWith('.sql') && !file.startsWith('20261102080000_')) {
+      if (file.endsWith('.sql') && !file.startsWith('20261102080000_') && !file.startsWith('20261107130000_')) {
         fs.copyFileSync(path.join(root, 'supabase/migrations', file), path.join(sql, file));
       }
     }

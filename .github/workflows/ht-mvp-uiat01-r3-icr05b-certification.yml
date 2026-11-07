@@ -4,8 +4,14 @@ on:
   push:
     branches:
       - fix/ht-mvp-uiat01-r3-icr05b-final-ci-session-evidence
+      - fix/ht-g2-rbac-session-boundary
   pull_request:
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Exact commit SHA authorized for protected Staging UAT fault-injection execution'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,7 +33,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Parse-check the gated physical fault suite without running live sessions
         run: node --check tests/harness/icr05a-fault-injection.test.mjs
-      - name: Run 10 ICR05A consistency and 12 ICR05B session negative-path checks
+      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, and 3 workflow containment checks
         shell: bash
         run: |
           set -euo pipefail
@@ -36,20 +42,37 @@ jobs:
           grep -Eq '^# pass 22$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
+          node --test tests/harness/icr05b-workflow-containment.test.mjs 2>&1 | tee /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# tests 3$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# pass 3$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
       - name: Upload deterministic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: icr05b-deterministic-exact-head
-          path: /tmp/icr05b-deterministic.tap
+          path: |
+            /tmp/icr05b-deterministic.tap
+            /tmp/icr05b-workflow-containment.tap
           if-no-files-found: warn
 
-  physical-live-fault-injection:
+  disposable-postgres-rbac-boundary:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Not silently skipped: the physical ICR05A suite REQUIRES authorized
-    # test actor credentials and a privileged Staging audit token. If missing
-    # the job FAILS with a named external blocker, never fixture PASS.
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,6 +80,64 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+      - name: Run G2 RBAC Session Boundary & Story Title Authority Disposable PostgreSQL 16 Suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/database/g2-rbac-session-boundary.test.mjs 2>&1 | tee /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# tests 7$' /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# pass 7$' /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# fail 0$' /tmp/g2-rbac-session-boundary.tap
+          node --test tests/database/real-schema-title-authority.test.mjs 2>&1 | tee /tmp/real-schema-title-authority.tap
+          grep -Eq '^# tests 15$' /tmp/real-schema-title-authority.tap
+          grep -Eq '^# pass 15$' /tmp/real-schema-title-authority.tap
+          grep -Eq '^# fail 0$' /tmp/real-schema-title-authority.tap
+      - name: Upload disposable PostgreSQL regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2-rbac-disposable-postgres-evidence
+          path: |
+            /tmp/g2-rbac-session-boundary.tap
+            /tmp/real-schema-title-authority.tap
+          if-no-files-found: warn
+
+  physical-live-fault-injection:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (github.ref == 'refs/heads/release/ht-mvp-2.0-final' || github.ref == 'refs/heads/fix/ht-g2-rbac-session-boundary')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging-uat-certification
+    # Isolated from pull_request triggers and untrusted branches.
+    # Requires manual workflow_dispatch on an approved ref, protected GitHub Environment
+    # approval (staging-uat-certification), and exact expected_sha parity.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact authorized SHA before accessing protected UAT credentials
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test -n "$EXPECTED_SHA" && test "$ACTUAL_SHA" = "$EXPECTED_SHA" || {
+            echo "::error title=SHA_MISMATCH::Checked out SHA ($ACTUAL_SHA) does not match authorized expected_sha ($EXPECTED_SHA)."
+            exit 1
+          }
       - name: Require Owner-provisioned protected test identities
         shell: bash
         env:
@@ -64,6 +145,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN }}
         run: |
           set -euo pipefail
+          if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::add-mask::${SUPABASE_ACCESS_TOKEN}"
+          fi
           test -n "$UAT_ACTORS_JSON" && test -n "$SUPABASE_ACCESS_TOKEN" || {
             echo "::error title=BLOCKED_OWNER_UAT_CREDENTIALS::ICR05A live session test cannot run without Owner-authorized test identities and a Staging audit token."
             exit 78
@@ -71,6 +155,11 @@ jobs:
           node - <<'NODE'
           const actors=JSON.parse(process.env.UAT_ACTORS_JSON || '{}');
           const emails=['uat-specialist@healthtimes.test','uat-commercial@healthtimes.test'];
+          for (const actor of Object.values(actors)) {
+            if (actor && typeof actor.password === 'string' && actor.password) {
+              console.log(`::add-mask::${actor.password}`);
+            }
+          }
           if(emails.some(email=>!actors[email]||actors[email].email!==email||typeof actors[email].password!=='string'||!actors[email].password)){
             console.error('BLOCKED_OWNER_UAT_CREDENTIALS: both distinct real test actors and passwords required');
             process.exit(78);
