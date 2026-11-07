@@ -1,0 +1,148 @@
+{
+  "auditType": "STAGING_LIVE_SQL_SESSION_AUDIT",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05-LR01",
+  "authority": "READ_ONLY_SELECT_ENFORCED",
+  "connectionProvenance": "Supabase Management API direct HTTPS query via personal access token",
+  "nonOwnerGlobalRevokePresent": false,
+  "trackedCurrentRunSessions": [
+    {
+      "email": "uat-specialist@healthtimes.test",
+      "staffProfileId": "5d01dd6e-2a6d-46fa-9c5c-846193add82a"
+    },
+    {
+      "email": "uat-commercial@healthtimes.test",
+      "staffProfileId": null,
+      "providerSessionId": null
+    }
+  ],
+  "runId": "08ce929a-7155-4e82-b551-046dc0ab8bd1",
+  "preTest": {
+    "stage": "PRE_TEST",
+    "timestamp": "2026-11-02T10:19:02.246Z",
+    "provenance": "Supabase Management API direct HTTPS query via personal access token",
+    "projectId": "bzuvntbkevvuhfhqhkua",
+    "authority": "READ_ONLY_SELECT_ENFORCED",
+    "queries": {
+      "newsroomSessions": {
+        "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "executedAt": "2026-11-02T10:19:02.230Z",
+        "status": 201,
+        "sha256_digest": "71feaf050a63a0ab7889643acb76bfeccc98779e36b258e2a7eab3ef317193a5",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 15
+          }
+        ]
+      },
+      "authSessions": {
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "executedAt": "2026-11-02T10:19:02.197Z",
+        "status": 201,
+        "sha256_digest": "e6e8dfdad6ea5cfe63cd3d71fd4176bd21b29c0fb6d78ad1af5b6bd439f33517",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      },
+      "refreshTokens": {
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+        "executedAt": "2026-11-02T10:19:02.246Z",
+        "status": 201,
+        "sha256_digest": "8f87d9a54f3dd27400c5c5e2524cc269699072ba69c8fb6aa2288d6981710868",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "counts": {
+      "testNewsroomSessions": 0,
+      "ownerNewsroomSessions": 15,
+      "testAuthSessions": 0,
+      "ownerAuthSessions": 2,
+      "testRefreshTokens": 0,
+      "ownerRefreshTokens": 2
+    },
+    "breakdown": {
+      "newsroom": {
+        "kudzimusar@gmail.com": 15
+      },
+      "auth": {
+        "kudzimusar@gmail.com": 2
+      },
+      "refresh": {
+        "kudzimusar@gmail.com": 2
+      }
+    }
+  },
+  "postTest": {
+    "stage": "POST_TEST",
+    "timestamp": "2026-11-02T10:20:31.632Z",
+    "provenance": "Supabase Management API direct HTTPS query via personal access token",
+    "projectId": "bzuvntbkevvuhfhqhkua",
+    "authority": "READ_ONLY_SELECT_ENFORCED",
+    "queries": {
+      "newsroomSessions": {
+        "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "executedAt": "2026-11-02T10:20:31.632Z",
+        "status": 201,
+        "sha256_digest": "71feaf050a63a0ab7889643acb76bfeccc98779e36b258e2a7eab3ef317193a5",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 15
+          }
+        ]
+      },
+      "authSessions": {
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "executedAt": "2026-11-02T10:20:31.434Z",
+        "status": 201,
+        "sha256_digest": "e6e8dfdad6ea5cfe63cd3d71fd4176bd21b29c0fb6d78ad1af5b6bd439f33517",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      },
+      "refreshTokens": {
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+        "executedAt": "2026-11-02T10:20:31.437Z",
+        "status": 201,
+        "sha256_digest": "8f87d9a54f3dd27400c5c5e2524cc269699072ba69c8fb6aa2288d6981710868",
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "counts": {
+      "testNewsroomSessions": 0,
+      "ownerNewsroomSessions": 15,
+      "testAuthSessions": 0,
+      "ownerAuthSessions": 2,
+      "testRefreshTokens": 0,
+      "ownerRefreshTokens": 2
+    },
+    "breakdown": {
+      "newsroom": {
+        "kudzimusar@gmail.com": 15
+      },
+      "auth": {
+        "kudzimusar@gmail.com": 2
+      },
+      "refresh": {
+        "kudzimusar@gmail.com": 2
+      }
+    }
+  },
+  "integrityDigestSha256": "d33f3548203b79171fa0115b30d579e92a0a50854d9c8cacc71268fdaf99283e"
+}

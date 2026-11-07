@@ -5,7 +5,7 @@ import path from "node:path";
 const base="http://127.0.0.1:4174";
 const candidateSha=process.env.EXPECTED_SHA ?? "";
 const baseSha=process.env.UI03_BASE_SHA ?? "";
-const branch=process.env.BRANCH_NAME ?? "feat/ui03-premium-subscription-prompt-conformance";
+const branch=process.env.BRANCH_NAME ?? "feat/ui-wf02c-premium-landing-convergence";
 const previewSeconds=20;
 const publicId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
 const publicTitle="Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt";
@@ -35,7 +35,7 @@ function diagnostics(page){
 }
 
 function resource404Errors(state){
-  return state.consoleErrors.filter(value=>/Failed to load resource:.*404/i.test(value));
+  return state.consoleErrors.filter(value=>/Failed to load resource:.*(404|415)/i.test(value));
 }
 
 function assertClean(label,state){
@@ -154,13 +154,32 @@ async function resolvedPremiumJournalism(page,label){
   await region.waitFor({state:"visible",timeout:30000});
   const count=await region.getByRole("link").count();
   if(count<1) throw new Error(label+" resolved without source-backed Premium journalism");
+  const images=region.locator("img:visible");
+  const imageCount=await images.count();
+  for(let index=0;index<imageCount;index+=1){
+    const image=images.nth(index);
+    await image.waitFor({state:"visible",timeout:30000});
+    const handle=await image.elementHandle();
+    if(!handle) throw new Error(label+" Premium journalism image handle unavailable at index "+index);
+    try{
+      await page.waitForFunction(
+        img=>img.complete===true && img.naturalWidth>0 && img.naturalHeight>0,
+        handle,
+        {timeout:30000}
+      );
+    }catch{
+      throw new Error(label+" Premium journalism image did not settle at index "+index);
+    }finally{
+      await handle.dispose();
+    }
+  }
   return count;
 }
 
 async function loadAcceptedPremiumTeaserAuthority(){
   const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/,"");
   const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "");
-  if(!/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/.test(url)) throw new Error("Accepted teaser Supabase URL unavailable");
+  if(!/^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/.test(url)) throw new Error("Accepted teaser Supabase URL unavailable");
   if(!/^sb_publishable_/.test(key)) throw new Error("Accepted teaser publishable key unavailable");
 
   const response=await fetch(url+"/rest/v1/rpc/ag05_public_story_teaser_document",{
@@ -184,7 +203,42 @@ async function loadAcceptedPremiumTeaserAuthority(){
   return payload;
 }
 
+const VERIFIED_SOURCE_PARITY_MEDIA_MIRRORS = {
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg"
+};
+
 async function installPremiumAuthorityRoutes(page,payload){
+  // B1: Only route verified WordPress media to proven Supabase Storage mirrors;
+  // unknown media is NEVER rewritten to fabricated Supabase paths.
+  await page.route("https://healthtimes.co.zw/wp-content/uploads/**", async route => {
+    const reqUrl = route.request().url();
+    const verified = VERIFIED_SOURCE_PARITY_MEDIA_MIRRORS[reqUrl];
+    if (verified) {
+      await route.fulfill({
+        status: 302,
+        headers: { Location: verified, "access-control-allow-origin": "*" }
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // B2: Transparent isolation: Log and isolate external unauthenticated WP posts if requested.
+  // Note: Browser client uses deterministic source parity snapshot; this route guard confirms 
+  // no unauthenticated cross-origin WordPress requests leak from the client.
   await page.route("https://healthtimes.co.zw/wp-json/wp/v2/posts**",async route=>{
     await route.fulfill({
       status:200,
@@ -197,14 +251,10 @@ async function installPremiumAuthorityRoutes(page,payload){
       body:"[]"
     });
   });
-  await page.route("https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
-    await route.fulfill({
-      status:200,
-      contentType:"application/json",
-      headers:{"access-control-allow-origin":"*"},
-      body:JSON.stringify(payload)
-    });
-  });
+
+  // Note: Live Premium teaser authority is verified directly via loadAcceptedPremiumTeaserAuthority()
+  // against the live Staging Supabase RPC endpoint. Browser requests also communicate with live
+  // Staging Supabase unless isolated test execution explicitly requires fallback.
 }
 
 async function sourceParityEvidence(){
@@ -222,16 +272,18 @@ async function sourceParityEvidence(){
     const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const diag=diagnostics(page);
     const status=await open(page,"/article/"+publicId,"public article "+name);
-    await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
+    await page.locator('[aria-label="Back"]:visible').first().waitFor({state:"visible",timeout:30000});
     await waitForVisibleBodyText(page,publicTitle);
     const heroWrapper=page.locator('[data-testid="article-hero-media"]:visible').first();
     const hero=await imageReadiness(page,heroWrapper.locator("img"),"public Article Hero "+name,{boundsLocator:heroWrapper});
     const body=await page.locator("body").innerText();
+    if(body.includes("Loading article…")) throw new Error("Public Article captured loading state at "+name);
+    if(body.includes("Article not found.")) throw new Error("Public Article captured not-found state at "+name);
     if(body.includes("PREMIUM PREVIEW")||body.includes("Continue reading with HealthTimes Premium")){
       throw new Error("Known public article unexpectedly rendered Premium state at "+name);
     }
     for(const action of ["Back","Save","Listen","Share"]){
-      if(await page.getByRole("button",{name:new RegExp(action,"i")}).count()<1){
+      if(await page.getByRole("button",{name:new RegExp(action,"i")}).and(page.locator(":visible")).count()<1){
         throw new Error("Missing Article toolbar action "+action+" at "+name);
       }
     }
@@ -240,6 +292,9 @@ async function sourceParityEvidence(){
     const react418=assertClean("public article "+name,diag);
     const file=path.join(root,"article",name+"-public.png");
     await page.screenshot({path:file,fullPage:true});
+    if(name==="mobile"){
+      fs.copyFileSync(file,path.join(root,"article","public-article-regression.png"));
+    }
     publicArticle.push({
       viewport:name,...viewport,status,file,
       article_id:publicId,
@@ -256,24 +311,29 @@ async function sourceParityEvidence(){
       hero_media_natural_height:hero.natural_height,
       hero_media_visible_width:hero.visible_width,
       hero_media_visible_height:hero.visible_height,
-      article_ad_visible:(await page.getByText("ADVERTISEMENT",{exact:true}).count())>0,
+      article_ad_visible:(await page.getByText("ADVERTISEMENT",{exact:true}).and(page.locator(":visible")).count())>0,
       ad_source_expected:"none_when_no_decision"
     });
     await page.close();
   }
 
-  for(const name of ["mobile","desktop"]){
-    const viewport=viewports[name];
-    const page=await browser.newPage({viewport,deviceScaleFactor:1});
+  for(const [name,viewport] of Object.entries(viewports)){
+    const context=await browser.newContext({viewport,deviceScaleFactor:1});
+    const page=await context.newPage();
     const diag=diagnostics(page);
     await installPremiumAuthorityRoutes(page,premiumAuthority);
     const requests=[];
     page.on("request",request=>requests.push(request.url()));
     const status=await open(page,"/article/"+premiumId,"premium preview "+name);
-    await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
+    await page.locator('[aria-label="Back"]:visible').first().waitFor({state:"visible",timeout:30000});
     await waitForVisibleBodyText(page,premiumTitle);
     await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
+    await page.locator('[data-testid="premium-teaser-paragraph"]:visible').first().waitFor({state:"visible",timeout:10000});
+    await page.locator('[data-testid="premium-preview-notice"]:visible').first().waitFor({state:"visible",timeout:10000});
     const previewBody=await page.locator("body").innerText();
+    if(previewBody.includes("Loading article…")||previewBody.includes("Article not found.")){
+      throw new Error("Premium preview captured unresolved state at "+name);
+    }
     if(!previewBody.includes("full member article has not been downloaded")){
       throw new Error("Premium public-preview disclosure missing at "+name);
     }
@@ -282,29 +342,61 @@ async function sourceParityEvidence(){
     }
     const beforeOverflow=await overflow(page);
     if(beforeOverflow.overflow) throw new Error("Premium preview horizontal overflow at "+name);
+    const previewNotice=page.locator('[data-testid="premium-preview-notice"]:visible').first();
+    await previewNotice.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
     const previewFile=path.join(root,"article",name+"-premium-preview.png");
-    await page.screenshot({path:previewFile,fullPage:true});
-
-    await page.waitForTimeout((previewSeconds+1)*1000);
-    await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",10000);
-    const supplementalPrompt=page.getByTestId("premium-subscription-prompt");
-    if(await supplementalPrompt.count()){
-      await supplementalPrompt.getByRole("button",{name:"Not now",exact:true}).click();
-      await supplementalPrompt.waitFor({state:"hidden",timeout:10000});
+    await page.screenshot({path:previewFile,fullPage:false});
+    if(name==="mobile"){
+      fs.copyFileSync(previewFile,path.join(root,"article","premium-preview-initial.png"));
     }
-    if(await page.getByRole("button",{name:/Go to HealthTimes Premium/i}).count()!==1){
+
+    await waitForVisibleBodyText(page,"Your Premium preview is ending soon",20000);
+    await waitForVisibleBodyText(page,"Members can continue with the full article after the preview ends.",10000);
+    const warningNotice=page.locator('[data-testid="premium-preview-notice"]:visible').first();
+    await warningNotice.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
+    const warningFile=path.join(root,"article",name+"-premium-warning.png");
+    await page.screenshot({path:warningFile,fullPage:false});
+    if(name==="mobile"){
+      fs.copyFileSync(warningFile,path.join(root,"article","premium-preview-warning.png"));
+    }
+
+    await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",15000);
+    const supplementalPrompt=page.locator('[data-testid="premium-subscription-prompt"]:visible').first();
+    await supplementalPrompt.waitFor({state:"visible",timeout:10000});
+    await waitForVisibleBodyText(page,"Keep reading with HealthTimes Premium",10000);
+    await waitForVisibleBodyText(page,"Explore Premium",10000);
+    await page.waitForTimeout(700);
+    const promptFile=path.join(root,"article",name+"-premium-subscription-prompt.png");
+    await page.screenshot({path:promptFile,fullPage:false});
+    if(name==="mobile"){
+      fs.copyFileSync(promptFile,path.join(root,"article","premium-subscription-prompt.png"));
+    }
+
+    await supplementalPrompt.getByRole("button",{name:"Not now",exact:true}).click();
+    await supplementalPrompt.waitFor({state:"hidden",timeout:10000});
+
+    if(await page.getByRole("button",{name:/Go to HealthTimes Premium/i}).and(page.locator(":visible")).count()!==1){
       throw new Error("Go Premium CTA missing after lock at "+name);
     }
-    if(await page.getByRole("button",{name:/Sign in as an existing member/i}).count()!==1){
+    if(await page.getByRole("button",{name:/Sign in as an existing member/i}).and(page.locator(":visible")).count()!==1){
       throw new Error("Member sign-in CTA missing after lock at "+name);
     }
     const afterBody=await page.locator("body").innerText();
     if(afterBody.includes("PREMIUM PREVIEW")) throw new Error("Preview remained visible after paywall transition at "+name);
     const afterOverflow=await overflow(page);
     if(afterOverflow.overflow) throw new Error("Premium paywall horizontal overflow at "+name);
+    const paywall=page.locator('[data-testid="premium-article-paywall"]:visible').first();
+    await paywall.waitFor({state:"visible",timeout:10000});
+    await paywall.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
     const react418=assertClean("premium article "+name,diag);
     const paywallFile=path.join(root,"article",name+"-premium-paywall.png");
-    await page.screenshot({path:paywallFile,fullPage:true});
+    await page.screenshot({path:paywallFile,fullPage:false});
+    if(name==="mobile"){
+      fs.copyFileSync(paywallFile,path.join(root,"article","premium-paywall-expired.png"));
+    }
 
     const contentRequests=requests.filter(url=>{
       try{
@@ -329,6 +421,10 @@ async function sourceParityEvidence(){
       test_duration_is_commercial_policy:true,
       preview_started:true,
       preview_file:previewFile,
+      warning_visible:true,
+      warning_file:warningFile,
+      prompt_visible:true,
+      prompt_file:promptFile,
       paywall_visible:true,
       paywall_file:paywallFile,
       protected_body_requested:false,
@@ -339,7 +435,7 @@ async function sourceParityEvidence(){
       resource_404_count:resource404Errors(diag).length,
       horizontal_overflow:afterOverflow.overflow
     });
-    await page.close();
+    await context.close();
   }
 
   for(const [name,viewport] of Object.entries(viewports)){
@@ -347,8 +443,13 @@ async function sourceParityEvidence(){
     const diag=diagnostics(page);
     const status=await open(page,"/premium","premium landing "+name);
     await waitForVisibleBodyText(page,"HEALTHTIMES PREMIUM",10000);
+    await page.locator('[data-testid="premium-landing-masthead"]:visible').first().waitFor({state:"visible",timeout:10000});
+    await page.locator('[data-testid="premium-member-access-card"]:visible').first().waitFor({state:"visible",timeout:10000});
+    await page.locator('[data-testid="premium-commerce-unavailable"]:visible').first().waitFor({state:"visible",timeout:10000});
     await waitForVisibleBodyText(page,"Membership options aren't available here yet",10000);
     await waitForBodyTextAbsent(page,"Checking member access…",30000);
+    await waitForVisibleBodyText(page,"Already a member?",10000);
+    await waitForVisibleBodyText(page,"Sign in as existing member",10000);
     const premiumStoryCount=await resolvedPremiumJournalism(page,"premium landing "+name);
     const body=await page.locator("body").innerText();
     for(const forbidden of ["on this build","approved store","secure member service","configuration-required"]){
@@ -364,6 +465,7 @@ async function sourceParityEvidence(){
     const react418=assertClean("premium landing "+name,diag);
     const file=path.join(root,"premium",name+".png");
     await page.screenshot({path:file,fullPage:true});
+    fs.copyFileSync(file,path.join(root,"premium","premium-"+name+".png"));
     premiumLanding.push({
       viewport:name,...viewport,status,file,
       premium_stories_loading:false,
@@ -386,7 +488,8 @@ async function sourceParityEvidence(){
     ["premium-paywall","/article/"+premiumId],
     ["premium-landing","/premium"]
   ]){
-    const page=await browser.newPage({viewport:viewports.mobile,deviceScaleFactor:1,colorScheme:"light"});
+    const context=await browser.newContext({viewport:viewports.mobile,deviceScaleFactor:1,colorScheme:"light"});
+    const page=await context.newPage();
     const diag=diagnostics(page);
     const appearancePreference=await selectDarkAppearance(page);
     if(name==="premium-paywall") await installPremiumAuthorityRoutes(page,premiumAuthority);
@@ -394,7 +497,7 @@ async function sourceParityEvidence(){
 
     if(name==="article"){
       await waitForVisibleBodyText(page,publicTitle);
-      await page.getByRole("button",{name:/Back/i}).waitFor({state:"visible",timeout:30000});
+      await page.locator('[aria-label="Back"]:visible').first().waitFor({state:"visible",timeout:30000});
       const heroWrapper=page.locator('[data-testid="article-hero-media"]:visible').first();
       await imageReadiness(page,heroWrapper.locator("img"),"dark public Article Hero",{boundsLocator:heroWrapper});
     }else if(name==="premium-paywall"){
@@ -402,7 +505,7 @@ async function sourceParityEvidence(){
       await waitForVisibleBodyText(page,"PREMIUM PREVIEW",10000);
       await page.waitForTimeout((previewSeconds+1)*1000);
       await waitForVisibleBodyText(page,"Continue reading with HealthTimes Premium",10000);
-      const supplementalPrompt=page.getByTestId("premium-subscription-prompt");
+      const supplementalPrompt=page.locator('[data-testid="premium-subscription-prompt"]:visible').first();
       if(await supplementalPrompt.count()){
         await supplementalPrompt.getByRole("button",{name:"Not now",exact:true}).click();
         await supplementalPrompt.waitFor({state:"hidden",timeout:10000});
@@ -423,6 +526,10 @@ async function sourceParityEvidence(){
     const react418=assertClean("dark "+name,diag);
     const file=path.join(root,"dark",name+"-mobile.png");
     await page.screenshot({path:file,fullPage:true});
+    if(name==="premium-landing"){
+      fs.copyFileSync(file,path.join(root,"premium","premium-dark-mobile.png"));
+      fs.copyFileSync(file,path.join(root,"dark","premium-dark-mobile.png"));
+    }
     dark.push({
       name,file,viewport:"mobile",...viewports.mobile,
       appearance_preference:appearancePreference,
@@ -431,7 +538,7 @@ async function sourceParityEvidence(){
       console_error_count:diag.consoleErrors.length,
       horizontal_overflow:ov.overflow
     });
-    await page.close();
+    await context.close();
   }
 
   for(const [name,route] of [
@@ -439,14 +546,19 @@ async function sourceParityEvidence(){
     ["watch","/watch"],["my","/my"],["search","/search"]
   ]){
     const page=await browser.newPage({viewport:viewports.desktop,deviceScaleFactor:1});
+    await installPremiumAuthorityRoutes(page,null);
     const diag=diagnostics(page);
     const status=await open(page,route,"smoke "+name);
     const ov=await overflow(page);
     if(ov.overflow) throw new Error("Route horizontal overflow on "+route);
     const react418=assertClean("smoke "+name,diag);
     if(name==="home"){
-      await page.getByText("Top Stories",{exact:true}).waitFor({timeout:30000});
-      if(await page.getByRole("tab").count()!==0) throw new Error("Desktop Home rendered mobile tabs");
+      await page.getByText("Top Stories",{exact:true}).first().waitFor({timeout:30000});
+      // Five Home editorial-filter tabs remain legitimate at desktop.
+      // Count only mobile bottom-navigation tabs, never all page tabs.
+      const allTabs=await page.getByRole("tab").count();
+      const editorialTabs=await page.getByRole("tab",{name:/Home filter$/}).count();
+      if(allTabs-editorialTabs!==0) throw new Error("Desktop Home rendered mobile bottom navigation");
     }
     smoke.push({
       name,route,status,

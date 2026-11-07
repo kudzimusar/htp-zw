@@ -1,0 +1,527 @@
+{
+  "phone": {
+    "storageState": {
+      "localStorage": {},
+      "cookies": "",
+      "bodyBg": "rgba(0, 0, 0, 0)",
+      "htmlBg": "rgba(0, 0, 0, 0)"
+    },
+    "contrastSamples": [
+      {
+        "text": "HealthTimes",
+        "tagName": "DIV",
+        "color": "rgb(16, 42, 67)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "20px",
+        "fontWeight": "900",
+        "contrastRatio": 14.64,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "For You",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Latest",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Zimbabwe",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "World",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Premium",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "PUBLIC HEALTH",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "[UAT04B] Test Story 001",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "32px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Michael Gwarisa · Oct 25, 2026",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "ADVERTISEMENT",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(246, 248, 250)",
+        "fontSize": "9px",
+        "fontWeight": "900",
+        "contrastRatio": 5.41,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Direct advertising · HOSPAZ",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(246, 248, 250)",
+        "fontSize": "12px",
+        "fontWeight": "800",
+        "contrastRatio": 15.68,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "No verified destination is available for this adve",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(246, 248, 250)",
+        "fontSize": "11px",
+        "fontWeight": "400",
+        "contrastRatio": 5.41,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Top Stories",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Explore",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "PUBLIC HEALTH",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "9px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      }
+    ]
+  },
+  "tablet": {
+    "storageState": {
+      "localStorage": {},
+      "cookies": "",
+      "bodyBg": "rgba(0, 0, 0, 0)",
+      "htmlBg": "rgba(0, 0, 0, 0)"
+    },
+    "contrastSamples": [
+      {
+        "text": "HealthTimes",
+        "tagName": "DIV",
+        "color": "rgb(16, 42, 67)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "22px",
+        "fontWeight": "900",
+        "contrastRatio": 14.64,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "EDITION",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "8px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Global",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "11px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Search",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Alerts",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Premium",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "For You",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Latest",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Zimbabwe",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "World",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Premium",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "PUBLIC HEALTH",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "[UAT04B] Test Story 001",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "32px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Michael Gwarisa · Oct 25, 2026",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "ADVERTISEMENT",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(246, 248, 250)",
+        "fontSize": "9px",
+        "fontWeight": "900",
+        "contrastRatio": 5.41,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      }
+    ]
+  },
+  "desktop": {
+    "storageState": {
+      "localStorage": {},
+      "cookies": "",
+      "bodyBg": "rgba(0, 0, 0, 0)",
+      "htmlBg": "rgba(0, 0, 0, 0)"
+    },
+    "contrastSamples": [
+      {
+        "text": "HealthTimes",
+        "tagName": "DIV",
+        "color": "rgb(16, 42, 67)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "22px",
+        "fontWeight": "900",
+        "contrastRatio": 14.64,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "EDITION",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "8px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Global",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "11px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Home",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Explore",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Live",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Watch",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "My HealthTimes",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Search",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Alerts",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Premium",
+        "tagName": "DIV",
+        "color": "rgb(18, 99, 214)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.55,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "For You",
+        "tagName": "DIV",
+        "color": "rgb(11, 31, 51)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 16.69,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Latest",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "Zimbabwe",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      },
+      {
+        "text": "World",
+        "tagName": "DIV",
+        "color": "rgb(91, 103, 118)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrastRatio": 5.76,
+        "wcagNormalPass": true,
+        "wcagLargePass": true
+      }
+    ]
+  }
+}

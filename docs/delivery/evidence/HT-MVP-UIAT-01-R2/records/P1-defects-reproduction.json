@@ -1,0 +1,25 @@
+{
+  "DEF_001": {
+    "directStatus": 404,
+    "directBodySnippet": "This page doesn’t exist\n\nIt may have been moved, removed, or never existed.\n\n404 NOT_FOUND\n\nhnd1::qsz5v-1793501961711-15e9f5d5604c\n\nVIEW DOCUMENTATION\nCOPY DEBUG PROMPT",
+    "syntheticStatus": 404,
+    "reloadStatus": 404,
+    "reloadBodySnippet": "This page doesn’t exist\n\nIt may have been moved, removed, or never existed.\n\nGo back\n\n404 NOT_FOUND\n\nhnd1::nxfv7-1793501967129-3b5e1cb7843e\n\nVIEW DOCUMENTATION\nCOPY DEBUG PROMPT",
+    "is404Vercel": true
+  },
+  "DEF_002": {
+    "saveButtonFound": true,
+    "offlineButtonFound": true,
+    "actionStatusMessage": "Saved",
+    "localStorage": {
+      "saved": "[\"uat04b-test-story-001\"]",
+      "downloads": null
+    },
+    "savedPageContainsArticle": true
+  },
+  "DEF_008": {
+    "contractError": "Unexpected field in broadcast input: message_mode",
+    "valid": false,
+    "rejectedField": "message_mode"
+  }
+}

@@ -1,0 +1,295 @@
+{
+  "timestamp": "2026-11-01T11:21:26.000Z",
+  "previewUrl": "https://healthtimes-staging-999138kgh-11-11.vercel.app",
+  "expectedSha": "4abee2cbdc77dfb491949c86a99acefb7132df3f",
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "4abee2cbdc77dfb491949c86a99acefb7132df3f",
+      "presentation": "apps/mobile",
+      "serviceMode": "staging",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugHasTitle": true,
+      "reloadStatus": 200,
+      "reloadHasTitle": true,
+      "uuidStatus": 200,
+      "uuidHasTitle": true,
+      "pass": true
+    },
+    "DEF013": {
+      "themeMatrix": [
+        {
+          "surface": "Desktop",
+          "mode": "light",
+          "path": "/",
+          "bg": "rgb(255, 255, 255)",
+          "brandColor": "rgb(11, 31, 51)",
+          "headingColor": "rgb(11, 31, 51)",
+          "bodyColor": "rgb(11, 31, 51)",
+          "brandContrast": 16.69,
+          "headingContrast": 16.69,
+          "bodyContrast": 16.69
+        },
+        {
+          "surface": "Desktop",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(243, 247, 250)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 16.92
+        },
+        {
+          "surface": "Mobile",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(243, 247, 250)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 16.92
+        },
+        {
+          "surface": "Tablet",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(243, 247, 250)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 16.92
+        },
+        {
+          "surface": "Article",
+          "mode": "dark",
+          "path": "/article/uat04b-test-story-001",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(169, 183, 197)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 8.91,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Premium",
+          "mode": "dark",
+          "path": "/premium",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(230, 193, 106)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 10.59,
+          "bodyContrast": 8.91
+        }
+      ],
+      "premiumDarkHeadingPass": true,
+      "premiumDarkBodyPass": true,
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "paragraphCount": 5,
+      "reloadSurvives": true,
+      "preservedInBookmarks": true,
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "noticeVisible": true,
+      "hasDeferredBadge": true,
+      "draftCreatedSuccess": true,
+      "persistedDraftId": "feeefb60-318c-485d-9bc6-a99acab034f2",
+      "dbRowValid": true,
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "DEF014": {
+      "desktopCold": {
+        "samples": [
+          {
+            "lcp": 3876,
+            "cls": 0.001,
+            "ttfb": 110,
+            "domContentLoaded": 388,
+            "loadEvent": 388,
+            "duration": 4358,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3872,
+            "cls": 0.001,
+            "ttfb": 35,
+            "domContentLoaded": 282,
+            "loadEvent": 282,
+            "duration": 4371,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 4052,
+            "cls": 0.001,
+            "ttfb": 33,
+            "domContentLoaded": 401,
+            "loadEvent": 402,
+            "duration": 4565,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3728,
+            "cls": 0.001,
+            "ttfb": 31,
+            "domContentLoaded": 287,
+            "loadEvent": 288,
+            "duration": 4217,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 4048,
+            "cls": 0.001,
+            "ttfb": 27,
+            "domContentLoaded": 384,
+            "loadEvent": 385,
+            "duration": 4533,
+            "rpcCalls": 1
+          }
+        ],
+        "p75": 4048,
+        "median": 3876,
+        "min": 3728,
+        "max": 4052
+      },
+      "desktopWarm": {
+        "samples": [
+          {
+            "lcp": 2704,
+            "cls": 0.001,
+            "ttfb": 83,
+            "domContentLoaded": 204,
+            "loadEvent": 205,
+            "duration": 3188,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2208,
+            "cls": 0.001,
+            "ttfb": 18,
+            "domContentLoaded": 151,
+            "loadEvent": 151,
+            "duration": 2697,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2684,
+            "cls": 0.001,
+            "ttfb": 25,
+            "domContentLoaded": 175,
+            "loadEvent": 175,
+            "duration": 3169,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3372,
+            "cls": 0.001,
+            "ttfb": 30,
+            "domContentLoaded": 397,
+            "loadEvent": 398,
+            "duration": 3851,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3112,
+            "cls": 0.001,
+            "ttfb": 81,
+            "domContentLoaded": 226,
+            "loadEvent": 226,
+            "duration": 3590,
+            "rpcCalls": 1
+          }
+        ],
+        "p75": 3112,
+        "median": 2704,
+        "min": 2208,
+        "max": 3372
+      },
+      "mobile": {
+        "samples": [
+          {
+            "lcp": 3596,
+            "cls": 0,
+            "ttfb": 27,
+            "domContentLoaded": 365,
+            "loadEvent": 365,
+            "duration": 4083,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3896,
+            "cls": 0,
+            "ttfb": 35,
+            "domContentLoaded": 342,
+            "loadEvent": 343,
+            "duration": 4390,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3636,
+            "cls": 0,
+            "ttfb": 33,
+            "domContentLoaded": 288,
+            "loadEvent": 288,
+            "duration": 4193,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3476,
+            "cls": 0,
+            "ttfb": 35,
+            "domContentLoaded": 254,
+            "loadEvent": 254,
+            "duration": 3978,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3756,
+            "cls": 0,
+            "ttfb": 31,
+            "domContentLoaded": 278,
+            "loadEvent": 279,
+            "duration": 4249,
+            "rpcCalls": 1
+          }
+        ],
+        "p75": 3756,
+        "median": 3636,
+        "min": 3476,
+        "max": 3896
+      },
+      "cls": 0.001,
+      "mobileCls": 0,
+      "desktopCls": 0.001,
+      "totalFeedRpcs": 1,
+      "unnecessaryFeedRpcs": 0,
+      "studioInteractionRegressions": 0,
+      "pass": true
+    }
+  },
+  "failures": []
+}

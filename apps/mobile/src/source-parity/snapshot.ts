@@ -10,6 +10,37 @@ import type {
 export const SOURCE_PARITY_VERIFIED_AT = "2026-09-21T00:00:00Z";
 export const SOURCE_PARITY_PUBLIC_BASE_URL = "https://healthtimes.co.zw";
 
+export const SOURCE_PARITY_MEDIA_MIRRORS: Record<string, string> = {
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-social-contracting-hiv-financing-dialogue.jpg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/01/enhanced_1200x665.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/01/enhanced_1200x665.jpg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/dr-neddy-makonza-zimbabwe-fourth-female-orthopaedic-surgeon.png",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/Chief-Nyamaropa.jpeg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/Chief-Nyamaropa.jpeg",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/aids-2026-protest-hiv-indigenous-people-fiji-creative-commons-https-creativecommons-org-licenses-by-sa-4-0.jpg.png",
+  "https://healthtimes.co.zw/wp-content/uploads/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg":
+    "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg"
+};
+
+export function publicMirrorForSourceMedia(sourceUrl: string | undefined): string | null {
+  if (!sourceUrl) return null;
+  if (SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl]) {
+    return SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl];
+  }
+  if (sourceUrl.startsWith("https://bzuvntbkevvuhfhqhkua.supabase.co/")) {
+    return sourceUrl;
+  }
+  // B1: Unknown or unverified media must NEVER be blindly rewritten to unverified Supabase paths.
+  // Return null so callers know no verified public mirror exists, preventing broken 404/415 requests
+  // while preserving sourceUrl on the article heroMedia for provenance and attribution.
+  return null;
+}
+
 const canonicalSections = {
   "global-health": { id: "desk-global-health", name: "Global Health", slug: "global-health" },
   africa: { id: "desk-africa", name: "Africa", slug: "africa" },
@@ -107,7 +138,7 @@ function sourceArticle(input:{
     legacyTaxonomy:legacy,
     heroMedia:input.imageAlt ? {
       id:"source-media-"+input.slug,
-      publicUrl:input.imageUrl ?? null,
+      publicUrl:publicMirrorForSourceMedia(input.imageUrl),
       altText:input.imageAlt,
       caption:null,
       credit:"Current HealthTimes public source; runtime media URL supplied by the read-only source bridge.",

@@ -1,0 +1,97 @@
+name: HT-MVP-UIAT-01-R3-ICR05B — Session and Evidence Certification
+
+on:
+  push:
+    branches:
+      - fix/ht-mvp-uiat01-r3-icr05b-final-ci-session-evidence
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-security-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Parse-check the gated physical fault suite without running live sessions
+        run: node --check tests/harness/icr05a-fault-injection.test.mjs
+      - name: Run 10 ICR05A consistency and 12 ICR05B session negative-path checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/harness/icr05a-consistency.test.mjs tests/harness/icr05b-session-negative.test.mjs 2>&1 | tee /tmp/icr05b-deterministic.tap
+          grep -Eq '^# tests 22$' /tmp/icr05b-deterministic.tap
+          grep -Eq '^# pass 22$' /tmp/icr05b-deterministic.tap
+          grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
+          grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
+      - name: Upload deterministic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: icr05b-deterministic-exact-head
+          path: /tmp/icr05b-deterministic.tap
+          if-no-files-found: warn
+
+  physical-live-fault-injection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Not silently skipped: the physical ICR05A suite REQUIRES authorized
+    # test actor credentials and a privileged Staging audit token. If missing
+    # the job FAILS with a named external blocker, never fixture PASS.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require Owner-provisioned protected test identities
+        shell: bash
+        env:
+          UAT_ACTORS_JSON: ${{ secrets.HEALTHTIMES_UAT_ACTORS_JSON }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$UAT_ACTORS_JSON" && test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo "::error title=BLOCKED_OWNER_UAT_CREDENTIALS::ICR05A live session test cannot run without Owner-authorized test identities and a Staging audit token."
+            exit 78
+          }
+          node - <<'NODE'
+          const actors=JSON.parse(process.env.UAT_ACTORS_JSON || '{}');
+          const emails=['uat-specialist@healthtimes.test','uat-commercial@healthtimes.test'];
+          if(emails.some(email=>!actors[email]||actors[email].email!==email||typeof actors[email].password!=='string'||!actors[email].password)){
+            console.error('BLOCKED_OWNER_UAT_CREDENTIALS: both distinct real test actors and passwords required');
+            process.exit(78);
+          }
+          NODE
+          mkdir -p "$HOME/.healthtimes-secrets"
+          chmod 700 "$HOME/.healthtimes-secrets"
+          printf '%s' "$UAT_ACTORS_JSON" > "$HOME/.healthtimes-secrets/test-actors.json"
+          chmod 600 "$HOME/.healthtimes-secrets/test-actors.json"
+          node --test tests/harness/icr05a-fault-injection.test.mjs 2>&1 | tee /tmp/icr05a-physical.tap
+          grep -Eq '^# tests 10$' /tmp/icr05a-physical.tap
+          grep -Eq '^# pass 10$' /tmp/icr05a-physical.tap
+          grep -Eq '^# fail 0$' /tmp/icr05a-physical.tap
+          grep -Eq '^# skipped 0$' /tmp/icr05a-physical.tap
+      - name: Remove actor file
+        if: always()
+        run: rm -f "$HOME/.healthtimes-secrets/test-actors.json"
+      - name: Upload physical test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: icr05a-staging-physical-summary
+          path: /tmp/icr05a-physical.tap
+          if-no-files-found: warn

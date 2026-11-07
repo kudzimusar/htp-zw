@@ -13,7 +13,7 @@ const {
 
 const EXPECTED_PUBLIC_OBJECTS = 5786;
 const EXPECTED_FEED_ITEMS = 50;
-const EXPECTED_PROJECT_REF = 'gcdohgbmqhqwydgaxrcr';
+const EXPECTED_PROJECT_REF = 'bzuvntbkevvuhfhqhkua';
 
 const directPath = '/2026/02/12/who-should-not-take-lenacapavir-key-health-conditions-to-consider-before-the-rollout/';
 const premiumPath = '/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/';

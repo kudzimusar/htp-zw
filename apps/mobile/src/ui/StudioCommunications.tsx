@@ -4,6 +4,39 @@ import { useRouter } from "expo-router";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { colors, radius, spacing } from "../theme/tokens";
+import {
+  hasServerCapability,
+  type AuthorizationSnapshot
+} from "../security/capabilities";
+import {
+  ASSIGNMENT_STATUS_SEQUENCE,
+  getNextAssignmentStatus,
+  getAssignmentProgressActionLabel,
+  type NewsroomAssignment
+} from "../domain/models";
+
+export {
+  ASSIGNMENT_STATUS_SEQUENCE,
+  getNextAssignmentStatus,
+  getAssignmentProgressActionLabel
+};
+
+export function canProgressAssignment(
+  snapshot: AuthorizationSnapshot | null | undefined,
+  assignment: Pick<NewsroomAssignment, "status" | "reporterStaffId">
+): boolean {
+  if (!snapshot || snapshot.status !== "authorized" || snapshot.source !== "server") {
+    return false;
+  }
+  if (assignment.status === "Complete" || !getNextAssignmentStatus(assignment.status)) {
+    return false;
+  }
+  const isManager = hasServerCapability(snapshot, "assignment.manage");
+  const isReporter = Boolean(
+    snapshot.staffProfileId && snapshot.staffProfileId === assignment.reporterStaffId
+  );
+  return isManager || isReporter;
+}
 
 function LoadingOrError({loading,error}:{loading:boolean;error?:Error|null}){
   if(loading) return <Text style={styles.muted}>Loading server-authorized communications…</Text>;
@@ -11,29 +44,204 @@ function LoadingOrError({loading,error}:{loading:boolean;error?:Error|null}){
   return null;
 }
 
-export function StudioAssignmentsPanel(){
-  const router=useRouter();
-  const assignments=useAsync(()=>services.newsroomCommunication.listAssignments(),[]);
+export type StudioAssignmentsViewProps = {
+  assignments: NewsroomAssignment[];
+  loading?: boolean;
+  error?: Error | null;
+  progressError?: string | null;
+  progressConfirmation?: string | null;
+  progressingId?: string | null;
+  selectedAssignmentId?: string | null;
+  onSelectAssignment?: (assignmentId: string | null) => void;
+  canAdvanceAssignment: (item: NewsroomAssignment) => boolean;
+  onAdvanceAssignment: (item: NewsroomAssignment) => void | Promise<void>;
+  onOpenDiscussion: (assignmentId: string) => void;
+  onOpenStory: (storyId: string) => void;
+};
+
+export function StudioAssignmentsView({
+  assignments,
+  loading = false,
+  error = null,
+  progressError = null,
+  progressConfirmation = null,
+  progressingId = null,
+  selectedAssignmentId = null,
+  onSelectAssignment,
+  canAdvanceAssignment,
+  onAdvanceAssignment,
+  onOpenDiscussion,
+  onOpenStory
+}: StudioAssignmentsViewProps) {
+  const [discussionInputs, setDiscussionInputs] = useState<Record<string, string>>({});
+  const [discussionFeedbacks, setDiscussionFeedbacks] = useState<Record<string, string>>({});
+
   return (
     <View style={styles.stack}>
-      <LoadingOrError loading={assignments.loading} error={assignments.error}/>
-      {(assignments.data??[]).map(item=>(
-        <Pressable
-          key={item.id}
-          style={styles.card}
-          onPress={()=>router.push({pathname:"/studio/assignments",params:{assignmentId:item.id}} as never)}
-        >
-          <View style={styles.row}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
+      <LoadingOrError loading={loading} error={error}/>
+      {!!progressError&&<Text style={styles.error}>{progressError}</Text>}
+      {!!progressConfirmation&&<Text style={styles.meta}>{progressConfirmation}</Text>}
+      {assignments.map(item=>{
+        const canAdvance=canAdvanceAssignment(item);
+        const actionLabel=getAssignmentProgressActionLabel(item.status);
+        const nextStatus=getNextAssignmentStatus(item.status);
+        const isAdvancing=progressingId===item.id;
+        const isTargeted = item.id === selectedAssignmentId;
+        const currentInput = discussionInputs[item.id] ?? "";
+        const currentFeedback = discussionFeedbacks[item.id] ?? "";
+
+        return (
+          <View
+            key={item.id}
+            style={[styles.card, isTargeted && styles.cardTargeted]}
+            testID={isTargeted ? "targeted-assignment-card" : undefined}
+          >
+            {isTargeted && (
+              <View style={styles.targetedPill} testID="targeted-assignment-pill">
+                <Text style={styles.targetedPillText}>🎯 TARGETED ASSIGNMENT · FOCUSED DISCUSSION</Text>
+              </View>
+            )}
+            <View style={styles.row}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.badge}>{item.status.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
+            {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
+            {!!item.notes&&<Text style={styles.muted}>{item.notes}</Text>}
+            <View style={styles.actions}>
+              {canAdvance&&actionLabel&&nextStatus&&(
+                <Pressable
+                  style={styles.primary}
+                  onPress={()=>void onAdvanceAssignment(item)}
+                  disabled={isAdvancing}
+                >
+                  <Text style={styles.primaryText}>
+                    {isAdvancing?"Advancing…":`${actionLabel} → ${nextStatus}`}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={[styles.secondary, isTargeted && styles.secondaryActive]}
+                onPress={() => {
+                  if (onSelectAssignment) {
+                    onSelectAssignment(isTargeted ? null : item.id);
+                  }
+                  onOpenDiscussion(item.id);
+                }}
+              >
+                <Text style={[styles.secondaryText, isTargeted && styles.secondaryActiveText]}>
+                  {isTargeted ? "Hide Discussion" : "Open Discussion"}
+                </Text>
+              </Pressable>
+              {!!item.storyId&&(
+                <Pressable
+                  style={styles.secondary}
+                  onPress={()=>onOpenStory(item.storyId!)}
+                >
+                  <Text style={styles.secondaryText}>Open Story</Text>
+                </Pressable>
+              )}
+            </View>
+
+            {isTargeted && (
+              <View style={styles.discussionBox} testID="assignment-targeted-discussion">
+                <Text style={styles.discussionTitle}>Internal Assignment Discussion</Text>
+                <Text style={styles.discussionSubtitle}>Direct editorial coordination for "{item.title}"</Text>
+                <View style={styles.discussionThread}>
+                  <View style={styles.discussionMsg}>
+                    <Text style={styles.msgAuthor}>Preview Assignment Editor</Text>
+                    <Text style={styles.msgText}>Please confirm field verification logs and check ORS buffer stocks before draft filing.</Text>
+                    <Text style={styles.msgTime}>Today 09:15 · Preview Persona</Text>
+                  </View>
+                  <View style={[styles.discussionMsg, styles.msgSelf]}>
+                    <Text style={styles.msgAuthor}>Assigned Reporter (Current Persona)</Text>
+                    <Text style={styles.msgText}>Field inspection underway. Municipal water testing logs obtained; filing initial reporting notes.</Text>
+                    <Text style={styles.msgTime}>Today 10:30 · Local Preview State</Text>
+                  </View>
+                </View>
+                <View style={styles.discussionComposer}>
+                  <TextInput
+                    style={styles.discussionInput}
+                    placeholder="Post note to assignment discussion (local preview)..."
+                    placeholderTextColor={colors.inkMuted}
+                    value={currentInput}
+                    onChangeText={(val) => setDiscussionInputs((prev) => ({ ...prev, [item.id]: val }))}
+                  />
+                  <Pressable
+                    style={styles.discussionSendBtn}
+                    onPress={() => {
+                      if (!currentInput.trim()) return;
+                      setDiscussionFeedbacks((prev) => ({
+                        ...prev,
+                        [item.id]: "Note added to assignment discussion in local Preview memory (writes disabled)."
+                      }));
+                      setDiscussionInputs((prev) => ({ ...prev, [item.id]: "" }));
+                    }}
+                  >
+                    <Text style={styles.discussionSendText}>Post</Text>
+                  </Pressable>
+                </View>
+                {currentFeedback ? (
+                  <Text style={styles.discussionFeedbackText}>{currentFeedback}</Text>
+                ) : null}
+              </View>
+            )}
           </View>
-          <Text style={styles.meta}>{item.desk??"Unassigned desk"} · {item.priority}</Text>
-          {!!item.deadlineAt&&<Text style={styles.meta}>Deadline {new Date(item.deadlineAt).toLocaleString()}</Text>}
-        </Pressable>
-      ))}
-      {!assignments.loading&&!(assignments.data??[]).length&&<Text style={styles.muted}>No assignments are available to this authorized session.</Text>}
+        );
+      })}
+      {!loading&&!assignments.length&&<Text style={styles.muted}>No assignments found.</Text>}
     </View>
   );
+}
+
+export function StudioAssignmentsPanel(){
+  const router=useRouter();
+  const [refresh,setRefresh]=useState(0);
+  const [progressingId,setProgressingId]=useState<string|null>(null);
+  const [progressError,setProgressError]=useState<string|null>(null);
+  const [progressConfirmation,setProgressConfirmation]=useState<string|null>(null);
+  const authorization=useAsync(()=>services.authorization.getSnapshot(),[refresh]);
+  const assignments=useAsync(()=>services.newsroomCommunication.listAssignments(),[refresh]);
+  const authSnapshot=authorization.data;
+
+  const advance=async(item:NewsroomAssignment)=>{
+    if(!canProgressAssignment(authSnapshot,item)) return;
+    const nextStatus=getNextAssignmentStatus(item.status);
+    if(!nextStatus) return;
+    try{
+      setProgressingId(item.id);
+      setProgressError(null);
+      setProgressConfirmation(null);
+      const serverNext=await services.newsroomCommunication.progressAssignment(item.id);
+      setProgressConfirmation(`Assignment advanced to ${serverNext}.`);
+      setRefresh(value=>value+1);
+    }catch(error){
+      setProgressError(error instanceof Error?error.message:"Assignment status could not be progressed.");
+    }finally{
+      setProgressingId(null);
+    }
+  };
+
+  return StudioAssignmentsView({
+    assignments: assignments.data ?? [],
+    loading: assignments.loading || authorization.loading,
+    error: assignments.error || authorization.error,
+    progressError,
+    progressConfirmation,
+    progressingId,
+    canAdvanceAssignment: (item) => canProgressAssignment(authSnapshot, item),
+    onAdvanceAssignment: advance,
+    onOpenDiscussion: (assignmentId) =>
+      router.push({
+        pathname: "/studio/assignments",
+        params: { assignmentId }
+      } as never),
+    onOpenStory: (storyId) =>
+      router.push({
+        pathname: "/studio/[module]",
+        params: { module: "create-edit", storyId }
+      } as never)
+  });
 }
 
 export function StudioAssignmentDiscussionPanel({assignmentId}:{assignmentId:string}){
@@ -260,5 +468,24 @@ const styles=StyleSheet.create({
   primaryText:{fontSize:12,fontWeight:"900",color:"#FFFFFF"},
   secondary:{minHeight:38,justifyContent:"center",paddingHorizontal:12,borderWidth:1,borderColor:colors.border,borderRadius:radius.sm},
   secondaryText:{fontSize:11,fontWeight:"900",color:colors.ink},
-  actions:{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"}
+  actions:{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"},
+  cardTargeted:{borderColor:colors.blue,borderWidth:2,backgroundColor:"#F4F8FD"},
+  targetedPill:{backgroundColor:colors.blue,paddingHorizontal:8,paddingVertical:4,borderRadius:4,alignSelf:"flex-start"},
+  targetedPillText:{color:"#FFFFFF",fontSize:10,fontWeight:"900",letterSpacing:0.5},
+  secondaryActive:{backgroundColor:colors.blue,borderColor:colors.blue},
+  secondaryActiveText:{color:"#FFFFFF"},
+  discussionBox:{marginTop:spacing.md,backgroundColor:"#FFFFFF",borderWidth:1,borderColor:colors.border,borderRadius:radius.sm,padding:spacing.md,gap:spacing.sm},
+  discussionTitle:{fontSize:13,fontWeight:"800",color:colors.ink},
+  discussionSubtitle:{fontSize:11,color:colors.inkMuted},
+  discussionThread:{gap:spacing.xs,marginVertical:spacing.xs},
+  discussionMsg:{backgroundColor:colors.paperMuted,padding:spacing.sm,borderRadius:radius.sm},
+  msgSelf:{backgroundColor:"#E8F5E9"},
+  msgAuthor:{fontSize:10,fontWeight:"800",color:colors.blue},
+  msgText:{fontSize:12,color:colors.ink,marginTop:2},
+  msgTime:{fontSize:9,color:colors.inkMuted,marginTop:2},
+  discussionComposer:{flexDirection:"row",gap:spacing.xs,marginTop:spacing.xs},
+  discussionInput:{flex:1,minHeight:36,borderWidth:1,borderColor:colors.border,borderRadius:radius.sm,paddingHorizontal:8,fontSize:12,color:colors.ink,backgroundColor:"#FFFFFF"},
+  discussionSendBtn:{backgroundColor:colors.blue,paddingHorizontal:12,justifyContent:"center",borderRadius:radius.sm},
+  discussionSendText:{color:"#FFFFFF",fontSize:11,fontWeight:"800"},
+  discussionFeedbackText:{fontSize:11,color:colors.teal,fontStyle:"italic"}
 });

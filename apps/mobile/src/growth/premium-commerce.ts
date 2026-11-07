@@ -27,10 +27,12 @@ type ServerCheckoutDecision = {
 
 function configuredServerUrl(){
   if(Platform.OS!=="web") return null;
-  const value=process.env.EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL?.trim();
+  const configured=process.env.EXPO_PUBLIC_HEALTHTIMES_COMMERCE_AUTHORITY_URL?.trim();
+  const browserOrigin=typeof window!=="undefined" ? window.location.origin : null;
+  const value=configured || (browserOrigin ? "/api/commerce" : "");
   if(!value) return null;
   try{
-    const url=new URL(value);
+    const url=new URL(value,browserOrigin ?? undefined);
     const localhost=url.hostname==="localhost" || url.hostname==="127.0.0.1";
     if(url.protocol!=="https:" && !(localhost && url.protocol==="http:")) return null;
     url.hash="";
@@ -38,6 +40,18 @@ function configuredServerUrl(){
   }catch{
     return null;
   }
+}
+
+function browserCookie(name:string){
+  if(typeof document==="undefined") return "";
+  const prefix=`${encodeURIComponent(name)}=`;
+  const match=document.cookie.split(";").map((item)=>item.trim()).find((item)=>item.startsWith(prefix));
+  return match ? decodeURIComponent(match.slice(prefix.length)) : "";
+}
+
+function checkoutIdempotencyKey(){
+  const random=globalThis.crypto?.randomUUID?.().replaceAll("-","");
+  return `premium_${random || `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
 }
 
 function unavailableAuthority(
@@ -167,11 +181,13 @@ export function createPremiumCommerceService():PremiumCommerceService{
           method:"POST",
           headers:{
             Accept:"application/json",
-            "Content-Type":"application/json"
+            "Content-Type":"application/json",
+            "X-HTP-CSRF":browserCookie("htp_nr_csrf")
           },
-          credentials:"omit",
+          credentials:"include",
           body:JSON.stringify({
-            productPlanId:input.productPlanId ?? null
+            productPlanId:input.productPlanId ?? null,
+            idempotencyKey:checkoutIdempotencyKey()
           })
         });
         const raw=await readJson(response) as ServerCheckoutDecision|null;

@@ -28,18 +28,23 @@ test("Phase 10 Home hydration keeps React Hook order stable",()=>{
 });
 
 test("Phase 10 responsive shell hydrates deterministically before viewport structural changes",()=>{
-  assert.match(tabs,/useState\(Platform\.OS!==["']web["']\)/);
-  assert.match(tabs,/responsiveReady && width >= breakpoints\.desktop/);
+  // True SSR/first-client parity is a deterministic webWidth=null, then
+  // window.innerWidth applied only in an effect. The old string-only test
+  // expected an implementation that is no longer authoritative.
+  assert.match(tabs,/useState<number\|null>\(null\)/);
+  assert.match(tabs,/setWebWidth\(window\.innerWidth\)/);
+  assert.match(tabs,/webWidth!==null && webWidth >= breakpoints\.desktop/);
   assert.match(tabs,/tabBar=\{desktop \? \(\) => null : undefined\}/);
   assert.match(layout,/function useHydratedWindowWidth\(\)/);
-  assert.match(layout,/return responsiveReady \? width : 0/);
+  assert.match(layout,/if \(!hydrated\) return 1200/);
+  assert.match(layout,/window\.innerWidth/);
   assert.match(tabs,/Home/);
   assert.match(tabs,/Explore/);
   assert.match(tabs,/Live/);
   assert.match(tabs,/Watch/);
   assert.match(tabs,/My HT/);
   assert.match(studio,/useHydratedStudioWidth/);
-  assert.match(studio,/useState\(Platform\.OS!==["']web["']\)/);
+  assert.match(studio,/useState\(Platform\.OS\s*!==\s*["']web["']\)/);
   assert.match(studio,/return responsiveReady \? width : 0/);
 });
 
@@ -47,8 +52,8 @@ test("Phase 10 Studio shell defers responsive structural changes until after web
   assert.match(studio,/function useHydratedStudioWidth\(\)/);
   assert.match(studio,/return responsiveReady \? width : 0/);
   assert.match(studio,/const desktop=width>=breakpoints\.tablet/);
-  assert.match(studio,/desktop && <View style=\{styles\.sidebar\}/);
-  assert.match(studio,/!desktop && <ScrollView horizontal/);
+  assert.match(studio,/\{desktop && \(\s*<View style=\{\[styles\.sidebar/);
+  assert.match(studio,/<Modal visible=\{isMobileDrawerOpen\}/);
 });
 
 test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
@@ -60,7 +65,8 @@ test("Phase 10 shared Reader chrome exposes truthful Premium discovery",()=>{
 test("UI-01 Screen 1 shell removes dominant environment chrome and mobile utility cards",()=>{
   assert.doesNotMatch(layout,/\{chrome && <EnvironmentBanner \/>\}/);
   assert.doesNotMatch(layout,/mobileUtilityWrap/);
-  assert.match(layout,/phoneActionButton/);
+  assert.match(layout,/phoneSearchAction/);
+  assert.match(layout,/searchIconButton/);
   assert.match(layout,/phoneBrand/);
 });
 
@@ -74,7 +80,8 @@ test("UI-01 Home keeps filters single-row, collapses absent ads, and uses public
   assert.doesNotMatch(home,/Most Read \/ Trending/);
   assert.match(cards,/heroBodyOverlay/);
   assert.match(cards,/useHydratedCardWidth/);
-  assert.match(cards,/onError=\{\(\)=>setMediaFailed\(true\)\}/);
+  assert.match(cards,/onError=\{\(\)=>setMediaState\("failed"\)\}/);
+  assert.match(cards,/heroImageProbe/);
 });
 
 test("Phase 10 public Article Reader hides migration-internal taxonomy labels",()=>{
@@ -89,7 +96,8 @@ test("Phase 10 My HealthTimes leads with personal controls and omits internal re
   assert.doesNotMatch(my,/Growth & Commercial Readiness/);
   assert.doesNotMatch(my,/Payment Methods/);
   assert.doesNotMatch(my,/appEnvironment/);
-  assert.ok(my.indexOf('{groups.map') < my.indexOf('title="HealthTimes" eyebrow="PUBLICATION & INSTITUTIONAL"'));
+  assert.ok(my.indexOf('{groups.map') > 0);
+  assert.doesNotMatch(my, /PUBLICATION & INSTITUTIONAL/);
 });
 
 test("Phase 10 Explore and secondary surfaces use reader-facing language",()=>{

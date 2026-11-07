@@ -2,9 +2,62 @@ appId: zw.co.healthtimes.app.dev
 ---
 - launchApp:
     clearState: true
-- extendedWaitUntil:
-    visible: "Top Stories"
-    timeout: 240000
+# The Android landscape tablet hero can place the section just below the
+# viewport. Wait for the loaded Home filter, then require the real heading
+# after scrolling; waiting alone cannot reveal an off-screen element.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "For You Home filter"
+          timeout: 240000
+      - scrollUntilVisible:
+          element:
+            text: "Top Stories"
+          direction: DOWN
+          timeout: 30000
+      - assertVisible: "Top Stories"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible: "Top Stories"
+          timeout: 240000
+
+# iOS first-use custom-scheme trust can dismiss the system sheet without
+# settling the requested deep link, or iOS 26.5 backboardd can cancel the
+# first synthesized Recap touch if RCPVirtualHIDService attaches mid-gesture.
+# Prime the scheme on Home and retry "Open" if the SpringBoard alert remains
+# visible ("Cancel" button still on screen) before the real Article route.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: "healthtimes://"
+      - runFlow:
+          when:
+            visible: "Open in .*HealthTimes Dev.*"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
+            - runFlow:
+                when:
+                  visible: "Cancel"
+                commands:
+                  - waitForAnimationToEnd
+                  - tapOn: "Open"
+            - runFlow:
+                when:
+                  visible: "Cancel"
+                commands:
+                  - waitForAnimationToEnd
+                  - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Top Stories"
+          timeout: 45000
+      - assertNotVisible: "Open in .*HealthTimes Dev.*"
 
 - openLink: "healthtimes://article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks"
 - runFlow:
@@ -12,7 +65,20 @@ appId: zw.co.healthtimes.app.dev
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
     commands:
+      - waitForAnimationToEnd
       - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Save article"
     timeout: 60000
@@ -24,7 +90,20 @@ appId: zw.co.healthtimes.app.dev
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
     commands:
+      - waitForAnimationToEnd
       - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
@@ -39,7 +118,20 @@ appId: zw.co.healthtimes.app.dev
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
     commands:
+      - waitForAnimationToEnd
       - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
 - extendedWaitUntil:
     visible: "My HealthTimes"
     timeout: 20000
@@ -50,7 +142,14 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
     commands:
-      - tapOn: "Countries & Interests"
+      - assertVisible: "Countries & Interests.*"
+      - tapOn: "Countries & Interests.*"
+      - waitForAnimationToEnd
+      - runFlow:
+          when:
+            notVisible: "Edition & Preferences"
+          commands:
+            - tapOn: "Countries & Interests.*"
 - runFlow:
     when:
       platform: Android
@@ -86,7 +185,20 @@ appId: zw.co.healthtimes.app.dev
       platform: iOS
       visible: "Open in .*HealthTimes Dev.*"
     commands:
+      - waitForAnimationToEnd
       - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - waitForAnimationToEnd
+            - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 240000

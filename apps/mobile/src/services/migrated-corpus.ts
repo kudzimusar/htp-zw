@@ -17,6 +17,9 @@ import { stagingConfig } from "../platform/config";
 import { getStagingSupabaseClient } from "../platform/supabase";
 import { certifiedTaxonomyFixtureService } from "./taxonomy";
 import { sourceParityServices } from "./source-parity";
+import { publicVideoService } from "./public-video";
+import { publicLiveService } from "./public-live";
+import { publicPresentationService } from "./presentation";
 import {
   directDecisionFromHospazCapability,
   projectCp5HospazCapability,
@@ -26,6 +29,11 @@ import {
   mapMigratedStoryDocument,
   type MigratedStoryDocument
 } from "./migrated-corpus-mapper";
+import {
+  mapNativeStoryDocument,
+  type NativeStoryDocument
+} from "./native-story-mapper";
+import { persistentReaderRepository } from "./reader-persistence";
 
 type FeedRow = {
   title: string;
@@ -34,6 +42,20 @@ type FeedRow = {
   modified_at: string | null;
   author_name: string | null;
   description: string | null;
+};
+
+export type NativeFeedRow = {
+  id: string;
+  title: string;
+  slug: string;
+  standfirst: string | null;
+  excerpt: string | null;
+  body_html: string | null;
+  published_at: string | null;
+  modified_at: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  canonical_url: string | null;
 };
 
 type ContextDocument = {
@@ -60,16 +82,36 @@ type PathResolution = {
 };
 
 const CACHE_MS = 120_000;
-const FEED_LIMIT = 120;
+const HOMEPAGE_FEED_LIMIT = 50;
+const FEED_LIMIT = HOMEPAGE_FEED_LIMIT;
+const SEARCH_CANDIDATE_LIMIT = 200;
+const SEARCH_PUBLIC_LIMIT = 50;
 let feedCache: { at: number; articles: ArticleDetail[] } | null = null;
+let inflightFeedPromise: Promise<ArticleDetail[]> | null = null;
+
+let searchCandidateCache: { at: number; articles: ArticleDetail[] } | null = null;
+let inflightSearchCandidatePromise: Promise<ArticleDetail[]> | null = null;
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const client = getStagingSupabaseClient() as any;
   const { data, error } = await client.rpc(name, args);
   if (error) {
-    throw new Error(error.message || "HealthTimes migrated-corpus request failed.");
+    throw new Error(error.message || `HealthTimes migrated-corpus request failed: ${name}`);
   }
   return data as T;
+}
+
+async function boundedRpcRows<T>(
+  name: string,
+  args: Record<string, unknown>,
+  limit: number
+): Promise<T[]> {
+  const client = getStagingSupabaseClient() as any;
+  const { data, error } = await client.rpc(name, args).limit(limit);
+  if (error) {
+    throw new Error(error.message || `HealthTimes public Reader listing request failed: ${name}`);
+  }
+  return (data ?? []) as T[];
 }
 
 function normalizePath(value: string) {
@@ -90,23 +132,99 @@ function pathFromCanonicalUrl(value: string | null) {
   }
 }
 
-async function storyForPath(path: string) {
-  const args={p_path:normalizePath(path)};
-  let doc:MigratedStoryDocument|null=null;
-  try{
-    doc=await rpc<MigratedStoryDocument | null>("ag05_public_story_teaser_document",args);
-  }catch{
+async function migratedStoryForPath(path: string) {
+  const args = { p_path: normalizePath(path) };
+  let doc: MigratedStoryDocument | null = null;
+  try {
+    doc = await rpc<MigratedStoryDocument | null>("ag05_public_story_teaser_document", args);
+  } catch {
     // Fail closed during staged contract rollout: the legacy public document
     // still withholds Premium body_html and therefore yields immediate paywall.
-    doc=await rpc<MigratedStoryDocument | null>("ag05_public_story_document",args);
+    doc = await rpc<MigratedStoryDocument | null>("ag05_public_story_document", args);
   }
   return doc?.story_id ? mapMigratedStoryDocument(doc, stagingConfig.url) : null;
+}
+
+async function nativeStoryForPath(path: string) {
+  try {
+    const doc = await rpc<NativeStoryDocument | null>("newsroom_public_story_document", {
+      p_path: normalizePath(path)
+    });
+    return doc?.story_id ? mapNativeStoryDocument(doc, stagingConfig.url) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function storyForPath(path: string) {
+  const migrated = await migratedStoryForPath(path);
+  if (migrated) return migrated;
+  return nativeStoryForPath(path);
 }
 
 async function storyForCanonicalUrl(url: string | null) {
   const path = pathFromCanonicalUrl(url);
   return path ? storyForPath(path) : null;
 }
+
+async function nativeStoryForFeedRow(row: NativeFeedRow): Promise<ArticleDetail | null> {
+  const requestedPath =
+    pathFromCanonicalUrl(row.canonical_url) ??
+    normalizePath("/" + row.slug);
+  try {
+    const legacy = await rpc<PathResolution | null>("ag05_resolve_public_path", {
+      p_path: requestedPath
+    });
+    if (legacy && legacy.http_status !== 404 && legacy.target_path) {
+      return null;
+    }
+  } catch {
+    // Continue
+  }
+
+  const detailed = await nativeStoryForPath(requestedPath);
+  if (detailed) return detailed;
+
+  return {
+    id: row.slug || String(row.id),
+    canonicalStoryId: row.id,
+    title: row.title?.trim() || row.slug,
+    slug: row.slug,
+    standfirst: row.standfirst ?? row.excerpt ?? null,
+    excerpt: row.excerpt ?? row.standfirst ?? null,
+    bodyHtml: row.body_html ?? null,
+    canonicalUrl: row.canonical_url,
+    accessPolicy: "public" as const,
+    status: "published" as const,
+    publishedAt: row.published_at,
+    modifiedAt: row.modified_at,
+    author: null,
+    primarySection: null,
+    geography: [],
+    geographyRefs: [],
+    topics: [],
+    legacyTaxonomy: [],
+    heroMedia: null,
+    sourceProvenance: {
+      system: "healthtimes-native" as const,
+      sourceId: row.id,
+      stableKey: "healthtimes-native-story:" + row.id,
+      sourceUrl: row.canonical_url,
+      checksum: null,
+      capturedAt: null,
+      exceptions: []
+    },
+    contentIntegrity: "verified" as const,
+    premiumSourceContext: {
+      accessPolicy: "public" as const,
+      legacyMembershipSignal: "none" as const,
+      providerReferencePresent: false,
+      reconciliation: "match" as const
+    }
+  };
+}
+
+const DETAIL_BATCH_SIZE = 16;
 
 async function mapInBatches<T, R>(
   items: T[],
@@ -120,41 +238,322 @@ async function mapInBatches<T, R>(
   return output;
 }
 
-async function loadFeedDocuments(limit = FEED_LIMIT) {
-  if (limit === FEED_LIMIT && feedCache && Date.now() - feedCache.at < CACHE_MS) {
-    return feedCache.articles;
-  }
-  const feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: limit });
-  const mapped = await mapInBatches(
-    (feed ?? []).map((row) => row.canonical_url),
-    8,
-    storyForCanonicalUrl
+function articleSort(a: ArticleDetail, b: ArticleDetail) {
+  return (
+    publishedTime(b.publishedAt) - publishedTime(a.publishedAt) ||
+    publishedTime(b.modifiedAt) - publishedTime(a.modifiedAt) ||
+    String(a.canonicalStoryId ?? a.id).localeCompare(String(b.canonicalStoryId ?? b.id))
   );
-  const articles = mapped.filter((article): article is ArticleDetail => Boolean(article));
-  if (limit === FEED_LIMIT) {
-    feedCache = { at: Date.now(), articles };
-  }
-  return articles;
 }
 
-async function loadContext(kind: "category" | "tag" | "author", slug: string) {
-  const context = await rpc<ContextDocument | null>("ag05_public_context_document", {
-    p_path: "/" + kind + "/" + encodeURIComponent(slug) + "/"
+async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
+  const boundedLimit = Math.max(1, Math.floor(limit));
+  if (feedCache && Date.now() - feedCache.at < CACHE_MS && feedCache.articles.length >= boundedLimit) {
+    return feedCache.articles.slice(0, boundedLimit);
+  }
+  if (inflightFeedPromise) {
+    const inFlight = await inflightFeedPromise;
+    return inFlight.slice(0, boundedLimit);
+  }
+
+  const runLoad = async (): Promise<ArticleDetail[]> => {
+    const fetchLimit = Math.max(FEED_LIMIT, boundedLimit);
+
+    // 1. High-performance batch RPC path: retrieves pre-joined teaser documents in 1 database round-trip
+    let batchDocs: MigratedStoryDocument[] | null = null;
+    let nativeFeed: NativeFeedRow[] = [];
+    try {
+      const [docsRes, nativeRes] = await Promise.all([
+        rpc<MigratedStoryDocument[] | null>("ag05_public_feed_documents", { p_limit: fetchLimit }).catch(() => null),
+        boundedRpcRows<NativeFeedRow>(
+          "newsroom_public_published_stories",
+          { p_slug: null },
+          fetchLimit
+        ).catch(() => [])
+      ]);
+      batchDocs = docsRes;
+      nativeFeed = nativeRes;
+    } catch {
+      batchDocs = null;
+      nativeFeed = [];
+    }
+
+    let mappedMigrated: (ArticleDetail | null)[] = [];
+    let mappedNative: (ArticleDetail | null)[] = [];
+
+    if (batchDocs && Array.isArray(batchDocs) && batchDocs.length > 0) {
+      // Map native feed concurrently while synchronous batch docs map
+      const nativeMappingPromise = mapInBatches(
+        nativeFeed,
+        DETAIL_BATCH_SIZE,
+        nativeStoryForFeedRow
+      );
+      mappedMigrated = batchDocs.map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
+      mappedNative = await nativeMappingPromise;
+    } else {
+      // 2. Resilient fallback path using legacy feed rows
+      let feed: FeedRow[] = [];
+      let legacyError: Error | null = null;
+      try {
+        feed = await rpc<FeedRow[]>("ag05_public_feed_rows", { p_limit: fetchLimit });
+      } catch (err) {
+        legacyError = err instanceof Error ? err : new Error(String(err));
+      }
+
+      let fallbackNativeFeed: NativeFeedRow[] = nativeFeed;
+      if (!fallbackNativeFeed.length) {
+        try {
+          fallbackNativeFeed = await boundedRpcRows<NativeFeedRow>(
+            "newsroom_public_published_stories",
+            { p_slug: null },
+            fetchLimit
+          );
+        } catch (_) {}
+      }
+
+      if (legacyError && !fallbackNativeFeed.length) {
+        throw new Error(
+          `HealthTimes public feed request failed: legacy (${legacyError.message})`
+        );
+      }
+
+      const [resMigrated, resNative] = await Promise.all([
+        mapInBatches(
+          (feed ?? []).map((row) => row.canonical_url),
+          DETAIL_BATCH_SIZE,
+          storyForCanonicalUrl
+        ),
+        mapInBatches(
+          fallbackNativeFeed ?? [],
+          DETAIL_BATCH_SIZE,
+          nativeStoryForFeedRow
+        )
+      ]);
+      mappedMigrated = resMigrated;
+      mappedNative = resNative;
+    }
+
+    const seenKeys = new Set<string>();
+    const seenPaths = new Set<string>();
+    const articles = [...mappedMigrated, ...mappedNative]
+      .filter((article): article is ArticleDetail => Boolean(article))
+      .sort(articleSort)
+      .filter((article) => {
+        const storyKey = article.canonicalStoryId
+          ? "story:" + article.canonicalStoryId
+          : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+        const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
+
+        if (seenKeys.has(storyKey)) return false;
+        if (pathKey && seenPaths.has(pathKey)) return false;
+
+        seenKeys.add(storyKey);
+        if (pathKey) seenPaths.add(pathKey);
+        return true;
+      })
+      .slice(0, fetchLimit);
+
+    feedCache = { at: Date.now(), articles };
+    return articles;
+  };
+
+  inflightFeedPromise = runLoad().finally(() => {
+    inflightFeedPromise = null;
   });
-  if (!context?.items) return [];
+
+  const loaded = await inflightFeedPromise;
+  return loaded.slice(0, boundedLimit);
+}
+
+async function loadSearchCandidates(searchQuery?: string): Promise<ArticleDetail[]> {
+  const trimmed = searchQuery?.trim() || "";
+
+  if (!trimmed && searchCandidateCache && Date.now() - searchCandidateCache.at < CACHE_MS) {
+    return searchCandidateCache.articles;
+  }
+
+  if (!trimmed && inflightSearchCandidatePromise) {
+    return inflightSearchCandidatePromise;
+  }
+
+  const runLoad = async (): Promise<ArticleDetail[]> => {
+    let batchDocs: MigratedStoryDocument[] | null = null;
+    let nativeFeed: NativeFeedRow[] = [];
+    try {
+      const [docsRes, nativeRes] = await Promise.all([
+        rpc<MigratedStoryDocument[] | null>("ag05_public_feed_documents", {
+          p_limit: SEARCH_CANDIDATE_LIMIT,
+          p_public_limit: SEARCH_PUBLIC_LIMIT,
+          p_search: trimmed || null
+        }).catch(() => null),
+        boundedRpcRows<NativeFeedRow>(
+          "newsroom_public_published_stories",
+          { p_slug: null },
+          SEARCH_CANDIDATE_LIMIT
+        ).catch(() => [])
+      ]);
+      batchDocs = docsRes;
+      nativeFeed = nativeRes;
+    } catch {
+      batchDocs = null;
+      nativeFeed = [];
+    }
+
+    if (batchDocs && Array.isArray(batchDocs) && batchDocs.length > 0) {
+      const nativeMappingPromise = mapInBatches(
+        nativeFeed,
+        DETAIL_BATCH_SIZE,
+        nativeStoryForFeedRow
+      );
+      const mappedMigrated = batchDocs.map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
+      const mappedNative = await nativeMappingPromise;
+
+      const seenKeys = new Set<string>();
+      const seenPaths = new Set<string>();
+      const articles = [...mappedMigrated, ...mappedNative]
+        .filter((article): article is ArticleDetail => Boolean(article))
+        .sort(articleSort)
+        .filter((article) => {
+          const storyKey = article.canonicalStoryId
+            ? "story:" + article.canonicalStoryId
+            : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+          const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
+
+          if (seenKeys.has(storyKey)) return false;
+          if (pathKey && seenPaths.has(pathKey)) return false;
+
+          seenKeys.add(storyKey);
+          if (pathKey) seenPaths.add(pathKey);
+          return true;
+        });
+
+      if (!trimmed) {
+        searchCandidateCache = { at: Date.now(), articles };
+      }
+      return articles;
+    }
+
+    return loadFeedDocuments(HOMEPAGE_FEED_LIMIT);
+  };
+
+  if (!trimmed) {
+    inflightSearchCandidatePromise = runLoad().finally(() => {
+      inflightSearchCandidatePromise = null;
+    });
+    return inflightSearchCandidatePromise;
+  }
+
+  return runLoad();
+}
+
+const CONTEXT_LIMIT = 50;
+
+async function loadContext(kind: "category" | "tag" | "author", slug: string): Promise<ArticleDetail[]> {
+  const normalizedSlug = slug.trim().toLowerCase();
+  if (!normalizedSlug) return [];
+
+  let legacyDoc: ContextDocument | null = null;
+  let legacyFailed = false;
+
+  try {
+    legacyDoc = await rpc<ContextDocument | null>("ag05_public_context_document", {
+      p_path: "/" + kind + "/" + encodeURIComponent(normalizedSlug) + "/"
+    });
+  } catch {
+    legacyFailed = true;
+  }
+
+  let nativeDoc: ContextDocument | null = null;
+  let nativeFailed = false;
+
+  if (kind === "category" || kind === "author") {
+    try {
+      nativeDoc = await rpc<ContextDocument | null>("newsroom_public_context_document", {
+        p_kind: kind === "category" ? "section" : kind,
+        p_slug: normalizedSlug,
+        p_limit: CONTEXT_LIMIT
+      });
+    } catch {
+      try {
+        nativeDoc = await rpc<ContextDocument | null>("newsroom_public_context_document", {
+          p_path: "/" + kind + "/" + encodeURIComponent(normalizedSlug) + "/"
+        });
+      } catch {
+        nativeFailed = true;
+      }
+    }
+  }
+
+  if (legacyFailed && (kind === "tag" || nativeFailed)) {
+    throw new Error(`Dual context resolution failed closed for ${kind}:${slug}`);
+  }
+
+  const legacyItems = legacyDoc?.items ?? [];
+  const nativeItems = nativeDoc?.items ?? [];
+
+  if (legacyItems.length === 0 && nativeItems.length === 0) {
+    return [];
+  }
+
+  const urls = [
+    ...legacyItems.map((item) => item.canonical_url ?? null),
+    ...nativeItems.map((item) => item.canonical_url ?? null)
+  ].filter((url): url is string => Boolean(url));
+
+  const uniqueUrls = Array.from(new Set(urls));
+
   const mapped = await mapInBatches(
-    context.items.map((item) => item.canonical_url ?? null),
-    8,
+    uniqueUrls,
+    DETAIL_BATCH_SIZE,
     storyForCanonicalUrl
   );
-  return mapped.filter((article): article is ArticleDetail => Boolean(article));
+
+  const articles = mapped.filter((article): article is ArticleDetail => Boolean(article));
+
+  const seenKeys = new Set<string>();
+  const seenPaths = new Set<string>();
+
+  const deduped = articles.filter((article) => {
+    const storyKey = article.canonicalStoryId
+      ? "story:" + article.canonicalStoryId
+      : (article.sourceProvenance?.system ?? "unknown") + ":" + article.id;
+    const pathKey = article.slug ? "slug:" + article.slug.toLowerCase() : null;
+
+    if (seenKeys.has(storyKey)) return false;
+    if (pathKey && seenPaths.has(pathKey)) return false;
+
+    seenKeys.add(storyKey);
+    if (pathKey) seenPaths.add(pathKey);
+    return true;
+  });
+
+  deduped.sort((a, b) => {
+    const timeA = publishedTime(a.publishedAt);
+    const timeB = publishedTime(b.publishedAt);
+    if (timeA !== timeB) return timeB - timeA;
+    const modA = publishedTime(a.modifiedAt);
+    const modB = publishedTime(b.modifiedAt);
+    if (modA !== modB) return modB - modA;
+    return (a.canonicalStoryId || a.id).localeCompare(b.canonicalStoryId || b.id);
+  });
+
+  return deduped.slice(0, CONTEXT_LIMIT);
 }
 
 async function resolveIdentity(id: string) {
-  const cached = (await loadFeedDocuments()).find(
-    (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
-  );
-  if (cached) return cached;
+  try {
+    const cached = (await loadFeedDocuments()).find(
+      (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
+    );
+    if (cached) return cached;
+  } catch (_) {}
+
+  if (searchCandidateCache) {
+    const candidateMatch = searchCandidateCache.articles.find(
+      (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
+    );
+    if (candidateMatch) return candidateMatch;
+  }
 
   let requestedPath: string;
   if (/^https?:\/\//i.test(id)) {
@@ -167,16 +566,37 @@ async function resolveIdentity(id: string) {
     requestedPath = normalizePath("/" + decodeURIComponent(id));
   }
 
-  const resolution = await rpc<PathResolution | null>("ag05_resolve_public_path", {
-    p_path: requestedPath
-  });
-  if (!resolution || resolution.http_status === 404 || !resolution.target_path) return null;
-  return storyForPath(resolution.target_path);
+  try {
+    const resolution = await rpc<PathResolution | null>("ag05_resolve_public_path", {
+      p_path: requestedPath
+    });
+    if (resolution && resolution.http_status !== 404 && resolution.target_path) {
+      const legacy = await migratedStoryForPath(resolution.target_path);
+      if (legacy) return legacy;
+    }
+  } catch {
+    // Continue to native resolution fallback
+  }
+
+  try {
+    const native = await nativeStoryForPath(requestedPath);
+    if (native) return native;
+  } catch (_) {}
+
+  try {
+    const downloaded = await persistentReaderRepository.getDownloadedArticles();
+    const match = downloaded.find(
+      (article) => article.id === id || article.slug === id || article.canonicalStoryId === id
+    );
+    if (match) return match;
+  } catch (_) {}
+
+  return null;
 }
 
 const articleRepository: ArticleRepository = {
   async getHome() {
-    return loadFeedDocuments();
+    return loadFeedDocuments(HOMEPAGE_FEED_LIMIT);
   },
 
   async getById(id) {
@@ -190,7 +610,7 @@ const articleRepository: ArticleRepository = {
       const section = await loadContext("category", current.primarySection.slug);
       return section.filter((article) => article.id !== current.id).slice(0, 3);
     }
-    return (await loadFeedDocuments()).filter((article) => article.id !== current.id).slice(0, 3);
+    return (await loadFeedDocuments(HOMEPAGE_FEED_LIMIT)).filter((article) => article.id !== current.id).slice(0, 3);
   },
 
   async listBySection(sectionSlug) {
@@ -212,7 +632,7 @@ function publishedTime(value: string | null) {
 }
 
 async function corpusAuthors() {
-  const articles = await loadFeedDocuments(200);
+  const articles = await loadSearchCandidates();
   const authors = new Map<string, AuthorProfile>();
   for (const article of articles) {
     const author = article.author;
@@ -234,7 +654,7 @@ async function corpusAuthors() {
 const searchService: SearchService = {
   async search(query: SearchQuery): Promise<SearchResult> {
     const q = query.text.trim();
-    const all = await loadFeedDocuments(200);
+    const all = await loadSearchCandidates(q);
     const articleMatches = query.format && query.format !== "article"
       ? []
       : all
@@ -308,7 +728,7 @@ const searchService: SearchService = {
 const taxonomyService: TaxonomyService = {
   async getSnapshot() {
     const canonical = await certifiedTaxonomyFixtureService.getSnapshot();
-    const articles = await loadFeedDocuments(200);
+    const articles = await loadFeedDocuments();
     const observedSections = Array.from(
       new Map(
         articles
@@ -317,9 +737,14 @@ const taxonomyService: TaxonomyService = {
           .map((section) => [section.slug, { ...section, parentId: null }])
       ).values()
     );
+    type SectionEntry = { id: string; name: string; slug: string; parentId: string | null };
+    const sectionsMap = new Map<string, SectionEntry>();
+    for (const sec of canonical.sections) sectionsMap.set(sec.slug, sec);
+    for (const sec of observedSections) sectionsMap.set(sec.slug, { id: sec.id, name: sec.name, slug: sec.slug, parentId: null });
+    const combinedSections = Array.from(sectionsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     return {
       ...canonical,
-      sections: observedSections.length ? observedSections : canonical.sections
+      sections: combinedSections.length ? combinedSections : canonical.sections
     };
   }
 };
@@ -378,7 +803,10 @@ export const migratedCorpusServices = {
   search: searchService,
   taxonomy: taxonomyService,
   publication: publicationRepository,
-  advertising: stagingAdvertisingService
+  advertising: stagingAdvertisingService,
+  presentation: publicPresentationService,
+  video: publicVideoService,
+  live: publicLiveService
 };
 
 export const migratedCorpusStatus = {
@@ -394,5 +822,10 @@ export const migratedCorpusStatus = {
     "ag05_public_context_document",
     "ag05_public_feed_rows",
     "ag05_hospaz_direct_ad_preview"
+  ] as const,
+  nativePublicFunctions: [
+    "newsroom_public_story_document",
+    "newsroom_public_published_stories",
+    "newsroom_public_context_document"
   ] as const
 };

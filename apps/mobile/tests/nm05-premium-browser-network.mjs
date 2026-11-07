@@ -287,7 +287,7 @@ async function runPublicComparison(browser,origin){
 
   // Public comparison teaser classification is deterministic and bounded here;
   // only the Premium repaired journey uses the live teaser authority below.
-  await page.route("https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
+  await page.route("https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document",async route=>{
     const payload=route.request().postDataJSON();
     await route.fulfill({
       status:200,

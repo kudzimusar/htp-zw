@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 const BASE = '/htp-zw';
 const premiumArticle = BASE + '/article/source-zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks';
 const publicArticle = BASE + '/article/source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis';
-const teaserEndpoint = 'https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document';
+const teaserEndpoint = 'https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document';
 const premiumReferencePath = '/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/';
 const publicReferencePath = '/2026/09/18/ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis/';
 
@@ -29,7 +29,7 @@ async function assertNoFatalRuntime(failures, label) {
 async function loadLiveTeaserAuthority(referencePath) {
   const url = String(process.env.EXPO_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
   const key = String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '');
-  expect(url).toBe('https://gcdohgbmqhqwydgaxrcr.supabase.co');
+  expect(url).toBe('https://bzuvntbkevvuhfhqhkua.supabase.co');
   expect(key).toMatch(/^sb_publishable_/);
   expect(key).not.toMatch(/service_role/i);
   const response = await fetch(teaserEndpoint, {
@@ -80,7 +80,7 @@ async function gotoCanonical(page, route, label) {
   const failures = captureRuntimeFailures(page);
   const response = await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
   expect(response && response.status(), label + ' HTTP').toBe(200);
-  await page.getByRole('button', { name: 'HealthTimes Home' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'HealthTimes Home' }).or(page.getByRole('tab', { name: 'Home' })).first().waitFor({ timeout: 30000 });
   await page.waitForFunction(() => document.body && document.body.innerText.trim().length > 80, null, { timeout: 30000 });
   return failures;
 }
@@ -109,9 +109,14 @@ test('canonical Home is responsive on phone tablet and desktop without retired r
     await page.getByText('Top Stories', { exact: true }).first().waitFor({ timeout: 30000 });
     await assertNoHorizontalOverflow(page, viewport.name + ' Home');
 
-    const tabs = await page.getByRole('tab').count();
-    if (viewport.name === 'phone') expect(tabs, 'phone canonical bottom navigation').toBeGreaterThanOrEqual(5);
-    if (viewport.name === 'desktop') expect(tabs, 'desktop mobile bottom navigation absent').toBe(0);
+    // Home has FIVE separate editorial tabs (e.g. "Latest Home filter")
+    // at every viewport. Those are not the Reader mobile bottom navigation.
+    // Scope the assertion to navigation tabs rather than all ARIA tabs.
+    const allTabs = await page.getByRole('tab').count();
+    const editorialTabs = await page.getByRole('tab', { name: /Home filter$/ }).count();
+    const bottomNavTabs = allTabs - editorialTabs;
+    if (viewport.name === 'phone') expect(bottomNavTabs, 'phone canonical bottom navigation').toBeGreaterThanOrEqual(5);
+    if (viewport.name === 'desktop') expect(bottomNavTabs, 'desktop mobile bottom navigation absent').toBe(0);
 
     const html = await page.content();
     expect(html).not.toMatch(/<script[^>]+src=["'][^"']*(?:\/|^)app\.js["']/i);
@@ -139,6 +144,28 @@ test('current primary Reader routes resolve through apps/mobile output', async (
     await assertSurface(page);
     await assertNoFatalRuntime(failures, label);
     await page.close();
+  }
+});
+
+// ICR05B: actual exported Expo UI, not synthetic fixture HTML. The three
+// viewport classes must all hydrate and preserve responsive navigation.
+test('ICR05B Explore hydrates and responds across phone tablet and desktop', async ({ browser }) => {
+  test.setTimeout(120000);
+  for(const viewport of [
+    {name:'phone',width:390,height:844},
+    {name:'tablet',width:834,height:1112},
+    {name:'desktop',width:1440,height:1000}
+  ]){
+    const page=await browser.newPage({viewport:{width:viewport.width,height:viewport.height}});
+    try{
+      const failures=await gotoCanonical(page,'/explore',viewport.name+' Explore');
+      await page.getByText('Explore by topic',{exact:true}).first().waitFor({timeout:30000});
+      await assertNoHorizontalOverflow(page,viewport.name+' Explore');
+      const tabs=await page.getByRole('tab').count();
+      if(viewport.name==='phone')expect(tabs,'phone navigation must be visible').toBeGreaterThanOrEqual(5);
+      if(viewport.name==='desktop')expect(tabs,'desktop mobile navigation must be absent').toBe(0);
+      await assertNoFatalRuntime(failures,viewport.name+' Explore');
+    }finally{await page.close();}
   }
 });
 
@@ -187,7 +214,8 @@ test('current public comparator renders Reader actions without Premium lock', as
 test('Premium landing exposes access truth without fabricated commerce success', async ({ page }) => {
   const failures = await gotoCanonical(page, '/premium', 'Premium landing');
   await page.getByText('HEALTHTIMES PREMIUM', { exact: true }).waitFor({ timeout: 30000 });
-  await expect(page.getByText('Your membership', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('premium-member-access-card')).toBeVisible();
+  await expect(page.getByText('Already a member?', { exact: true })).toBeVisible();
   const body = await page.locator('body').innerText();
   expect(body).not.toContain('Payment successful');
   expect(body).not.toContain('Purchase complete');

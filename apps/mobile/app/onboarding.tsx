@@ -7,6 +7,7 @@ import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 import type { NotificationPreferences } from "../src/security/notification-preferences";
+import { HealthTimesBrand } from "../src/ui/Brand";
 
 const steps=[
   {title:"Welcome to HealthTimes",text:"Global health journalism, Live coverage, Watch, Listen and Premium intelligence in one trusted Reader."},
@@ -72,7 +73,7 @@ export default function OnboardingScreen(){
     <Page chrome={false}>
       <View style={styles.wrap}>
         <View style={[styles.brandPanel,{backgroundColor:palette.navy}]}>
-          <Text style={styles.brand}>HealthTimes</Text>
+          <HealthTimesBrand inverse />
           <Text style={styles.brandTag}>GLOBAL HEALTH JOURNALISM</Text>
         </View>
         <Text style={[styles.counter,{color:palette.blue}]}>{step+1} / {steps.length}</Text>
@@ -91,13 +92,24 @@ export default function OnboardingScreen(){
         )}
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={saving ? "Saving preferences" : step < steps.length - 1 ? "Continue to next step" : "Open HealthTimes"}
           style={[styles.cta,{backgroundColor:palette.blue}]}
           disabled={saving}
           onPress={()=>step<steps.length-1?setStep(step+1):void finish()}
         >
           <Text style={[styles.ctaText,{color:palette.paper}]}>{saving?"Saving…":step<steps.length-1?"Continue":"Open HealthTimes"}</Text>
         </Pressable>
-        {step===0 && <Pressable style={styles.secondary} onPress={()=>router.push("/account-access" as never)}><Text style={[styles.signin,{color:palette.inkMuted}]}>Existing account? Sign in</Text></Pressable>}
+        {step===0 && (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Existing account? Sign in"
+            style={styles.secondary}
+            onPress={()=>router.push("/account-access" as never)}
+          >
+            <Text style={[styles.signin,{color:palette.inkMuted}]}>Existing account? Sign in</Text>
+          </Pressable>
+        )}
       </View>
     </Page>
   );

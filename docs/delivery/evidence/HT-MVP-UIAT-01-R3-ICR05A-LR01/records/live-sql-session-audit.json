@@ -1,0 +1,181 @@
+{
+  "auditType": "STAGING_LIVE_SQL_SESSION_AUDIT",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05A-LR01",
+  "authority": "ALLOWLISTED_QUERY_TEMPLATES_ENFORCED",
+  "connectionProvenance": "Supabase Management API direct HTTPS query via allowlisted SELECT template",
+  "sessionRevokeNullProviderIdPresent": false,
+  "trackedCurrentRunSessions": [
+    {
+      "email": "uat-specialist@healthtimes.test",
+      "staffProfileId": "5d01dd6e-2a6d-46fa-9c5c-846193add82a",
+      "authUserId": "a0000000-0000-0000-0000-000000000001",
+      "providerSessionId": "bfae4bc5-3dac-4428-b562-aa4a628691c1",
+      "testRunId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+      "trackedAt": "2026-11-02T10:58:05.572Z"
+    },
+    {
+      "email": "uat-commercial@healthtimes.test",
+      "staffProfileId": "5801b34b-04dc-433b-89e4-128874618dab",
+      "authUserId": "e8bd82c4-30e6-4587-bc65-7db66407bb3e",
+      "providerSessionId": "993fae99-d4f0-4d5e-b432-287eb3f3e5ef",
+      "testRunId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+      "trackedAt": "2026-11-02T10:58:16.669Z"
+    },
+    {
+      "email": "uat-specialist@healthtimes.test",
+      "staffProfileId": "5d01dd6e-2a6d-46fa-9c5c-846193add82a",
+      "authUserId": "a0000000-0000-0000-0000-000000000001",
+      "providerSessionId": "98236074-4e84-4441-81d5-91e86b04071a",
+      "testRunId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+      "trackedAt": "2026-11-02T10:59:17.586Z"
+    }
+  ],
+  "runId": "06607d03-8ee0-4d2d-8c73-e6372117cc0e",
+  "preTest": {
+    "stage": "PRE_TEST",
+    "timestamp": "2026-11-02T10:57:44.925Z",
+    "provenance": "Supabase Management API direct HTTPS query via allowlisted SELECT template",
+    "projectId": "bzuvntbkevvuhfhqhkua",
+    "leastPrivilegeMode": "ALLOWLISTED_QUERY_TEMPLATES_ENFORCED",
+    "templatesExecuted": {
+      "newsroomSessions": {
+        "templateId": "NEWSROOM_ACTIVE_SESSIONS",
+        "description": "Active newsroom sessions grouped by staff email",
+        "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "executedAt": "2026-11-02T10:57:43.876Z",
+        "httpStatus": 201,
+        "integrityDigestSha256": "ec975fe33c4b2856aa0d571b93562285e81bcbc2832a852eea0ddfc3f769febf",
+        "rowCount": 1,
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 15
+          }
+        ]
+      },
+      "authSessions": {
+        "templateId": "AUTH_ACTIVE_SESSIONS",
+        "description": "Active GoTrue auth sessions grouped by user email",
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "executedAt": "2026-11-02T10:57:43.911Z",
+        "httpStatus": 201,
+        "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+        "rowCount": 1,
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      },
+      "refreshTokens": {
+        "templateId": "AUTH_ACTIVE_REFRESH_TOKENS",
+        "description": "Active GoTrue refresh tokens grouped by user email",
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+        "executedAt": "2026-11-02T10:57:43.930Z",
+        "httpStatus": 201,
+        "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+        "rowCount": 1,
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "counts": {
+      "testNewsroomSessions": 0,
+      "ownerNewsroomSessions": 15,
+      "testAuthSessions": 0,
+      "ownerAuthSessions": 2,
+      "testRefreshTokens": 0,
+      "ownerRefreshTokens": 2
+    },
+    "breakdown": {
+      "newsroom": {
+        "kudzimusar@gmail.com": 15
+      },
+      "auth": {
+        "kudzimusar@gmail.com": 2
+      },
+      "refresh": {
+        "kudzimusar@gmail.com": 2
+      }
+    }
+  },
+  "postTest": {
+    "stage": "POST_TEST",
+    "timestamp": "2026-11-02T10:59:23.880Z",
+    "provenance": "Supabase Management API direct HTTPS query via allowlisted SELECT template",
+    "projectId": "bzuvntbkevvuhfhqhkua",
+    "leastPrivilegeMode": "ALLOWLISTED_QUERY_TEMPLATES_ENFORCED",
+    "templatesExecuted": {
+      "newsroomSessions": {
+        "templateId": "NEWSROOM_ACTIVE_SESSIONS",
+        "description": "Active newsroom sessions grouped by staff email",
+        "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+        "executedAt": "2026-11-02T10:59:22.712Z",
+        "httpStatus": 201,
+        "integrityDigestSha256": "ec975fe33c4b2856aa0d571b93562285e81bcbc2832a852eea0ddfc3f769febf",
+        "rowCount": 1,
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 15
+          }
+        ]
+      },
+      "authSessions": {
+        "templateId": "AUTH_ACTIVE_SESSIONS",
+        "description": "Active GoTrue auth sessions grouped by user email",
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+        "executedAt": "2026-11-02T10:59:22.735Z",
+        "httpStatus": 201,
+        "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+        "rowCount": 1,
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      },
+      "refreshTokens": {
+        "templateId": "AUTH_ACTIVE_REFRESH_TOKENS",
+        "description": "Active GoTrue refresh tokens grouped by user email",
+        "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+        "executedAt": "2026-11-02T10:59:22.761Z",
+        "httpStatus": 201,
+        "integrityDigestSha256": "f974081775fa3a4b7f0ad74edaa8498d642d6c6b8e259f3fa66b103fbb5ec818",
+        "rowCount": 1,
+        "rawResult": [
+          {
+            "email": "kudzimusar@gmail.com",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "counts": {
+      "testNewsroomSessions": 0,
+      "ownerNewsroomSessions": 15,
+      "testAuthSessions": 0,
+      "ownerAuthSessions": 2,
+      "testRefreshTokens": 0,
+      "ownerRefreshTokens": 2
+    },
+    "breakdown": {
+      "newsroom": {
+        "kudzimusar@gmail.com": 15
+      },
+      "auth": {
+        "kudzimusar@gmail.com": 2
+      },
+      "refresh": {
+        "kudzimusar@gmail.com": 2
+      }
+    }
+  },
+  "integrityDigestSha256": "ada4ebbf6276a225153da08d807693f87607a6bc31093efcbf0aaf239873aec8"
+}

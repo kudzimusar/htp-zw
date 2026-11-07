@@ -28,7 +28,7 @@ export default function NotificationsScreen(){
             ["topic","Topics"],
             ["premium","Premium"],
             ["system","System"]
-          ] as const).map(([key,label])=><Chip key={key} active={active===key} onPress={()=>setActive(key)}>{label}</Chip>)}
+          ] as const).map(([key,label])=><Chip key={key} active={active===key} onPress={()=>setActive(key)} accessibilityLabel={`Filter by ${label}`}>{label}</Chip>)}
         </View>
         <Pressable accessibilityRole="button" style={styles.settings} onPress={()=>router.push("/notification-settings" as never)}><Text style={[styles.settingsText,{color:palette.blue}]}>Notification settings</Text></Pressable>
       </View>
@@ -40,7 +40,9 @@ export default function NotificationsScreen(){
             disabled={!item.destination}
             onPress={item.destination ? ()=>router.push(item.destination as never) : undefined}
             style={[styles.row,{borderBottomColor:palette.border}]}
-            accessibilityRole={item.destination ? "link" : undefined}
+            accessibilityRole={item.destination ? "link" : "none"}
+            accessibilityLabel={`${item.category.toUpperCase()} alert: ${item.title}. ${item.description}`}
+            accessibilityState={{ disabled: !item.destination }}
           >
             <View style={[styles.dot,{backgroundColor:item.read?palette.border:palette.blue}]} />
             <View style={styles.copy}>

@@ -1,207 +1,230 @@
-# HealthTimes Mobile App Packaging & Store Readiness
+# HealthTimes Mobile Packaging & Native Release Authority
 
-**Application:** HealthTimes Zimbabwe  
-**Package / bundle ID proposal:** `zw.co.healthtimes.app`  
-**Public PWA:** `https://kudzimusar.github.io/htp-zw/`  
-**Status:** Client-review / pre-signing scaffold
+**Application:** HealthTimes  
+**Canonical Reader source:** `apps/mobile`  
+**Native stack:** Expo + React Native + Expo Router  
+**Web/PWA stack:** React Native Web static export from the same `apps/mobile` source  
+**Current product authority:** UI-WF certified Reader lineage  
+**Status:** Native release custody recertified; store signing/submission remains a future release gate
 
-## 1. Mobile strategy
+> **Release-custody rule:** Do not build a shipping HealthTimes Reader from the repository-root PWA, `app/twa-manifest.json`, Bubblewrap/TWA, or the root `capacitor.config.json`. Those files are retained only as historical evidence of an earlier web-wrapper strategy.
 
-HealthTimes uses one authoritative publication/content model but deliberately presents a native-news mobile UI at phone/tablet widths. The delivery strategy is:
+## 1. Canonical delivery strategy
 
-1. **Installable PWA** — immediate installable mobile/desktop experience.
-2. **Google Play** — Trusted Web Activity (TWA) generated with Bubblewrap around the verified HTTPS PWA.
-3. **Apple App Store** — Capacitor iOS container around the same publication, with native signing and App Store Connect completed on macOS after client approval.
-
-The PWA is the source of truth for the web experience. Store wrappers should not fork editorial logic.
-
-## 2. PWA baseline
-
-Repository components:
-
-- `site.webmanifest`
-- `sw.js`
-- `favicon.svg`
-- mobile-specific UI in `v21.css` / `v21.js`
-- HTTPS deployment through GitHub Pages
-- standalone display mode
-- offline application shell
-- Light / Dark / System theme support
-- safe-area-aware mobile navigation
-
-### Install test
-
-On a supported Android/Chromium device:
-
-1. Open the HealthTimes HTTPS URL.
-2. Open browser menu.
-3. Choose **Install app** / **Add to Home screen**.
-4. Launch HealthTimes from the installed icon.
-5. Confirm standalone presentation and native mobile bottom navigation.
-
-On iPhone/iPad:
-
-1. Open HealthTimes in Safari.
-2. Share → **Add to Home Screen**.
-3. Launch from the Home Screen.
-
-## 3. Google Play — Trusted Web Activity
-
-The repository includes `app/twa-manifest.json` as a Bubblewrap configuration scaffold.
-
-### Why TWA
-
-HealthTimes is web-first, content-heavy and already served securely over HTTPS. A Trusted Web Activity keeps the public web/PWA as the primary product while allowing a Play Store package with browser-engine rendering and verified site ownership.
-
-### Before generating the production Android project
-
-Replace the GitHub Pages host with the approved production HealthTimes domain if the client chooses the new site as canonical.
-
-Production requirements:
-
-- final HTTPS domain;
-- approved app icon PNGs, including 512×512 and maskable variants;
-- Android signing keystore owned by the publisher;
-- Google Play Console developer account;
-- Digital Asset Links file on the production origin;
-- privacy policy and support URLs;
-- final package ID confirmation.
-
-### Bubblewrap workflow
-
-Install current Bubblewrap CLI, then initialize/update from the PWA manifest. The repository scaffold can be used as the configuration reference.
-
-Typical release flow:
-
-```bash
-bubblewrap init --manifest="https://YOUR-PRODUCTION-DOMAIN/site.webmanifest" --directory="android"
-bubblewrap validate --url="https://YOUR-PRODUCTION-DOMAIN/"
-bubblewrap fingerprint add <SHA-256-SIGNING-FINGERPRINT>
-bubblewrap fingerprint generateAssetLinks
-bubblewrap build
-```
-
-`bubblewrap build` requires the signing-key passwords for a signed release. Keep keys outside source control.
-
-### Digital Asset Links
-
-Publish the generated file at:
+HealthTimes now has one canonical Reader implementation:
 
 ```text
-https://YOUR-PRODUCTION-DOMAIN/.well-known/assetlinks.json
+apps/mobile
+  ├─ Expo / React Native / Expo Router        → Android + iOS
+  └─ React Native Web / Metro static export  → Web/PWA
 ```
 
-It must authorize `zw.co.healthtimes.app` with the final signing certificate fingerprint. Without verified Digital Asset Links, the TWA will fall back to browser chrome rather than the intended full-screen trusted experience.
+The native Android and iOS applications render React Native Reader components. They must not use a remote web page, Trusted Web Activity, Custom Tab, Capacitor WebView, or other browser shell as the primary Reader UI.
 
-### Play Console checklist
+The PWA and native apps share the same `apps/mobile` design/product source. Platform adaptation may legitimately change safe areas, native controls, responsive composition, media behavior and desktop layout. Desktop PWA is allowed to recompose into a publication layout rather than imitate a phone screen.
 
-- Create application: **HealthTimes Zimbabwe**.
-- Confirm package ID.
-- Upload signed Android App Bundle (AAB).
-- Complete App Content declarations.
-- Complete Data Safety based on the production analytics/auth/messaging implementation.
-- Add privacy policy URL.
-- Add support email/website.
-- Add phone and tablet screenshots.
-- Add 512×512 icon and feature graphic.
-- Complete content rating.
-- Declare ads accurately if advertising is enabled.
-- Test through Internal Testing before Production.
+## 2. Historical wrapper files — non-shipping
 
-## 4. Apple App Store — Capacitor path
+The following remain in the repository for provenance only.
 
-The repository includes `capacitor.config.json` as the wrapper configuration scaffold.
+### `app/twa-manifest.json`
 
-Capacitor is appropriate when HealthTimes wants an App Store presence and may later add native features such as push notifications, secure authentication, share extensions or saved/offline reading.
+Historical Bubblewrap / Trusted Web Activity scaffold.
 
-### Requirements not available in this repository
+It targets the former GitHub Pages web presentation and uses browser-engine rendering. It is **not** current Android release authority and must not be used to create an owner APK, internal-test APK/AAB, Play release, or native certification binary.
 
-An actual signed iOS submission requires:
+### `capacitor.config.json`
 
-- macOS;
-- current Xcode;
-- Apple Developer Program membership;
-- distribution signing certificate;
-- App Store provisioning/profile setup;
-- App Store Connect application record.
+Historical Capacitor remote-web wrapper scaffold.
 
-### Production setup
+Its root configuration points at the former GitHub Pages presentation. It is **not** current Android or iOS release authority and must not be used for Reader release work.
 
-After client approval, on the signing Mac:
+Do not delete or rewrite these historical files merely to make the repository look cleaner. Their presence documents the superseded strategy. This document controls how they are interpreted.
+
+## 3. Canonical development commands
+
+From repository root:
 
 ```bash
-npm install @capacitor/core @capacitor/cli @capacitor/ios
-npx cap add ios
-npx cap sync ios
-npx cap open ios
+npm install --prefix apps/mobile --no-audit --no-fund
+npm run native:android
 ```
 
-Review the generated Xcode target:
+Equivalent Android workspace command:
 
-- Bundle ID: `zw.co.healthtimes.app`
-- Display name: HealthTimes
-- deployment target appropriate for the current Capacitor release;
-- icons and launch screen;
-- privacy descriptions for any native APIs actually used;
-- universal-link/app-site-association settings if added;
-- associated domains if needed.
+```bash
+npm --prefix apps/mobile run android
+```
 
-### App Review quality note
+For iOS development on macOS:
 
-The App Store should receive more than a bare website wrapper. The HealthTimes mobile product already has a separate app-style UI, saved reading, reader profile, Premium access state, AI, themes and PWA/offline shell. Before submission, strengthen native value further with production push notifications, secure login, offline saved articles and native share behavior if required by current App Review expectations.
+```bash
+npm install --prefix apps/mobile --no-audit --no-fund
+npm run native:ios
+```
 
-## 5. Store screenshots
+For the canonical Web/PWA:
 
-Capture final production screenshots after branding/domain approval.
+```bash
+npm install --prefix apps/mobile --no-audit --no-fund
+npm run native:export:web
+```
+
+The PWA output is:
+
+```text
+apps/mobile/dist/
+```
+
+## 4. Deterministic certified Android build
+
+The certified source-parity Android path is:
+
+```bash
+npm install --prefix apps/mobile --no-audit --no-fund
+
+cd apps/mobile
+
+APP_ENV=development \
+EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity \
+npx expo prebuild --platform android --clean --no-install
+
+cd android
+./gradlew assembleRelease --no-daemon
+```
+
+Expected APK:
+
+```text
+apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+Current development package identity is resolved by `apps/mobile/app.config.ts`:
+
+```text
+zw.co.healthtimes.app.dev
+```
+
+The release APK is a React Native application generated from `apps/mobile`. The primary Android activity must remain a React Native activity; it must not become a Bubblewrap launcher, Trusted Web Activity, Capacitor bridge activity, or remote WebView shell.
+
+## 5. Native identity authority
+
+`apps/mobile/app.config.ts` controls native identity.
+
+Current environment identities:
+
+| Environment | Android package / iOS bundle ID | Display name |
+|---|---|---|
+| Development | `zw.co.healthtimes.app.dev` | HealthTimes Dev |
+| Staging | `zw.co.healthtimes.app.staging` | HealthTimes Staging |
+| Production | `zw.co.healthtimes.app` | HealthTimes |
+
+The canonical application entry remains:
+
+```text
+apps/mobile/package.json
+main = expo-router/entry
+```
+
+A shipping Reader must not add `react-native-webview` or a remote PWA URL as the primary application renderer.
+
+## 6. Future production Android
+
+Future production Android work starts from:
+
+```text
+apps/mobile/eas.json
+apps/mobile/app.config.ts
+```
+
+Expected release toolchain:
+
+```bash
+cd apps/mobile
+npx eas build --platform android --profile production
+```
+
+Production release additionally requires publisher-owned signing authority, final Play Console configuration, production backend/security readiness, privacy/data-safety declarations, approved icons/store assets, physical-device UAT and release approval.
+
+Do not substitute Bubblewrap/TWA for this path.
+
+## 7. Future production iOS
+
+Future production iOS also starts from `apps/mobile`.
+
+Expected release toolchain is Expo native iOS / EAS and, where required, Xcode signing and App Store Connect:
+
+```bash
+cd apps/mobile
+npx eas build --platform ios --profile production
+```
+
+Local native generation on macOS may use:
+
+```bash
+cd apps/mobile
+npx expo prebuild --platform ios --clean --no-install
+```
+
+The root Capacitor wrapper is not the future iOS strategy.
+
+Production iOS still requires an Apple Developer account, publisher-controlled signing, provisioning, final privacy declarations, production service readiness, physical-device UAT and App Store approval.
+
+## 8. Owner/internal Android preview
+
+An owner-review APK must be built from an explicitly recorded Git SHA of `apps/mobile`, normally in `development` identity with the approved data mode.
+
+For UI-WF owner preview the required environment is:
+
+```text
+APP_ENV=development
+EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity
+```
+
+The build evidence must record at minimum:
+
+- repository Git SHA;
+- frozen product authority when the repository head contains documentation/evidence-only commits;
+- APK SHA-256;
+- package ID;
+- display name;
+- build environment and service mode;
+- proof that the generated main activity is React Native;
+- emulator/device smoke-test evidence;
+- proof that Chrome/Custom Tabs/WebView is not the primary Reader.
+
+## 9. Store screenshots
+
+Capture final store screenshots from the canonical native app after branding and production release authority are approved.
 
 Recommended screenshot stories:
 
-1. Native mobile homepage.
-2. Premium research story with access indicator.
-3. Ask HealthTimes Intelligence.
-4. Saved stories / My HealthTimes.
-5. Topic/weekly briefing preferences.
-6. Dark theme.
+1. Home.
+2. Premium research story and access treatment.
+3. Search / discovery.
+4. Watch.
+5. Saved / My HealthTimes.
+6. Dark mode.
 
-Do not capture Newsroom/admin as a consumer store screenshot unless a separate staff app is later planned.
+Do not use screenshots from the historical TWA, Capacitor wrapper or retired repository-root Reader.
 
-## 6. Icon and splash deliverables
+## 10. Release gates
 
-For production, request or create client-approved source artwork and generate:
-
-- 1024×1024 App Store icon;
-- 512×512 Play Store icon;
-- 192×192 PWA icon;
-- 512×512 PWA icon;
-- maskable 512×512 icon with safe zone;
-- Android adaptive foreground/background assets;
-- iOS icon asset catalogue;
-- launch/splash artwork where required.
-
-The current `favicon.svg` is sufficient for the browser/PWA client review, but production store submission should use exported PNG assets from approved brand artwork.
-
-## 7. Payments warning
-
-The current US$5 Premium activation is presentation state only.
-
-Before store submission, determine the applicable platform payment rules for digital subscriptions and implement the appropriate production billing architecture. Do not ship the local/browser Premium toggle as a real paid entitlement system.
-
-## 8. Release gates
-
-A mobile store release requires all of the following:
+A production mobile store release requires all of the following:
 
 - production backend/authentication;
 - server-side Premium entitlement;
-- real billing architecture;
-- privacy policy/data inventory;
-- analytics consent strategy;
-- secure messaging preferences;
-- final domain;
+- approved billing architecture;
+- privacy policy and data inventory;
+- analytics/consent strategy;
+- secure messaging/preferences;
+- final production domain and service configuration;
 - approved branding/icons;
-- mobile UAT on physical devices;
 - accessibility review;
-- signed Android/iOS builds;
+- physical-device UAT;
+- publisher-controlled Android/iOS signing;
 - internal/beta testing;
-- store metadata and legal declarations.
+- store metadata and legal declarations;
+- explicit production deployment/release authority.
 
-The current repository establishes the technical and product path so the client can evaluate a web + mobile-app strategy before those production credentials are supplied.
+This file defines release-path custody only. It does not itself authorize a Play Store or App Store submission.

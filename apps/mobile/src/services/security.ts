@@ -69,6 +69,12 @@ export const stagingAuthorizationService: AuthorizationService = {
     return {
       status:"authorized",
       staffProfileId:context.id,
+      displayName: typeof context.display_name === "string" ? context.display_name : null,
+      email: typeof context.email === "string" ? context.email : null,
+      handle: typeof context.handle === "string" ? context.handle : null,
+      role: context.role ? String(context.role) : null,
+      desk: typeof context.desk === "string" ? context.desk : null,
+      sessionId: typeof context.session_id === "string" ? context.session_id : null,
       capabilities,
       source:"server",
       reason:"Authority loaded from the certified AG-06/CA-01 Newsroom server context."

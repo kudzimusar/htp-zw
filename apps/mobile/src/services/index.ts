@@ -1,13 +1,71 @@
-import type { HealthTimesServices } from "../domain/contracts";
+import type { ArticleRepository, HealthTimesServices } from "../domain/contracts";
 import { appEnvironment, editorialDataMode } from "../platform/config";
 import { fixtureServices } from "./fixtures";
 import { sourceParityServices } from "./source-parity";
 import { migratedCorpusServices } from "./migrated-corpus";
-import { stagingAuthService, stagingPlatformService } from "./staging";
+import { mergeReaderFeeds } from "../reader/feed-order";
+import { stagingAuthService, stagingNotificationService, stagingPlatformService } from "./staging";
 import { stagingAuthorizationService, stagingDeviceSecurityService } from "./security";
 import { stagingCommentModerationService, stagingNewsroomCommunicationService, stagingReaderDiscussionService } from "./communications";
+import { stagingNewsroomStoryService } from "./newsroom-stories";
+import { stagingNewsroomMediaService } from "./newsroom-media";
+import { stagingNewsroomVideoService } from "./newsroom-video";
+import { stagingNewsroomLiveCoverageService } from "./newsroom-live";
+import { stagingNewsroomSocialService } from "./newsroom-social";
+import { stagingNewsroomCampaignService } from "./newsroom-campaigns";
+import { stagingNewsroomPushAlertService } from "./newsroom-push-alerts";
+import { stagingNewsroomWhatsAppService } from "./newsroom-whatsapp";
+import { stagingNewsroomIntelligenceService } from "./newsroom-intelligence";
+import { stagingNewsroomStaffService } from "./newsroom-staff";
+import { stagingNewsroomCommercialService } from "./newsroom-commercial";
+import { stagingNewsroomFinanceService } from "./newsroom-finance";
+import { stagingNewsroomAiService } from "./newsroom-ai";
+import { stagingNewsroomAuthorsService } from "./newsroom-authors";
+import { stagingNewsroomSettingsService } from "./newsroom-settings";
+import { persistentReaderRepository } from "./reader-persistence";
 
 export const serviceMode = editorialDataMode;
+
+const stagingReaderArticles: ArticleRepository = {
+  async getHome() {
+    const migrated = await migratedCorpusServices.articles.getHome();
+    const current = await sourceParityServices.articles.getHome().catch(() => []);
+    return mergeReaderFeeds(migrated, current);
+  },
+  async getById(id) {
+    try {
+      const migrated = await migratedCorpusServices.articles.getById(id);
+      if (migrated) return migrated;
+    } catch (_) {}
+    try {
+      const current = await sourceParityServices.articles.getById(id).catch(() => null);
+      if (current) return current;
+    } catch (_) {}
+    try {
+      const downloaded = await persistentReaderRepository.getDownloadedArticles();
+      const match = downloaded.find(
+        (story) => story.id === id || story.slug === id || story.canonicalStoryId === id
+      );
+      if (match) return match;
+    } catch (_) {}
+    return null;
+  },
+  async getRelated(id) {
+    const migrated = await migratedCorpusServices.articles.getRelated(id);
+    const current = await sourceParityServices.articles.getRelated(id).catch(() => []);
+    return mergeReaderFeeds(migrated, current).slice(0, 3);
+  },
+  async listBySection(sectionSlug) {
+    const migrated = await migratedCorpusServices.articles.listBySection(sectionSlug);
+    const current = await sourceParityServices.articles.listBySection(sectionSlug).catch(() => []);
+    return mergeReaderFeeds(migrated, current);
+  },
+  async listByAuthor(authorSlug) {
+    const migrated = await migratedCorpusServices.articles.listByAuthor(authorSlug);
+    const current = await sourceParityServices.articles.listByAuthor(authorSlug).catch(() => []);
+    return mergeReaderFeeds(migrated, current);
+  }
+};
 
 function buildServices(): HealthTimesServices {
   if (appEnvironment === "production" || editorialDataMode === "production") {
@@ -18,7 +76,7 @@ function buildServices(): HealthTimesServices {
 
   const editorialServices =
     editorialDataMode === "staging"
-      ? migratedCorpusServices
+      ? { ...migratedCorpusServices, articles: stagingReaderArticles }
       : editorialDataMode === "source-parity"
         ? sourceParityServices
         : fixtureServices;
@@ -29,9 +87,25 @@ function buildServices(): HealthTimesServices {
       auth: stagingAuthService,
       authorization: stagingAuthorizationService,
       deviceSecurity: stagingDeviceSecurityService,
+      notifications: stagingNotificationService,
       readerDiscussion: stagingReaderDiscussionService,
       newsroomCommunication: stagingNewsroomCommunicationService,
       commentModeration: stagingCommentModerationService,
+      newsroomStories: stagingNewsroomStoryService,
+      newsroomMedia: stagingNewsroomMediaService,
+      newsroomVideo: stagingNewsroomVideoService,
+      newsroomLive: stagingNewsroomLiveCoverageService,
+      newsroomSocial: stagingNewsroomSocialService,
+      newsroomCampaigns: stagingNewsroomCampaignService,
+      newsroomPushAlerts: stagingNewsroomPushAlertService,
+      newsroomWhatsApp: stagingNewsroomWhatsAppService,
+      newsroomIntelligence: stagingNewsroomIntelligenceService,
+      newsroomStaff: stagingNewsroomStaffService,
+      newsroomCommercial: stagingNewsroomCommercialService,
+      newsroomFinance: stagingNewsroomFinanceService,
+      newsroomAi: stagingNewsroomAiService,
+      newsroomAuthors: stagingNewsroomAuthorsService,
+      newsroomSettings: stagingNewsroomSettingsService,
       platform: stagingPlatformService
     };
   }

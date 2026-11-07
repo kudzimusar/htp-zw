@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Modal,
   Platform,
@@ -28,6 +28,10 @@ export function PremiumSubscriptionPrompt({
   const { palette } = useAppearance();
   const { width } = useWindowDimensions();
   const phone = width < breakpoints.tablet;
+  const [closeFocused, setCloseFocused] = useState(false);
+  const [primaryFocused, setPrimaryFocused] = useState(false);
+  const [signInFocused, setSignInFocused] = useState(false);
+  const [notNowFocused, setNotNowFocused] = useState(false);
 
   useEffect(() => {
     if (!visible || Platform.OS !== "web" || typeof document === "undefined") return;
@@ -60,9 +64,18 @@ export function PremiumSubscriptionPrompt({
           style={[
             styles.card,
             phone ? styles.cardPhone : styles.cardDesktop,
-            { backgroundColor: palette.paper, borderColor: palette.border }
+            {
+              backgroundColor: palette.paper,
+              borderColor: palette.border,
+              borderTopColor: palette.premium
+            }
           ]}
         >
+          {phone && (
+            <View accessible={false} style={styles.sheetHandleWrap}>
+              <View style={[styles.sheetHandle, { backgroundColor: palette.border }]} />
+            </View>
+          )}
           <ScrollView
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
@@ -70,28 +83,41 @@ export function PremiumSubscriptionPrompt({
           >
             <View style={styles.topRow}>
               <View style={styles.identityRow}>
-                <Text style={styles.mark}>✦</Text>
-                <Text style={styles.identity}>HEALTHTIMES PREMIUM</Text>
+                <Text style={[styles.mark, { color: palette.premium }]}>✦</Text>
+                <Text style={[styles.identity, { color: palette.premium }]}>HEALTHTIMES PREMIUM</Text>
               </View>
               <Pressable
                 testID="premium-prompt-close"
                 accessibilityRole="button"
                 accessibilityLabel="Close Premium membership prompt"
+                onFocus={() => setCloseFocused(true)}
+                onBlur={() => setCloseFocused(false)}
                 onPress={onDismiss}
-                style={[styles.close, { borderColor: palette.border }]}
+                style={({ pressed }) => [
+                  styles.close,
+                  closeFocused && styles.actionFocused,
+                  {
+                    borderColor: closeFocused ? palette.blue : palette.border,
+                    backgroundColor: pressed ? palette.paperMuted : "transparent"
+                  }
+                ]}
               >
                 <Text style={[styles.closeText, { color: palette.ink }]}>×</Text>
               </Pressable>
             </View>
 
-            <Text accessibilityRole="header" style={[styles.title, { color: palette.ink }]}>
-              Keep reading with HealthTimes Premium
-            </Text>
-            <Text style={[styles.body, { color: palette.inkMuted }]}>
-              Become a Premium member for full access to member journalism and other supported Premium features.
-            </Text>
+            <View style={styles.headingGroup}>
+              <Text accessibilityRole="header" style={[styles.title, { color: palette.ink }]}>
+                Keep reading with HealthTimes Premium
+              </Text>
+              <Text style={[styles.body, { color: palette.inkMuted }]}>
+                {commerceAvailable
+                  ? "Your 20-second article preview has ended. Become a Premium member for full access to member journalism and other supported Premium features."
+                  : "Your 20-second article preview has ended. Become a Premium member for full access to member journalism and other supported Premium features, or sign in if you already have member access."}
+              </Text>
+            </View>
 
-            <View style={styles.benefits}>
+            <View style={[styles.benefits, { backgroundColor: palette.paperMuted, borderColor: palette.border }]}>
               <Text style={[styles.benefit, { color: palette.ink }]}>• Member journalism and investigations</Text>
               <Text style={[styles.benefit, { color: palette.ink }]}>• Supported reading, audio and saved-story features</Text>
               <Text style={[styles.benefit, { color: palette.ink }]}>• Existing members can sign in to restore access</Text>
@@ -102,8 +128,18 @@ export function PremiumSubscriptionPrompt({
                 testID="premium-prompt-primary"
                 accessibilityRole="button"
                 accessibilityLabel={commerceAvailable ? "Become Premium" : "Explore Premium"}
+                onFocus={() => setPrimaryFocused(true)}
+                onBlur={() => setPrimaryFocused(false)}
                 onPress={onPrimary}
-                style={[styles.primary, { backgroundColor: palette.blue }]}
+                style={({ pressed }) => [
+                  styles.primary,
+                  primaryFocused && styles.actionFocused,
+                  {
+                    backgroundColor: palette.blue,
+                    borderColor: primaryFocused ? palette.ink : palette.blue,
+                    opacity: pressed ? 0.9 : 1
+                  }
+                ]}
               >
                 <Text style={[styles.primaryText, { color: palette.paper }]}>
                   {commerceAvailable ? "Become Premium" : "Explore Premium"}
@@ -113,8 +149,17 @@ export function PremiumSubscriptionPrompt({
                 testID="premium-prompt-sign-in"
                 accessibilityRole="button"
                 accessibilityLabel="Member sign in"
+                onFocus={() => setSignInFocused(true)}
+                onBlur={() => setSignInFocused(false)}
                 onPress={onSignIn}
-                style={[styles.secondary, { borderColor: palette.border }]}
+                style={({ pressed }) => [
+                  styles.secondary,
+                  signInFocused && styles.actionFocused,
+                  {
+                    borderColor: signInFocused ? palette.blue : palette.border,
+                    backgroundColor: pressed ? palette.paperMuted : "transparent"
+                  }
+                ]}
               >
                 <Text style={[styles.secondaryText, { color: palette.ink }]}>Member sign in</Text>
               </Pressable>
@@ -122,8 +167,17 @@ export function PremiumSubscriptionPrompt({
                 testID="premium-prompt-not-now"
                 accessibilityRole="button"
                 accessibilityLabel="Not now"
+                onFocus={() => setNotNowFocused(true)}
+                onBlur={() => setNotNowFocused(false)}
                 onPress={onDismiss}
-                style={styles.notNow}
+                style={({ pressed }) => [
+                  styles.notNow,
+                  notNowFocused && styles.actionFocused,
+                  {
+                    borderColor: notNowFocused ? palette.blue : "transparent",
+                    backgroundColor: pressed ? palette.paperMuted : "transparent"
+                  }
+                ]}
               >
                 <Text style={[styles.notNowText, { color: palette.inkMuted }]}>Not now</Text>
               </Pressable>
@@ -165,11 +219,20 @@ const styles = StyleSheet.create({
   cardDesktop: {
     maxWidth: 600,
     maxHeight: "82%",
-    borderRadius: radius.lg
+    borderRadius: radius.md
+  },
+  sheetHandleWrap: {
+    alignItems: "center",
+    paddingTop: spacing.sm
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 999
   },
   content: {
     padding: spacing.xl,
-    gap: spacing.lg
+    gap: spacing.md
   },
   topRow: {
     flexDirection: "row",
@@ -180,18 +243,18 @@ const styles = StyleSheet.create({
   identityRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm
+    gap: spacing.xs
   },
   mark: {
     color: colors.premium,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900"
   },
   identity: {
     color: colors.premium,
     fontSize: 11,
     fontWeight: "900",
-    letterSpacing: 1.2
+    letterSpacing: 1.1
   },
   close: {
     minWidth: layout.touchMin,
@@ -202,38 +265,47 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm
   },
   closeText: {
-    fontSize: 24,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 24,
     fontWeight: "700"
   },
+  headingGroup: {
+    gap: spacing.xs
+  },
   title: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 25,
+    lineHeight: 31,
     fontWeight: "900",
-    letterSpacing: -0.5
+    letterSpacing: -0.4
   },
   body: {
-    fontSize: 15,
-    lineHeight: 23
-  },
-  benefits: {
-    gap: spacing.sm
-  },
-  benefit: {
     fontSize: 14,
     lineHeight: 21
   },
+  benefits: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    gap: spacing.xs
+  },
+  benefit: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "600"
+  },
   actions: {
-    gap: spacing.sm
+    gap: spacing.xs
   },
   primary: {
     minHeight: layout.touchMin,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
+    borderWidth: 1,
     borderRadius: radius.sm
   },
   primaryText: {
+    fontSize: 14,
     fontWeight: "900"
   },
   secondary: {
@@ -245,15 +317,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm
   },
   secondaryText: {
-    fontWeight: "900"
+    fontSize: 14,
+    fontWeight: "800"
   },
   notNow: {
     minHeight: layout.touchMin,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: spacing.lg
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderRadius: radius.sm
   },
   notNowText: {
+    fontSize: 13,
     fontWeight: "800"
+  },
+  actionFocused: {
+    borderWidth: 2
   }
 });

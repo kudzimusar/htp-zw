@@ -38,7 +38,24 @@ for (const retired of ['app.js','v21.js','reader.js']) {
   }
 }
 
-const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local';
+for (const [sourceRel, targetRel] of [
+  ['studio/staff/[staffId].html', 'studio/staff/fallback.html'],
+  ['article/[id].html', 'article/fallback.html'],
+  ['author/[slug].html', 'author/fallback.html']
+]) {
+  const sourcePath = path.join(dist, sourceRel);
+  if (fs.existsSync(sourcePath)) {
+    fs.copyFileSync(sourcePath, path.join(dist, targetRel));
+  }
+}
+
+const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || (function() {
+  try {
+    return require('node:child_process').execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'local';
+  }
+})();
 fs.writeFileSync(path.join(dist, 'build-info.json'), JSON.stringify({
   sha,
   presentation: 'apps/mobile',

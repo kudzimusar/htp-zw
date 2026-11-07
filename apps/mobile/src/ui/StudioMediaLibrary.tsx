@@ -1,0 +1,2265 @@
+import { useState, useMemo, useEffect } from "react";
+import {
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions
+} from "react-native";
+import { useRouter } from "expo-router";
+import { services } from "../services";
+import { useAsync } from "../hooks/useAsync";
+import {
+  classifyMediaMimeType,
+  deriveStorageCustodyCategory,
+  isMediaAssetAttachable,
+  validateMediaMetadataPatch,
+  type NewsroomMediaAsset,
+  type NewsroomMediaAssetStatus,
+  type NewsroomMediaAssetTypeGroup,
+  type NewsroomMediaMetadataPatch,
+  type NewsroomMediaUsage,
+  type StoryMediaUsageType
+} from "../domain/models";
+import { breakpoints, colors, radius, spacing } from "../theme/tokens";
+
+export function hasMediaLibraryAuthority(snapshot: unknown): boolean {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  const s = snapshot as {
+    status?: unknown;
+    source?: unknown;
+    capabilities?: unknown;
+  };
+  return (
+    s.status === "authorized" &&
+    s.source === "server" &&
+    Array.isArray(s.capabilities) &&
+    s.capabilities.includes("media.manage")
+  );
+}
+
+export function formatByteSize(bytes: number | null | undefined): string {
+  if (bytes == null || isNaN(bytes) || bytes <= 0) return "Unknown size";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function formatMediaUsageSourceContext(
+  context: Record<string, unknown> | null | undefined
+): string | null {
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return null;
+  }
+  const keys = Object.keys(context).sort();
+  if (keys.length === 0) return null;
+
+  const parts = keys.map((key) => {
+    const val = context[key];
+    const valStr =
+      val !== null && typeof val === "object"
+        ? JSON.stringify(val)
+        : String(val);
+    return `${key}: ${valStr}`;
+  });
+
+  const joined = parts.join(", ");
+  const MAX_LEN = 120;
+  if (joined.length > MAX_LEN) {
+    return joined.slice(0, MAX_LEN) + "…";
+  }
+  return joined;
+}
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "Unknown date";
+  try {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return iso;
+  }
+}
+
+export type StudioMediaLibraryViewProps = {
+  assets: NewsroomMediaAsset[];
+  loading?: boolean;
+  error?: string | null;
+  selectedAssetId?: string | null;
+  onSelectAsset?: (asset: NewsroomMediaAsset | null) => void;
+  onSearch?: (query: string) => void;
+  onRefresh?: () => void;
+  onSaveMetadata?: (
+    assetId: string,
+    patch: NewsroomMediaMetadataPatch
+  ) => Promise<void>;
+  savingId?: string | null;
+  saveError?: string | null;
+  saveSuccess?: boolean;
+  searchQuery?: string;
+  isOwnerPreview?: boolean;
+  watermarkBanner?: string;
+  onAttachToStory?: (
+    assetId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType,
+    caption?: string,
+    credit?: string
+  ) => Promise<void>;
+  storyOptions?: Array<{ id: string; title: string; workflowStatus?: string | null }>;
+};
+
+export function StudioMediaLibraryView({
+  assets,
+  loading = false,
+  error = null,
+  selectedAssetId = null,
+  onSelectAsset,
+  onSearch,
+  onRefresh,
+  onSaveMetadata,
+  savingId = null,
+  saveError = null,
+  saveSuccess = false,
+  searchQuery: initialSearchQuery = "",
+  isOwnerPreview = false,
+  watermarkBanner,
+  onAttachToStory,
+  storyOptions = []
+}: StudioMediaLibraryViewProps) {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= breakpoints.desktop;
+
+  const [searchInput, setSearchInput] = useState(initialSearchQuery);
+  const [typeFilter, setTypeFilter] = useState<NewsroomMediaAssetTypeGroup | "All">("All");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [usageFilter, setUsageFilter] = useState<"All" | "used" | "unused">("All");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Story attachment modal state
+  const [showAttachModal, setShowAttachModal] = useState(false);
+  const [targetStoryId, setTargetStoryId] = useState("");
+  const [attachUsageType, setAttachUsageType] = useState<StoryMediaUsageType>("featured");
+  const [attachCaption, setAttachCaption] = useState("");
+  const [attachCredit, setAttachCredit] = useState("");
+  const [attachSubmitting, setAttachSubmitting] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [attachSuccess, setAttachSuccess] = useState(false);
+  const [storySearchFilter, setStorySearchFilter] = useState("");
+
+  // Filtered assets
+  const filteredAssets = useMemo(() => {
+    return assets.filter((asset) => {
+      // Search input filter (UAT04A-032)
+      if (searchInput.trim()) {
+        const q = searchInput.toLowerCase().trim();
+        const matchesFilename = asset.filename?.toLowerCase().includes(q);
+        const matchesAlt = asset.altText?.toLowerCase().includes(q);
+        const matchesCaption = asset.caption?.toLowerCase().includes(q);
+        const matchesCredit = asset.credit?.toLowerCase().includes(q);
+        const matchesProvenance = asset.sourceProvenance?.toLowerCase().includes(q);
+        const matchesId = asset.id.toLowerCase().includes(q);
+        if (
+          !matchesFilename &&
+          !matchesAlt &&
+          !matchesCaption &&
+          !matchesCredit &&
+          !matchesProvenance &&
+          !matchesId
+        ) {
+          return false;
+        }
+      }
+      // Type group filter
+      if (typeFilter !== "All") {
+        const group = asset.typeGroup ?? classifyMediaMimeType(asset.mimeType);
+        if (group !== typeFilter) return false;
+      }
+      // Status filter
+      if (statusFilter !== "All") {
+        if (asset.status !== statusFilter) return false;
+      }
+      // Usage filter
+      if (usageFilter === "used" && asset.usage.length === 0) return false;
+      if (usageFilter === "unused" && asset.usage.length > 0) return false;
+
+      return true;
+    });
+  }, [assets, searchInput, typeFilter, statusFilter, usageFilter]);
+
+  // Selected asset (UAT04A-033: do not retain out-of-scope/hidden asset)
+  const selectedAsset = useMemo(() => {
+    if (filteredAssets.length === 0) return null;
+    if (!selectedAssetId) return filteredAssets[0] ?? null;
+    const match = filteredAssets.find((a) => a.id === selectedAssetId);
+    return match ?? null;
+  }, [filteredAssets, selectedAssetId]);
+
+  // Draft metadata state for the selected asset
+  const [draftAltText, setDraftAltText] = useState("");
+  const [draftCaption, setDraftCaption] = useState("");
+  const [draftCredit, setDraftCredit] = useState("");
+  const [draftProvenance, setDraftProvenance] = useState("");
+  const [clientValidationError, setClientValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedAsset) {
+      setDraftAltText(selectedAsset.altText ?? "");
+      setDraftCaption(selectedAsset.caption ?? "");
+      setDraftCredit(selectedAsset.credit ?? "");
+      setDraftProvenance(selectedAsset.sourceProvenance ?? "");
+      setClientValidationError(null);
+      setShowAttachModal(false);
+      setAttachError(null);
+      setAttachSuccess(false);
+    }
+  }, [selectedAsset?.id]);
+
+  const filteredStoryOptions = useMemo(() => {
+    if (!storyOptions || storyOptions.length === 0) return [];
+    if (!storySearchFilter.trim()) return storyOptions;
+    const q = storySearchFilter.toLowerCase();
+    return storyOptions.filter(
+      (s) => s.title.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)
+    );
+  }, [storyOptions, storySearchFilter]);
+
+  const handleExecuteAttach = async () => {
+    if (!selectedAsset || !targetStoryId || !onAttachToStory) return;
+    setAttachSubmitting(true);
+    setAttachError(null);
+    setAttachSuccess(false);
+    try {
+      await onAttachToStory(
+        selectedAsset.id,
+        targetStoryId,
+        attachUsageType,
+        attachCaption.trim() || undefined,
+        attachCredit.trim() || undefined
+      );
+      setAttachSuccess(true);
+      setTimeout(() => {
+        setShowAttachModal(false);
+        setAttachSuccess(false);
+      }, 1200);
+    } catch (err: any) {
+      setAttachError(err.message || "Failed to attach asset to story.");
+    } finally {
+      setAttachSubmitting(false);
+    }
+  };
+
+  const handleSearchSubmit = () => {
+    if (onSearch) {
+      onSearch(searchInput.trim());
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    if (onSearch) {
+      onSearch("");
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedAsset || !onSaveMetadata) return;
+    setClientValidationError(null);
+
+    const patch: NewsroomMediaMetadataPatch = {
+      altText: draftAltText.trim() === "" ? null : draftAltText.trim(),
+      caption: draftCaption.trim() === "" ? null : draftCaption.trim(),
+      credit: draftCredit.trim() === "" ? null : draftCredit.trim(),
+      sourceProvenance: draftProvenance.trim() === "" ? null : draftProvenance.trim()
+    };
+
+    const validation = validateMediaMetadataPatch(selectedAsset, patch);
+    if (!validation.valid) {
+      setClientValidationError(validation.error ?? "Validation failed.");
+      return;
+    }
+
+    await onSaveMetadata(selectedAsset.id, patch);
+  };
+
+  const isSaving = savingId === selectedAsset?.id;
+
+  return (
+    <View style={styles.container} testID="studio-media-library-view">
+      {watermarkBanner ? (
+        <View style={styles.previewNoticeBanner}>
+          <Text style={styles.previewNoticeText}>{watermarkBanner}</Text>
+        </View>
+      ) : null}
+
+      {/* Media Library Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTitleRow}>
+          <View>
+            <Text style={styles.headerTitle}>Media Library</Text>
+            <Text style={styles.headerSubtitle}>
+              Editorial asset management, technical metadata, accessibility, and story usage.
+            </Text>
+          </View>
+          <View style={styles.headerBadgesRow}>
+            <View style={styles.countBadge} testID="media-inventory-count-badge">
+              <Text style={styles.countBadgeText}>
+                {assets.length} assets loaded (capped at 100/250)
+              </Text>
+            </View>
+            <View style={styles.scopeBadge}>
+              <Text style={styles.scopeBadgeText}>Bounded latest/search set</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Search & Filters Controls */}
+        <View style={styles.controlsBar}>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by filename, caption, credit, source provenance..."
+              placeholderTextColor={colors.inkMuted}
+              value={searchInput}
+              onChangeText={setSearchInput}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
+              testID="media-library-search-input"
+            />
+            <Pressable
+              style={styles.searchButton}
+              onPress={handleSearchSubmit}
+              accessibilityRole="button"
+              accessibilityLabel="Execute media search"
+            >
+              <Text style={styles.searchButtonText}>Search</Text>
+            </Pressable>
+            {searchInput.trim() !== "" ? (
+              <Pressable
+                style={styles.clearButton}
+                onPress={handleClearSearch}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <Text style={styles.clearButtonText}>Clear</Text>
+              </Pressable>
+            ) : null}
+            {onRefresh ? (
+              <Pressable
+                style={styles.refreshButton}
+                onPress={onRefresh}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh media library"
+              >
+                <Text style={styles.refreshButtonText}>↻ Refresh</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          {/* Filters Row */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+          >
+            {/* Type Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterGroupLabel}>Type:</Text>
+              {(["All", "Images", "Video", "Audio", "Documents", "Other"] as const).map(
+                (grp) => (
+                  <Pressable
+                    key={grp}
+                    style={[
+                      styles.filterChip,
+                      typeFilter === grp && styles.filterChipActive
+                    ]}
+                    onPress={() => setTypeFilter(grp)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: typeFilter === grp }}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        typeFilter === grp && styles.filterChipTextActive
+                      ]}
+                    >
+                      {grp}
+                    </Text>
+                  </Pressable>
+                )
+              )}
+            </View>
+
+            {/* Status Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterGroupLabel}>Status:</Text>
+              {[
+                "All",
+                "pending",
+                "missing_from_uploads_archive",
+                "private_ready",
+                "published"
+              ].map((st) => (
+                <Pressable
+                  key={st}
+                  style={[
+                    styles.filterChip,
+                    statusFilter === st && styles.filterChipActive
+                  ]}
+                  onPress={() => setStatusFilter(st)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: statusFilter === st }}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      statusFilter === st && styles.filterChipTextActive
+                    ]}
+                  >
+                    {st === "All" ? "All" : st.replace(/_/g, " ")}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Usage Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterGroupLabel}>Usage:</Text>
+              {(["All", "used", "unused"] as const).map((u) => (
+                <Pressable
+                  key={u}
+                  style={[
+                    styles.filterChip,
+                    usageFilter === u && styles.filterChipActive
+                  ]}
+                  onPress={() => setUsageFilter(u)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: usageFilter === u }}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      usageFilter === u && styles.filterChipTextActive
+                    ]}
+                  >
+                    {u === "All" ? "All" : u === "used" ? "Used in Stories" : "Unused"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* View Mode Toggle */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterGroupLabel}>View:</Text>
+              <Pressable
+                style={[
+                  styles.filterChip,
+                  viewMode === "grid" && styles.filterChipActive
+                ]}
+                onPress={() => setViewMode("grid")}
+                accessibilityRole="button"
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    viewMode === "grid" && styles.filterChipTextActive
+                  ]}
+                >
+                  Grid
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.filterChip,
+                  viewMode === "list" && styles.filterChipActive
+                ]}
+                onPress={() => setViewMode("list")}
+                accessibilityRole="button"
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    viewMode === "list" && styles.filterChipTextActive
+                  ]}
+                >
+                  List
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Main Content Workspace */}
+      <View style={[styles.mainWorkspace, isDesktop && styles.mainWorkspaceDesktop]}>
+        {/* Left Column: Asset Grid/List */}
+        <View style={styles.inventoryColumn}>
+          {loading ? (
+            <View style={styles.centerBlock}>
+              <Text style={styles.statusNoticeText}>Loading media assets…</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorBlock}>
+              <Text style={styles.errorTitle}>Error loading media inventory</Text>
+              <Text style={styles.errorMessage}>{error}</Text>
+              {onRefresh ? (
+                <Pressable style={styles.retryButton} onPress={onRefresh}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : filteredAssets.length === 0 ? (
+            <View style={styles.emptyBlock} testID="media-empty-state">
+              <Text style={styles.emptyTitle}>No matching media assets</Text>
+              <Text style={styles.emptyText}>
+                No assets match the active search query and filters.
+              </Text>
+            </View>
+          ) : viewMode === "grid" ? (
+            <ScrollView contentContainerStyle={styles.gridContainer}>
+              {filteredAssets.map((asset) => {
+                const isSelected = asset.id === selectedAsset?.id;
+                const isImage = (asset.typeGroup ?? classifyMediaMimeType(asset.mimeType)) === "Images";
+                const hasPublicUrl = Boolean(asset.publicUrl);
+
+                return (
+                  <Pressable
+                    key={asset.id}
+                    style={[styles.gridCard, isSelected && styles.gridCardSelected]}
+                    onPress={() => onSelectAsset?.(asset)}
+                    testID={`media-card-${asset.id}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`Asset ${asset.filename}, status ${asset.status}`}
+                  >
+                    <View style={styles.gridThumbnailBox}>
+                      {isImage && hasPublicUrl ? (
+                        <Image
+                          source={{ uri: asset.publicUrl! }}
+                          style={styles.gridThumbnailImage}
+                          resizeMode="cover"
+                          accessibilityLabel={asset.altText ?? asset.filename}
+                        />
+                      ) : (
+                        <View style={styles.iconPlaceholder}>
+                          <Text style={styles.iconPlaceholderText}>
+                            {asset.typeGroup === "Video"
+                              ? "🎬"
+                              : asset.typeGroup === "Audio"
+                              ? "🎵"
+                              : asset.typeGroup === "Documents"
+                              ? "📄"
+                              : isImage
+                              ? "🖼️"
+                              : "📦"}
+                          </Text>
+                          <Text style={styles.iconPlaceholderMime}>
+                            {asset.mimeType.split("/")[1] ?? asset.mimeType}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.gridCardBody}>
+                      <Text style={styles.gridFilename} numberOfLines={1}>
+                        {asset.filename}
+                      </Text>
+                      <View style={styles.gridBadgeRow}>
+                        <View style={styles.mimeBadge}>
+                          <Text style={styles.mimeBadgeText}>{asset.typeGroup}</Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            asset.status === "published"
+                              ? styles.statusPublished
+                              : asset.status === "pending"
+                              ? styles.statusPending
+                              : styles.statusMissing
+                          ]}
+                        >
+                          <Text style={styles.statusBadgeText}>
+                            {asset.status.replace(/_/g, " ")}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.gridMetaRow}>
+                        <Text style={styles.gridMetaText}>
+                          {formatByteSize(asset.byteSize)}
+                        </Text>
+                        <Text style={styles.gridUsageText}>
+                          {asset.usage.length > 0
+                            ? `${asset.usage.length} story`
+                            : "Unused"}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <ScrollView contentContainerStyle={styles.listContainer}>
+              {filteredAssets.map((asset) => {
+                const isSelected = asset.id === selectedAsset?.id;
+                return (
+                  <Pressable
+                    key={asset.id}
+                    style={[styles.listRow, isSelected && styles.listRowSelected]}
+                    onPress={() => onSelectAsset?.(asset)}
+                    testID={`media-row-${asset.id}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <View style={styles.listIconBox}>
+                      <Text style={styles.listIcon}>
+                        {asset.typeGroup === "Video"
+                          ? "🎬"
+                          : asset.typeGroup === "Audio"
+                          ? "🎵"
+                          : asset.typeGroup === "Documents"
+                          ? "📄"
+                          : "🖼️"}
+                      </Text>
+                    </View>
+                    <View style={styles.listDetails}>
+                      <Text style={styles.listFilename} numberOfLines={1}>
+                        {asset.filename}
+                      </Text>
+                      <Text style={styles.listMeta}>
+                        {asset.mimeType} • {formatByteSize(asset.byteSize)} •{" "}
+                        {asset.status.replace(/_/g, " ")}
+                      </Text>
+                    </View>
+                    <View style={styles.listUsageBox}>
+                      <Text style={styles.listUsageText}>
+                        {asset.usage.length > 0
+                          ? `Used in ${asset.usage.length}`
+                          : "Unused"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+
+        {/* Right Column: Asset Inspector & Metadata Editor */}
+        <View style={styles.inspectorColumn} testID="media-inspector-column">
+          {selectedAsset ? (
+            <ScrollView contentContainerStyle={styles.inspectorScroll}>
+              <View style={styles.inspectorHeader}>
+                <Text style={styles.inspectorTitle}>Asset Inspector</Text>
+                <Text style={styles.inspectorAssetId} numberOfLines={1}>
+                  {isOwnerPreview ? `Asset: ${selectedAsset.filename}` : `ID: ${selectedAsset.id}`}
+                </Text>
+              </View>
+
+              {/* Preview Panel */}
+              <View style={styles.inspectorSection} testID="media-preview-panel">
+                <Text style={styles.sectionHeading}>Preview & Inspection</Text>
+                {selectedAsset.publicUrl &&
+                (selectedAsset.typeGroup ?? classifyMediaMimeType(selectedAsset.mimeType)) ===
+                  "Images" ? (
+                  <View style={styles.previewImageBox}>
+                    <Image
+                      source={{ uri: selectedAsset.publicUrl }}
+                      style={styles.previewImage}
+                      resizeMode="contain"
+                      accessibilityLabel={selectedAsset.altText || "Editorial image"}
+                      testID="media-public-image-preview"
+                    />
+                    {!selectedAsset.altText || selectedAsset.altText.trim().length === 0 ? (
+                      <View style={styles.warningBox} testID="missing-alt-text-warning">
+                        <Text style={styles.warningText}>
+                          ⚠️ Missing alt text — required editorial accessibility metadata.
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : isOwnerPreview &&
+                  (selectedAsset.typeGroup === "Video" || selectedAsset.mimeType.startsWith("video/")) ? (
+                  <View style={styles.nonImageInspectionCard} testID="media-video-inspection-card">
+                    <View style={styles.nonImageIconBadge}>
+                      <Text style={styles.nonImageIconText}>🎬</Text>
+                    </View>
+                    <View style={styles.nonImageMetaBlock}>
+                      <Text style={styles.nonImageInspectionTitle}>Video Asset Inspection</Text>
+                      <Text style={styles.nonImageInspectionDetail}>{selectedAsset.filename}</Text>
+                      <Text style={styles.nonImageInspectionSub}>
+                        Type: {selectedAsset.mimeType} · Size: {formatByteSize(selectedAsset.byteSize)}
+                        {selectedAsset.width && selectedAsset.height
+                          ? ` · ${selectedAsset.width}×${selectedAsset.height}px`
+                          : ""}
+                      </Text>
+                    </View>
+                    {selectedAsset.publicUrl ? (
+                      <Pressable
+                        style={styles.inspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedAsset.publicUrl!)}
+                        testID="media-open-video-preview"
+                      >
+                        <Text style={styles.inspectionActionBtnText}>▶ Play / Inspect Video Stream ↗</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.inspectionFallbackNotice}>
+                        Streaming source available via newsroom video pipeline.
+                      </Text>
+                    )}
+                  </View>
+                ) : isOwnerPreview &&
+                  (selectedAsset.typeGroup === "Audio" || selectedAsset.mimeType.startsWith("audio/")) ? (
+                  <View style={styles.nonImageInspectionCard} testID="media-audio-inspection-card">
+                    <View style={styles.nonImageIconBadge}>
+                      <Text style={styles.nonImageIconText}>🎧</Text>
+                    </View>
+                    <View style={styles.nonImageMetaBlock}>
+                      <Text style={styles.nonImageInspectionTitle}>Audio Asset Inspection</Text>
+                      <Text style={styles.nonImageInspectionDetail}>{selectedAsset.filename}</Text>
+                      <Text style={styles.nonImageInspectionSub}>
+                        Type: {selectedAsset.mimeType} · Size: {formatByteSize(selectedAsset.byteSize)}
+                      </Text>
+                      <View style={styles.audioWaveformSim}>
+                        <Text style={styles.audioWaveformText}> ▂▃▅▆▇▅▃▂ ▂▃▅▆▇▅▃▂ ▂▃▅▆▇</Text>
+                      </View>
+                    </View>
+                    {selectedAsset.publicUrl ? (
+                      <Pressable
+                        style={styles.inspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedAsset.publicUrl!)}
+                        testID="media-open-audio-preview"
+                      >
+                        <Text style={styles.inspectionActionBtnText}>▶ Play Audio Clip ↗</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.inspectionFallbackNotice}>
+                        Audio channel ready for broadcast & podcast distribution.
+                      </Text>
+                    )}
+                  </View>
+                ) : isOwnerPreview &&
+                  (selectedAsset.typeGroup === "Documents" ||
+                    selectedAsset.mimeType.includes("pdf") ||
+                    selectedAsset.mimeType.includes("word") ||
+                    selectedAsset.mimeType.includes("document")) ? (
+                  <View style={styles.nonImageInspectionCard} testID="media-document-inspection-card">
+                    <View style={styles.nonImageIconBadge}>
+                      <Text style={styles.nonImageIconText}>📄</Text>
+                    </View>
+                    <View style={styles.nonImageMetaBlock}>
+                      <Text style={styles.nonImageInspectionTitle}>Document Inspection Viewer</Text>
+                      <Text style={styles.nonImageInspectionDetail}>{selectedAsset.filename}</Text>
+                      <Text style={styles.nonImageInspectionSub}>
+                        Format: {selectedAsset.mimeType} · Size: {formatByteSize(selectedAsset.byteSize)}
+                      </Text>
+                    </View>
+                    {selectedAsset.publicUrl ? (
+                      <Pressable
+                        style={styles.inspectionActionBtn}
+                        onPress={() => Linking.openURL(selectedAsset.publicUrl!)}
+                        testID="media-open-document-preview"
+                      >
+                        <Text style={styles.inspectionActionBtnText}>View Document in Browser ↗</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.inspectionFallbackNotice}>
+                        Editorial reference document stored securely.
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.previewUnavailableBox} testID="preview-unavailable-notice">
+                    <Text style={styles.previewUnavailableIcon}>🔒</Text>
+                    <Text style={styles.previewUnavailableText}>
+                      Public preview unavailable for this asset.
+                    </Text>
+                    <Text style={styles.previewUnavailableSubtext}>
+                      {selectedAsset.typeGroup === "Video" || selectedAsset.typeGroup === "Audio"
+                        ? "Audio and video playback controls are not wired in this phase."
+                        : selectedAsset.typeGroup === "Documents"
+                        ? "Document preview viewer is not enabled."
+                        : "Private or pending migrated storage asset."}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Technical Specifications */}
+              <View style={styles.inspectorSection} testID="media-technical-metadata">
+                <Text style={styles.sectionHeading}>
+                  {isOwnerPreview
+                    ? "Asset Editorial & File Specifications"
+                    : "Asset Technical Specifications"}
+                </Text>
+                <View style={styles.metaGrid}>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Filename</Text>
+                    <Text style={styles.metaVal}>{selectedAsset.filename}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>MIME Type</Text>
+                    <Text style={styles.metaVal}>{selectedAsset.mimeType}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Status</Text>
+                    <Text style={styles.metaVal}>{selectedAsset.status}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>File Size</Text>
+                    <Text style={styles.metaVal}>{formatByteSize(selectedAsset.byteSize)}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Dimensions</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.width && selectedAsset.height
+                        ? `${selectedAsset.width} × ${selectedAsset.height} px`
+                        : "Not recorded"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>
+                      {isOwnerPreview ? "Media Management" : "Storage Custody"}
+                    </Text>
+                    <Text style={styles.metaVal}>
+                      {isOwnerPreview
+                        ? "Newsroom Managed Media"
+                        : (selectedAsset.storageCustodyCategory ??
+                          deriveStorageCustodyCategory(selectedAsset))}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>
+                      {isOwnerPreview ? "Integrity Status" : "Checksum"}
+                    </Text>
+                    <Text style={styles.metaVal} numberOfLines={1}>
+                      {isOwnerPreview ? "Verified" : (selectedAsset.checksum ?? "None")}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Uploaded Date</Text>
+                    <Text style={styles.metaVal}>{formatDate(selectedAsset.createdAt)}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Uploader</Text>
+                    <Text style={styles.metaVal}>
+                      {isOwnerPreview
+                        ? "Editorial Staff"
+                        : (selectedAsset.uploadedByStaffId ? "Uploader recorded" : "System / Unknown")}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Rights & Licensing Governance (UAT04A-031) */}
+              <View style={styles.inspectorSection} testID="media-rights-governance">
+                <Text style={styles.sectionHeading}>Rights & Licensing Governance</Text>
+                <View style={styles.metaGrid}>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Rights Status</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.credit ? "Licensed for Editorial Use" : "Editorial Work-for-Hire / Staff"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Attribution</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.credit || "HealthTimes Newsroom"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Licensing Basis</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.sourceProvenance || "Staff Original / Editorial Wire"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Permitted Use</Text>
+                    <Text style={styles.metaVal}>Web, Mobile App, Push & Social Cards</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaKey}>Provenance</Text>
+                    <Text style={styles.metaVal}>
+                      {selectedAsset.sourceProvenance || "Verified Newsroom Custody"}
+                    </Text>
+                  </View>
+                </View>
+                {isOwnerPreview ? (
+                  <Text style={styles.rightsSampleNotice}>
+                    * Sample rights governance presentation for preview verification.
+                  </Text>
+                ) : (
+                  <View style={styles.copyrightNoticeBox} testID="media-copyright-notice">
+                    <Text style={styles.copyrightNoticeTitle}>Copyright Policy</Text>
+                    <Text style={styles.copyrightNoticeText}>
+                      Copyright metadata is not available in the current canonical media contract.
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Metadata Editor */}
+              <View style={styles.inspectorSection} testID="media-metadata-editor">
+                <Text style={styles.sectionHeading}>Editorial Metadata Editor</Text>
+                <Text style={styles.editorNote}>
+                  {isOwnerPreview
+                    ? "Update editorial metadata, accessibility alt text, and caption details."
+                    : "Editable fields authorized by canonical Newsroom metadata RPC."}
+                </Text>
+
+                {/* Alt Text */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>
+                    Alt Text (Accessibility)
+                    {selectedAsset.mimeType.startsWith("image/") ? " *" : ""}
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={draftAltText}
+                    onChangeText={setDraftAltText}
+                    placeholder="Descriptive accessibility text for screen readers…"
+                    placeholderTextColor={colors.inkMuted}
+                    testID="media-alt-text-input"
+                  />
+                  {selectedAsset.mimeType.startsWith("image/") ? (
+                    <Text style={styles.fieldHelp}>
+                      Required for images (minimum 2 characters).
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Caption */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Caption</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    value={draftCaption}
+                    onChangeText={setDraftCaption}
+                    placeholder="Editorial context and narrative caption…"
+                    placeholderTextColor={colors.inkMuted}
+                    multiline
+                    numberOfLines={3}
+                    testID="media-caption-input"
+                  />
+                </View>
+
+                {/* Credit */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Credit</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={draftCredit}
+                    onChangeText={setDraftCredit}
+                    placeholder="Photographer, wire service, agency or creator…"
+                    placeholderTextColor={colors.inkMuted}
+                    testID="media-credit-input"
+                  />
+                </View>
+
+                {/* Source Provenance */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Source Provenance</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={draftProvenance}
+                    onChangeText={setDraftProvenance}
+                    placeholder={
+                      isOwnerPreview
+                        ? "Editorial origin (e.g. direct assignment, field photography)…"
+                        : "Archival provenance (e.g. wordpress-migration, direct-assignment)…"
+                    }
+                    placeholderTextColor={colors.inkMuted}
+                    testID="media-provenance-input"
+                  />
+                  <Text style={styles.fieldHelp}>
+                    Institutional or archival origin (separate from author/credit).
+                  </Text>
+                </View>
+
+                {/* Validation and Error Alerts */}
+                {clientValidationError ? (
+                  <View style={styles.errorAlert} testID="media-validation-error">
+                    <Text style={styles.errorAlertText}>⚠️ {clientValidationError}</Text>
+                  </View>
+                ) : null}
+
+                {saveError ? (
+                  <View style={styles.errorAlert} testID="media-save-error">
+                    <Text style={styles.errorAlertText}>❌ {saveError}</Text>
+                  </View>
+                ) : null}
+
+                {saveSuccess ? (
+                  <View style={styles.successAlert} testID="media-save-success">
+                    <Text style={styles.successAlertText}>✓ Metadata saved successfully.</Text>
+                  </View>
+                ) : null}
+
+                {/* Save Button */}
+                <Pressable
+                  style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                  onPress={handleSave}
+                  disabled={isSaving}
+                  testID="media-save-metadata-button"
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.saveButtonText}>
+                    {isSaving ? "Saving Metadata…" : "Save Metadata"}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Usage Panel */}
+              <View style={styles.inspectorSection} testID="media-usage-panel">
+                <Text style={styles.sectionHeading}>
+                  Story Usage ({selectedAsset.usage.length})
+                </Text>
+                {selectedAsset.usage.length === 0 ? (
+                  <Text style={styles.noUsageText}>No active story usage recorded.</Text>
+                ) : (
+                  <View style={styles.usageList}>
+                    {selectedAsset.usage.map((u, idx) => (
+                      <View key={`${u.storyId}-${idx}`} style={styles.usageCard}>
+                        <View style={styles.usageCardTop}>
+                          <View style={styles.usageTypeBadge}>
+                            <Text style={styles.usageTypeBadgeText}>{u.usageType}</Text>
+                          </View>
+                          {formatMediaUsageSourceContext(u.sourceContext) ? (
+                            <Text style={styles.usageContextText}>
+                              {formatMediaUsageSourceContext(u.sourceContext)}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={styles.usageStoryId} numberOfLines={1}>
+                          {isOwnerPreview
+                            ? `Story: ${storyOptions.find((st) => st.id === u.storyId)?.title || "Linked Editorial Story"}`
+                            : `Story ID: ${u.storyId}`}
+                        </Text>
+                        <Pressable
+                          style={styles.storyWorkspaceLink}
+                          onPress={() => {
+                            if (isOwnerPreview) {
+                              router.push(
+                                `/owner-preview/studio/create-edit?storyId=${u.storyId}` as never
+                              );
+                            } else {
+                              router.push(`/studio/create-edit?storyId=${u.storyId}` as never);
+                            }
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open story ${u.storyId} in workspace`}
+                        >
+                          <Text style={styles.storyWorkspaceLinkText}>
+                            Open in Story Workspace →
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Story Association / Attachment */}
+              {onAttachToStory ? (
+                <View style={styles.inspectorSection} testID="media-story-attachment-section">
+                  <Text style={styles.sectionHeading}>Story Association</Text>
+                  <Text style={styles.editorNote}>
+                    Attach this asset to a newsroom story as featured lead, inline media, or supporting document.
+                  </Text>
+                  {!isMediaAssetAttachable(selectedAsset).eligible ? (
+                    <View style={styles.ineligibleBox} testID="media-ineligible-notice">
+                      <Text style={styles.ineligibleText}>
+                        🔒 Attachment unavailable: {isMediaAssetAttachable(selectedAsset).reason}
+                      </Text>
+                    </View>
+                  ) : !showAttachModal ? (
+                    <Pressable
+                      style={styles.attachToStoryBtn}
+                      onPress={() => {
+                        setShowAttachModal(true);
+                        setAttachError(null);
+                        setAttachSuccess(false);
+                        const isImg = selectedAsset.mimeType.startsWith("image/");
+                        setAttachUsageType(isImg ? "featured" : "supporting_document");
+                        setAttachCaption(selectedAsset.caption ?? "");
+                        setAttachCredit(selectedAsset.credit ?? "");
+                        if (storyOptions.length > 0 && !targetStoryId) {
+                          setTargetStoryId(storyOptions[0]?.id || "");
+                        }
+                      }}
+                      testID="media-attach-to-story-button"
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.attachToStoryBtnText}>📎 Attach to Story…</Text>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.attachModalOverlay} testID="media-attach-modal">
+                      <Text style={styles.attachModalTitle}>Attach Asset to Story</Text>
+                      <Text style={styles.attachModalSub}>
+                        Target Asset: {selectedAsset.filename}
+                      </Text>
+
+                      {/* Story Search / Selection */}
+                      <Text style={styles.formLabel}>Target Story *</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Search stories by headline or ID…"
+                        placeholderTextColor={colors.inkMuted}
+                        value={storySearchFilter}
+                        onChangeText={setStorySearchFilter}
+                        testID="media-attach-story-search"
+                      />
+                      <ScrollView
+                        style={styles.storyChoiceScroll}
+                        nestedScrollEnabled
+                      >
+                        {filteredStoryOptions.length === 0 ? (
+                          <Text style={styles.noUsageText}>No matching stories available.</Text>
+                        ) : (
+                          filteredStoryOptions.map((st) => {
+                            const isPicked = targetStoryId === st.id;
+                            return (
+                              <Pressable
+                                key={st.id}
+                                style={[
+                                  styles.storyChoiceItem,
+                                  isPicked && styles.storyChoiceItemSelected
+                                ]}
+                                onPress={() => setTargetStoryId(st.id)}
+                                testID={`media-attach-pick-story-${st.id}`}
+                              >
+                                <Text
+                                  style={[
+                                    styles.storyChoiceText,
+                                    isPicked && styles.storyChoiceTextSelected
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {st.title || "Untitled story"} ({st.workflowStatus ?? "Draft"})
+                                </Text>
+                              </Pressable>
+                            );
+                          })
+                        )}
+                      </ScrollView>
+
+                      {/* Role selection */}
+                      <Text style={styles.formLabel}>Usage Role *</Text>
+                      <View style={styles.roleOptionRow}>
+                        {selectedAsset.mimeType.startsWith("image/") ? (
+                          <>
+                            <Pressable
+                              style={[
+                                styles.roleOptionBtn,
+                                attachUsageType === "featured" && styles.roleOptionBtnSelected
+                              ]}
+                              onPress={() => setAttachUsageType("featured")}
+                              testID="media-attach-role-featured"
+                            >
+                              <Text
+                                style={[
+                                  styles.roleOptionText,
+                                  attachUsageType === "featured" && styles.roleOptionTextSelected
+                                ]}
+                              >
+                                Featured Lead
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={[
+                                styles.roleOptionBtn,
+                                attachUsageType === "inline" && styles.roleOptionBtnSelected
+                              ]}
+                              onPress={() => setAttachUsageType("inline")}
+                              testID="media-attach-role-inline"
+                            >
+                              <Text
+                                style={[
+                                  styles.roleOptionText,
+                                  attachUsageType === "inline" && styles.roleOptionTextSelected
+                                ]}
+                              >
+                                Inline Image
+                              </Text>
+                            </Pressable>
+                          </>
+                        ) : (
+                          <Pressable
+                            style={[
+                              styles.roleOptionBtn,
+                              attachUsageType === "supporting_document" && styles.roleOptionBtnSelected
+                            ]}
+                            onPress={() => setAttachUsageType("supporting_document")}
+                            testID="media-attach-role-doc"
+                          >
+                            <Text
+                              style={[
+                                styles.roleOptionText,
+                                attachUsageType === "supporting_document" && styles.roleOptionTextSelected
+                              ]}
+                            >
+                              Supporting Document
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {/* Featured Replacement Warning */}
+                      {attachUsageType === "featured" ? (
+                        <View style={styles.warningBox} testID="media-attach-replacement-warning">
+                          <Text style={styles.warningText}>
+                            ⚠️ REPLACEMENT: Setting this image as Featured will replace any existing featured lead image on the target story upon confirmation.
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* Caption override */}
+                      <Text style={styles.formLabel}>Caption Override (optional)</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={attachCaption}
+                        onChangeText={setAttachCaption}
+                        placeholder="Contextual caption for this story..."
+                        placeholderTextColor={colors.inkMuted}
+                        testID="media-attach-caption-input"
+                      />
+
+                      {/* Credit override */}
+                      <Text style={styles.formLabel}>Credit Override (optional)</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={attachCredit}
+                        onChangeText={setAttachCredit}
+                        placeholder="Photographer / agency credit..."
+                        placeholderTextColor={colors.inkMuted}
+                        testID="media-attach-credit-input"
+                      />
+
+                      {attachError ? (
+                        <View style={styles.errorAlert} testID="media-attach-error">
+                          <Text style={styles.errorAlertText}>❌ {attachError}</Text>
+                        </View>
+                      ) : null}
+
+                      {attachSuccess ? (
+                        <View style={styles.successAlert} testID="media-attach-success">
+                          <Text style={styles.successAlertText}>✓ Asset successfully attached to story.</Text>
+                        </View>
+                      ) : null}
+
+                      {/* Action buttons */}
+                      <View style={styles.attachActionRow}>
+                        <Pressable
+                          style={[
+                            styles.attachSubmitBtn,
+                            (!targetStoryId || attachSubmitting) && styles.saveButtonDisabled
+                          ]}
+                          onPress={handleExecuteAttach}
+                          disabled={!targetStoryId || attachSubmitting}
+                          testID="media-attach-confirm-button"
+                        >
+                          <Text style={styles.attachSubmitBtnText}>
+                            {attachSubmitting ? "Attaching…" : "Confirm Attachment"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.attachCancelBtn}
+                          onPress={() => setShowAttachModal(false)}
+                          disabled={attachSubmitting}
+                        >
+                          <Text style={styles.attachCancelBtnText}>Cancel</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ) : null}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyInspector}>
+              <Text style={styles.emptyInspectorText}>
+                Select an asset from the inventory to view its technical details, edit metadata,
+                or inspect story usages.
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function StudioMediaLibrary() {
+  const router = useRouter();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Authority snapshot
+  const authAsync = useAsync(
+    () => services.authorization.getSnapshot(),
+    [refreshKey]
+  );
+  const authSnapshot = authAsync.data;
+  const isAuthorized = hasMediaLibraryAuthority(authSnapshot);
+
+  // Media listing: FAIL-CLOSED. Must NOT call listMedia if unauthorized!
+  const mediaAsync = useAsync(async () => {
+    if (!isAuthorized) return [];
+    return await services.newsroomMedia.listMedia(searchQuery, 100);
+  }, [isAuthorized, searchQuery, refreshKey]);
+
+  const assets = Array.isArray(mediaAsync.data) ? mediaAsync.data : [];
+
+  // Stories listing for attachment:
+  const storiesAsync = useAsync(async () => {
+    if (!isAuthorized) return [];
+    return await services.newsroomStories.listStories(100);
+  }, [isAuthorized, refreshKey]);
+
+  const stories = Array.isArray(storiesAsync.data) ? storiesAsync.data : [];
+
+  const handleAttachToStory = async (
+    assetId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType
+  ) => {
+    await services.newsroomMedia.attachStoryMedia(assetId, storyId, usageType);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleSaveMetadata = async (
+    mediaId: string,
+    patch: NewsroomMediaMetadataPatch
+  ) => {
+    try {
+      setSavingId(mediaId);
+      setSaveError(null);
+      setSaveSuccess(false);
+
+      await services.newsroomMedia.updateMediaMetadata(mediaId, patch);
+      setSaveSuccess(true);
+      // Trigger refresh
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      setSaveError(err.message || "Failed to update media metadata.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  if (authAsync.loading) {
+    return (
+      <View style={styles.centerBlock}>
+        <Text style={styles.statusNoticeText}>Checking media authority…</Text>
+      </View>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <View style={styles.unauthorizedBlock} testID="media-unauthorized-gate">
+        <Text style={styles.unauthorizedTitle}>Access Restricted</Text>
+        <Text style={styles.unauthorizedBody}>
+          Media Library operations require server-authorized Newsroom staff credentials with the
+          `media.manage` capability.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <StudioMediaLibraryView
+      assets={assets}
+      loading={mediaAsync.loading}
+      error={mediaAsync.error ? mediaAsync.error.message : null}
+      selectedAssetId={selectedAssetId}
+      onSelectAsset={(asset) => {
+        setSelectedAssetId(asset ? asset.id : null);
+        setSaveError(null);
+        setSaveSuccess(false);
+      }}
+      onSearch={(q) => setSearchQuery(q)}
+      onRefresh={() => setRefreshKey((k) => k + 1)}
+      onSaveMetadata={handleSaveMetadata}
+      savingId={savingId}
+      saveError={saveError}
+      saveSuccess={saveSuccess}
+      searchQuery={searchQuery}
+      onAttachToStory={handleAttachToStory}
+      storyOptions={stories.map((s) => ({
+        id: s.id,
+        title: s.title,
+        workflowStatus: s.workflowStatus
+      }))}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.paperMuted
+  },
+  previewNoticeBanner: {
+    backgroundColor: colors.navy,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    alignItems: "center"
+  },
+  previewNoticeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5
+  },
+  header: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginBottom: spacing.md
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  headerBadgesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flexWrap: "wrap"
+  },
+  countBadge: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.ink
+  },
+  scopeBadge: {
+    backgroundColor: colors.blue + "15",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs
+  },
+  scopeBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.blue
+  },
+  controlsBar: {
+    gap: spacing.sm
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.ink
+  },
+  searchButton: {
+    backgroundColor: colors.navy,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9
+  },
+  searchButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  clearButton: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9
+  },
+  clearButtonText: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    fontWeight: "600"
+  },
+  refreshButton: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9
+  },
+  refreshButtonText: {
+    fontSize: 13,
+    color: colors.ink,
+    fontWeight: "600"
+  },
+  filterScroll: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+    paddingVertical: spacing.xs
+  },
+  filterGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs
+  },
+  filterGroupLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.inkMuted,
+    marginRight: 2
+  },
+  filterChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  filterChipActive: {
+    backgroundColor: colors.blue,
+    borderColor: colors.blue
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.ink
+  },
+  filterChipTextActive: {
+    color: "#FFFFFF"
+  },
+  mainWorkspace: {
+    flex: 1,
+    flexDirection: "column"
+  },
+  mainWorkspaceDesktop: {
+    flexDirection: "row"
+  },
+  inventoryColumn: {
+    flex: 1,
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+    backgroundColor: colors.paperMuted
+  },
+  gridContainer: {
+    padding: spacing.md,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md
+  },
+  gridCard: {
+    width: 220,
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden"
+  },
+  gridCardSelected: {
+    borderColor: colors.blue,
+    borderWidth: 2
+  },
+  gridThumbnailBox: {
+    height: 130,
+    backgroundColor: colors.paperMuted,
+    justifyContent: "center",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border
+  },
+  gridThumbnailImage: {
+    width: "100%",
+    height: "100%"
+  },
+  iconPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  iconPlaceholderText: {
+    fontSize: 32
+  },
+  iconPlaceholderMime: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    marginTop: 4,
+    fontWeight: "600"
+  },
+  gridCardBody: {
+    padding: spacing.sm
+  },
+  gridFilename: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.ink,
+    marginBottom: 4
+  },
+  gridBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 6
+  },
+  mimeBadge: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1
+  },
+  mimeBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.inkMuted
+  },
+  statusBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1
+  },
+  statusPublished: {
+    backgroundColor: colors.success + "20"
+  },
+  statusPending: {
+    backgroundColor: colors.warning + "20"
+  },
+  statusMissing: {
+    backgroundColor: colors.live + "20"
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  gridMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  gridMetaText: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  gridUsageText: {
+    fontSize: 11,
+    color: colors.blue,
+    fontWeight: "600"
+  },
+  listContainer: {
+    padding: spacing.md,
+    gap: spacing.xs
+  },
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    gap: spacing.md
+  },
+  listRowSelected: {
+    borderColor: colors.blue,
+    backgroundColor: colors.blue + "08"
+  },
+  listIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    backgroundColor: colors.paperMuted,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  listIcon: {
+    fontSize: 18
+  },
+  listDetails: {
+    flex: 1
+  },
+  listFilename: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  listMeta: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  listUsageBox: {
+    paddingHorizontal: spacing.sm
+  },
+  listUsageText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.blue
+  },
+  inspectorColumn: {
+    width: 380,
+    backgroundColor: "#FFFFFF"
+  },
+  inspectorScroll: {
+    padding: spacing.lg,
+    gap: spacing.lg
+  },
+  inspectorHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.sm
+  },
+  inspectorTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: colors.ink
+  },
+  inspectorAssetId: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  inspectorSection: {
+    gap: spacing.sm
+  },
+  sectionHeading: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.ink,
+    textTransform: "uppercase",
+    letterSpacing: 0.5
+  },
+  previewImageBox: {
+    backgroundColor: colors.paperMuted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    alignItems: "center"
+  },
+  previewImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: radius.sm
+  },
+  warningBox: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.warning + "15",
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    width: "100%"
+  },
+  warningText: {
+    fontSize: 12,
+    color: colors.warning,
+    fontWeight: "700"
+  },
+  previewUnavailableBox: {
+    backgroundColor: colors.paperMuted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  previewUnavailableIcon: {
+    fontSize: 24,
+    marginBottom: spacing.xs
+  },
+  previewUnavailableText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.ink,
+    textAlign: "center"
+  },
+  previewUnavailableSubtext: {
+    fontSize: 11,
+    color: colors.inkMuted,
+    textAlign: "center",
+    marginTop: 4
+  },
+  metaGrid: {
+    backgroundColor: colors.paperMuted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    gap: 6
+  },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  metaKey: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.inkMuted
+  },
+  metaVal: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.ink,
+    maxWidth: 200
+  },
+  copyrightNoticeBox: {
+    backgroundColor: "#F8F9FA",
+    borderLeftWidth: 3,
+    borderLeftColor: colors.inkMuted,
+    padding: spacing.sm,
+    borderRadius: radius.sm
+  },
+  copyrightNoticeTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.inkMuted,
+    textTransform: "uppercase"
+  },
+  copyrightNoticeText: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    marginTop: 2
+  },
+  editorNote: {
+    fontSize: 12,
+    color: colors.inkMuted
+  },
+  formGroup: {
+    gap: 4
+  },
+  formLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.ink
+  },
+  fieldHelp: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  textInput: {
+    backgroundColor: colors.paperMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    fontSize: 13,
+    color: colors.ink
+  },
+  textArea: {
+    minHeight: 60,
+    textAlignVertical: "top"
+  },
+  errorAlert: {
+    backgroundColor: colors.live + "15",
+    borderWidth: 1,
+    borderColor: colors.live,
+    borderRadius: radius.sm,
+    padding: spacing.sm
+  },
+  errorAlertText: {
+    fontSize: 12,
+    color: colors.live,
+    fontWeight: "600"
+  },
+  successAlert: {
+    backgroundColor: colors.success + "15",
+    borderWidth: 1,
+    borderColor: colors.success,
+    borderRadius: radius.sm,
+    padding: spacing.sm
+  },
+  successAlertText: {
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: "700"
+  },
+  saveButton: {
+    backgroundColor: colors.navy,
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    alignItems: "center"
+  },
+  saveButtonDisabled: {
+    opacity: 0.6
+  },
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  usageList: {
+    gap: spacing.sm
+  },
+  usageCard: {
+    backgroundColor: colors.paperMuted,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+    gap: 4
+  },
+  usageCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm
+  },
+  usageTypeBadge: {
+    backgroundColor: colors.navy,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1
+  },
+  usageTypeBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  usageContextText: {
+    fontSize: 11,
+    color: colors.inkMuted
+  },
+  usageStoryId: {
+    fontSize: 11,
+    color: colors.ink
+  },
+  storyWorkspaceLink: {
+    marginTop: 2
+  },
+  storyWorkspaceLinkText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.blue
+  },
+  noUsageText: {
+    fontSize: 12,
+    color: colors.inkMuted,
+    fontStyle: "italic"
+  },
+  emptyInspector: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl
+  },
+  emptyInspectorText: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    textAlign: "center",
+    lineHeight: 20
+  },
+  centerBlock: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl
+  },
+  statusNoticeText: {
+    fontSize: 14,
+    color: colors.inkMuted,
+    fontWeight: "600"
+  },
+  errorBlock: {
+    padding: spacing.xl,
+    alignItems: "center",
+    gap: spacing.sm
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.live
+  },
+  errorMessage: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    textAlign: "center"
+  },
+  retryButton: {
+    backgroundColor: colors.navy,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    marginTop: spacing.sm
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  emptyBlock: {
+    padding: spacing.xl,
+    alignItems: "center",
+    gap: spacing.xs
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.ink
+  },
+  emptyText: {
+    fontSize: 13,
+    color: colors.inkMuted,
+    textAlign: "center"
+  },
+  unauthorizedBlock: {
+    padding: spacing.xl,
+    margin: spacing.lg,
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm
+  },
+  unauthorizedTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: colors.live
+  },
+  unauthorizedBody: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.inkMuted
+  },
+  attachToStoryBtn: {
+    backgroundColor: colors.blue,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    marginTop: spacing.xs
+  },
+  attachToStoryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  attachModalOverlay: {
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm
+  },
+  attachModalTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.ink
+  },
+  attachModalSub: {
+    fontSize: 12,
+    color: colors.inkMuted
+  },
+  storyChoiceScroll: {
+    maxHeight: 140,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.paperMuted,
+    padding: spacing.xs
+  },
+  storyChoiceItem: {
+    padding: spacing.xs,
+    borderRadius: 4,
+    marginBottom: 2
+  },
+  storyChoiceItemSelected: {
+    backgroundColor: "#DBEAFE"
+  },
+  storyChoiceText: {
+    fontSize: 12,
+    color: colors.ink
+  },
+  storyChoiceTextSelected: {
+    fontWeight: "700",
+    color: colors.blue
+  },
+  roleOptionRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: 2
+  },
+  roleOptionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.paper
+  },
+  roleOptionBtnSelected: {
+    backgroundColor: colors.navy,
+    borderColor: colors.navy
+  },
+  roleOptionText: {
+    fontSize: 11,
+    color: colors.ink
+  },
+  roleOptionTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700"
+  },
+  attachActionRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    alignItems: "center"
+  },
+  attachSubmitBtn: {
+    backgroundColor: colors.blue,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm
+  },
+  attachSubmitBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  attachCancelBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm
+  },
+  attachCancelBtnText: {
+    fontSize: 12,
+    color: colors.inkMuted
+  },
+  ineligibleBox: {
+    backgroundColor: "#fef3c7",
+    borderColor: "#f59e0b",
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginTop: spacing.xs
+  },
+  ineligibleText: {
+    fontSize: 12,
+    color: "#92400e",
+    fontWeight: "600"
+  },
+  nonImageInspectionCard: {
+    backgroundColor: "#111827",
+    borderRadius: radius.md,
+    padding: spacing.md,
+    flexDirection: "column",
+    gap: spacing.sm
+  },
+  nonImageIconBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#1F2937",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm
+  },
+  nonImageIconText: {
+    fontSize: 22
+  },
+  nonImageMetaBlock: {
+    flexDirection: "column",
+    gap: 4
+  },
+  nonImageInspectionTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  nonImageInspectionDetail: {
+    color: "#E5E7EB",
+    fontSize: 13,
+    fontWeight: "500"
+  },
+  nonImageInspectionSub: {
+    color: "#9CA3AF",
+    fontSize: 11
+  },
+  audioWaveformSim: {
+    backgroundColor: "#1F2937",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    marginTop: 4
+  },
+  audioWaveformText: {
+    color: colors.teal,
+    fontFamily: "monospace",
+    letterSpacing: 2,
+    fontSize: 14
+  },
+  inspectionActionBtn: {
+    backgroundColor: colors.blue,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+    marginTop: 4
+  },
+  inspectionActionBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  inspectionFallbackNotice: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontStyle: "italic",
+    marginTop: 4
+  },
+  rightsSampleNotice: {
+    color: colors.inkMuted,
+    fontSize: 11,
+    fontStyle: "italic",
+    marginTop: spacing.xs
+  }
+});

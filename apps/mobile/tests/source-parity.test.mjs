@@ -72,7 +72,7 @@ test("default development editorial mode is source parity while production stays
 test("requested Reader surfaces consume the repository bridge instead of a second source architecture",()=>{
   const home=read("app/(reader)/index.tsx");
   const explore=read("app/(reader)/explore.tsx");
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   const premium=read("app/premium.tsx");
   const watch=read("app/(reader)/watch.tsx");
   const article=read("app/article/[id].tsx");
@@ -114,9 +114,24 @@ test("verified source photography is available in deterministic parity fallback"
   ]){
     assert.ok(snapshot.includes(asset),asset);
   }
-  assert.match(snapshot,/publicUrl:input\.imageUrl \?\? null/);
+  assert.match(snapshot,/publicUrl:publicMirrorForSourceMedia\(input\.imageUrl\)/);
 });
 
+
+test("cross-origin web source parity falls back to verified snapshot without disabling native/server refresh",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/function canRefreshPublicSourceFromRuntime/);
+  assert.match(service,/new URL\(sourceBase\)\.origin===runtimeLocation\.origin/);
+  assert.match(service,/if\(!canRefreshPublicSourceFromRuntime\(\)\)\{[\s\S]*sortByPublicationDesc\(sourceParityArticles\)/);
+  assert.match(service,/if\(!canRefreshPublicSourceFromRuntime\(\)\)\{[\s\S]*return boundedCurrent/);
+});
+
+test("verified lead photography uses byte-backed staging mirrors while preserving source provenance",()=>{
+  const snapshot=read("src/source-parity/snapshot.ts");
+  assert.match(snapshot,/https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co\/storage\/v1\/object\/public\/migrated-media\/wordpress\/2026\/09\/zimbabwe-social-contracting-hiv-financing-dialogue\.jpg/);
+  assert.match(snapshot,/https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co\/storage\/v1\/object\/public\/migrated-media\/wordpress\/2026\/09\/enerst-chikwati-ahf-zimbabwe-country-director\.jpeg/);
+  assert.match(snapshot,/sourceUrl:input\.imageUrl \?\? canonicalUrl/);
+});
 
 test("live public WordPress refresh can surface newly published posts without replacing the fallback snapshot",()=>{
   const service=read("src/services/source-parity.ts");
@@ -258,7 +273,7 @@ test("Explore preserves source taxonomy families behind reader-facing navigation
 test("source search returns authors and fails closed for unsupported video taxonomy filters",()=>{
   const models=read("src/domain/models.ts");
   const service=read("src/services/source-parity.ts");
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   assert.match(models,/authors: AuthorProfile\[\]/);
   assert.match(service,/const authors=query\.format/);
   assert.match(service,/query\.country\|\|query\.topic\|\|\(query\.format&&query\.format!=="video"\)/);
@@ -283,8 +298,8 @@ test("unfilled advertising inventory collapses instead of rendering wireframe pl
 test("institutional continuity is discoverable from My HealthTimes and About",()=>{
   const my=read("app/(reader)/my.tsx");
   const about=read("app/about.tsx");
-  assert.match(my,/PUBLICATION & INSTITUTIONAL/);
-  assert.match(my,/Corrections & Editorial Standards/);
+  assert.doesNotMatch(my,/PUBLICATION & INSTITUTIONAL/);
+  assert.match(my,/About HealthTimes/);
   assert.match(my,/services\.publication\.getProfile/);
   assert.match(about,/Corrections & editorial standards/);
   assert.match(about,/Request a correction/);
@@ -313,7 +328,7 @@ test("Watch uses verified destinations rather than the HealthTimes root",()=>{
 test("public Reader surfaces keep programme language in diagnostics, not editorial UI",()=>{
   const publicSurfaces=[
     read("app/(reader)/index.tsx"),read("app/(reader)/explore.tsx"),read("app/(reader)/live.tsx"),
-    read("app/(reader)/watch.tsx"),read("app/article/[id].tsx"),read("app/search.tsx"),read("app/about.tsx")
+    read("app/(reader)/watch.tsx"),read("app/article/[id].tsx"),read("app/(reader)/search.tsx"),read("app/about.tsx")
   ].join("\n");
   assert.doesNotMatch(publicSurfaces,/SOURCE PARITY PREVIEW|SOURCE-BACKED DISCOVERY|AG-0[1-7]|migration completeness|temporary read-only parity bridge/i);
   const status=read("app/system-status.tsx");

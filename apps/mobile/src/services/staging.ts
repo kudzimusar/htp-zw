@@ -1,8 +1,10 @@
 import * as Linking from "expo-linking";
-import type { AuthService, PlatformService } from "../domain/contracts";
+import type { AuthService, NotificationService, PlatformService } from "../domain/contracts";
 import type { ReaderProfile } from "../domain/models";
+import { notifications } from "../fixtures/content";
 import { checkStagingConnectivity } from "../platform/connectivity";
 import { getStagingSupabaseClient } from "../platform/supabase";
+import { requestPushRegistrationBaseline } from "../security/push";
 
 const anonymousReader: ReaderProfile = {
   id: "anonymous",
@@ -176,3 +178,33 @@ export const stagingPlatformService: PlatformService = {
     return checkStagingConnectivity();
   }
 };
+
+export const stagingNotificationService: NotificationService = {
+  async list() {
+    return notifications;
+  },
+  async registerDevice(): Promise<{ status: "fixture" | "registered" | "blocked" }> {
+    try {
+      const supabase = getStagingSupabaseClient();
+      const result = await requestPushRegistrationBaseline({
+        registerRpc: async (token, platform) => {
+          const { data, error } = await (supabase as any).rpc("reader_register_push_device", {
+            p_expo_push_token: token,
+            p_platform: platform
+          });
+          if (error) {
+            throw error;
+          }
+          return data as { device_id: string; status: string };
+        }
+      });
+      if (result.status === "registered") {
+        return { status: "registered" };
+      }
+      return { status: "blocked" };
+    } catch {
+      return { status: "blocked" };
+    }
+  }
+};
+

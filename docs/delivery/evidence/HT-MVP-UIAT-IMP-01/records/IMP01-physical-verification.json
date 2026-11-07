@@ -1,0 +1,279 @@
+{
+  "timestamp": "2026-11-01T08:46:32.777Z",
+  "previewUrl": "https://healthtimes-staging-9d9az9x4q-11-11.vercel.app",
+  "expectedSha": "32b5e97d0ea6ea1ed6ba9a6d9177c4f3f216113a",
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "32b5e97d0ea6ea1ed6ba9a6d9177c4f3f216113a",
+      "presentation": "apps/mobile",
+      "serviceMode": "staging",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugHasTitle": true,
+      "reloadStatus": 200,
+      "reloadHasTitle": true,
+      "uuidStatus": 200,
+      "uuidHasTitle": true,
+      "pass": true
+    },
+    "DEF013": {
+      "themeMatrix": [
+        {
+          "surface": "Homepage Desktop (Light)",
+          "bg": "rgb(255, 255, 255)",
+          "brandColor": "rgb(11, 31, 51)",
+          "headingColor": "rgb(11, 31, 51)",
+          "bodyColor": "rgb(11, 31, 51)",
+          "brandContrast": 16.69,
+          "headingContrast": 16.69,
+          "bodyContrast": 16.69
+        },
+        {
+          "surface": "Homepage Desktop (Dark)",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(243, 247, 250)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 16.92
+        },
+        {
+          "surface": "Article Dark Mode",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Premium Dark Mode",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(138, 100, 33)",
+          "bodyColor": "rgb(91, 103, 118)",
+          "brandContrast": 16.92,
+          "headingContrast": 3.41,
+          "bodyContrast": 3.17
+        },
+        {
+          "surface": "Homepage Mobile (Dark)",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(243, 247, 250)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 16.92
+        },
+        {
+          "surface": "Homepage Tablet (Light)",
+          "bg": "rgb(255, 255, 255)",
+          "brandColor": "rgb(11, 31, 51)",
+          "headingColor": "rgb(11, 31, 51)",
+          "bodyColor": "rgb(11, 31, 51)",
+          "brandContrast": 16.69,
+          "headingContrast": 16.69,
+          "bodyContrast": 16.69
+        }
+      ],
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "paragraphCount": 5,
+      "reloadSurvives": true,
+      "preservedInBookmarks": true,
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "draftCreatedSuccess": true,
+      "persistedDraftId": "d1cc90fd-ec6d-4e91-930b-a37bf77066e1",
+      "dbRowValid": true,
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "DEF014": {
+      "desktopCold": {
+        "samples": [
+          {
+            "lcp": 3808,
+            "cls": 0.114,
+            "ttfb": 37,
+            "domContentLoaded": 323,
+            "loadEvent": 324,
+            "duration": 4294,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3316,
+            "cls": 0.114,
+            "ttfb": 60,
+            "domContentLoaded": 580,
+            "loadEvent": 580,
+            "duration": 3810,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 4368,
+            "cls": 0.114,
+            "ttfb": 35,
+            "domContentLoaded": 433,
+            "loadEvent": 434,
+            "duration": 4856,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3412,
+            "cls": 0.114,
+            "ttfb": 46,
+            "domContentLoaded": 288,
+            "loadEvent": 288,
+            "duration": 3893,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3124,
+            "cls": 0.114,
+            "ttfb": 25,
+            "domContentLoaded": 472,
+            "loadEvent": 473,
+            "duration": 3599,
+            "rpcCalls": 1
+          }
+        ],
+        "p75": 3808,
+        "median": 3412,
+        "min": 3124,
+        "max": 4368
+      },
+      "desktopWarm": {
+        "samples": [
+          {
+            "lcp": 2916,
+            "cls": 0.114,
+            "ttfb": 25,
+            "domContentLoaded": 240,
+            "loadEvent": 241,
+            "duration": 3401,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2352,
+            "cls": 0.129,
+            "ttfb": 26,
+            "domContentLoaded": 149,
+            "loadEvent": 149,
+            "duration": 2837,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2944,
+            "cls": 0.114,
+            "ttfb": 97,
+            "domContentLoaded": 222,
+            "loadEvent": 223,
+            "duration": 3433,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2376,
+            "cls": 0.114,
+            "ttfb": 25,
+            "domContentLoaded": 140,
+            "loadEvent": 141,
+            "duration": 2864,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2800,
+            "cls": 0.129,
+            "ttfb": 97,
+            "domContentLoaded": 305,
+            "loadEvent": 306,
+            "duration": 3284,
+            "rpcCalls": 1
+          }
+        ],
+        "p75": 2916,
+        "median": 2800,
+        "min": 2352,
+        "max": 2944
+      },
+      "mobile": {
+        "samples": [
+          {
+            "lcp": 3204,
+            "cls": 0.097,
+            "ttfb": 31,
+            "domContentLoaded": 368,
+            "loadEvent": 369,
+            "duration": 3710,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3164,
+            "cls": 0.097,
+            "ttfb": 36,
+            "domContentLoaded": 374,
+            "loadEvent": 374,
+            "duration": 3976,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 2580,
+            "cls": 0.097,
+            "ttfb": 33,
+            "domContentLoaded": 307,
+            "loadEvent": 308,
+            "duration": 3741,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3068,
+            "cls": 0.097,
+            "ttfb": 35,
+            "domContentLoaded": 403,
+            "loadEvent": 404,
+            "duration": 3600,
+            "rpcCalls": 1
+          },
+          {
+            "lcp": 3188,
+            "cls": 0.097,
+            "ttfb": 168,
+            "domContentLoaded": 509,
+            "loadEvent": 510,
+            "duration": 4047,
+            "rpcCalls": 1
+          }
+        ],
+        "p75": 3188,
+        "median": 3164,
+        "min": 2580,
+        "max": 3204
+      },
+      "cls": 0.129,
+      "mobileCls": 0.097,
+      "desktopCls": 0.129,
+      "totalFeedRpcs": 1,
+      "unnecessaryFeedRpcs": 0,
+      "studioInteractionRegressions": 0,
+      "pass": true
+    }
+  },
+  "failures": []
+}

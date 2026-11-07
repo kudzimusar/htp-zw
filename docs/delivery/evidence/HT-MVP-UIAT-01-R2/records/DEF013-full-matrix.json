@@ -1,0 +1,829 @@
+{
+  "light-system": {
+    "homeLowContrast": []
+  },
+  "dark-system": {
+    "homeLowContrast": [
+      {
+        "text": "EDITION",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "8px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Global",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "11px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Home",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Explore",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Live",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Watch",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "My HealthTimes",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "14px",
+        "fontWeight": "800",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Search",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Alerts",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Premium",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "For You",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Latest",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Zimbabwe",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "World",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "PUBLIC HEALTH",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "[UAT04B] Test Story 001",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "32px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Michael Gwarisa · Oct 25, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Top Stories",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "[UIAT-01] Synthetic Supervised Draft — 2026-10-31",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "17px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "healthTimesco · Oct 31, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HEALTHTIMES",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "9px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "[UAT04B-STG02] Story — Clinical Trial Resilience",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "17px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HealthTimes · Oct 26, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Public Health",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HEALTHTIMES VIDEO",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Open Watch",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Watch on YouTube ↗",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "MEMBER REPORTING",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Premium Intelligence",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "View Premium",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HEALTH NEWS",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "PREMIUM",
+        "color": "rgb(230, 193, 106)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 1.72,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Michael Gwarisa · Sep 19, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "19px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Kuda Pembere · Sep 19, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "AFRICA",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Michael Gwarisa · Sep 18, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "CAREERS, LEARNING & RESEARCH",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Opportunities",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "PRIMARY EDITION",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Global Edition",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Change edition",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "More Global coverage is coming",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "20px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Explore the latest HealthTimes reporting while this edition grows.",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "15px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      }
+    ]
+  },
+  "phone-light": {
+    "homeLowContrast": []
+  },
+  "phone-dark": {
+    "homeLowContrast": [
+      {
+        "text": "For You",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Latest",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Zimbabwe",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "World",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Premium",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "PUBLIC HEALTH",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "[UAT04B] Test Story 001",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "32px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Michael Gwarisa · Oct 25, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Top Stories",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Explore",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "[UIAT-01] Synthetic Supervised Draft — 2026-10-31",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "17px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "healthTimesco · Oct 31, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HEALTHTIMES",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "9px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "[UAT04B-STG02] Story — Clinical Trial Resilience",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "17px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HealthTimes · Oct 26, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Public Health",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HEALTHTIMES VIDEO",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Watch",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Open Watch",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Watch on YouTube ↗",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "MEMBER REPORTING",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Premium Intelligence",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "View Premium",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "HEALTH NEWS",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "PREMIUM",
+        "color": "rgb(230, 193, 106)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 1.72,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Michael Gwarisa · Sep 19, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Zimbabwe urged to join Borrowers Forum amid US$23.7bn debt",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "19px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Kuda Pembere · Sep 19, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "AFRICA",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "12px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Michael Gwarisa · Sep 18, 2026",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "CAREERS, LEARNING & RESEARCH",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Opportunities",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "PRIMARY EDITION",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "10px",
+        "fontWeight": "900",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Global Edition",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "23px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Change edition",
+        "color": "rgb(109, 169, 255)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "13px",
+        "fontWeight": "800",
+        "contrast": 2.39,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "More Global coverage is coming",
+        "color": "rgb(243, 247, 250)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "20px",
+        "fontWeight": "900",
+        "contrast": 1.08,
+        "passAA": false,
+        "passAALarge": false
+      },
+      {
+        "text": "Explore the latest HealthTimes reporting while this edition grows.",
+        "color": "rgb(169, 183, 197)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": "15px",
+        "fontWeight": "400",
+        "contrast": 2.05,
+        "passAA": false,
+        "passAALarge": false
+      }
+    ]
+  },
+  "tablet-light": {
+    "homeLowContrast": []
+  }
+}

@@ -126,24 +126,20 @@ Commercial staff may manage campaigns/subscriber functions but do not receive un
 
 `Idea → Assignment → Draft → Source verification → Fact check → Health/science review → Copy edit → Ready/Scheduled → Published → Correction/Update → Archive`
 
-## PWA and app-store readiness
+## PWA and native app readiness
 
-HealthTimes is now an installable Progressive Web App using:
+The canonical HealthTimes Reader now lives in `apps/mobile`.
 
-- `site.webmanifest`
-- `sw.js`
-- standalone display mode
-- cached application shell
-- mobile-specific app UI
+- **Android / iOS:** Expo + React Native + Expo Router from `apps/mobile`.
+- **Web/PWA:** React Native Web static export from the same `apps/mobile` source.
+- **Native release authority:** `apps/mobile/app.config.ts` + `apps/mobile/eas.json`.
 
-Store scaffolds/documentation:
+Historical wrapper scaffolds remain in the repository for provenance only:
 
-- `app/twa-manifest.json` — Google Play Trusted Web Activity/Bubblewrap configuration.
-- `capacitor.config.json` — Capacitor wrapper configuration for iOS/Android follow-on work.
-- `docs/MOBILE_APP_PACKAGING.md` — signing/build/store guide.
-- `docs/STORE_LISTING_METADATA.md` — store listing draft and screenshot plan.
+- `app/twa-manifest.json` — legacy Bubblewrap/TWA browser-engine wrapper; **non-shipping**.
+- root `capacitor.config.json` — legacy remote-web Capacitor wrapper; **non-shipping**.
 
-Actual Play/App Store submission is not claimed: final domain ownership, production billing/auth/privacy, signing credentials and store accounts are required.
+Do not use either legacy wrapper for Android or iOS Reader release work. See `docs/MOBILE_APP_PACKAGING.md` for the controlling build and release-custody procedure.
 
 ## UAT
 

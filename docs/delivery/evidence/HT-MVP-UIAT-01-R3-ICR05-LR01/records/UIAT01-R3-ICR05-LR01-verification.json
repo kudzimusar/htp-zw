@@ -1,0 +1,452 @@
+{
+  "runId": "08ce929a-7155-4e82-b551-046dc0ab8bd1",
+  "timestamp": "2026-11-02T10:19:03.157Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR05-LR01",
+  "previewUrl": "https://healthtimes-staging-b8namgenu-11-11.vercel.app",
+  "previewDeploymentId": "dpl_4zNzqAFPwkC2NUgnho9MGDxBX2F3",
+  "expectedApplicationSha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+  "sessionGovernance": {
+    "sessionSqlSelectOnly": true,
+    "nonOwnerGlobalRevokePresent": false,
+    "currentRunScopedSessions": [
+      {
+        "email": "uat-specialist@healthtimes.test",
+        "staffProfileId": "5d01dd6e-2a6d-46fa-9c5c-846193add82a"
+      },
+      {
+        "email": "uat-commercial@healthtimes.test",
+        "staffProfileId": null,
+        "providerSessionId": null
+      }
+    ]
+  },
+  "sessionAudit": {
+    "runId": "08ce929a-7155-4e82-b551-046dc0ab8bd1",
+    "preTest": {
+      "stage": "PRE_TEST",
+      "timestamp": "2026-11-02T10:19:02.246Z",
+      "provenance": "Supabase Management API direct HTTPS query via personal access token",
+      "projectId": "bzuvntbkevvuhfhqhkua",
+      "authority": "READ_ONLY_SELECT_ENFORCED",
+      "queries": {
+        "newsroomSessions": {
+          "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+          "executedAt": "2026-11-02T10:19:02.230Z",
+          "status": 201,
+          "sha256_digest": "71feaf050a63a0ab7889643acb76bfeccc98779e36b258e2a7eab3ef317193a5",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 15
+            }
+          ]
+        },
+        "authSessions": {
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+          "executedAt": "2026-11-02T10:19:02.197Z",
+          "status": 201,
+          "sha256_digest": "e6e8dfdad6ea5cfe63cd3d71fd4176bd21b29c0fb6d78ad1af5b6bd439f33517",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        },
+        "refreshTokens": {
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+          "executedAt": "2026-11-02T10:19:02.246Z",
+          "status": 201,
+          "sha256_digest": "8f87d9a54f3dd27400c5c5e2524cc269699072ba69c8fb6aa2288d6981710868",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        }
+      },
+      "counts": {
+        "testNewsroomSessions": 0,
+        "ownerNewsroomSessions": 15,
+        "testAuthSessions": 0,
+        "ownerAuthSessions": 2,
+        "testRefreshTokens": 0,
+        "ownerRefreshTokens": 2
+      },
+      "breakdown": {
+        "newsroom": {
+          "kudzimusar@gmail.com": 15
+        },
+        "auth": {
+          "kudzimusar@gmail.com": 2
+        },
+        "refresh": {
+          "kudzimusar@gmail.com": 2
+        }
+      }
+    },
+    "postTest": {
+      "stage": "POST_TEST",
+      "timestamp": "2026-11-02T10:20:31.632Z",
+      "provenance": "Supabase Management API direct HTTPS query via personal access token",
+      "projectId": "bzuvntbkevvuhfhqhkua",
+      "authority": "READ_ONLY_SELECT_ENFORCED",
+      "queries": {
+        "newsroomSessions": {
+          "query": "select coalesce(sp.email, 'unknown_staff') as email, count(*)::int as count from public.newsroom_sessions ns left join public.staff_profiles sp on ns.staff_profile_id = sp.id where ns.revoked_at is null group by sp.email;",
+          "executedAt": "2026-11-02T10:20:31.632Z",
+          "status": 201,
+          "sha256_digest": "71feaf050a63a0ab7889643acb76bfeccc98779e36b258e2a7eab3ef317193a5",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 15
+            }
+          ]
+        },
+        "authSessions": {
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.sessions s left join auth.users u on s.user_id = u.id group by u.email;",
+          "executedAt": "2026-11-02T10:20:31.434Z",
+          "status": 201,
+          "sha256_digest": "e6e8dfdad6ea5cfe63cd3d71fd4176bd21b29c0fb6d78ad1af5b6bd439f33517",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        },
+        "refreshTokens": {
+          "query": "select coalesce(u.email, 'unknown_user') as email, count(*)::int as count from auth.refresh_tokens rt left join auth.sessions s on rt.session_id = s.id left join auth.users u on s.user_id = u.id where rt.revoked is false group by u.email;",
+          "executedAt": "2026-11-02T10:20:31.437Z",
+          "status": 201,
+          "sha256_digest": "8f87d9a54f3dd27400c5c5e2524cc269699072ba69c8fb6aa2288d6981710868",
+          "rawResult": [
+            {
+              "email": "kudzimusar@gmail.com",
+              "count": 2
+            }
+          ]
+        }
+      },
+      "counts": {
+        "testNewsroomSessions": 0,
+        "ownerNewsroomSessions": 15,
+        "testAuthSessions": 0,
+        "ownerAuthSessions": 2,
+        "testRefreshTokens": 0,
+        "ownerRefreshTokens": 2
+      },
+      "breakdown": {
+        "newsroom": {
+          "kudzimusar@gmail.com": 15
+        },
+        "auth": {
+          "kudzimusar@gmail.com": 2
+        },
+        "refresh": {
+          "kudzimusar@gmail.com": 2
+        }
+      }
+    }
+  },
+  "stagingDbAuthority": {
+    "migrationApplied": false,
+    "stagingApproval": "BLOCKED_OWNER_AUTH_REQUIRED",
+    "usesUntitledStoryFallback": true,
+    "liveFunctionDefHash": "56cb640039691d42498451107c26601fd68e89ef21161dfe730308e72a3509b9"
+  },
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "buildInfo": {
+        "sha": "48c2ecbf59eb75d3feb82b5984b66bb13a933480",
+        "presentation": "apps/mobile",
+        "capability": "cp5-phase3-v1",
+        "basePath": "/",
+        "serviceMode": "staging"
+      },
+      "pass": true
+    },
+    "DEF001": {
+      "firstLoadStatus": 200,
+      "reloadStatus": 200,
+      "headlineMatch": true,
+      "pass": true
+    },
+    "DEF013": {
+      "desktopLight": {
+        "bg": "rgb(255, 255, 255)",
+        "headingContrast": 16.69,
+        "bodyContrast": 5.76,
+        "pass": true
+      },
+      "desktopDark": {
+        "bg": "rgb(11, 22, 34)",
+        "headingContrast": 16.92,
+        "bodyContrast": 8.91,
+        "pass": true
+      },
+      "premiumDark": {
+        "bg": "rgb(11, 22, 34)",
+        "headingContrast": 10.59,
+        "bodyContrast": 8.91,
+        "pass": true
+      },
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "reloadSurvives": true,
+      "storageAudit": {
+        "hasSavedKey": false,
+        "savedCount": 1,
+        "downloadsCount": 1,
+        "firstSavedId": "uat04b-test-story-001"
+      },
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "noticeVisible": true,
+      "hasDeferredBadge": true,
+      "scheduleDisabled": true,
+      "draftCreatedSuccess": true,
+      "dbRowValid": true,
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "advertisersTabRendered": true,
+      "advertiserName": "HOSPAZ",
+      "advertiserId": "cf07c2a2-b37e-41e5-a04f-12901d59af7f",
+      "modalOpened": true,
+      "modalTitleMatched": true,
+      "modalIdRendered": true,
+      "modalDismissed": true,
+      "pass": true
+    },
+    "discoveryAndSecurity": {
+      "searchSamples": [
+        {
+          "attempt": 1,
+          "query": "Cervical",
+          "cacheState": "cold",
+          "durationMs": 2034,
+          "headlineSnippet": "WHO Donates US$350,000 Cervical Cancer, Cholera Equipment to",
+          "href": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "isArticleHref": true,
+          "headlineMatches": true,
+          "networkRequests": 24,
+          "targetSlaMs": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 2,
+          "query": "Lenacapavir",
+          "cacheState": "warm",
+          "durationMs": 700,
+          "headlineSnippet": "Zimbabwe Puts Communities at the Heart of HIV Prevention as ",
+          "href": "/article/zimbabwe-community-led-hiv-prevention-prep-choice-lenacapavir",
+          "isArticleHref": true,
+          "headlineMatches": true,
+          "networkRequests": 12,
+          "targetSlaMs": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 3,
+          "query": "Cervical",
+          "cacheState": "warm",
+          "durationMs": 544,
+          "headlineSnippet": "WHO Donates US$350,000 Cervical Cancer, Cholera Equipment to",
+          "href": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "isArticleHref": true,
+          "headlineMatches": true,
+          "networkRequests": 27,
+          "targetSlaMs": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 4,
+          "query": "Cancer",
+          "cacheState": "warm",
+          "durationMs": 678,
+          "headlineSnippet": "WHO Donates US$350,000 Cervical Cancer, Cholera Equipment to",
+          "href": "/article/who-donates-cervical-cancer-equipment-cholera-tents-zimbabwe",
+          "isArticleHref": true,
+          "headlineMatches": true,
+          "networkRequests": 29,
+          "targetSlaMs": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 5,
+          "query": "Health",
+          "cacheState": "warm",
+          "durationMs": 752,
+          "headlineSnippet": "Zimbabwe Moves Towards Dedicated Menstrual Health Policy and",
+          "href": "/article/zimbabwe-moves-towards-dedicated-menstrual-health-policy-and-law",
+          "isArticleHref": true,
+          "headlineMatches": true,
+          "networkRequests": 12,
+          "targetSlaMs": 2500,
+          "passed": true
+        }
+      ],
+      "p75DurationMs": 752,
+      "foundRank51Story": true,
+      "foundPublicStory": true,
+      "negativeSearchPass": true,
+      "rpcStatus": 200,
+      "premiumBodyLeaks": 0,
+      "draftExposure": 0,
+      "futureAdversarialFixtureStatus": "BLOCKED_NO_FUTURE_FIXTURE_IN_STAGING_DB",
+      "pass": true
+    },
+    "DEF014": {
+      "telemetryRecorded": true,
+      "freshMeasurements": true,
+      "desktopWarm": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1408,
+            "cls": 0.001,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 2,
+            "lcp": 948,
+            "cls": 0.001,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 3,
+            "lcp": 752,
+            "cls": 0.001,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 4,
+            "lcp": 140,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 5,
+            "lcp": 152,
+            "cls": 0,
+            "feedRpcCalls": 1
+          }
+        ],
+        "p75Lcp": 948,
+        "medianLcp": 752,
+        "p75Cls": 0.001,
+        "singleRpcPass": true
+      },
+      "desktopCold": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 212,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 2,
+            "lcp": 232,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 3,
+            "lcp": 1548,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 4,
+            "lcp": 1444,
+            "cls": 0.001,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 5,
+            "lcp": 1448,
+            "cls": 0.001,
+            "feedRpcCalls": 1
+          }
+        ],
+        "p75Lcp": 1448,
+        "medianLcp": 1444,
+        "p75Cls": 0.001,
+        "singleRpcPass": true
+      },
+      "mobileCold": {
+        "samples": [
+          {
+            "run": 1,
+            "lcp": 1276,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 2,
+            "lcp": 128,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 3,
+            "lcp": 1412,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 4,
+            "lcp": 1272,
+            "cls": 0,
+            "feedRpcCalls": 1
+          },
+          {
+            "run": 5,
+            "lcp": 152,
+            "cls": 0,
+            "feedRpcCalls": 1
+          }
+        ],
+        "p75Lcp": 1276,
+        "medianLcp": 1272,
+        "p75Cls": 0,
+        "singleRpcPass": true
+      },
+      "historicalBaselineCarriedForward": {
+        "desktopWarmLcpP75": 1184,
+        "desktopColdLcpP75": 1632,
+        "mobileColdLcpP75": 1620,
+        "desktopClsP75": 0.001,
+        "mobileClsP75": 0,
+        "status": "CARRIED_FORWARD_HISTORICAL_BASELINE"
+      },
+      "pass": true
+    },
+    "DEF003": {
+      "hasZimParam": true,
+      "reloadedZimParam": true,
+      "backNavPass": true,
+      "pass": true
+    },
+    "DEF006": {
+      "clientErrorBannerRendered": true,
+      "clientErrorCleared": true,
+      "backendTitleAuthority": "BLOCKED_MIGRATION_NOT_APPLIED_TO_STAGING",
+      "pass": true
+    }
+  },
+  "failures": []
+}

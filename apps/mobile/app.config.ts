@@ -10,6 +10,9 @@ const resolveEnvironment = (): AppEnvironment => {
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const environment = resolveEnvironment();
+  const stagingSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const stagingSupabasePublishableKey =
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
   const suffix = environment === "production" ? "" : environment === "staging" ? ".staging" : ".dev";
   const displayName =
     environment === "production" ? "HealthTimes" : environment === "staging" ? "HealthTimes Staging" : "HealthTimes Dev";
@@ -45,7 +48,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       ...config.extra,
       environment,
-      product: "reader"
+      product: "reader",
+      stagingSupabaseUrl: environment === "staging" ? stagingSupabaseUrl : "",
+      stagingSupabasePublishableKey:
+        environment === "staging" ? stagingSupabasePublishableKey : ""
     }
   };
 };

@@ -28,6 +28,24 @@ export function loadTs(relativePath,{mocks={}}={}){
 
     const localRequire=(specifier)=>{
       if(Object.prototype.hasOwnProperty.call(mocks,specifier)) return mocks[specifier];
+      if(specifier === "expo-constants"){
+        return {
+          default: { expoConfig: { experiments: { baseUrl: "" } } },
+          expoConfig: { experiments: { baseUrl: "" } }
+        };
+      }
+      if(specifier === "@react-native-async-storage/async-storage"){
+        return {
+          default: {
+            getItem: async () => null,
+            setItem: async () => {},
+            removeItem: async () => {}
+          },
+          getItem: async () => null,
+          setItem: async () => {},
+          removeItem: async () => {}
+        };
+      }
       if(specifier.startsWith(".")){
         const base=normalize(join(dirname(normalized),specifier));
         const candidates=extname(base)

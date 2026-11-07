@@ -4,7 +4,7 @@ import path from "node:path";
 
 const base=process.env.UI06_BASE_URL||"http://127.0.0.1:4174";
 const sha=process.env.EXPECTED_SHA||"unknown";
-const teaserEndpoint="https://gcdohgbmqhqwydgaxrcr.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document";
+const teaserEndpoint="https://bzuvntbkevvuhfhqhkua.supabase.co/rest/v1/rpc/ag05_public_story_teaser_document";
 const premiumReferencePath="/2026/09/18/zimbabwe-strengthens-social-contracting-as-hiv-donor-funding-shrinks/";
 const out="ui06-phase6c-final-evidence";
 const publicArticleId="source-ahf-urges-zimbabwe-to-join-borrowers-forum-amid-debt-crisis";
@@ -102,7 +102,7 @@ async function bodyText(page,value,label,timeout=30000){
 async function loadPremiumTeaserAuthority(){
   const url=String(process.env.EXPO_PUBLIC_SUPABASE_URL||"").replace(/\/$/,"");
   const key=String(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY||"");
-  if(url!=="https://gcdohgbmqhqwydgaxrcr.supabase.co")fail("Premium authority","unexpected staging URL","P0");
+  if(url!=="https://bzuvntbkevvuhfhqhkua.supabase.co")fail("Premium authority","unexpected staging URL","P0");
   if(!/^sb_publishable_/.test(key)||/service_role/i.test(key))fail("Premium authority","publishable credential unavailable","P0");
   const response=await fetch(teaserEndpoint,{
     method:"POST",
@@ -258,16 +258,20 @@ try{
     const requests=[];page.on("request",r=>requests.push(r.url()));
     await installPremiumTeaserAuthority(page,premiumTeaserAuthority);
     await open(page,"/article/"+premiumArticleId,"Premium journey");
-    const journeyPreview=page.getByText("PREMIUM PREVIEW",{exact:true}).first();
-    if(await journeyPreview.isVisible().catch(()=>false)){
+    const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
+    if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
+    const resolvedEntry=await anyText(
+      page,
+      ["PREMIUM PREVIEW","Continue reading with HealthTimes Premium"],
+      "Premium journey entry state"
+    );
+    if(resolvedEntry==="PREMIUM PREVIEW"){
       await bodyText(page,"Continue reading with HealthTimes Premium","Premium preview-to-lock boundary",45000);
     }else{
       await bodyText(page,"Continue reading with HealthTimes Premium","Premium locked boundary",30000);
     }
     const protectedContentRequests=requests.filter(u=>decodeURIComponent(u).toLowerCase().includes("wp-json/wp/v2")&&decodeURIComponent(u).toLowerCase().includes("content"));
     if(protectedContentRequests.length)fail("Premium security","anonymous browser requested WordPress content field: "+protectedContentRequests.join(" | "),"P0");
-    const offline=page.getByRole("button",{name:/Download article for offline reading|Offline/});
-    if(await offline.count()){await offline.click();await bodyText(page,"Offline download isn't available for Premium articles","Premium offline restriction");}
     const prompt=page.getByTestId("premium-subscription-prompt");
     const promptPrimary=page.getByTestId("premium-prompt-primary");
     const promptHeading=page.getByRole("heading",{name:"Keep reading with HealthTimes Premium",exact:true});

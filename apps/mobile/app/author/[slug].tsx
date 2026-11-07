@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Platform, Pressable, StyleSheet, Text } from "react-native";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StoryGrid } from "../../src/ui/Cards";
@@ -14,11 +14,16 @@ export function generateStaticParams(){
 }
 
 export default function AuthorScreen(){
-  const { slug }=useLocalSearchParams<{slug:string}>();
+  const params = useLocalSearchParams<{ slug?: string }>();
+  const slugFromPath = Platform.OS === "web" && typeof window !== "undefined"
+    ? decodeURIComponent(window.location.pathname.replace(/^\/author\/?/, "").split("/")[0] || "")
+    : "";
+  const resolvedSlug = (params.slug && params.slug !== "fallback" ? params.slug : slugFromPath) || "";
+  const slug = resolvedSlug;
   const router=useRouter();
   const { palette }=useAppearance();
-  const author=useAsync(()=>services.publication.getAuthor(String(slug)),[slug]);
-  const stories=useAsync(()=>services.articles.listByAuthor(String(slug)),[slug]);
+  const author=useAsync(()=>!slug ? Promise.resolve(null) : services.publication.getAuthor(String(slug)),[slug]);
+  const stories=useAsync(()=>!slug ? Promise.resolve([]) : services.articles.listByAuthor(String(slug)),[slug]);
 
   if(author.loading) return <Page title="Author"><Text style={{color:palette.inkMuted}}>Loading author…</Text></Page>;
   if(!author.data) return <Page title="Author"><EmptyState title="Author not found" message="This public author identity is not present in the current source-parity snapshot." /></Page>;

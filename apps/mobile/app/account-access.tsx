@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
 import { layout, radius, spacing } from "../src/theme/tokens";
@@ -9,6 +10,7 @@ import { useAppearance } from "../src/theme/AppearanceProvider";
 type Mode = "sign-in" | "register" | "recovery" | "new-password";
 
 export default function AccountAccessScreen(){
+  const router=useRouter();
   const { palette }=useAppearance();
   const [mode,setMode]=useState<Mode>("sign-in");
   const [email,setEmail]=useState("");
@@ -29,6 +31,17 @@ export default function AccountAccessScreen(){
       setStatus(result.message);
 
       if(result.status==="success"){
+        if(url.includes("mode=owner-activation")){
+          const ownerResult=await services.newsroomStaff.bootstrapOwner();
+          if(!active) return;
+          if(!ownerResult.success){
+            setStatus(ownerResult.error ?? "Owner activation could not be completed after email verification.");
+            return;
+          }
+          setStatus("Owner email confirmed. Publisher / Owner activation completed.");
+          router.replace("/studio" as never);
+          return;
+        }
         if(url.includes("mode=recovery")){
           setMode("new-password");
           setPassword("");
@@ -45,7 +58,7 @@ export default function AccountAccessScreen(){
       active=false;
       subscription.remove();
     };
-  },[]);
+  },[router]);
 
   const submit=async()=>{
     setStatus("");
@@ -84,6 +97,13 @@ export default function AccountAccessScreen(){
       ? await services.auth.signInWithPassword(email.trim(),password)
       : await services.auth.registerReader(email.trim(),password,displayName);
     setStatus(result.message);
+
+    if(result.status==="success" && mode==="sign-in"){
+      const snap=await services.authorization.getSnapshot();
+      if(snap?.status==="authorized"){
+        router.replace("/studio" as never);
+      }
+    }
   };
 
   const resend=async()=>{
@@ -178,9 +198,16 @@ export default function AccountAccessScreen(){
 
       <Section>
         <View style={[styles.security,{borderLeftColor:palette.blue}]}>
-          <Text style={[styles.securityTitle,{color:palette.ink}]}>Reader identity is not Studio authority</Text>
-          <Text style={[styles.securityText,{color:palette.inkMuted}]}>A signed-in reader cannot grant themselves staff roles or publishing capabilities. Studio privileges require an AG-06 server-issued capability snapshot.</Text>
-          <Text style={[styles.securityText,{color:palette.inkMuted}]}>Email verification and password-recovery links return to this screen. Native sessions are persisted with SecureStore; web uses the compatible browser storage fallback.</Text>
+          <Text style={[styles.securityTitle,{color:palette.ink}]}>Newsroom Staff & Studio Access</Text>
+          <Text style={[styles.securityText,{color:palette.inkMuted}]}>Staff and Owner privileges require server-issued capability credentials. If you are an authorized newsroom staff member or Publisher / Owner, you can jump directly into Studio or activate your account:</Text>
+          <View style={{flexDirection:"row",gap:spacing.md,marginTop:spacing.sm,flexWrap:"wrap"}}>
+            <Pressable accessibilityRole="button" onPress={()=>router.push("/studio" as never)} style={[styles.primary,{backgroundColor:"#102A3F"}]}>
+              <Text style={[styles.primaryText,{color:"#70D1D1"}]}>Open Newsroom Studio →</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={()=>router.push("/studio/activate" as never)} style={[styles.primary,{backgroundColor:palette.paperMuted,borderWidth:1,borderColor:palette.border}]}>
+              <Text style={[styles.primaryText,{color:palette.ink}]}>First Owner Activation →</Text>
+            </Pressable>
+          </View>
         </View>
       </Section>
     </Page>

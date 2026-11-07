@@ -46,7 +46,7 @@ test("public event catalogue is versioned and rejects sensitive health attribute
 });
 
 test("search analytics redacts raw health-related query text",()=>{
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   assert.ok(search.includes("search_performed"));
   assert.ok(search.includes("query_redacted:true"));
   assert.equal(search.includes("query:submitted"),false);

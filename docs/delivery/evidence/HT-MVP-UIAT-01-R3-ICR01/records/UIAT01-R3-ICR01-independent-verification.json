@@ -1,0 +1,655 @@
+{
+  "timestamp": "2026-11-02T02:57:53.100Z",
+  "unitId": "HT-MVP-UIAT-01-R3-ICR01",
+  "previewUrl": "https://healthtimes-staging-otv7mvhnw-11-11.vercel.app",
+  "expectedSha": "2a11409e4edbfbc1c90081ee9c07101d2b0da49e",
+  "enforceContract": true,
+  "sessionHygiene": {
+    "preTest": {
+      "testNewsroomSessions": 0,
+      "testUnrevokedTokens": 0,
+      "ownerNewsroomSessions": 15,
+      "ownerUnrevokedTokens": 2
+    },
+    "postTest": {
+      "testNewsroomSessions": 0,
+      "testUnrevokedTokens": 0,
+      "ownerNewsroomSessions": 15,
+      "ownerUnrevokedTokens": 2
+    }
+  },
+  "checks": {
+    "buildInfo": {
+      "status": 200,
+      "sha": "2a11409e4edbfbc1c90081ee9c07101d2b0da49e",
+      "presentation": "apps/mobile",
+      "serviceMode": "staging",
+      "pass": true
+    },
+    "DEF001": {
+      "slugStatus": 200,
+      "slugMatch": true,
+      "refreshMatch": true,
+      "uuidStatus": 200,
+      "uuidMatch": true,
+      "pass": true
+    },
+    "DEF013": {
+      "themeMatrix": [
+        {
+          "surface": "Desktop",
+          "mode": "light",
+          "path": "/",
+          "bg": "rgb(255, 255, 255)",
+          "brandColor": "rgb(11, 31, 51)",
+          "headingColor": "rgb(11, 31, 51)",
+          "bodyColor": "rgb(91, 103, 118)",
+          "brandContrast": 16.69,
+          "headingContrast": 16.69,
+          "bodyContrast": 5.76
+        },
+        {
+          "surface": "Desktop",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Mobile",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Tablet",
+          "mode": "dark",
+          "path": "/",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Article",
+          "mode": "dark",
+          "path": "/article/uat04b-test-story-001",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(243, 247, 250)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 16.92,
+          "bodyContrast": 8.91
+        },
+        {
+          "surface": "Premium",
+          "mode": "dark",
+          "path": "/premium",
+          "bg": "rgb(11, 22, 34)",
+          "brandColor": "rgb(243, 247, 250)",
+          "headingColor": "rgb(230, 193, 106)",
+          "bodyColor": "rgb(169, 183, 197)",
+          "brandContrast": 16.92,
+          "headingContrast": 10.59,
+          "bodyContrast": 8.91
+        }
+      ],
+      "premiumDarkHeadingPass": true,
+      "premiumDarkBodyPass": true,
+      "pass": true
+    },
+    "DEF002": {
+      "hasSavedItem": true,
+      "hasOfflineItem": true,
+      "fullBodyRendered": true,
+      "paragraphCount": 5,
+      "reloadSurvives": true,
+      "preservedInBookmarks": true,
+      "pass": true
+    },
+    "DEF008": {
+      "canOpenCreateForm": true,
+      "noticeVisible": true,
+      "hasDeferredBadge": true,
+      "scheduleDisabled": true,
+      "draftCreatedSuccess": true,
+      "persistedDraftId": "667bb1dc-9393-4cac-a0b2-82e99660fed4",
+      "dbRowValid": true,
+      "zeroDispatches": true,
+      "commercialBlocked": true,
+      "pass": true
+    },
+    "DEF009": {
+      "detailsOpened": true,
+      "pass": true
+    },
+    "discoveryAndSecurity": {
+      "searchDuration": 1588,
+      "searchSamples": [
+        {
+          "attempt": 1,
+          "query": "Cervical",
+          "returnedStoryTitle": "HEALTH NEWS",
+          "networkRequests": 24,
+          "durationMs": 2937,
+          "cacheState": "cold",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": false
+        },
+        {
+          "attempt": 2,
+          "query": "Lenacapavir",
+          "returnedStoryTitle": "HEALTH NEWS",
+          "networkRequests": 24,
+          "durationMs": 1588,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 3,
+          "query": "Cervical",
+          "returnedStoryTitle": "HEALTH NEWS",
+          "networkRequests": 24,
+          "durationMs": 1187,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 4,
+          "query": "Cancer",
+          "returnedStoryTitle": "HEALTH NEWS",
+          "networkRequests": 24,
+          "durationMs": 1525,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        },
+        {
+          "attempt": 5,
+          "query": "Health",
+          "returnedStoryTitle": "My HealthTimes",
+          "networkRequests": 24,
+          "durationMs": 1307,
+          "cacheState": "warm",
+          "browser": "Chromium",
+          "viewport": "1440x900",
+          "targetSla": 2500,
+          "passed": true
+        }
+      ],
+      "minDuration": 1187,
+      "medianDuration": 1525,
+      "p75Duration": 1588,
+      "maxDuration": 2937,
+      "foundRank51Story": true,
+      "foundPublicStory": true,
+      "searchNavPass": true,
+      "negativeSearchPass": true,
+      "rpcStatus": 200,
+      "rowsReturned": 122,
+      "premiumBodyLeaks": 0,
+      "draftExposure": 0,
+      "futureExposure": 0,
+      "pass": true
+    },
+    "DEF014": {
+      "desktopCold": {
+        "samples": [
+          {
+            "lcp": 1564,
+            "lcpEntries": [
+              {
+                "startTime": 268,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1564,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 84,
+            "domContentLoaded": 650,
+            "loadEvent": 651,
+            "bundleDuration": 12,
+            "duration": 1875,
+            "rpcCalls": 1,
+            "feedRpcDuration": 455
+          },
+          {
+            "lcp": 1844,
+            "lcpEntries": [
+              {
+                "startTime": 596,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1844,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 67,
+            "domContentLoaded": 935,
+            "loadEvent": 935,
+            "bundleDuration": 6,
+            "duration": 2157,
+            "rpcCalls": 1,
+            "feedRpcDuration": 412
+          },
+          {
+            "lcp": 248,
+            "lcpEntries": [
+              {
+                "startTime": 248,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 77,
+            "domContentLoaded": 614,
+            "loadEvent": 615,
+            "bundleDuration": 2,
+            "duration": 1837,
+            "rpcCalls": 1,
+            "feedRpcDuration": 746
+          },
+          {
+            "lcp": 1752,
+            "lcpEntries": [
+              {
+                "startTime": 280,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1752,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 62,
+            "domContentLoaded": 679,
+            "loadEvent": 680,
+            "bundleDuration": 3,
+            "duration": 1905,
+            "rpcCalls": 1,
+            "feedRpcDuration": 544
+          },
+          {
+            "lcp": 1596,
+            "lcpEntries": [
+              {
+                "startTime": 280,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1596,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 68,
+            "domContentLoaded": 617,
+            "loadEvent": 618,
+            "bundleDuration": 2,
+            "duration": 1839,
+            "rpcCalls": 1,
+            "feedRpcDuration": 522
+          }
+        ],
+        "p75": 1752,
+        "median": 1596,
+        "min": 248,
+        "max": 1844
+      },
+      "desktopWarm": {
+        "samples": [
+          {
+            "lcp": 1536,
+            "lcpEntries": [
+              {
+                "startTime": 236,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1536,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 61,
+            "domContentLoaded": 718,
+            "loadEvent": 718,
+            "bundleDuration": 13,
+            "duration": 1938,
+            "rpcCalls": 1,
+            "feedRpcDuration": 351
+          },
+          {
+            "lcp": 932,
+            "lcpEntries": [
+              {
+                "startTime": 144,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 692,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 932,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 51,
+            "domContentLoaded": 222,
+            "loadEvent": 222,
+            "bundleDuration": 7,
+            "duration": 1444,
+            "rpcCalls": 1,
+            "feedRpcDuration": 149
+          },
+          {
+            "lcp": 872,
+            "lcpEntries": [
+              {
+                "startTime": 108,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 764,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 872,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 61,
+            "domContentLoaded": 220,
+            "loadEvent": 220,
+            "bundleDuration": 5,
+            "duration": 1442,
+            "rpcCalls": 1,
+            "feedRpcDuration": 258
+          },
+          {
+            "lcp": 804,
+            "lcpEntries": [
+              {
+                "startTime": 120,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 676,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 804,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 70,
+            "domContentLoaded": 238,
+            "loadEvent": 238,
+            "bundleDuration": 7,
+            "duration": 1461,
+            "rpcCalls": 1,
+            "feedRpcDuration": 118
+          },
+          {
+            "lcp": 844,
+            "lcpEntries": [
+              {
+                "startTime": 128,
+                "size": 3354,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 760,
+                "size": 17472,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 844,
+                "size": 260476,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0.001,
+            "ttfb": 80,
+            "domContentLoaded": 252,
+            "loadEvent": 252,
+            "bundleDuration": 7,
+            "duration": 1473,
+            "rpcCalls": 1,
+            "feedRpcDuration": 232
+          }
+        ],
+        "p75": 932,
+        "median": 872,
+        "min": 804,
+        "max": 1536
+      },
+      "mobile": {
+        "samples": [
+          {
+            "lcp": 1640,
+            "lcpEntries": [
+              {
+                "startTime": 236,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1640,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 74,
+            "domContentLoaded": 672,
+            "loadEvent": 673,
+            "bundleDuration": 12,
+            "duration": 1899,
+            "rpcCalls": 1,
+            "feedRpcDuration": 472
+          },
+          {
+            "lcp": 1788,
+            "lcpEntries": [
+              {
+                "startTime": 232,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1380,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              },
+              {
+                "startTime": 1788,
+                "size": 38988,
+                "url": "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2025/11/HOSPAZ-hospice-and-palliative-care-assosciation-of-zimbabwe-annual-general-meeting-25-september-2026.jpeg",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 51,
+            "domContentLoaded": 582,
+            "loadEvent": 583,
+            "bundleDuration": 10,
+            "duration": 1804,
+            "rpcCalls": 1,
+            "feedRpcDuration": 353
+          },
+          {
+            "lcp": 1652,
+            "lcpEntries": [
+              {
+                "startTime": 208,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1652,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 68,
+            "domContentLoaded": 567,
+            "loadEvent": 567,
+            "bundleDuration": 14,
+            "duration": 1788,
+            "rpcCalls": 1,
+            "feedRpcDuration": 505
+          },
+          {
+            "lcp": 1472,
+            "lcpEntries": [
+              {
+                "startTime": 272,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1472,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 90,
+            "domContentLoaded": 628,
+            "loadEvent": 630,
+            "bundleDuration": 11,
+            "duration": 1850,
+            "rpcCalls": 1,
+            "feedRpcDuration": 378
+          },
+          {
+            "lcp": 1668,
+            "lcpEntries": [
+              {
+                "startTime": 272,
+                "size": 3354,
+                "url": "",
+                "element": ""
+              },
+              {
+                "startTime": 1668,
+                "size": 24016,
+                "url": "",
+                "element": "DIV"
+              }
+            ],
+            "cls": 0,
+            "ttfb": 53,
+            "domContentLoaded": 700,
+            "loadEvent": 701,
+            "bundleDuration": 10,
+            "duration": 1929,
+            "rpcCalls": 1,
+            "feedRpcDuration": 508
+          }
+        ],
+        "p75": 1668,
+        "median": 1652,
+        "min": 1472,
+        "max": 1788
+      },
+      "cls": 0.001,
+      "mobileCls": 0,
+      "desktopCls": 0.001,
+      "totalFeedRpcs": 1,
+      "unnecessaryFeedRpcs": 0,
+      "telemetryRecorded": true,
+      "targetPassed": true,
+      "pass": true
+    }
+  },
+  "failures": []
+}

@@ -14,7 +14,7 @@ const key=env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 assert.equal(typeof url,"string");
 assert.equal(typeof key,"string");
-assert.match(url,/^https:\/\/gcdohgbmqhqwydgaxrcr\.supabase\.co$/);
+assert.match(url,/^https:\/\/bzuvntbkevvuhfhqhkua\.supabase\.co$/);
 assert.match(key,/^sb_publishable_/);
 assert.doesNotMatch(key,/service_role/i);
 
@@ -161,7 +161,7 @@ test("9 byline date and accepted section provenance survive without invented geo
 test("10 Search Explore category and author paths use migrated authoritative records",()=>{
   const adapter=read("src/services/migrated-corpus.ts");
   const explore=read("app/(reader)/explore.tsx");
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   assert.match(adapter,/const searchService: SearchService/);
   assert.match(adapter,/loadContext\("category"/);
   assert.match(adapter,/loadContext\("author"/);

@@ -3,21 +3,25 @@ import type { PropsWithChildren, ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SymbolView } from "expo-symbols";
 import { breakpoints, layout, radius, spacing, type } from "../theme/tokens";
 import { environmentSummary } from "../platform/config";
 import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
+import { HealthTimesBrand } from "./Brand";
 
+// The static Expo web export renders without a request-specific viewport.
+// Header DOM (phone search vs desktop links) must match on the server and the
+// *first* client render; only update to the real viewport after hydration.
 function useHydratedWindowWidth() {
   const { width } = useWindowDimensions();
-  const [responsiveReady, setResponsiveReady] = useState(Platform.OS !== "web");
-
+  const [hydrated, setHydrated] = useState(Platform.OS !== "web");
   useEffect(() => {
-    if (Platform.OS === "web") setResponsiveReady(true);
+    if (Platform.OS === "web") setHydrated(true);
   }, []);
-
-  return responsiveReady ? width : 0;
+  if (!hydrated) return 1200;
+  return Platform.OS === "web" && typeof window !== "undefined" ? window.innerWidth : (width || 1200);
 }
 
 export function Page({
@@ -125,7 +129,6 @@ export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const phone = width < breakpoints.tablet;
-  const narrowPhone = width > 0 && width < 360;
   const desktop = width >= breakpoints.desktop;
   const horizontal =
     width >= breakpoints.desktop ? layout.desktopGutter : width >= breakpoints.tablet ? layout.tabletGutter : layout.mobileGutter;
@@ -143,51 +146,72 @@ export function AppHeader() {
 
   const isActive = (path: string) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
-  const actions = (
-    <View style={[styles.headerActions, phone && styles.phoneActions, narrowPhone && styles.narrowActions]}>
+  const phoneSearchAction = phone ? (
+    <Pressable
+      onPress={() => go("/search")}
+      style={({ pressed }) => [
+        styles.searchIconButton,
+        { backgroundColor: pressed ? palette.paperMuted : "transparent" }
+      ]}
+      accessibilityLabel="Search HealthTimes"
+      accessibilityRole="button"
+      accessibilityHint="Opens HealthTimes search"
+    >
+      <SymbolView
+        name={{ ios: "magnifyingglass", android: "search", web: "search" }}
+        tintColor={palette.ink}
+        size={22}
+      />
+    </Pressable>
+  ) : null;
+
+  const utilityActions = !phone ? (
+    <View style={styles.headerActions}>
       <Pressable
         onPress={() => go("/search")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, { borderColor: palette.border }]}
         accessibilityLabel="Search HealthTimes"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Search</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Search</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/notifications")}
-        style={[styles.actionButton, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, { borderColor: palette.border }]}
         accessibilityLabel="Notifications"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.ink }]}>Alerts</Text>
+        <Text style={[styles.actionText, { color: palette.ink }]}>Alerts</Text>
       </Pressable>
       <Pressable
         onPress={() => go("/premium")}
-        style={[styles.actionButton, styles.premiumAction, phone && styles.phoneActionButton, { borderColor: palette.border }]}
+        style={[styles.actionButton, styles.premiumAction, { borderColor: palette.border }]}
         accessibilityLabel="HealthTimes Premium"
         accessibilityRole="button"
       >
-        <Text style={[styles.actionText, phone && styles.phoneActionText, { color: palette.blue }]}>Premium</Text>
+        <Text style={[styles.actionText, { color: palette.blue }]}>Premium</Text>
       </Pressable>
     </View>
-  );
+  ) : null;
 
   return (
     <View style={[styles.header, { borderBottomColor: palette.border, backgroundColor: palette.paper }]}>
-      <View style={[styles.headerInner, narrowPhone && styles.narrowHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
+      <View style={[styles.headerInner, phone && styles.phoneHeaderInner, { maxWidth: layout.contentMax, paddingHorizontal: horizontal }]}>
         <Pressable onPress={() => go("/")} style={styles.brandButton} accessibilityRole="button" accessibilityLabel="HealthTimes Home">
-          <Text style={[styles.brand, phone && styles.phoneBrand, { color: palette.ink }]}>HealthTimes</Text>
+          <HealthTimesBrand compact={phone} palette={palette} />
         </Pressable>
 
-        <Pressable
-          onPress={() => go("/edition")}
-          style={[styles.editionButton, phone && styles.phoneEditionButton, { borderColor: palette.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={"Edition " + edition + ". Change edition"}
-        >
-          <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
-          <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
-        </Pressable>
+        {!phone && (
+          <Pressable
+            onPress={() => go("/edition")}
+            style={[styles.editionButton, { borderColor: palette.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={"Edition " + edition + ". Change edition"}
+          >
+            <Text style={[styles.editionLabel, { color: palette.inkMuted }]}>EDITION</Text>
+            <Text numberOfLines={1} style={[styles.editionValue, { color: palette.blue }]}>{edition}</Text>
+          </Pressable>
+        )}
 
         {desktop && (
           <View style={styles.desktopNav}>
@@ -206,7 +230,7 @@ export function AppHeader() {
           </View>
         )}
 
-        {actions}
+        {phone ? phoneSearchAction : utilityActions}
       </View>
     </View>
   );
@@ -301,9 +325,110 @@ export function LoadingBlock({ label = "Loading HealthTimes…" }: { label?: str
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
     >
+      <HealthTimesBrand compact palette={palette} />
       <View accessible={false} style={[styles.skeletonWide, { backgroundColor: palette.paperMuted }]} />
       <View accessible={false} style={[styles.skeletonMid, { backgroundColor: palette.paperMuted }]} />
       <Text accessible={false} style={[styles.loadingText, { color: palette.inkMuted }]}>{label}</Text>
+    </View>
+  );
+}
+
+export function HomeSkeleton() {
+  const { palette } = useAppearance();
+  const width = useHydratedWindowWidth();
+  const phone = width < breakpoints.tablet;
+  const desktop = width >= breakpoints.desktop;
+
+  return (
+    <View
+      style={styles.homeSkeleton}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="Loading HealthTimes home..."
+      accessibilityLiveRegion="polite"
+    >
+      <View style={styles.skeletonFilterRow}>
+        {[80, 70, 95, 65, 85].map((w, i) => (
+          <View
+            key={i}
+            style={[
+              styles.skeletonPill,
+              { width: w, backgroundColor: palette.paperMuted, borderColor: palette.border }
+            ]}
+          />
+        ))}
+      </View>
+
+      <View
+        style={[
+          styles.skeletonHero,
+          {
+            borderBottomColor: palette.border,
+            flexDirection: phone ? "column" : "row",
+            minHeight: desktop ? 280 : phone ? 270 : 320
+          }
+        ]}
+      >
+        <View
+          style={[
+            styles.skeletonHeroMedia,
+            {
+              backgroundColor: palette.paperMuted,
+              width: phone ? "100%" : desktop ? "64%" : "58%",
+              aspectRatio: desktop ? 16 / 10 : 4 / 3
+            }
+          ]}
+        />
+        <View
+          style={[
+            styles.skeletonHeroBody,
+            { flex: phone ? undefined : 1, padding: phone ? spacing.md : spacing.lg }
+          ]}
+        >
+          <View style={[styles.skeletonLine, { width: 90, height: 12, backgroundColor: palette.paperMuted, marginBottom: 12 }]} />
+          <View style={[styles.skeletonLine, { width: "90%", height: 32, backgroundColor: palette.paperMuted, marginBottom: 8 }]} />
+          <View style={[styles.skeletonLine, { width: "75%", height: 32, backgroundColor: palette.paperMuted, marginBottom: 16 }]} />
+          <View style={[styles.skeletonLine, { width: "100%", height: 16, backgroundColor: palette.paperMuted, marginBottom: 6 }]} />
+          <View style={[styles.skeletonLine, { width: "60%", height: 16, backgroundColor: palette.paperMuted, marginBottom: 16 }]} />
+          <View style={[styles.skeletonLine, { width: 140, height: 12, backgroundColor: palette.paperMuted }]} />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.skeletonAdSlot,
+          {
+            backgroundColor: palette.paperMuted,
+            borderColor: palette.border,
+            minHeight: desktop ? 360 : phone ? 194 : 120
+          }
+        ]}
+      />
+
+      <View
+        style={[
+          styles.skeletonGrid,
+          { flexDirection: phone ? "column" : "row" }
+        ]}
+      >
+        {[1, 2, 3].map((item) => (
+          <View
+            key={item}
+            style={[
+              styles.skeletonGridCard,
+              { flex: phone ? undefined : 1, backgroundColor: palette.paper, borderColor: palette.border }
+            ]}
+          >
+            <View style={[styles.skeletonCardMedia, { backgroundColor: palette.paperMuted }]} />
+            <View style={{ padding: spacing.md, gap: 8 }}>
+              <View style={[styles.skeletonLine, { width: 70, height: 10, backgroundColor: palette.paperMuted }]} />
+              <View style={[styles.skeletonLine, { width: "95%", height: 18, backgroundColor: palette.paperMuted }]} />
+              <View style={[styles.skeletonLine, { width: "70%", height: 18, backgroundColor: palette.paperMuted }]} />
+              <View style={[styles.skeletonLine, { width: 100, height: 10, backgroundColor: palette.paperMuted, marginTop: 4 }]} />
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -317,25 +442,21 @@ const styles=StyleSheet.create({
   environmentText:{color:"#FFFFFF",fontSize:10,fontWeight:"800",textAlign:"center",letterSpacing:0.7},
   header:{borderBottomWidth:1},
   headerInner:{width:"100%",alignSelf:"center",minHeight:58,flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  phoneHeaderInner:{gap:4},
   brandButton:{minHeight:layout.touchMin,justifyContent:"center",flexShrink:0},
   brand:{fontSize:type.brand,fontWeight:"900",letterSpacing:-0.7},
   phoneBrand:{fontSize:21,letterSpacing:-0.6},
   editionButton:{minHeight:layout.touchMin,maxWidth:122,justifyContent:"center",borderLeftWidth:1,paddingLeft:spacing.sm,flexShrink:1},
-  phoneEditionButton:{maxWidth:62,paddingLeft:6},
   editionLabel:{fontSize:8,fontWeight:"900",letterSpacing:.8},
   editionValue:{fontSize:11,fontWeight:"900",marginTop:1},
   desktopNav:{flex:1,flexDirection:"row",justifyContent:"center",alignSelf:"stretch",gap:spacing.xs},
   desktopNavItem:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
   desktopNavText:{fontSize:14,fontWeight:"800"},
   headerActions:{marginLeft:"auto",flexDirection:"row",gap:spacing.xs,flexShrink:0},
-  phoneActions:{gap:2},
-  narrowHeaderInner:{flexWrap:"wrap",paddingTop:4,paddingBottom:4},
-  narrowActions:{width:"100%",marginLeft:0,justifyContent:"space-between"},
   actionButton:{minHeight:layout.touchMin,justifyContent:"center",paddingHorizontal:10,borderWidth:1,borderRadius:radius.sm},
   premiumAction:{borderColor:"transparent"},
-  phoneActionButton:{paddingHorizontal:5,borderWidth:0,minWidth:44,alignItems:"center"},
   actionText:{fontSize:12,fontWeight:"900"},
-  phoneActionText:{fontSize:10.5},
+  searchIconButton:{marginLeft:"auto",width:layout.touchMin,height:layout.touchMin,alignItems:"center",justifyContent:"center",borderRadius:radius.sm},
   screenHeading:{paddingTop:spacing.xl,paddingBottom:spacing.sm},
   screenTitle:{fontSize:type.screen,lineHeight:38,fontWeight:"900",letterSpacing:-0.7},
   section:{marginTop:spacing.section},
@@ -354,5 +475,16 @@ const styles=StyleSheet.create({
   loading:{paddingVertical:spacing.xxl,gap:spacing.sm},
   skeletonWide:{height:18,width:"90%",borderRadius:radius.sm},
   skeletonMid:{height:18,width:"60%",borderRadius:radius.sm},
-  loadingText:{fontSize:13}
+  loadingText:{fontSize:13},
+  homeSkeleton:{width:"100%",gap:spacing.lg,paddingTop:spacing.sm},
+  skeletonFilterRow:{flexDirection:"row",gap:spacing.lg,alignItems:"center",paddingVertical:spacing.sm},
+  skeletonPill:{height:44,borderRadius:radius.sm,borderWidth:1},
+  skeletonHero:{borderBottomWidth:1,paddingTop:spacing.md,paddingBottom:spacing.xl,gap:spacing.md},
+  skeletonHeroMedia:{borderRadius:radius.sm},
+  skeletonHeroBody:{justifyContent:"center"},
+  skeletonLine:{borderRadius:4},
+  skeletonAdSlot:{width:"100%",minHeight:194,borderTopWidth:1,borderBottomWidth:1,marginVertical:spacing.sm},
+  skeletonGrid:{gap:spacing.md,marginTop:spacing.md},
+  skeletonGridCard:{borderWidth:1,borderRadius:radius.md,overflow:"hidden"},
+  skeletonCardMedia:{width:"100%",aspectRatio:16/9}
 });

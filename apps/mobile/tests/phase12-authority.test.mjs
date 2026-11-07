@@ -14,7 +14,7 @@ test("Phase 12 keeps apps/mobile as the universal Reader source", () => {
     "app/(reader)/live.tsx",
     "app/(reader)/watch.tsx",
     "app/(reader)/my.tsx",
-    "app/search.tsx",
+    "app/(reader)/search.tsx",
     "app/premium.tsx",
     "app/article/[id].tsx",
     "public/manifest.json",

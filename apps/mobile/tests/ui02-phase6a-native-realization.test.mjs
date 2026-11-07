@@ -27,7 +27,7 @@ test("shared Reader uses native safe areas and reserves mobile tab space",()=>{
 });
 
 test("native search retains focusable keyboard input and touch-safe controls",()=>{
-  const search=read("app/search.tsx");
+  const search=read("app/(reader)/search.tsx");
   const tokens=read("src/theme/tokens.ts");
   assert.ok(search.includes("<TextInput"));
   assert.ok(search.includes('returnKeyType="search"'));
@@ -96,6 +96,21 @@ test("Phase 6A phone flow exercises the required reader surfaces and critical in
     "Edition & Preferences",
     "Dark"
   ]) assert.ok(flow.includes(expected),expected);
+});
+
+test("iOS external-surface evidence requires visible system UI before capture",()=>{
+  const flow=read("e2e/ui02-phase6a-phone.yaml");
+  const share=flow.slice(flow.indexOf('- tapOn: "Share article"'),flow.indexOf('- takeScreenshot: article-native-share'));
+  assert.match(share,/platform: iOS/);
+  assert.match(share,/id: "actionGroupCell"/);
+  assert.match(share,/text: "Copy"/);
+  assert.match(share,/assertVisible: "healthtimes\.co\.zw"/);
+  const destination=flow.slice(flow.indexOf('# Source-backed external YouTube destination'),flow.indexOf('- takeScreenshot: watch-external-youtube'));
+  assert.match(destination,/platform: iOS/);
+  assert.match(destination,/View Bookmarks, Share Menu, and Open Tabs/);
+  assert.match(destination,/xmark\.circle\.fill/);
+  assert.ok(destination.includes('youtube\\\\.com') && destination.includes('youtu\\\\.be'));
+  assert.match(destination,/extendedWaitUntil:/);
 });
 
 test("Phase 6A tablet flow targets the five tablet-sensitive surfaces",()=>{

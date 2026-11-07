@@ -1,0 +1,396 @@
+{
+  "schema_version": 1,
+  "authority": "HealthTimes Staging migration-lineage adoption",
+  "project_ref": "gcdohgbmqhqwydgaxrcr",
+  "starting_sha": "fc2498fc6552b3a1ebd109bba4f90c7fe58d9855",
+  "rule": "supabase/migrations uses historical live ledger identities; transient/duplicate entries are explicit no-op adoption markers; no live ledger mutation performed",
+  "entries": [
+    {
+      "live_version": "20260909000100",
+      "name": "content_core",
+      "classification": "EXACT_MATCH",
+      "historical_repository_identity": "20260909000100_content_core.sql",
+      "content_fingerprint_git_blob_sha": "547da311580e5ddc18454fdf36212501a7961e78",
+      "owner": "CP1/base",
+      "authoritative_filename": "20260909000100_content_core.sql"
+    },
+    {
+      "live_version": "20260909000200",
+      "name": "taxonomy_and_geo",
+      "classification": "EXACT_MATCH",
+      "historical_repository_identity": "20260909000200_taxonomy_and_geo.sql",
+      "content_fingerprint_git_blob_sha": "a850734c73a1f21686529691266d934f1fa0917e",
+      "owner": "CP1/base",
+      "authoritative_filename": "20260909000200_taxonomy_and_geo.sql"
+    },
+    {
+      "live_version": "20260909000300",
+      "name": "redirects_and_seo",
+      "classification": "EXACT_MATCH",
+      "historical_repository_identity": "20260909000300_redirects_and_seo.sql",
+      "content_fingerprint_git_blob_sha": "78cedc4fc303f9616a25a69c373e783d48be976a",
+      "owner": "CP1/base",
+      "authoritative_filename": "20260909000300_redirects_and_seo.sql"
+    },
+    {
+      "live_version": "20260909000400",
+      "name": "analytics_and_ads",
+      "classification": "EXACT_MATCH",
+      "historical_repository_identity": "20260909000400_analytics_and_ads.sql",
+      "content_fingerprint_git_blob_sha": "7d0818a4a1d3e000b4b3b81f42a1e616277c9c47",
+      "owner": "CP1/base",
+      "authoritative_filename": "20260909000400_analytics_and_ads.sql"
+    },
+    {
+      "live_version": "20260909000500",
+      "name": "migration_runs_and_checkpoints",
+      "classification": "EXACT_MATCH",
+      "historical_repository_identity": "20260909000500_migration_runs_and_checkpoints.sql",
+      "content_fingerprint_git_blob_sha": "bdc97f8deff5a2f4e2159b35452a9485b4496006",
+      "owner": "CP1/base",
+      "authoritative_filename": "20260909000500_migration_runs_and_checkpoints.sql"
+    },
+    {
+      "live_version": "20260916030642",
+      "name": "ag02_staging_security_baseline",
+      "classification": "EXACT_MATCH",
+      "historical_repository_identity": "20260916030642_ag02_staging_security_baseline.sql",
+      "content_fingerprint_git_blob_sha": "170aff91933e11aae037fe9f936ae7a9813f0387",
+      "owner": "AG-02",
+      "authoritative_filename": "20260916030642_ag02_staging_security_baseline.sql"
+    },
+    {
+      "live_version": "20260921232347",
+      "name": "ag05_seo_analytics_monetization_continuity",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922081500_ag05_seo_analytics_monetization_continuity.sql",
+      "content_fingerprint_git_blob_sha": "38e72e8bb5e1c4abc976b60a5cbec8777d2c54d5",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260921232347_ag05_seo_analytics_monetization_continuity.sql"
+    },
+    {
+      "live_version": "20260922003145",
+      "name": "ag05_rehearsal_runtime_closure",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922094000_ag05_rehearsal_runtime_closure.sql",
+      "content_fingerprint_git_blob_sha": "9567eabe7d293773c6ed0a8ca4ce452921af3bbe",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922003145_ag05_rehearsal_runtime_closure.sql"
+    },
+    {
+      "live_version": "20260922003554",
+      "name": "ag05_sitemap_xml_rpc",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922095000_ag05_sitemap_xml_rpc.sql",
+      "content_fingerprint_git_blob_sha": "c2155912ebbd9eb33e97816350d92020b44822e8",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922003554_ag05_sitemap_xml_rpc.sql"
+    },
+    {
+      "live_version": "20260922003722",
+      "name": "ag05_url_resolution_ledger",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922096000_ag05_url_resolution_ledger.sql",
+      "content_fingerprint_git_blob_sha": "b38927a3a2a5e995d91dfa63940b3ce2510aa207",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922003722_ag05_url_resolution_ledger.sql"
+    },
+    {
+      "live_version": "20260922004651",
+      "name": "ag05_link_ledger_evidence",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922097000_ag05_link_ledger_evidence.sql",
+      "content_fingerprint_git_blob_sha": "4f16d8c4f936d3fb27c058d61bd6469cd7820f84",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922004651_ag05_link_ledger_evidence.sql"
+    },
+    {
+      "live_version": "20260922005024",
+      "name": "ag05_materialize_link_audit",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922098000_ag05_materialize_link_audit.sql",
+      "content_fingerprint_git_blob_sha": "e7add174046c15b763b5bce96de8367ad196280b",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922005024_ag05_materialize_link_audit.sql"
+    },
+    {
+      "live_version": "20260922020254",
+      "name": "ag06_newsroom_auth_rbac",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922080100_ag06_newsroom_auth_rbac.sql",
+      "content_fingerprint_git_blob_sha": "cc5477f25606cdc64bc17d2e57fe43987347077a",
+      "owner": "AG-06",
+      "authoritative_filename": "20260922020254_ag06_newsroom_auth_rbac.sql"
+    },
+    {
+      "live_version": "20260922021319",
+      "name": "ag06_staging_http_cert_helper",
+      "classification": "SUPERSEDED",
+      "historical_repository_identity": "historical live-only transient certification migration",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "AG-06 certification",
+      "authoritative_filename": "20260922021319_ag06_staging_http_cert_helper.sql"
+    },
+    {
+      "live_version": "20260922021408",
+      "name": "ag06_staging_http_cert_helper_cleanup",
+      "classification": "SUPERSEDED",
+      "historical_repository_identity": "historical live-only transient certification cleanup",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "AG-06 certification",
+      "authoritative_filename": "20260922021408_ag06_staging_http_cert_helper_cleanup.sql"
+    },
+    {
+      "live_version": "20260922021521",
+      "name": "ag06_security_advisor_hardening",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922112000_ag06_security_advisor_hardening.sql",
+      "content_fingerprint_git_blob_sha": "cedcdc0abe861810a7eb5103a0c128e3b9cb096a",
+      "owner": "AG-06",
+      "authoritative_filename": "20260922021521_ag06_security_advisor_hardening.sql"
+    },
+    {
+      "live_version": "20260922023605",
+      "name": "ag06_staging_confirm_reporter_probe_35679759314",
+      "classification": "SUPERSEDED",
+      "historical_repository_identity": "historical live-only transient certification probe",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "AG-06 certification",
+      "authoritative_filename": "20260922023605_ag06_staging_confirm_reporter_probe_35679759314.sql"
+    },
+    {
+      "live_version": "20260922030247",
+      "name": "ag05_context_routes",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922120500_ag05_context_routes.sql",
+      "content_fingerprint_git_blob_sha": "34ff31581a28116bff8f457869fbfb7b7b317b65",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922030247_ag05_context_routes.sql"
+    },
+    {
+      "live_version": "20260922030729",
+      "name": "ag05_preserve_direct_handoff_case",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922121500_ag05_preserve_direct_handoff_case.sql",
+      "content_fingerprint_git_blob_sha": "1b05f8a8b8a56d86cd5e36009d9a4ca0fcb914ed",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922030729_ag05_preserve_direct_handoff_case.sql"
+    },
+    {
+      "live_version": "20260922031250",
+      "name": "ag06_newsroom_story_listing_perf",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922080200_ag06_newsroom_story_listing_perf.sql",
+      "content_fingerprint_git_blob_sha": "19c2e006f7788fa6ebd968e943109317f5d9bc40",
+      "owner": "AG-06",
+      "authoritative_filename": "20260922031250_ag06_newsroom_story_listing_perf.sql"
+    },
+    {
+      "live_version": "20260922032244",
+      "name": "ag06_story_rls_performance",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922080300_ag06_story_rls_performance.sql",
+      "content_fingerprint_git_blob_sha": "7e6bac42193b396cb19cf8471aae365fc0b3c64e",
+      "owner": "AG-06",
+      "authoritative_filename": "20260922032244_ag06_story_rls_performance.sql"
+    },
+    {
+      "live_version": "20260922033138",
+      "name": "ag06_certification_cleanup_35683173735_v2",
+      "classification": "SUPERSEDED",
+      "historical_repository_identity": "historical live-only certification cleanup",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "AG-06 certification",
+      "authoritative_filename": "20260922033138_ag06_certification_cleanup_35683173735_v2.sql"
+    },
+    {
+      "live_version": "20260922033157",
+      "name": "ag06_auth_delete_revocation",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922080400_ag06_auth_delete_revocation.sql",
+      "content_fingerprint_git_blob_sha": "accac75da4e38ec99cbca49743aff1758817409a",
+      "owner": "AG-06",
+      "authoritative_filename": "20260922033157_ag06_auth_delete_revocation.sql"
+    },
+    {
+      "live_version": "20260922033542",
+      "name": "ag06_auth_delete_guard",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922080500_ag06_auth_delete_guard.sql",
+      "content_fingerprint_git_blob_sha": "f6ba24feca96e57bf3788c5fdee1b90329dd7f97",
+      "owner": "AG-06",
+      "authoritative_filename": "20260922033542_ag06_auth_delete_guard.sql"
+    },
+    {
+      "live_version": "20260922035013",
+      "name": "ag05_normalize_preserve_strategy",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922122000_ag05_normalize_preserve_strategy.sql",
+      "content_fingerprint_git_blob_sha": "bed63824c9c3d80fb20965adf24368bb6469a395",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922035013_ag05_normalize_preserve_strategy.sql"
+    },
+    {
+      "live_version": "20260922035050",
+      "name": "ag06_cleanup_failed_certification_users",
+      "classification": "SUPERSEDED",
+      "historical_repository_identity": "historical live-only certification cleanup",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "AG-06 certification",
+      "authoritative_filename": "20260922035050_ag06_cleanup_failed_certification_users.sql"
+    },
+    {
+      "live_version": "20260922035335",
+      "name": "ag05_nested_category_context",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922122500_ag05_nested_category_context.sql",
+      "content_fingerprint_git_blob_sha": "0ec6d31f38e33882e70adf5f0770620621cced60",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922035335_ag05_nested_category_context.sql"
+    },
+    {
+      "live_version": "20260922040649",
+      "name": "ag05_rehearsal_readiness_guard",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922131000_ag05_rehearsal_readiness_guard.sql",
+      "content_fingerprint_git_blob_sha": "c9411a915681159bf888ddf60e76b37d49fa64f3",
+      "owner": "AG-05/CP5",
+      "authoritative_filename": "20260922040649_ag05_rehearsal_readiness_guard.sql"
+    },
+    {
+      "live_version": "20260922054411",
+      "name": "ca01_internal_schema_capabilities",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140000_ca01_internal_schema_capabilities.sql",
+      "content_fingerprint_git_blob_sha": "30151f4a4ff2e917dfbf6b0a360b2343e13b2890",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922054411_ca01_internal_schema_capabilities.sql"
+    },
+    {
+      "live_version": "20260922054415",
+      "name": "ca01_inbox_story_discussion",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140100_ca01_inbox_story_discussion.sql",
+      "content_fingerprint_git_blob_sha": "d3920cdaec2487fca7e450ff40d7ddc1040bdb45",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922054415_ca01_inbox_story_discussion.sql"
+    },
+    {
+      "live_version": "20260922054420",
+      "name": "ca01_desks_threads_announcements",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140200_ca01_desks_threads_announcements.sql",
+      "content_fingerprint_git_blob_sha": "981187617b53b19103563f708b1a769638b6db85",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922054420_ca01_desks_threads_announcements.sql"
+    },
+    {
+      "live_version": "20260922054424",
+      "name": "ca01_communication_storage",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140300_ca01_communication_storage.sql",
+      "content_fingerprint_git_blob_sha": "025593db521ad316ea51dd56f10058cf1852d25c",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922054424_ca01_communication_storage.sql"
+    },
+    {
+      "live_version": "20260922054428",
+      "name": "ca01_reader_discussion_moderation",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140400_ca01_reader_discussion_moderation.sql",
+      "content_fingerprint_git_blob_sha": "63ce29fa77992fe26f2b7a72bb4a3931c1ce3fb2",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922054428_ca01_reader_discussion_moderation.sql"
+    },
+    {
+      "live_version": "20260922054449",
+      "name": "ca01_realtime_authorization",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140500_ca01_realtime_authorization.sql",
+      "content_fingerprint_git_blob_sha": "0f5632c71291425090af06b493b40d2d0f6e3945",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922054449_ca01_realtime_authorization.sql"
+    },
+    {
+      "live_version": "20260922055517",
+      "name": "ca01_attachment_access_hardening",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140600_ca01_attachment_access_hardening.sql",
+      "content_fingerprint_git_blob_sha": "bf39bacd454549750320072ec6b1f4f2ab48ac19",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922055517_ca01_attachment_access_hardening.sql"
+    },
+    {
+      "live_version": "20260922061142",
+      "name": "ca01_attachment_access_hardening",
+      "classification": "DUPLICATE_LOGICAL_MIGRATION",
+      "historical_repository_identity": "duplicate live application; durable effect owned by 20260922055517",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922061142_ca01_attachment_access_hardening.sql"
+    },
+    {
+      "live_version": "20260922061238",
+      "name": "ca01_desk_member_rls_recursion_fix",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140700_ca01_desk_member_rls_recursion_fix.sql",
+      "content_fingerprint_git_blob_sha": "180ed2142062a8c8dca63a1c9ca0ffa5dc90ac59",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922061238_ca01_desk_member_rls_recursion_fix.sql"
+    },
+    {
+      "live_version": "20260922065253",
+      "name": "ca01_fk_index_hardening",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140800_ca01_fk_index_hardening.sql",
+      "content_fingerprint_git_blob_sha": "5b18c1068a15f03837586f0150f4bd947621b29b",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922065253_ca01_fk_index_hardening.sql"
+    },
+    {
+      "live_version": "20260922065811",
+      "name": "ca01_fk_index_hardening",
+      "classification": "DUPLICATE_LOGICAL_MIGRATION",
+      "historical_repository_identity": "duplicate live application; durable effect owned by 20260922065253",
+      "content_fingerprint_git_blob_sha": "a960626806c8ac5b10fcfa7cf77bff2944d552f0",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922065811_ca01_fk_index_hardening.sql"
+    },
+    {
+      "live_version": "20260922070256",
+      "name": "ca01_realtime_event_emission",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922140900_ca01_realtime_event_emission.sql",
+      "content_fingerprint_git_blob_sha": "d5a3e0a7cbffd3c9719cc21a1f372939ad60435b",
+      "owner": "CA-01",
+      "authoritative_filename": "20260922070256_ca01_realtime_event_emission.sql"
+    },
+    {
+      "live_version": "20260922094527",
+      "name": "com01_communications_domain",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922183500_com01_communications_domain.sql",
+      "content_fingerprint_git_blob_sha": "a94b093e2ee17fcd690461bd3e631ce60f2e9582",
+      "owner": "COM-01",
+      "authoritative_filename": "20260922094527_com01_communications_domain.sql"
+    },
+    {
+      "live_version": "20260922095013",
+      "name": "com01_private_attachments",
+      "classification": "LIVE_EQUIVALENT / REPO_VERSION_DRIFT",
+      "historical_repository_identity": "20260922183600_com01_private_attachments.sql",
+      "content_fingerprint_git_blob_sha": "2f5e5ab5f954724149e9f7fe2aa3d928bd4cf65f",
+      "owner": "COM-01",
+      "authoritative_filename": "20260922095013_com01_private_attachments.sql"
+    },
+    {
+      "live_version": "20260922100851",
+      "name": "com01_campaign_and_escalation_authority",
+      "classification": "LIVE_EFFECT / REPO_FILE_MISSING",
+      "historical_repository_identity": "reconstructed from live schema/function definitions",
+      "content_fingerprint_git_blob_sha": "1a15e6d890aa39fa2188fb939c9cba7d9bbf6327",
+      "owner": "COM-01",
+      "authoritative_filename": "20260922100851_com01_campaign_and_escalation_authority.sql"
+    }
+  ]
+}

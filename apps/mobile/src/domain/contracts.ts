@@ -15,6 +15,7 @@ import type {
   EditionPreference,
   LiveItem,
   NotificationItem,
+  OwnerActivationResult,
   PlatformConnectivityReport,
   PremiumRestoreResult,
   PremiumPreviewWindow,
@@ -30,13 +31,126 @@ import type {
   NewsroomMessage,
   NewsroomAnnouncement,
   NewsroomAssignment,
+  NewsroomStory,
+  NewsroomPublicAuthor,
+  NewsroomSection,
+  NewsroomStoryRevision,
+  NewsroomStoryAutosave,
+  NewsroomStoryReview,
+  NewsroomStoryCorrection,
+  CreateStoryInput,
+  SaveStoryPatch,
+  CreateAssignmentInput,
+  NewsroomPlanningStaff,
   ReaderCommentModerationItem,
   PublicationProfile,
   PremiumStoreState,
   ReaderProfile,
   SearchQuery,
   SearchResult,
-  VideoItem
+  VideoItem,
+  PublicHomepagePresentation,
+  NewsroomMediaAsset,
+  NewsroomMediaPreview,
+  NewsroomMediaMetadataPatch,
+  PrepareStoryMediaPayload,
+  StoryMediaPreparation,
+  StoryMediaUploadContext,
+  StoryMediaPromotionItem,
+  StoryMediaStageResult,
+  StoryMediaUsageType,
+  NewsroomVideo,
+  NewsroomVideoCreateInput,
+  NewsroomVideoPatch,
+  NewsroomVideoListOptions,
+  NewsroomLiveCoverage,
+  NewsroomLiveCoverageCreateInput,
+  NewsroomLiveCoveragePatch,
+  NewsroomLiveCoverageListOptions,
+  NewsroomLiveUpdate,
+  NewsroomLiveUpdateCreateInput,
+  LiveBlogUpdate,
+  NewsroomSocialAccount,
+  NewsroomSocialPost,
+  NewsroomSocialPostStatus,
+  NewsroomSocialPublicationAttempt,
+  NewsroomSocialPreparePublishResult,
+  NewsroomSocialDraftCreateInput,
+  NewsroomCampaign,
+  NewsroomCampaignPurpose,
+  NewsroomCampaignStatus,
+  NewsroomContactSegment,
+  NewsroomCampaignCreateInput,
+  NewsroomCampaignPrepareSendResult,
+  NewsroomPushAlert,
+  NewsroomPushAlertCategory,
+  NewsroomPushAlertCreateInput,
+  NewsroomPushAlertPatch,
+  NewsroomPushAlertPrepareResult,
+  NewsroomPushAlertStatus,
+  NewsroomPushDispatch,
+  NewsroomPushDispatchResult,
+  NewsroomWhatsAppBroadcast,
+  NewsroomWhatsAppBroadcastCreateInput,
+  NewsroomWhatsAppBroadcastStatus,
+  NewsroomWhatsAppBroadcastType,
+  NewsroomWhatsAppDispatch,
+  NewsroomWhatsAppDispatchResult,
+  NewsroomWhatsAppDispatchStatus,
+  NewsroomEditorialIntelligence,
+  NewsroomGrowthIntelligence,
+  NewsroomAudienceIntelligence,
+  NewsroomStaffMember,
+  NewsroomStaffInvitation,
+  NewsroomRole,
+  NewsroomCapability,
+  NewsroomAuditRecord,
+  NewsroomStaffOperationsDirectory,
+  NewsroomStaffInviteInput,
+  NewsroomAdvertisingOverview,
+  NewsroomCreateCampaignInput,
+  NewsroomCreateCreativeInput,
+  NewsroomSubscribersDirectory,
+  NewsroomPremiumOperationsOverview,
+  NewsroomAiAssistOverview,
+  NewsroomAiAssistSession,
+  NewsroomRunAiAssistInput,
+  NewsroomCitationsDirectory,
+  NewsroomRecordCitationInput,
+  NewsroomAuthorItem,
+  NewsroomAuthorsDirectory,
+  NewsroomCreateAuthorInput,
+  NewsroomUpdateAuthorInput,
+  NewsroomBindStaffAuthorInput,
+  NewsroomSectionItem,
+  NewsroomTaxonomyDirectory,
+  NewsroomCreateSectionInput,
+  NewsroomPlatformSettingItem,
+  NewsroomPlatformSettingsOverview,
+  NewsroomCustomer,
+  NewsroomUpsertCustomerInput,
+  NewsroomCommercialOrder,
+  NewsroomCreateOrderInput,
+  NewsroomInvoiceItem,
+  NewsroomInvoiceDetail,
+  NewsroomCreateInvoiceInput,
+  NewsroomPaymentItem,
+  NewsroomRecordPaymentInput,
+  NewsroomPaymentResult,
+  NewsroomReceivablesAging,
+  NewsroomExpenseItem,
+  NewsroomExpenseCategory,
+  NewsroomCreateExpenseInput,
+  NewsroomFinanceOverview,
+  NewsroomFinanceStatements,
+  NewsroomChartOfAccount,
+  NewsroomFiscalPeriod,
+  NewsroomJournalEntry,
+  NewsroomCreditNote,
+  NewsroomTrialBalance,
+  NewsroomProfitAndLoss,
+  NewsroomBalanceSheet,
+  NewsroomCustomerStatement
 } from "./models";
 import type { TaxonomySnapshot } from "./source";
 import type { AuthorizationSnapshot, HealthTimesCapability } from "../security/capabilities";
@@ -130,6 +244,10 @@ export interface AnalyticsService {
 
 export interface LiveService {
   list(): Promise<LiveItem[]>;
+  listUpdates(
+    coverageId: string,
+    options?: { afterSeq?: number | null; limit?: number }
+  ): Promise<LiveBlogUpdate[]>;
 }
 
 export interface VideoService {
@@ -162,6 +280,9 @@ export interface NewsroomCommunicationService {
   archive(notificationId: string): Promise<void>;
 
   listAssignments(): Promise<NewsroomAssignment[]>;
+  createAssignment(input: CreateAssignmentInput): Promise<string>;
+  progressAssignment(assignmentId: string): Promise<string>;
+  listAssignmentStaff(): Promise<NewsroomPlanningStaff[]>;
   listStoryDiscussion(storyId: string): Promise<NewsroomInternalComment[]>;
   addStoryComment(storyId: string, body: string, parentCommentId?: string | null, mentionStaffIds?: string[]): Promise<string>;
   editStoryComment(commentId: string, body: string, mentionStaffIds?: string[] | null): Promise<void>;
@@ -199,6 +320,24 @@ export interface PlatformService {
   checkConnectivity(): Promise<PlatformConnectivityReport>;
 }
 
+export interface NewsroomStoryService {
+  listStories(limit?: number): Promise<NewsroomStory[]>;
+  getStory(storyId: string): Promise<NewsroomStory | null>;
+  createStory(input: CreateStoryInput): Promise<string>;
+  saveStory(storyId: string, expectedVersion: number, patch: SaveStoryPatch, reason?: string): Promise<number>;
+  transitionStory(storyId: string, nextStatus: string, reason?: string): Promise<string>;
+  listAuthors(): Promise<NewsroomPublicAuthor[]>;
+  listSections(): Promise<NewsroomSection[]>;
+  listRevisions(storyId: string): Promise<NewsroomStoryRevision[]>;
+  listAutosave(storyId: string): Promise<NewsroomStoryAutosave | null>;
+  listReviews(storyId: string): Promise<NewsroomStoryReview[]>;
+  listCorrections(storyId: string): Promise<NewsroomStoryCorrection[]>;
+  restoreRevision(storyId: string, revisionId: string, expectedVersion: number): Promise<number>;
+  recordReview(storyId: string, reviewType: string, status: string, notes?: string | null): Promise<string>;
+  requestChanges(storyId: string, reason: string): Promise<Record<string, unknown>>;
+  setCommentPolicy(storyId: string, policy: "disabled" | "read_only" | "open"): Promise<string>;
+}
+
 export interface SocialAttributionService {
   buildCanonicalShareUrl(article: ArticleSummary): Promise<string>;
   buildAttributedShareUrl(
@@ -207,8 +346,240 @@ export interface SocialAttributionService {
   ): Promise<string>;
 }
 
+export interface PresentationRepository {
+  getPublicHomepagePresentations(editionSlug?: string | null): Promise<PublicHomepagePresentation[]>;
+}
+
+export interface NewsroomMediaService {
+  listMedia(search?: string | null, limit?: number): Promise<NewsroomMediaAsset[]>;
+  listStoryMedia(storyId: string): Promise<NewsroomMediaAsset[]>;
+  getMediaPreview(mediaId: string): Promise<NewsroomMediaPreview>;
+  updateMediaMetadata(mediaId: string, patch: NewsroomMediaMetadataPatch): Promise<void>;
+  prepareStoryMedia(storyId: string, payload: PrepareStoryMediaPayload): Promise<StoryMediaPreparation>;
+  getUploadContext(mediaId: string, storyId: string): Promise<StoryMediaUploadContext>;
+  finalizeStoryMedia(
+    mediaId: string,
+    storyId: string,
+    usageType: StoryMediaUsageType,
+    checksum?: string | null
+  ): Promise<{ mediaId: string; storyId: string; usageType: StoryMediaUsageType; status: string }>;
+  attachStoryMedia(mediaId: string, storyId: string, usageType: StoryMediaUsageType): Promise<void>;
+  detachStoryMedia(mediaId: string, storyId: string, usageType: StoryMediaUsageType): Promise<void>;
+  getPromotionPlan(storyId: string): Promise<StoryMediaPromotionItem[]>;
+  stagePromotion(
+    storyId: string,
+    mediaId: string,
+    publicStorageKey: string,
+    verifiedChecksum: string
+  ): Promise<StoryMediaStageResult>;
+  clearStagedPromotion(storyId: string, mediaId: string): Promise<void>;
+}
+
+export interface NewsroomVideoService {
+  listVideos(options?: NewsroomVideoListOptions): Promise<NewsroomVideo[]>;
+  createVideo(input: NewsroomVideoCreateInput): Promise<string>;
+  saveVideo(videoId: string, expectedVersion: number, patch: NewsroomVideoPatch): Promise<number>;
+  setReady(videoId: string, expectedVersion: number, ready: boolean): Promise<number>;
+  publishVideo(videoId: string, expectedVersion: number, featured?: boolean): Promise<number>;
+  unpublishVideo(videoId: string, expectedVersion: number): Promise<number>;
+  setFeatured(videoId: string, expectedVersion: number, featured: boolean): Promise<number>;
+}
+
+export interface NewsroomLiveCoverageService {
+  listCoverage(options?: NewsroomLiveCoverageListOptions): Promise<NewsroomLiveCoverage[]>;
+  createCoverage(input: NewsroomLiveCoverageCreateInput): Promise<string>;
+  saveCoverage(id: string, expectedVersion: number, patch: NewsroomLiveCoveragePatch): Promise<number>;
+  startCoverage(id: string, expectedVersion: number): Promise<number>;
+  endCoverage(id: string, expectedVersion: number): Promise<number>;
+  listUpdates(coverageId: string, limit?: number): Promise<NewsroomLiveUpdate[]>;
+  postUpdate(coverageId: string, input: NewsroomLiveUpdateCreateInput): Promise<string>;
+}
+
+export interface NewsroomSocialService {
+  listAccounts(): Promise<NewsroomSocialAccount[]>;
+  listPosts(options?: {
+    storyId?: string | null;
+    status?: NewsroomSocialPostStatus | null;
+    limit?: number;
+  }): Promise<NewsroomSocialPost[]>;
+  listPublicationAttempts(socialPostId: string): Promise<NewsroomSocialPublicationAttempt[]>;
+  createDraft(input: NewsroomSocialDraftCreateInput): Promise<string>;
+  approvePost(socialPostId: string): Promise<void>;
+  preparePublish(socialPostId: string): Promise<NewsroomSocialPreparePublishResult>;
+}
+
+export interface NewsroomCampaignService {
+  listCampaigns(options?: {
+    status?: NewsroomCampaignStatus | null;
+    purpose?: NewsroomCampaignPurpose | null;
+    search?: string | null;
+    limit?: number;
+  }): Promise<NewsroomCampaign[]>;
+  listSegments(): Promise<NewsroomContactSegment[]>;
+  createCampaign(input: NewsroomCampaignCreateInput): Promise<string>;
+  approveCampaign(campaignId: string): Promise<void>;
+  prepareSend(campaignId: string): Promise<NewsroomCampaignPrepareSendResult>;
+}
+
+export interface NewsroomPushAlertService {
+  listAlerts(options?: {
+    status?: NewsroomPushAlertStatus | null;
+    category?: NewsroomPushAlertCategory | null;
+    search?: string | null;
+    limit?: number;
+  }): Promise<NewsroomPushAlert[]>;
+  createAlert(input: NewsroomPushAlertCreateInput): Promise<string>;
+  saveAlert(alertId: string, patch: NewsroomPushAlertPatch): Promise<void>;
+  approveAlert(alertId: string): Promise<void>;
+  prepareAlert(alertId: string): Promise<NewsroomPushAlertPrepareResult>;
+  getDispatch(alertId: string): Promise<NewsroomPushDispatch | null>;
+  dispatchAlert(
+    alertId: string,
+    idempotencyKey?: string
+  ): Promise<NewsroomPushDispatchResult>;
+}
+
+export interface NewsroomWhatsAppService {
+  listBroadcasts(options?: {
+    status?: NewsroomWhatsAppBroadcastStatus | null;
+    broadcastType?: NewsroomWhatsAppBroadcastType | null;
+    search?: string | null;
+    limit?: number;
+  }): Promise<NewsroomWhatsAppBroadcast[]>;
+  createBroadcast(input: NewsroomWhatsAppBroadcastCreateInput): Promise<string>;
+  approveBroadcast(broadcastId: string): Promise<void>;
+  rejectBroadcast(broadcastId: string, reason?: string): Promise<void>;
+  getDispatch(broadcastId: string): Promise<NewsroomWhatsAppDispatch | null>;
+  dispatchBroadcast(
+    broadcastId: string,
+    idempotencyKey?: string
+  ): Promise<NewsroomWhatsAppDispatchResult>;
+}
+
+export interface NewsroomIntelligenceService {
+  getEditorialIntelligence(): Promise<NewsroomEditorialIntelligence>;
+  getGrowthIntelligence(): Promise<NewsroomGrowthIntelligence>;
+  getAudienceIntelligence(): Promise<NewsroomAudienceIntelligence>;
+}
+
+export interface NewsroomStaffService {
+  getStaffOperationsDirectory(): Promise<NewsroomStaffOperationsDirectory>;
+  changeStaffRole(staffId: string, roleName: string): Promise<void>;
+  updateStaffStatus(
+    staffId: string,
+    status: "active" | "suspended" | "revoked" | "deactivated"
+  ): Promise<void>;
+  revokeStaffSession(
+    staffId: string,
+    providerSessionId?: string | null
+  ): Promise<number>;
+  createInvitation(
+    input: NewsroomStaffInviteInput
+  ): Promise<{ id: string; email: string; displayName: string; role: string }>;
+  cancelInvitation(invitationId: string): Promise<void>;
+  bootstrapOwner(): Promise<{ success: boolean; staffId?: string; role?: string; error?: string }>;
+  activateOwner(input: { email: string; password: string }): Promise<OwnerActivationResult>;
+  resendOwnerVerification(email: string): Promise<OwnerActivationResult>;
+}
+
+export interface NewsroomCommercialService {
+  getAdvertisingOverview(): Promise<NewsroomAdvertisingOverview>;
+  createAdvertiser(name: string, contactNotes?: string | null): Promise<string>;
+  createCampaign(input: NewsroomCreateCampaignInput): Promise<string>;
+  createCreative(input: NewsroomCreateCreativeInput): Promise<string>;
+  approveCampaign(campaignId: string, approved: boolean): Promise<string>;
+  updateCampaignStatus(campaignId: string, status: string): Promise<string>;
+
+  getSubscribersDirectory(options?: {
+    status?: string | null;
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomSubscribersDirectory>;
+  updateSubscriberStatus(subscriberId: string, status: string): Promise<string>;
+  grantSubscriberEntitlement(
+    subscriberId: string,
+    policyKey?: string,
+    durationDays?: number,
+    provider?: string
+  ): Promise<string>;
+
+  getPremiumOperationsOverview(): Promise<NewsroomPremiumOperationsOverview>;
+  setStoryAccess(storyId: string, accessPolicy: "public" | "premium"): Promise<string>;
+}
+
+export interface NewsroomAiService {
+  getOverview(): Promise<NewsroomAiAssistOverview>;
+  runAssist(input: NewsroomRunAiAssistInput): Promise<NewsroomAiAssistSession>;
+  getCitationsDirectory(options?: {
+    status?: string | null;
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomCitationsDirectory>;
+  recordCitation(input: NewsroomRecordCitationInput): Promise<{ citationId: string; status: string }>;
+  updateCitationStatus(citationId: string, status: string): Promise<{ citationId: string; status: string }>;
+}
+
+export interface NewsroomAuthorsService {
+  getAuthorsDirectory(filter?: {
+    search?: string | null;
+    limit?: number;
+    offset?: number;
+  }): Promise<NewsroomAuthorsDirectory>;
+  createAuthor(input: NewsroomCreateAuthorInput): Promise<{ authorId: string; slug: string; created: boolean }>;
+  updateAuthor(input: NewsroomUpdateAuthorInput): Promise<{ authorId: string; updated: boolean }>;
+  bindStaffAuthor(input: NewsroomBindStaffAuthorInput): Promise<{ staffId: string; authorId: string | null; bound: boolean }>;
+  getTaxonomyDirectory(filter?: {
+    parentId?: string | null;
+    search?: string | null;
+  }): Promise<NewsroomTaxonomyDirectory>;
+  createSection(input: NewsroomCreateSectionInput): Promise<{ sectionId: string; slug: string; created: boolean }>;
+}
+
+export interface NewsroomSettingsService {
+  getPlatformSettings(): Promise<NewsroomPlatformSettingsOverview>;
+  updatePlatformSetting(key: string, value: Record<string, unknown>): Promise<{ key: string; updated: boolean }>;
+}
+
+export interface NewsroomFinanceService {
+  getOverview(): Promise<NewsroomFinanceOverview>;
+  getStatements(startDate?: string, endDate?: string): Promise<NewsroomFinanceStatements>;
+  getReceivablesAging(): Promise<NewsroomReceivablesAging>;
+  listInvoices(statusFilter?: string | null): Promise<NewsroomInvoiceItem[]>;
+  getInvoice(invoiceId: string): Promise<NewsroomInvoiceDetail>;
+  createInvoice(input: NewsroomCreateInvoiceInput): Promise<NewsroomInvoiceDetail>;
+  approveInvoice(invoiceId: string): Promise<void>;
+  issueInvoice(invoiceId: string, issueDate?: string, dueDate?: string): Promise<void>;
+  voidInvoice(invoiceId: string, reason: string): Promise<void>;
+  recordPayment(input: NewsroomRecordPaymentInput): Promise<NewsroomPaymentResult>;
+  listPayments(invoiceId?: string): Promise<NewsroomPaymentItem[]>;
+  listExpenses(statusFilter?: string | null): Promise<NewsroomExpenseItem[]>;
+  createExpense(input: NewsroomCreateExpenseInput): Promise<NewsroomExpenseItem>;
+  submitExpense(expenseId: string): Promise<void>;
+  approveExpense(expenseId: string): Promise<void>;
+  rejectExpense(expenseId: string, reason: string): Promise<void>;
+  payExpense(expenseId: string, reference?: string): Promise<void>;
+  listExpenseCategories(): Promise<NewsroomExpenseCategory[]>;
+  listOrders(statusFilter?: string | null): Promise<NewsroomCommercialOrder[]>;
+  createOrder(input: NewsroomCreateOrderInput): Promise<NewsroomCommercialOrder>;
+  approveOrder(orderId: string): Promise<void>;
+  listCustomers(): Promise<NewsroomCustomer[]>;
+  upsertCustomer(input: NewsroomUpsertCustomerInput): Promise<NewsroomCustomer>;
+  getTrialBalance(periodId?: string | null, currency?: string): Promise<NewsroomTrialBalance>;
+  getProfitAndLoss(fromDate?: string | null, toDate?: string | null, currency?: string): Promise<NewsroomProfitAndLoss>;
+  getBalanceSheet(asOfDate?: string | null, currency?: string): Promise<NewsroomBalanceSheet>;
+  getCustomerStatement(customerId: string, fromDate?: string | null, toDate?: string | null, currency?: string): Promise<NewsroomCustomerStatement>;
+  createCreditNote(invoiceId: string, amount: number, reason: string): Promise<{ id: string; creditNoteNumber: string; amount: number }>;
+  reverseJournalEntry(entryId: string, reason: string): Promise<{ id: string; status: string; reversalEntryId: string }>;
+  listJournals(periodId?: string | null, statusFilter?: string | null, limit?: number): Promise<NewsroomJournalEntry[]>;
+  listChartOfAccounts(): Promise<NewsroomChartOfAccount[]>;
+  listFiscalPeriods(): Promise<NewsroomFiscalPeriod[]>;
+}
+
 export interface HealthTimesServices {
   articles: ArticleRepository;
+  presentation: PresentationRepository;
   search: SearchService;
   auth: AuthService;
   authorization: AuthorizationService;
@@ -226,8 +597,24 @@ export interface HealthTimesServices {
   readerDiscussion: ReaderDiscussionService;
   newsroomCommunication: NewsroomCommunicationService;
   commentModeration: CommentModerationService;
+  newsroomStories: NewsroomStoryService;
+  newsroomMedia: NewsroomMediaService;
+  newsroomVideo: NewsroomVideoService;
+  newsroomLive: NewsroomLiveCoverageService;
+  newsroomSocial: NewsroomSocialService;
+  newsroomCampaigns: NewsroomCampaignService;
+  newsroomPushAlerts: NewsroomPushAlertService;
+  newsroomWhatsApp: NewsroomWhatsAppService;
+  newsroomIntelligence: NewsroomIntelligenceService;
+  newsroomStaff: NewsroomStaffService;
+  newsroomCommercial: NewsroomCommercialService;
+  newsroomFinance: NewsroomFinanceService;
+  newsroomAi: NewsroomAiService;
+  newsroomAuthors: NewsroomAuthorsService;
+  newsroomSettings: NewsroomSettingsService;
   taxonomy: TaxonomyService;
   publication: PublicationRepository;
   platform: PlatformService;
   social: SocialAttributionService;
 }
+

@@ -39,7 +39,6 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(reader)" />
         <Stack.Screen name="article/[id]" />
-        <Stack.Screen name="search" />
         <Stack.Screen name="listen" />
         <Stack.Screen name="saved" />
         <Stack.Screen name="notifications" />

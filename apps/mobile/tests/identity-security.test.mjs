@@ -83,13 +83,26 @@ test("Studio modules require server-issued capabilities",()=>{
   assert.ok(studio.includes("navigating directly to this route"));
   for(const value of [
     'capability:"story.create"',
-    'capability:"story.publish"',
-    'capability:"ads.view"',
-    'capability:"premium.manage"',
-    'capability:"subscriber.view"',
-    'capability:"staff.view"',
-    'capability:"settings.manage"'
+    'capability:"story.publish"'
   ]) assert.ok(modules.includes(value),"missing Studio gate: "+value);
+
+  const capabilities=read("src/security/capabilities.ts");
+  for(const [gate,requiredCapability] of [
+    ["ADVERTISING_DESK_CAPABILITIES","ads.view"],
+    ["PREMIUM_DESK_CAPABILITIES","premium.manage"],
+    ["SUBSCRIBER_DESK_CAPABILITIES","subscriber.view"],
+    ["STAFF_DESK_CAPABILITIES","staff.view"],
+    ["SETTINGS_DESK_CAPABILITIES","settings.manage"]
+  ]){
+    assert.ok(
+      modules.includes("anyOfCapabilities:"+gate),
+      "missing Studio any-of capability gate: "+gate
+    );
+    assert.ok(
+      capabilities.includes('"'+requiredCapability+'"'),
+      "missing capability in canonical gate catalogue: "+requiredCapability
+    );
+  }
 });
 
 test("NM-06 account and notification routes are present",()=>{

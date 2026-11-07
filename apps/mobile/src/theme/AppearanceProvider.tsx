@@ -29,7 +29,20 @@ const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 export function AppearanceProvider({ children }: PropsWithChildren) {
   const systemScheme = useColorScheme();
-  const [appearance, setAppearanceState] = useState<AppearancePreference>("system");
+  const [appearance, setAppearanceState] = useState<AppearancePreference>(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const raw = localStorage.getItem("ht:nm04:reader:appearance:v1");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed === "light" || parsed === "dark" || parsed === "system") {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return "system";
+  });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -47,9 +60,29 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const [systemDark, setSystemDark] = useState(() => {
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return systemScheme === "dark";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    media.addEventListener?.("change", handler);
+    return () => media.removeEventListener?.("change", handler);
+  }, []);
+
+  const isWebDark = systemDark;
+  const isAttrDark =
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-theme") === "dark";
+
   const resolvedDark =
     appearance === "dark" ||
-    (appearance === "system" && systemScheme === "dark");
+    (appearance === "system" && (systemScheme === "dark" || isWebDark || isAttrDark));
 
   const palette = useMemo<Palette>(
     () =>
@@ -81,6 +114,24 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     [resolvedDark]
   );
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", resolvedDark ? "dark" : "light");
+      document.documentElement.style.backgroundColor = palette.paper;
+      document.documentElement.style.color = palette.ink;
+      document.documentElement.style.setProperty("--ht-paper", palette.paper);
+      document.documentElement.style.setProperty("--ht-paper-muted", palette.paperMuted);
+      document.documentElement.style.setProperty("--ht-ink", palette.ink);
+      document.documentElement.style.setProperty("--ht-ink-muted", palette.inkMuted);
+      document.documentElement.style.setProperty("--ht-border", palette.border);
+      document.documentElement.style.setProperty("--ht-navy", palette.navy);
+      if (document.body) {
+        document.body.style.backgroundColor = palette.paper;
+        document.body.style.color = palette.ink;
+      }
+    }
+  }, [resolvedDark, palette]);
+
   const updateAppearance = async (next: AppearancePreference) => {
     setAppearanceState(next);
     await services.reader.setAppearance(next);
@@ -99,4 +150,8 @@ export function useAppearance() {
     throw new Error("useAppearance must be used inside AppearanceProvider.");
   }
   return value;
+}
+
+export function useOptionalAppearance() {
+  return useContext(AppearanceContext);
 }

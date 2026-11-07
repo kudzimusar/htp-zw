@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-11-02T03:00:00.000Z",
+  "audit_unit": "HT-MVP-UIAT-01-R3-ICR01",
+  "target_migration": {
+    "filename": "20261101210000_ht_mvp_r3_public_feed_documents.sql",
+    "version": "20261101210000",
+    "sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a",
+    "function_name": "ag05_public_feed_documents",
+    "function_signature": "ag05_public_feed_documents(integer, integer, text)"
+  },
+  "axes": {
+    "SOURCE_PARITY": {
+      "status": "PASS",
+      "verified_on_disk": true,
+      "sha256_match": true,
+      "file_path": "supabase/migrations/20261101210000_ht_mvp_r3_public_feed_documents.sql",
+      "observed_sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a",
+      "expected_sha256": "97f6262b7626a003f57d37cb882074bc35d8838bea18a88354ac0fd447410c0a",
+      "governor_manifest_classification": "CANONICAL_READER_DDL"
+    },
+    "LEDGER_PARITY": {
+      "status": "PASS",
+      "staging_db_ref": "bzuvntbkevvuhfhqhkua",
+      "ledger_table": "supabase_migrations.schema_migrations",
+      "recorded_version": "20261101210000",
+      "recorded_name": "20261101210000_ht_mvp_r3_public_feed_documents.sql",
+      "ledger_entry_present": true,
+      "total_ledger_records": 112
+    },
+    "EXECUTION_PROVENANCE": {
+      "status": "RECONCILED",
+      "database_schema_match": true,
+      "function_prosecdef": true,
+      "function_proconfig": [
+        "search_path=public, pg_temp"
+      ],
+      "execution_method": "DIRECT_POSTGRES_DDL_AND_LEDGER_RECONCILIATION",
+      "ci_audit_trail": "NO_PRE_EXISTING_CI_LOG",
+      "forensic_finding": "The DDL for ag05_public_feed_documents was applied directly to Staging PostgreSQL (bzuvntbkevvuhfhqhkua). Ledger record 20261101210000 was inserted during R3-R1 reconciliation. Technical schema parity is 100% verified, but physical CI runner deployment provenance does not exist for this migration."
+    },
+    "ACTOR_AUTHORIZATION": {
+      "status": "UNRESOLVED_AUDIT_DISCLOSED",
+      "recorded_created_by": "kudzimusar@gmail.com",
+      "actor_provenance": "MANUAL_RECONCILIATION_ATTRIBUTION",
+      "cryptographic_signature": "NONE",
+      "forensic_finding": "The recorded created_by attribute in schema_migrations is kudzimusar@gmail.com. Without an immutable signed CI/CD workflow attestation, actor authorization cannot be retrospectively manufactured. The finding is formally disclosed for Moderator review."
+    },
+    "PRODUCTION_PLAN_SAFETY": {
+      "status": "PASS",
+      "governor_suite": "tests/migration/migration-governor.test.mjs",
+      "governor_tests_passed": 11,
+      "production_manifest": "docs/delivery/ht-mvp-production-migration-manifest.json",
+      "production_plan_migrations_count": 109,
+      "quarantined_staging_exclusions_count": 2,
+      "quarantined_migrations": [
+        "20261029080000_ht_mvp_com_final01_r2_r2_financial_fixture_reconciliation.sql",
+        "20261029090000_ht_mvp_com_final01_r2_r3_security_privilege_remediation.sql"
+      ],
+      "exclusion_strictly_enforced": true
+    }
+  }
+}

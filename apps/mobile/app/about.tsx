@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { Page, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
@@ -7,6 +8,7 @@ import { radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 
 export default function AboutScreen(){
+  const router=useRouter();
   const { palette }=useAppearance();
   const publication=useAsync(()=>services.publication.getProfile(),[]);
 
@@ -37,6 +39,12 @@ export default function AboutScreen(){
                 onPress={()=>void Linking.openURL("mailto:"+publication.data!.editorialEmail+"?subject="+encodeURIComponent("Correction request — HealthTimes"))}
               >
                 <Text style={[styles.actionText,{color:palette.blue}]}>Request a correction</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.action,{borderColor:palette.border}]}
+                onPress={()=>router.push("/authors" as never)}
+              >
+                <Text style={[styles.actionText,{color:palette.blue}]}>Authors & journalists</Text>
               </Pressable>
             </View>
           </Section>
@@ -96,13 +104,13 @@ const styles=StyleSheet.create({
   lede:{fontSize:18,lineHeight:28,maxWidth:840,marginTop:spacing.lg},
   factBox:{borderWidth:1,borderRadius:radius.md,padding:spacing.lg,gap:spacing.sm,marginTop:spacing.xl,maxWidth:700},
   fact:{fontSize:14,lineHeight:21},
-  bold:{fontWeight:"900"},
-  principle:{fontSize:15,lineHeight:25},
-  note:{fontSize:14,lineHeight:22,maxWidth:760},
-  actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.lg},
-  linkGroups:{gap:spacing.lg,marginTop:spacing.lg},
+  bold:{fontWeight:"800"},
+  principle:{fontSize:16,lineHeight:26,maxWidth:760,marginTop:spacing.sm},
+  note:{fontSize:15,lineHeight:23,maxWidth:720},
+  actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.md},
+  linkGroups:{gap:spacing.lg,marginTop:spacing.md},
   linkGroup:{gap:spacing.xs},
   linkGroupTitle:{fontSize:13,fontWeight:"900",textTransform:"uppercase",letterSpacing:0.7},
   action:{minHeight:44,justifyContent:"center",paddingHorizontal:14,borderWidth:1,borderRadius:radius.sm},
-  actionText:{fontWeight:"900"}
+  actionText:{fontWeight:"800",fontSize:14}
 });

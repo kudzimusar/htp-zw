@@ -7,6 +7,24 @@ appId: zw.co.healthtimes.app.dev
     timeout: 240000
 - takeScreenshot: home-light
 
+# iOS first-use custom-scheme trust can dismiss the system sheet without
+# settling the requested deep link. Prime the scheme on Home before the
+# real Search/Article routes so assertions prove actual screens.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: "healthtimes://"
+      - runFlow:
+          when:
+            visible: "Open in .*HealthTimes Dev.*"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Search HealthTimes"
+          timeout: 45000
+      - assertNotVisible: "Open in .*HealthTimes Dev.*"
+
 # Search keyboard/focus
 - openLink: "healthtimes://search"
 - runFlow:
@@ -18,11 +36,10 @@ appId: zw.co.healthtimes.app.dev
 - extendedWaitUntil:
     visible: "Intelligent Search"
     timeout: 45000
-- tapOn: "Search stories, people and topics"
+- tapOn: "Search articles, topics, authors…"
 - inputText: "health"
 - takeScreenshot: search-keyboard
-- hideKeyboard
-- tapOn: "Submit HealthTimes search"
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "HEALTHTIMES SEARCH"
     timeout: 20000
@@ -49,6 +66,17 @@ appId: zw.co.healthtimes.app.dev
     timeout: 10000
 - takeScreenshot: article-actions-light
 - tapOn: "Share article"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # A tap alone is not proof that the native activity sheet opened.
+      - extendedWaitUntil:
+          visible:
+            id: "actionGroupCell"
+            text: "Copy"
+          timeout: 30000
+      - assertVisible: "healthtimes.co.zw"
 - takeScreenshot: article-native-share
 - stopApp
 
@@ -169,10 +197,44 @@ appId: zw.co.healthtimes.app.dev
 - tapOn:
     text: ".*YouTube.*"
     index: 0
+- runFlow:
+    when:
+      visible: ".*(Don’t allow|Don't allow|Allow).*"
+    commands:
+      - tapOn:
+          text: ".*(Don’t allow|Don't allow).*"
+          optional: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # Safari's first-use tip masks its address bar from accessibility.
+      - runFlow:
+          when:
+            visible: "View Bookmarks, Share Menu, and Open Tabs"
+          commands:
+            - tapOn:
+                id: "xmark.circle.fill"
+      # Require the browser destination, not the Watch card's YouTube label.
+      - extendedWaitUntil:
+          visible: ".*(youtube\\.com|youtu\\.be).*"
+          timeout: 45000
 - takeScreenshot: watch-external-youtube
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - stopApp
 
 - launchApp
+- runFlow:
+    when:
+      visible: ".*(Don’t allow|Don't allow|Allow).*"
+    commands:
+      - tapOn:
+          text: ".*(Don’t allow|Don't allow).*"
+          optional: true
 - extendedWaitUntil:
     visible: "Top Stories"
     timeout: 120000
@@ -224,7 +286,18 @@ appId: zw.co.healthtimes.app.dev
 # Edition interaction and device persistence
 - tapOn: "Search country or region"
 - inputText: "Africa"
-- hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Edition & Preferences"
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Africa primary edition"
     timeout: 10000
@@ -233,8 +306,24 @@ appId: zw.co.healthtimes.app.dev
     element:
       text: "Save Preferences"
     direction: DOWN
+    visibilityPercentage: 100
     timeout: 20000
+- waitForAnimationToEnd
 - tapOn: "Save Preferences"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      notVisible: "Preferences saved on this device."
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Save Preferences"
+          direction: DOWN
+          visibilityPercentage: 100
+          timeout: 10000
+      - waitForAnimationToEnd
+      - tapOn: "Save Preferences"
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
       text: "Preferences saved on this device."
@@ -264,6 +353,11 @@ appId: zw.co.healthtimes.app.dev
             text: "Appearance / Theme.*"
           direction: DOWN
           timeout: 20000
+          centerElement: true
+          visibilityPercentage: 100
+      - waitForAnimationToEnd
+      - assertVisible: "Appearance / Theme.*"
+      - takeScreenshot: my-appearance-target-ios
       - tapOn: "Appearance / Theme.*"
 - runFlow:
     when:

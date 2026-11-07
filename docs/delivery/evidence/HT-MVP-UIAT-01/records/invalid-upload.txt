@@ -1,0 +1,2 @@
+HT-MVP-UIAT-01 synthetic invalid MIME fixture.
+This is not an image and must be rejected by the story media uploader.
