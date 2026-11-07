@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
 
 const WORKFLOW_PATH = '.github/workflows/ht-mvp-uiat01-r3-icr05b-certification.yml';
 const ALLOWLIST_PATH = 'docs/delivery/ht-g2-approved-uat-source-allowlist.json';
@@ -12,9 +12,9 @@ const EXECUTOR_REL_PATH = 'scripts/release/run-protected-staging-uat.mjs';
 const BOOTSTRAP_REL_PATH = 'scripts/release/owner-trusted-uat-bootstrap.mjs';
 
 const PINNED_INNER_VERIFIER_SHA256 =
-  '8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5';
+  '862d39d0c4f571507e2737da15daa51b1eb02c66778b6d86f4638caedeb245c0';
 const PINNED_OUTER_BOOTSTRAP_SHA256 =
-  '0d40787e78b26c7310af1c7f79e391bcc629ed194e9d7485cee7b9fafdba70f4';
+  'f7b34e6034323984b66db7069b9a9482d04cafeb9926ff30459f59a6948f4c1d';
 const FROZEN_G1_SHA = '1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5';
 
 function canonicalizeJson(value) {
@@ -1102,13 +1102,16 @@ test('G2-WF-CONTAINMENT-17: Negative concurrency test — Parallel bootstrap pro
     const warrantPath = path.join(env.extDir, 'warrant.json');
     const ledgerPath = path.join(env.extDir, 'ledger.json');
     const credsPath = path.join(env.extDir, 'creds.json');
+    const barrierPath = path.join(env.extDir, 'race-same-warrant.barrier');
+
     fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
     fs.writeFileSync(warrantPath, JSON.stringify(env.signWarrant(env.buildWarrantPayload()), null, 2));
     fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+    fs.writeFileSync(barrierPath, 'hold', 'utf8');
 
-    const spawnBootstrap = () =>
-      new Promise((resolve) => {
-        const proc = spawnSync(
+    const spawnProcessAsync = () =>
+      new Promise((resolve, reject) => {
+        const proc = spawn(
           process.execPath,
           [
             env.extBootstrapPath,
@@ -1124,14 +1127,36 @@ test('G2-WF-CONTAINMENT-17: Negative concurrency test — Parallel bootstrap pro
             ledgerPath,
             '--credentials-file',
             credsPath,
+            '--barrier-file',
+            barrierPath,
           ],
-          { encoding: 'utf8' },
+          { env: { ...process.env } },
         );
-        resolve(proc);
+        let stdout = '';
+        let stderr = '';
+        proc.stdout.on('data', (d) => {
+          stdout += d;
+        });
+        proc.stderr.on('data', (d) => {
+          stderr += d;
+        });
+        proc.on('close', (status) => {
+          resolve({ status, stdout, stderr });
+        });
+        proc.on('error', reject);
       });
 
-    // Run two processes racing on the same warrant and ledger
-    const [resA, resB] = await Promise.all([spawnBootstrap(), spawnBootstrap()]);
+    // Launch genuinely concurrent child processes
+    const promiseA = spawnProcessAsync();
+    const promiseB = spawnProcessAsync();
+
+    // Allow both processes to initialize and reach the barrier spin-wait
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    // Release barrier simultaneously to trigger genuine OS-level race on claim file
+    fs.unlinkSync(barrierPath);
+
+    const [resA, resB] = await Promise.all([promiseA, promiseB]);
 
     const statuses = [resA.status, resB.status].sort();
     assert.deepEqual(
@@ -1233,6 +1258,290 @@ test('G2-WF-CONTAINMENT-19: Attestation truthfulness — Rehearsal attestation d
     assert.equal(report.liveExecutionAuthorized, false);
     assert.equal(typeof report.consumedWarrantId, 'string');
     assert.ok(report.consumedWarrantId.length >= 12);
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-20: Concurrent distinct warrant claims do not corrupt or overwrite replay ledger', async () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    const barrierPath = path.join(env.extDir, 'race-distinct.barrier');
+
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+    fs.writeFileSync(barrierPath, 'hold', 'utf8');
+
+    const warrantPayload1 = env.buildWarrantPayload({ warrantId: `warrant-distinct-alpha-${Date.now()}` });
+    const warrantPayload2 = env.buildWarrantPayload({ warrantId: `warrant-distinct-bravo-${Date.now()}` });
+    const warrantPath1 = path.join(env.extDir, 'warrant-1.json');
+    const warrantPath2 = path.join(env.extDir, 'warrant-2.json');
+    fs.writeFileSync(warrantPath1, JSON.stringify(env.signWarrant(warrantPayload1), null, 2));
+    fs.writeFileSync(warrantPath2, JSON.stringify(env.signWarrant(warrantPayload2), null, 2));
+
+    const spawnProcessAsync = (warrantFile) =>
+      new Promise((resolve, reject) => {
+        const proc = spawn(
+          process.execPath,
+          [
+            env.extBootstrapPath,
+            '--mode',
+            'rehearsal',
+            '--repo-root',
+            repoDir,
+            '--trust-root',
+            trustRootPath,
+            '--warrant',
+            warrantFile,
+            '--replay-ledger',
+            ledgerPath,
+            '--credentials-file',
+            credsPath,
+            '--barrier-file',
+            barrierPath,
+          ],
+          { env: { ...process.env } },
+        );
+        let stdout = '';
+        let stderr = '';
+        proc.stdout.on('data', (d) => {
+          stdout += d;
+        });
+        proc.stderr.on('data', (d) => {
+          stderr += d;
+        });
+        proc.on('close', (status) => {
+          resolve({ status, stdout, stderr });
+        });
+        proc.on('error', reject);
+      });
+
+    const promiseA = spawnProcessAsync(warrantPath1);
+    const promiseB = spawnProcessAsync(warrantPath2);
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    fs.unlinkSync(barrierPath);
+
+    const [resA, resB] = await Promise.all([promiseA, promiseB]);
+
+    assert.equal(resA.status, 0, `Process A failed: ${resA.stderr}`);
+    assert.equal(resB.status, 0, `Process B failed: ${resB.stderr}`);
+
+    // Verify ledger contains both distinct warrant IDs and is valid JSON
+    const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+    assert.ok(Array.isArray(ledger.consumedWarrantIds));
+    assert.ok(ledger.consumedWarrantIds.includes(warrantPayload1.warrantId));
+    assert.ok(ledger.consumedWarrantIds.includes(warrantPayload2.warrantId));
+    assert.equal(ledger.consumedWarrantIds.length, 2);
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-21: Replay ledger lock acquisition timeout fails closed with REPLAY_LEDGER_LOCK_TIMEOUT', () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const warrantPath = path.join(env.extDir, 'warrant.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(warrantPath, JSON.stringify(env.signWarrant(env.buildWarrantPayload()), null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+
+    // Pre-create the lock directory to simulate an unreleased lock
+    const lockDir = path.join(path.dirname(ledgerPath), 'replay-ledger.lock');
+    fs.mkdirSync(lockDir, { recursive: true });
+
+    const res = env.runBootstrap([
+      '--mode',
+      'rehearsal',
+      '--repo-root',
+      repoDir,
+      '--trust-root',
+      trustRootPath,
+      '--warrant',
+      warrantPath,
+      '--replay-ledger',
+      ledgerPath,
+      '--credentials-file',
+      credsPath,
+    ]);
+
+    assert.equal(res.status, 78);
+    const err = JSON.parse(res.stderr.trim());
+    assert.equal(err.errorCode, 'REPLAY_LEDGER_LOCK_TIMEOUT');
+    assert.ok(err.message.includes('replay-ledger mutex lock'));
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-22: Corrupted or non-array replay ledger fails closed with REPLAY_LEDGER_CORRUPT without overwriting', () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const warrantPath = path.join(env.extDir, 'warrant.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(warrantPath, JSON.stringify(env.signWarrant(env.buildWarrantPayload()), null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+
+    // Corrupt the ledger with malformed content
+    const corruptContent = 'CORRUPTED_LEDGER_DATA_NOT_JSON';
+    fs.writeFileSync(ledgerPath, corruptContent, 'utf8');
+
+    const res = env.runBootstrap([
+      '--mode',
+      'rehearsal',
+      '--repo-root',
+      repoDir,
+      '--trust-root',
+      trustRootPath,
+      '--warrant',
+      warrantPath,
+      '--replay-ledger',
+      ledgerPath,
+      '--credentials-file',
+      credsPath,
+    ]);
+
+    assert.equal(res.status, 78);
+    const err = JSON.parse(res.stderr.trim());
+    assert.equal(err.errorCode, 'REPLAY_LEDGER_CORRUPT');
+
+    // Verify file content was preserved and NOT overwritten
+    assert.equal(fs.readFileSync(ledgerPath, 'utf8'), corruptContent);
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-23: Unsafe warrantId fails closed with INVALID_WARRANT_ID (path traversal / separator rejection)', () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+
+    const invalidIds = [
+      '../../escape_warrant',
+      'subdir/warrant12345',
+      'short_id',
+      'warrant with spaces',
+      'warrant!@#$%^&*()',
+    ];
+
+    for (const badId of invalidIds) {
+      const warrantPath = path.join(env.extDir, 'bad-warrant.json');
+      fs.writeFileSync(
+        warrantPath,
+        JSON.stringify(env.signWarrant(env.buildWarrantPayload({ warrantId: badId })), null, 2),
+      );
+
+      const res = env.runBootstrap([
+        '--mode',
+        'rehearsal',
+        '--repo-root',
+        repoDir,
+        '--trust-root',
+        trustRootPath,
+        '--warrant',
+        warrantPath,
+        '--replay-ledger',
+        ledgerPath,
+        '--credentials-file',
+        credsPath,
+      ]);
+
+      assert.equal(res.status, 78, `Expected status 78 for bad warrantId '${badId}'`);
+      const err = JSON.parse(res.stderr.trim());
+      assert.equal(err.errorCode, 'INVALID_WARRANT_ID');
+    }
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-24: Failure attestation truthfulness — failed execution reports honest runtime states without leaking secrets', () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const warrantPath = path.join(env.extDir, 'warrant.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    const failureOutputPath = path.join(env.extDir, 'failed-attestation.json');
+
+    // Create valid trust root and creds, but warrant with mismatched approvedHeadSha to trigger rejection
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(
+      warrantPath,
+      JSON.stringify(
+        env.signWarrant(env.buildWarrantPayload({ approvedHeadSha: '0000000000000000000000000000000000000000' })),
+        null,
+        2,
+      ),
+    );
+    const syntheticCreds = env.buildSyntheticCredentials();
+    fs.writeFileSync(credsPath, JSON.stringify(syntheticCreds, null, 2));
+
+    const res = env.runBootstrap([
+      '--mode',
+      'rehearsal',
+      '--repo-root',
+      repoDir,
+      '--trust-root',
+      trustRootPath,
+      '--warrant',
+      warrantPath,
+      '--replay-ledger',
+      ledgerPath,
+      '--credentials-file',
+      credsPath,
+      '--output',
+      failureOutputPath,
+    ]);
+
+    assert.equal(res.status, 78);
+    const err = JSON.parse(res.stderr.trim());
+    assert.equal(err.errorCode, 'WARRANT_SHA_MISMATCH');
+    assert.equal(err.bootstrapStatus, 'DENIED_BEFORE_SECRET_INJECTION');
+    assert.equal(err.credentialsEnvelopeInspected, false);
+    assert.equal(err.credentialsForwardedToInner, false);
+    assert.equal(err.privilegedSecretsRead, false);
+    assert.equal(err.privilegedSecretsInjected, false);
+    assert.equal(err.privilegedRuntimeAttempted, false);
+    assert.equal(err.privilegedRuntimeCompleted, false);
+    assert.equal(err.privilegedRuntimeFailed, false);
+    assert.equal(err.privilegedRuntimeUsed, false);
+    assert.equal(err.liveExecutionAuthorized, false);
+
+    // Verify failure output was written truthfully
+    assert.ok(fs.existsSync(failureOutputPath));
+    const writtenReport = JSON.parse(fs.readFileSync(failureOutputPath, 'utf8'));
+    assert.equal(writtenReport.errorCode, 'WARRANT_SHA_MISMATCH');
+    assert.equal(writtenReport.privilegedRuntimeCompleted, false);
+
+    // Verify secret values are not present in stderr or output
+    const errStr = res.stderr + (res.stdout || '');
+    assert.ok(!errStr.includes(syntheticCreds.supabaseAccessToken));
+    assert.ok(!errStr.includes(syntheticCreds.actors.reporter.password));
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
     fs.rmSync(env.extDir, { recursive: true, force: true });

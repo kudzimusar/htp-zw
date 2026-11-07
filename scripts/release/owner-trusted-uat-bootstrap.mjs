@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R7
+ * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R8
  * Reference Implementation of Owner-Controlled External Trusted Bootstrap Controller
  *
  * CUSTODY & EXECUTION BOUNDARY:
@@ -12,9 +12,10 @@
  *   directory outside `REPO_ROOT` (e.g. `/opt/healthtimes-owner-custody/bin/owner-trusted-uat-bootstrap.mjs`)
  *   before execution.
  * - Performs all 10 pre-secret trust-root, candidate SHA, frozen G1 ancestry, inner-verifier SHA-256
- *   (`8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5`), 7-artifact digest, Ed25519
- *   warrant signature, kernel-level atomic single-use claim & replay ledger, security-review binding,
- *   actor/effect scope, and credential-classification checks BEFORE invoking the inner candidate verifier (`run-protected-staging-uat.mjs`).
+ *   (`862d39d0c4f571507e2737da15daa51b1eb02c66778b6d86f4638caedeb245c0`), 7-artifact digest, Ed25519
+ *   warrant signature, kernel-level atomic single-use claim & fail-closed replay ledger, security-review
+ *   binding, actor/effect scope, and credential-classification checks BEFORE invoking the inner candidate
+ *   verifier (`run-protected-staging-uat.mjs`).
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -27,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 const BOOTSTRAP_SELF_PATH = fs.realpathSync(fileURLToPath(import.meta.url));
 const FROZEN_G1_BASE_SHA = '1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5';
 const PINNED_INNER_CANDIDATE_VERIFIER_SHA256 =
-  '8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5';
+  '862d39d0c4f571507e2737da15daa51b1eb02c66778b6d86f4638caedeb245c0';
 
 const ALLOWED_BRANCHES = Object.freeze([
   'release/ht-mvp-2.0-final',
@@ -36,6 +37,8 @@ const ALLOWED_BRANCHES = Object.freeze([
 
 const BLOCKLISTED_CANDIDATE_EMBEDDED_KEY_SHA256_HEX =
   '8f48ecc8ff4d1213795ed483225a1057be7b357aa833587321dc86bc0f70be6e';
+
+const PATH_SAFE_WARRANT_ID_REGEX = /^[a-zA-Z0-9_-]{12,128}$/;
 
 const REQUIRED_ACTOR_ROLES = Object.freeze([
   'reporter',
@@ -67,19 +70,44 @@ const AMBIENT_SECRET_ENV_KEYS = Object.freeze([
   'HT_G2_SKIP_ANCESTRY_CHECK',
 ]);
 
+const executionState = {
+  credentialsEnvelopeInspected: false,
+  credentialsForwardedToInner: false,
+  privilegedSecretsRead: false,
+  privilegedSecretsInjected: false,
+  privilegedRuntimeAttempted: false,
+  privilegedRuntimeCompleted: false,
+  privilegedRuntimeFailed: false,
+  liveExecutionAuthorized: false,
+  outputPath: '',
+};
+
 function failClosed(code, message) {
+  const isLive = executionState.liveExecutionAuthorized;
   const payload = {
-    bootstrapStatus: 'DENIED_BEFORE_SECRET_INJECTION',
+    bootstrapStatus: executionState.credentialsForwardedToInner
+      ? (isLive ? 'LIVE_EXECUTION_FAILED' : 'REHEARSAL_EXECUTION_FAILED')
+      : 'DENIED_BEFORE_SECRET_INJECTION',
     errorCode: code,
     message,
-    credentialsEnvelopeInspected: false,
-    credentialsForwardedToInner: false,
-    privilegedSecretsRead: false,
-    privilegedSecretsInjected: false,
+    credentialsEnvelopeInspected: executionState.credentialsEnvelopeInspected,
+    credentialsForwardedToInner: executionState.credentialsForwardedToInner,
+    privilegedSecretsRead: executionState.privilegedSecretsRead,
+    privilegedSecretsInjected: executionState.privilegedSecretsInjected,
+    privilegedRuntimeAttempted: executionState.privilegedRuntimeAttempted,
+    privilegedRuntimeCompleted: false,
+    privilegedRuntimeFailed: executionState.privilegedRuntimeAttempted,
     privilegedRuntimeUsed: false,
-    liveExecutionAuthorized: false,
+    liveExecutionAuthorized: executionState.liveExecutionAuthorized,
     timestamp: new Date().toISOString(),
   };
+  if (executionState.outputPath) {
+    try {
+      fs.writeFileSync(path.resolve(executionState.outputPath), `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+    } catch {
+      // ignore file write failure during failClosed
+    }
+  }
   console.error(JSON.stringify(payload));
   process.exit(78);
 }
@@ -93,6 +121,7 @@ function parseArgs(argv) {
     replayLedgerPath: '',
     credentialsFilePath: '',
     outputPath: '',
+    barrierFilePath: '',
   };
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -110,6 +139,9 @@ function parseArgs(argv) {
       out.credentialsFilePath = argv[++i];
     } else if (arg === '--output' && argv[i + 1]) {
       out.outputPath = argv[++i];
+      executionState.outputPath = out.outputPath;
+    } else if (arg === '--barrier-file' && argv[i + 1]) {
+      out.barrierFilePath = argv[++i];
     } else {
       failClosed('UNKNOWN_BOOTSTRAP_ARGUMENT', `Unrecognized or incomplete option '${arg}'`);
     }
@@ -173,12 +205,42 @@ function git(repoRoot, args) {
   }).trim();
 }
 
-function claimWarrantExclusively(realReplayLedgerPath, warrantId, metadata = {}) {
+function claimWarrantExclusively(
+  realReplayLedgerPath,
+  warrantId,
+  metadata = {},
+  barrierFilePath = null,
+) {
+  if (!warrantId || typeof warrantId !== 'string' || !PATH_SAFE_WARRANT_ID_REGEX.test(warrantId)) {
+    failClosed(
+      'INVALID_WARRANT_ID',
+      `Warrant identifier '${warrantId}' must be a path-safe string (12-128 chars, matching /^[a-zA-Z0-9_-]{12,128}$/).`,
+    );
+  }
+
   const ledgerDir = path.dirname(realReplayLedgerPath);
   const claimsDir = path.join(ledgerDir, 'warrant-claims');
   fs.mkdirSync(claimsDir, { recursive: true });
+  const realClaimsDir = fs.realpathSync(claimsDir);
 
   const claimPath = path.join(claimsDir, `${warrantId}.claim`);
+  const resolvedClaim = path.resolve(claimPath);
+  if (path.dirname(resolvedClaim) !== realClaimsDir) {
+    failClosed(
+      'INVALID_WARRANT_ID_PATH_TRAVERSAL',
+      `Warrant identifier '${warrantId}' resolved outside Owner claims directory: '${resolvedClaim}'.`,
+    );
+  }
+
+  // Optional rendezvous barrier for genuine simultaneous process execution in tests
+  if (barrierFilePath) {
+    while (fs.existsSync(barrierFilePath)) {
+      const waitUntil = Date.now() + 5;
+      while (Date.now() < waitUntil) {
+        // spin wait for barrier release
+      }
+    }
+  }
 
   let claimFd;
   try {
@@ -225,17 +287,30 @@ function claimWarrantExclusively(realReplayLedgerPath, warrantId, metadata = {})
     }
   }
 
+  if (!acquiredLock) {
+    failClosed(
+      'REPLAY_LEDGER_LOCK_TIMEOUT',
+      `Failed to acquire exclusive replay-ledger mutex lock at '${lockDir}' within timeout. Shared state was not modified.`,
+    );
+  }
+
   try {
     let replayLedger = { consumedWarrantIds: [] };
     if (fs.existsSync(realReplayLedgerPath)) {
       try {
         replayLedger = JSON.parse(fs.readFileSync(realReplayLedgerPath, 'utf8'));
-      } catch {
-        replayLedger = { consumedWarrantIds: [] };
+      } catch (err) {
+        failClosed(
+          'REPLAY_LEDGER_CORRUPT',
+          `Replay ledger file '${realReplayLedgerPath}' is corrupt or unreadable JSON: ${err.message}`,
+        );
       }
-    }
-    if (!Array.isArray(replayLedger.consumedWarrantIds)) {
-      replayLedger.consumedWarrantIds = [];
+      if (!replayLedger || typeof replayLedger !== 'object' || !Array.isArray(replayLedger.consumedWarrantIds)) {
+        failClosed(
+          'REPLAY_LEDGER_CORRUPT',
+          `Replay ledger at '${realReplayLedgerPath}' is malformed: consumedWarrantIds array missing.`,
+        );
+      }
     }
     if (replayLedger.consumedWarrantIds.includes(warrantId)) {
       failClosed(
@@ -244,7 +319,7 @@ function claimWarrantExclusively(realReplayLedgerPath, warrantId, metadata = {})
       );
     }
     replayLedger.consumedWarrantIds.push(warrantId);
-    const tmpLedgerPath = `${realReplayLedgerPath}.tmp.${process.pid}.${Date.now()}`;
+    const tmpLedgerPath = `${realReplayLedgerPath}.tmp.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     fs.writeFileSync(tmpLedgerPath, `${JSON.stringify(replayLedger, null, 2)}\n`, 'utf8');
     fs.renameSync(tmpLedgerPath, realReplayLedgerPath);
   } finally {
@@ -273,6 +348,13 @@ function main() {
     failClosed(
       'UNSUPPORTED_BOOTSTRAP_MODE',
       `Mode must be 'rehearsal' or 'live' (got '${args.mode}')`,
+    );
+  }
+  executionState.liveExecutionAuthorized = args.mode === 'live';
+  if (args.barrierFilePath && args.mode !== 'rehearsal') {
+    failClosed(
+      'BARRIER_FILE_FORBIDDEN_IN_LIVE_MODE',
+      'Barrier file synchronization is forbidden in live execution mode.',
     );
   }
   if (
@@ -513,8 +595,15 @@ function main() {
   }
 
   // 8. Verify warrant freshness, expiration window, single-use replay ledger, and staging project
-  if (!payload.warrantId || typeof payload.warrantId !== 'string' || payload.warrantId.length < 12) {
-    failClosed('INVALID_WARRANT_ID', 'Warrant requires a unique warrantId (>= 12 chars).');
+  if (
+    !payload.warrantId ||
+    typeof payload.warrantId !== 'string' ||
+    !PATH_SAFE_WARRANT_ID_REGEX.test(payload.warrantId)
+  ) {
+    failClosed(
+      'INVALID_WARRANT_ID',
+      `Warrant requires a path-safe warrantId (12-128 chars, matching /^[a-zA-Z0-9_-]{12,128}$/).`,
+    );
   }
   const nowMs = Date.now();
   const issuedAtMs = Date.parse(payload.issuedAt || '');
@@ -534,6 +623,16 @@ function main() {
 
   const claimsDir = path.join(path.dirname(realReplayLedgerPath), 'warrant-claims');
   const claimPath = path.join(claimsDir, `${payload.warrantId}.claim`);
+  const resolvedClaim = path.resolve(claimPath);
+  if (fs.existsSync(claimsDir)) {
+    const realClaimsDir = fs.realpathSync(claimsDir);
+    if (path.dirname(resolvedClaim) !== realClaimsDir) {
+      failClosed(
+        'INVALID_WARRANT_ID_PATH_TRAVERSAL',
+        `Warrant identifier '${payload.warrantId}' attempts path traversal outside claims directory: '${resolvedClaim}'.`,
+      );
+    }
+  }
   if (fs.existsSync(claimPath)) {
     failClosed(
       'REPLAYED_WARRANT_ID',
@@ -545,11 +644,20 @@ function main() {
   if (fs.existsSync(realReplayLedgerPath)) {
     try {
       replayLedger = JSON.parse(fs.readFileSync(realReplayLedgerPath, 'utf8'));
-    } catch {
-      replayLedger = { consumedWarrantIds: [] };
+    } catch (err) {
+      failClosed(
+        'REPLAY_LEDGER_CORRUPT',
+        `Replay ledger file '${realReplayLedgerPath}' is corrupt or unreadable JSON: ${err.message}`,
+      );
+    }
+    if (!replayLedger || typeof replayLedger !== 'object' || !Array.isArray(replayLedger.consumedWarrantIds)) {
+      failClosed(
+        'REPLAY_LEDGER_CORRUPT',
+        `Replay ledger at '${realReplayLedgerPath}' is malformed: consumedWarrantIds array missing.`,
+      );
     }
   }
-  if (Array.isArray(replayLedger.consumedWarrantIds) && replayLedger.consumedWarrantIds.includes(payload.warrantId)) {
+  if (replayLedger.consumedWarrantIds.includes(payload.warrantId)) {
     failClosed(
       'REPLAYED_WARRANT_ID',
       `Warrant '${payload.warrantId}' has already been consumed and cannot be replayed.`,
@@ -630,6 +738,10 @@ function main() {
   }
 
   // 11. Pre-verify credentials envelope classification and required actors BEFORE invoking inner candidate verifier
+  executionState.credentialsEnvelopeInspected = true;
+  if (args.mode === 'live') {
+    executionState.privilegedSecretsRead = true;
+  }
   const credsEnvelope = JSON.parse(fs.readFileSync(realCredentialsPath, 'utf8'));
   if (args.mode === 'live') {
     if (credsEnvelope.credentialClassification !== 'PRODUCTION_OWNER_STAGING_VAULT') {
@@ -672,10 +784,21 @@ function main() {
   }
 
   // Atomically claim warrantId in external warrant-claims store and update replay ledger before invoking candidate script
-  claimWarrantExclusively(realReplayLedgerPath, payload.warrantId, {
-    mode: args.mode,
-    approvedHeadSha: actualHeadSha,
-  });
+  claimWarrantExclusively(
+    realReplayLedgerPath,
+    payload.warrantId,
+    {
+      mode: args.mode,
+      approvedHeadSha: actualHeadSha,
+    },
+    args.barrierFilePath,
+  );
+
+  executionState.credentialsForwardedToInner = true;
+  if (args.mode === 'live') {
+    executionState.privilegedSecretsInjected = true;
+    executionState.privilegedRuntimeAttempted = true;
+  }
 
   const sanitizedEnv = { ...process.env };
   for (const k of AMBIENT_SECRET_ENV_KEYS) {
@@ -713,10 +836,17 @@ function main() {
   );
 
   if (candidateRun.status !== 0) {
+    if (args.mode === 'live') {
+      executionState.privilegedRuntimeFailed = true;
+    }
     failClosed(
       'INNER_CANDIDATE_VERIFIER_REJECTED',
       `Inner candidate verifier (${innerMode}) exited ${candidateRun.status}: ${candidateRun.stderr || candidateRun.stdout}`,
     );
+  }
+
+  if (args.mode === 'live') {
+    executionState.privilegedRuntimeCompleted = true;
   }
 
   const innerAttestation = JSON.parse(fs.readFileSync(innerAttestationFile, 'utf8'));
@@ -753,6 +883,9 @@ function main() {
     credentialsForwardedToInner: true,
     privilegedSecretsRead: isLive,
     privilegedSecretsInjected: isLive,
+    privilegedRuntimeAttempted: isLive,
+    privilegedRuntimeCompleted: isLive,
+    privilegedRuntimeFailed: false,
     privilegedRuntimeUsed: isLive,
     liveExecutionAuthorized: isLive,
     verifiedArtifactDigests: verifiedDiskDigests,

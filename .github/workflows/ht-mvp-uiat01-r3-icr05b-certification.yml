@@ -37,7 +37,7 @@ jobs:
           node --check tests/harness/icr05a-fault-injection.test.mjs
           node --check scripts/release/owner-trusted-uat-bootstrap.mjs
           node --check scripts/release/run-protected-staging-uat.mjs
-      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 19 workflow containment & outer-to-inner synthetic rehearsal checks, and source-consistency route verification
+      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 24 workflow containment & outer-to-inner synthetic rehearsal checks, and source-consistency route verification
         shell: bash
         run: |
           set -euo pipefail
@@ -47,8 +47,8 @@ jobs:
           grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
           node --test tests/harness/icr05b-workflow-containment.test.mjs 2>&1 | tee /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# tests 19$' /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# pass 19$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# tests 24$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# pass 24$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
           node scripts/release/run-protected-staging-uat.mjs \
             --mode verify-route \

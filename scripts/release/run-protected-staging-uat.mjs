@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R7
+ * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R8
  * Fail-Closed Source-Consistency & External Owner Trust-Root Bound Executor for Protected Staging UAT
  *
  * R6 Trust-Boundary & Key-Interoperability Guarantees:
@@ -52,6 +52,8 @@ const IMMUTABLE_ALLOWED_BRANCHES = Object.freeze([
 
 const BLOCKLISTED_PLACEHOLDER_KEY_SHA256_HEX =
   '8f48ecc8ff4d1213795ed483225a1057be7b357aa833587321dc86bc0f70be6e';
+
+const PATH_SAFE_WARRANT_ID_REGEX = /^[a-zA-Z0-9_-]{12,128}$/;
 
 const REQUIRED_ACTOR_ROLES = Object.freeze([
   'reporter',
@@ -304,6 +306,9 @@ function verifySourceConsistency(expectedShaArg) {
     credentialsForwardedToInner: false,
     privilegedSecretsRead: false,
     privilegedSecretsInjected: false,
+    privilegedRuntimeAttempted: false,
+    privilegedRuntimeCompleted: false,
+    privilegedRuntimeFailed: false,
     privilegedRuntimeUsed: false,
     checkedOutSha: actualSha,
     expectedSha,
@@ -397,6 +402,17 @@ function verifyExternalTrustRootAndWarrant(mode, trustRootPathArg, warrantPathAr
   if (!payload || typeof payload !== 'object' || typeof signatureB64 !== 'string' || !signatureB64) {
     console.error(
       'INVALID_WARRANT_STRUCTURE: Warrant must contain { payload, ed25519SignatureBase64 }.',
+    );
+    process.exit(78);
+  }
+
+  if (
+    !payload.warrantId ||
+    typeof payload.warrantId !== 'string' ||
+    !PATH_SAFE_WARRANT_ID_REGEX.test(payload.warrantId)
+  ) {
+    console.error(
+      `INVALID_WARRANT_ID: Warrant requires a path-safe warrantId (12-128 chars, matching /^[a-zA-Z0-9_-]{12,128}$/).`,
     );
     process.exit(78);
   }
@@ -658,6 +674,9 @@ function main() {
       credentialsForwardedToInner: true,
       privilegedSecretsRead: false,
       privilegedSecretsInjected: false,
+      privilegedRuntimeAttempted: false,
+      privilegedRuntimeCompleted: false,
+      privilegedRuntimeFailed: false,
       privilegedRuntimeUsed: false,
       privilegedCredentialsAccessed: false,
       innerVerifierWarrantVerified: true,
@@ -673,7 +692,7 @@ function main() {
   }
 
   // Mode === 'live' (requires real OWNER_OFFLINE_PRODUCTION_AUTHORITY key & PRODUCTION_OWNER_STAGING_VAULT credentials)
-  const updatedAttestation = {
+  const baseLiveAttestation = {
     ...attestation,
     attestationScope: 'WARRANT_VERIFIED_LIVE_EXECUTION',
     liveExecutionAuthorized: true,
@@ -681,17 +700,21 @@ function main() {
     credentialsForwardedToInner: true,
     privilegedSecretsRead: true,
     privilegedSecretsInjected: true,
-    privilegedRuntimeUsed: true,
+    privilegedRuntimeAttempted: true,
+    privilegedRuntimeCompleted: false,
+    privilegedRuntimeFailed: false,
+    privilegedRuntimeUsed: false,
     privilegedCredentialsAccessed: true,
     innerVerifierWarrantVerified: true,
     warrantVerification,
   };
-  fs.writeFileSync(args.outputPath, `${JSON.stringify(updatedAttestation, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(args.outputPath, `${JSON.stringify(baseLiveAttestation, null, 2)}\n`, 'utf8');
 
   const ephemeralDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ht-g2-uat-actors-'));
   fs.chmodSync(ephemeralDir, 0o700);
   const ephemeralActorsFile = path.join(ephemeralDir, 'test-actors.json');
 
+  let liveCompleted = false;
   try {
     fs.writeFileSync(ephemeralActorsFile, JSON.stringify(credsEnvelope.actors), { mode: 0o600 });
     const runResult = spawnSync(
@@ -726,7 +749,24 @@ function main() {
       );
       process.exit(1);
     }
+    liveCompleted = true;
+    const finalLiveAttestation = {
+      ...baseLiveAttestation,
+      privilegedRuntimeCompleted: true,
+      privilegedRuntimeFailed: false,
+      privilegedRuntimeUsed: true,
+    };
+    fs.writeFileSync(args.outputPath, `${JSON.stringify(finalLiveAttestation, null, 2)}\n`, 'utf8');
   } finally {
+    if (!liveCompleted) {
+      const failedLiveAttestation = {
+        ...baseLiveAttestation,
+        privilegedRuntimeCompleted: false,
+        privilegedRuntimeFailed: true,
+        privilegedRuntimeUsed: false,
+      };
+      fs.writeFileSync(args.outputPath, `${JSON.stringify(failedLiveAttestation, null, 2)}\n`, 'utf8');
+    }
     fs.rmSync(ephemeralDir, { recursive: true, force: true });
   }
 }
