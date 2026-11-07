@@ -1,20 +1,28 @@
 {
-  "schemaVersion": "2.0.0",
+  "schemaVersion": "3.0.0",
   "programmeId": "HT-MVP-PUBLIC-LAUNCH-01",
-  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R4",
+  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R6",
   "manifestScope": "SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION",
   "controllingIssue": "https://github.com/kudzimusar/htp-zw/issues/152",
   "stackedDraftPr": "https://github.com/kudzimusar/htp-zw/pull/153",
   "frozenG1ReleasePr": "https://github.com/kudzimusar/htp-zw/pull/149",
   "frozenG1BaseSha": "1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5",
-  "ownerAuthorityEd25519PublicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA8tU2d3n7kP9wX1vR4mZ6qL0jY5bN8cH2fG4sA9dE1wI=\n-----END PUBLIC KEY-----",
+  "pinnedCandidateVerifierSha256": "f2fbbb8ef4ac349aa8cfb0af55b3f3c156888cd9c75ea95e069cd01b59257f13",
+  "ownerPublicKeyCustodyPolicy": {
+    "authoritySource": "OUT_OF_BAND_EXTERNAL_OWNER_TRUST_ROOT_REQUIRED",
+    "embeddedCandidatePublicKeyPresent": false,
+    "blocklistedHistoricalPlaceholderFingerprintSha256B64": "SHA256:j0jsyP9NEhN5XtSDIloQV757NXqoM1hzIdyGvA9wvm4",
+    "blocklistedHistoricalPlaceholderFingerprintSha256Hex": "8f48ecc8ff4d1213795ed483225a1057be7b357aa833587321dc86bc0f70be6e",
+    "liveModeRequiredKeyClassification": "OWNER_OFFLINE_PRODUCTION_AUTHORITY",
+    "rehearsalModeRequiredKeyClassification": "NON_PRODUCTION_FIXTURE_REHEARSAL_ONLY"
+  },
   "defaultBranchWorkflowStatus": {
     "defaultBranch": "main",
     "defaultBranchHeadSha": "6994aa18d37e2189dbc1d3f8efc76a638ee0971c",
     "workflowFileOnDefaultBranch": false,
     "githubWorkflowDispatchRegisteredBeforeMerge": false,
     "mergeToMainAuthorized": false,
-    "canonicalNonMergeExecutionRoute": "scripts/release/run-protected-staging-uat.mjs --mode live --expected-sha <EXACT_SHA> --policy-warrant <EXTERNAL_OWNER_SIGNED_WARRANT_PATH>"
+    "canonicalNonMergeExecutionRoute": "owner-trusted-uat-bootstrap.mjs --mode live --repo-root <REPO_ROOT> --trust-root <EXTERNAL_OWNER_TRUST_ROOT> --warrant <EXTERNAL_OWNER_SIGNED_WARRANT> --replay-ledger <EXTERNAL_REPLAY_LEDGER> --secrets-file <EXTERNAL_OWNER_SECRETS_FILE>"
   },
   "allowedBranches": [
     "release/ht-mvp-2.0-final",
@@ -53,8 +61,10 @@
     "inBranchManifestCanAuthorizeLiveExecution": false,
     "cliExpectedShaCanAuthorizeBranch": false,
     "environmentVariablesCanAuthorizeLiveExecution": false,
+    "embeddedPublicKeyTrustedForLiveExecution": false,
     "unverifiedG1AncestryAllowed": false,
     "dirtyWorkingTreeAllowed": false,
+    "requiredExternalTrustRootFlag": "--owner-trust-root",
     "requiredExternalWarrantFlag": "--policy-warrant",
     "requiredExternalWarrantLocation": "MUST_RESIDE_OUTSIDE_REPO_WORKING_TREE",
     "requiredExternalWarrantSignatureAlgorithm": "Ed25519"

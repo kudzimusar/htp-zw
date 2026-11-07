@@ -32,11 +32,12 @@ jobs:
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
-      - name: Parse-check the gated physical fault suite and attested UAT executor without running live sessions
+      - name: Parse-check the gated physical fault suite, outer bootstrap, and inner UAT executor without running live sessions
         run: |
           node --check tests/harness/icr05a-fault-injection.test.mjs
+          node --check scripts/release/owner-trusted-uat-bootstrap.mjs
           node --check scripts/release/run-protected-staging-uat.mjs
-      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 10 workflow containment & negative trust-boundary checks, and source-consistency route verification
+      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 16 workflow containment & outer-to-inner synthetic rehearsal checks, and source-consistency route verification
         shell: bash
         run: |
           set -euo pipefail
@@ -46,8 +47,8 @@ jobs:
           grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
           node --test tests/harness/icr05b-workflow-containment.test.mjs 2>&1 | tee /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# tests 10$' /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# pass 10$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# tests 16$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# pass 16$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
           node scripts/release/run-protected-staging-uat.mjs \
             --mode verify-route \

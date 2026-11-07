@@ -1,33 +1,31 @@
 #!/usr/bin/env node
 /**
- * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R4
- * Fail-Closed Source-Consistency & External Warrant-Bound Executor for Protected Staging UAT
+ * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R6
+ * Fail-Closed Source-Consistency & External Owner Trust-Root Bound Executor for Protected Staging UAT
  *
- * Trust-Boundary Guarantees (R4 Remediation):
- * 1. NO CALLER-CONTROLLED SHA OR BRANCH BYPASS:
- *    - `--expected-sha` is a mandatory parity check against `git rev-parse HEAD`, NEVER a branch-approval fallback.
- *    - `actualSha === expectedSha` CANNOT authorize an unapproved branch or detached commit.
- *    - Only refs in `IMMUTABLE_ALLOWED_BRANCHES` (`release/ht-mvp-2.0-final`, `fix/ht-g2-rbac-session-boundary`) pass ref validation.
- * 2. FAIL-CLOSED GIT ANCESTRY (`UNVERIFIED_G1_ANCESTRY`):
- *    - `git merge-base --is-ancestor 1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5 HEAD` MUST succeed.
- *    - Shallow clones missing the frozen G1 base commit or commits not descending from `1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5`
- *      fail closed immediately.
- * 3. NO CALLER ENVIRONMENT VARIABLE OR DIRTY-TREE BYPASSES (`FORBIDDEN_CALLER_ENV_OVERRIDE` / `UNTRUSTED_DIRTY_WORKING_TREE`):
- *    - Setting `HT_G2_SECURITY_DECISION`, `HT_G2_OWNER_AUTHORIZATION`, `HT_G2_APPROVED_SHAS`, `HT_G2_UNIT_TEST_ALLOW_DIRTY`,
- *      or `HT_G2_SKIP_ANCESTRY_CHECK` in the environment is rejected immediately as a forbidden override attempt.
- *    - Any modified tracked file in `git status --porcelain --untracked-files=no` fails closed unconditionally.
- * 4. DUAL-ANCHORED ARTIFACT DIGEST VERIFICATION (`TAMPERED_ALLOWLIST_MANIFEST` / `ARTIFACT_DIGEST_MISMATCH`):
- *    - Required SHA-256 digests of the two real Gate 2 migrations (`20261102160000`, `20261107130000`), the frozen
- *      production migration manifest (`fe6abf17...`), the live UAT harness (`icr05a-fault-injection.test.mjs`), and the
- *      disposable PostgreSQL test suites are pinned in `IMMUTABLE_REQUIRED_ARTIFACT_DIGESTS` AND cross-checked against
- *      `docs/delivery/ht-g2-approved-uat-source-allowlist.json` and the live files on disk.
- * 5. EXTERNAL OWNER-SIGNED EXECUTION WARRANT REQUIRED FOR `--mode live`:
- *    - `--mode verify-route` proves ONLY candidate source consistency (`SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION`),
- *      never permission to access staging secrets or run live UAT.
- *    - `--mode live` requires `--policy-warrant <external-file-outside-repo>` containing a canonical JSON payload signed
- *      with the Owner Authority Ed25519 private key (`crypto.verify(null, canonicalPayload, OWNER_PUBLIC_KEY, sig)`),
- *      binding the exact `HEAD` SHA, frozen G1 base SHA, branch name, artifact SHA-256 digests, Independent Security
- *      Reviewer `SECURITY_ACCEPT_G2_SOURCE_ONLY` signoff for that exact `HEAD` SHA, and non-expired Owner staging execution grant.
+ * R6 Trust-Boundary & Key-Interoperability Guarantees:
+ * 1. NO EMBEDDED PLACEHOLDER PUBLIC KEY:
+ *    - The historical unowned placeholder key (`SHA256:j0jsyP9NEhN5XtSDIloQV757NXqoM1hzIdyGvA9wvm4` /
+ *      hex `8f48ecc8ff4d1213795ed483225a1057be7b357aa833587321dc86bc0f70be6e`) has been removed and
+ *      permanently blocklisted (`UNVERIFIED_CANDIDATE_PLACEHOLDER_KEY_FORBIDDEN`).
+ *    - Both the external Owner-controlled bootstrap (`owner-trusted-uat-bootstrap.mjs`) and this inner
+ *      candidate verifier load the Owner Ed25519 public key from an external Owner-controlled trust-root
+ *      file (`--owner-trust-root <external-path-outside-repo>`) and verify its SPKI DER SHA-256 fingerprint
+ *      before verifying the detached Ed25519 signature on `--policy-warrant <external-path-outside-repo>`.
+ * 2. STRICT SEPARATION OF SYNTHETIC REHEARSAL VS. LIVE PRODUCTION AUTHORITY:
+ *    - `--mode synthetic-live-rehearsal` requires `keyClassification: "NON_PRODUCTION_FIXTURE_REHEARSAL_ONLY"`
+ *      and `credentialClassification: "DISPOSABLE_SYNTHETIC_REHEARSAL_ONLY"`, executes the full outer->inner
+ *      warrant signature, SHA, verifier-digest, review-binding, actor-role, and effect-scope verification
+ *      chain, and makes ZERO network calls or staging mutations (`liveExecutionAuthorized: false`).
+ *    - `--mode live` requires `keyClassification: "OWNER_OFFLINE_PRODUCTION_AUTHORITY"` (with out-of-band
+ *      `provenanceCeremonyId` and `outOfBandVerificationRef`) and `credentialClassification:
+ *      "PRODUCTION_OWNER_STAGING_VAULT"`. Test fixture keys and synthetic credentials fail closed
+ *      (`TEST_FIXTURE_KEY_FORBIDDEN_IN_LIVE_MODE` / `SYNTHETIC_CREDENTIALS_FORBIDDEN_IN_LIVE_MODE`).
+ * 3. NO CALLER-CONTROLLED SHA, BRANCH, OR ENVIRONMENT VARIABLE BYPASSES:
+ *    - `--expected-sha` is a mandatory parity check against `git rev-parse HEAD`, never a branch fallback.
+ *    - `git merge-base --is-ancestor 1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5 HEAD` is mandatory (`UNVERIFIED_G1_ANCESTRY`).
+ *    - Dirty tracked working trees (`UNTRUSTED_DIRTY_WORKING_TREE`) and caller env overrides (`FORBIDDEN_CALLER_ENV_OVERRIDE`)
+ *      fail closed unconditionally.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -35,7 +33,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const SELF_PATH = fs.realpathSync(fileURLToPath(import.meta.url));
 const REPO_ROOT = fs.realpathSync(process.cwd());
 const ALLOWLIST_PATH = path.join(
   REPO_ROOT,
@@ -50,11 +50,25 @@ const IMMUTABLE_ALLOWED_BRANCHES = Object.freeze([
   'fix/ht-g2-rbac-session-boundary',
 ]);
 
-const OWNER_AUTHORITY_ED25519_PUBLIC_KEY_PEM = [
-  '-----BEGIN PUBLIC KEY-----',
-  'MCowBQYDK2VwAyEA8tU2d3n7kP9wX1vR4mZ6qL0jY5bN8cH2fG4sA9dE1wI=',
-  '-----END PUBLIC KEY-----',
-].join('\n');
+const BLOCKLISTED_PLACEHOLDER_KEY_SHA256_HEX =
+  '8f48ecc8ff4d1213795ed483225a1057be7b357aa833587321dc86bc0f70be6e';
+
+const REQUIRED_ACTOR_ROLES = Object.freeze([
+  'reporter',
+  'editor_in_chief',
+  'section_editor',
+  'moderator',
+  'commercial_subscriber',
+  'anonymous',
+]);
+
+const ALLOWED_SESSION_EFFECTS = Object.freeze([
+  'auth_sign_in_sign_out',
+  'session_revocation_check',
+  'bounded_editorial_draft_title_check',
+  'non_dispatching_newsletter_preview_check',
+  'read_only_rls_boundary_probe',
+]);
 
 const IMMUTABLE_REQUIRED_ARTIFACT_DIGESTS = Object.freeze({
   'supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql':
@@ -85,7 +99,9 @@ function parseArgs(argv) {
   const out = {
     mode: 'verify-route',
     expectedSha: '',
+    ownerTrustRootPath: '',
     policyWarrantPath: '',
+    credentialsFilePath: '',
     outputPath: '/tmp/ht-g2-uat-route-attestation.json',
     tapPath: '/tmp/icr05a-physical.tap',
   };
@@ -95,8 +111,12 @@ function parseArgs(argv) {
       out.mode = argv[++i];
     } else if (arg === '--expected-sha' && argv[i + 1]) {
       out.expectedSha = argv[++i];
+    } else if (arg === '--owner-trust-root' && argv[i + 1]) {
+      out.ownerTrustRootPath = argv[++i];
     } else if (arg === '--policy-warrant' && argv[i + 1]) {
       out.policyWarrantPath = argv[++i];
+    } else if (arg === '--credentials-file' && argv[i + 1]) {
+      out.credentialsFilePath = argv[++i];
     } else if (arg === '--output' && argv[i + 1]) {
       out.outputPath = argv[++i];
     } else if (arg === '--tap-output' && argv[i + 1]) {
@@ -127,8 +147,46 @@ function canonicalizeJson(value) {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalizeJson(value[k])}`).join(',')}}`;
 }
 
+function assertExternalFile(filePathArg, missingCode, inRepoCode, label) {
+  if (!filePathArg) {
+    console.error(`${missingCode}: Missing required external ${label} path.`);
+    process.exit(78);
+  }
+  const resolved = path.resolve(filePathArg);
+  if (!fs.existsSync(resolved)) {
+    console.error(`${missingCode}: External ${label} '${resolved}' does not exist.`);
+    process.exit(78);
+  }
+  const realPath = fs.realpathSync(resolved);
+  if (realPath === REPO_ROOT || realPath.startsWith(`${REPO_ROOT}${path.sep}`)) {
+    console.error(
+      `${inRepoCode}: ${label} '${realPath}' resides inside the repository working tree and cannot be trusted as external Owner authority.`,
+    );
+    process.exit(78);
+  }
+  return realPath;
+}
+
+function computeSpkiFingerprints(publicKeyPem) {
+  try {
+    const keyObj = crypto.createPublicKey(publicKeyPem);
+    if (keyObj.asymmetricKeyType !== 'ed25519') {
+      console.error(
+        `UNSUPPORTED_KEY_ALGORITHM: Expected Ed25519 public key, got '${keyObj.asymmetricKeyType}'.`,
+      );
+      process.exit(78);
+    }
+    const spkiDer = keyObj.export({ type: 'spki', format: 'der' });
+    const hex = crypto.createHash('sha256').update(spkiDer).digest('hex');
+    const b64 = `SHA256:${crypto.createHash('sha256').update(spkiDer).digest('base64').replace(/=+$/, '')}`;
+    return { hex, b64 };
+  } catch (err) {
+    console.error(`INVALID_TRUST_ROOT_PUBLIC_KEY: ${err.message}`);
+    process.exit(78);
+  }
+}
+
 function verifySourceConsistency(expectedShaArg) {
-  // 0. Reject any caller-supplied environment variable override attempts immediately
   for (const envKey of FORBIDDEN_ENV_OVERRIDES) {
     if (Object.prototype.hasOwnProperty.call(process.env, envKey) && process.env[envKey] !== '') {
       throw new Error(
@@ -146,14 +204,14 @@ function verifySourceConsistency(expectedShaArg) {
     allowlist.frozenG1BaseSha !== FROZEN_G1_BASE_SHA ||
     allowlist.manifestScope !== 'SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION' ||
     allowlist.trustBoundaryPolicy?.inBranchManifestCanAuthorizeLiveExecution !== false ||
-    allowlist.trustBoundaryPolicy?.cliExpectedShaCanAuthorizeBranch !== false
+    allowlist.trustBoundaryPolicy?.cliExpectedShaCanAuthorizeBranch !== false ||
+    allowlist.trustBoundaryPolicy?.embeddedPublicKeyTrustedForLiveExecution !== false
   ) {
     throw new Error(
       'TAMPERED_ALLOWLIST_MANIFEST: Allowlist manifest metadata or trust-boundary policy was altered.',
     );
   }
 
-  // 1. Require a clean tracked working tree (zero uncommitted modifications allowed)
   const dirtyStatus = git(['status', '--porcelain', '--untracked-files=no']);
   if (dirtyStatus.length > 0) {
     throw new Error(
@@ -161,7 +219,6 @@ function verifySourceConsistency(expectedShaArg) {
     );
   }
 
-  // 2. Require explicit 40-hex --expected-sha (or EXPECTED_SHA) matching HEAD
   const actualSha = git(['rev-parse', 'HEAD']);
   const expectedSha = (expectedShaArg || process.env.EXPECTED_SHA || '').trim();
   if (!/^[0-9a-f]{40}$/i.test(expectedSha)) {
@@ -175,7 +232,6 @@ function verifySourceConsistency(expectedShaArg) {
     );
   }
 
-  // 3. Fail-closed verification that FROZEN_G1_BASE_SHA is an ancestor of HEAD
   try {
     execFileSync('git', ['merge-base', '--is-ancestor', FROZEN_G1_BASE_SHA, actualSha], {
       cwd: REPO_ROOT,
@@ -187,7 +243,6 @@ function verifySourceConsistency(expectedShaArg) {
     );
   }
 
-  // 4. Strict branch/ref allowlist check — NEVER falls back to actualSha === expectedSha
   let localBranch = '';
   try {
     localBranch = git(['symbolic-ref', '--quiet', '--short', 'HEAD']);
@@ -203,7 +258,6 @@ function verifySourceConsistency(expectedShaArg) {
     );
   }
 
-  // If local branch ref exists in .git/refs/heads/<candidateBranch>, verify it resolves to actualSha
   try {
     const branchHeadSha = git(['rev-parse', `refs/heads/${candidateBranch}`]);
     if (branchHeadSha !== actualSha) {
@@ -215,10 +269,8 @@ function verifySourceConsistency(expectedShaArg) {
     if (String(err.message || '').includes('REF_SHA_DRIFT')) {
       throw err;
     }
-    // In CI detached PR checkouts, refs/heads/<candidateBranch> may not be materialized locally
   }
 
-  // 5. Dual-anchored SHA-256 verification of all required migrations, manifest, and test suites
   const allowlistDigests = allowlist.requiredArtifactDigests || {};
   const verifiedDigests = {};
 
@@ -253,37 +305,78 @@ function verifySourceConsistency(expectedShaArg) {
     candidateBranch,
     frozenG1BaseSha: FROZEN_G1_BASE_SHA,
     g1AncestorVerified: true,
+    candidateVerifierSha256: sha256File(SELF_PATH),
     defaultBranchWorkflowStatus: allowlist.defaultBranchWorkflowStatus,
     stagingProject: allowlist.stagingProject,
     verifiedArtifactDigests: verifiedDigests,
   };
 }
 
-function verifyExternalOwnerWarrant(warrantPathArg, sourceAttestation) {
-  if (!warrantPathArg) {
+function verifyExternalTrustRootAndWarrant(mode, trustRootPathArg, warrantPathArg, sourceAttestation) {
+  if (!trustRootPathArg && !warrantPathArg) {
     console.error(
-      'BLOCKED_MISSING_EXTERNAL_OWNER_WARRANT: --mode live requires --policy-warrant <external-file-outside-repo> signed by the Owner Ed25519 authority key.',
+      'BLOCKED_MISSING_EXTERNAL_OWNER_WARRANT: Execution requires both --owner-trust-root <external-path> and --policy-warrant <external-path> outside the repository.',
     );
     process.exit(78);
   }
+  const realWarrantPath = assertExternalFile(
+    warrantPathArg,
+    'BLOCKED_MISSING_EXTERNAL_OWNER_WARRANT',
+    'IN_REPO_POLICY_FILE_FORBIDDEN',
+    'policy warrant file',
+  );
+  const realTrustRootPath = assertExternalFile(
+    trustRootPathArg,
+    'BLOCKED_MISSING_EXTERNAL_OWNER_TRUST_ROOT',
+    'IN_REPO_TRUST_ROOT_FORBIDDEN',
+    'Owner trust-root file',
+  );
 
-  const resolvedWarrantPath = path.resolve(warrantPathArg);
-  if (!fs.existsSync(resolvedWarrantPath)) {
-    console.error(
-      `BLOCKED_MISSING_EXTERNAL_OWNER_WARRANT: Warrant file '${resolvedWarrantPath}' does not exist.`,
-    );
+  let trustRoot;
+  try {
+    trustRoot = JSON.parse(fs.readFileSync(realTrustRootPath, 'utf8'));
+  } catch {
+    console.error('INVALID_TRUST_ROOT_JSON: External trust-root file is not valid JSON.');
     process.exit(78);
   }
 
-  const realWarrantPath = fs.realpathSync(resolvedWarrantPath);
+  const keyFp = computeSpkiFingerprints(trustRoot.ownerEd25519PublicKeyPem || '');
+  if (keyFp.hex === BLOCKLISTED_PLACEHOLDER_KEY_SHA256_HEX) {
+    console.error(
+      'UNVERIFIED_CANDIDATE_PLACEHOLDER_KEY_FORBIDDEN: The historical candidate placeholder public key has no Owner private key and is permanently blocklisted.',
+    );
+    process.exit(78);
+  }
   if (
-    realWarrantPath === REPO_ROOT ||
-    realWarrantPath.startsWith(`${REPO_ROOT}${path.sep}`)
+    trustRoot.expectedPublicKeyFingerprintSha256Hex !== keyFp.hex ||
+    trustRoot.expectedPublicKeyFingerprintSha256B64 !== keyFp.b64
   ) {
     console.error(
-      `IN_REPO_POLICY_FILE_FORBIDDEN: Warrant file '${realWarrantPath}' resides inside the repository working tree and cannot be trusted as external Owner authority.`,
+      `MISMATCHED_TRUST_ROOT_KEY_FINGERPRINT: Trust-root public key fingerprint (${keyFp.b64}) does not match expected fingerprint (${trustRoot.expectedPublicKeyFingerprintSha256B64}).`,
     );
     process.exit(78);
+  }
+
+  if (mode === 'live') {
+    if (trustRoot.keyClassification !== 'OWNER_OFFLINE_PRODUCTION_AUTHORITY') {
+      console.error(
+        `TEST_FIXTURE_KEY_FORBIDDEN_IN_LIVE_MODE: --mode live requires keyClassification='OWNER_OFFLINE_PRODUCTION_AUTHORITY' (got '${trustRoot.keyClassification}'). Test fixtures never qualify as production Owner authority.`,
+      );
+      process.exit(78);
+    }
+    if (!trustRoot.provenanceCeremonyId || !trustRoot.outOfBandVerificationRef) {
+      console.error(
+        'UNPROVENANCED_OWNER_KEY_FORBIDDEN: --mode live requires provenanceCeremonyId and outOfBandVerificationRef.',
+      );
+      process.exit(78);
+    }
+  } else if (mode === 'synthetic-live-rehearsal') {
+    if (trustRoot.keyClassification !== 'NON_PRODUCTION_FIXTURE_REHEARSAL_ONLY') {
+      console.error(
+        `INVALID_REHEARSAL_KEY_CLASSIFICATION: --mode synthetic-live-rehearsal requires keyClassification='NON_PRODUCTION_FIXTURE_REHEARSAL_ONLY' (got '${trustRoot.keyClassification}').`,
+      );
+      process.exit(78);
+    }
   }
 
   let warrant;
@@ -303,7 +396,6 @@ function verifyExternalOwnerWarrant(warrantPathArg, sourceAttestation) {
     process.exit(78);
   }
 
-  // Cryptographically verify detached Ed25519 signature over canonicalized payload JSON
   const canonicalPayloadBytes = Buffer.from(canonicalizeJson(payload), 'utf8');
   let signatureValid = false;
   try {
@@ -311,7 +403,7 @@ function verifyExternalOwnerWarrant(warrantPathArg, sourceAttestation) {
     signatureValid = crypto.verify(
       null,
       canonicalPayloadBytes,
-      OWNER_AUTHORITY_ED25519_PUBLIC_KEY_PEM,
+      trustRoot.ownerEd25519PublicKeyPem,
       signatureBytes,
     );
   } catch {
@@ -320,15 +412,21 @@ function verifyExternalOwnerWarrant(warrantPathArg, sourceAttestation) {
 
   if (!signatureValid) {
     console.error(
-      'FORGED_WARRANT_SIGNATURE: Ed25519 cryptographic signature verification failed against pinned Owner Authority Public Key.',
+      'FORGED_WARRANT_SIGNATURE: Ed25519 cryptographic signature verification failed against external Owner Trust Root Public Key.',
     );
     process.exit(78);
   }
 
-  // Verify exact commit SHA, G1 base SHA, and branch binding
+  if (payload.ownerPublicKeyFingerprintSha256B64 !== keyFp.b64) {
+    console.error(
+      `WARRANT_KEY_FINGERPRINT_MISMATCH: Warrant key fingerprint (${payload.ownerPublicKeyFingerprintSha256B64}) does not match external Trust Root fingerprint (${keyFp.b64}).`,
+    );
+    process.exit(78);
+  }
+
   if (payload.approvedHeadSha !== sourceAttestation.checkedOutSha) {
     console.error(
-      `WARRANT_SHA_MISMATCH: Warrant is signed for SHA '${payload.approvedHeadSha}', but checked-out HEAD is '${sourceAttestation.checkedOutSha}'. Prior approvals do not carry over to newer commits.`,
+      `WARRANT_SHA_MISMATCH: Warrant is signed for SHA '${payload.approvedHeadSha}', but checked-out HEAD is '${sourceAttestation.checkedOutSha}'.`,
     );
     process.exit(78);
   }
@@ -344,38 +442,88 @@ function verifyExternalOwnerWarrant(warrantPathArg, sourceAttestation) {
     );
     process.exit(78);
   }
+  if (payload.approvedCandidateVerifierSha256 !== sourceAttestation.candidateVerifierSha256) {
+    console.error(
+      `WARRANT_VERIFIER_DIGEST_MISMATCH: Warrant approvedCandidateVerifierSha256 '${payload.approvedCandidateVerifierSha256}' does not match actual candidate verifier SHA-256 '${sourceAttestation.candidateVerifierSha256}'.`,
+    );
+    process.exit(78);
+  }
 
-  // Verify Independent Security Review fields bound inside signed warrant
+  const nowMs = Date.now();
+  const issuedAtMs = Date.parse(payload.issuedAt || '');
+  const expiresAtMs = Date.parse(payload.expiresAt || '');
+  if (
+    Number.isNaN(issuedAtMs) ||
+    Number.isNaN(expiresAtMs) ||
+    issuedAtMs > nowMs + 5000 ||
+    expiresAtMs <= nowMs ||
+    expiresAtMs - issuedAtMs > 3600 * 1000
+  ) {
+    console.error(
+      `EXPIRED_OR_INVALID_WARRANT_WINDOW: Warrant timestamp window is expired or invalid (issuedAt=${payload.issuedAt}, expiresAt=${payload.expiresAt}).`,
+    );
+    process.exit(78);
+  }
+
   const secReview = payload.independentSecurityReview || {};
   if (
     secReview.decision !== 'SECURITY_ACCEPT_G2_SOURCE_ONLY' ||
     secReview.reviewedSha !== sourceAttestation.checkedOutSha ||
     typeof secReview.reviewerLogin !== 'string' ||
     !secReview.reviewerLogin ||
-    secReview.reviewerLogin === 'kudzimusar'
+    secReview.reviewerLogin === 'kudzimusar' ||
+    secReview.reviewerLogin.startsWith('@') ||
+    secReview.reviewerLogin === 'sec-arch-independent' ||
+    !/^https:\/\/github\.com\/kudzimusar\/htp-zw\/pull\/153#pullrequestreview-\d+$/.test(
+      secReview.reviewUrl || '',
+    )
   ) {
     console.error(
-      `BLOCKED_INDEPENDENT_SECURITY_REVIEW: Warrant lacks valid independent SECURITY_ACCEPT_G2_SOURCE_ONLY signoff for exact SHA ${sourceAttestation.checkedOutSha}.`,
+      `BLOCKED_INDEPENDENT_SECURITY_REVIEW: Warrant lacks valid independent GitHub account SECURITY_ACCEPT_G2_SOURCE_ONLY signoff for exact SHA ${sourceAttestation.checkedOutSha}.`,
     );
     process.exit(78);
   }
 
-  // Verify Owner Execution Authorization fields & expiration
   const ownerAuth = payload.ownerExecutionAuthorization || {};
-  const expiresAtMs = Date.parse(ownerAuth.expiresAt || '');
   if (
     ownerAuth.granted !== true ||
     ownerAuth.stagingProjectRef !== 'bzuvntbkevvuhfhqhkua' ||
-    Number.isNaN(expiresAtMs) ||
-    expiresAtMs <= Date.now()
+    payload.stagingProjectRef !== 'bzuvntbkevvuhfhqhkua'
   ) {
     console.error(
-      'BLOCKED_OWNER_AUTHORIZATION: Warrant lacks non-expired Owner staging execution grant for project bzuvntbkevvuhfhqhkua.',
+      'BLOCKED_OWNER_AUTHORIZATION: Warrant lacks valid Owner staging execution grant for project bzuvntbkevvuhfhqhkua.',
     );
     process.exit(78);
   }
 
-  // Verify all artifact digests in signed warrant match disk digests
+  const allowedActors = Array.isArray(ownerAuth.allowedTargetActors)
+    ? ownerAuth.allowedTargetActors
+    : [];
+  for (const role of REQUIRED_ACTOR_ROLES) {
+    if (!allowedActors.includes(role)) {
+      console.error(
+        `INCOMPLETE_TARGET_ACTOR_SCOPE: Warrant allowedTargetActors is missing required role '${role}'.`,
+      );
+      process.exit(78);
+    }
+  }
+
+  const allowedEffects = Array.isArray(ownerAuth.allowedSessionOnlyEffects)
+    ? ownerAuth.allowedSessionOnlyEffects
+    : [];
+  if (allowedEffects.length === 0) {
+    console.error('EMPTY_WARRANT_EFFECT_SCOPE: Warrant allowedSessionOnlyEffects cannot be empty.');
+    process.exit(78);
+  }
+  for (const eff of allowedEffects) {
+    if (!ALLOWED_SESSION_EFFECTS.includes(eff)) {
+      console.error(
+        `PROHIBITED_WARRANT_EFFECT_SCOPE: Effect '${eff}' is outside bounded session-only UAT scope.`,
+      );
+      process.exit(78);
+    }
+  }
+
   const warrantDigests = payload.artifactDigests || {};
   for (const [relPath, verifiedDigest] of Object.entries(
     sourceAttestation.verifiedArtifactDigests,
@@ -390,10 +538,79 @@ function verifyExternalOwnerWarrant(warrantPathArg, sourceAttestation) {
 
   return {
     warrantVerifiedAt: new Date().toISOString(),
+    warrantId: payload.warrantId,
     approvedHeadSha: payload.approvedHeadSha,
+    trustRootKeyClassification: trustRoot.keyClassification,
+    trustRootPublicKeyFingerprintSha256B64: keyFp.b64,
+    trustRootPublicKeyFingerprintSha256Hex: keyFp.hex,
     independentSecurityReview: secReview,
     ownerExecutionAuthorization: ownerAuth,
   };
+}
+
+function verifyCredentialsEnvelope(mode, credentialsFilePathArg) {
+  const realCredsPath = assertExternalFile(
+    credentialsFilePathArg,
+    'BLOCKED_OWNER_UAT_CREDENTIALS',
+    'IN_REPO_CREDENTIALS_FILE_FORBIDDEN',
+    'credentials envelope file',
+  );
+
+  let envelope;
+  try {
+    envelope = JSON.parse(fs.readFileSync(realCredsPath, 'utf8'));
+  } catch {
+    console.error('BLOCKED_OWNER_UAT_CREDENTIALS: Credentials file is not valid JSON.');
+    process.exit(78);
+  }
+
+  if (mode === 'live') {
+    if (envelope.credentialClassification !== 'PRODUCTION_OWNER_STAGING_VAULT') {
+      console.error(
+        `SYNTHETIC_CREDENTIALS_FORBIDDEN_IN_LIVE_MODE: --mode live requires credentialClassification='PRODUCTION_OWNER_STAGING_VAULT' (got '${envelope.credentialClassification}').`,
+      );
+      process.exit(78);
+    }
+  } else if (mode === 'synthetic-live-rehearsal') {
+    if (envelope.credentialClassification !== 'DISPOSABLE_SYNTHETIC_REHEARSAL_ONLY') {
+      console.error(
+        `LIVE_CREDENTIALS_FORBIDDEN_IN_REHEARSAL: --mode synthetic-live-rehearsal requires credentialClassification='DISPOSABLE_SYNTHETIC_REHEARSAL_ONLY' (got '${envelope.credentialClassification}').`,
+      );
+      process.exit(78);
+    }
+  }
+
+  if (typeof envelope.supabaseAccessToken !== 'string' || envelope.supabaseAccessToken.length < 16) {
+    console.error('BLOCKED_OWNER_UAT_CREDENTIALS: Missing valid supabaseAccessToken in envelope.');
+    process.exit(78);
+  }
+
+  const actors = envelope.actors || {};
+  const requiredActorKeys = [
+    'reporter',
+    'editor_in_chief',
+    'section_editor',
+    'moderator',
+    'uat-specialist@healthtimes.test',
+    'uat-commercial@healthtimes.test',
+  ];
+  for (const key of requiredActorKeys) {
+    const actor = actors[key];
+    if (
+      !actor ||
+      typeof actor.email !== 'string' ||
+      !actor.email.includes('@') ||
+      typeof actor.password !== 'string' ||
+      actor.password.length < 8
+    ) {
+      console.error(
+        `BLOCKED_OWNER_UAT_CREDENTIALS: Missing or unverified credentials for required UAT identity '${key}'.`,
+      );
+      process.exit(78);
+    }
+  }
+
+  return envelope;
 }
 
 function main() {
@@ -404,7 +621,6 @@ function main() {
   console.log(
     `[G2-UAT-EXECUTOR] Source consistency & artifact digests verified at SHA ${attestation.checkedOutSha} (scope=${attestation.attestationScope})`,
   );
-  console.log(`[G2-UAT-EXECUTOR] Attestation written to ${args.outputPath}`);
 
   if (args.mode === 'verify-route') {
     console.log(
@@ -413,54 +629,46 @@ function main() {
     return;
   }
 
-  if (args.mode !== 'live') {
-    throw new Error(`UNSUPPORTED_MODE: '${args.mode}'. Expected 'verify-route' or 'live'.`);
-  }
-
-  // Mode === 'live': Require externally signed Ed25519 Owner Execution Warrant outside REPO_ROOT
-  const warrantVerification = verifyExternalOwnerWarrant(args.policyWarrantPath, attestation);
-
-  const rawActorsJson =
-    process.env.UAT_ACTORS_JSON || process.env.HEALTHTIMES_UAT_ACTORS_JSON || '';
-  const supabaseAccessToken =
-    process.env.SUPABASE_ACCESS_TOKEN ||
-    process.env.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN ||
-    '';
-
-  if (!rawActorsJson || !supabaseAccessToken) {
-    console.error(
-      'BLOCKED_OWNER_UAT_CREDENTIALS: Live Staging UAT requires UAT_ACTORS_JSON and SUPABASE_ACCESS_TOKEN.',
+  if (args.mode !== 'synthetic-live-rehearsal' && args.mode !== 'live') {
+    throw new Error(
+      `UNSUPPORTED_MODE: '${args.mode}'. Expected 'verify-route', 'synthetic-live-rehearsal', or 'live'.`,
     );
-    process.exit(78);
   }
 
-  let actors;
-  try {
-    actors = JSON.parse(rawActorsJson);
-  } catch {
-    console.error('BLOCKED_OWNER_UAT_CREDENTIALS: UAT_ACTORS_JSON is not valid JSON.');
-    process.exit(78);
+  const warrantVerification = verifyExternalTrustRootAndWarrant(
+    args.mode,
+    args.ownerTrustRootPath,
+    args.policyWarrantPath,
+    attestation,
+  );
+
+  const credsEnvelope = verifyCredentialsEnvelope(args.mode, args.credentialsFilePath);
+
+  if (args.mode === 'synthetic-live-rehearsal') {
+    const rehearsalAttestation = {
+      ...attestation,
+      attestationScope: 'SYNTHETIC_REHEARSAL_OUTER_AND_INNER_VERIFIED_NO_LIVE_AUTHORITY',
+      liveExecutionAuthorized: false,
+      privilegedCredentialsAccessed: false,
+      innerVerifierWarrantVerified: true,
+      innerVerifierCredentialsSchemaVerified: true,
+      warrantVerification,
+      verifiedActorKeys: Object.keys(credsEnvelope.actors),
+    };
+    fs.writeFileSync(args.outputPath, `${JSON.stringify(rehearsalAttestation, null, 2)}\n`, 'utf8');
+    console.log(
+      '[G2-UAT-EXECUTOR] Mode=synthetic-live-rehearsal complete (inner verifier warrant + synthetic credentials verified; zero live network calls).',
+    );
+    return;
   }
 
-  const requiredEmails = [
-    'uat-specialist@healthtimes.test',
-    'uat-commercial@healthtimes.test',
-  ];
-  for (const email of requiredEmails) {
-    const actor = actors[email];
-    if (!actor || actor.email !== email || typeof actor.password !== 'string' || !actor.password) {
-      console.error(
-        `BLOCKED_OWNER_UAT_CREDENTIALS: Missing valid credentials for required test identity ${email}.`,
-      );
-      process.exit(78);
-    }
-  }
-
+  // Mode === 'live' (requires real OWNER_OFFLINE_PRODUCTION_AUTHORITY key & PRODUCTION_OWNER_STAGING_VAULT credentials)
   const updatedAttestation = {
     ...attestation,
     attestationScope: 'WARRANT_VERIFIED_LIVE_EXECUTION',
     liveExecutionAuthorized: true,
     privilegedCredentialsAccessed: true,
+    innerVerifierWarrantVerified: true,
     warrantVerification,
   };
   fs.writeFileSync(args.outputPath, `${JSON.stringify(updatedAttestation, null, 2)}\n`, 'utf8');
@@ -470,7 +678,7 @@ function main() {
   const ephemeralActorsFile = path.join(ephemeralDir, 'test-actors.json');
 
   try {
-    fs.writeFileSync(ephemeralActorsFile, rawActorsJson, { mode: 0o600 });
+    fs.writeFileSync(ephemeralActorsFile, JSON.stringify(credsEnvelope.actors), { mode: 0o600 });
     const runResult = spawnSync(
       process.execPath,
       ['--test', 'tests/harness/icr05a-fault-injection.test.mjs'],
@@ -478,7 +686,7 @@ function main() {
         cwd: REPO_ROOT,
         env: {
           ...process.env,
-          SUPABASE_ACCESS_TOKEN: supabaseAccessToken,
+          SUPABASE_ACCESS_TOKEN: credsEnvelope.supabaseAccessToken,
           HEALTHTIMES_TEST_ACTORS_FILE: ephemeralActorsFile,
         },
         encoding: 'utf8',
