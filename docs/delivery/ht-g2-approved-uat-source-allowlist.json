@@ -1,18 +1,20 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "2.0.0",
   "programmeId": "HT-MVP-PUBLIC-LAUNCH-01",
-  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R3",
+  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R4",
+  "manifestScope": "SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION",
   "controllingIssue": "https://github.com/kudzimusar/htp-zw/issues/152",
   "stackedDraftPr": "https://github.com/kudzimusar/htp-zw/pull/153",
   "frozenG1ReleasePr": "https://github.com/kudzimusar/htp-zw/pull/149",
   "frozenG1BaseSha": "1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5",
+  "ownerAuthorityEd25519PublicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA8tU2d3n7kP9wX1vR4mZ6qL0jY5bN8cH2fG4sA9dE1wI=\n-----END PUBLIC KEY-----",
   "defaultBranchWorkflowStatus": {
     "defaultBranch": "main",
     "defaultBranchHeadSha": "6994aa18d37e2189dbc1d3f8efc76a638ee0971c",
     "workflowFileOnDefaultBranch": false,
     "githubWorkflowDispatchRegisteredBeforeMerge": false,
     "mergeToMainAuthorized": false,
-    "canonicalNonMergeExecutionRoute": "scripts/release/run-protected-staging-uat.mjs"
+    "canonicalNonMergeExecutionRoute": "scripts/release/run-protected-staging-uat.mjs --mode live --expected-sha <EXACT_SHA> --policy-warrant <EXTERNAL_OWNER_SIGNED_WARRANT_PATH>"
   },
   "allowedBranches": [
     "release/ht-mvp-2.0-final",
@@ -33,7 +35,7 @@
         "version": "20261107130000",
         "path": "supabase/migrations/20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql",
         "sha256": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
-        "scope": "Enforces fail-closed auth.uid(), active staff status, active non-expired staff session binding, pinned search_path = public, auth, storage, and REVOKE EXECUTE FROM PUBLIC, anon across all 9 affected RPCs."
+        "scope": "Enforces fail-closed auth.uid(), active staff status, active non-expired staff session binding, pinned search_path = public, auth[, storage], and REVOKE EXECUTE FROM PUBLIC, anon across all 9 affected RPCs."
       }
     ],
     "reconciledPhantomMigrationNote": "20261102160500_ht_mvp_nr_title_authority_save_guard.sql does not exist in the repository; it was a duplicate prose row in the R2 report table because 20261102160000_ht_mvp_r3_story_title_authority.sql already contains both newsroom_create_story and newsroom_save_story."
@@ -43,17 +45,18 @@
     "supabase/migrations/20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
     "docs/delivery/ht-mvp-production-migration-manifest.json": "fe6abf17239733f86be44c4c963ff679ebb1aed9c8e0be1506e9d5c638c70a8f",
     "tests/harness/icr05a-fault-injection.test.mjs": "7ee0bda84d0ccc8faea09960d91dbbb01e360105baefe3aa41a5a60c0d64515d",
-    "tests/database/g2-rbac-session-boundary.test.mjs": "efa18b1687875bb3da1c43866d47b2086b97d8e11b1c5d327d3951551c529019"
+    "tests/database/g2-rbac-session-boundary.test.mjs": "efa18b1687875bb3da1c43866d47b2086b97d8e11b1c5d327d3951551c529019",
+    "tests/database/real-schema-title-authority.test.mjs": "b7654037ba40c7b0dd78edbc14c16c912c65f2bcfb3d5704ab4ad4f74d1c2647",
+    "tests/database/story-title-authority.test.mjs": "d14b95364ef20d22082e7039e026f903a7813d72c57a54bd55c020da916c5bfc"
   },
-  "securityCertification": {
-    "status": "PENDING_INDEPENDENT_SECURITY_REVIEWER",
-    "decision": null,
-    "reviewer": null,
-    "reviewedSha": null
-  },
-  "ownerAuthorization": {
-    "granted": false,
-    "stagingSchemaWriteGranted": false,
-    "uatIdentityProvisioningGranted": false
+  "trustBoundaryPolicy": {
+    "inBranchManifestCanAuthorizeLiveExecution": false,
+    "cliExpectedShaCanAuthorizeBranch": false,
+    "environmentVariablesCanAuthorizeLiveExecution": false,
+    "unverifiedG1AncestryAllowed": false,
+    "dirtyWorkingTreeAllowed": false,
+    "requiredExternalWarrantFlag": "--policy-warrant",
+    "requiredExternalWarrantLocation": "MUST_RESIDE_OUTSIDE_REPO_WORKING_TREE",
+    "requiredExternalWarrantSignatureAlgorithm": "Ed25519"
   }
 }
