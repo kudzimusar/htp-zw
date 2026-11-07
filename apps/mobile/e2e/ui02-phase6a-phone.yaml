@@ -66,6 +66,15 @@ appId: zw.co.healthtimes.app.dev
     timeout: 10000
 - takeScreenshot: article-actions-light
 - tapOn: "Share article"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # A tap alone is not proof that the native activity sheet opened.
+      - extendedWaitUntil:
+          visible: "AirDrop"
+          timeout: 30000
+      - assertVisible: "Copy"
 - takeScreenshot: article-native-share
 - stopApp
 
@@ -186,7 +195,6 @@ appId: zw.co.healthtimes.app.dev
 - tapOn:
     text: ".*YouTube.*"
     index: 0
-- takeScreenshot: watch-external-youtube
 - runFlow:
     when:
       visible: ".*(Don’t allow|Don't allow|Allow).*"
@@ -194,6 +202,15 @@ appId: zw.co.healthtimes.app.dev
       - tapOn:
           text: ".*(Don’t allow|Don't allow).*"
           optional: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # Require the browser destination, not the Watch card's YouTube label.
+      - extendedWaitUntil:
+          visible: ".*(youtube\\.com|youtu\\.be).*"
+          timeout: 45000
+- takeScreenshot: watch-external-youtube
 - runFlow:
     when:
       platform: Android

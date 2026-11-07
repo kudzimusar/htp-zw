@@ -98,6 +98,18 @@ test("Phase 6A phone flow exercises the required reader surfaces and critical in
   ]) assert.ok(flow.includes(expected),expected);
 });
 
+test("iOS external-surface evidence requires visible system UI before capture",()=>{
+  const flow=read("e2e/ui02-phase6a-phone.yaml");
+  const share=flow.slice(flow.indexOf('- tapOn: "Share article"'),flow.indexOf('- takeScreenshot: article-native-share'));
+  assert.match(share,/platform: iOS/);
+  assert.match(share,/visible: "AirDrop"/);
+  assert.match(share,/assertVisible: "Copy"/);
+  const destination=flow.slice(flow.indexOf('# Source-backed external YouTube destination'),flow.indexOf('- takeScreenshot: watch-external-youtube'));
+  assert.match(destination,/platform: iOS/);
+  assert.ok(destination.includes('youtube\\\\.com') && destination.includes('youtu\\\\.be'));
+  assert.match(destination,/extendedWaitUntil:/);
+});
+
 test("Phase 6A tablet flow targets the five tablet-sensitive surfaces",()=>{
   const flow=read("e2e/ui02-phase6a-tablet.yaml");
   for(const expected of [
