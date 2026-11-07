@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "programmeId": "HT-MVP-PUBLIC-LAUNCH-01",
+  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R3",
+  "controllingIssue": "https://github.com/kudzimusar/htp-zw/issues/152",
+  "stackedDraftPr": "https://github.com/kudzimusar/htp-zw/pull/153",
+  "frozenG1ReleasePr": "https://github.com/kudzimusar/htp-zw/pull/149",
+  "frozenG1BaseSha": "1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5",
+  "defaultBranchWorkflowStatus": {
+    "defaultBranch": "main",
+    "defaultBranchHeadSha": "6994aa18d37e2189dbc1d3f8efc76a638ee0971c",
+    "workflowFileOnDefaultBranch": false,
+    "githubWorkflowDispatchRegisteredBeforeMerge": false,
+    "mergeToMainAuthorized": false,
+    "canonicalNonMergeExecutionRoute": "scripts/release/run-protected-staging-uat.mjs"
+  },
+  "allowedBranches": [
+    "release/ht-mvp-2.0-final",
+    "fix/ht-g2-rbac-session-boundary"
+  ],
+  "stagingProject": {
+    "projectRef": "bzuvntbkevvuhfhqhkua",
+    "preApplicationMigrationCount": 112,
+    "postApplicationMigrationCount": 114,
+    "orderedGate2Migrations": [
+      {
+        "version": "20261102160000",
+        "path": "supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql",
+        "sha256": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b",
+        "scope": "Enforces authoritative story title guard across both public.newsroom_create_story(jsonb) and public.newsroom_save_story(uuid, integer, jsonb, text)."
+      },
+      {
+        "version": "20261107130000",
+        "path": "supabase/migrations/20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql",
+        "sha256": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
+        "scope": "Enforces fail-closed auth.uid(), active staff status, active non-expired staff session binding, pinned search_path = public, auth, storage, and REVOKE EXECUTE FROM PUBLIC, anon across all 9 affected RPCs."
+      }
+    ],
+    "reconciledPhantomMigrationNote": "20261102160500_ht_mvp_nr_title_authority_save_guard.sql does not exist in the repository; it was a duplicate prose row in the R2 report table because 20261102160000_ht_mvp_r3_story_title_authority.sql already contains both newsroom_create_story and newsroom_save_story."
+  },
+  "requiredArtifactDigests": {
+    "supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b",
+    "supabase/migrations/20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
+    "docs/delivery/ht-mvp-production-migration-manifest.json": "fe6abf17239733f86be44c4c963ff679ebb1aed9c8e0be1506e9d5c638c70a8f",
+    "tests/harness/icr05a-fault-injection.test.mjs": "7ee0bda84d0ccc8faea09960d91dbbb01e360105baefe3aa41a5a60c0d64515d",
+    "tests/database/g2-rbac-session-boundary.test.mjs": "efa18b1687875bb3da1c43866d47b2086b97d8e11b1c5d327d3951551c529019"
+  },
+  "securityCertification": {
+    "status": "PENDING_INDEPENDENT_SECURITY_REVIEWER",
+    "decision": null,
+    "reviewer": null,
+    "reviewedSha": null
+  },
+  "ownerAuthorization": {
+    "granted": false,
+    "stagingSchemaWriteGranted": false,
+    "uatIdentityProvisioningGranted": false
+  }
+}

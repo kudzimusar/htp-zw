@@ -31,9 +31,11 @@ jobs:
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
-      - name: Parse-check the gated physical fault suite without running live sessions
-        run: node --check tests/harness/icr05a-fault-injection.test.mjs
-      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, and 3 workflow containment checks
+      - name: Parse-check the gated physical fault suite and attested UAT executor without running live sessions
+        run: |
+          node --check tests/harness/icr05a-fault-injection.test.mjs
+          node --check scripts/release/run-protected-staging-uat.mjs
+      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 5 workflow containment checks, and attested UAT route verification
         shell: bash
         run: |
           set -euo pipefail
@@ -43,9 +45,13 @@ jobs:
           grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
           node --test tests/harness/icr05b-workflow-containment.test.mjs 2>&1 | tee /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# tests 3$' /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# pass 3$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# tests 5$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# pass 5$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
+          node scripts/release/run-protected-staging-uat.mjs \
+            --mode verify-route \
+            --expected-sha "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --output /tmp/ht-g2-uat-route-attestation.json
       - name: Upload deterministic evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -54,6 +60,7 @@ jobs:
           path: |
             /tmp/icr05b-deterministic.tap
             /tmp/icr05b-workflow-containment.tap
+            /tmp/ht-g2-uat-route-attestation.json
           if-no-files-found: warn
 
   disposable-postgres-rbac-boundary:
@@ -88,18 +95,24 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y postgresql-client
-      - name: Run G2 RBAC Session Boundary & Story Title Authority Disposable PostgreSQL 16 Suites
+      - name: Run G2 RBAC Session Boundary (10 suites across all 9 functions) & Story Title Authority (15 + 9 suites) Disposable PostgreSQL 16 Suites
         shell: bash
+        env:
+          HT_DISPOSABLE_PG_BASE_URI: postgres://postgres:ephemeral-ci-only@127.0.0.1:55432
         run: |
           set -euo pipefail
           node --test tests/database/g2-rbac-session-boundary.test.mjs 2>&1 | tee /tmp/g2-rbac-session-boundary.tap
-          grep -Eq '^# tests 7$' /tmp/g2-rbac-session-boundary.tap
-          grep -Eq '^# pass 7$' /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# tests 10$' /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# pass 10$' /tmp/g2-rbac-session-boundary.tap
           grep -Eq '^# fail 0$' /tmp/g2-rbac-session-boundary.tap
           node --test tests/database/real-schema-title-authority.test.mjs 2>&1 | tee /tmp/real-schema-title-authority.tap
           grep -Eq '^# tests 15$' /tmp/real-schema-title-authority.tap
           grep -Eq '^# pass 15$' /tmp/real-schema-title-authority.tap
           grep -Eq '^# fail 0$' /tmp/real-schema-title-authority.tap
+          node --test tests/database/story-title-authority.test.mjs 2>&1 | tee /tmp/story-title-authority.tap
+          grep -Eq '^# tests 9$' /tmp/story-title-authority.tap
+          grep -Eq '^# pass 9$' /tmp/story-title-authority.tap
+          grep -Eq '^# fail 0$' /tmp/story-title-authority.tap
       - name: Upload disposable PostgreSQL regression evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -108,6 +121,7 @@ jobs:
           path: |
             /tmp/g2-rbac-session-boundary.tap
             /tmp/real-schema-title-authority.tap
+            /tmp/story-title-authority.tap
           if-no-files-found: warn
 
   physical-live-fault-injection:
@@ -117,9 +131,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: staging-uat-certification
-    # Isolated from pull_request triggers and untrusted branches.
-    # Requires manual workflow_dispatch on an approved ref, protected GitHub Environment
-    # approval (staging-uat-certification), and exact expected_sha parity.
+    # NOTE ON NON-MERGE EXECUTION ROUTE:
+    # GitHub Actions only registers `workflow_dispatch` for workflows present on the default branch (`main`).
+    # While `main` remains pre-G1 (`6994aa18d37e2189dbc1d3f8efc76a638ee0971c`, Merge authorization: NONE),
+    # the canonical non-merge execution route is `node scripts/release/run-protected-staging-uat.mjs --mode live --expected-sha <SHA>`,
+    # which validates `docs/delivery/ht-g2-approved-uat-source-allowlist.json` and all file SHA-256 digests before reading secrets.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,7 +143,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify exact authorized SHA before accessing protected UAT credentials
+      - name: Verify repository-committed allowlist and exact authorized SHA before accessing protected UAT credentials
         shell: bash
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
@@ -138,9 +154,14 @@ jobs:
             echo "::error title=SHA_MISMATCH::Checked out SHA ($ACTUAL_SHA) does not match authorized expected_sha ($EXPECTED_SHA)."
             exit 1
           }
-      - name: Require Owner-provisioned protected test identities
+          node scripts/release/run-protected-staging-uat.mjs \
+            --mode verify-route \
+            --expected-sha "$EXPECTED_SHA" \
+            --output /tmp/ht-g2-uat-route-attestation.json
+      - name: Execute attested live Staging UAT via allowlist-bound runner
         shell: bash
         env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
           UAT_ACTORS_JSON: ${{ secrets.HEALTHTIMES_UAT_ACTORS_JSON }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN }}
         run: |
@@ -148,39 +169,17 @@ jobs:
           if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
             echo "::add-mask::${SUPABASE_ACCESS_TOKEN}"
           fi
-          test -n "$UAT_ACTORS_JSON" && test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo "::error title=BLOCKED_OWNER_UAT_CREDENTIALS::ICR05A live session test cannot run without Owner-authorized test identities and a Staging audit token."
-            exit 78
-          }
-          node - <<'NODE'
-          const actors=JSON.parse(process.env.UAT_ACTORS_JSON || '{}');
-          const emails=['uat-specialist@healthtimes.test','uat-commercial@healthtimes.test'];
-          for (const actor of Object.values(actors)) {
-            if (actor && typeof actor.password === 'string' && actor.password) {
-              console.log(`::add-mask::${actor.password}`);
-            }
-          }
-          if(emails.some(email=>!actors[email]||actors[email].email!==email||typeof actors[email].password!=='string'||!actors[email].password)){
-            console.error('BLOCKED_OWNER_UAT_CREDENTIALS: both distinct real test actors and passwords required');
-            process.exit(78);
-          }
-          NODE
-          mkdir -p "$HOME/.healthtimes-secrets"
-          chmod 700 "$HOME/.healthtimes-secrets"
-          printf '%s' "$UAT_ACTORS_JSON" > "$HOME/.healthtimes-secrets/test-actors.json"
-          chmod 600 "$HOME/.healthtimes-secrets/test-actors.json"
-          node --test tests/harness/icr05a-fault-injection.test.mjs 2>&1 | tee /tmp/icr05a-physical.tap
-          grep -Eq '^# tests 10$' /tmp/icr05a-physical.tap
-          grep -Eq '^# pass 10$' /tmp/icr05a-physical.tap
-          grep -Eq '^# fail 0$' /tmp/icr05a-physical.tap
-          grep -Eq '^# skipped 0$' /tmp/icr05a-physical.tap
-      - name: Remove actor file
-        if: always()
-        run: rm -f "$HOME/.healthtimes-secrets/test-actors.json"
+          node scripts/release/run-protected-staging-uat.mjs \
+            --mode live \
+            --expected-sha "$EXPECTED_SHA" \
+            --output /tmp/ht-g2-uat-route-attestation.json \
+            --tap-output /tmp/icr05a-physical.tap
       - name: Upload physical test summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: icr05a-staging-physical-summary
-          path: /tmp/icr05a-physical.tap
+          path: |
+            /tmp/ht-g2-uat-route-attestation.json
+            /tmp/icr05a-physical.tap
           if-no-files-found: warn
