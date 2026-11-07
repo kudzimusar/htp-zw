@@ -4,7 +4,9 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const PSQL_BIN = '/opt/homebrew/opt/libpq/bin/psql';
+const PSQL_BIN = fs.existsSync('/opt/homebrew/opt/libpq/bin/psql')
+  ? '/opt/homebrew/opt/libpq/bin/psql'
+  : 'psql';
 const PG_URI = 'postgres://postgres:ephemeral-ci-only@127.0.0.1:55432/postgres';
 
 function runSql(sql) {

@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "3.0.0",
+  "programmeId": "HT-MVP-PUBLIC-LAUNCH-01",
+  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R8",
+  "manifestScope": "SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION",
+  "controllingIssue": "https://github.com/kudzimusar/htp-zw/issues/152",
+  "stackedDraftPr": "https://github.com/kudzimusar/htp-zw/pull/153",
+  "frozenG1ReleasePr": "https://github.com/kudzimusar/htp-zw/pull/149",
+  "frozenG1BaseSha": "1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5",
+  "pinnedCandidateVerifierSha256": "862d39d0c4f571507e2737da15daa51b1eb02c66778b6d86f4638caedeb245c0",
+  "ownerPublicKeyCustodyPolicy": {
+    "authoritySource": "OUT_OF_BAND_EXTERNAL_OWNER_TRUST_ROOT_REQUIRED",
+    "embeddedCandidatePublicKeyPresent": false,
+    "blocklistedHistoricalPlaceholderFingerprintSha256B64": "SHA256:j0jsyP9NEhN5XtSDIloQV757NXqoM1hzIdyGvA9wvm4",
+    "blocklistedHistoricalPlaceholderFingerprintSha256Hex": "8f48ecc8ff4d1213795ed483225a1057be7b357aa833587321dc86bc0f70be6e",
+    "liveModeRequiredKeyClassification": "OWNER_OFFLINE_PRODUCTION_AUTHORITY",
+    "rehearsalModeRequiredKeyClassification": "NON_PRODUCTION_FIXTURE_REHEARSAL_ONLY"
+  },
+  "defaultBranchWorkflowStatus": {
+    "defaultBranch": "main",
+    "defaultBranchHeadSha": "6994aa18d37e2189dbc1d3f8efc76a638ee0971c",
+    "workflowFileOnDefaultBranch": false,
+    "githubWorkflowDispatchRegisteredBeforeMerge": false,
+    "mergeToMainAuthorized": false,
+    "canonicalNonMergeExecutionRoute": "owner-trusted-uat-bootstrap.mjs --mode live --repo-root <REPO_ROOT> --trust-root <EXTERNAL_OWNER_TRUST_ROOT> --warrant <EXTERNAL_OWNER_SIGNED_WARRANT> --replay-ledger <EXTERNAL_REPLAY_LEDGER> --secrets-file <EXTERNAL_OWNER_SECRETS_FILE>"
+  },
+  "allowedBranches": [
+    "release/ht-mvp-2.0-final",
+    "fix/ht-g2-rbac-session-boundary"
+  ],
+  "stagingProject": {
+    "projectRef": "bzuvntbkevvuhfhqhkua",
+    "preApplicationMigrationCount": 112,
+    "postApplicationMigrationCount": 114,
+    "orderedGate2Migrations": [
+      {
+        "version": "20261102160000",
+        "path": "supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql",
+        "sha256": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b",
+        "scope": "Enforces authoritative story title guard across both public.newsroom_create_story(jsonb) and public.newsroom_save_story(uuid, integer, jsonb, text)."
+      },
+      {
+        "version": "20261107130000",
+        "path": "supabase/migrations/20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql",
+        "sha256": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
+        "scope": "Enforces fail-closed auth.uid(), active staff status, active non-expired staff session binding, pinned search_path = public, auth[, storage], and REVOKE EXECUTE FROM PUBLIC, anon across all 9 affected RPCs."
+      }
+    ],
+    "reconciledPhantomMigrationNote": "20261102160500_ht_mvp_nr_title_authority_save_guard.sql does not exist in the repository; it was a duplicate prose row in the R2 report table because 20261102160000_ht_mvp_r3_story_title_authority.sql already contains both newsroom_create_story and newsroom_save_story."
+  },
+  "requiredArtifactDigests": {
+    "supabase/migrations/20261102160000_ht_mvp_r3_story_title_authority.sql": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b",
+    "supabase/migrations/20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
+    "docs/delivery/ht-mvp-production-migration-manifest.json": "fe6abf17239733f86be44c4c963ff679ebb1aed9c8e0be1506e9d5c638c70a8f",
+    "tests/harness/icr05a-fault-injection.test.mjs": "7ee0bda84d0ccc8faea09960d91dbbb01e360105baefe3aa41a5a60c0d64515d",
+    "tests/database/g2-rbac-session-boundary.test.mjs": "efa18b1687875bb3da1c43866d47b2086b97d8e11b1c5d327d3951551c529019",
+    "tests/database/real-schema-title-authority.test.mjs": "b7654037ba40c7b0dd78edbc14c16c912c65f2bcfb3d5704ab4ad4f74d1c2647",
+    "tests/database/story-title-authority.test.mjs": "d14b95364ef20d22082e7039e026f903a7813d72c57a54bd55c020da916c5bfc"
+  },
+  "trustBoundaryPolicy": {
+    "inBranchManifestCanAuthorizeLiveExecution": false,
+    "cliExpectedShaCanAuthorizeBranch": false,
+    "environmentVariablesCanAuthorizeLiveExecution": false,
+    "embeddedPublicKeyTrustedForLiveExecution": false,
+    "unverifiedG1AncestryAllowed": false,
+    "dirtyWorkingTreeAllowed": false,
+    "requiredExternalTrustRootFlag": "--owner-trust-root",
+    "requiredExternalWarrantFlag": "--policy-warrant",
+    "requiredExternalWarrantLocation": "MUST_RESIDE_OUTSIDE_REPO_WORKING_TREE",
+    "requiredExternalWarrantSignatureAlgorithm": "Ed25519"
+  }
+}

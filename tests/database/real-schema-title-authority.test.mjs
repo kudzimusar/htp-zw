@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 
-const PSQL_BIN = '/opt/homebrew/opt/libpq/bin/psql';
+const PSQL_BIN = fs.existsSync('/opt/homebrew/opt/libpq/bin/psql')
+  ? '/opt/homebrew/opt/libpq/bin/psql'
+  : 'psql';
 const PG_URI = 'postgres://postgres:ephemeral-ci-only@127.0.0.1:55432/ht_real_schema_test';
 
 function runSql(sql) {

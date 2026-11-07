@@ -14,12 +14,29 @@ appId: zw.co.healthtimes.app.dev
 - assertNotVisible: "Open in .*HealthTimes.*"
 - takeScreenshot: home
 
-- openLink: "healthtimes://premium"
-# iOS may present its system confirmation after openLink returns. Retry only
-# this prompt-handling step; the destination and all evidence remain required.
+# iOS first-use custom-scheme trust can dismiss the system sheet without
+# settling the requested deep link. Prime the scheme on Home before the
+# real Premium/Watch routes, and include openLink inside the retry block
+# so re-invocation after prompt dismissal reaches the destination deterministically.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: "healthtimes://"
+      - runFlow:
+          when:
+            visible: "Open in .*HealthTimes.*"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Top Stories"
+          timeout: 30000
+      - assertNotVisible: "Open in .*HealthTimes.*"
+
 - retry:
     maxRetries: 3
     commands:
+      - openLink: "healthtimes://premium"
       - runFlow:
           when:
             platform: iOS
@@ -28,7 +45,7 @@ appId: zw.co.healthtimes.app.dev
             - tapOn: "Open"
       - extendedWaitUntil:
           visible: "HEALTHTIMES PREMIUM"
-          timeout: 10000
+          timeout: 15000
 - extendedWaitUntil:
     notVisible: "Checking membership options…"
     timeout: 30000
@@ -42,12 +59,10 @@ appId: zw.co.healthtimes.app.dev
 - assertNotVisible: "Open in .*HealthTimes.*"
 - takeScreenshot: premium
 
-- openLink: "healthtimes://watch"
-# iOS may present its system confirmation after openLink returns. Retry only
-# this prompt-handling step; the destination and all evidence remain required.
 - retry:
     maxRetries: 3
     commands:
+      - openLink: "healthtimes://watch"
       - runFlow:
           when:
             platform: iOS
@@ -56,7 +71,7 @@ appId: zw.co.healthtimes.app.dev
             - tapOn: "Open"
       - extendedWaitUntil:
           visible: "Featured video"
-          timeout: 10000
+          timeout: 15000
 - extendedWaitUntil:
     visible: "Watch"
     timeout: 30000
