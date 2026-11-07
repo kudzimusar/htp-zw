@@ -72,9 +72,11 @@ appId: zw.co.healthtimes.app.dev
     commands:
       # A tap alone is not proof that the native activity sheet opened.
       - extendedWaitUntil:
-          visible: "AirDrop"
+          visible:
+            id: "actionGroupCell"
+            text: "Copy"
           timeout: 30000
-      - assertVisible: "Copy"
+      - assertVisible: "healthtimes.co.zw"
 - takeScreenshot: article-native-share
 - stopApp
 

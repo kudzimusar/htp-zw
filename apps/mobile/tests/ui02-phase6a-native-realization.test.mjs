@@ -102,8 +102,9 @@ test("iOS external-surface evidence requires visible system UI before capture",(
   const flow=read("e2e/ui02-phase6a-phone.yaml");
   const share=flow.slice(flow.indexOf('- tapOn: "Share article"'),flow.indexOf('- takeScreenshot: article-native-share'));
   assert.match(share,/platform: iOS/);
-  assert.match(share,/visible: "AirDrop"/);
-  assert.match(share,/assertVisible: "Copy"/);
+  assert.match(share,/id: "actionGroupCell"/);
+  assert.match(share,/text: "Copy"/);
+  assert.match(share,/assertVisible: "healthtimes\.co\.zw"/);
   const destination=flow.slice(flow.indexOf('# Source-backed external YouTube destination'),flow.indexOf('- takeScreenshot: watch-external-youtube'));
   assert.match(destination,/platform: iOS/);
   assert.ok(destination.includes('youtube\\\\.com') && destination.includes('youtu\\\\.be'));
