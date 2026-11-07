@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R6
+ * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R7
  * Fail-Closed Source-Consistency & External Owner Trust-Root Bound Executor for Protected Staging UAT
  *
  * R6 Trust-Boundary & Key-Interoperability Guarantees:
@@ -300,6 +300,11 @@ function verifySourceConsistency(expectedShaArg) {
     attestationScope: 'SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION',
     liveExecutionAuthorized: false,
     privilegedCredentialsAccessed: false,
+    credentialsEnvelopeInspected: false,
+    credentialsForwardedToInner: false,
+    privilegedSecretsRead: false,
+    privilegedSecretsInjected: false,
+    privilegedRuntimeUsed: false,
     checkedOutSha: actualSha,
     expectedSha,
     candidateBranch,
@@ -649,6 +654,11 @@ function main() {
       ...attestation,
       attestationScope: 'SYNTHETIC_REHEARSAL_OUTER_AND_INNER_VERIFIED_NO_LIVE_AUTHORITY',
       liveExecutionAuthorized: false,
+      credentialsEnvelopeInspected: true,
+      credentialsForwardedToInner: true,
+      privilegedSecretsRead: false,
+      privilegedSecretsInjected: false,
+      privilegedRuntimeUsed: false,
       privilegedCredentialsAccessed: false,
       innerVerifierWarrantVerified: true,
       innerVerifierCredentialsSchemaVerified: true,
@@ -667,6 +677,11 @@ function main() {
     ...attestation,
     attestationScope: 'WARRANT_VERIFIED_LIVE_EXECUTION',
     liveExecutionAuthorized: true,
+    credentialsEnvelopeInspected: true,
+    credentialsForwardedToInner: true,
+    privilegedSecretsRead: true,
+    privilegedSecretsInjected: true,
+    privilegedRuntimeUsed: true,
     privilegedCredentialsAccessed: true,
     innerVerifierWarrantVerified: true,
     warrantVerification,

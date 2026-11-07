@@ -12,9 +12,9 @@ const EXECUTOR_REL_PATH = 'scripts/release/run-protected-staging-uat.mjs';
 const BOOTSTRAP_REL_PATH = 'scripts/release/owner-trusted-uat-bootstrap.mjs';
 
 const PINNED_INNER_VERIFIER_SHA256 =
-  'f2fbbb8ef4ac349aa8cfb0af55b3f3c156888cd9c75ea95e069cd01b59257f13';
+  '8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5';
 const PINNED_OUTER_BOOTSTRAP_SHA256 =
-  '30b66388ed4a672c928e27c0127a1f4504af2e2bba71d17ab9dab8cf00068b11';
+  '0d40787e78b26c7310af1c7f79e391bcc629ed194e9d7485cee7b9fafdba70f4';
 const FROZEN_G1_SHA = '1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5';
 
 function canonicalizeJson(value) {
@@ -228,27 +228,17 @@ function stageExternalCustodyEnv(repoDir) {
   };
 }
 
-test('G2-WF-CONTAINMENT-01: physical-live-fault-injection is strictly gated to workflow_dispatch on approved release/remediation refs with full history checkout', () => {
+test('G2-WF-CONTAINMENT-01: In-repo physical fault-injection job is explicitly disabled (if: false) and checkouts enforce fetch-depth: 0', () => {
   const raw = fs.readFileSync(WORKFLOW_PATH, 'utf8');
 
-  const jobIndex = raw.indexOf('  physical-live-fault-injection:');
-  assert.ok(jobIndex !== -1, 'physical-live-fault-injection job must exist');
+  const jobIndex = raw.indexOf('  physical-live-fault-injection-disabled:');
+  assert.ok(jobIndex !== -1, 'physical-live-fault-injection-disabled job must exist');
   const jobBlock = raw.slice(jobIndex);
 
   assert.match(
     jobBlock,
-    /if:\s*>?-?\s*[\s\S]*?github\.event_name\s*==\s*'workflow_dispatch'/,
-    'physical-live-fault-injection must require github.event_name == workflow_dispatch',
-  );
-  assert.match(
-    jobBlock,
-    /github\.ref\s*==\s*'refs\/heads\/release\/ht-mvp-2\.0-final'/,
-    'physical-live-fault-injection must restrict ref to release/ht-mvp-2.0-final or fix/ht-g2-rbac-session-boundary',
-  );
-  assert.match(
-    jobBlock,
-    /environment:\s*staging-uat-certification/,
-    'physical-live-fault-injection must bind to protected GitHub Environment staging-uat-certification',
+    /if:\s*false/,
+    'physical-live-fault-injection-disabled must have if: false',
   );
   assert.match(
     raw,
@@ -257,44 +247,32 @@ test('G2-WF-CONTAINMENT-01: physical-live-fault-injection is strictly gated to w
   );
 });
 
-test('G2-WF-CONTAINMENT-02: PR-triggered jobs never reference HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN, HEALTHTIMES_UAT_ACTORS_JSON, or HEALTHTIMES_OWNER_WARRANT_JSON', () => {
+test('G2-WF-CONTAINMENT-02: Workflow never references HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN, HEALTHTIMES_UAT_ACTORS_JSON, or HEALTHTIMES_OWNER_WARRANT_JSON', () => {
   const raw = fs.readFileSync(WORKFLOW_PATH, 'utf8');
-  const jobIndex = raw.indexOf('  physical-live-fault-injection:');
-  assert.ok(jobIndex !== -1);
-
-  const prExecutableSection = raw.slice(0, jobIndex);
   assert.ok(
-    !prExecutableSection.includes('HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN'),
-    'PR-executable jobs must never reference HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN',
+    !raw.includes('HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN'),
+    'Workflow must never reference HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN',
   );
   assert.ok(
-    !prExecutableSection.includes('HEALTHTIMES_UAT_ACTORS_JSON'),
-    'PR-executable jobs must never reference HEALTHTIMES_UAT_ACTORS_JSON',
+    !raw.includes('HEALTHTIMES_UAT_ACTORS_JSON'),
+    'Workflow must never reference HEALTHTIMES_UAT_ACTORS_JSON',
   );
   assert.ok(
-    !prExecutableSection.includes('HEALTHTIMES_OWNER_WARRANT_JSON'),
-    'PR-executable jobs must never reference HEALTHTIMES_OWNER_WARRANT_JSON',
+    !raw.includes('HEALTHTIMES_OWNER_WARRANT_JSON'),
+    'Workflow must never reference HEALTHTIMES_OWNER_WARRANT_JSON',
   );
 });
 
-test('G2-WF-CONTAINMENT-03: physical-live-fault-injection checks out github.sha (never pull_request.head.sha) and enforces external --policy-warrant before reading secrets', () => {
+test('G2-WF-CONTAINMENT-03: In-repo live job is disabled and execution is directed exclusively to external owner-trusted-uat-bootstrap.mjs', () => {
   const raw = fs.readFileSync(WORKFLOW_PATH, 'utf8');
-  const jobIndex = raw.indexOf('  physical-live-fault-injection:');
-  const jobBlock = raw.slice(jobIndex);
-
   assert.ok(
-    !jobBlock.includes('github.event.pull_request.head.sha'),
-    'physical-live-fault-injection must never checkout untrusted pull_request.head.sha',
+    !raw.includes('physical-live-fault-injection:'),
+    'Active physical-live-fault-injection job must not exist',
   );
   assert.match(
-    jobBlock,
-    /EXPECTED_SHA/,
-    'physical-live-fault-injection must verify EXPECTED_SHA before reading secrets',
-  );
-  assert.match(
-    jobBlock,
-    /--policy-warrant/,
-    'physical-live-fault-injection must pass an external --policy-warrant to run-protected-staging-uat.mjs',
+    raw,
+    /owner-trusted-uat-bootstrap\.mjs/,
+    'Workflow must document owner-trusted-uat-bootstrap.mjs as canonical execution path',
   );
 });
 
@@ -663,8 +641,12 @@ test('G2-WF-CONTAINMENT-12: Positive end-to-end Outer-Bootstrap -> Inner-Candida
     );
     assert.equal(report.verifiedCandidateVerifierSha256, PINNED_INNER_VERIFIER_SHA256);
     assert.equal(report.bootstrapExecutableSha256, PINNED_OUTER_BOOTSTRAP_SHA256);
+    assert.equal(report.credentialsEnvelopeInspected, true);
+    assert.equal(report.credentialsForwardedToInner, true);
     assert.equal(report.privilegedSecretsRead, false);
     assert.equal(report.privilegedSecretsInjected, false);
+    assert.equal(report.privilegedRuntimeUsed, false);
+    assert.equal(report.liveExecutionAuthorized, false);
     assert.ok(report.strippedAmbientEnvKeys.includes('SUPABASE_ACCESS_TOKEN'));
     assert.ok(report.strippedAmbientEnvKeys.includes('HT_G2_OWNER_AUTHORIZATION'));
   } finally {
@@ -1106,6 +1088,151 @@ test('G2-WF-CONTAINMENT-16: Negative test — Missing Reporter/Editor-in-Chief a
       JSON.parse(resBadCreds.stderr.trim()).errorCode,
       'INVALID_SYNTHETIC_ACTOR_CREDENTIALS',
     );
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-17: Negative concurrency test — Parallel bootstrap processes racing on the same warrantId fail closed atomically', async () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const warrantPath = path.join(env.extDir, 'warrant.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(warrantPath, JSON.stringify(env.signWarrant(env.buildWarrantPayload()), null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+
+    const spawnBootstrap = () =>
+      new Promise((resolve) => {
+        const proc = spawnSync(
+          process.execPath,
+          [
+            env.extBootstrapPath,
+            '--mode',
+            'rehearsal',
+            '--repo-root',
+            repoDir,
+            '--trust-root',
+            trustRootPath,
+            '--warrant',
+            warrantPath,
+            '--replay-ledger',
+            ledgerPath,
+            '--credentials-file',
+            credsPath,
+          ],
+          { encoding: 'utf8' },
+        );
+        resolve(proc);
+      });
+
+    // Run two processes racing on the same warrant and ledger
+    const [resA, resB] = await Promise.all([spawnBootstrap(), spawnBootstrap()]);
+
+    const statuses = [resA.status, resB.status].sort();
+    assert.deepEqual(
+      statuses,
+      [0, 78],
+      `Expected exactly one process to succeed (0) and one to fail closed (78). Got ${resA.status} and ${resB.status}`,
+    );
+
+    const failedRes = resA.status === 78 ? resA : resB;
+    const errorJson = JSON.parse(failedRes.stderr.trim());
+    assert.equal(errorJson.errorCode, 'REPLAYED_WARRANT_ID');
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-18: Interrupted execution / existing claim file prevents warrant reuse', () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const warrantPath = path.join(env.extDir, 'warrant.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    const warrantObj = env.signWarrant(env.buildWarrantPayload());
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(warrantPath, JSON.stringify(warrantObj, null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+
+    // Simulate an interrupted execution that left a .claim file on disk before completing
+    const claimsDir = path.join(env.extDir, 'warrant-claims');
+    fs.mkdirSync(claimsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(claimsDir, `${warrantObj.payload.warrantId}.claim`),
+      JSON.stringify({ interrupted: true, warrantId: warrantObj.payload.warrantId }),
+      'utf8',
+    );
+
+    const res = env.runBootstrap([
+      '--mode',
+      'rehearsal',
+      '--repo-root',
+      repoDir,
+      '--trust-root',
+      trustRootPath,
+      '--warrant',
+      warrantPath,
+      '--replay-ledger',
+      ledgerPath,
+      '--credentials-file',
+      credsPath,
+    ]);
+    assert.equal(res.status, 78);
+    assert.equal(JSON.parse(res.stderr.trim()).errorCode, 'REPLAYED_WARRANT_ID');
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(env.extDir, { recursive: true, force: true });
+  }
+});
+
+test('G2-WF-CONTAINMENT-19: Attestation truthfulness — Rehearsal attestation derives mode-specific booleans separating inspection from privileged use', () => {
+  const repoDir = createIsolatedCleanRepoClone();
+  const env = stageExternalCustodyEnv(repoDir);
+  try {
+    const trustRootPath = path.join(env.extDir, 'trust-root.json');
+    const warrantPath = path.join(env.extDir, 'warrant.json');
+    const ledgerPath = path.join(env.extDir, 'ledger.json');
+    const credsPath = path.join(env.extDir, 'creds.json');
+    const outputPath = path.join(env.extDir, 'rehearsal-attestation.json');
+    fs.writeFileSync(trustRootPath, JSON.stringify(env.buildTrustRoot(), null, 2));
+    fs.writeFileSync(warrantPath, JSON.stringify(env.signWarrant(env.buildWarrantPayload()), null, 2));
+    fs.writeFileSync(credsPath, JSON.stringify(env.buildSyntheticCredentials(), null, 2));
+
+    const res = env.runBootstrap([
+      '--mode',
+      'rehearsal',
+      '--repo-root',
+      repoDir,
+      '--trust-root',
+      trustRootPath,
+      '--warrant',
+      warrantPath,
+      '--replay-ledger',
+      ledgerPath,
+      '--credentials-file',
+      credsPath,
+      '--output',
+      outputPath,
+    ]);
+    assert.equal(res.status, 0, `Expected exit 0: ${res.stderr}`);
+
+    const report = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    assert.equal(report.credentialsEnvelopeInspected, true);
+    assert.equal(report.credentialsForwardedToInner, true);
+    assert.equal(report.privilegedSecretsRead, false);
+    assert.equal(report.privilegedSecretsInjected, false);
+    assert.equal(report.privilegedRuntimeUsed, false);
+    assert.equal(report.liveExecutionAuthorized, false);
+    assert.equal(typeof report.consumedWarrantId, 'string');
+    assert.ok(report.consumedWarrantId.length >= 12);
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
     fs.rmSync(env.extDir, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R6
+ * HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R7
  * Reference Implementation of Owner-Controlled External Trusted Bootstrap Controller
  *
  * CUSTODY & EXECUTION BOUNDARY:
@@ -12,9 +12,9 @@
  *   directory outside `REPO_ROOT` (e.g. `/opt/healthtimes-owner-custody/bin/owner-trusted-uat-bootstrap.mjs`)
  *   before execution.
  * - Performs all 10 pre-secret trust-root, candidate SHA, frozen G1 ancestry, inner-verifier SHA-256
- *   (`f2fbbb8ef4ac349aa8cfb0af55b3f3c156888cd9c75ea95e069cd01b59257f13`), 7-artifact digest, Ed25519
- *   warrant signature, single-use replay ledger, security-review binding, actor/effect scope, and
- *   credential-classification checks BEFORE invoking the inner candidate verifier (`run-protected-staging-uat.mjs`).
+ *   (`8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5`), 7-artifact digest, Ed25519
+ *   warrant signature, kernel-level atomic single-use claim & replay ledger, security-review binding,
+ *   actor/effect scope, and credential-classification checks BEFORE invoking the inner candidate verifier (`run-protected-staging-uat.mjs`).
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 const BOOTSTRAP_SELF_PATH = fs.realpathSync(fileURLToPath(import.meta.url));
 const FROZEN_G1_BASE_SHA = '1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5';
 const PINNED_INNER_CANDIDATE_VERIFIER_SHA256 =
-  'f2fbbb8ef4ac349aa8cfb0af55b3f3c156888cd9c75ea95e069cd01b59257f13';
+  '8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5';
 
 const ALLOWED_BRANCHES = Object.freeze([
   'release/ht-mvp-2.0-final',
@@ -72,8 +72,12 @@ function failClosed(code, message) {
     bootstrapStatus: 'DENIED_BEFORE_SECRET_INJECTION',
     errorCode: code,
     message,
+    credentialsEnvelopeInspected: false,
+    credentialsForwardedToInner: false,
     privilegedSecretsRead: false,
     privilegedSecretsInjected: false,
+    privilegedRuntimeUsed: false,
+    liveExecutionAuthorized: false,
     timestamp: new Date().toISOString(),
   };
   console.error(JSON.stringify(payload));
@@ -167,6 +171,91 @@ function git(repoRoot, args) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim();
+}
+
+function claimWarrantExclusively(realReplayLedgerPath, warrantId, metadata = {}) {
+  const ledgerDir = path.dirname(realReplayLedgerPath);
+  const claimsDir = path.join(ledgerDir, 'warrant-claims');
+  fs.mkdirSync(claimsDir, { recursive: true });
+
+  const claimPath = path.join(claimsDir, `${warrantId}.claim`);
+
+  let claimFd;
+  try {
+    claimFd = fs.openSync(claimPath, 'wx');
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      failClosed(
+        'REPLAYED_WARRANT_ID',
+        `Warrant '${warrantId}' has already been claimed or consumed and cannot be replayed.`,
+      );
+    }
+    throw err;
+  }
+
+  try {
+    const claimRecord = {
+      warrantId,
+      claimedAt: new Date().toISOString(),
+      pid: process.pid,
+      ...metadata,
+    };
+    fs.writeFileSync(claimFd, `${JSON.stringify(claimRecord, null, 2)}\n`, 'utf8');
+  } finally {
+    fs.closeSync(claimFd);
+  }
+
+  const lockDir = path.join(ledgerDir, 'replay-ledger.lock');
+  let acquiredLock = false;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      fs.mkdirSync(lockDir);
+      acquiredLock = true;
+      break;
+    } catch (err) {
+      if (err.code === 'EEXIST') {
+        const sleepMs = 20;
+        const waitUntil = Date.now() + sleepMs;
+        while (Date.now() < waitUntil) {
+          // busy wait
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  try {
+    let replayLedger = { consumedWarrantIds: [] };
+    if (fs.existsSync(realReplayLedgerPath)) {
+      try {
+        replayLedger = JSON.parse(fs.readFileSync(realReplayLedgerPath, 'utf8'));
+      } catch {
+        replayLedger = { consumedWarrantIds: [] };
+      }
+    }
+    if (!Array.isArray(replayLedger.consumedWarrantIds)) {
+      replayLedger.consumedWarrantIds = [];
+    }
+    if (replayLedger.consumedWarrantIds.includes(warrantId)) {
+      failClosed(
+        'REPLAYED_WARRANT_ID',
+        `Warrant '${warrantId}' has already been consumed and cannot be replayed.`,
+      );
+    }
+    replayLedger.consumedWarrantIds.push(warrantId);
+    const tmpLedgerPath = `${realReplayLedgerPath}.tmp.${process.pid}.${Date.now()}`;
+    fs.writeFileSync(tmpLedgerPath, `${JSON.stringify(replayLedger, null, 2)}\n`, 'utf8');
+    fs.renameSync(tmpLedgerPath, realReplayLedgerPath);
+  } finally {
+    if (acquiredLock) {
+      try {
+        fs.rmdirSync(lockDir);
+      } catch {
+        // ignore lock release error
+      }
+    }
+  }
 }
 
 function main() {
@@ -443,11 +532,24 @@ function main() {
     );
   }
 
+  const claimsDir = path.join(path.dirname(realReplayLedgerPath), 'warrant-claims');
+  const claimPath = path.join(claimsDir, `${payload.warrantId}.claim`);
+  if (fs.existsSync(claimPath)) {
+    failClosed(
+      'REPLAYED_WARRANT_ID',
+      `Warrant '${payload.warrantId}' has already been claimed and cannot be replayed.`,
+    );
+  }
+
   let replayLedger = { consumedWarrantIds: [] };
   if (fs.existsSync(realReplayLedgerPath)) {
-    replayLedger = JSON.parse(fs.readFileSync(realReplayLedgerPath, 'utf8'));
+    try {
+      replayLedger = JSON.parse(fs.readFileSync(realReplayLedgerPath, 'utf8'));
+    } catch {
+      replayLedger = { consumedWarrantIds: [] };
+    }
   }
-  if (replayLedger.consumedWarrantIds.includes(payload.warrantId)) {
+  if (Array.isArray(replayLedger.consumedWarrantIds) && replayLedger.consumedWarrantIds.includes(payload.warrantId)) {
     failClosed(
       'REPLAYED_WARRANT_ID',
       `Warrant '${payload.warrantId}' has already been consumed and cannot be replayed.`,
@@ -569,9 +671,11 @@ function main() {
     }
   }
 
-  // Consume warrantId in external replay ledger before invoking inner candidate script
-  replayLedger.consumedWarrantIds.push(payload.warrantId);
-  fs.writeFileSync(realReplayLedgerPath, `${JSON.stringify(replayLedger, null, 2)}\n`, 'utf8');
+  // Atomically claim warrantId in external warrant-claims store and update replay ledger before invoking candidate script
+  claimWarrantExclusively(realReplayLedgerPath, payload.warrantId, {
+    mode: args.mode,
+    approvedHeadSha: actualHeadSha,
+  });
 
   const sanitizedEnv = { ...process.env };
   for (const k of AMBIENT_SECRET_ENV_KEYS) {
@@ -618,6 +722,7 @@ function main() {
   const innerAttestation = JSON.parse(fs.readFileSync(innerAttestationFile, 'utf8'));
   fs.rmSync(innerAttestationFile, { force: true });
 
+  const isLive = args.mode === 'live';
   const report = {
     bootstrapStatus:
       args.mode === 'rehearsal'
@@ -644,8 +749,12 @@ function main() {
     allowedTargetActors: actors,
     allowedSessionOnlyEffects: effects,
     strippedAmbientEnvKeys: strippedEnvKeys,
-    privilegedSecretsRead: false,
-    privilegedSecretsInjected: false,
+    credentialsEnvelopeInspected: true,
+    credentialsForwardedToInner: true,
+    privilegedSecretsRead: isLive,
+    privilegedSecretsInjected: isLive,
+    privilegedRuntimeUsed: isLive,
+    liveExecutionAuthorized: isLive,
     verifiedArtifactDigests: verifiedDiskDigests,
   };
 

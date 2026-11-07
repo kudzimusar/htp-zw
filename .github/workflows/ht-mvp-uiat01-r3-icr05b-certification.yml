@@ -37,7 +37,7 @@ jobs:
           node --check tests/harness/icr05a-fault-injection.test.mjs
           node --check scripts/release/owner-trusted-uat-bootstrap.mjs
           node --check scripts/release/run-protected-staging-uat.mjs
-      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 16 workflow containment & outer-to-inner synthetic rehearsal checks, and source-consistency route verification
+      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 19 workflow containment & outer-to-inner synthetic rehearsal checks, and source-consistency route verification
         shell: bash
         run: |
           set -euo pipefail
@@ -47,8 +47,8 @@ jobs:
           grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
           node --test tests/harness/icr05b-workflow-containment.test.mjs 2>&1 | tee /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# tests 16$' /tmp/icr05b-workflow-containment.tap
-          grep -Eq '^# pass 16$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# tests 19$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# pass 19$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
           node scripts/release/run-protected-staging-uat.mjs \
             --mode verify-route \
@@ -127,72 +127,16 @@ jobs:
             /tmp/story-title-authority.tap
           if-no-files-found: warn
 
-  physical-live-fault-injection:
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      (github.ref == 'refs/heads/release/ht-mvp-2.0-final' || github.ref == 'refs/heads/fix/ht-g2-rbac-session-boundary')
+  physical-live-fault-injection-disabled:
+    # OBSOLETE & EXPLICITLY DISABLED IN R7:
+    # Staging UAT fault-injection execution is directed exclusively through the external
+    # Owner-controlled trusted bootstrap (`owner-trusted-uat-bootstrap.mjs`).
+    # In-repo CI workflows and PR runs never receive live staging credentials or live execution authority.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging-uat-certification
-    # NOTE ON NON-MERGE EXECUTION ROUTE & EXTERNAL WARRANT REQUIREMENT:
-    # 1. GitHub Actions only registers `workflow_dispatch` for workflows present on the default branch (`main`).
-    #    While `main` remains pre-G1 (`6994aa18d37e2189dbc1d3f8efc76a638ee0971c`, Merge authorization: NONE),
-    #    the canonical non-merge execution route is an Owner-operated isolated runner invoking:
-    #      `node scripts/release/run-protected-staging-uat.mjs --mode live --expected-sha <SHA> --policy-warrant <EXTERNAL_WARRANT_PATH>`
-    # 2. Both the Owner-operated runner and this workflow job require an external Ed25519 Owner-signed warrant
-    #    outside the repository working tree (`--policy-warrant /tmp/ht-g2-owner-warrant.json`) before any staging
-    #    credentials can be used.
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Verify source consistency and exact authorized SHA before accessing protected UAT credentials
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
+      - name: Deprecation Notice
         run: |
-          set -euo pipefail
-          ACTUAL_SHA="$(git rev-parse HEAD)"
-          test -n "$EXPECTED_SHA" && test "$ACTUAL_SHA" = "$EXPECTED_SHA" || {
-            echo "::error title=SHA_MISMATCH::Checked out SHA ($ACTUAL_SHA) does not match authorized expected_sha ($EXPECTED_SHA)."
-            exit 1
-          }
-          node scripts/release/run-protected-staging-uat.mjs \
-            --mode verify-route \
-            --expected-sha "$EXPECTED_SHA" \
-            --output /tmp/ht-g2-uat-route-attestation.json
-      - name: Execute warrant-verified live Staging UAT via allowlist-bound runner
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-          OWNER_WARRANT_JSON: ${{ secrets.HEALTHTIMES_OWNER_WARRANT_JSON }}
-          UAT_ACTORS_JSON: ${{ secrets.HEALTHTIMES_UAT_ACTORS_JSON }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
-            echo "::add-mask::${SUPABASE_ACCESS_TOKEN}"
-          fi
-          WARRANT_FILE="$(mktemp /tmp/ht-g2-owner-warrant-XXXXXX.json)"
-          trap 'rm -f "$WARRANT_FILE"' EXIT
-          chmod 600 "$WARRANT_FILE"
-          printf '%s' "${OWNER_WARRANT_JSON:-}" > "$WARRANT_FILE"
-          node scripts/release/run-protected-staging-uat.mjs \
-            --mode live \
-            --expected-sha "$EXPECTED_SHA" \
-            --policy-warrant "$WARRANT_FILE" \
-            --output /tmp/ht-g2-uat-route-attestation.json \
-            --tap-output /tmp/icr05a-physical.tap
-      - name: Upload physical test summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: icr05a-staging-physical-summary
-          path: |
-            /tmp/ht-g2-uat-route-attestation.json
-            /tmp/icr05a-physical.tap
-          if-no-files-found: warn
+          echo "::error title=JOB_DISABLED::In-repo live fault-injection workflow is disabled. Live execution is authorized exclusively via external owner-trusted-uat-bootstrap.mjs."
+          exit 1

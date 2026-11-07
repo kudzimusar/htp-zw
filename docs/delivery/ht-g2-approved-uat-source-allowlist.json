@@ -1,13 +1,13 @@
 {
   "schemaVersion": "3.0.0",
   "programmeId": "HT-MVP-PUBLIC-LAUNCH-01",
-  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R6",
+  "gateId": "HT-MVP-PUBLIC-LAUNCH-01-G2-LR01-R7",
   "manifestScope": "SOURCE_CONSISTENCY_ONLY_NOT_EXECUTION_AUTHORIZATION",
   "controllingIssue": "https://github.com/kudzimusar/htp-zw/issues/152",
   "stackedDraftPr": "https://github.com/kudzimusar/htp-zw/pull/153",
   "frozenG1ReleasePr": "https://github.com/kudzimusar/htp-zw/pull/149",
   "frozenG1BaseSha": "1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5",
-  "pinnedCandidateVerifierSha256": "f2fbbb8ef4ac349aa8cfb0af55b3f3c156888cd9c75ea95e069cd01b59257f13",
+  "pinnedCandidateVerifierSha256": "8b1f3fab30ab4f964500d93655b3b002d5f2a1184e8a4cf44480269002701ce5",
   "ownerPublicKeyCustodyPolicy": {
     "authoritySource": "OUT_OF_BAND_EXTERNAL_OWNER_TRUST_ROOT_REQUIRED",
     "embeddedCandidatePublicKeyPresent": false,
