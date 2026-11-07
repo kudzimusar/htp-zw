@@ -208,6 +208,13 @@ appId: zw.co.healthtimes.app.dev
     when:
       platform: iOS
     commands:
+      # Safari's first-use tip masks its address bar from accessibility.
+      - runFlow:
+          when:
+            visible: "View Bookmarks, Share Menu, and Open Tabs"
+          commands:
+            - tapOn:
+                id: "xmark.circle.fill"
       # Require the browser destination, not the Watch card's YouTube label.
       - extendedWaitUntil:
           visible: ".*(youtube\\.com|youtu\\.be).*"

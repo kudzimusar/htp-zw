@@ -107,6 +107,8 @@ test("iOS external-surface evidence requires visible system UI before capture",(
   assert.match(share,/assertVisible: "healthtimes\.co\.zw"/);
   const destination=flow.slice(flow.indexOf('# Source-backed external YouTube destination'),flow.indexOf('- takeScreenshot: watch-external-youtube'));
   assert.match(destination,/platform: iOS/);
+  assert.match(destination,/View Bookmarks, Share Menu, and Open Tabs/);
+  assert.match(destination,/xmark\.circle\.fill/);
   assert.ok(destination.includes('youtube\\\\.com') && destination.includes('youtu\\\\.be'));
   assert.match(destination,/extendedWaitUntil:/);
 });
