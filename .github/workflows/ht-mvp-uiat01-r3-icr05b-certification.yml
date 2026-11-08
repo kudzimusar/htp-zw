@@ -50,7 +50,7 @@ jobs:
           grep -Eq '^# tests 24$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# pass 24$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
-          CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           IS_G3_CANDIDATE=false
           if git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null && [ "$CANDIDATE_SHA" != "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c" ]; then
             IS_G3_CANDIDATE=true
@@ -69,27 +69,29 @@ jobs:
             fi
 
             # Write dedicated G3 preview attestation evidence file (distinct from G2)
-            cat << EOF > /tmp/ht-g3-preview-security-attestation.json
-{
-  "workflow": "HT-MVP-UIAT-01-R3-ICR05B",
-  "scope": "g3-preview-security-isolation",
-  "candidateSha": "$CANDIDATE_SHA",
-  "g2ParentSha": "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
-  "g2StagingUatCertified": false,
-  "previewIsolationCertified": true,
-  "manifestVerificationCertified": true,
-  "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-}
-EOF
+            node -e '
+              const fs = require("node:fs");
+              fs.writeFileSync("/tmp/ht-g3-preview-security-attestation.json", JSON.stringify({
+                workflow: "HT-MVP-UIAT-01-R3-ICR05B",
+                scope: "g3-preview-security-isolation",
+                candidateSha: process.env.CANDIDATE_SHA,
+                g2ParentSha: "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+                g2StagingUatCertified: false,
+                previewIsolationCertified: true,
+                manifestVerificationCertified: true,
+                timestamp: new Date().toISOString()
+              }, null, 2) + "\n");
+            '
             # Record explicit G2 status note without certifying G2 UAT routes
-            cat << EOF > /tmp/ht-g2-uat-route-status.json
-{
-  "status": "NOT_EXECUTED_NON_LIVE_G3_PREVIEW_SCOPE",
-  "message": "G2 authenticated staging UAT route proof is not certified by non-live G3 preview tests.",
-  "g2AllowedBranches": ["release/ht-mvp-2.0-final", "fix/ht-g2-rbac-session-boundary"],
-  "candidateSha": "$CANDIDATE_SHA"
-}
-EOF
+            node -e '
+              const fs = require("node:fs");
+              fs.writeFileSync("/tmp/ht-g2-uat-route-status.json", JSON.stringify({
+                status: "NOT_EXECUTED_NON_LIVE_G3_PREVIEW_SCOPE",
+                message: "G2 authenticated staging UAT route proof is not certified by non-live G3 preview tests.",
+                g2AllowedBranches: ["release/ht-mvp-2.0-final", "fix/ht-g2-rbac-session-boundary"],
+                candidateSha: process.env.CANDIDATE_SHA
+              }, null, 2) + "\n");
+            '
           else
             node scripts/release/run-protected-staging-uat.mjs \
               --mode verify-route \
