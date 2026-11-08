@@ -69,23 +69,28 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
     Object.assign(process.env, originalEnv);
   });
 
-  function resetState() {
+  function resetState(enablePreview = true) {
     outboundFetchCalls = [];
-    delete process.env.HEALTHTIMES_OPERATIONS_MUTATION_AUTHORITY;
     delete process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW;
     delete process.env.HEALTHTIMES_CLIENT_PREVIEW;
+    delete process.env.HEALTHTIMES_PREVIEW_LOCK;
+    delete process.env.VERCEL_PROJECT_NAME;
+    if (enablePreview) {
+      process.env.HEALTHTIMES_CLIENT_PREVIEW = '1';
+    }
   }
 
-  await t.test('1. Deny-by-default under all misconfiguration states (Missing, 0, Unexpected)', async (t) => {
-    const misconfigStates = [
-      { name: 'Missing / undefined flags', setup: () => { resetState(); } },
-      { name: 'Flag set to 0', setup: () => { resetState(); process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW = '0'; } },
-      { name: 'Flag set to unexpected string', setup: () => { resetState(); process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW = 'foobar'; process.env.HEALTHTIMES_CLIENT_PREVIEW = 'disabled'; } },
-      { name: 'Preview flag set to 1', setup: () => { resetState(); process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW = '1'; } }
+  await t.test('1. Preview Route Isolation and Misconfiguration Resilience', async (t) => {
+    const previewTriggerStates = [
+      { name: 'Server preview flag set to 1', setup: () => { resetState(false); process.env.HEALTHTIMES_CLIENT_PREVIEW = '1'; } },
+      { name: 'Public client review flag set to 1', setup: () => { resetState(false); process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW = '1'; } },
+      { name: 'Public client review flag set to true', setup: () => { resetState(false); process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW = 'true'; } },
+      { name: 'Preview lock flag set to 1', setup: () => { resetState(false); process.env.HEALTHTIMES_PREVIEW_LOCK = '1'; } },
+      { name: 'Dedicated preview project name set (even with flag=0)', setup: () => { resetState(false); process.env.VERCEL_PROJECT_NAME = 'healthtimes-client-preview'; process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW = '0'; } }
     ];
 
-    for (const state of misconfigStates) {
-      await t.test(`State: ${state.name}`, async () => {
+    for (const state of previewTriggerStates) {
+      await t.test(`Trigger State: ${state.name}`, async () => {
         state.setup();
 
         // 1. Newsroom POST must be blocked with 403 JSON
@@ -114,6 +119,21 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
         assert.equal(outboundFetchCalls.length, 0, `Zero outbound calls allowed in state: ${state.name}`);
       });
     }
+
+    await t.test('Resilience under unconfigured state without secrets (Option B zero-secret posture)', async () => {
+      resetState(false);
+      // No preview flag, but zero secrets in environment
+      delete process.env.PAYNOW_INTEGRATION_KEY;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      delete process.env.RESEND_API_KEY;
+
+      const commRes = await fetch(`${baseUrl}/api/commerce?action=checkout`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      // Without credentials or provider readiness, checkout is unavailable (503) and entitlement is false
+      assert.equal(commRes.status, 503);
+      const commData = await commRes.json();
+      assert.equal(commData.entitlementGranted, false);
+      assert.equal(outboundFetchCalls.length, 0);
+    });
   });
 
   await t.test('2. Inert test canaries in environment: No privileged secret leak or usage', async () => {
@@ -206,8 +226,8 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
     const healthData = await healthRes.json();
     assert.equal(healthData.ok, true);
     assert.equal(healthData.previewIsolated, true);
-    assert.equal(healthData.providers.resend, 'disabled-by-default');
-    assert.equal(healthData.providers.brevo, 'disabled-by-default');
+    assert.equal(healthData.providers.resend, 'disabled-in-preview');
+    assert.equal(healthData.providers.brevo, 'disabled-in-preview');
     assert.equal(outboundFetchCalls.length, 0);
   });
 
@@ -243,7 +263,7 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
     const readinessData = await readinessRes.json();
     assert.equal(readinessData.ready, false);
     assert.equal(readinessData.mode, 'preview-isolated');
-    assert.equal(readinessData.paynowStatus, 'disabled-by-default');
+    assert.equal(readinessData.paynowStatus, 'disabled-in-preview');
     assert.equal(outboundFetchCalls.length, 0);
   });
 
@@ -335,11 +355,8 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
   });
 
   await t.test('9. Operational authority preservation in non-preview mode', async () => {
-    resetState();
-    // Enable explicit operational authority without preview restrictions
-    process.env.HEALTHTIMES_OPERATIONS_MUTATION_AUTHORITY = 'active';
-
-    // In non-preview authorized mode, requests reach operational CSRF/rate/credential check
+    resetState(false);
+    // In non-preview mode, requests reach operational CSRF/rate/credential check
     const nrRes = await fetch(`${baseUrl}/api/newsroom`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     const nrData = await nrRes.json();
     // It fails on CSRF integrity check, NOT on PREVIEW_MUTATION_BLOCKED

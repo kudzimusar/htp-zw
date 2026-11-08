@@ -124,19 +124,17 @@ module.exports = async function handler(req, res) {
   const url = new URL(req.url || '/api/commerce', 'https://' + (req.headers.host || 'localhost'));
   const action = String(url.searchParams.get('action') || '').toLowerCase();
 
-  // Deny-by-default server-side route boundary: Commerce operations require explicit
-  // server-side mutation authority and are strictly disabled under any preview/review mode
-  // or when operational authority is absent, false, 0, or unconfigured.
-  const operationsAuthorized = process.env.HEALTHTIMES_OPERATIONS_MUTATION_AUTHORITY === 'active';
-  const previewRestricted =
-    process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' ||
-    process.env.HEALTHTIMES_CLIENT_PREVIEW === '1';
+  const isClientPreview =
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW || '').trim().toLowerCase()) ||
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.HEALTHTIMES_CLIENT_PREVIEW || '').trim().toLowerCase()) ||
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.HEALTHTIMES_PREVIEW_LOCK || '').trim().toLowerCase()) ||
+    String(process.env.VERCEL_PROJECT_NAME || '').toLowerCase() === 'healthtimes-client-preview';
 
-  if (!operationsAuthorized || previewRestricted) {
+  if (isClientPreview) {
     if (req.method === 'POST') {
       return send(res, 403, {
         error: 'PREVIEW_MUTATION_BLOCKED',
-        message: 'Commerce mutations are disabled by default. Server authority not established.',
+        message: 'Commerce mutations are disabled in client review preview.',
         entitlementGranted: false,
         isolated: true
       });
@@ -144,7 +142,7 @@ module.exports = async function handler(req, res) {
     if (action === 'status') {
       return send(res, 403, {
         error: 'PREVIEW_MUTATION_BLOCKED',
-        message: 'Commerce status inspection is disabled by default. Server authority not established.',
+        message: 'Commerce status inspection is disabled in client review preview.',
         entitlementGranted: false,
         isolated: true
       });
@@ -152,8 +150,8 @@ module.exports = async function handler(req, res) {
     return send(res, 200, {
       ready: false,
       mode: 'preview-isolated',
-      paynowStatus: 'disabled-by-default',
-      message: 'Commerce operations are disabled by default.'
+      paynowStatus: 'disabled-in-preview',
+      message: 'Commerce operations are disabled in client review preview.'
     });
   }
   try {

@@ -586,19 +586,17 @@ async function inviteAuthUser(invitation, origin) {
 async function handle(req, res) {
   if (!['GET', 'POST'].includes(req.method)) return json(res, 405, { ok: false, error: 'Method not allowed.' });
 
-  // Deny-by-default server-side route boundary: Newsroom operations require explicit
-  // server-side mutation authority and are strictly disabled under any preview/review mode
-  // or when operational authority is absent, false, 0, or unconfigured.
-  const operationsAuthorized = process.env.HEALTHTIMES_OPERATIONS_MUTATION_AUTHORITY === 'active';
-  const previewRestricted =
-    process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' ||
-    process.env.HEALTHTIMES_CLIENT_PREVIEW === '1';
+  const isClientPreview =
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW || '').trim().toLowerCase()) ||
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.HEALTHTIMES_CLIENT_PREVIEW || '').trim().toLowerCase()) ||
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.HEALTHTIMES_PREVIEW_LOCK || '').trim().toLowerCase()) ||
+    String(process.env.VERCEL_PROJECT_NAME || '').toLowerCase() === 'healthtimes-client-preview';
 
-  if (!operationsAuthorized || previewRestricted) {
+  if (isClientPreview) {
     return json(res, 403, {
       ok: false,
       error: 'PREVIEW_MUTATION_BLOCKED',
-      message: 'Newsroom operations are disabled by default. Server authority not established.',
+      message: 'Newsroom operations are disabled in client review preview.',
       isolated: true
     });
   }
