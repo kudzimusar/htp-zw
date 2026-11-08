@@ -51,34 +51,62 @@ jobs:
           grep -Eq '^# pass 24$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
           export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          
+          # Provenance & Ancestry Classification (DEF-G3-03)
+          IS_G2_BRANCH=false
+          if [ "$CANDIDATE_REF" = "release/ht-mvp-2.0-final" ] || [ "$CANDIDATE_REF" = "fix/ht-g2-rbac-session-boundary" ]; then
+            IS_G2_BRANCH=true
+          fi
+
           IS_G3_CANDIDATE=false
-          if git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null && [ "$CANDIDATE_SHA" != "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c" ]; then
+          if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
             IS_G3_CANDIDATE=true
           fi
 
           if [ "$IS_G3_CANDIDATE" = "true" ]; then
-            echo "[G3-PREVIEW-CI] G3 candidate commit '$CANDIDATE_SHA' (descendant of accepted G2 parent 46f3b0b) detected."
+            echo "[G3-PREVIEW-CI] G3 candidate ref '$CANDIDATE_REF' (commit '$CANDIDATE_SHA', descendant of accepted G2 parent 46f3b0b) detected."
             echo "[G3-PREVIEW-CI] G2 staging UAT route proof is NOT applicable to non-live G3 preview scope."
+            
             echo "[G3-PREVIEW-CI] Executing G3 isolated preview security suite..."
             node --test tests/g3-isolated-preview-security.test.mjs
+            PREVIEW_ISOLATION_PASS=true
+
             echo "[G3-PREVIEW-CI] Executing G3 manifest verification negative-tamper controls..."
             node --test tests/g3-manifest-verification-tamper.test.mjs
+            MANIFEST_TAMPER_PASS=true
+
+            MANIFEST_VERIFIED=false
+            MANIFEST_STATUS="NOT_EXECUTED_NO_ARTIFACT_IN_CHECKOUT"
             if [ -d .vercel/output ] && [ -f .vercel/package-manifest.json ]; then
               echo "[G3-PREVIEW-CI] Executing read-only fail-closed manifest verification..."
               node scripts/web/verify-vercel-manifest.mjs --verify --expected-sha "$CANDIDATE_SHA"
+              MANIFEST_VERIFIED=true
+              MANIFEST_STATUS="VERIFIED_PASS"
+            else
+              echo "[G3-PREVIEW-CI] NOTE: .vercel/output not present in clean checkout. Manifest verification truth: NOT_EXECUTED_NO_ARTIFACT_IN_CHECKOUT."
             fi
 
-            # Write dedicated G3 preview attestation evidence file (distinct from G2)
+            export PREVIEW_ISOLATION_PASS
+            export MANIFEST_TAMPER_PASS
+            export MANIFEST_VERIFIED
+            export MANIFEST_STATUS
+
+            # Write dedicated G3 preview attestation evidence file (distinct from G2, strictly truthful)
             node -e '
               const fs = require("node:fs");
               fs.writeFileSync("/tmp/ht-g3-preview-security-attestation.json", JSON.stringify({
                 workflow: "HT-MVP-UIAT-01-R3-ICR05B",
                 scope: "g3-preview-security-isolation",
+                candidateRef: process.env.CANDIDATE_REF,
                 candidateSha: process.env.CANDIDATE_SHA,
                 g2ParentSha: "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+                provenanceVerified: true,
                 g2StagingUatCertified: false,
-                previewIsolationCertified: true,
-                manifestVerificationCertified: true,
+                previewIsolationCertified: process.env.PREVIEW_ISOLATION_PASS === "true",
+                manifestTamperCertified: process.env.MANIFEST_TAMPER_PASS === "true",
+                manifestVerificationCertified: process.env.MANIFEST_VERIFIED === "true",
+                manifestVerificationStatus: process.env.MANIFEST_STATUS,
                 timestamp: new Date().toISOString()
               }, null, 2) + "\n");
             '
@@ -89,6 +117,7 @@ jobs:
                 status: "NOT_EXECUTED_NON_LIVE_G3_PREVIEW_SCOPE",
                 message: "G2 authenticated staging UAT route proof is not certified by non-live G3 preview tests.",
                 g2AllowedBranches: ["release/ht-mvp-2.0-final", "fix/ht-g2-rbac-session-boundary"],
+                candidateRef: process.env.CANDIDATE_REF,
                 candidateSha: process.env.CANDIDATE_SHA
               }, null, 2) + "\n");
             '

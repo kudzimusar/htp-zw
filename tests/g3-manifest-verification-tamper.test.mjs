@@ -3,11 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { verifyManifest, generateManifest } from '../scripts/web/verify-vercel-manifest.mjs';
 
 const ROOT_DIR = process.cwd();
 const LIVE_OUTPUT_DIR = path.join(ROOT_DIR, '.vercel/output');
 const LIVE_MANIFEST_PATH = path.join(ROOT_DIR, '.vercel/package-manifest.json');
+const PREVIEW_BARRIER_PATH = path.join(ROOT_DIR, 'api/preview-barrier.js');
+
+const barrierContent = fs.readFileSync(PREVIEW_BARRIER_PATH, 'utf8');
+const approvedBarrierDigest = crypto.createHash('sha256').update(barrierContent).digest('hex');
 
 // Helper to construct a clean minimal compliant artifact fixture
 function createCompliantFixture(tmpDir, customBuildInfo = {}) {
@@ -16,7 +21,7 @@ function createCompliantFixture(tmpDir, customBuildInfo = {}) {
 
   fs.mkdirSync(outputDir, { recursive: true });
   fs.mkdirSync(path.join(outputDir, 'static/assets'), { recursive: true });
-  fs.mkdirSync(path.join(outputDir, 'functions/api/public.func'), { recursive: true });
+  fs.mkdirSync(path.join(outputDir, 'functions/api/public.func/api'), { recursive: true });
   fs.mkdirSync(path.join(outputDir, 'functions/api/newsroom.func/api'), { recursive: true });
   fs.mkdirSync(path.join(outputDir, 'functions/api/communications.func/api'), { recursive: true });
   fs.mkdirSync(path.join(outputDir, 'functions/api/commerce.func/api'), { recursive: true });
@@ -27,27 +32,49 @@ function createCompliantFixture(tmpDir, customBuildInfo = {}) {
   fs.writeFileSync(path.join(outputDir, 'static/sw.js'), '// sw.js\n');
   fs.writeFileSync(path.join(outputDir, 'static/healthtimes-icon.svg'), '<svg></svg>\n');
   fs.writeFileSync(path.join(outputDir, 'static/assets/app.js'), 'console.log("HealthTimes");\n');
-  fs.writeFileSync(path.join(outputDir, 'functions/api/public.func/.vc-config.json'), '{"runtime":"nodejs20.x"}\n');
-  fs.writeFileSync(path.join(outputDir, 'functions/api/public.func/index.js'), 'module.exports = () => {};\n');
-  fs.writeFileSync(path.join(outputDir, 'functions/api/newsroom.func/api/newsroom.js'), 'module.exports = () => {};\n');
-  fs.writeFileSync(path.join(outputDir, 'functions/api/communications.func/api/communications.js'), 'module.exports = () => {};\n');
-  fs.writeFileSync(path.join(outputDir, 'functions/api/commerce.func/api/commerce.js'), 'module.exports = () => {};\n');
+
+  // Configure public reader function
+  fs.writeFileSync(path.join(outputDir, 'functions/api/public.func/.vc-config.json'), JSON.stringify({
+    runtime: 'nodejs22.x',
+    handler: 'api/public.js',
+    environment: {}
+  }, null, 2) + '\n');
+  fs.writeFileSync(path.join(outputDir, 'functions/api/public.func/api/public.js'), 'module.exports = () => {};\n');
+
+  // Configure mutating sealed functions
+  const mutating = [
+    { name: 'newsroom.func', file: 'api/newsroom.js' },
+    { name: 'communications.func', file: 'api/communications.js' },
+    { name: 'commerce.func', file: 'api/commerce.js' }
+  ];
+
+  for (const fn of mutating) {
+    fs.writeFileSync(path.join(outputDir, 'functions/api', fn.name, '.vc-config.json'), JSON.stringify({
+      runtime: 'nodejs22.x',
+      handler: fn.file,
+      environment: {
+        HEALTHTIMES_PREVIEW_LOCK: '1',
+        HEALTHTIMES_ARTIFACT_PROFILE: 'reader-only-preview'
+      }
+    }, null, 2) + '\n');
+    fs.writeFileSync(path.join(outputDir, 'functions/api', fn.name, fn.file), barrierContent);
+  }
 
   const buildInfo = {
     sha: 'fixture-test-sha-1234567890abcdef',
     serviceMode: 'source-parity',
     previewLocked: true,
+    profile: 'reader-only-preview',
     ...customBuildInfo
   };
   fs.writeFileSync(path.join(outputDir, 'static/build-info.json'), JSON.stringify(buildInfo, null, 2) + '\n');
 
   generateManifest(outputDir, manifestPath);
 
-  return { outputDir, manifestPath, expectedSha: buildInfo.sha };
+  return { outputDir, manifestPath, expectedSha: buildInfo.sha, expectedBarrierDigest: approvedBarrierDigest };
 }
 
 test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async (t) => {
-  // Ensure test runs in test mode so failVerification throws rather than exiting
   process.env.NODE_ENV = 'test';
 
   const testTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'g3-manifest-test-'));
@@ -61,29 +88,28 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
   // 1. Positive baseline check on hermetic fixture
   await t.test('1. Baseline untouched compliant fixture passes verification', () => {
     const fixtureDir = path.join(testTmpDir, 'baseline');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
-    const valid = verifyManifest({ outputDir, manifestPath, expectedSha });
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+    const valid = verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     assert.equal(valid, true);
   });
 
   // 2. Tampering file content in artifact
   await t.test('2. Byte tampering in packaged file triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'byte-tamper');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
-    // Tamper a single byte in index.html
     const targetFile = path.join(outputDir, 'static/index.html');
     fs.appendFileSync(targetFile, '<!-- injected tampered byte -->\n');
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /File byte hash mismatch/);
   });
 
   // 3. Tampering build-info.json commit SHA
   await t.test('3. Commit SHA mismatch in build-info.json triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'sha-mismatch');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const buildInfoPath = path.join(outputDir, 'static/build-info.json');
     const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
@@ -91,67 +117,67 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
     fs.writeFileSync(buildInfoPath, JSON.stringify(buildInfo, null, 2) + '\n');
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /build-info\.json SHA mismatch/);
   });
 
   // 4. Malformed build-info.json
   await t.test('4. Malformed JSON in build-info.json triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'malformed-json');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const buildInfoPath = path.join(outputDir, 'static/build-info.json');
     fs.writeFileSync(buildInfoPath, '{ corrupt_json::: invalid syntax');
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /malformed JSON/);
   });
 
   // 5. Missing required baseline file
   await t.test('5. Missing required baseline file triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'missing-file');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const swPath = path.join(outputDir, 'static/sw.js');
     fs.unlinkSync(swPath);
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /Required baseline file missing: static\/sw\.js/);
   });
 
   // 6. Extraneous untracked file in artifact
   await t.test('6. Extraneous untracked file triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'untracked-file');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const injectedPath = path.join(outputDir, 'static/backdoor-payload.js');
     fs.writeFileSync(injectedPath, 'console.log("backdoor");\n');
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /Untracked extraneous file detected: static\/backdoor-payload\.js/);
   });
 
   // 7. Tampered manifest aggregate digest
   await t.test('7. Tampered manifest aggregate digest triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'tampered-digest');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     manifest.aggregateDigest = '0000000000000000000000000000000000000000000000000000000000000000';
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /Aggregate digest mismatch/);
   });
 
   // 8. Service mode validation
   await t.test('8. Incorrect service mode triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'bad-service-mode');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const buildInfoPath = path.join(outputDir, 'static/build-info.json');
     const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
@@ -159,24 +185,95 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
     fs.writeFileSync(buildInfoPath, JSON.stringify(buildInfo, null, 2) + '\n');
 
     assert.throws(() => {
-      verifyManifest({ outputDir, manifestPath, expectedSha });
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     }, /build-info\.json serviceMode must be 'source-parity'/);
   });
 
-  // 9. Read-only preservation proof
-  await t.test('9. Read-only verification does not mutate manifest file', () => {
+  // 9. Missing or false previewLocked policy (DEF-G3-02)
+  await t.test('9. Missing or false previewLocked triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'unlocked-preview');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const buildInfoPath = path.join(outputDir, 'static/build-info.json');
+    const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
+    buildInfo.previewLocked = false;
+    fs.writeFileSync(buildInfoPath, JSON.stringify(buildInfo, null, 2) + '\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /build-info\.json previewLocked must be true/);
+  });
+
+  // 10. Missing or invalid artifact profile policy (DEF-G3-02)
+  await t.test('10. Invalid artifact profile triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'bad-profile');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const buildInfoPath = path.join(outputDir, 'static/build-info.json');
+    const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
+    buildInfo.profile = 'full-operational';
+    fs.writeFileSync(buildInfoPath, JSON.stringify(buildInfo, null, 2) + '\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /build-info\.json profile must be 'reader-only-preview'/);
+  });
+
+  // 11. Unsealed handler not matching approved preview barrier (DEF-G3-02)
+  await t.test('11. Unsealed handler not matching preview barrier triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'unsealed-handler');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    // Tamper newsroom handler with active operational code
+    const newsroomHandler = path.join(outputDir, 'functions/api/newsroom.func/api/newsroom.js');
+    fs.writeFileSync(newsroomHandler, 'module.exports = async function(req, res) { return res.end("unsealed"); };');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /handler is NOT sealed with approved preview barrier/);
+  });
+
+  // 12. Unexpected function bundle in preview artifact (DEF-G3-02)
+  await t.test('12. Unexpected function bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'unexpected-bundle');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const backdoorFunc = path.join(outputDir, 'functions/api/backdoor.func');
+    fs.mkdirSync(backdoorFunc, { recursive: true });
+    fs.writeFileSync(path.join(backdoorFunc, '.vc-config.json'), '{"runtime":"nodejs22.x"}\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected function bundle detected in preview artifact: functions\/api\/backdoor\.func/);
+  });
+
+  // 13. Retained extraneous executable script in sealed bundle (DEF-G3-02)
+  await t.test('13. Retained extraneous script in sealed bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'extraneous-script');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const extraneousScript = path.join(outputDir, 'functions/api/newsroom.func/api/priv-bypass.js');
+    fs.writeFileSync(extraneousScript, 'module.exports = () => {};\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable script retained in sealed bundle newsroom\.func/);
+  });
+
+  // 14. Read-only preservation proof
+  await t.test('14. Read-only verification does not mutate manifest file', () => {
     const fixtureDir = path.join(testTmpDir, 'readonly-preservation');
-    const { outputDir, manifestPath, expectedSha } = createCompliantFixture(fixtureDir);
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
     const contentBefore = fs.readFileSync(manifestPath, 'utf8');
-    verifyManifest({ outputDir, manifestPath, expectedSha });
+    verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
     const contentAfter = fs.readFileSync(manifestPath, 'utf8');
 
     assert.equal(contentBefore, contentAfter, 'Manifest content must remain byte-for-byte identical after verification');
   });
 
-  // 10. Live workspace output verification (if packaged output exists)
-  await t.test('10. Live workspace .vercel/output verification (if present)', () => {
+  // 15. Live workspace .vercel/output verification (if present)
+  await t.test('15. Live workspace .vercel/output verification (if present)', () => {
     if (fs.existsSync(LIVE_OUTPUT_DIR) && fs.existsSync(LIVE_MANIFEST_PATH)) {
       const valid = verifyManifest({ outputDir: LIVE_OUTPUT_DIR, manifestPath: LIVE_MANIFEST_PATH });
       assert.equal(valid, true, 'Live packaged artifact must pass verification');

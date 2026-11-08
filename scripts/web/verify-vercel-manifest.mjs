@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 const ROOT_DIR = process.cwd();
 const OUTPUT_DIR = path.join(ROOT_DIR, '.vercel/output');
 const MANIFEST_PATH = path.join(ROOT_DIR, '.vercel/package-manifest.json');
+const PREVIEW_BARRIER_SOURCE = path.join(ROOT_DIR, 'api/preview-barrier.js');
 
 const REQUIRED_FILES = [
   'config.json',
@@ -18,8 +19,22 @@ const REQUIRED_FILES = [
   'static/build-info.json',
   'static/sw.js',
   'static/healthtimes-icon.svg',
-  'functions/api/public.func/.vc-config.json'
+  'functions/api/public.func/.vc-config.json',
+  'functions/api/public.func/api/public.js',
+  'functions/api/newsroom.func/.vc-config.json',
+  'functions/api/newsroom.func/api/newsroom.js',
+  'functions/api/communications.func/.vc-config.json',
+  'functions/api/communications.func/api/communications.js',
+  'functions/api/commerce.func/.vc-config.json',
+  'functions/api/commerce.func/api/commerce.js'
 ];
+
+const ALLOWED_API_FUNCTIONS = new Set([
+  'public.func',
+  'newsroom.func',
+  'communications.func',
+  'commerce.func'
+]);
 
 /**
  * Deterministically traverses directory and collects sorted relative file paths.
@@ -29,33 +44,32 @@ export function getDeterministicFiles(dir, relativeBase = '') {
   let fileList = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-  // Deterministic lexicographical sort
-  entries.sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }));
-
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     const relPath = relativeBase ? `${relativeBase}/${entry.name}` : entry.name;
 
-    // Reject unsafe path components
-    if (entry.name.includes('..') || entry.name.includes('\\') || entry.name.includes(':')) {
-      throw new Error(`[MANIFEST_ERROR] Unsafe filename detected: ${relPath}`);
+    // Reject symbolic links in deploy artifact
+    if (entry.isSymbolicLink()) {
+      throw new Error(`[MANIFEST_ERROR] Symbolic link detected in output artifact: ${relPath}`);
     }
 
-    if (entry.isSymbolicLink()) {
-      throw new Error(`[MANIFEST_ERROR] Symbolic links are strictly prohibited in output artifact: ${relPath}`);
-    } else if (entry.isDirectory()) {
+    // Reject path traversal characters in relative paths
+    if (relPath.includes('..') || relPath.startsWith('/') || relPath.includes('\\')) {
+      throw new Error(`[MANIFEST_ERROR] Unsafe path format detected: ${relPath}`);
+    }
+
+    if (entry.isDirectory()) {
       fileList = fileList.concat(getDeterministicFiles(fullPath, relPath));
     } else if (entry.isFile()) {
       fileList.push(relPath);
-    } else {
-      throw new Error(`[MANIFEST_ERROR] Unsupported file system entity: ${relPath}`);
     }
   }
+
   return fileList.sort();
 }
 
 /**
- * Computes deterministic manifest object and aggregate SHA-256 digest.
+ * Computes deterministic file digests and overall aggregate SHA-256 hash
  */
 export function computeManifest(outputDir = OUTPUT_DIR) {
   if (!fs.existsSync(outputDir)) {
@@ -70,14 +84,12 @@ export function computeManifest(outputDir = OUTPUT_DIR) {
     const filePath = path.join(outputDir, relPath);
     const content = fs.readFileSync(filePath);
     const fileSha256 = crypto.createHash('sha256').update(content).digest('hex');
-
     entries.push({
       path: relPath,
       sha256: fileSha256,
       bytes: content.length
     });
-
-    overallHash.update(`${relPath}:${fileSha256}\n`);
+    overallHash.update(`${relPath}:${fileSha256}:${content.length}\n`);
   }
 
   const aggregateDigest = overallHash.digest('hex');
@@ -91,6 +103,7 @@ export function computeManifest(outputDir = OUTPUT_DIR) {
   let buildInfoSha = null;
   let serviceMode = 'source-parity';
   let previewLocked = false;
+  let profile = 'reader-only-preview';
 
   if (fs.existsSync(buildInfoPath)) {
     try {
@@ -98,6 +111,7 @@ export function computeManifest(outputDir = OUTPUT_DIR) {
       buildInfoSha = buildInfo.sha || null;
       serviceMode = buildInfo.serviceMode || serviceMode;
       previewLocked = Boolean(buildInfo.previewLocked);
+      profile = buildInfo.profile || profile;
     } catch (e) {
       throw new Error(`[MANIFEST_ERROR] Failed to parse static/build-info.json: ${e.message}`);
     }
@@ -111,6 +125,7 @@ export function computeManifest(outputDir = OUTPUT_DIR) {
     buildInfoSha,
     serviceMode,
     previewLocked,
+    profile,
     timestamp: new Date().toISOString(),
     entries
   };
@@ -130,7 +145,7 @@ export function generateManifest(outputDir = OUTPUT_DIR, manifestPath = MANIFEST
 }
 
 /**
- * Strictly read-only verification of artifact integrity against recorded manifest.
+ * Strictly read-only verification of artifact integrity against recorded manifest and security policies.
  * Returns true if valid; throws or exits nonzero on ANY discrepancy.
  */
 export function verifyManifest(options = {}) {
@@ -167,7 +182,7 @@ export function verifyManifest(options = {}) {
     return failVerification(errors);
   }
 
-  // 4. Validate build-info.json exists and is valid
+  // 4. Validate build-info.json exists and satisfies strict security metadata policies
   const buildInfoPath = path.join(outputDir, 'static/build-info.json');
   if (!fs.existsSync(buildInfoPath)) {
     errors.push(`Missing required static/build-info.json in ${outputDir}`);
@@ -182,6 +197,12 @@ export function verifyManifest(options = {}) {
       if (buildInfo.serviceMode !== 'source-parity') {
         errors.push(`build-info.json serviceMode must be 'source-parity', found '${buildInfo.serviceMode}'`);
       }
+      if (buildInfo.previewLocked !== true) {
+        errors.push(`build-info.json previewLocked must be true, found ${buildInfo.previewLocked}`);
+      }
+      if (buildInfo.profile !== 'reader-only-preview') {
+        errors.push(`build-info.json profile must be 'reader-only-preview', found '${buildInfo.profile}'`);
+      }
     } catch (e) {
       errors.push(`build-info.json is malformed JSON: ${e.message}`);
     }
@@ -195,7 +216,85 @@ export function verifyManifest(options = {}) {
     }
   }
 
-  // 6. Compute fresh manifest from live filesystem
+  // 6. Security-Aware Function Bundle Inspection (DEF-G3-02)
+  const apiFuncDir = path.join(outputDir, 'functions/api');
+  if (fs.existsSync(apiFuncDir)) {
+    const discoveredFuncs = fs.readdirSync(apiFuncDir).filter(name => name.endsWith('.func'));
+
+    // Check for unexpected function bundles
+    for (const discovered of discoveredFuncs) {
+      if (!ALLOWED_API_FUNCTIONS.has(discovered)) {
+        errors.push(`Unexpected function bundle detected in preview artifact: functions/api/${discovered}`);
+      }
+    }
+
+    // Determine approved preview barrier hash
+    let approvedBarrierHash = options.expectedBarrierDigest || null;
+    if (!approvedBarrierHash && fs.existsSync(PREVIEW_BARRIER_SOURCE)) {
+      approvedBarrierHash = crypto.createHash('sha256').update(fs.readFileSync(PREVIEW_BARRIER_SOURCE)).digest('hex');
+    }
+
+    // Inspect mutating function bundles for trusted barrier sealing
+    const mutatingBundles = [
+      { name: 'newsroom.func', handlerFile: 'api/newsroom.js' },
+      { name: 'communications.func', handlerFile: 'api/communications.js' },
+      { name: 'commerce.func', handlerFile: 'api/commerce.js' }
+    ];
+
+    for (const mb of mutatingBundles) {
+      const bundleDir = path.join(apiFuncDir, mb.name);
+      if (fs.existsSync(bundleDir)) {
+        const vcConfigPath = path.join(bundleDir, '.vc-config.json');
+        if (fs.existsSync(vcConfigPath)) {
+          try {
+            const vcConfig = JSON.parse(fs.readFileSync(vcConfigPath, 'utf8'));
+            if (vcConfig.environment?.HEALTHTIMES_PREVIEW_LOCK !== '1') {
+              errors.push(`${mb.name}/.vc-config.json missing HEALTHTIMES_PREVIEW_LOCK='1'`);
+            }
+            if (vcConfig.environment?.HEALTHTIMES_ARTIFACT_PROFILE !== 'reader-only-preview') {
+              errors.push(`${mb.name}/.vc-config.json missing HEALTHTIMES_ARTIFACT_PROFILE='reader-only-preview'`);
+            }
+            if (vcConfig.handler !== mb.handlerFile) {
+              errors.push(`${mb.name} handler entrypoint mismatch: found '${vcConfig.handler}', expected '${mb.handlerFile}'`);
+            }
+          } catch (e) {
+            errors.push(`${mb.name}/.vc-config.json malformed JSON: ${e.message}`);
+          }
+        }
+
+        // Validate handler script matches approved barrier hash
+        const handlerScriptPath = path.join(bundleDir, mb.handlerFile);
+        if (fs.existsSync(handlerScriptPath)) {
+          if (approvedBarrierHash) {
+            const liveHandlerHash = crypto.createHash('sha256').update(fs.readFileSync(handlerScriptPath)).digest('hex');
+            if (liveHandlerHash !== approvedBarrierHash) {
+              errors.push(`${mb.name} handler is NOT sealed with approved preview barrier! Live: ${liveHandlerHash}, Expected: ${approvedBarrierHash}`);
+            }
+          }
+        } else {
+          errors.push(`${mb.name} handler entrypoint file missing at ${mb.handlerFile}`);
+        }
+
+        // Verify absence of unexpected extraneous scripts in mutating bundles
+        function checkNoExtraneous(dir) {
+          for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, ent.name);
+            if (ent.isDirectory()) {
+              checkNoExtraneous(full);
+            } else if (ent.isFile() && ent.name.endsWith('.js')) {
+              const rel = path.relative(bundleDir, full).replace(/\\/g, '/');
+              if (rel !== mb.handlerFile) {
+                errors.push(`Unexpected executable script retained in sealed bundle ${mb.name}: ${rel}`);
+              }
+            }
+          }
+        }
+        checkNoExtraneous(bundleDir);
+      }
+    }
+  }
+
+  // 7. Compute fresh manifest from live filesystem
   let liveManifest;
   try {
     liveManifest = computeManifest(outputDir);
@@ -204,17 +303,17 @@ export function verifyManifest(options = {}) {
     return failVerification(errors);
   }
 
-  // 7. Check file count match
+  // 8. Check file count match
   if (liveManifest.fileCount !== goldenManifest.fileCount) {
     errors.push(`File count mismatch: live directory has ${liveManifest.fileCount} files, manifest expected ${goldenManifest.fileCount}`);
   }
 
-  // 8. Check aggregate digest match
+  // 9. Check aggregate digest match
   if (liveManifest.aggregateDigest !== goldenManifest.aggregateDigest) {
     errors.push(`Aggregate digest mismatch: live '${liveManifest.aggregateDigest}', manifest '${goldenManifest.aggregateDigest}'`);
   }
 
-  // 9. Check per-file checksum and byte length matches
+  // 10. Check per-file checksum and byte length matches
   const goldenMap = new Map((goldenManifest.entries || []).map(e => [e.path, e]));
   const liveMap = new Map((liveManifest.entries || []).map(e => [e.path, e]));
 
@@ -247,6 +346,7 @@ export function verifyManifest(options = {}) {
   console.log(`[MANIFEST] Build SHA:        ${liveManifest.buildInfoSha} (Matches expected: ${expectedSha || 'N/A'})`);
   console.log(`[MANIFEST] Service Mode:     ${liveManifest.serviceMode}`);
   console.log(`[MANIFEST] Preview Locked:   ${liveManifest.previewLocked}`);
+  console.log(`[MANIFEST] Profile:          ${liveManifest.profile}`);
   return true;
 }
 
