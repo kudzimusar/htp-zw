@@ -504,6 +504,23 @@ async function handle(req, res) {
 
   const url = new URL(req.url, 'https://' + (req.headers.host || 'localhost'));
   const queryAction = String(url.searchParams.get('action') || '');
+
+  if (process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' || process.env.HEALTHTIMES_CLIENT_PREVIEW === '1') {
+    if (req.method === 'GET' && queryAction === 'providerHealth') {
+      return json(res, 200, {
+        ok: true,
+        previewIsolated: true,
+        providers: { resend: 'disabled-in-preview', brevo: 'disabled-in-preview' }
+      });
+    }
+    return json(res, 403, {
+      ok: false,
+      error: 'PREVIEW_MUTATION_BLOCKED',
+      message: 'Communications operations are disabled in client review preview.',
+      isolated: true
+    });
+  }
+
   const webhookAction = ['inbound','resendWebhook','brevoWebhook'].includes(queryAction);
 
   let rawInfo = { raw: '', exact: true };

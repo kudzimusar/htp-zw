@@ -123,6 +123,30 @@ function safeError(error) {
 module.exports = async function handler(req, res) {
   const url = new URL(req.url || '/api/commerce', 'https://' + (req.headers.host || 'localhost'));
   const action = String(url.searchParams.get('action') || '').toLowerCase();
+
+  if (process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' || process.env.HEALTHTIMES_CLIENT_PREVIEW === '1') {
+    if (req.method === 'POST') {
+      return send(res, 403, {
+        error: 'PREVIEW_MUTATION_BLOCKED',
+        message: 'Payment mutations are disabled in client review preview.',
+        entitlementGranted: false,
+        isolated: true
+      });
+    }
+    if (action === 'status') {
+      return send(res, 403, {
+        error: 'PREVIEW_MUTATION_BLOCKED',
+        message: 'Payment status inspection is disabled in client review preview.',
+        entitlementGranted: false
+      });
+    }
+    return send(res, 200, {
+      ready: false,
+      mode: 'preview-isolated',
+      paynowStatus: 'disabled-in-preview',
+      message: 'Payment operations are disabled in client review preview.'
+    });
+  }
   try {
     if (req.method === 'GET') {
       if (action === 'status') {

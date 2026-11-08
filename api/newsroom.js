@@ -586,6 +586,15 @@ async function inviteAuthUser(invitation, origin) {
 async function handle(req, res) {
   if (!['GET', 'POST'].includes(req.method)) return json(res, 405, { ok: false, error: 'Method not allowed.' });
 
+  if (process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' || process.env.HEALTHTIMES_CLIENT_PREVIEW === '1') {
+    return json(res, 403, {
+      ok: false,
+      error: 'PREVIEW_MUTATION_BLOCKED',
+      message: 'Newsroom operations are disabled in client review preview.',
+      isolated: true
+    });
+  }
+
   const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
   const body = req.method === 'POST' ? await readBody(req) : {};
   const action = String(body.action || url.searchParams.get('action') || (req.method === 'GET' ? 'bootstrap' : ''));
