@@ -234,10 +234,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "[G3-ARTIFACT-BUILD] Building apps/mobile web export..."
-          npm run build:phase4:web
-          echo "[G3-ARTIFACT-BUILD] Compiling Vercel output..."
-          npx vercel build --yes
+          echo "[G3-ARTIFACT-BUILD] Initializing hermetic zero-secret Vercel project configuration..."
+          mkdir -p .vercel
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync(".vercel/project.json", JSON.stringify({
+              projectId: "prj_preview_isolated",
+              orgId: "team_preview_isolated",
+              projectName: "healthtimes-client-preview",
+              settings: {
+                framework: null,
+                buildCommand: "npm run build:phase4:web",
+                outputDirectory: "apps/mobile/dist"
+              }
+            }, null, 2) + "\n");
+          '
+          echo "[G3-ARTIFACT-BUILD] Compiling hermetic Vercel output..."
+          env -u VERCEL_TOKEN npx vercel build --yes
           echo "[G3-ARTIFACT-BUILD] Packaging fail-closed preview barrier..."
           node scripts/web/package-preview-artifact.mjs
       - name: Verify Read-Only Artifact Manifest & Strict Security Policies (DEF-G3-04 / DEF-G3-05)
