@@ -505,18 +505,26 @@ async function handle(req, res) {
   const url = new URL(req.url, 'https://' + (req.headers.host || 'localhost'));
   const queryAction = String(url.searchParams.get('action') || '');
 
-  if (process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' || process.env.HEALTHTIMES_CLIENT_PREVIEW === '1') {
+  // Deny-by-default server-side route boundary: Communications mutations require explicit
+  // server-side mutation authority and are strictly disabled under any preview/review mode
+  // or when operational authority is absent, false, 0, or unconfigured.
+  const operationsAuthorized = process.env.HEALTHTIMES_OPERATIONS_MUTATION_AUTHORITY === 'active';
+  const previewRestricted =
+    process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW === '1' ||
+    process.env.HEALTHTIMES_CLIENT_PREVIEW === '1';
+
+  if (!operationsAuthorized || previewRestricted) {
     if (req.method === 'GET' && queryAction === 'providerHealth') {
       return json(res, 200, {
         ok: true,
         previewIsolated: true,
-        providers: { resend: 'disabled-in-preview', brevo: 'disabled-in-preview' }
+        providers: { resend: 'disabled-by-default', brevo: 'disabled-by-default' }
       });
     }
     return json(res, 403, {
       ok: false,
       error: 'PREVIEW_MUTATION_BLOCKED',
-      message: 'Communications operations are disabled in client review preview.',
+      message: 'Communications operations are disabled by default. Server authority not established.',
       isolated: true
     });
   }
