@@ -306,7 +306,13 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
   });
 
   await t.test('8. Packaged .vercel/output Serverless Functions: Verifying compiled output', async () => {
-    resetState();
+    // Deliberately reset state with enablePreview=false (no preview flags!)
+    // and inject canary credentials to prove fail-closed protection under misconfiguration
+    resetState(false);
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'canary_service_role_secret_must_never_be_called';
+    process.env.PAYNOW_INTEGRATION_KEY = 'canary_paynow_secret_must_never_be_called';
+    process.env.RESEND_API_KEY = 'canary_resend_secret_must_never_be_called';
+
     const outputFuncDir = path.join(process.cwd(), '.vercel/output/functions/api');
     if (!fs.existsSync(outputFuncDir)) {
       console.log('Skipping output function check: .vercel/output not yet generated');
@@ -332,23 +338,31 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
     const cUrl = `http://127.0.0.1:${cPort}`;
 
     try {
-      // Test packaged newsroom handler
+      // Test packaged newsroom handler fails closed even with no preview flags & canary secrets
       const cNr = await fetch(`${cUrl}/api/newsroom`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       assert.equal(cNr.status, 403);
       const cNrData = await cNr.json();
       assert.equal(cNrData.error, 'PREVIEW_MUTATION_BLOCKED');
+      assert.equal(cNrData.isolated, true);
 
-      // Test packaged comms handler
+      // Test packaged comms handler fails closed
       const cCom = await fetch(`${cUrl}/api/communications?action=signup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       assert.equal(cCom.status, 403);
+      const cComData = await cCom.json();
+      assert.equal(cComData.error, 'PREVIEW_MUTATION_BLOCKED');
 
-      // Test packaged commerce handler
+      // Test packaged commerce handler fails closed
       const cComm = await fetch(`${cUrl}/api/commerce?action=checkout`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       assert.equal(cComm.status, 403);
+      const cCommData = await cComm.json();
+      assert.equal(cCommData.error, 'PREVIEW_MUTATION_BLOCKED');
 
-      // Test packaged public handler
+      // Test packaged public handler enforces read-only contract
       const cPub = await fetch(`${cUrl}/api/public`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       assert.equal(cPub.status, 405);
+
+      // Assert zero external network calls occurred across all packaged function executions
+      assert.equal(outboundFetchCalls.length, 0, 'Zero network side-effects executed from packaged functions');
     } finally {
       compiledServer.close();
     }
@@ -368,5 +382,22 @@ test('G3 Comprehensive Fail-Closed Preview Isolation & Adversarial Security Suit
     // It reaches action parser and reports unsupported action, NOT PREVIEW_MUTATION_BLOCKED
     assert.equal(commData.error, 'UNSUPPORTED_COMMERCE_ACTION');
     assert.equal(commData.isolated, undefined);
+  });
+
+  await t.test('10. Vercel Build Output Reader Assets Integrity', () => {
+    const staticDir = path.join(process.cwd(), '.vercel/output/static');
+    if (!fs.existsSync(staticDir)) {
+      console.log('Skipping static asset check: .vercel/output not yet generated');
+      return;
+    }
+    assert.equal(fs.existsSync(path.join(staticDir, 'index.html')), true, 'index.html exists');
+    assert.equal(fs.existsSync(path.join(staticDir, 'manifest.json')), true, 'manifest.json exists');
+    assert.equal(fs.existsSync(path.join(staticDir, 'build-info.json')), true, 'build-info.json exists');
+    assert.equal(fs.existsSync(path.join(staticDir, 'sw.js')), true, 'sw.js exists');
+
+    const buildInfo = JSON.parse(fs.readFileSync(path.join(staticDir, 'build-info.json'), 'utf8'));
+    assert.equal(buildInfo.serviceMode, 'source-parity');
+    assert.equal(buildInfo.previewLocked, true);
+    assert.equal(buildInfo.profile, 'reader-only-preview');
   });
 });
