@@ -50,10 +50,76 @@ jobs:
           grep -Eq '^# tests 24$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# pass 24$' /tmp/icr05b-workflow-containment.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
-          node scripts/release/run-protected-staging-uat.mjs \
-            --mode verify-route \
-            --expected-sha "${{ github.event.pull_request.head.sha || github.sha }}" \
-            --output /tmp/ht-g2-uat-route-attestation.json
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          
+          # Provenance & Ancestry Classification (DEF-G3-03)
+          IS_G2_BRANCH=false
+          if [ "$CANDIDATE_REF" = "release/ht-mvp-2.0-final" ] || [ "$CANDIDATE_REF" = "fix/ht-g2-rbac-session-boundary" ]; then
+            IS_G2_BRANCH=true
+          fi
+
+          IS_G3_CANDIDATE=false
+          if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3_CANDIDATE=true
+          fi
+
+          if [ "$IS_G3_CANDIDATE" = "true" ]; then
+            echo "[G3-PREVIEW-CI] G3 candidate ref '$CANDIDATE_REF' (commit '$CANDIDATE_SHA', descendant of accepted G2 parent 46f3b0b) detected."
+            echo "[G3-PREVIEW-CI] G2 staging UAT route proof is NOT applicable to non-live G3 preview scope."
+            
+            echo "[G3-PREVIEW-CI] Executing G3 isolated preview security suite..."
+            node --test tests/g3-isolated-preview-security.test.mjs
+            PREVIEW_ISOLATION_PASS=true
+
+            echo "[G3-PREVIEW-CI] Executing G3 manifest verification negative-tamper controls..."
+            node --test tests/g3-manifest-verification-tamper.test.mjs
+            MANIFEST_TAMPER_PASS=true
+
+            MANIFEST_VERIFIED=false
+            MANIFEST_STATUS="DEFERRED_TO_G3_ARTIFACT_JOB"
+
+            export PREVIEW_ISOLATION_PASS
+            export MANIFEST_TAMPER_PASS
+            export MANIFEST_VERIFIED
+            export MANIFEST_STATUS
+
+            # Write dedicated G3 preview attestation evidence file (distinct from G2, strictly truthful)
+            node -e '
+              const fs = require("node:fs");
+              fs.writeFileSync("/tmp/ht-g3-preview-security-attestation.json", JSON.stringify({
+                workflow: "HT-MVP-UIAT-01-R3-ICR05B",
+                scope: "g3-preview-security-isolation",
+                candidateRef: process.env.CANDIDATE_REF,
+                candidateSha: process.env.CANDIDATE_SHA,
+                g2ParentSha: "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+                provenanceVerified: true,
+                g2StagingUatCertified: false,
+                sourcePreviewIsolationTested: process.env.PREVIEW_ISOLATION_PASS === "true",
+                manifestTamperControlsCertified: process.env.MANIFEST_TAMPER_PASS === "true",
+                compiledArtifactCertificationJob: "g3-isolated-artifact-certification",
+                manifestVerificationCertified: false,
+                manifestVerificationStatus: "DEFERRED_TO_G3_ARTIFACT_JOB",
+                timestamp: new Date().toISOString()
+              }, null, 2) + "\n");
+            '
+            # Record explicit G2 status note without certifying G2 UAT routes
+            node -e '
+              const fs = require("node:fs");
+              fs.writeFileSync("/tmp/ht-g2-uat-route-status.json", JSON.stringify({
+                status: "NOT_EXECUTED_NON_LIVE_G3_PREVIEW_SCOPE",
+                message: "G2 authenticated staging UAT route proof is not certified by non-live G3 preview tests.",
+                g2AllowedBranches: ["release/ht-mvp-2.0-final", "fix/ht-g2-rbac-session-boundary"],
+                candidateRef: process.env.CANDIDATE_REF,
+                candidateSha: process.env.CANDIDATE_SHA
+              }, null, 2) + "\n");
+            '
+          else
+            node scripts/release/run-protected-staging-uat.mjs \
+              --mode verify-route \
+              --expected-sha "$CANDIDATE_SHA" \
+              --output /tmp/ht-g2-uat-route-attestation.json
+          fi
       - name: Upload deterministic evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -62,6 +128,8 @@ jobs:
           path: |
             /tmp/icr05b-deterministic.tap
             /tmp/icr05b-workflow-containment.tap
+            /tmp/ht-g3-preview-security-attestation.json
+            /tmp/ht-g2-uat-route-status.json
             /tmp/ht-g2-uat-route-attestation.json
           if-no-files-found: warn
 
@@ -125,6 +193,164 @@ jobs:
             /tmp/g2-rbac-session-boundary.tap
             /tmp/real-schema-title-authority.tap
             /tmp/story-title-authority.tap
+          if-no-files-found: warn
+
+  g3-isolated-artifact-certification:
+    name: g3-isolated-artifact-certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact candidate checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Check G3 Provenance and Execution Scope
+        id: check-scope
+        shell: bash
+        run: |
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          IS_G2_BRANCH=false
+          if [ "$CANDIDATE_REF" = "release/ht-mvp-2.0-final" ] || [ "$CANDIDATE_REF" = "fix/ht-g2-rbac-session-boundary" ]; then
+            IS_G2_BRANCH=true
+          fi
+          IS_G3=false
+          if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3=true
+          fi
+          echo "is_g3=$IS_G3" >> "$GITHUB_OUTPUT"
+          echo "[G3-ARTIFACT-JOB] Candidate ref '$CANDIDATE_REF' (SHA '$CANDIDATE_SHA'), is_g3=$IS_G3"
+      - name: Install root and mobile dependencies
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          npm ci
+          npm install --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+      - name: Build and Package Clean Vercel Preview Output Artifact (DEF-G3-05)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[G3-ARTIFACT-BUILD] Initializing hermetic zero-secret Vercel project configuration..."
+          mkdir -p .vercel
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync(".vercel/project.json", JSON.stringify({
+              projectId: "prj_preview_isolated",
+              orgId: "team_preview_isolated",
+              projectName: "healthtimes-client-preview",
+              settings: {
+                framework: null,
+                buildCommand: "npm run build:phase4:web",
+                outputDirectory: "apps/mobile/dist"
+              }
+            }, null, 2) + "\n");
+          '
+          echo "[G3-ARTIFACT-BUILD] Compiling hermetic Vercel output..."
+          env -u VERCEL_TOKEN npx vercel build --yes
+          echo "[G3-ARTIFACT-BUILD] Packaging fail-closed preview barrier..."
+          node scripts/web/package-preview-artifact.mjs
+      - name: Verify Read-Only Artifact Manifest & Strict Security Policies (DEF-G3-04 / DEF-G3-05)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          node scripts/web/verify-vercel-manifest.mjs --verify --expected-sha "$CANDIDATE_SHA" 2>&1 | tee /tmp/g3-manifest-verification.log
+      - name: Execute Real Compiled Output Function Security Suite (DEF-G3-05)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/g3-compiled-artifact-security.test.mjs 2>&1 | tee /tmp/g3-compiled-security.tap
+          grep -Eq '^# fail 0$' /tmp/g3-compiled-security.tap
+      - name: Execute Hermetic Manifest Tamper & Negative Controls Suite (DEF-G3-04)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/g3-manifest-verification-tamper.test.mjs 2>&1 | tee /tmp/g3-tamper.tap
+          grep -Eq '^# fail 0$' /tmp/g3-tamper.tap
+      - name: Package Sealed Prebuilt Artifact for Delivery Custody (Requirement B)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[G3-ARTIFACT-CUSTODY] Archiving sealed .vercel/output prebuilt artifact..."
+          tar -czf /tmp/healthtimes-reader-preview-prebuilt.tar.gz -C .vercel/output .
+          sha256sum /tmp/healthtimes-reader-preview-prebuilt.tar.gz | tee /tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256
+          echo "[G3-ARTIFACT-CUSTODY] Archive created successfully: $(du -h /tmp/healthtimes-reader-preview-prebuilt.tar.gz | cut -f1)"
+      - name: Generate Inspectable G3 Artifact Certification Evidence Payload
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          node -e '
+            const fs = require("node:fs");
+            const manifest = JSON.parse(fs.readFileSync(".vercel/package-manifest.json", "utf8"));
+            const buildInfo = JSON.parse(fs.readFileSync(".vercel/output/static/build-info.json", "utf8"));
+            const tarballSha = fs.existsSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256")
+              ? fs.readFileSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256", "utf8").trim().split(/\s+/)[0]
+              : null;
+            const payload = {
+              workflow: "HT-MVP-UIAT-01-R3-ICR05B",
+              job: "g3-isolated-artifact-certification",
+              candidateRef: process.env.CANDIDATE_REF,
+              candidateSha: process.env.CANDIDATE_SHA,
+              g2ParentSha: "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+              provenanceVerified: true,
+              artifactBuildCertified: true,
+              compiledFunctionSecurityCertified: true,
+              manifestVerificationCertified: true,
+              manifestVerificationStatus: "VERIFIED_PASS",
+              aggregateDigest: manifest.aggregateDigest,
+              fileCount: manifest.fileCount,
+              prebuiltTarballSha256: tarballSha,
+              prebuiltTarballName: "healthtimes-reader-preview-prebuilt.tar.gz",
+              previewLocked: buildInfo.previewLocked,
+              profile: buildInfo.profile,
+              serviceMode: buildInfo.serviceMode,
+              secretsExposure: "NONE_ISOLATED_ZERO_SECRETS",
+              timestamp: new Date().toISOString()
+            };
+            fs.writeFileSync("/tmp/g3-artifact-certification.json", JSON.stringify(payload, null, 2) + "\n");
+          '
+      - name: Record Non-G3 Branch Pass-Through Note
+        if: steps.check-scope.outputs.is_g3 != 'true'
+        shell: bash
+        run: |
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync("/tmp/g3-artifact-certification.json", JSON.stringify({
+              status: "SKIPPED_NOT_G3_BRANCH",
+              candidateRef: process.env.CANDIDATE_REF,
+              message: "G3 isolated artifact certification runs exclusively on feat/ht-g3-* branches descendant from G2."
+            }, null, 2) + "\n");
+          '
+      - name: Upload Inspectable G3 Sealed Prebuilt Deployable Artifact and Evidence (Requirement B)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g3-sealed-prebuilt-deployable-artifact
+          path: |
+            /tmp/healthtimes-reader-preview-prebuilt.tar.gz
+            /tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256
+            .vercel/package-manifest.json
+            .vercel/output/static/build-info.json
+            /tmp/g3-artifact-certification.json
+            /tmp/g3-compiled-security.tap
+            /tmp/g3-tamper.tap
+            /tmp/g3-manifest-verification.log
+            .vercel/output/
           if-no-files-found: warn
 
   physical-live-fault-injection-disabled:

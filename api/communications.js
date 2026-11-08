@@ -504,6 +504,29 @@ async function handle(req, res) {
 
   const url = new URL(req.url, 'https://' + (req.headers.host || 'localhost'));
   const queryAction = String(url.searchParams.get('action') || '');
+
+  const isClientPreview =
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.EXPO_PUBLIC_HEALTHTIMES_PUBLIC_CLIENT_REVIEW || '').trim().toLowerCase()) ||
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.HEALTHTIMES_CLIENT_PREVIEW || '').trim().toLowerCase()) ||
+    ['1', 'true', 'yes', 'on'].includes(String(process.env.HEALTHTIMES_PREVIEW_LOCK || '').trim().toLowerCase()) ||
+    String(process.env.VERCEL_PROJECT_NAME || '').toLowerCase() === 'healthtimes-client-preview';
+
+  if (isClientPreview) {
+    if (req.method === 'GET' && queryAction === 'providerHealth') {
+      return json(res, 200, {
+        ok: true,
+        previewIsolated: true,
+        providers: { resend: 'disabled-in-preview', brevo: 'disabled-in-preview' }
+      });
+    }
+    return json(res, 403, {
+      ok: false,
+      error: 'PREVIEW_MUTATION_BLOCKED',
+      message: 'Communications operations are disabled in client review preview.',
+      isolated: true
+    });
+  }
+
   const webhookAction = ['inbound','resendWebhook','brevoWebhook'].includes(queryAction);
 
   let rawInfo = { raw: '', exact: true };
