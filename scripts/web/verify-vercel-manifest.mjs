@@ -275,23 +275,61 @@ export function verifyManifest(options = {}) {
           errors.push(`${mb.name} handler entrypoint file missing at ${mb.handlerFile}`);
         }
 
-        // Verify absence of unexpected extraneous scripts in mutating bundles
-        function checkNoExtraneous(dir) {
+        // DEF-G3-04: Strict Approved-File Allowlist for operational function bundles
+        // Reject unexpected .mjs, .cjs, .node, .wasm, alternative executable entrypoints,
+        // and any content not strictly on the approved allowlist: ['.vc-config.json', mb.handlerFile]
+        const approvedBundleFiles = new Set(['.vc-config.json', mb.handlerFile]);
+        const EXECUTABLE_EXTENSIONS = new Set([
+          '.js', '.mjs', '.cjs', '.node', '.wasm', '.sh', '.bin', '.exe',
+          '.py', '.rb', '.pl', '.bat', '.cmd', '.ps1'
+        ]);
+        const ALTERNATIVE_ENTRYPOINTS = new Set([
+          'index.js', 'index.mjs', 'index.cjs', 'index.ts',
+          'handler.js', 'handler.mjs', 'handler.cjs', 'handler.ts',
+          'main.js', 'main.mjs', 'main.cjs', 'main.ts',
+          'app.js', 'app.mjs', 'app.cjs', 'app.ts'
+        ]);
+
+        function auditBundleContents(dir) {
           for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
             const full = path.join(dir, ent.name);
             if (ent.isDirectory()) {
-              checkNoExtraneous(full);
-            } else if (ent.isFile() && ent.name.endsWith('.js')) {
+              auditBundleContents(full);
+            } else if (ent.isFile()) {
               const rel = path.relative(bundleDir, full).replace(/\\/g, '/');
-              if (rel !== mb.handlerFile) {
-                errors.push(`Unexpected executable script retained in sealed bundle ${mb.name}: ${rel}`);
+              if (!approvedBundleFiles.has(rel)) {
+                const ext = path.extname(ent.name).toLowerCase();
+                const base = ent.name.toLowerCase();
+                if (EXECUTABLE_EXTENSIONS.has(ext) || ALTERNATIVE_ENTRYPOINTS.has(base)) {
+                  errors.push(`[DEF-G3-04] Unexpected executable content or alternative entrypoint retained in sealed bundle ${mb.name}: ${rel}`);
+                } else {
+                  errors.push(`[DEF-G3-04] Unapproved extraneous file retained in sealed bundle ${mb.name}: ${rel}`);
+                }
               }
             }
           }
         }
-        checkNoExtraneous(bundleDir);
+        auditBundleContents(bundleDir);
       }
     }
+
+    // DEF-G3-04: Global scan across all function bundles for prohibited binary/executable formats
+    const PROHIBITED_GLOBAL_EXTENSIONS = new Set(['.node', '.wasm', '.sh', '.bin', '.exe', '.py', '.rb', '.pl', '.bat', '.cmd', '.ps1']);
+    function scanGlobalProhibited(dir) {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          scanGlobalProhibited(full);
+        } else if (ent.isFile()) {
+          const ext = path.extname(ent.name).toLowerCase();
+          if (PROHIBITED_GLOBAL_EXTENSIONS.has(ext)) {
+            const rel = path.relative(apiFuncDir, full).replace(/\\/g, '/');
+            errors.push(`[DEF-G3-04] Prohibited executable binary/script detected in functions/api: ${rel}`);
+          }
+        }
+      }
+    }
+    scanGlobalProhibited(apiFuncDir);
   }
 
   // 7. Compute fresh manifest from live filesystem

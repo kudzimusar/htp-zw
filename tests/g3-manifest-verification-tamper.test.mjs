@@ -247,7 +247,7 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
     }, /Unexpected function bundle detected in preview artifact: functions\/api\/backdoor\.func/);
   });
 
-  // 13. Retained extraneous executable script in sealed bundle (DEF-G3-02)
+  // 13. Retained extraneous executable script in sealed bundle (DEF-G3-02 / DEF-G3-04)
   await t.test('13. Retained extraneous script in sealed bundle triggers fail-closed rejection', () => {
     const fixtureDir = path.join(testTmpDir, 'extraneous-script');
     const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
@@ -257,11 +257,102 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
 
     assert.throws(() => {
       verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
-    }, /Unexpected executable script retained in sealed bundle newsroom\.func/);
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle newsroom\.func/);
   });
 
-  // 14. Read-only preservation proof
-  await t.test('14. Read-only verification does not mutate manifest file', () => {
+  // 14. Injected .mjs module in sealed operational bundle (DEF-G3-04)
+  await t.test('14. Injected .mjs module in sealed operational bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'injected-mjs');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const injectedMjs = path.join(outputDir, 'functions/api/newsroom.func/api/bypass.mjs');
+    fs.writeFileSync(injectedMjs, 'export default function() {};\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle newsroom\.func: api\/bypass\.mjs/);
+  });
+
+  // 15. Injected .cjs module in sealed operational bundle (DEF-G3-04)
+  await t.test('15. Injected .cjs module in sealed operational bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'injected-cjs');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const injectedCjs = path.join(outputDir, 'functions/api/commerce.func/api/legacy.cjs');
+    fs.writeFileSync(injectedCjs, 'module.exports = {};\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle commerce\.func: api\/legacy\.cjs/);
+  });
+
+  // 16. Injected .node native binary in sealed operational bundle (DEF-G3-04)
+  await t.test('16. Injected .node native binary in sealed operational bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'injected-node');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const injectedNode = path.join(outputDir, 'functions/api/communications.func/api/native.node');
+    fs.writeFileSync(injectedNode, Buffer.from([0x7f, 0x45, 0x4c, 0x46])); // Mock ELF binary
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle communications\.func: api\/native\.node/);
+  });
+
+  // 17. Injected .wasm module in sealed operational bundle (DEF-G3-04)
+  await t.test('17. Injected .wasm module in sealed operational bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'injected-wasm');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const injectedWasm = path.join(outputDir, 'functions/api/newsroom.func/api/payload.wasm');
+    fs.writeFileSync(injectedWasm, Buffer.from([0x00, 0x61, 0x73, 0x6d])); // Mock WASM binary
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle newsroom\.func: api\/payload\.wasm/);
+  });
+
+  // 18. Injected alternative executable entrypoint (DEF-G3-04)
+  await t.test('18. Alternative executable entrypoint (index.js) in sealed bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'alt-entrypoint-index');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const indexJs = path.join(outputDir, 'functions/api/newsroom.func/index.js');
+    fs.writeFileSync(indexJs, 'module.exports = () => {};\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle newsroom\.func: index\.js/);
+  });
+
+  // 19. Injected alternative entrypoint with ESM extension (DEF-G3-04)
+  await t.test('19. Alternative executable entrypoint (handler.mjs) in sealed bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'alt-entrypoint-handler');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const handlerMjs = path.join(outputDir, 'functions/api/commerce.func/handler.mjs');
+    fs.writeFileSync(handlerMjs, 'export default () => {};\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unexpected executable content or alternative entrypoint retained in sealed bundle commerce\.func: handler\.mjs/);
+  });
+
+  // 20. Injected unapproved static file in sealed operational bundle (DEF-G3-04)
+  await t.test('20. Unapproved static file in sealed operational bundle triggers fail-closed rejection', () => {
+    const fixtureDir = path.join(testTmpDir, 'unapproved-static');
+    const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
+
+    const unapprovedFile = path.join(outputDir, 'functions/api/communications.func/config.xml');
+    fs.writeFileSync(unapprovedFile, '<config></config>\n');
+
+    assert.throws(() => {
+      verifyManifest({ outputDir, manifestPath, expectedSha, expectedBarrierDigest });
+    }, /Unapproved extraneous file retained in sealed bundle communications\.func: config\.xml/);
+  });
+
+  // 21. Read-only preservation proof
+  await t.test('21. Read-only verification does not mutate manifest file', () => {
     const fixtureDir = path.join(testTmpDir, 'readonly-preservation');
     const { outputDir, manifestPath, expectedSha, expectedBarrierDigest } = createCompliantFixture(fixtureDir);
 
@@ -272,8 +363,8 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
     assert.equal(contentBefore, contentAfter, 'Manifest content must remain byte-for-byte identical after verification');
   });
 
-  // 15. Live workspace .vercel/output verification (if present)
-  await t.test('15. Live workspace .vercel/output verification (if present)', () => {
+  // 22. Live workspace .vercel/output verification (if present)
+  await t.test('22. Live workspace .vercel/output verification (if present)', () => {
     if (fs.existsSync(LIVE_OUTPUT_DIR) && fs.existsSync(LIVE_MANIFEST_PATH)) {
       const valid = verifyManifest({ outputDir: LIVE_OUTPUT_DIR, manifestPath: LIVE_MANIFEST_PATH });
       assert.equal(valid, true, 'Live packaged artifact must pass verification');

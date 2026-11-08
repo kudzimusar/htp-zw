@@ -123,11 +123,23 @@ for (const fn of REQUIRED_MUTATING_FUNCTIONS) {
     process.exit(1);
   }
 
+  // DEF-G3-04: Strict Approved-File Allowlist for operational function bundles
+  // Operational bundles must contain ONLY .vc-config.json and the approved barrier entrypoint.
+  // All other executable content (.mjs, .cjs, .node, .wasm, alternative entrypoints) and extraneous files are strictly purged and rejected.
+  const approvedBundleFiles = new Set(['.vc-config.json', configuredHandler]);
+  const EXECUTABLE_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.node', '.wasm', '.sh', '.bin', '.exe', '.py', '.rb', '.pl']);
+  const ALTERNATIVE_ENTRYPOINTS = new Set([
+    'index.js', 'index.mjs', 'index.cjs', 'index.ts',
+    'handler.js', 'handler.mjs', 'handler.cjs', 'handler.ts',
+    'main.js', 'main.mjs', 'main.cjs', 'main.ts',
+    'app.js', 'app.mjs', 'app.cjs', 'app.ts'
+  ]);
+
   // Purge all extraneous subdirectories and files in sealed bundle
   for (const entry of fs.readdirSync(funcDir, { withFileTypes: true })) {
     const fullPath = path.join(funcDir, entry.name);
     if (entry.name === '.vc-config.json') continue;
-    if (entry.name === 'api') continue;
+    if (entry.name === path.dirname(configuredHandler)) continue;
     fs.rmSync(fullPath, { recursive: true, force: true });
   }
 
@@ -143,22 +155,45 @@ for (const fn of REQUIRED_MUTATING_FUNCTIONS) {
     process.exit(1);
   }
 
-  // Check for any retained extraneous executable files in function bundle
-  function scanExtraneousJs(dir) {
+  // Strictly enforce approved-file allowlist across entire sealed bundle
+  function purgeAndAuditBundle(dir) {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, ent.name);
       if (ent.isDirectory()) {
-        scanExtraneousJs(full);
-      } else if (ent.isFile() && ent.name.endsWith('.js')) {
+        purgeAndAuditBundle(full);
+        // Remove empty directory if all files were purged
+        try {
+          if (fs.readdirSync(full).length === 0 && ent.name !== path.dirname(configuredHandler)) {
+            fs.rmdirSync(full);
+          }
+        } catch {}
+      } else if (ent.isFile()) {
         const rel = path.relative(funcDir, full).replace(/\\/g, '/');
-        if (rel !== configuredHandler) {
-          console.warn(`[PACKAGE_CLEANUP] Removing extraneous script from ${fn.name}: ${rel}`);
+        if (!approvedBundleFiles.has(rel)) {
+          // If unapproved file exists, purge it
           fs.unlinkSync(full);
         }
       }
     }
   }
-  scanExtraneousJs(funcDir);
+  purgeAndAuditBundle(funcDir);
+
+  // Final verification that ONLY approved files exist in bundle
+  function verifyAllowlistStrict(dir) {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) {
+        verifyAllowlistStrict(full);
+      } else if (ent.isFile()) {
+        const rel = path.relative(funcDir, full).replace(/\\/g, '/');
+        if (!approvedBundleFiles.has(rel)) {
+          console.error(`[PACKAGE_FATAL] [DEF-G3-04] Unapproved file detected in sealed bundle ${fn.name}: ${rel}`);
+          process.exit(1);
+        }
+      }
+    }
+  }
+  verifyAllowlistStrict(funcDir);
 
   // Update .vc-config.json with baked build-time preview lock environment
   vcConfig.environment = {
