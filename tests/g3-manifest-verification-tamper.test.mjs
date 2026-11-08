@@ -370,4 +370,22 @@ test('G3 Manifest Verification Fail-Closed Tampering & Negative Controls', async
       assert.equal(valid, true, 'Live packaged artifact must pass verification');
     }
   });
+
+  // 23. Workflow G3 scope containment (Requirement A): Artifact job requires strict AND condition
+  await t.test('23. Workflow G3 scope containment: CI workflow enforces strict AND condition (feat/ht-g3-* AND G2 ancestry, excluding G2 branches)', () => {
+    const workflowPath = path.join(ROOT_DIR, '.github/workflows/ht-mvp-uiat01-r3-icr05b-certification.yml');
+    assert.ok(fs.existsSync(workflowPath), 'Workflow file must exist');
+    const content = fs.readFileSync(workflowPath, 'utf8');
+
+    // Both deterministic-security-evidence and g3-isolated-artifact-certification must enforce strict AND
+    const andMatches = content.match(/\[ "\$IS_G2_BRANCH" != "true" \] && \[\[ "\$CANDIDATE_REF" =~ \^feat\/ht-g3- \]\] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "\$CANDIDATE_SHA"/g);
+    assert.ok(andMatches && andMatches.length >= 2, 'Workflow must enforce strict AND condition between G3 branch provenance and G2 ancestry in both check-scope and evidence jobs');
+
+    // Negative check: ensure the defective OR pattern is nowhere in the workflow file
+    assert.doesNotMatch(
+      content,
+      /\[\[ "\$CANDIDATE_REF" =~ \^feat\/ht-g3- \]\] \|\| git merge-base/,
+      'Defective OR condition must not appear in workflow file'
+    );
+  });
 });

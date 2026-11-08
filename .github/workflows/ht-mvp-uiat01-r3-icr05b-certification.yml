@@ -217,8 +217,12 @@ jobs:
         run: |
           export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          IS_G2_BRANCH=false
+          if [ "$CANDIDATE_REF" = "release/ht-mvp-2.0-final" ] || [ "$CANDIDATE_REF" = "fix/ht-g2-rbac-session-boundary" ]; then
+            IS_G2_BRANCH=true
+          fi
           IS_G3=false
-          if [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] || git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
+          if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
             IS_G3=true
           fi
           echo "is_g3=$IS_G3" >> "$GITHUB_OUTPUT"
@@ -274,6 +278,15 @@ jobs:
           set -euo pipefail
           node --test tests/g3-manifest-verification-tamper.test.mjs 2>&1 | tee /tmp/g3-tamper.tap
           grep -Eq '^# fail 0$' /tmp/g3-tamper.tap
+      - name: Package Sealed Prebuilt Artifact for Delivery Custody (Requirement B)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[G3-ARTIFACT-CUSTODY] Archiving sealed .vercel/output prebuilt artifact..."
+          tar -czf /tmp/healthtimes-reader-preview-prebuilt.tar.gz -C .vercel/output .
+          sha256sum /tmp/healthtimes-reader-preview-prebuilt.tar.gz | tee /tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256
+          echo "[G3-ARTIFACT-CUSTODY] Archive created successfully: $(du -h /tmp/healthtimes-reader-preview-prebuilt.tar.gz | cut -f1)"
       - name: Generate Inspectable G3 Artifact Certification Evidence Payload
         if: steps.check-scope.outputs.is_g3 == 'true'
         shell: bash
@@ -284,6 +297,9 @@ jobs:
             const fs = require("node:fs");
             const manifest = JSON.parse(fs.readFileSync(".vercel/package-manifest.json", "utf8"));
             const buildInfo = JSON.parse(fs.readFileSync(".vercel/output/static/build-info.json", "utf8"));
+            const tarballSha = fs.existsSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256")
+              ? fs.readFileSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256", "utf8").trim().split(/\s+/)[0]
+              : null;
             const payload = {
               workflow: "HT-MVP-UIAT-01-R3-ICR05B",
               job: "g3-isolated-artifact-certification",
@@ -297,6 +313,8 @@ jobs:
               manifestVerificationStatus: "VERIFIED_PASS",
               aggregateDigest: manifest.aggregateDigest,
               fileCount: manifest.fileCount,
+              prebuiltTarballSha256: tarballSha,
+              prebuiltTarballName: "healthtimes-reader-preview-prebuilt.tar.gz",
               previewLocked: buildInfo.previewLocked,
               profile: buildInfo.profile,
               serviceMode: buildInfo.serviceMode,
@@ -318,18 +336,21 @@ jobs:
               message: "G3 isolated artifact certification runs exclusively on feat/ht-g3-* branches descendant from G2."
             }, null, 2) + "\n");
           '
-      - name: Upload Inspectable G3 Artifact Certification Evidence
+      - name: Upload Inspectable G3 Sealed Prebuilt Deployable Artifact and Evidence (Requirement B)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: g3-isolated-artifact-certification-evidence
+          name: g3-sealed-prebuilt-deployable-artifact
           path: |
+            /tmp/healthtimes-reader-preview-prebuilt.tar.gz
+            /tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256
             .vercel/package-manifest.json
             .vercel/output/static/build-info.json
             /tmp/g3-artifact-certification.json
             /tmp/g3-compiled-security.tap
             /tmp/g3-tamper.tap
             /tmp/g3-manifest-verification.log
+            .vercel/output/
           if-no-files-found: warn
 
   physical-live-fault-injection-disabled:

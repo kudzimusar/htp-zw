@@ -408,16 +408,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const isGenerate = args.includes('--generate');
   const shaIndex = args.indexOf('--expected-sha');
   const expectedSha = shaIndex >= 0 && args[shaIndex + 1] ? args[shaIndex + 1] : undefined;
+  const outputIndex = args.indexOf('--output');
+  const outputDir = outputIndex >= 0 && args[outputIndex + 1] ? path.resolve(args[outputIndex + 1]) : undefined;
+  const manifestIndex = args.indexOf('--manifest');
+  const manifestPath = manifestIndex >= 0 && args[manifestIndex + 1] ? path.resolve(args[manifestIndex + 1]) : undefined;
 
   try {
     if (isVerify) {
-      verifyManifest({ expectedSha });
+      verifyManifest({ expectedSha, outputDir, manifestPath });
     } else if (isGenerate) {
-      generateManifest();
+      generateManifest(outputDir, manifestPath);
     } else {
       // Default: generate then verify
-      generateManifest();
-      verifyManifest({ expectedSha });
+      generateManifest(outputDir, manifestPath);
+      verifyManifest({ expectedSha, outputDir, manifestPath });
     }
   } catch (err) {
     process.exit(1);
