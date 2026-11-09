@@ -1,0 +1,68 @@
+name: HT-MVP-OWNER-UAT-P0 — Isolated Reader Endurance (279-1920)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ht-p0-reader-endurance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: staging
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  isolated-reader-endurance:
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Prove exact SHA and immutable G3 ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install and compile canonical isolated Reader
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+          npm run build:phase4:web
+          npx playwright install --with-deps chromium
+          node --check scripts/uat/p0-reader-endurance.mjs
+      - name: Instrument five 120-second browser sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/p0-static-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 12); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
+            if [[ "$attempt" == "12" ]]; then cat /tmp/p0-static-server.log; exit 1; fi
+            sleep 1
+          done
+          node scripts/uat/p0-reader-endurance.mjs
+      - name: Preserve local physical browser traces regardless of failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-reader-five-viewports-120sec-source-parity
+          path: |
+            p0-reader-endurance/
+            /tmp/p0-static-server.log
+          if-no-files-found: warn
+          retention-days: 30
