@@ -3,11 +3,11 @@
 const CACHE_NAME = "healthtimes-universal-p0-v3";
 
 const scopePath = new URL(self.registration.scope).pathname;
-const scopedPath = (path = "") => scopePath + path.replace(/^\\/+/, "");
+const scopedPath = (path = "") => scopePath + path.replace(/^\/+/, "");
 const SHELL = [scopedPath(), scopedPath("manifest.json"), scopedPath("healthtimes-icon.svg")];
 
 function isRestrictedPath(pathname) {
-  return /(?:^|\\/)(?:studio|owner-preview|api|auth|account-access|premium|checkout|billing|finance)(?:\\/|$)/i.test(pathname);
+  return /(?:^|\/)(?:studio|owner-preview|api|auth|account-access|premium|checkout|billing|finance)(?:\/|$)/i.test(pathname);
 }
 
 self.addEventListener("install", (event) => {
