@@ -34,7 +34,7 @@ function DeepLinkBridge(){
       // remount the ArticleReader while it is still hydrating.
       if(current===target || browserPath===target || pendingDestinationRef.current===target) return;
       pendingDestinationRef.current=target;
-      router.push(target as never);
+      router.push(("/article/"+encodeURIComponent(destination.articleId)) as never);
     };
 
     if(!initialUrlProcessedRef.current){
