@@ -550,8 +550,20 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
                   )}
                 </View>
               ))
+            ) : story.excerpt ? (
+              <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt}</Text>
             ) : (
-              <Text style={[styles.paragraph,{fontSize:type.body*textScale,lineHeight:29*textScale,color:palette.ink}]}>{story.excerpt ?? ""}</Text>
+              <View style={[styles.memberState,{borderColor:palette.border}]}>
+                <Text style={[styles.memberStateTitle,{color:palette.ink}]}>Full public article delivery is not yet verified</Text>
+                <Text style={[styles.memberStateText,{color:palette.inkMuted}]}>
+                  The headline and publication date come from the public publishing source. The complete body has not been certified for this Reader build.
+                </Text>
+                {!!story.canonicalUrl && (
+                  <Pressable accessibilityRole="link" accessibilityLabel="Read the original HealthTimes article" onPress={()=>{void Linking.openURL(story.canonicalUrl!);}}>
+                    <Text style={[styles.sourceButtonText,{color:palette.blue}]}>Continue reading at HealthTimes.co.zw →</Text>
+                  </Pressable>
+                )}
+              </View>
             )}
           </>
         )}
