@@ -57,3 +57,28 @@ test("public articles bypass Premium-only teaser RPC waterfall",()=>{
   assert.match(source,/const teaserAuthority=current\.accessPolicy==="premium"\s*\?\s*await boundedTeaserAuthority\(current\)\s*:\s*null;/);
   assert.doesNotMatch(source,/const teaserAuthority=await boundedTeaserAuthority\(current\);/);
 });
+
+test("live-source metadata manifest is same-origin, independently hashed and contains no article bodies",()=>{
+  const reader=read("apps/mobile/src/services/source-parity.ts");
+  const generator=read("scripts/editorial/prepare-p0-public-metadata-manifest.mjs");
+  const workflow=read(".github/workflows/ht-mvp-owner-uat-p0-browser-endurance.yml");
+  assert.match(reader,/readSameOriginPublicManifest/);
+  assert.match(reader,/EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE/);
+  assert.match(reader,/url\.origin!==origin/);
+  assert.match(reader,/crypto\.subtle\.digest/);
+  assert.match(reader,/restrictedBodiesIncluded!==false/);
+  assert.match(reader,/entry\.contentBody!==null/);
+  assert.match(reader,/if\(!canRefreshPublicSourceFromRuntime\(\)\)/);
+  assert.match(generator,/contentBody:null/);
+  assert.match(generator,/bodyAuthority:"BLOCKED_PENDING_OWNER_CLASSIFICATION"/);
+  assert.match(generator,/freshnessSlaVerified:false/);
+  assert.match(workflow,/node scripts\/editorial\/prepare-p0-public-metadata-manifest\.mjs/);
+  assert.match(workflow,/test -s apps\/mobile\/dist\/healthtimes-public-feed\.json/);
+});
+
+test("metadata-only stories explain unavailable bodies and offer source continuation",()=>{
+  const reader=read("apps/mobile/app/article/[id].tsx");
+  assert.match(reader,/Full public article delivery is not yet verified/);
+  assert.match(reader,/complete body has not been certified/);
+  assert.match(reader,/Continue reading at HealthTimes\.co\.zw/);
+});
