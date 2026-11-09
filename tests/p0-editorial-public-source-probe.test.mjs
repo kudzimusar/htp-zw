@@ -93,3 +93,40 @@ test("unresolvable taxonomy remains fail-closed even when headline is current",a
   assert.equal(result.status,"BLOCKED_NO_VERIFIABLE_PUBLIC_POST");
   assert.equal(result.decisions.BLOCK_UNRESOLVED_CLASSIFICATION,1);
 });
+
+test("authorized public body and media extraction delivers clean HTML and verified media",()=>{
+  const samplePost=post({
+    content:{rendered:'<p>Public report paragraph.</p><script>alert("xss")</script><iframe src="evil.html"></iframe>'},
+    excerpt:{rendered:'<p>Excerpt paragraph.</p><a class="read-more" href="#">Read More</a>'},
+    _embedded:{
+      "wp:term":[[{id:1,taxonomy:"category",name:"Health News",slug:"health-news"}]],
+      "wp:featuredmedia":[{source_url:"https://healthtimes.co.zw/wp-content/uploads/2026/11/lab.jpg",alt_text:"Lab tech"}],
+      author:[{id:4,name:"Michael Gwarisa"}]
+    }
+  });
+  const evaluated=assessPublishedPost(samplePost,{includeBody:true});
+  assert.equal(evaluated.decision,"PUBLIC_METADATA_CANDIDATE");
+  assert.equal(evaluated.article.bodyAuthority,"VERIFIED_PUBLIC_PUBLISHED");
+  assert.equal(evaluated.article.contentBody.includes("<script"),false);
+  assert.equal(evaluated.article.contentBody.includes("<iframe"),false);
+  assert.equal(evaluated.article.contentBody.includes("Public report paragraph."),true);
+  assert.equal(evaluated.article.heroMedia.sourceUrl,"https://healthtimes.co.zw/wp-content/uploads/2026/11/lab.jpg");
+  assert.equal(evaluated.article.authorName,"Michael Gwarisa");
+});
+
+test("incremental sync dry-run engine plans upserts for posts newer than staging tip without writing DB",async()=>{
+  const { planIncrementalSync, STAGING_CORPUS_BASELINE } = await import("../scripts/editorial/sync-incremental-dryrun.mjs");
+  const posts=[
+    { postId:101, slug:"oct-post", publishedAt:"2026-10-30T10:00:00.000Z", title:"Old" },
+    { postId:102, slug:"nov-post-1", publishedAt:"2026-11-02T10:00:00.000Z", title:"New 1", contentBody:"<p>Body 1</p>", canonicalUrl:"https://healthtimes.co.zw/nov-post-1/" },
+    { postId:103, slug:"nov-post-2", publishedAt:"2026-11-06T10:00:00.000Z", title:"New 2", contentBody:"<p>Body 2</p>", canonicalUrl:"https://healthtimes.co.zw/nov-post-2/" }
+  ];
+  const plan=planIncrementalSync(posts,STAGING_CORPUS_BASELINE);
+  assert.equal(plan.targetDatabase,"bzuvntbkevvuhfhqhkua");
+  assert.equal(plan.candidatesIdentified,2);
+  assert.equal(plan.newestCandidateAt,"2026-11-06T10:00:00.000Z");
+  assert.equal(plan.stagingDatabaseWriteStatus,"HELD_PENDING_OWNER_AUTHORIZATION");
+  assert.equal(plan.sqlStatements.length,2);
+  assert.match(plan.sqlStatements[0],/INSERT INTO public\.stories/);
+  assert.match(plan.sqlStatements[0],/ON CONFLICT \(slug\) DO UPDATE/);
+});

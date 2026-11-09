@@ -20,17 +20,32 @@ const viewports=[
 const runDir="p0-reader-endurance";
 await mkdir(runDir,{recursive:true});
 const browser=await chromium.launch({headless:true});
-const output={kind:"isolated-exact-head-static-reader-endurance",candidateSha:expectedSha,startedAt:new Date().toISOString(),sessions:[],limitations:[
-  "Local static build only, not Owner SSO-protected Vercel deployment",
-  "Public snapshot source only; does not certify freshness or full body publication",
-  "Laboratory measurements, not actual Core Web Vitals p75 field data"
-]};
+const output={
+  kind:"isolated-exact-head-static-reader-endurance",
+  candidateSha:expectedSha,
+  startedAt:new Date().toISOString(),
+  environment:"isolated-static-export-laboratory",
+  serviceWorkers:"allow",
+  performanceBudgets:{
+    maxArticleReadyMs:10000,
+    maxLongTasks:10,
+    maxHistoryMutations:3,
+    maxHeapDeltaMb:30
+  },
+  protectedDeploymentStatus:"HELD_PENDING_OWNER_AUTHORIZATION",
+  sessions:[],
+  limitations:[
+    "Local static build laboratory, not Owner SSO-protected Vercel deployment",
+    "Evaluates static export runtime stability with active service worker",
+    "Laboratory measurements, not actual Core Web Vitals p75 field data"
+  ]
+};
 let hadFailure=false;
 try{
   for(const vp of viewports){
     const session={viewport:vp,errors:[],unhandled:[],httpFailures:[],historyMutations:0,articleReadyMs:null,screenshots:[],articleTextObserved:false,initialJsHeap:null,finalJsHeap:null,longTasks:0,success:false};
     output.sessions.push(session);
-    const context=await browser.newContext({viewport:{width:vp.width,height:vp.height},serviceWorkers:"block"});
+    const context=await browser.newContext({viewport:{width:vp.width,height:vp.height},serviceWorkers:"allow"});
     await context.tracing.start({screenshots:true,snapshots:true});
     const page=await context.newPage();
     page.on("pageerror",error=>session.errors.push({message:String(error.message??error),stack:String(error.stack??"").slice(0,1800)}));
@@ -54,6 +69,7 @@ try{
       await page.getByText("Loading article…",{exact:true}).waitFor({state:"hidden",timeout:30000});
       session.articleReadyMs=Date.now()-start;
       session.articleTextObserved=true;
+      if(session.articleReadyMs>10000) throw new Error("Article ready exceeded budget: "+session.articleReadyMs+"ms");
       session.initialJsHeap=await page.evaluate(()=>performance.memory?.usedJSHeapSize??null);
       await page.getByRole("button",{name:/Text size/i}).click();
       await page.getByRole("button",{name:"Save article"}).click();
@@ -80,6 +96,11 @@ try{
       session.unhandled.push(...runtime.unhandled);
       if(runtime.path!=="/article/"+articleId)throw new Error("Unexpected route navigation: "+runtime.path);
       if(session.historyMutations>3)throw new Error("Repeated history modifications: "+session.historyMutations);
+      if(session.longTasks>10) throw new Error("Excessive long tasks: "+session.longTasks);
+      if(session.initialJsHeap && session.finalJsHeap && (session.finalJsHeap-session.initialJsHeap)>30*1024*1024){
+        throw new Error("Excessive heap growth: "+Math.round((session.finalJsHeap-session.initialJsHeap)/1024/1024)+"MB");
+      }
+      if(!runtime.bodyText || runtime.bodyText.length<50) throw new Error("Article body text missing or unrendered");
       if(session.unhandled.length||session.errors.length)throw new Error("Unhandled application exception");
       if(session.httpFailures.some(x=>x.status>=500))throw new Error("HTTP 5xx observed during article");
       await page.screenshot({path:runDir+"/"+vp.name+"-120-second.png",fullPage:false});

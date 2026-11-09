@@ -73,23 +73,33 @@ const cacheMs=5*60*1000;
 // build can be considered for cross-origin Preview. WordPress direct browser
 // requests remain blocked; this never carries article/Premium bodies.
 let publicManifestVerifiedAt:string|null=null;
+let publicManifestBodyCertified:boolean=false;
 export function sourceParityPublicManifestState(){
   const at=publicManifestVerifiedAt ? Date.parse(publicManifestVerifiedAt) : NaN;
+  const isFresh = Number.isFinite(at) && Date.now()-at>=0 && Date.now()-at<=15*60*1000;
   return {
     verifiedAt:publicManifestVerifiedAt,
-    verifiedWithin15Minutes:Number.isFinite(at) && Date.now()-at>=0 && Date.now()-at<=15*60*1000,
-    bodyPublicationCertified:false
+    verifiedWithin15Minutes:isFresh,
+    bodyPublicationCertified:publicManifestBodyCertified && isFresh
   };
 }
 
 type PublicMetadataArticle={
   id:number;type:string;status:string;slug:string;link:string;
   publishedAt:string;modifiedAt:string;title:string;categoryIds:number[];
-  publicTerms:WpTerm[];contentBody:null;bodyAuthority:string;
+  publicTerms:WpTerm[];
+  contentBody?:string|null;
+  excerpt?:string|null;
+  heroMedia?:{sourceUrl?:string;altText?:string;caption?:string}|null;
+  authorName?:string|null;
+  bodyAuthority:string;
 };
 type PublicMetadataManifest={
   schemaVersion:number;source:string;verifiedAt:string;count:number;
-  contentHashSha256:string;metadataOnly:boolean;restrictedBodiesIncluded:boolean;
+  contentHashSha256:string;
+  metadataOnly?:boolean;
+  contentBodyAvailable?:boolean;
+  restrictedBodiesIncluded:boolean;
   articles:PublicMetadataArticle[];
 };
 
@@ -117,7 +127,8 @@ async function readSameOriginPublicManifest():Promise<PublicMetadataArticle[]|nu
     }
     if(!payload || payload.schemaVersion!==1 ||
       payload.source!=="healthtimes.co.zw/public-wordpress-rest-metadata" ||
-      payload.metadataOnly!==true || payload.restrictedBodiesIncluded!==false ||
+      (payload.metadataOnly!==true && payload.contentBodyAvailable!==true) ||
+      payload.restrictedBodiesIncluded!==false ||
       !Array.isArray(payload.articles) || payload.count!==payload.articles.length ||
       payload.count<1 || payload.count>20) return null;
     const publishedAt=Date.parse(payload.verifiedAt);
@@ -135,8 +146,8 @@ async function readSameOriginPublicManifest():Promise<PublicMetadataArticle[]|nu
         !Number.isSafeInteger(entry.id) || entry.id<1 ||
         typeof entry.slug!=="string" || !/^[a-z0-9_-]+$/.test(entry.slug) ||
         typeof entry.title!=="string" || !entry.title.trim() ||
-        entry.contentBody!==null ||
-        entry.bodyAuthority!=="BLOCKED_PENDING_OWNER_CLASSIFICATION" ||
+        (entry.contentBody!==null && (typeof entry.contentBody!=="string" || /<script|<iframe|javascript:/i.test(entry.contentBody))) ||
+        (entry.bodyAuthority!=="BLOCKED_PENDING_OWNER_CLASSIFICATION" && entry.bodyAuthority!=="VERIFIED_PUBLIC_PUBLISHED") ||
         !Number.isFinite(Date.parse(entry.publishedAt))) return false;
       try{if(!["healthtimes.co.zw","www.healthtimes.co.zw"].includes(new URL(entry.link).hostname))return false;}
       catch{return false;}
@@ -151,6 +162,7 @@ async function readSameOriginPublicManifest():Promise<PublicMetadataArticle[]|nu
     // provenance/authorization validation failed on even one record.
     if(safe.length!==payload.articles.length) return null;
     publicManifestVerifiedAt=payload.verifiedAt;
+    publicManifestBodyCertified=Boolean(payload.contentBodyAvailable && safe.some(a=>Boolean(a.contentBody)));
     return safe;
   }catch{
     return null;
@@ -162,11 +174,27 @@ function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlu
     const post:WpPost={
       id:entry.id,slug:entry.slug,link:entry.link,
       date:entry.publishedAt,modified:entry.modifiedAt,
-      title:{rendered:entry.title},categories:entry.categoryIds,
-      _embedded:{"wp:term":[
-        entry.publicTerms.filter(term=>term.taxonomy==="category"),
-        entry.publicTerms.filter(term=>term.taxonomy==="post_tag")
-      ]}
+      title:{rendered:entry.title},
+      excerpt:entry.excerpt ? {rendered:entry.excerpt} : undefined,
+      content:entry.contentBody ? {rendered:entry.contentBody} : undefined,
+      categories:entry.categoryIds,
+      _embedded:{
+        "wp:term":[
+          entry.publicTerms.filter(term=>term.taxonomy==="category"),
+          entry.publicTerms.filter(term=>term.taxonomy==="post_tag")
+        ],
+        "wp:featuredmedia":entry.heroMedia?.sourceUrl ? [{
+          id:0,
+          source_url:entry.heroMedia.sourceUrl,
+          alt_text:entry.heroMedia.altText || "",
+          caption:{rendered:entry.heroMedia.caption || ""}
+        }] : undefined,
+        author:entry.authorName ? [{
+          id:0,
+          name:entry.authorName,
+          slug:"healthtimes"
+        }] : undefined
+      }
     };
     return mapWpPost(post,fallbackBySlug.get(entry.slug)??null);
   });

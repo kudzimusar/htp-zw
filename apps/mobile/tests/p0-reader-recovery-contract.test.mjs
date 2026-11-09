@@ -58,7 +58,7 @@ test("public articles bypass Premium-only teaser RPC waterfall",()=>{
   assert.doesNotMatch(source,/const teaserAuthority=await boundedTeaserAuthority\(current\);/);
 });
 
-test("live-source metadata manifest is same-origin, independently hashed and contains no article bodies",()=>{
+test("live-source manifest is same-origin, independently hashed and delivers sanitized public bodies and media",()=>{
   const reader=read("apps/mobile/src/services/source-parity.ts");
   const generator=read("scripts/editorial/prepare-p0-public-metadata-manifest.mjs");
   const workflow=read(".github/workflows/ht-mvp-owner-uat-p0-browser-endurance.yml");
@@ -67,11 +67,11 @@ test("live-source metadata manifest is same-origin, independently hashed and con
   assert.match(reader,/url\.origin!==origin/);
   assert.match(reader,/crypto\.subtle\.digest/);
   assert.match(reader,/restrictedBodiesIncluded!==false/);
-  assert.match(reader,/entry\.contentBody!==null/);
   assert.match(reader,/if\(!canRefreshPublicSourceFromRuntime\(\)\)/);
-  assert.match(generator,/contentBody:null/);
-  assert.match(generator,/bodyAuthority:"BLOCKED_PENDING_OWNER_CLASSIFICATION"/);
-  assert.match(generator,/freshnessSlaVerified:false/);
+  assert.match(generator,/contentBody:article\.contentBody \?\? null/);
+  assert.match(generator,/bodyAuthority:article\.contentBody \? "VERIFIED_PUBLIC_PUBLISHED" : "BLOCKED_PENDING_OWNER_CLASSIFICATION"/);
+  assert.match(generator,/freshnessSlaVerified:true/);
+  assert.match(generator,/contentBodyAvailable:true/);
   // A live publisher classification failure must not suppress the independent
   // lab browser-crash endurance gate. Manifest freshness is certified separately.
   assert.match(workflow,/APP_ENV: development/);

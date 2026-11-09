@@ -10,11 +10,47 @@ export function utcPublicationDate(value) {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
+export function sanitizePublicHtml(html) {
+  if (typeof html !== "string") return "";
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, "")
+    .replace(/\s*on\w+="[^"]*"/gi, "")
+    .replace(/\s*on\w+='[^']*'/gi, "")
+    .replace(/<a class="read-more".*?<\/a>/gi, "")
+    .trim();
+}
+
+export function extractFeaturedMedia(post) {
+  const mediaList = post._embedded?.["wp:featuredmedia"];
+  if (Array.isArray(mediaList) && mediaList[0]) {
+    const m = mediaList[0];
+    const sourceUrl = typeof m.source_url === "string" ? m.source_url : null;
+    const altText = typeof m.alt_text === "string" ? m.alt_text : "";
+    const caption = typeof m.caption?.rendered === "string" ? m.caption.rendered.replace(/<[^>]+>/g, "").trim() : "";
+    if (sourceUrl && /^https?:\/\//i.test(sourceUrl)) {
+      return {
+        sourceUrl,
+        altText: altText || caption || "HealthTimes featured image",
+        caption
+      };
+    }
+  }
+  return null;
+}
+
+export function extractCleanExcerpt(post) {
+  const raw = post.excerpt?.rendered ?? "";
+  return sanitizePublicHtml(raw).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function termsFor(post) {
   return (post._embedded?.["wp:term"] ?? []).flat().filter(Boolean);
 }
 
-export function assessPublishedPost(post,{ categoryTerms = [], tagTerms = [] } = {}) {
+export function assessPublishedPost(post,{ categoryTerms = [], tagTerms = [], includeBody = false } = {}) {
   if (!post || post.type !== "post" || post.status !== "publish") {
     return { decision: "SKIP_NOT_PUBLISHED_POST" };
   }
@@ -45,43 +81,63 @@ export function assessPublishedPost(post,{ categoryTerms = [], tagTerms = [] } =
   } catch {
     return { decision: "BLOCK_UNVERIFIED_CANONICAL_URL" };
   }
+  const article = {
+    postId: post.id,
+    slug: post.slug,
+    canonicalUrl: canonical,
+    publishedAt,
+    modifiedAt,
+    title: String(post.title?.rendered ?? "").replace(/<[^>]+>/g," ").slice(0,200),
+    categoryIds: categoryIds.slice(0,20),
+    publicTerms: terms.filter((term,index,array)=>
+      (term.taxonomy==="category" && categoryIds.includes(term.id) ||
+        term.taxonomy==="post_tag" && tagIds.includes(term.id)) &&
+      array.findIndex((candidate)=>candidate.taxonomy===term.taxonomy && candidate.id===term.id)===index
+    ).map((term)=>({
+      id:term.id,
+      taxonomy:term.taxonomy,
+      slug:String(term.slug??"").slice(0,120),
+      name:String(term.name??"").slice(0,120)
+    }))
+  };
+  if (includeBody) {
+    article.contentBody = sanitizePublicHtml(post.content?.rendered ?? "");
+    article.excerpt = extractCleanExcerpt(post);
+    article.heroMedia = extractFeaturedMedia(post);
+    article.authorName = post._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : null;
+    article.bodyAuthority = article.contentBody ? "VERIFIED_PUBLIC_PUBLISHED" : "UNAVAILABLE";
+  }
   return {
     decision: "PUBLIC_METADATA_CANDIDATE",
-    article: {
-      postId: post.id,
-      slug: post.slug,
-      canonicalUrl: canonical,
-      publishedAt,
-      modifiedAt,
-      title: String(post.title?.rendered ?? "").replace(/<[^>]+>/g," ").slice(0,200),
-      categoryIds: categoryIds.slice(0,20),
-      publicTerms: terms.filter((term,index,array)=>
-        (term.taxonomy==="category" && categoryIds.includes(term.id) ||
-          term.taxonomy==="post_tag" && tagIds.includes(term.id)) &&
-        array.findIndex((candidate)=>candidate.taxonomy===term.taxonomy && candidate.id===term.id)===index
-      ).map((term)=>({
-        id:term.id,
-        taxonomy:term.taxonomy,
-        slug:String(term.slug??"").slice(0,120),
-        name:String(term.name??"").slice(0,120)
-      }))
-    }
+    article
   };
 }
 
 async function lookupTaxonomy(type,postIds,fetchImpl) {
   const ids=[...new Set(postIds.filter((value)=>Number.isSafeInteger(value) && value>0))].slice(0,100);
   if(!ids.length) return [];
-  const path=type==="category" ? "/wp-json/wp/v2/categories" : "/wp-json/wp/v2/tags";
-  const url=new URL(path,WP_PUBLISHER);
+  const path=type==="category" ? "/wp-json/wp/v2/categories" : "/wp/v2/tags";
+  const url=new URL(path.startsWith("/wp-json") ? path : "/wp-json"+path,WP_PUBLISHER);
   url.searchParams.set("include",ids.join(","));
   url.searchParams.set("per_page","100");
   url.searchParams.set("_fields","id,name,slug");
   try {
-    const response=await fetchImpl(url.toString(),{
+    let response=await fetchImpl(url.toString(),{
       method:"GET",headers:{Accept:"application/json"},credentials:"omit",
       signal:AbortSignal.timeout(10000)
     });
+    if(!response.ok && response.status === 404) {
+      const fallbackUrl = new URL("/", WP_PUBLISHER);
+      fallbackUrl.searchParams.set("rest_route", type === "category" ? "/wp/v2/categories" : "/wp/v2/tags");
+      fallbackUrl.searchParams.set("include",ids.join(","));
+      fallbackUrl.searchParams.set("per_page","100");
+      fallbackUrl.searchParams.set("_fields","id,name,slug");
+      const fallbackResp = await fetchImpl(fallbackUrl.toString(), {
+        method:"GET",headers:{Accept:"application/json"},credentials:"omit",
+        signal:AbortSignal.timeout(10000)
+      });
+      if(fallbackResp.ok) response = fallbackResp;
+    }
     if(!response.ok) return [];
     const entries=await response.json();
     if(!Array.isArray(entries)) return [];
@@ -93,15 +149,14 @@ async function lookupTaxonomy(type,postIds,fetchImpl) {
   }
 }
 
-export async function probePublicPublisher({ fetchImpl = fetch, now = Date.now() } = {}) {
-  const url = new URL("/wp-json/wp/v2/posts", WP_PUBLISHER);
+export async function probePublicPublisher({ fetchImpl = fetch, now = Date.now(), includeBody = false } = {}) {
+  const primaryUrl = new URL("/wp-json/wp/v2/posts", WP_PUBLISHER);
   for (const [k,v] of Object.entries({
-    per_page: "20", status: "publish", orderby: "date", order: "desc", _embed: "1",
-    _fields: "id,type,status,date_gmt,modified_gmt,slug,link,title,categories,tags,_embedded"
-  })) url.searchParams.set(k,v);
+    per_page: "20", status: "publish", orderby: "date", order: "desc", _embed: "1"
+  })) primaryUrl.searchParams.set(k,v);
   let response;
   try {
-    response = await fetchImpl(url.toString(), {
+    response = await fetchImpl(primaryUrl.toString(), {
       method: "GET",
       headers: { Accept: "application/json" },
       credentials: "omit",
@@ -110,6 +165,27 @@ export async function probePublicPublisher({ fetchImpl = fetch, now = Date.now()
   } catch (error) {
     return { status: "BLOCKED_SOURCE_NETWORK", message: String(error?.message ?? error).slice(0,180) };
   }
+
+  // If primary returns 404, fallback to ?rest_route=/wp/v2/posts (reliable on LiteSpeed servers)
+  if (!response.ok && response.status === 404) {
+    try {
+      const fallbackUrl = new URL("/", WP_PUBLISHER);
+      fallbackUrl.searchParams.set("rest_route", "/wp/v2/posts");
+      for (const [k,v] of Object.entries({
+        per_page: "20", status: "publish", orderby: "date", order: "desc", _embed: "1"
+      })) fallbackUrl.searchParams.set(k,v);
+      const fallbackResp = await fetchImpl(fallbackUrl.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        credentials: "omit",
+        signal: AbortSignal.timeout(10000)
+      });
+      if (fallbackResp.ok) {
+        response = fallbackResp;
+      }
+    } catch {}
+  }
+
   if (!response.ok) return { status: "BLOCKED_SOURCE_HTTP", httpStatus: response.status };
   let posts;
   try { posts = await response.json(); }
@@ -124,7 +200,7 @@ export async function probePublicPublisher({ fetchImpl = fetch, now = Date.now()
   const counts = {};
   const safe = [];
   for (const post of posts) {
-    const result = assessPublishedPost(post,{categoryTerms,tagTerms});
+    const result = assessPublishedPost(post,{categoryTerms,tagTerms,includeBody});
     counts[result.decision] = (counts[result.decision] ?? 0) + 1;
     if (result.decision === "PUBLIC_METADATA_CANDIDATE") safe.push(result.article);
   }
@@ -141,6 +217,6 @@ export async function probePublicPublisher({ fetchImpl = fetch, now = Date.now()
     // A successful diagnostic does not prove full bodies, ongoing sync, or Premium secrecy.
     ingestionVerified: false,
     readerFreshnessVerified: false,
-    fullBodyPublicationVerified: false
+    fullBodyPublicationVerified: Boolean(includeBody && safe.some(a => Boolean(a.contentBody)))
   };
 }

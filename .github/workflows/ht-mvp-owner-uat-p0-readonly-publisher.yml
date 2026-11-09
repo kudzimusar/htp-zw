@@ -35,6 +35,7 @@ jobs:
           node --check scripts/editorial/public-source-readonly-probe.mjs
           node --check scripts/editorial/run-public-source-readonly-probe.mjs
           node --check scripts/editorial/prepare-p0-public-metadata-manifest.mjs
+          node --check scripts/editorial/sync-incremental-dryrun.mjs
           node --check tests/p0-editorial-public-source-probe.test.mjs
           node --check apps/mobile/tests/p0-reader-recovery-contract.test.mjs
           node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs 2>&1 | tee /tmp/p0-source-contracts.tap
@@ -45,12 +46,17 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
-      - name: Generate metadata-only build manifest (no database writes)
+      - name: Run incremental sync dry-run engine (zero database writes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/editorial/sync-incremental-dryrun.mjs
+      - name: Generate authorized public feed manifest (no database writes)
         shell: bash
         run: |
           set -euo pipefail
           node scripts/editorial/prepare-p0-public-metadata-manifest.mjs
-          node -e 'const m=require("./apps/mobile/public/healthtimes-public-feed.json"); if(!m.metadataOnly || m.restrictedBodiesIncluded!==false || !m.count)process.exit(1)'
+          node -e 'const m=require("./apps/mobile/public/healthtimes-public-feed.json"); if((!m.metadataOnly && !m.contentBodyAvailable) || m.restrictedBodiesIncluded!==false || !m.count)process.exit(1)'
       - name: Preserve read-only evidence even when publisher classification blocks
         if: always()
         uses: actions/upload-artifact@v4
