@@ -29,8 +29,40 @@ jobs:
           node --check tests/p0-editorial-public-source-probe.test.mjs
           node --check apps/mobile/tests/p0-reader-recovery-contract.test.mjs
       - name: Run deterministic Publisher and Reader source-contract tests
+        shell: bash
         run: |
-          node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs | tee /tmp/p0-source-contracts.tap
+          set -euo pipefail
+          node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs 2>&1 | tee /tmp/p0-source-contracts.tap
+          grep -Eq '^# fail 0
+      - name: Probe live publisher via read-only published-post metadata API
+        shell: bash
+        run: |
+          node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
+      - name: Upload read-only P0 evidence even on source refusal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-publisher-freshness-readonly-evidence
+          path: |
+            /tmp/p0-public-source-readonly-evidence.json
+            /tmp/p0-source-contracts.tap
+          if-no-files-found: warn
+ /tmp/p0-source-contracts.tap
+          grep -Eq '^# skipped 0
+      - name: Probe live publisher via read-only published-post metadata API
+        shell: bash
+        run: |
+          node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
+      - name: Upload read-only P0 evidence even on source refusal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-publisher-freshness-readonly-evidence
+          path: |
+            /tmp/p0-public-source-readonly-evidence.json
+            /tmp/p0-source-contracts.tap
+          if-no-files-found: warn
+ /tmp/p0-source-contracts.tap
       - name: Probe live publisher via read-only published-post metadata API
         shell: bash
         run: |
