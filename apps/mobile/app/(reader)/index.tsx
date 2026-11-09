@@ -11,6 +11,7 @@ import type {
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
 import { EmptyState, HomeSkeleton, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
 import { services, serviceMode } from "../../src/services";
+import { sourceParityPublicManifestState } from "../../src/services/source-parity";
 import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
@@ -291,8 +292,10 @@ export default function HomeScreen() {
   const source=sortByPublicationDesc(home.data);
   const generalStories=source.filter((story)=>story.accessPolicy!=="premium");
   const newestPublicTime=generalStories[0]?.publishedAt ? Date.parse(generalStories[0].publishedAt!) : NaN;
-  const feedStale=serviceMode!=="fixture" &&
-    (!Number.isFinite(newestPublicTime) || Date.now()-newestPublicTime>7*24*60*60*1000);
+  const manifestState=sourceParityPublicManifestState();
+  const feedStale=!home.loading && serviceMode!=="fixture" &&
+    ((serviceMode==="source-parity" && !manifestState.verifiedWithin15Minutes) ||
+      !Number.isFinite(newestPublicTime) || Date.now()-newestPublicTime>7*24*60*60*1000);
   const newestPublicDate=Number.isFinite(newestPublicTime)
     ? new Date(newestPublicTime).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"})
     : "unknown";
