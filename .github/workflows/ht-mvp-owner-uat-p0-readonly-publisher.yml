@@ -26,6 +26,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
           node --check scripts/editorial/public-source-readonly-probe.mjs
           node --check scripts/editorial/run-public-source-readonly-probe.mjs
+          node --check scripts/editorial/prepare-p0-public-metadata-manifest.mjs
           node --check tests/p0-editorial-public-source-probe.test.mjs
           node --check apps/mobile/tests/p0-reader-recovery-contract.test.mjs
       - name: Run deterministic Publisher and Reader source-contract tests
@@ -38,6 +39,12 @@ jobs:
         shell: bash
         run: |
           node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
+      - name: Generate metadata-only manifest in isolated checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/editorial/prepare-p0-public-metadata-manifest.mjs
+          node -e 'const m=require("./apps/mobile/public/healthtimes-public-feed.json"); if(!m.metadataOnly || m.restrictedBodiesIncluded!==false || !m.count)process.exit(1)'
       - name: Upload read-only P0 evidence even on source refusal
         if: always()
         uses: actions/upload-artifact@v4
@@ -46,6 +53,7 @@ jobs:
           path: |
             /tmp/p0-public-source-readonly-evidence.json
             /tmp/p0-source-contracts.tap
+            apps/mobile/public/healthtimes-public-feed.json
           if-no-files-found: warn
  /tmp/p0-source-contracts.tap
           grep -Eq '^# skipped 0
