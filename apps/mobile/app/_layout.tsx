@@ -10,7 +10,6 @@ function DeepLinkBridge(){
   const router=useRouter();
   const pathname=usePathname();
   const pathnameRef=useRef(pathname);
-  const initialUrlProcessedRef=useRef(false);
   const pendingDestinationRef=useRef<string|null>(null);
   pathnameRef.current=pathname;
 
@@ -37,12 +36,12 @@ function DeepLinkBridge(){
       router.push(("/article/"+encodeURIComponent(destination.articleId)) as never);
     };
 
-    if(!initialUrlProcessedRef.current){
-      initialUrlProcessedRef.current=true;
-      void Linking.getInitialURL().then(routeUrl).catch((reason)=>{
-        console.error("[HealthTimes] Initial deep-link resolution failed",reason);
-      });
-    }
+    // Re-evaluate the initial URL when the router effect is remounted. The
+    // current-route and pending-route guards make this idempotent, including
+    // React Strict Mode's setup/cleanup/setup replay.
+    void Linking.getInitialURL().then(routeUrl).catch((reason)=>{
+      console.error("[HealthTimes] Initial deep-link resolution failed",reason);
+    });
     const subscription=Linking.addEventListener("url",({url})=>routeUrl(url));
 
     return ()=>{
