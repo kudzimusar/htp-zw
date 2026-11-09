@@ -82,3 +82,14 @@ test("metadata-only stories explain unavailable bodies and offer source continua
   assert.match(reader,/complete body has not been certified/);
   assert.match(reader,/Continue reading at HealthTimes\.co\.zw/);
 });
+
+test("P0 service worker cannot mask editorial freshness, 403s or post-update JS with stale-first caches",()=>{
+  const sw=read("apps/mobile/public/sw.js");
+  assert.match(sw,/healthtimes-universal-p0-v3/);
+  assert.match(sw,/healthtimes-public-feed\.json/);
+  assert.match(sw,/isRestrictedPath\(url\.pathname\)/);
+  assert.match(sw,/request\.cache === "no-store"/);
+  assert.match(sw,/response\.ok && response\.type==="basic"/);
+  assert.doesNotMatch(sw,/return cached \|\| network/);
+  assert.doesNotMatch(sw,/cache\.put\(request, copy\);\s*return response/);
+});
