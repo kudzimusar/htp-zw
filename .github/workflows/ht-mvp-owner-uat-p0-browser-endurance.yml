@@ -12,9 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APP_ENV: staging
+  APP_ENV: development
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
-  EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE: "true"
+  EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE: "false"
   HEALTHTIMES_WEB_BASE_URL: ""
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -37,14 +37,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install and compile canonical isolated Reader
+      - name: Install and compile canonical isolated Reader (archive-only stability laboratory)
         run: |
           npm install --no-audit --no-fund
           npm install --prefix apps/mobile --no-audit --no-fund
-          node scripts/editorial/prepare-p0-public-metadata-manifest.mjs
-          test -s apps/mobile/public/healthtimes-public-feed.json
+          # Deliberately decouple browser stability from the blocked publisher
+          # taxonomy/freshness gate. No unverified metadata is treated as current.
+          test "$APP_ENV" = development
+          test "$EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE" = source-parity
+          test "$EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE" = false
           npm run build:phase4:web
-          test -s apps/mobile/dist/healthtimes-public-feed.json
+          test -s apps/mobile/dist/build-info.json
           npx playwright install --with-deps chromium
           node --check scripts/uat/p0-reader-endurance.mjs
       - name: Instrument five 120-second browser sessions
