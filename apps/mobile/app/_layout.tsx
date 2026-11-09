@@ -16,7 +16,7 @@ function DeepLinkBridge(){
 
   useEffect(()=>{
     let active=true;
-    const normalizedPath=(path:string)=>path.replace(/\\/+$/,"") || "/";
+    const normalizedPath=(path:string)=>path.replace(/\/+$/,"") || "/";
 
     const routeUrl=(url:string|null)=>{
       if(!active || !url) return;
