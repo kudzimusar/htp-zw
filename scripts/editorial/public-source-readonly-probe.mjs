@@ -54,7 +54,17 @@ export function assessPublishedPost(post,{ categoryTerms = [], tagTerms = [] } =
       publishedAt,
       modifiedAt,
       title: String(post.title?.rendered ?? "").replace(/<[^>]+>/g," ").slice(0,200),
-      categoryIds: categoryIds.slice(0,20)
+      categoryIds: categoryIds.slice(0,20),
+      publicTerms: terms.filter((term,index,array)=>
+        (term.taxonomy==="category" && categoryIds.includes(term.id) ||
+          term.taxonomy==="post_tag" && tagIds.includes(term.id)) &&
+        array.findIndex((candidate)=>candidate.taxonomy===term.taxonomy && candidate.id===term.id)===index
+      ).map((term)=>({
+        id:term.id,
+        taxonomy:term.taxonomy,
+        slug:String(term.slug??"").slice(0,120),
+        name:String(term.name??"").slice(0,120)
+      }))
     }
   };
 }
