@@ -24,7 +24,7 @@ test("Latest is strictly chronological and does not exclude hero or top story",(
 
 test("stale publication feeds are explicitly labeled as archive",()=>{
   const source=read("apps/mobile/app/(reader)/index.tsx");
-  assert.match(source,/const feedStale=serviceMode!=="fixture"/);
+  assert.match(source,/const feedStale=!home\.loading && serviceMode!=="fixture"/);
   assert.match(source,/ARCHIVED REPORTING/);
   assert.match(source,/feedStale\?"Recent Archive":"Latest"/);
   assert.match(source,/const displayLabel = feedStale && item\.key==="latest" \? "Archive" : item\.label;/);
