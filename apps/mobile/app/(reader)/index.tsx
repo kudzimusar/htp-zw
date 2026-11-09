@@ -424,7 +424,7 @@ export default function HomeScreen() {
 
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},
-    {key:"latest",label:feedStale?"Archive":"Latest"},
+    {key:"latest",label:"Latest"},
     {key:"zimbabwe",label:"Zimbabwe"},
     {key:"world",label:"World"},
     {key:"premium",label:"Premium"}
@@ -442,11 +442,12 @@ export default function HomeScreen() {
       >
         {filters.map((item) => {
           const active = activeFilter === item.key;
+          const displayLabel = feedStale && item.key==="latest" ? "Archive" : item.label;
           return (
             <Pressable
               key={item.key}
               accessibilityRole="tab"
-              accessibilityLabel={item.label + " Home filter"}
+              accessibilityLabel={displayLabel + " Home filter"}
               accessibilityState={{ selected: active }}
               aria-selected={active}
               aria-current={active ? "page" : undefined}
@@ -460,7 +461,7 @@ export default function HomeScreen() {
               ]}
             >
               <Text style={[styles.editorialFilterText, { color: active ? palette.ink : palette.inkMuted }]}>
-                {item.label}
+                {displayLabel}
               </Text>
             </Pressable>
           );
