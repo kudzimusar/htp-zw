@@ -10,7 +10,7 @@ import type {
 } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
 import { EmptyState, HomeSkeleton, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
-import { services } from "../../src/services";
+import { services, serviceMode } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
@@ -290,6 +290,12 @@ export default function HomeScreen() {
 
   const source=sortByPublicationDesc(home.data);
   const generalStories=source.filter((story)=>story.accessPolicy!=="premium");
+  const newestPublicTime=generalStories[0]?.publishedAt ? Date.parse(generalStories[0].publishedAt!) : NaN;
+  const feedStale=serviceMode!=="fixture" &&
+    (!Number.isFinite(newestPublicTime) || Date.now()-newestPublicTime>7*24*60*60*1000);
+  const newestPublicDate=Number.isFinite(newestPublicTime)
+    ? new Date(newestPublicTime).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"})
+    : "unknown";
   const editionStories=edition.toLowerCase()==="global"
     ? generalStories.filter(isWorldStory)
     : generalStories.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
@@ -376,9 +382,8 @@ export default function HomeScreen() {
   if (hero) excludedFromSections.add(storyIdentity(hero));
   for (const s of topStories) excludedFromSections.add(storyIdentity(s));
 
-  const immediateIds=new Set<string>(topStories.map((story)=>story.id));
-  if(hero) immediateIds.add(hero.id);
-  const latest=generalStories.filter((story)=>!immediateIds.has(story.id)).slice(0,6);
+  // Latest is strictly chronological, even when a new story is also the hero or a Top Story.
+  const latest=generalStories.slice(0,6);
   const features=overlayCuratedSection("features",generalStories.filter((story)=>hasSourceTerm(story,"Features")),generalPresentations,excludedFromSections);
   const research=overlayCuratedSection("research",generalStories.filter((story)=>
     story.primarySection?.slug==="research" ||
@@ -419,7 +424,7 @@ export default function HomeScreen() {
 
   const filters:{key:HomeFilter;label:string}[]=[
     {key:"for-you",label:"For You"},
-    {key:"latest",label:"Latest"},
+    {key:"latest",label:feedStale?"Archive":"Latest"},
     {key:"zimbabwe",label:"Zimbabwe"},
     {key:"world",label:"World"},
     {key:"premium",label:"Premium"}
@@ -462,6 +467,15 @@ export default function HomeScreen() {
         })}
       </ScrollView>
 
+      {feedStale && (
+        <View style={[styles.previewNotice,{borderColor:palette.border,backgroundColor:palette.paperMuted}]} accessibilityRole="alert">
+          <Text style={[styles.previewLabel,{color:palette.ink}]}>ARCHIVED REPORTING</Text>
+          <Text style={[styles.previewText,{color:palette.inkMuted}]}>
+            The current published feed is not verified. The newest available public article is dated {newestPublicDate}. This is archival reporting, not today's latest news.
+          </Text>
+        </View>
+      )}
+
       {hero ? <HeroStory story={hero} /> : (
         <EmptyState
           title={activeFilter==="premium" ? "HealthTimes Premium" : "No stories in this Home view"}
@@ -500,7 +514,7 @@ export default function HomeScreen() {
 
       <AdSlot placement="home_after_live" />
 
-      <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
+      <EditorialSection title={feedStale?"Recent Archive":"Latest"} eyebrow={feedStale?"HISTORICAL COVERAGE":"JUST PUBLISHED"} stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
       <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Public Health" stories={publicHealth} presentation="list" onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Research & Findings" stories={research} onExplore={()=>router.push("/explore" as never)} />
