@@ -336,7 +336,7 @@ function StudioShellInner({
   const isCommercial = roleName.toLowerCase().includes("commercial") || roleName.toLowerCase().includes("owner");
 
   const quickCreateOptions = [
-    { label: "New Story Draft", path: "/studio/create-edit", allowed: true, icon: "✎" },
+    { label: "New Story Draft", path: "/studio/create-edit", allowed: snapshot?.status === "authorized" && hasServerCapability(snapshot, "story.create"), icon: "✎" },
     { label: "New Assignment", path: "/studio/planning", allowed: isOwnerOrEditor, icon: "📋" },
     { label: "Start Live Coverage", path: "/studio/live-desk", allowed: isOwnerOrEditor, icon: "🔴" },
     { label: "New Ad Campaign", path: "/studio/advertising", allowed: isCommercial, icon: "📢" },
