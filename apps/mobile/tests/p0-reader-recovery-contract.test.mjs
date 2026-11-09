@@ -72,8 +72,16 @@ test("live-source metadata manifest is same-origin, independently hashed and con
   assert.match(generator,/contentBody:null/);
   assert.match(generator,/bodyAuthority:"BLOCKED_PENDING_OWNER_CLASSIFICATION"/);
   assert.match(generator,/freshnessSlaVerified:false/);
-  assert.match(workflow,/node scripts\/editorial\/prepare-p0-public-metadata-manifest\.mjs/);
-  assert.match(workflow,/test -s apps\/mobile\/dist\/healthtimes-public-feed\.json/);
+  // A live publisher classification failure must not suppress the independent
+  // lab browser-crash endurance gate. Manifest freshness is certified separately.
+  assert.match(workflow,/APP_ENV: development/);
+  assert.match(workflow,/EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity/);
+  assert.match(workflow,/EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE: "false"/);
+  assert.doesNotMatch(workflow,/node scripts\/editorial\/prepare-p0-public-metadata-manifest\.mjs/);
+  assert.match(workflow,/test -s apps\/mobile\/dist\/build-info\.json/);
+  const publisherWorkflow=read(".github/workflows/ht-mvp-owner-uat-p0-readonly-publisher.yml");
+  assert.match(publisherWorkflow,/node scripts\/editorial\/prepare-p0-public-metadata-manifest\.mjs/);
+  assert.match(publisherWorkflow,/Prove exact checkout and frozen G3 ancestry/);
 });
 
 test("metadata-only stories explain unavailable bodies and offer source continuation",()=>{
