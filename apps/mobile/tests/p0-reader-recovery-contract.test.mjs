@@ -27,7 +27,7 @@ test("stale publication feeds are explicitly labeled as archive",()=>{
   assert.match(source,/const feedStale=serviceMode!=="fixture"/);
   assert.match(source,/ARCHIVED REPORTING/);
   assert.match(source,/feedStale\?"Recent Archive":"Latest"/);
-  assert.match(source,/feedStale\?"Archive":"Latest"/);
+  assert.match(source,/const displayLabel = feedStale && item\.key==="latest" \? "Archive" : item\.label;/);
 });
 
 test("P0 CI scope requires ancestry from immutable G3, not G2 staging authorization",()=>{
