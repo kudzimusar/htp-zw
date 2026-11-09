@@ -46,16 +46,16 @@ type RoleViewKey =
 export default function StudioToday() {
   const router = useRouter();
   const authorization = useAsync(() => services.authorization.getSnapshot(), []);
-  const stories = useAsync(() => services.articles.getHome(), []);
-  const publication = useAsync(() => services.publication.getProfile(), []);
-  const financeOverview = useAsync(() => services.newsroomFinance.getOverview().catch(() => null), []);
+  const stories = useAsync(() => authorization.data?.status==="authorized" ? services.articles.getHome() : Promise.resolve([]), [authorization.data?.status]);
+  const publication = useAsync(() => authorization.data?.status==="authorized" ? services.publication.getProfile() : Promise.resolve(null), [authorization.data?.status]);
+  const financeOverview = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomFinance.getOverview().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
   const editorialIntelligence = useAsync(
-    () => services.newsroomIntelligence.getEditorialIntelligence().catch(() => null),
-    []
+    () => authorization.data?.status==="authorized" ? services.newsroomIntelligence.getEditorialIntelligence().catch(() => null) : Promise.resolve(null),
+    [authorization.data?.status]
   );
-  const staffOps = useAsync(() => services.newsroomStaff.getStaffOperationsDirectory().catch(() => null), []);
-  const commercialOverview = useAsync(() => services.newsroomCommercial.getAdvertisingOverview().catch(() => null), []);
-  const subscribersDirectory = useAsync(() => services.newsroomCommercial.getSubscribersDirectory().catch(() => null), []);
+  const staffOps = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomStaff.getStaffOperationsDirectory().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
+  const commercialOverview = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomCommercial.getAdvertisingOverview().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
+  const subscribersDirectory = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomCommercial.getSubscribersDirectory().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
 
   const authStatus = authorization.data?.status ?? "checking";
   const sourceStories = stories.data ?? [];
