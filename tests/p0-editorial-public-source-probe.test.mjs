@@ -61,3 +61,35 @@ test("safe metadata produces date-sorted diagnostics without claiming Reader syn
   assert.equal(result.ingestionVerified,false);
   assert.equal(result.readerFreshnessVerified,false);
 });
+
+
+test("missing embedded terms can be verified through bounded WordPress taxonomy lookups",async()=>{
+  const calls=[];
+  const result=await probePublicPublisher({
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(url)=>{
+      calls.push(url);
+      let body;
+      if(url.includes("/categories?")) body=[{id:1,name:"Health News",slug:"health-news"}];
+      else if(url.includes("/tags?")) body=[{id:11,name:"Policy",slug:"policy"}];
+      else body=[post({_embedded:{},tags:[11]})];
+      return {ok:true,status:200,json:async()=>body};
+    }
+  });
+  assert.equal(result.status,"PROBE_SUCCEEDED_NOT_AUTHORIZED_AS_FEED");
+  assert.equal(result.latestTwentyMetadata.length,1);
+  assert.ok(calls.some(url=>url.includes("/categories?")));
+  assert.ok(calls.some(url=>url.includes("/tags?")));
+  assert.equal(result.fullBodyPublicationVerified,false);
+});
+
+test("unresolvable taxonomy remains fail-closed even when headline is current",async()=>{
+  const result=await probePublicPublisher({
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(url)=>({
+      ok:true,status:200,json:async()=>url.includes("/posts?") ? [post({_embedded:{},tags:[99]})] : []
+    })
+  });
+  assert.equal(result.status,"BLOCKED_NO_VERIFIABLE_PUBLIC_POST");
+  assert.equal(result.decisions.BLOCK_UNRESOLVED_CLASSIFICATION,1);
+});
