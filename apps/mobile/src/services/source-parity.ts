@@ -430,7 +430,12 @@ const articleRepository:ArticleRepository={
     // the bounded AG-05 teaser authority directly from repository-known article
     // identity, trying canonical provenance first and then the generic historical
     // YYYY/MM/DD/slug candidate derived from publishedAt.
-    const teaserAuthority=await boundedTeaserAuthority(current);
+    // The AG-05 teaser RPC can take up to 7s per candidate (up to two
+    // candidate paths). Public stories never require a premium teaser, so
+    // do not block public article hydration on unnecessary network probes.
+    const teaserAuthority=current.accessPolicy==="premium"
+      ? await boundedTeaserAuthority(current)
+      : null;
     const detailDecision=sourceParityPremiumDetailDecision(
       current.accessPolicy,
       teaserAuthority,
