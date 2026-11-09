@@ -93,3 +93,18 @@ test("P0 service worker cannot mask editorial freshness, 403s or post-update JS 
   assert.doesNotMatch(sw,/return cached \|\| network/);
   assert.doesNotMatch(sw,/cache\.put\(request, copy\);\s*return response/);
 });
+
+test("unauthorized Studio page does not execute privileged dashboard/inbox services while displaying access guard",()=>{
+  const studio=read("apps/mobile/app/studio/index.tsx");
+  const shell=read("apps/mobile/src/ui/Studio.tsx");
+  for(const service of [
+    "newsroomFinance.getOverview",
+    "newsroomIntelligence.getEditorialIntelligence",
+    "newsroomStaff.getStaffOperationsDirectory",
+    "newsroomCommercial.getAdvertisingOverview",
+    "newsroomCommercial.getSubscribersDirectory"
+  ]){
+    assert.match(studio,new RegExp('authorization\\.data\\?\\.status==="authorized"\\s*\\?\\s*services\\.'+service.replaceAll(".","\\.")));
+  }
+  assert.match(shell,/authorization\.data\?\.status==="authorized" \? services\.newsroomCommunication\.listInbox/);
+});
