@@ -44,7 +44,7 @@ test("safe metadata produces date-sorted diagnostics without claiming Reader syn
   const result=await probePublicPublisher({
     now:Date.parse("2026-11-09T10:00:00Z"),
     fetchImpl:async(u,o)=>{
-      url=u;options=o;
+      if(u.includes("/posts?")){url=u;options=o;}
       return {ok:true,status:200,json:async()=>[
         post({id:1,slug:"older",date_gmt:"2026-11-04T12:00:00"}),
         post({id:2,slug:"newer",date_gmt:"2026-11-06T12:00:00"}),
