@@ -12,7 +12,7 @@ test("article deep links are deduplicated against current browser and router pat
   assert.match(source,/const current=normalizedPath\(pathnameRef\.current/);
   assert.match(source,/normalizedPath\(window\.location\.pathname\)/);
   assert.match(source,/if\(current===target \|\| browserPath===target \|\| pendingDestinationRef\.current===target\) return;/);
-  assert.match(source,/initialUrlProcessedRef\.current=true;/);
+  assert.match(source,/Linking\.getInitialURL\(\)\.then\(routeUrl\)/);
 });
 
 test("Latest is strictly chronological and does not exclude hero or top story",()=>{
