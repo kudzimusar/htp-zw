@@ -9,8 +9,8 @@ permissions:
 
 jobs:
   public-publisher-freshness:
-    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-')
-    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-')
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -20,32 +20,38 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify exact source and parse diagnostics
+      - name: Prove exact checkout and frozen G3 ancestry
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$EXPECTED_SHA"
+      - name: Verify source syntax and contract tests
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          set -euo pipefail
           node --check scripts/editorial/public-source-readonly-probe.mjs
           node --check scripts/editorial/run-public-source-readonly-probe.mjs
           node --check scripts/editorial/prepare-p0-public-metadata-manifest.mjs
           node --check tests/p0-editorial-public-source-probe.test.mjs
           node --check apps/mobile/tests/p0-reader-recovery-contract.test.mjs
-      - name: Run deterministic Publisher and Reader source-contract tests
+          node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs 2>&1 | tee /tmp/p0-source-contracts.tap
+          grep -Eq '^# fail 0$' /tmp/p0-source-contracts.tap
+          grep -Eq '^# skipped 0$' /tmp/p0-source-contracts.tap
+      - name: Probe live publisher using public read-only REST metadata
         shell: bash
         run: |
           set -euo pipefail
-          node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs 2>&1 | tee /tmp/p0-source-contracts.tap
-          grep -Eq '^# fail 0
-      - name: Probe live publisher via read-only published-post metadata API
-        shell: bash
-        run: |
           node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
-      - name: Generate metadata-only manifest in isolated checkout
+      - name: Generate metadata-only build manifest (no database writes)
         shell: bash
         run: |
           set -euo pipefail
           node scripts/editorial/prepare-p0-public-metadata-manifest.mjs
           node -e 'const m=require("./apps/mobile/public/healthtimes-public-feed.json"); if(!m.metadataOnly || m.restrictedBodiesIncluded!==false || !m.count)process.exit(1)'
-      - name: Upload read-only P0 evidence even on source refusal
+      - name: Preserve read-only evidence even when publisher classification blocks
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -55,32 +61,4 @@ jobs:
             /tmp/p0-source-contracts.tap
             apps/mobile/public/healthtimes-public-feed.json
           if-no-files-found: warn
- /tmp/p0-source-contracts.tap
-          grep -Eq '^# skipped 0
-      - name: Probe live publisher via read-only published-post metadata API
-        shell: bash
-        run: |
-          node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
-      - name: Upload read-only P0 evidence even on source refusal
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: p0-publisher-freshness-readonly-evidence
-          path: |
-            /tmp/p0-public-source-readonly-evidence.json
-            /tmp/p0-source-contracts.tap
-          if-no-files-found: warn
- /tmp/p0-source-contracts.tap
-      - name: Probe live publisher via read-only published-post metadata API
-        shell: bash
-        run: |
-          node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
-      - name: Upload read-only P0 evidence even on source refusal
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: p0-publisher-freshness-readonly-evidence
-          path: |
-            /tmp/p0-public-source-readonly-evidence.json
-            /tmp/p0-source-contracts.tap
-          if-no-files-found: warn
+          retention-days: 30
