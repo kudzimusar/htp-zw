@@ -51,3 +51,9 @@ test("operational Studio must not allow query-preview impersonation or synthetic
   assert.doesNotMatch(shell,/Kudzanai Musarurwa|kudzimusar@gmail\.com/);
   assert.match(shell,/hasServerCapability\(snapshot, "story\.create"\)/);
 });
+
+test("public articles bypass Premium-only teaser RPC waterfall",()=>{
+  const source=read("apps/mobile/src/services/source-parity.ts");
+  assert.match(source,/const teaserAuthority=current\.accessPolicy==="premium"\s*\?\s*await boundedTeaserAuthority\(current\)\s*:\s*null;/);
+  assert.doesNotMatch(source,/const teaserAuthority=await boundedTeaserAuthority\(current\);/);
+});
