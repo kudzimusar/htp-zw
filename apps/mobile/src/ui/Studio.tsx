@@ -269,7 +269,7 @@ function StudioShellInner({
   const [collapsedHoverDomain, setCollapsedHoverDomain] = useState<StudioDomainDef | null>(null);
 
   const authorization = useAsync(() => services.authorization.getSnapshot(), []);
-  const inbox = useAsync(() => services.newsroomCommunication.listInbox("all", 20).catch(() => null), []);
+  const inbox = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomCommunication.listInbox("all", 20).catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
   const unreadCount = inbox.data?.summary?.unreadTotal ?? 0;
   const notificationItems = inbox.data?.items ?? [];
   const active = (path: string) => (path === "/studio" ? pathname === "/studio" : pathname === path);
