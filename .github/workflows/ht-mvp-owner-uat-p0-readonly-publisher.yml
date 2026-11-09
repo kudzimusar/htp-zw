@@ -1,0 +1,46 @@
+name: HT-MVP-OWNER-UAT-P0 — Publisher Read-Only Freshness Probe
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-publisher-freshness:
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact source and parse diagnostics
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          node --check scripts/editorial/public-source-readonly-probe.mjs
+          node --check scripts/editorial/run-public-source-readonly-probe.mjs
+          node --check tests/p0-editorial-public-source-probe.test.mjs
+          node --check apps/mobile/tests/p0-reader-recovery-contract.test.mjs
+      - name: Run deterministic Publisher and Reader source-contract tests
+        run: |
+          node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs | tee /tmp/p0-source-contracts.tap
+      - name: Probe live publisher via read-only published-post metadata API
+        shell: bash
+        run: |
+          node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
+      - name: Upload read-only P0 evidence even on source refusal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-publisher-freshness-readonly-evidence
+          path: |
+            /tmp/p0-public-source-readonly-evidence.json
+            /tmp/p0-source-contracts.tap
+          if-no-files-found: warn
