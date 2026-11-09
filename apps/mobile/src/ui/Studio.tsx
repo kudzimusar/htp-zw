@@ -276,10 +276,10 @@ function StudioShellInner({
   const status = authorizationLabel(authorization.data?.status);
   const snapshot = authorization.data;
 
-  const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Publisher / Owner" : "Guest / Reader");
-  const displayName = snapshot?.displayName ?? snapshot?.email ?? "Kudzanai Musarurwa";
-  const email = snapshot?.email ?? "kudzimusar@gmail.com";
-  const deskName = snapshot?.desk ?? "Executive Desk";
+  const roleName = snapshot?.role ?? "No staff authority";
+  const displayName = snapshot?.displayName ?? snapshot?.email ?? (snapshot?.status === "authorized" ? "Newsroom staff" : "Sign in required");
+  const email = snapshot?.email ?? (snapshot?.status === "authorized" ? "Email unavailable" : "Not signed in");
+  const deskName = snapshot?.desk ?? (snapshot?.status === "authorized" ? "Desk unassigned" : "No staff desk");
   const initials = displayName
     .split(" ")
     .map((s) => s[0])
