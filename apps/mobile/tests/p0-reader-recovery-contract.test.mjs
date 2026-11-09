@@ -37,3 +37,17 @@ test("P0 CI scope requires ancestry from immutable G3, not G2 staging authorizat
   assert.match(ci,/fix\/ht-mvp-owner-uat-p0-/);
   assert.match(ci,/g2StagingUatCertified: false/);
 });
+
+
+test("operational Studio must not allow query-preview impersonation or synthetic today's publish metric",()=>{
+  const studio=read("apps/mobile/app/studio/index.tsx");
+  const shell=read("apps/mobile/src/ui/Studio.tsx");
+  assert.match(studio,/hasExecutiveAccess = authStatus === "authorized" && isExecutiveRole/);
+  assert.match(studio,/authorization\.error \|\| authStatus !== "authorized"/);
+  assert.match(studio,/Staff authorization required/);
+  assert.doesNotMatch(studio,/hasExecutiveAccess = isExecutiveRole \|\| searchParams\.preview/);
+  assert.doesNotMatch(studio,/publishedTodayCount=\{sourceStories\.length > 0 \? 1 : 0\}/);
+  assert.match(studio,/publishedTodayCount=\{publishedTodayCount\}/);
+  assert.doesNotMatch(shell,/Kudzanai Musarurwa|kudzimusar@gmail\.com/);
+  assert.match(shell,/hasServerCapability\(snapshot, "story\.create"\)/);
+});
