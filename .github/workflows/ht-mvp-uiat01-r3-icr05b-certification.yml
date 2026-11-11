@@ -62,6 +62,8 @@ jobs:
           IS_G3_CANDIDATE=false
           if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
             IS_G3_CANDIDATE=true
+          elif [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^fix/ht-mvp-owner-uat-p0- ]] && git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3_CANDIDATE=true
           fi
 
           if [ "$IS_G3_CANDIDATE" = "true" ]; then
@@ -224,6 +226,8 @@ jobs:
           IS_G3=false
           if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
             IS_G3=true
+          elif [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^fix/ht-mvp-owner-uat-p0- ]] && git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3=true
           fi
           echo "is_g3=$IS_G3" >> "$GITHUB_OUTPUT"
           echo "[G3-ARTIFACT-JOB] Candidate ref '$CANDIDATE_REF' (SHA '$CANDIDATE_SHA'), is_g3=$IS_G3"
@@ -333,7 +337,7 @@ jobs:
             fs.writeFileSync("/tmp/g3-artifact-certification.json", JSON.stringify({
               status: "SKIPPED_NOT_G3_BRANCH",
               candidateRef: process.env.CANDIDATE_REF,
-              message: "G3 isolated artifact certification runs exclusively on feat/ht-g3-* branches descendant from G2."
+              message: "G3 artifact certification runs on feat/ht-g3-* descendants of G2 or fix/ht-mvp-owner-uat-p0-* descendants of frozen G3."
             }, null, 2) + "\n");
           '
       - name: Upload Inspectable G3 Sealed Prebuilt Deployable Artifact and Evidence (Requirement B)

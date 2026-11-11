@@ -1,0 +1,75 @@
+name: HT-MVP-OWNER-UAT-P0 — Isolated Reader Endurance (279-1920)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ht-p0-reader-endurance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: development
+  EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+  EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE: "false"
+  HEALTHTIMES_WEB_BASE_URL: ""
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  isolated-reader-endurance:
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Prove exact SHA and immutable G3 ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install and compile canonical isolated Reader (archive-only stability laboratory)
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+          # Deliberately decouple browser stability from the blocked publisher
+          # taxonomy/freshness gate. No unverified metadata is treated as current.
+          test "$APP_ENV" = development
+          test "$EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE" = source-parity
+          test "$EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE" = false
+          npm run build:phase4:web
+          test -s apps/mobile/dist/build-info.json
+          npx playwright install --with-deps chromium
+          node --check scripts/uat/p0-protected-lab-server.mjs
+          node --check scripts/uat/p0-reader-endurance.mjs
+      - name: Run deep-link, account-callback, manifest and eligibility security tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          node --test tests/p0-deep-link-security.test.mjs tests/p0-public-manifest-reader.test.mjs tests/p0-editorial-eligibility.test.mjs tests/p0-reader-feed-eligibility.test.mjs 2>&1 | tee /tmp/p0-reader-security.tap
+          grep -Eq '^# fail 0$' /tmp/p0-reader-security.tap
+          grep -Eq '^# skipped 0$' /tmp/p0-reader-security.tap
+      - name: Instrument five 120-second browser sessions and the service worker lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/uat/p0-reader-endurance.mjs
+      - name: Preserve local physical browser traces regardless of failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-reader-five-viewports-120sec-source-parity
+          path: |
+            p0-reader-endurance/
+          if-no-files-found: warn
+          retention-days: 30

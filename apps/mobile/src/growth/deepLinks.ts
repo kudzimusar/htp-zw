@@ -11,6 +11,47 @@ export type ShareChannel =
   | "copy";
 
 const allowedHosts = new Set(["healthtimes.co.zw", "www.healthtimes.co.zw"]);
+const APP_SCHEME = "healthtimes:";
+const MAX_ARTICLE_LINK_LENGTH = 2048;
+// Session tokens in an auth callback can be long.
+const MAX_CALLBACK_LENGTH = 16384;
+const ARTICLE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,159}$/;
+const ACCOUNT_CALLBACK_MODES = new Set(["verification", "recovery", "owner-activation"]);
+
+function parseLink(url: unknown, maxLength: number): URL | null {
+  if (typeof url !== "string" || !url || url.length > maxLength) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.username || parsed.password ? null : parsed;
+  } catch {
+    return null;
+  }
+}
+
+function currentWebOrigin(): string | null {
+  const origin = typeof window !== "undefined" ? window.location?.origin : null;
+  // Sandboxed and file: documents report the literal origin "null", as does every
+  // non-web URL, so that value can never establish trust.
+  return origin && origin !== "null" ? origin : null;
+}
+
+// healthtimes://article/x carries "article" as the host; healthtimes:///article/x in the path.
+function routeSegments(parsed: URL): string[] {
+  const path = parsed.pathname.split("/").filter(Boolean);
+  return parsed.protocol === APP_SCHEME && parsed.hostname ? [parsed.hostname, ...path] : path;
+}
+
+function validArticleId(value: string | null | undefined): string | null {
+  return value && ARTICLE_ID.test(value) ? value : null;
+}
+
+function decodedSegment(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
 
 export function articleDeepLink(articleId: string) {
   return Linking.createURL("article/" + encodeURIComponent(articleId));
@@ -30,22 +71,41 @@ export function attributedShareUrl(article: ArticleSummary, channel: ShareChanne
 }
 
 export function parseHealthTimesDeepLink(url: string) {
-  const parsed = Linking.parse(url);
-  const path = parsed.path ?? "";
-  const routeMatch = path.match(/^article\/([^/?#]+)$/);
-  if (routeMatch?.[1]) {
-    return { type: "article" as const, articleId: decodeURIComponent(routeMatch[1]) };
-  }
+  const parsed = parseLink(url, MAX_ARTICLE_LINK_LENGTH);
+  if (!parsed) return null;
+  const publisher = parsed.protocol === "https:" && allowedHosts.has(parsed.hostname);
+  if (parsed.protocol !== APP_SCHEME && !publisher && parsed.origin !== currentWebOrigin()) return null;
 
-  try {
-    const web = new URL(url);
-    if (!allowedHosts.has(web.hostname)) return null;
-    const articleId = web.searchParams.get("ht_article_id")?.trim();
-    if (!articleId) return null;
-    return { type: "article" as const, articleId: articleId.slice(0, 160) };
-  } catch {
-    return null;
-  }
+  const [routeName, routeId, ...extra] = routeSegments(parsed);
+  const fromRoute = routeName === "article" && routeId && !extra.length ? decodedSegment(routeId) : null;
+  const fromQuery = publisher ? parsed.searchParams.get("ht_article_id")?.trim() : null;
+  const articleId = validArticleId(fromRoute ?? fromQuery);
+  return articleId ? { type: "article" as const, articleId } : null;
+}
+
+// Expo Router resolves the app's own scheme itself; acting on it here too would
+// open the destination twice.
+export function isRouterOwnedLink(url: string) {
+  return parseLink(url, MAX_ARTICLE_LINK_LENGTH)?.protocol === APP_SCHEME;
+}
+
+export type AccountCallback = { mode: "verification" | "recovery" | "owner-activation" | null };
+
+// Only a real callback to this app's account route may reach the auth service.
+export function parseAccountCallback(url: string | null): AccountCallback | null {
+  const parsed = parseLink(url, MAX_CALLBACK_LENGTH);
+  if (!parsed) return null;
+  if (parsed.protocol !== APP_SCHEME && parsed.origin !== currentWebOrigin()) return null;
+  const route = routeSegments(parsed);
+  if (route.length !== 1 || route[0] !== "account-access") return null;
+
+  const modes = parsed.searchParams.getAll("mode");
+  if (modes.length > 1 || (modes.length === 1 && !ACCOUNT_CALLBACK_MODES.has(modes[0]!))) return null;
+
+  const params = new URLSearchParams(parsed.search.slice(1) + "&" + parsed.hash.slice(1));
+  const hasCredentials = params.has("code") || (params.has("access_token") && params.has("refresh_token"));
+  if (!hasCredentials && !params.has("error")) return null;
+  return { mode: (modes[0] as AccountCallback["mode"]) ?? null };
 }
 
 export type SocialReferralAttribution = {

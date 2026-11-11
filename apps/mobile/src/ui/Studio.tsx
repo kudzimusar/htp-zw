@@ -269,17 +269,17 @@ function StudioShellInner({
   const [collapsedHoverDomain, setCollapsedHoverDomain] = useState<StudioDomainDef | null>(null);
 
   const authorization = useAsync(() => services.authorization.getSnapshot(), []);
-  const inbox = useAsync(() => services.newsroomCommunication.listInbox("all", 20).catch(() => null), []);
+  const inbox = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomCommunication.listInbox("all", 20).catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
   const unreadCount = inbox.data?.summary?.unreadTotal ?? 0;
   const notificationItems = inbox.data?.items ?? [];
   const active = (path: string) => (path === "/studio" ? pathname === "/studio" : pathname === path);
   const status = authorizationLabel(authorization.data?.status);
   const snapshot = authorization.data;
 
-  const roleName = snapshot?.role ?? (snapshot?.status === "authorized" ? "Publisher / Owner" : "Guest / Reader");
-  const displayName = snapshot?.displayName ?? snapshot?.email ?? "Kudzanai Musarurwa";
-  const email = snapshot?.email ?? "kudzimusar@gmail.com";
-  const deskName = snapshot?.desk ?? "Executive Desk";
+  const roleName = snapshot?.role ?? "No staff authority";
+  const displayName = snapshot?.displayName ?? snapshot?.email ?? (snapshot?.status === "authorized" ? "Newsroom staff" : "Sign in required");
+  const email = snapshot?.email ?? (snapshot?.status === "authorized" ? "Email unavailable" : "Not signed in");
+  const deskName = snapshot?.desk ?? (snapshot?.status === "authorized" ? "Desk unassigned" : "No staff desk");
   const initials = displayName
     .split(" ")
     .map((s) => s[0])
@@ -336,7 +336,7 @@ function StudioShellInner({
   const isCommercial = roleName.toLowerCase().includes("commercial") || roleName.toLowerCase().includes("owner");
 
   const quickCreateOptions = [
-    { label: "New Story Draft", path: "/studio/create-edit", allowed: true, icon: "✎" },
+    { label: "New Story Draft", path: "/studio/create-edit", allowed: snapshot?.status === "authorized" && hasServerCapability(snapshot, "story.create"), icon: "✎" },
     { label: "New Assignment", path: "/studio/planning", allowed: isOwnerOrEditor, icon: "📋" },
     { label: "Start Live Coverage", path: "/studio/live-desk", allowed: isOwnerOrEditor, icon: "🔴" },
     { label: "New Ad Campaign", path: "/studio/advertising", allowed: isCommercial, icon: "📢" },

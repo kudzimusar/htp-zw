@@ -457,7 +457,7 @@ test("Owner activation UI omits invitation authority and callback completes boot
   assert.equal(/console\.(log|info|warn|error)\([^)]*password/i.test(publicCorpus), false);
   assert.equal(/(?:AsyncStorage|SecureStore|localStorage).*password/i.test(publicCorpus), false);
   assert.equal(/[A-Z0-9._%+-]+@gmail\.com/i.test(publicCorpus), false);
-  assert.ok(callback.includes('url.includes("mode=owner-activation")'));
+  assert.ok(callback.includes('callback.mode==="owner-activation"'));
   assert.ok(callback.includes("services.newsroomStaff.bootstrapOwner()"));
 });
 

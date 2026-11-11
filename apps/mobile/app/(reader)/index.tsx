@@ -10,7 +10,8 @@ import type {
 } from "../../src/domain/models";
 import { AdSlot, HeroStory, LiveRail, StoryGrid, StoryList, TopStoriesList, VideoCard } from "../../src/ui/Cards";
 import { EmptyState, HomeSkeleton, LoadingBlock, Page, Section, SectionHeader } from "../../src/ui/Layout";
-import { services } from "../../src/services";
+import { services, serviceMode } from "../../src/services";
+import { sourceParityPublicManifestState } from "../../src/services/source-parity";
 import { useAsync } from "../../src/hooks/useAsync";
 import { radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
@@ -290,6 +291,14 @@ export default function HomeScreen() {
 
   const source=sortByPublicationDesc(home.data);
   const generalStories=source.filter((story)=>story.accessPolicy!=="premium");
+  const newestPublicTime=generalStories[0]?.publishedAt ? Date.parse(generalStories[0].publishedAt!) : NaN;
+  const manifestState=sourceParityPublicManifestState();
+  const feedStale=!home.loading && serviceMode!=="fixture" &&
+    ((serviceMode==="source-parity" && !manifestState.verifiedWithin15Minutes) ||
+      !Number.isFinite(newestPublicTime) || Date.now()-newestPublicTime>7*24*60*60*1000);
+  const newestPublicDate=Number.isFinite(newestPublicTime)
+    ? new Date(newestPublicTime).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"})
+    : "unknown";
   const editionStories=edition.toLowerCase()==="global"
     ? generalStories.filter(isWorldStory)
     : generalStories.filter((item)=>item.geography.some((zone)=>zone.name.toLowerCase()===edition.toLowerCase()));
@@ -376,9 +385,8 @@ export default function HomeScreen() {
   if (hero) excludedFromSections.add(storyIdentity(hero));
   for (const s of topStories) excludedFromSections.add(storyIdentity(s));
 
-  const immediateIds=new Set<string>(topStories.map((story)=>story.id));
-  if(hero) immediateIds.add(hero.id);
-  const latest=generalStories.filter((story)=>!immediateIds.has(story.id)).slice(0,6);
+  // Latest is strictly chronological, even when a new story is also the hero or a Top Story.
+  const latest=generalStories.slice(0,6);
   const features=overlayCuratedSection("features",generalStories.filter((story)=>hasSourceTerm(story,"Features")),generalPresentations,excludedFromSections);
   const research=overlayCuratedSection("research",generalStories.filter((story)=>
     story.primarySection?.slug==="research" ||
@@ -437,11 +445,12 @@ export default function HomeScreen() {
       >
         {filters.map((item) => {
           const active = activeFilter === item.key;
+          const displayLabel = feedStale && item.key==="latest" ? "Archive" : item.label;
           return (
             <Pressable
               key={item.key}
               accessibilityRole="tab"
-              accessibilityLabel={item.label + " Home filter"}
+              accessibilityLabel={displayLabel + " Home filter"}
               accessibilityState={{ selected: active }}
               aria-selected={active}
               aria-current={active ? "page" : undefined}
@@ -455,12 +464,21 @@ export default function HomeScreen() {
               ]}
             >
               <Text style={[styles.editorialFilterText, { color: active ? palette.ink : palette.inkMuted }]}>
-                {item.label}
+                {displayLabel}
               </Text>
             </Pressable>
           );
         })}
       </ScrollView>
+
+      {feedStale && (
+        <View style={[styles.previewNotice,{borderColor:palette.border,backgroundColor:palette.paperMuted}]} accessibilityRole="alert">
+          <Text style={[styles.previewLabel,{color:palette.ink}]}>ARCHIVED REPORTING</Text>
+          <Text style={[styles.previewText,{color:palette.inkMuted}]}>
+            The current published feed is not verified. The newest available public article is dated {newestPublicDate}. This is archival reporting, not today's latest news.
+          </Text>
+        </View>
+      )}
 
       {hero ? <HeroStory story={hero} /> : (
         <EmptyState
@@ -500,7 +518,7 @@ export default function HomeScreen() {
 
       <AdSlot placement="home_after_live" />
 
-      <EditorialSection title="Latest" eyebrow="JUST PUBLISHED" stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
+      <EditorialSection title={feedStale?"Recent Archive":"Latest"} eyebrow={feedStale?"HISTORICAL COVERAGE":"JUST PUBLISHED"} stories={latest} presentation="list" onExplore={()=>setActiveFilter("latest")} />
       <EditorialSection title="Features" eyebrow="LONGFORM & PEOPLE" stories={features} onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Public Health" stories={publicHealth} presentation="list" onExplore={()=>router.push("/explore" as never)} />
       <EditorialSection title="Research & Findings" stories={research} onExplore={()=>router.push("/explore" as never)} />

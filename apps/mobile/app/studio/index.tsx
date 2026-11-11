@@ -46,16 +46,16 @@ type RoleViewKey =
 export default function StudioToday() {
   const router = useRouter();
   const authorization = useAsync(() => services.authorization.getSnapshot(), []);
-  const stories = useAsync(() => services.articles.getHome(), []);
-  const publication = useAsync(() => services.publication.getProfile(), []);
-  const financeOverview = useAsync(() => services.newsroomFinance.getOverview().catch(() => null), []);
+  const stories = useAsync(() => authorization.data?.status==="authorized" ? services.articles.getHome() : Promise.resolve([]), [authorization.data?.status]);
+  const publication = useAsync(() => authorization.data?.status==="authorized" ? services.publication.getProfile() : Promise.resolve(null), [authorization.data?.status]);
+  const financeOverview = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomFinance.getOverview().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
   const editorialIntelligence = useAsync(
-    () => services.newsroomIntelligence.getEditorialIntelligence().catch(() => null),
-    []
+    () => authorization.data?.status==="authorized" ? services.newsroomIntelligence.getEditorialIntelligence().catch(() => null) : Promise.resolve(null),
+    [authorization.data?.status]
   );
-  const staffOps = useAsync(() => services.newsroomStaff.getStaffOperationsDirectory().catch(() => null), []);
-  const commercialOverview = useAsync(() => services.newsroomCommercial.getAdvertisingOverview().catch(() => null), []);
-  const subscribersDirectory = useAsync(() => services.newsroomCommercial.getSubscribersDirectory().catch(() => null), []);
+  const staffOps = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomStaff.getStaffOperationsDirectory().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
+  const commercialOverview = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomCommercial.getAdvertisingOverview().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
+  const subscribersDirectory = useAsync(() => authorization.data?.status==="authorized" ? services.newsroomCommercial.getSubscribersDirectory().catch(() => null) : Promise.resolve(null), [authorization.data?.status]);
 
   const authStatus = authorization.data?.status ?? "checking";
   const sourceStories = stories.data ?? [];
@@ -74,7 +74,7 @@ export default function StudioToday() {
     (snapshot?.role ?? "").toLowerCase().includes("publisher") ||
     (snapshot?.role ?? "").toLowerCase().includes("admin");
 
-  const hasExecutiveAccess = isExecutiveRole || searchParams.preview === "owner";
+  const hasExecutiveAccess = authStatus === "authorized" && isExecutiveRole;
 
   // Determine server-authorized role perspective
   const authenticatedRoleKey: RoleViewKey = (() => {
@@ -107,8 +107,14 @@ export default function StudioToday() {
   const pendingInvitationsCount = staffOps.data?.invitations?.length ?? 0;
   const campaignsList = commercialOverview.data?.campaigns ?? [];
   const activeCampaignsCount = campaignsList.filter((c) => c.status === "active").length || campaignsList.length || 0;
-  const openOrdersCount = 0;
+  const openOrdersCount = 0; // Operational order counts require an independently verified source-backed adapter.
   const subscribersCount = subscribersDirectory.data?.totalCount ?? 0;
+  const todayUtc = new Date().toISOString().slice(0,10);
+  const publishedTodayCount = sourceStories.filter((story) => {
+    if (!story.publishedAt) return false;
+    const time = Date.parse(story.publishedAt);
+    return Number.isFinite(time) && new Date(time).toISOString().slice(0,10) === todayUtc;
+  }).length;
 
   const roleViewOptions: Array<{ key: RoleViewKey; label: string; icon: string }> = [
     { key: "owner", label: "Publisher / Owner", icon: "🏛" },
@@ -119,6 +125,26 @@ export default function StudioToday() {
     { key: "audience", label: "Audience & Growth", icon: "◎" },
     { key: "admin", label: "Systems Admin", icon: "⚙" }
   ];
+
+  // A design-only ?preview=owner query is never sufficient to claim authentic
+  // newsroom authority. Reader Preview must not display mock Owner dashboards.
+  if (authorization.loading) {
+    return (
+      <StudioShell title="Newsroom Authentication">
+        <StudioPlaceholder owner="Newsroom access check" description="Verifying the server-authorized staff session before showing operational information." />
+      </StudioShell>
+    );
+  }
+  if (authorization.error || authStatus !== "authorized") {
+    return (
+      <StudioShell title="Protected Newsroom Studio">
+        <StudioPlaceholder owner="Staff authorization required" description="The Newsroom Studio requires an active server-authorized staff session in the protected staging environment. This Reader Preview is not an operational Studio." />
+        <Pressable accessibilityRole="button" accessibilityLabel="Open HealthTimes sign-in" onPress={() => router.push("/account-access" as never)}>
+          <Text style={{ color: colors.blue, fontWeight: "800", padding: spacing.md }}>Sign in to authorized HealthTimes Staging</Text>
+        </Pressable>
+      </StudioShell>
+    );
+  }
 
   return (
     <StudioShell
@@ -201,7 +227,7 @@ export default function StudioToday() {
             openOrdersCount={openOrdersCount}
             subscribersCount={subscribersCount}
             scheduledStoriesCount={0}
-            publishedTodayCount={sourceStories.length > 0 ? 1 : 0}
+            publishedTodayCount={publishedTodayCount}
             overdueAssignmentsCount={0}
           />
         )}
