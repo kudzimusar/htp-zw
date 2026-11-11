@@ -29,6 +29,7 @@ import {
   mapMigratedStoryDocument,
   type MigratedStoryDocument
 } from "./migrated-corpus-mapper";
+import { isSuspectedTestStory } from "../reader/editorial-eligibility";
 import {
   mapNativeStoryDocument,
   type NativeStoryDocument
@@ -167,7 +168,13 @@ async function storyForCanonicalUrl(url: string | null) {
   return path ? storyForPath(path) : null;
 }
 
+// Imported pages such as Login and Checkout are not news.
+function isReaderNewsDocument(doc: MigratedStoryDocument) {
+  return (doc.source_type ?? "post") === "post";
+}
+
 async function nativeStoryForFeedRow(row: NativeFeedRow): Promise<ArticleDetail | null> {
+  if (isSuspectedTestStory(row)) return null;
   const requestedPath =
     pathFromCanonicalUrl(row.canonical_url) ??
     normalizePath("/" + row.slug);
@@ -288,7 +295,7 @@ async function loadFeedDocuments(limit = FEED_LIMIT): Promise<ArticleDetail[]> {
         DETAIL_BATCH_SIZE,
         nativeStoryForFeedRow
       );
-      mappedMigrated = batchDocs.map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
+      mappedMigrated = batchDocs.filter(isReaderNewsDocument).map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
       mappedNative = await nativeMappingPromise;
     } else {
       // 2. Resilient fallback path using legacy feed rows
@@ -405,7 +412,7 @@ async function loadSearchCandidates(searchQuery?: string): Promise<ArticleDetail
         DETAIL_BATCH_SIZE,
         nativeStoryForFeedRow
       );
-      const mappedMigrated = batchDocs.map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
+      const mappedMigrated = batchDocs.filter(isReaderNewsDocument).map((doc) => mapMigratedStoryDocument(doc, stagingConfig.url));
       const mappedNative = await nativeMappingPromise;
 
       const seenKeys = new Set<string>();

@@ -2,29 +2,15 @@
 // disposable local Postgres. Refuses any non-loopback target.
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { buildLedgerQuery } from "../../scripts/editorial/source-sync-ledger-query.mjs";
-import { planIncrementalSync } from "../../scripts/editorial/sync-incremental-dryrun.mjs";
+import { confirmWithdrawals, planIncrementalSync } from "../../scripts/editorial/sync-incremental-dryrun.mjs";
+import { runSyncCycle } from "../../scripts/editorial/sync-cycle.mjs";
+import { ROOT, disposableDatabase } from "./support/canonical-schema.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const BASE = process.env.HT_DISPOSABLE_PG_BASE_URI ?? "postgres://postgres:ephemeral-ci-only@127.0.0.1:55432";
-assert.ok(["127.0.0.1", "localhost"].includes(new URL(BASE).hostname), "source-sync tests run on loopback only");
-const DB = "ht_source_sync_test";
-const PSQL = ["/opt/homebrew/opt/postgresql@16/bin/psql", "/opt/homebrew/opt/libpq/bin/psql"].find((path) => fs.existsSync(path)) ?? "psql";
+const db = disposableDatabase("ht_source_sync_test");
+const { sql, failure } = db;
 const WRITER = join(ROOT, "scripts/editorial/sql/source-sync-writer.sql");
-// Held for G2, or fail-closed staging-only fixtures whose guard needs an authorization this test does not have.
-const EXCLUDED = /^(20261102160000|20261107130000|20261029080000|20261029090000)_/;
-
-const psql = (database, input, vars = {}) => execFileSync(
-  PSQL,
-  [`${BASE}/${database}`, "-At", "-q", "-v", "ON_ERROR_STOP=1", ...Object.entries(vars).flatMap(([k, v]) => ["-v", `${k}=${v}`])],
-  { encoding: "utf8", input, stdio: ["pipe", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 }
-).trim();
-const sql = (input, vars) => psql(DB, input, vars);
-const failure = (fn) => { try { fn(); } catch (error) { return String(error.stderr ?? error.message); } return null; };
 const apply = (plan) => JSON.parse(sql("select public.ht_source_sync_apply(:'plan'::jsonb, :'actor');", { plan: JSON.stringify(plan), actor: "disposable-test" }));
 const rollback = (runId) => JSON.parse(sql("select public.ht_source_sync_rollback(:'run'::uuid, :'actor');", { run: runId, actor: "disposable-test" }));
 
@@ -48,8 +34,8 @@ const POSTS = [
 ];
 const classification = {
   schemaVersion: 1,
-  authority: { decidedBy: "Disposable test editor", decidedAt: T2, basis: "Golden fixture" },
-  records: POSTS.filter((p) => p.postId !== 1007).map((p) => ({ stableKey: `wordpress:post:${p.postId}`, accessPolicy: "public", sourceModifiedAt: p.modifiedAt }))
+  authority: { role: "Publisher/Owner", decidedBy: "Disposable test fixture", decidedAt: T2, basis: "Golden fixture" },
+  records: POSTS.filter((p) => p.postId !== 1007).map((p) => ({ stableKey: `wordpress:post:${p.postId}`, accessPolicy: "public", sourceModifiedAt: p.modifiedAt, evidence: { kind: "publisher-owner-decision", reference: "fixture" } }))
 };
 const ledger = () => JSON.parse(sql(buildLedgerQuery(POSTS)));
 const freshPlan = () => planIncrementalSync(POSTS, ledger(), classification);
@@ -62,41 +48,8 @@ const snapshot = () => sql(SNAPSHOT);
 const row = (slug) => JSON.parse(sql(`select to_jsonb(s) from public.stories s where slug='${slug}';`) || "null");
 
 test("canonical schema replays and the writer installs", () => {
-  psql("postgres", `DROP DATABASE IF EXISTS ${DB};`);
-  psql("postgres", `CREATE DATABASE ${DB};`);
-  for (const role of ["anon", "authenticated", "service_role", "authenticator", "supabase_admin", "supabase_auth_admin", "supabase_storage_admin", "dashboard_user"]) {
-    psql("postgres", `DO $$ BEGIN CREATE ROLE ${role} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
-  }
-  psql("postgres", `ALTER DATABASE ${DB} SET search_path = public, extensions;`);
-  sql(`
-    create schema if not exists extensions;
-    create extension if not exists pgcrypto with schema extensions;
-    create extension if not exists "uuid-ossp" with schema extensions;
-    create extension if not exists pg_trgm with schema extensions;
-    create schema if not exists auth;
-    create table auth.users (id uuid primary key default extensions.gen_random_uuid(), email text unique, phone text, email_confirmed_at timestamptz, last_sign_in_at timestamptz, banned_until timestamptz, deleted_at timestamptz, is_anonymous boolean default false, created_at timestamptz default now(), updated_at timestamptz default now(), raw_app_meta_data jsonb default '{}', raw_user_meta_data jsonb default '{}');
-    create table auth.sessions (id uuid primary key default extensions.gen_random_uuid(), user_id uuid references auth.users(id) on delete cascade, created_at timestamptz default now(), updated_at timestamptz default now(), not_after timestamptz, aal text);
-    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-    create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role', true), '') $$;
-    create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
-    create schema if not exists storage;
-    create table storage.buckets (id text primary key, name text, owner uuid, public boolean default false, file_size_limit bigint, allowed_mime_types text[], created_at timestamptz default now(), updated_at timestamptz default now());
-    create table storage.objects (id uuid primary key default extensions.gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, created_at timestamptz default now(), updated_at timestamptz default now(), last_accessed_at timestamptz default now(), metadata jsonb);
-    alter table storage.objects enable row level security;
-    create function storage.foldername(name text) returns text[] language sql immutable as $$ select string_to_array(name, '/') $$;
-    create schema if not exists supabase_migrations;
-    create table supabase_migrations.schema_migrations (version text primary key, statements text[], name text);
-    create schema if not exists realtime;
-    create table realtime.messages (id bigserial primary key, topic text, extension text, payload jsonb, event text, private boolean, inserted_at timestamptz default now());
-    alter table realtime.messages enable row level security;
-    create function realtime.send(payload jsonb, event text, topic text, private boolean default true) returns void language sql as $$ select $$;
-    create function realtime.topic() returns text language sql stable as $$ select nullif(current_setting('realtime.topic', true), '') $$;
-  `);
-  const migrations = join(ROOT, "supabase/migrations");
-  for (const file of fs.readdirSync(migrations).filter((name) => name.endsWith(".sql") && !EXCLUDED.test(name)).sort()) {
-    execFileSync(PSQL, [`${BASE}/${DB}`, "-q", "-v", "ON_ERROR_STOP=1", "-1", "-f", join(migrations, file)], { stdio: "pipe" });
-  }
-  execFileSync(PSQL, [`${BASE}/${DB}`, "-q", "-v", "ON_ERROR_STOP=1", "-1", "-f", WRITER], { stdio: "pipe" });
+  db.createCanonical();
+  db.applyFile(WRITER);
   assert.equal(sql("select count(*) from pg_proc where proname in ('ht_source_sync_apply','ht_source_sync_rollback');"), "2");
 });
 
@@ -258,4 +211,112 @@ test("rollback restores the exact prior database state", () => {
 
 test("a run cannot be rolled back twice", () => {
   assert.match(failure(() => rollback(applied.runId)), /SYNC_RUN_NOT_APPLIED/);
+});
+
+// Ledger rows for a published source, as the reconciliation query returns them.
+const ledgerFor = (posts, options) => JSON.parse(sql(buildLedgerQuery(posts, options)));
+const classifiedFor = (posts) => ({
+  schemaVersion: 1,
+  authority: { role: "Publisher/Owner", decidedBy: "Disposable test fixture", decidedAt: T2, basis: "Golden fixture" },
+  records: posts.map((p) => ({ stableKey: `wordpress:post:${p.postId}`, accessPolicy: "public", sourceModifiedAt: p.modifiedAt, evidence: { kind: "publisher-owner-decision", reference: "fixture" } }))
+});
+const T3 = "2026-11-08T00:00:00.000Z";
+const LIFECYCLE = post(2001, "lifecycle-story", T2, { publishedAt: T2 });
+
+test("import is idempotent: replanning after an apply is all no-ops", () => {
+  const first = planIncrementalSync([LIFECYCLE], ledgerFor([LIFECYCLE]), classifiedFor([LIFECYCLE]));
+  assert.equal(first.decisions[0].decision, "INSERT_CANDIDATE");
+  apply(first);
+  const second = planIncrementalSync([LIFECYCLE], ledgerFor([LIFECYCLE]), classifiedFor([LIFECYCLE]));
+  assert.equal(second.decisions[0].decision, "NOOP_UNCHANGED");
+  assert.equal(second.candidates.length, 0);
+});
+
+test("a later source edit propagates through the modification path", () => {
+  const edited = { ...LIFECYCLE, modifiedAt: T3, title: "Edited title", contentBody: "<p>Edited body</p>" };
+  const plan = planIncrementalSync([edited], ledgerFor([edited]), classifiedFor([edited]));
+  assert.equal(plan.decisions[0].decision, "UPDATE_CANDIDATE");
+  apply(plan);
+  assert.equal(row("lifecycle-story").body_html, "<p>Edited body</p>");
+  assert.equal(new Date(row("lifecycle-story").modified_at).toISOString(), T3);
+});
+
+let unpublishRun;
+let beforeUnpublish;
+
+test("a confirmed withdrawal hides the story from the Reader", () => {
+  beforeUnpublish = snapshot();
+  const edited = { ...LIFECYCLE, modifiedAt: T3 };
+  const ledger = ledgerFor([edited], { windowStartAt: T1 });
+  const planned = planIncrementalSync([], ledger, null, { windowComplete: true, windowStartAt: T1, retrievedPostIds: [1001, 1002, 1003, 1004, 1006] });
+  assert.equal(planned.decisions.find((d) => d.stableKey === "wordpress:post:2001").decision, "REVIEW_SOURCE_MISSING");
+  const plan = confirmWithdrawals(planned, ledger, new Map([["wordpress:post:2001", "withdrawn"]]));
+  assert.equal(plan.candidates.length, 1);
+  unpublishRun = apply(plan);
+  assert.equal(unpublishRun.unpublished, 1);
+  assert.equal(row("lifecycle-story").status, "unpublished");
+  const feed = JSON.parse(sql("select public.ag05_public_feed_documents(50);"));
+  assert.equal(feed.some((item) => item.source_id === "2001"), false);
+});
+
+test("withdrawal keeps editorial authority fields and the audit trail", () => {
+  const story = row("lifecycle-story");
+  assert.equal(story.access_policy, "public");
+  assert.equal(story.lock_version, 1);
+  assert.equal(sql(`select action from public.source_sync_row_audit where run_id='${unpublishRun.runId}';`), "unpublish");
+});
+
+test("a withdrawal can be rolled back exactly", () => {
+  rollback(unpublishRun.runId);
+  assert.equal(snapshot(), beforeUnpublish);
+  assert.equal(row("lifecycle-story").status, "published");
+});
+
+test("a newsroom-edited story is never withdrawn by sync", () => {
+  const ledger = ledgerFor([post(1004, "edited-story", T2)]);
+  const planned = { ...planIncrementalSync([], ledger, null, { windowComplete: true, windowStartAt: T1, retrievedPostIds: [] }) };
+  const confirmed = confirmWithdrawals(planned, ledger, new Map([["wordpress:post:1004", "withdrawn"]]));
+  assert.equal(confirmed.decisions.find((d) => d.stableKey === "wordpress:post:1004").decision, "HOLD_NATIVE_EDIT_CONFLICT");
+  assert.equal(confirmed.candidates.length, 0);
+});
+
+test("the writer refuses a forged withdrawal of a newsroom-edited story", () => {
+  const story = row("edited-story");
+  const before = snapshot();
+  const forged = { planSha256: "4".repeat(64), candidates: [{ decision: "UNPUBLISH_CANDIDATE", stableKey: "wordpress:post:1004", expected: { storyId: story.id, lockVersion: story.lock_version, modifiedAt: story.modified_at } }] };
+  assert.match(failure(() => apply(forged)), /SYNC_NATIVE_EDIT_CONFLICT/);
+  assert.equal(snapshot(), before);
+});
+
+test("repeated scheduled cycles converge and replay safely", async () => {
+  const article = post(3001, "cycle-story", T2, { publishedAt: T2 });
+  const window = (candidates) => async () => ({ candidates, retrieved: candidates.length, retrievedPostIds: candidates.map((p) => p.postId), windowComplete: true, latestModifiedRetrievedAt: candidates.map((p) => p.modifiedAt).sort().at(-1) });
+  const readLedger = async (posts) => ledgerFor(posts);
+  const applyPlan = async (plan) => apply(plan);
+  const now = Date.parse(T3);
+  const first = await runSyncCycle({ state: {}, probe: window([article]), readLedger, apply: applyPlan, classification: classifiedFor([article]), now });
+  assert.equal(first.status, "SYNCED");
+  assert.equal(first.applied.inserted, 1);
+  const replay = await runSyncCycle({ state: first.state, probe: window([article]), readLedger, apply: applyPlan, classification: classifiedFor([article]), now });
+  assert.equal(replay.status, "SYNCED");
+  assert.equal(replay.applied, null);
+  const edited = { ...article, modifiedAt: T3, contentBody: "<p>Cycle edit</p>" };
+  const third = await runSyncCycle({ state: replay.state, probe: window([edited]), readLedger, apply: applyPlan, classification: classifiedFor([edited]), now });
+  assert.equal(third.applied.updated, 1);
+  assert.equal(row("cycle-story").body_html, "<p>Cycle edit</p>");
+  assert.equal(third.state.watermark, T3);
+});
+
+test("a failed apply leaves the watermark for replay and persists nothing", async () => {
+  const article = post(3002, "failed-cycle-story", T2, { publishedAt: T2 });
+  const before = snapshot();
+  const result = await runSyncCycle({
+    state: { watermark: T1 }, now: Date.parse(T3), classification: classifiedFor([article]),
+    probe: async () => ({ candidates: [article], retrieved: 1, retrievedPostIds: [3002], windowComplete: true, latestModifiedRetrievedAt: T2 }),
+    readLedger: async (posts) => ledgerFor(posts),
+    apply: async (plan) => apply({ ...plan, candidates: [...plan.candidates, { ...plan.candidates[0], accessPolicy: "free" }] })
+  });
+  assert.equal(result.status, "APPLY_FAILED");
+  assert.equal(result.state.watermark, T1);
+  assert.equal(snapshot(), before);
 });

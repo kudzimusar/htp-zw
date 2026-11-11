@@ -15,10 +15,10 @@ const article=(overrides={})=>({
 const probe=(articles=[article()])=>({latestPublicCandidateAt:MODIFIED,latestTwentyMetadata:articles});
 const classification=(records)=>({
   schemaVersion:1,
-  authority:{decidedBy:"Editor-in-Chief",decidedAt:"2026-11-10T00:00:00.000Z",basis:"Reviewed against membership rules"},
+  authority:{role:"Publisher/Owner",decidedBy:"Publisher",decidedAt:"2026-11-10T00:00:00.000Z",basis:"Reviewed against membership rules"},
   records
 });
-const publicRecord=(overrides={})=>({stableKey:"wordpress:post:33649",accessPolicy:"public",sourceModifiedAt:MODIFIED,...overrides});
+const publicRecord=(overrides={})=>({stableKey:"wordpress:post:33649",accessPolicy:"public",sourceModifiedAt:MODIFIED,evidence:{kind:"publisher-owner-decision",reference:"decision-1"},...overrides});
 const build=(articles,doc)=>buildPublicManifest({probe:probe(articles),classification:doc,generatedAt:"2026-11-11T00:00:00.000Z"});
 
 test("source keys use the canonical legacy_sources format",()=>{
@@ -92,12 +92,16 @@ test("the hash is computed exactly as the Reader verifies it",()=>{
   assert.equal(manifest.count,1);
 });
 
+const OWNER={role:"Publisher/Owner",decidedBy:"x",decidedAt:"2026-11-10T00:00:00Z"};
 for(const [label,doc] of Object.entries({
-  "wrong schema":{schemaVersion:2,authority:{decidedBy:"x",decidedAt:"2026-11-10T00:00:00Z"},records:[]},
+  "wrong schema":{schemaVersion:2,authority:OWNER,records:[]},
   "missing authority":{schemaVersion:1,records:[]},
-  "blank decider":{schemaVersion:1,authority:{decidedBy:" ",decidedAt:"2026-11-10T00:00:00Z"},records:[]},
-  "invalid decision date":{schemaVersion:1,authority:{decidedBy:"x",decidedAt:"soon"},records:[]},
-  "records not a list":{schemaVersion:1,authority:{decidedBy:"x",decidedAt:"2026-11-10T00:00:00Z"},records:{}}
+  "a non-Owner role":{schemaVersion:1,authority:{...OWNER,role:"Editor-in-Chief"},records:[]},
+  "blank decider":{schemaVersion:1,authority:{...OWNER,decidedBy:" "},records:[]},
+  "invalid decision date":{schemaVersion:1,authority:{...OWNER,decidedAt:"soon"},records:[]},
+  "records not a list":{schemaVersion:1,authority:OWNER,records:{}},
+  "a record with no evidence":{schemaVersion:1,authority:OWNER,records:[{stableKey:"wordpress:post:1",accessPolicy:"public",sourceModifiedAt:MODIFIED}]},
+  "a record citing REST availability":{schemaVersion:1,authority:OWNER,records:[{stableKey:"wordpress:post:1",accessPolicy:"public",sourceModifiedAt:MODIFIED,evidence:{kind:"wordpress-rest"}}]}
 })){
   test("a malformed classification document is rejected: "+label,()=>{
     assert.throws(()=>classificationIndex(doc),/INVALID_CLASSIFICATION/);

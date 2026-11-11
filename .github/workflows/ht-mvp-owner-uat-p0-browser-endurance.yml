@@ -51,6 +51,14 @@ jobs:
           npx playwright install --with-deps chromium
           node --check scripts/uat/p0-protected-lab-server.mjs
           node --check scripts/uat/p0-reader-endurance.mjs
+      - name: Run deep-link, account-callback, manifest and eligibility security tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          node --test tests/p0-deep-link-security.test.mjs tests/p0-public-manifest-reader.test.mjs tests/p0-editorial-eligibility.test.mjs 2>&1 | tee /tmp/p0-reader-security.tap
+          grep -Eq '^# fail 0$' /tmp/p0-reader-security.tap
+          grep -Eq '^# skipped 0$' /tmp/p0-reader-security.tap
       - name: Instrument five 120-second browser sessions and the service worker lifecycle
         shell: bash
         run: |

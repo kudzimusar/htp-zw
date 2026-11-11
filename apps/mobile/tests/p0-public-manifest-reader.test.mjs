@@ -80,3 +80,13 @@ test("one bad record rejects the whole manifest",async()=>{
   const other=entry({id:2,slug:"other-story",link:"https://healthtimes.co.zw/other-story/"});
   assert.equal(await storyFrom([classified({bodyAuthority:"VERIFIED_PUBLIC_PUBLISHED"}),other]),null);
 });
+
+test("a sanitized body renders as article-specific blocks in the Reader parser",()=>{
+  const {parseArticleContent}=loadTs("src/reader/article-content.ts");
+  const blocks=parseArticleContent('<h2>Shortage deepens</h2><p>Patients are <strong>paying privately</strong> for <a href="https://www.who.int/">tests</a>.</p><figure><img src="'+MEDIA+'" alt="Lab"><figcaption>A public laboratory</figcaption></figure><ul><li>Reagents</li></ul>',"https://healthtimes.co.zw/story/");
+  assert.deepEqual(blocks.map(block=>block.kind),["heading","paragraph","figure","list"]);
+  assert.equal(blocks[1].inlines.map(inline=>inline.text).join(""),"Patients are paying privately for tests.");
+  assert.equal(blocks[1].inlines.find(inline=>inline.href)?.href,"https://www.who.int/");
+  assert.equal(blocks[2].src,MEDIA);
+  assert.equal(blocks[2].caption[0].text,"A public laboratory");
+});

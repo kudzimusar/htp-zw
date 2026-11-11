@@ -5,11 +5,17 @@ import { createHash } from "node:crypto";
 
 export const stableKeyForPost = (postId) => `wordpress:post:${postId}`;
 
+const CLASSIFICATION_AUTHORITY = "Publisher/Owner";
+// Public REST availability is deliberately absent: it says nothing about Premium.
+const ACCEPTED_EVIDENCE = new Set(["wordpress-postmeta", "publisher-owner-decision"]);
+
 export function classificationIndex(document) {
   if (document === null || document === undefined) return new Map();
   const { schemaVersion, authority, records } = document;
-  if (schemaVersion !== 1 || typeof authority?.decidedBy !== "string" || !authority.decidedBy.trim() ||
-      !Number.isFinite(Date.parse(authority?.decidedAt)) || !Array.isArray(records)) {
+  if (schemaVersion !== 1 || authority?.role !== CLASSIFICATION_AUTHORITY ||
+      typeof authority?.decidedBy !== "string" || !authority.decidedBy.trim() ||
+      !Number.isFinite(Date.parse(authority?.decidedAt)) || !Array.isArray(records) ||
+      !records.every((record) => ACCEPTED_EVIDENCE.has(record?.evidence?.kind))) {
     throw new Error("INVALID_CLASSIFICATION");
   }
   return new Map(records.map((record) => [record.stableKey, record]));

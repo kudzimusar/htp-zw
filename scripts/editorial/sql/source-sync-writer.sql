@@ -21,7 +21,7 @@ create table if not exists public.source_sync_row_audit (
   id bigint generated always as identity primary key,
   run_id uuid not null references public.source_sync_runs(id),
   stable_key text not null,
-  action text not null check (action in ('insert','update')),
+  action text not null check (action in ('insert','update','unpublish')),
   story_id uuid not null,
   legacy_source_id uuid not null,
   before_story jsonb,
@@ -51,6 +51,7 @@ declare
   v_story_id uuid;
   v_inserted integer := 0;
   v_updated integer := 0;
+  v_unpublished integer := 0;
 begin
   if coalesce(p_plan->>'planSha256','') !~ '^[0-9a-f]{64}$' then
     raise exception using errcode='22023', message='SYNC_PLAN_HASH_REQUIRED';
@@ -72,7 +73,8 @@ begin
       raise exception using errcode='22023', message='SYNC_INVALID_SOURCE_KEY';
     end if;
     -- The stored policy is a constant below; this only rejects a forged plan.
-    if v_candidate->>'accessPolicy' is distinct from 'public' then
+    if v_candidate->>'decision' in ('INSERT_CANDIDATE','UPDATE_CANDIDATE')
+       and v_candidate->>'accessPolicy' is distinct from 'public' then
       raise exception using errcode='22023', message='SYNC_NON_PUBLIC_CANDIDATE';
     end if;
 
@@ -148,16 +150,43 @@ begin
       where id = v_source.id;
       v_updated := v_updated + 1;
 
+    elsif v_candidate->>'decision' = 'UNPUBLISH_CANDIDATE' then
+      select * into v_source from public.legacy_sources where stable_key = v_key for update;
+      if not found then
+        raise exception using errcode='P0002', message='SYNC_SOURCE_KEY_MISSING';
+      end if;
+      select * into v_story from public.stories where legacy_source_id = v_source.id for update;
+      if not found
+         or v_story.id is distinct from (v_candidate->'expected'->>'storyId')::uuid
+         or v_story.lock_version is distinct from (v_candidate->'expected'->>'lockVersion')::integer
+         or v_story.modified_at is distinct from (v_candidate->'expected'->>'modifiedAt')::timestamptz then
+        raise exception using errcode='40001', message='SYNC_STALE_STORY';
+      end if;
+      if v_story.lock_version > 1
+         or exists (select 1 from public.story_revisions r where r.story_id = v_story.id and r.editor_id is not null) then
+        raise exception using errcode='40001', message='SYNC_NATIVE_EDIT_CONFLICT';
+      end if;
+
+      insert into public.source_sync_row_audit (run_id, stable_key, action, story_id, legacy_source_id, before_story, before_source, after_lock_version, after_modified_at)
+      values (v_run_id, v_key, 'unpublish', v_story.id, v_source.id, to_jsonb(v_story), to_jsonb(v_source), v_story.lock_version, v_story.modified_at);
+
+      -- status is a protected authority field, so the Newsroom trigger requires this
+      -- flag. It is scoped to this one statement and needs independent review.
+      perform set_config('app.newsroom_rpc', '1', true);
+      update public.stories set status = 'unpublished', updated_at = now() where id = v_story.id;
+      perform set_config('app.newsroom_rpc', '', true);
+      v_unpublished := v_unpublished + 1;
+
     else
       raise exception using errcode='22023', message='SYNC_UNKNOWN_DECISION';
     end if;
   end loop;
 
   update public.source_sync_runs
-  set counts = jsonb_build_object('inserted', v_inserted, 'updated', v_updated)
+  set counts = jsonb_build_object('inserted', v_inserted, 'updated', v_updated, 'unpublished', v_unpublished)
   where id = v_run_id;
 
-  return jsonb_build_object('runId', v_run_id, 'inserted', v_inserted, 'updated', v_updated);
+  return jsonb_build_object('runId', v_run_id, 'inserted', v_inserted, 'updated', v_updated, 'unpublished', v_unpublished);
 end;
 $$;
 
@@ -198,6 +227,13 @@ begin
       delete from public.legacy_url_mappings where legacy_source_id = v_row.legacy_source_id;
       delete from public.stories where id = v_row.story_id;
       delete from public.legacy_sources where id = v_row.legacy_source_id;
+    elsif v_row.action = 'unpublish' then
+      perform set_config('app.newsroom_rpc', '1', true);
+      update public.stories
+      set status = v_row.before_story->>'status',
+          updated_at = (v_row.before_story->>'updated_at')::timestamptz
+      where id = v_row.story_id;
+      perform set_config('app.newsroom_rpc', '', true);
     else
       update public.stories
       set title = v_row.before_story->>'title',

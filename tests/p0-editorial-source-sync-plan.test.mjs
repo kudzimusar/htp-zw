@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planIncrementalSync } from "../scripts/editorial/sync-incremental-dryrun.mjs";
+import { confirmWithdrawals, planIncrementalSync } from "../scripts/editorial/sync-incremental-dryrun.mjs";
+import { FRESHNESS_SLA_SECONDS, MAX_WITHDRAWALS_PER_CYCLE, runSyncCycle } from "../scripts/editorial/sync-cycle.mjs";
+import { checkPostWithdrawn } from "../scripts/editorial/public-source-readonly-probe.mjs";
 import { buildLedgerQuery } from "../scripts/editorial/source-sync-ledger-query.mjs";
 
 const T1="2026-10-01T00:00:00.000Z";
@@ -18,8 +20,8 @@ const source=(overrides={})=>({
 const ledger=(overrides={})=>({schemaVersion:1,capturedAt:"2026-11-11T00:00:00.000Z",sources:[],slugOwners:[],...overrides});
 const classified=(overrides={})=>({
   schemaVersion:1,
-  authority:{decidedBy:"Editor-in-Chief",decidedAt:"2026-11-10T00:00:00.000Z",basis:"Reviewed"},
-  records:[{stableKey:"wordpress:post:500",accessPolicy:"public",sourceModifiedAt:T2,...overrides}]
+  authority:{role:"Publisher/Owner",decidedBy:"Publisher",decidedAt:"2026-11-10T00:00:00.000Z",basis:"Reviewed"},
+  records:[{stableKey:"wordpress:post:500",accessPolicy:"public",sourceModifiedAt:T2,evidence:{kind:"publisher-owner-decision",reference:"d1"},...overrides}]
 });
 const only=(plan)=>{assert.equal(plan.decisions.length,1);return plan.decisions[0];};
 
@@ -172,4 +174,107 @@ test("the ledger query refuses input it cannot safely inline",()=>{
 test("a window start is validated before it reaches the query",()=>{
   assert.throws(()=>buildLedgerQuery([post()],{windowStartAt:"2026'; drop"}),/INVALID_WINDOW/);
   assert.match(buildLedgerQuery([post()],{windowStartAt:T1}),/2026-10-01T00:00:00\.000Z/);
+});
+
+const missingPlan=()=>planIncrementalSync([],ledger({sources:[source({stableKey:"wordpress:post:77",storyPublishedAt:T2})]}),null,{windowComplete:true,windowStartAt:T1,retrievedPostIds:[]});
+const sources=()=>ledger({sources:[source({stableKey:"wordpress:post:77",storyPublishedAt:T2})]});
+
+test("a confirmed withdrawal becomes an unpublish candidate with concurrency guards",()=>{
+  const plan=confirmWithdrawals(missingPlan(),sources(),new Map([["wordpress:post:77","withdrawn"]]));
+  assert.equal(plan.decisions[0].decision,"UNPUBLISH_CANDIDATE");
+  assert.deepEqual(plan.candidates[0].expected,{storyId:"story-1",lockVersion:1,modifiedAt:T1});
+});
+
+test("a post still published stays out of the withdrawal path",()=>{
+  const plan=confirmWithdrawals(missingPlan(),sources(),new Map([["wordpress:post:77","still-published"]]));
+  assert.equal(plan.decisions[0].decision,"NOOP_STILL_PUBLISHED");
+  assert.equal(plan.candidates.length,0);
+});
+
+test("an inconclusive check never unpublishes",()=>{
+  const plan=confirmWithdrawals(missingPlan(),sources(),new Map([["wordpress:post:77","unknown"]]));
+  assert.equal(plan.decisions[0].decision,"REVIEW_SOURCE_MISSING");
+  assert.equal(plan.candidates.length,0);
+});
+
+test("confirming withdrawals reseals the plan hash",()=>{
+  const before=missingPlan();
+  const after=confirmWithdrawals(before,sources(),new Map([["wordpress:post:77","withdrawn"]]));
+  assert.notEqual(after.planSha256,before.planSha256);
+});
+
+for(const [label,response,expected] of [
+  ["a published post",{ok:true,status:200,json:async()=>({id:9,status:"publish"})},"still-published"],
+  ["a missing post",{ok:false,status:404,json:async()=>({code:"rest_post_invalid_id"})},"withdrawn"],
+  ["a post no longer public",{ok:false,status:401,json:async()=>({code:"rest_forbidden"})},"withdrawn"],
+  ["a forbidden post",{ok:false,status:403,json:async()=>({code:"rest_forbidden"})},"withdrawn"],
+  ["a firewall 403 with no WordPress error",{ok:false,status:403,json:async()=>{throw new Error("html");}},"unknown"],
+  ["a generic 404 with no WordPress error",{ok:false,status:404,json:async()=>({message:"not found"})},"unknown"],
+  ["a server error",{ok:false,status:503},"unknown"],
+  ["an unexpected status field",{ok:true,status:200,json:async()=>({id:9,status:"draft"})},"withdrawn"]
+]){
+  test("withdrawal check treats "+label+" as "+expected,async()=>{
+    assert.equal(await checkPostWithdrawn(9,{fetchImpl:async()=>response}),expected);
+  });
+}
+
+test("a network failure is inconclusive",async()=>{
+  assert.equal(await checkPostWithdrawn(9,{fetchImpl:async()=>{throw new Error("reset");}}),"unknown");
+});
+
+test("the withdrawal check rejects a non-integer post id",async()=>{
+  assert.equal(await checkPostWithdrawn("1/../2",{fetchImpl:async()=>{throw new Error("must not fetch");}}),"unknown");
+});
+
+const windowOf=(candidates,extra={})=>async()=>({candidates,retrieved:candidates.length,retrievedPostIds:candidates.map(p=>p.postId),windowComplete:true,latestModifiedRetrievedAt:T2,...extra});
+const NOW=Date.parse("2026-11-06T00:00:00.000Z");
+
+test("a source outage changes nothing and raises an alert",async()=>{
+  const result=await runSyncCycle({state:{watermark:T1},probe:async()=>({status:"BLOCKED_SOURCE_HTTP"}),readLedger:async()=>ledger(),now:NOW});
+  assert.equal(result.status,"SOURCE_UNAVAILABLE");
+  assert.equal(result.state.watermark,T1);
+  assert.ok(result.alerts.includes("SOURCE_UNAVAILABLE"));
+});
+
+test("without a writer the cycle plans and holds",async()=>{
+  const result=await runSyncCycle({state:{},probe:windowOf([post()]),readLedger:async()=>ledger(),classification:classified(),now:NOW});
+  assert.equal(result.status,"PLANNED_HELD");
+  assert.equal(result.state.watermark,undefined);
+});
+
+test("the cycle reads from one second before the watermark",async()=>{
+  let since;
+  await runSyncCycle({state:{watermark:T2},probe:async(options)=>{since=options.since;return {candidates:[],retrievedPostIds:[],windowComplete:true};},readLedger:async()=>ledger(),now:NOW});
+  assert.equal(since,"2026-11-04T23:59:59.000Z");
+});
+
+test("a stale last success raises the freshness alert",async()=>{
+  const stale=new Date(NOW-(FRESHNESS_SLA_SECONDS+1)*1000).toISOString();
+  const result=await runSyncCycle({state:{lastSuccessAt:stale},probe:windowOf([]),readLedger:async()=>ledger(),now:NOW});
+  assert.ok(result.alerts.includes("FRESHNESS_SLA_EXCEEDED"));
+});
+
+test("posts waiting on a decision raise an alert",async()=>{
+  const result=await runSyncCycle({state:{},probe:windowOf([post()]),readLedger:async()=>ledger(),now:NOW});
+  assert.ok(result.alerts.includes("DECISIONS_PENDING"));
+});
+
+test("a sudden spike of withdrawals is held for review, not applied",async()=>{
+  const rows=Array.from({length:MAX_WITHDRAWALS_PER_CYCLE+1},(_,n)=>source({stableKey:"wordpress:post:"+(9000+n),storyPublishedAt:T2,storySlug:"s"+n}));
+  let applied=false;
+  const result=await runSyncCycle({
+    state:{},now:NOW,
+    probe:async()=>({candidates:[post()],retrievedPostIds:[500],windowComplete:true,latestModifiedRetrievedAt:T2}),
+    readLedger:async()=>ledger({sources:rows}),
+    classification:null,
+    checkWithdrawn:async()=>"withdrawn",
+    apply:async()=>{applied=true;return {};}
+  });
+  assert.equal(applied,false);
+  assert.ok(result.alerts.includes("WITHDRAWAL_SPIKE"));
+  assert.equal(result.plan.candidates.length,0);
+});
+
+test("the sync SLA target is 15 minutes",()=>{
+  assert.equal(FRESHNESS_SLA_SECONDS,900);
 });

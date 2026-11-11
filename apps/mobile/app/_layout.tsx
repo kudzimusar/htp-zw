@@ -4,9 +4,9 @@ import * as Linking from "expo-linking";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AppearanceProvider } from "../src/theme/AppearanceProvider";
-import { parseHealthTimesDeepLink } from "../src/growth/deepLinks";
+import { isRouterOwnedLink, parseHealthTimesDeepLink } from "../src/growth/deepLinks";
 
-function DeepLinkBridge(){
+export function DeepLinkBridge(){
   const router=useRouter();
   const pathname=usePathname();
   const pathnameRef=useRef(pathname);
@@ -18,7 +18,7 @@ function DeepLinkBridge(){
     const normalizedPath=(path:string)=>path.replace(/\/+$/,"") || "/";
 
     const routeUrl=(url:string|null)=>{
-      if(!active || !url) return;
+      if(!active || !url || isRouterOwnedLink(url)) return;
       const destination=parseHealthTimesDeepLink(url);
       if(destination?.type!=="article") return;
 

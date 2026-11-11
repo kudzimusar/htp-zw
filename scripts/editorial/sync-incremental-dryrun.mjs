@@ -52,6 +52,37 @@ function candidateFor(decision, post, source) {
   return candidate;
 }
 
+function sealPlan(plan, capturedAt) {
+  const counts = {};
+  for (const { decision } of plan.decisions) counts[decision] = (counts[decision] ?? 0) + 1;
+  const planSha256 = createHash("sha256")
+    .update(JSON.stringify({ capturedAt, decisions: plan.decisions, candidates: plan.candidates }))
+    .digest("hex");
+  return { ...plan, counts, planSha256 };
+}
+
+// Turns "absent from the window" into an action only after a direct check of that post.
+export function confirmWithdrawals(plan, ledger, results) {
+  const sources = new Map(ledger.sources.map((row) => [row.stableKey, row]));
+  const candidates = [...plan.candidates];
+  const decisions = plan.decisions.map((item) => {
+    if (item.decision !== "REVIEW_SOURCE_MISSING") return item;
+    const result = results.get(item.stableKey);
+    if (result === "still-published") return { ...item, decision: "NOOP_STILL_PUBLISHED" };
+    if (result !== "withdrawn") return item;
+    const row = sources.get(item.stableKey);
+    if (!row?.storyId) return { ...item, decision: "BLOCK_LEDGER_ORPHAN_SOURCE" };
+    if (row.storyLockVersion > 1 || row.nativeRevisionCount > 0) return { ...item, decision: "HOLD_NATIVE_EDIT_CONFLICT" };
+    candidates.push({
+      decision: "UNPUBLISH_CANDIDATE",
+      stableKey: item.stableKey,
+      expected: { storyId: row.storyId, lockVersion: row.storyLockVersion, modifiedAt: row.storyModifiedAt }
+    });
+    return { ...item, decision: "UNPUBLISH_CANDIDATE" };
+  });
+  return sealPlan({ ...plan, decisions, candidates }, plan.ledgerCapturedAt);
+}
+
 export function planIncrementalSync(posts, ledger, classification, options = {}) {
   if (!ledger?.capturedAt || !Array.isArray(ledger.sources) || !Array.isArray(ledger.slugOwners)) {
     throw new Error("LEDGER_REQUIRED");
@@ -85,19 +116,15 @@ export function planIncrementalSync(posts, ledger, classification, options = {})
     }
   }
 
-  const counts = {};
-  for (const { decision } of decisions) counts[decision] = (counts[decision] ?? 0) + 1;
-  return {
+  return sealPlan({
     engine: "healthtimes-source-key-sync-plan-v2",
     ledgerCapturedAt: ledger.capturedAt,
-    planSha256: createHash("sha256").update(JSON.stringify({ capturedAt: ledger.capturedAt, decisions, candidates })).digest("hex"),
     stagingDatabaseWriteStatus: "HELD_PENDING_OWNER_AUTHORIZATION",
     unpublishDetection,
     nextWatermark: [...retryTimes].sort()[0] ?? options.latestModifiedRetrievedAt ?? null,
-    counts,
     decisions,
     candidates
-  };
+  }, ledger.capturedAt);
 }
 
 async function main(argv) {

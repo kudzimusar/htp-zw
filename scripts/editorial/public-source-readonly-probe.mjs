@@ -131,6 +131,23 @@ async function lookupTaxonomy(type,postIds,fetchImpl) {
   }
 }
 
+// WordPress's own error codes for a post the public cannot read. A bare 403 or 404
+// could be a firewall or a broken route, which must not read as "article removed".
+const WITHDRAWN_ERROR_CODES = new Set(["rest_post_invalid_id", "rest_forbidden", "rest_cannot_read"]);
+
+export async function checkPostWithdrawn(postId, { fetchImpl = fetch } = {}) {
+  if (!Number.isSafeInteger(postId) || postId < 1) return "unknown";
+  try {
+    const response = await fetchPublisher(`/wp/v2/posts/${postId}`, { _fields: "id,status" }, fetchImpl);
+    if (response.ok) return (await response.json())?.status === "publish" ? "still-published" : "withdrawn";
+    if (![401, 403, 404].includes(response.status)) return "unknown";
+    const body = await response.json();
+    return WITHDRAWN_ERROR_CODES.has(body?.code) ? "withdrawn" : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function probePublicPublisher({ fetchImpl = fetch, now = Date.now(), includeBody = false, since = null } = {}) {
   // A sync window reads oldest-modified-first after the watermark, so a backlog
   // larger than one page drains across runs instead of being skipped.
