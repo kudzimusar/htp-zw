@@ -86,6 +86,11 @@ for(const [label,payload] of Object.entries(ATTACKS)){
   });
 }
 
+test("foreign SVG and MathML content contributes no text",()=>{
+  assert.equal(clean("<svg><text>hidden</text></svg><p>Kept</p>"),"<p>Kept</p>");
+  assert.equal(clean("<math><mi>x</mi></math>"),"");
+});
+
 test("srcset is removed while the validated src survives",()=>{
   const output=clean('<img src="https://healthtimes.co.zw/wp-content/uploads/a.jpg" srcset="https://evil.example/x.jpg 2x" sizes="100vw" alt="Lab">');
   assert.equal(output,'<img src="https://healthtimes.co.zw/wp-content/uploads/a.jpg" alt="Lab">');

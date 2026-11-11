@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           cd apps/mobile
-          node --test tests/p0-deep-link-security.test.mjs tests/p0-public-manifest-reader.test.mjs tests/p0-editorial-eligibility.test.mjs 2>&1 | tee /tmp/p0-reader-security.tap
+          node --test tests/p0-deep-link-security.test.mjs tests/p0-public-manifest-reader.test.mjs tests/p0-editorial-eligibility.test.mjs tests/p0-reader-feed-eligibility.test.mjs 2>&1 | tee /tmp/p0-reader-security.tap
           grep -Eq '^# fail 0$' /tmp/p0-reader-security.tap
           grep -Eq '^# skipped 0$' /tmp/p0-reader-security.tap
       - name: Instrument five 120-second browser sessions and the service worker lifecycle

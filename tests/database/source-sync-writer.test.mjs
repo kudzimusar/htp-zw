@@ -320,3 +320,31 @@ test("a failed apply leaves the watermark for replay and persists nothing", asyn
   assert.equal(result.state.watermark, T1);
   assert.equal(snapshot(), before);
 });
+
+const forgedUpdate = (hash, key, story) => ({
+  planSha256: hash.repeat(64),
+  candidates: [{
+    decision: "UPDATE_CANDIDATE", stableKey: key, accessPolicy: "public", title: "Forged", excerpt: "Forged", bodyHtml: "<p>Forged</p>",
+    modifiedAt: T3, canonicalUrl: "https://healthtimes.co.zw/forged/", checksum: "forged",
+    expected: { storyId: story.id, lockVersion: story.lock_version, modifiedAt: story.modified_at }
+  }]
+});
+
+test("the writer refuses a forged update of a Premium story", () => {
+  const before = snapshot();
+  assert.match(failure(() => apply(forgedUpdate("5", "wordpress:post:1003", row("premium-story")))), /SYNC_PREMIUM_PROTECTED/);
+  assert.equal(snapshot(), before);
+});
+
+test("the writer refuses an update once a staff revision exists", () => {
+  sql(`
+    insert into auth.users (id, email) values ('${id(50)}', 'disposable-editor@healthtimes.test');
+    insert into public.staff_profiles (id, auth_user_id, email, display_name, status, role_id)
+      select '${id(51)}', '${id(50)}', 'disposable-editor@healthtimes.test', 'Disposable Editor', 'active', r.id from public.newsroom_roles r where r.name = 'Publisher / Owner';
+    insert into public.story_revisions (story_id, revision_number, title, editor_id) values ('${id(2)}', 1, 'Edited', '${id(51)}');
+  `);
+  const before = snapshot();
+  assert.match(failure(() => apply(forgedUpdate("6", "wordpress:post:1002", row("modified-story")))), /SYNC_NATIVE_EDIT_CONFLICT/);
+  assert.equal(snapshot(), before);
+  sql(`delete from public.story_revisions where story_id='${id(2)}';`);
+});

@@ -29,7 +29,10 @@ function parseLink(url: unknown, maxLength: number): URL | null {
 }
 
 function currentWebOrigin(): string | null {
-  return typeof window !== "undefined" && window.location?.origin ? window.location.origin : null;
+  const origin = typeof window !== "undefined" ? window.location?.origin : null;
+  // Sandboxed and file: documents report the literal origin "null", as does every
+  // non-web URL, so that value can never establish trust.
+  return origin && origin !== "null" ? origin : null;
 }
 
 // healthtimes://article/x carries "article" as the host; healthtimes:///article/x in the path.

@@ -140,6 +140,12 @@ for (const [label, url] of Object.entries({
   }));
 }
 
+test("an opaque web origin never establishes trust", () => withWindow(fakeBrowser("file:///app/index.html"), () => {
+  const { parseHealthTimesDeepLink: parse, parseAccountCallback } = parserFor("web", globalThis.window);
+  assert.equal(parse("custom://x/article/abc"), null);
+  assert.equal(parseAccountCallback("custom://x/account-access?code=a"), null);
+}));
+
 test("web registers no message listener and untrusted messages cannot navigate", () => withWindow(fakeBrowser(ORIGIN + "/article/art-123?utm=x"), async () => {
   const browser = globalThis.window;
   const bridge = mountBridge({ os: "web", browser, pathname: "/article/art-123" });
