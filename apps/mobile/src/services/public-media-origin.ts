@@ -7,7 +7,7 @@ export function migratedMediaUrl(supabaseUrl: string, objectName: string | null 
   if (configured) {
     try {
       const base = new URL(configured);
-      if (base.protocol === 'https:' && !base.username && !base.password && !base.search && !base.hash) {
+      if (base.protocol === 'https:' && base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash) {
         return base.origin + '/' + encoded;
       }
     } catch {}
@@ -25,7 +25,7 @@ export function mapMigratedInlineMedia(html: string | null, supabaseUrl: string)
     target = new URL(configured);
     source = new URL(supabaseUrl);
   } catch { return html; }
-  if (target.protocol !== 'https:' || target.username || target.password || target.search || target.hash) return html;
+  if (target.protocol !== 'https:' || target.pathname !== '/' || target.username || target.password || target.search || target.hash) return html;
   const prefix = source.origin + STORAGE_PREFIX;
   return html.split(prefix).join(target.origin + '/');
 }

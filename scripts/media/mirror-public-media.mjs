@@ -12,6 +12,7 @@ const bucket = 'migrated-media';
 const objects = JSON.parse(await readFile(inventory, 'utf8'));
 const execFileAsync = promisify(execFile);
 if (objects.some(({name}) => name.startsWith('/') || name.split('/').includes('..'))) throw new Error('Unsafe storage path');
+if (objects.some(({md5}) => !/^[a-f0-9]{32}$/i.test(md5 ?? ''))) throw new Error('Source MD5 required for every object');
 let bytes = 0;
 let cursor = 0;
 let completed = 0;
@@ -26,7 +27,7 @@ while (cursor < objects.length) {
   try {
     if ((await stat(target)).size === Number(object.size)) {
       const existing = await readFile(target);
-      if (!object.md5 || createHash('md5').update(existing).digest('hex') === object.md5) data = existing;
+      if (createHash('md5').update(existing).digest('hex') === object.md5) data = existing;
     }
   } catch {}
   if (!data) {
@@ -37,7 +38,7 @@ while (cursor < objects.length) {
   if (object.size && data.length !== Number(object.size)) throw new Error(`Size mismatch: ${object.name}`);
   }
   object.sha256 = createHash('sha256').update(data).digest('hex');
-  if (object.md5 && createHash('md5').update(data).digest('hex') !== object.md5) throw new Error(`Source checksum mismatch: ${object.name}`);
+  if (createHash('md5').update(data).digest('hex') !== object.md5) throw new Error(`Source checksum mismatch: ${object.name}`);
   bytes += data.length;
   if (++completed % 100 === 0) process.stderr.write(`${completed}/${objects.length}\n`);
   } catch (error) {
