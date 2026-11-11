@@ -35,7 +35,17 @@ const mapperOutput=ts.transpileModule(mapperSource,{
 }).outputText;
 const mapperModule={exports:{}};
 new Function("module","exports","require",mapperOutput)(
-  mapperModule,mapperModule.exports,(name)=>{throw new Error("Unexpected runtime import "+name);}
+  mapperModule,mapperModule.exports,(name)=>{
+    if(name==="./public-media-origin") {
+      const output=ts.transpileModule(read("src/services/public-media-origin.ts"),{
+        compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
+      }).outputText;
+      const helper={exports:{}};
+      new Function("module","exports",output)(helper,helper.exports);
+      return helper.exports;
+    }
+    throw new Error("Unexpected runtime import "+name);
+  }
 );
 const {mapMigratedStoryDocument}=mapperModule.exports;
 

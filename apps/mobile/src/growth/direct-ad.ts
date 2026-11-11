@@ -1,4 +1,5 @@
 import type { AdDecision, AdPlacementKey } from "../domain/models";
+import { migratedMediaUrl } from "../services/public-media-origin";
 
 export type Cp5HospazRaw = {
   advertiser?: string | null;
@@ -48,13 +49,6 @@ function provenValue(stateValue: unknown, value: unknown) {
   return state(stateValue)==="KNOWN" && value != null && String(value).trim()
     ? String(value)
     : null;
-}
-
-function migratedMediaUrl(supabaseUrl: string, objectName: string | null | undefined) {
-  if(!supabaseUrl || !objectName) return null;
-  const base=supabaseUrl.replace(/\/$/,"");
-  const key=String(objectName).split("/").map(encodeURIComponent).join("/");
-  return base+"/storage/v1/object/public/migrated-media/"+key;
 }
 
 /**

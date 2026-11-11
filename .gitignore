@@ -6,6 +6,7 @@ healthtimes-source-package/
 source-package-private/
 private-source-package/
 *.log
+.wrangler/
 .env
 .env.*
 !.env.example

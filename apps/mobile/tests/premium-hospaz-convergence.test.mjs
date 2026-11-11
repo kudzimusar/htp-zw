@@ -39,6 +39,7 @@ function compileModule(path){
   new Function("module","exports","require",output)(
     module,module.exports,(name)=>{
       if(name.startsWith("../domain/")) return {};
+      if(name==="../services/public-media-origin") return compileModule("src/services/public-media-origin.ts");
       throw new Error("Unexpected runtime import "+name);
     }
   );

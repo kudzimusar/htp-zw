@@ -112,7 +112,7 @@ module.exports = async function handler(req, res) {
 
     if (kind === 'ad') {
       const ad = await rpc('ag05_hospaz_direct_ad_preview', {});
-      const capability = buildHospazCapability(ad, { supabaseUrl: config().url });
+      const capability = buildHospazCapability(ad, { supabaseUrl: config().url, mediaBaseUrl: process.env.HEALTHTIMES_MEDIA_BASE_URL });
       return sendJson(req, res, capability ? 200 : 404, capability || {
         capabilityVersion: CAPABILITY_VERSION,
         kind: 'direct-ad',
@@ -188,7 +188,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const capability = buildStoryCapability(doc, { supabaseUrl: config().url });
+    const capability = buildStoryCapability(doc, { supabaseUrl: config().url, mediaBaseUrl: process.env.HEALTHTIMES_MEDIA_BASE_URL });
     res.setHeader('X-AG05-Source-ID', String(doc.source_id || ''));
     return sendJson(req, res, 200, capability, 'public, max-age=60, s-maxage=300');
   } catch (error) {

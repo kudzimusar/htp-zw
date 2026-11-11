@@ -1,4 +1,5 @@
 import type { ArticleDetail } from "../domain/models";
+import { mapMigratedInlineMedia, migratedMediaUrl } from "./public-media-origin";
 import type { SourceException } from "../domain/source";
 
 export type MigratedStoryDocument = {
@@ -48,12 +49,6 @@ function slugFromPath(value: string | null) {
   return path?.split("/").filter(Boolean).at(-1) ?? "";
 }
 
-function migratedMediaUrl(stagingUrl: string, objectName: string | null) {
-  if (!objectName) return null;
-  const encoded = objectName.split("/").map(encodeURIComponent).join("/");
-  return stagingUrl.replace(/\/$/, "") + "/storage/v1/object/public/migrated-media/" + encoded;
-}
-
 export function mapMigratedStoryDocument(
   doc: MigratedStoryDocument,
   stagingUrl: string
@@ -98,7 +93,7 @@ export function mapMigratedStoryDocument(
     slug,
     standfirst: doc.standfirst ?? doc.description ?? null,
     excerpt: doc.excerpt ?? doc.description ?? null,
-    bodyHtml: accessPolicy === "public" ? doc.body_html : null,
+    bodyHtml: accessPolicy === "public" ? mapMigratedInlineMedia(doc.body_html, stagingUrl) : null,
     premiumTeaserHtml: accessPolicy === "premium" ? (doc.premium_teaser_html ?? null) : null,
     canonicalUrl: doc.canonical_url,
     accessPolicy,
