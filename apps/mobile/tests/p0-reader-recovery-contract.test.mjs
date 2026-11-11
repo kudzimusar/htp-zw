@@ -15,6 +15,48 @@ test("article deep links are deduplicated against current browser and router pat
   assert.match(source,/Linking\.getInitialURL\(\)\.then\(routeUrl\)/);
 });
 
+test("web never treats window message events as deep links",()=>{
+  // expo-linking binds its web "url" event to window "message" events, so any
+  // postMessage from a browser extension or embedded toolbar re-enters these
+  // handlers with the current address. This is the Owner P0 trigger.
+  for(const file of ["apps/mobile/app/_layout.tsx","apps/mobile/app/account-access.tsx"]){
+    const source=read(file);
+    assert.match(source,/Platform\.OS==="web"\s*\?\s*null\s*:\s*Linking\.addEventListener\("url"/,file);
+    assert.match(source,/subscription\?\.remove\(\)/,file);
+  }
+});
+
+test("public articles do not call the Premium commerce authority",()=>{
+  const reader=read("apps/mobile/app/article/[id].tsx");
+  assert.doesNotMatch(reader,/const commerce=useAsync\(\(\)=>services\.premiumCommerce\.getAuthority\(\),\[\]\)/);
+  assert.match(reader,/article\.data\?\.accessPolicy==="premium"\s*\?\s*services\.premiumCommerce\.getAuthority\(\)\s*:\s*Promise\.resolve\(null\)/);
+});
+
+test("article body has a stable node so endurance can prove story content rendered",()=>{
+  const reader=read("apps/mobile/app/article/[id].tsx");
+  assert.match(reader,/<View testID="article-body" style=\{styles\.body\}>/);
+});
+
+test("endurance exercises the conditions that hid the Owner P0 from the lab",()=>{
+  const endurance=read("scripts/uat/p0-reader-endurance.mjs");
+  const lab=read("scripts/uat/p0-protected-lab-server.mjs");
+  const workflow=read(".github/workflows/ht-mvp-owner-uat-p0-browser-endurance.yml");
+  assert.match(endurance,/window\.postMessage\(\{source:"p0-unrelated-noise"/);
+  assert.match(endurance,/linkingMessageListeners!==0/);
+  assert.match(endurance,/navigator\.serviceWorker\.controller/);
+  assert.match(endurance,/getByTestId\("article-body"\)/);
+  assert.match(lab,/authentication_required/);
+  assert.match(lab,/PREVIEW_MUTATION_BLOCKED/);
+  // The full 120-second budget can only be shortened by hand, never in CI.
+  assert.doesNotMatch(workflow,/P0_SESSION_SECONDS/);
+  assert.doesNotMatch(workflow,/ui-rel04-current-static-server/);
+});
+
+test("the PWA manifest is fetched with the session on protected deployments",()=>{
+  const html=read("apps/mobile/app/+html.tsx");
+  assert.match(html,/<link rel="manifest" href=\{assetPath\("manifest\.json"\)\} crossOrigin="use-credentials" \/>/);
+});
+
 test("Latest is strictly chronological and does not exclude hero or top story",()=>{
   const source=read("apps/mobile/app/(reader)/index.tsx");
   assert.match(source,/const source=sortByPublicationDesc\(home\.data\);/);
@@ -58,9 +100,10 @@ test("public articles bypass Premium-only teaser RPC waterfall",()=>{
   assert.doesNotMatch(source,/const teaserAuthority=await boundedTeaserAuthority\(current\);/);
 });
 
-test("live-source manifest is same-origin, independently hashed and delivers sanitized public bodies and media",()=>{
+test("live-source manifest is same-origin, independently hashed and ships bodies only with editorial classification",()=>{
   const reader=read("apps/mobile/src/services/source-parity.ts");
   const generator=read("scripts/editorial/prepare-p0-public-metadata-manifest.mjs");
+  const manifest=read("scripts/editorial/public-manifest.mjs");
   const workflow=read(".github/workflows/ht-mvp-owner-uat-p0-browser-endurance.yml");
   assert.match(reader,/readSameOriginPublicManifest/);
   assert.match(reader,/EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE/);
@@ -68,10 +111,14 @@ test("live-source manifest is same-origin, independently hashed and delivers san
   assert.match(reader,/crypto\.subtle\.digest/);
   assert.match(reader,/restrictedBodiesIncluded!==false/);
   assert.match(reader,/if\(!canRefreshPublicSourceFromRuntime\(\)\)/);
-  assert.match(generator,/contentBody:article\.contentBody \?\? null/);
-  assert.match(generator,/bodyAuthority:article\.contentBody \? "VERIFIED_PUBLIC_PUBLISHED" : "BLOCKED_PENDING_OWNER_CLASSIFICATION"/);
-  assert.match(generator,/freshnessSlaVerified:true/);
-  assert.match(generator,/contentBodyAvailable:true/);
+  // A build-time export cannot prove a recurring freshness SLA or a Premium decision.
+  assert.match(generator,/includeBody:Boolean\(classification\)/);
+  assert.match(manifest,/freshnessSlaVerified:false/);
+  assert.match(manifest,/bodyAuthority:authorized \? "EDITORIAL_CLASSIFIED_PUBLIC" : "BLOCKED_PENDING_OWNER_CLASSIFICATION"/);
+  for(const source of [reader,generator,manifest]){
+    assert.doesNotMatch(source,/VERIFIED_PUBLIC_PUBLISHED|VERIFIED_PUBLIC_BYLINE|VERIFIED_PUBLIC_MEDIA/);
+    assert.doesNotMatch(source,/freshnessSlaVerified:true|reader15MinuteSla:true/);
+  }
   // A live publisher classification failure must not suppress the independent
   // lab browser-crash endurance gate. Manifest freshness is certified separately.
   assert.match(workflow,/APP_ENV: development/);

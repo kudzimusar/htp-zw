@@ -127,7 +127,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const article=useAsync(()=>!id ? Promise.resolve(null) : initialStory ? Promise.resolve(initialStory) : services.articles.getById(String(id)),[id,initialStory?.id]);
   const related=useAsync(()=>!id ? Promise.resolve([]) : initialStory ? Promise.resolve([]) : services.articles.getRelated(String(id)),[id,initialStory?.id]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
-  const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
+  // Only Premium articles show checkout state. Behind Deployment Protection this
+  // credential-less request is a 401 console error on every article view.
+  const commerce=useAsync(()=>article.data?.accessPolicy==="premium" ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[article.data?.id,article.data?.accessPolicy]);
   const readPosition=useAsync(()=>!id ? Promise.resolve(0) : services.reader.getReadPosition(String(id)),[id]);
   const entitledArticle=useAsync(async()=>{
     const current=article.data;
@@ -485,7 +487,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         </View>
       </View>
 
-      <View style={styles.body}>
+      <View testID="article-body" style={styles.body}>
         {publicStory.accessPolicy==="premium" && entitlement.loading ? (
           <View style={[styles.memberState,{borderColor:palette.border}]}>
             <Text style={[styles.memberStateTitle,{color:palette.ink}]}>Checking member access…</Text>

@@ -42,11 +42,14 @@ function DeepLinkBridge(){
     void Linking.getInitialURL().then(routeUrl).catch((reason)=>{
       console.error("[HealthTimes] Initial deep-link resolution failed",reason);
     });
-    const subscription=Linking.addEventListener("url",({url})=>routeUrl(url));
+    // expo-linking binds its web "url" event to window "message" events, so any
+    // postMessage (browser extension, embedded toolbar) would report the current
+    // address as a new deep link. The router already owns browser navigation.
+    const subscription=Platform.OS==="web" ? null : Linking.addEventListener("url",({url})=>routeUrl(url));
 
     return ()=>{
       active=false;
-      subscription.remove();
+      subscription?.remove();
     };
   },[router]);
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
@@ -52,11 +52,13 @@ export default function AccountAccessScreen(){
     };
 
     void Linking.getInitialURL().then(consume);
-    const subscription=Linking.addEventListener("url",({url})=>{ void consume(url); });
+    // On web this event fires for every window "message", which would re-run the
+    // one-time auth callback and owner bootstrap. Web callbacks arrive as page loads.
+    const subscription=Platform.OS==="web" ? null : Linking.addEventListener("url",({url})=>{ void consume(url); });
 
     return ()=>{
       active=false;
-      subscription.remove();
+      subscription?.remove();
     };
   },[router]);
 

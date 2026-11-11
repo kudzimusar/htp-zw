@@ -88,7 +88,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="preconnect" href="https://bzuvntbkevvuhfhqhkua.supabase.co" crossOrigin="" />
         <link rel="dns-prefetch" href="https://bzuvntbkevvuhfhqhkua.supabase.co" />
-        <link rel="manifest" href={assetPath("manifest.json")} />
+        <link rel="manifest" href={assetPath("manifest.json")} crossOrigin="use-credentials" />
         <link rel="icon" href={assetPath("healthtimes-icon.svg")} />
         <ScrollViewStyleReset />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

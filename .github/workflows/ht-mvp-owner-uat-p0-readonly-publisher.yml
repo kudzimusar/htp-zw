@@ -28,17 +28,21 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$EXPECTED_SHA"
+      - name: Install pinned sanitizer dependency
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify source syntax and contract tests
         shell: bash
         run: |
           set -euo pipefail
+          node --check scripts/editorial/public-html-sanitizer.mjs
+          node --check scripts/editorial/public-manifest.mjs
           node --check scripts/editorial/public-source-readonly-probe.mjs
           node --check scripts/editorial/run-public-source-readonly-probe.mjs
           node --check scripts/editorial/prepare-p0-public-metadata-manifest.mjs
           node --check scripts/editorial/sync-incremental-dryrun.mjs
           node --check tests/p0-editorial-public-source-probe.test.mjs
           node --check apps/mobile/tests/p0-reader-recovery-contract.test.mjs
-          node --test tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs 2>&1 | tee /tmp/p0-source-contracts.tap
+          node --test tests/p0-public-html-sanitizer.test.mjs tests/p0-public-manifest.test.mjs tests/p0-editorial-source-sync-plan.test.mjs tests/p0-editorial-public-source-probe.test.mjs apps/mobile/tests/p0-reader-recovery-contract.test.mjs 2>&1 | tee /tmp/p0-source-contracts.tap
           grep -Eq '^# fail 0$' /tmp/p0-source-contracts.tap
           grep -Eq '^# skipped 0$' /tmp/p0-source-contracts.tap
       - name: Probe live publisher using public read-only REST metadata
@@ -46,17 +50,12 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/editorial/run-public-source-readonly-probe.mjs --output /tmp/p0-public-source-readonly-evidence.json
-      - name: Run incremental sync dry-run engine (zero database writes)
-        shell: bash
-        run: |
-          set -euo pipefail
-          node scripts/editorial/sync-incremental-dryrun.mjs
-      - name: Generate authorized public feed manifest (no database writes)
+      - name: Generate metadata-only build manifest (no database writes)
         shell: bash
         run: |
           set -euo pipefail
           node scripts/editorial/prepare-p0-public-metadata-manifest.mjs
-          node -e 'const m=require("./apps/mobile/public/healthtimes-public-feed.json"); if((!m.metadataOnly && !m.contentBodyAvailable) || m.restrictedBodiesIncluded!==false || !m.count)process.exit(1)'
+          node -e 'const m=require("./apps/mobile/public/healthtimes-public-feed.json"); if(!m.metadataOnly || m.contentBodyAvailable || m.restrictedBodiesIncluded!==false || !m.count)process.exit(1)'
       - name: Preserve read-only evidence even when publisher classification blocks
         if: always()
         uses: actions/upload-artifact@v4
@@ -68,3 +67,45 @@ jobs:
             apps/mobile/public/healthtimes-public-feed.json
           if-no-files-found: warn
           retention-days: 30
+
+  source-sync-disposable-postgres:
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install PostgreSQL client and pinned dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Replay canonical schema and exercise the held source-sync writer
+        shell: bash
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          HT_DISPOSABLE_PG_BASE_URI: postgres://postgres:ephemeral-ci-only@127.0.0.1:55432
+        run: |
+          set -euo pipefail
+          node --test tests/database/source-sync-writer.test.mjs 2>&1 | tee /tmp/p0-source-sync-writer.tap
+          grep -Eq '^# fail 0$' /tmp/p0-source-sync-writer.tap
+          grep -Eq '^# skipped 0$' /tmp/p0-source-sync-writer.tap

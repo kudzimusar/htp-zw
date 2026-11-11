@@ -94,39 +94,113 @@ test("unresolvable taxonomy remains fail-closed even when headline is current",a
   assert.equal(result.decisions.BLOCK_UNRESOLVED_CLASSIFICATION,1);
 });
 
-test("authorized public body and media extraction delivers clean HTML and verified media",()=>{
+test("extracted body is sanitized but carries no publication authority",()=>{
   const samplePost=post({
     content:{rendered:'<p>Public report paragraph.</p><script>alert("xss")</script><iframe src="evil.html"></iframe>'},
     excerpt:{rendered:'<p>Excerpt paragraph.</p><a class="read-more" href="#">Read More</a>'},
+    author:4,
     _embedded:{
       "wp:term":[[{id:1,taxonomy:"category",name:"Health News",slug:"health-news"}]],
       "wp:featuredmedia":[{source_url:"https://healthtimes.co.zw/wp-content/uploads/2026/11/lab.jpg",alt_text:"Lab tech"}],
       author:[{id:4,name:"Michael Gwarisa"}]
     }
   });
-  const evaluated=assessPublishedPost(samplePost,{includeBody:true});
-  assert.equal(evaluated.decision,"PUBLIC_METADATA_CANDIDATE");
-  assert.equal(evaluated.article.bodyAuthority,"VERIFIED_PUBLIC_PUBLISHED");
-  assert.equal(evaluated.article.contentBody.includes("<script"),false);
-  assert.equal(evaluated.article.contentBody.includes("<iframe"),false);
-  assert.equal(evaluated.article.contentBody.includes("Public report paragraph."),true);
-  assert.equal(evaluated.article.heroMedia.sourceUrl,"https://healthtimes.co.zw/wp-content/uploads/2026/11/lab.jpg");
-  assert.equal(evaluated.article.authorName,"Michael Gwarisa");
+  const {decision,article}=assessPublishedPost(samplePost,{includeBody:true});
+  assert.equal(decision,"PUBLIC_METADATA_CANDIDATE");
+  assert.equal(article.contentBody,"<p>Public report paragraph.</p>");
+  assert.equal(article.excerpt,"Excerpt paragraph.");
+  assert.equal(article.heroMedia.sourceUrl,"https://healthtimes.co.zw/wp-content/uploads/2026/11/lab.jpg");
+  assert.equal(article.authorName,"Michael Gwarisa");
+  assert.equal(article.authorSourceId,"4");
+  // Public REST availability is not a Premium decision.
+  assert.equal("bodyAuthority" in article,false);
 });
 
-test("incremental sync dry-run engine plans upserts for posts newer than staging tip without writing DB",async()=>{
-  const { planIncrementalSync, STAGING_CORPUS_BASELINE } = await import("../scripts/editorial/sync-incremental-dryrun.mjs");
-  const posts=[
-    { postId:101, slug:"oct-post", publishedAt:"2026-10-30T10:00:00.000Z", title:"Old" },
-    { postId:102, slug:"nov-post-1", publishedAt:"2026-11-02T10:00:00.000Z", title:"New 1", contentBody:"<p>Body 1</p>", canonicalUrl:"https://healthtimes.co.zw/nov-post-1/" },
-    { postId:103, slug:"nov-post-2", publishedAt:"2026-11-06T10:00:00.000Z", title:"New 2", contentBody:"<p>Body 2</p>", canonicalUrl:"https://healthtimes.co.zw/nov-post-2/" }
-  ];
-  const plan=planIncrementalSync(posts,STAGING_CORPUS_BASELINE);
-  assert.equal(plan.targetDatabase,"bzuvntbkevvuhfhqhkua");
-  assert.equal(plan.candidatesIdentified,2);
-  assert.equal(plan.newestCandidateAt,"2026-11-06T10:00:00.000Z");
-  assert.equal(plan.stagingDatabaseWriteStatus,"HELD_PENDING_OWNER_AUTHORIZATION");
-  assert.equal(plan.sqlStatements.length,2);
-  assert.match(plan.sqlStatements[0],/INSERT INTO public\.stories/);
-  assert.match(plan.sqlStatements[0],/ON CONFLICT \(slug\) DO UPDATE/);
+test("password-protected posts are blocked when bodies are requested",()=>{
+  assert.equal(assessPublishedPost(post({content:{rendered:"",protected:true}}),{includeBody:true}).decision,"BLOCK_PASSWORD_PROTECTED");
+});
+
+test("off-host featured media is not carried into a candidate",()=>{
+  const {article}=assessPublishedPost(post({_embedded:{
+    "wp:term":[[{id:1,taxonomy:"category",name:"Health News",slug:"health-news"}]],
+    "wp:featuredmedia":[{source_url:"https://evil.example/wp-content/uploads/x.jpg",alt_text:"x"}]
+  }}),{includeBody:true});
+  assert.equal(article.heroMedia,null);
+});
+
+test("no byline is invented when the publisher supplies none",()=>{
+  const {article}=assessPublishedPost(post({content:{rendered:"<p>x</p>"}}),{includeBody:true});
+  assert.equal(article.authorName,null);
+});
+
+test("metadata probes project fields and never request article bodies",async()=>{
+  let requested;
+  await probePublicPublisher({
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(url)=>{
+      if(url.includes("/posts?")) requested=new URL(url);
+      return {ok:true,status:200,json:async()=>url.includes("/posts?")?[post()]:[]};
+    }
+  });
+  const fields=requested.searchParams.get("_fields").split(",");
+  assert.equal(fields.includes("content"),false);
+  assert.equal(fields.includes("excerpt"),false);
+});
+
+test("publisher requests refuse redirects so a bounced response cannot be trusted",async()=>{
+  const seen=[];
+  await probePublicPublisher({
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(_url,options)=>{seen.push(options);return {ok:true,status:200,json:async()=>[]};}
+  });
+  assert.ok(seen.length>0);
+  assert.ok(seen.every(options=>options.redirect==="error"));
+});
+
+test("a 404 on pretty REST paths falls back to the query-string route",async()=>{
+  const urls=[];
+  const result=await probePublicPublisher({
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(url)=>{
+      urls.push(url);
+      if(url.includes("/wp-json/")) return {ok:false,status:404};
+      return {ok:true,status:200,json:async()=>url.includes("rest_route=%2Fwp%2Fv2%2Fposts")?[post()]:[]};
+    }
+  });
+  assert.ok(urls.some(url=>url.includes("rest_route=%2Fwp%2Fv2%2Fposts")));
+  assert.equal(result.retrieved,1);
+});
+
+test("the probe never certifies full-body publication",async()=>{
+  const result=await probePublicPublisher({
+    includeBody:true,
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(url)=>({ok:true,status:200,json:async()=>url.includes("/posts?")?[post({content:{rendered:"<p>Body</p>"}})]:[]})
+  });
+  assert.equal(result.latestTwentyMetadata[0].contentBody,"<p>Body</p>");
+  assert.equal(result.fullBodyPublicationVerified,false);
+  assert.equal(result.readerFreshnessVerified,false);
+  assert.equal(result.ingestionVerified,false);
+});
+
+test("sync windows read oldest-modified-first after the watermark and report the newest seen",async()=>{
+  let requested;
+  const result=await probePublicPublisher({
+    includeBody:true,
+    since:"2026-11-01T00:00:00.000Z",
+    now:Date.parse("2026-11-09T00:00:00Z"),
+    fetchImpl:async(url)=>{
+      if(url.includes("/posts?")) requested=new URL(url);
+      return {ok:true,status:200,json:async()=>url.includes("/posts?")?[
+        post({id:1,slug:"a",modified_gmt:"2026-11-02T00:00:00",content:{rendered:"<p>a</p>"}}),
+        post({id:2,slug:"b",status:"draft",modified_gmt:"2026-11-03T00:00:00"})
+      ]:[]};
+    }
+  });
+  assert.equal(requested.searchParams.get("orderby"),"modified");
+  assert.equal(requested.searchParams.get("order"),"asc");
+  assert.equal(requested.searchParams.get("modified_after"),"2026-11-01T00:00:00.000Z");
+  assert.equal(result.windowComplete,true);
+  assert.equal(result.latestModifiedRetrievedAt,"2026-11-03T00:00:00.000Z");
+  assert.equal(result.candidates.length,1);
 });

@@ -1,136 +1,130 @@
-// HT-MVP-OWNER-UAT-P0-RECOVERY-01-R2 — Incremental Sync Dry-Run Engine.
-// Evaluates continuous publisher synchronization from WordPress REST API into the
-// canonical HealthTimes stories table schema.
+// Source-key anchored plan for WordPress posts against public.stories. Pure data:
+// it never connects to a database and never emits SQL. Applying a plan is a
+// separate step held for Owner authorization (scripts/editorial/sql/).
 //
-// ZERO-WRITE SAFETY: This script operates strictly in isolated dry-run mode.
-// It never executes DDL/DML against the staging database (bzuvntbkevvuhfhqhkua)
-// without explicit Owner operational authorization.
-
-import { probePublicPublisher } from "./public-source-readonly-probe.mjs";
+// Usage: node sync-incremental-dryrun.mjs --ledger ledger.json [--classification c.json] [--output plan.json]
 import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { classificationIndex, isClassifiedPublic, stableKeyForPost } from "./public-manifest.mjs";
+import { probePublicPublisher } from "./public-source-readonly-probe.mjs";
 
-export const STAGING_CORPUS_BASELINE = {
-  projectRef: "bzuvntbkevvuhfhqhkua",
-  totalMigratedStories: 5792,
-  latestCorpusTipAt: "2026-10-31T23:59:19.000Z"
-};
+// Retried on a later run, so the watermark must not move past them. Premium and
+// newsroom-edited stories are excluded: those are settled by people, not by sync.
+const RETRY_DECISIONS = new Set([
+  "HOLD_PENDING_CLASSIFICATION","HOLD_SLUG_CHANGED","BLOCK_SLUG_COLLISION","BLOCK_LEDGER_ORPHAN_SOURCE"
+]);
 
-export function planIncrementalSync(posts, baseline = STAGING_CORPUS_BASELINE) {
-  const tipMs = Date.parse(baseline.latestCorpusTipAt);
+function decide(post, source, slugOwner, classifiedPublic) {
+  if (source) {
+    if (!source.storyId) return "BLOCK_LEDGER_ORPHAN_SOURCE";
+    if (source.storySlug !== post.slug) return "HOLD_SLUG_CHANGED";
+    if (source.storyAccessPolicy !== "public") return "HOLD_PREMIUM_REVIEW";
+    if (source.storyLockVersion > 1 || source.nativeRevisionCount > 0) return "HOLD_NATIVE_EDIT_CONFLICT";
+    if (Date.parse(post.modifiedAt) <= Date.parse(source.storyModifiedAt)) return "NOOP_UNCHANGED";
+    return classifiedPublic ? "UPDATE_CANDIDATE" : "HOLD_PENDING_CLASSIFICATION";
+  }
+  if (slugOwner) return "BLOCK_SLUG_COLLISION";
+  return classifiedPublic ? "INSERT_CANDIDATE" : "HOLD_PENDING_CLASSIFICATION";
+}
+
+function candidateFor(decision, post, source) {
+  const candidate = {
+    decision,
+    stableKey: stableKeyForPost(post.postId),
+    sourceId: String(post.postId),
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt ?? null,
+    bodyHtml: post.contentBody,
+    accessPolicy: "public",
+    status: "published",
+    publishedAt: post.publishedAt,
+    modifiedAt: post.modifiedAt,
+    canonicalUrl: post.canonicalUrl,
+    legacyPath: new URL(post.canonicalUrl).pathname,
+    authorSourceId: post.authorSourceId ?? null,
+    primaryCategorySourceId: post.categoryIds?.[0] === undefined ? null : String(post.categoryIds[0]),
+    checksum: createHash("sha256").update(JSON.stringify([post.title, post.contentBody, post.modifiedAt])).digest("hex")
+  };
+  if (decision === "UPDATE_CANDIDATE") {
+    candidate.expected = { storyId: source.storyId, lockVersion: source.storyLockVersion, modifiedAt: source.storyModifiedAt };
+  }
+  return candidate;
+}
+
+export function planIncrementalSync(posts, ledger, classification, options = {}) {
+  if (!ledger?.capturedAt || !Array.isArray(ledger.sources) || !Array.isArray(ledger.slugOwners)) {
+    throw new Error("LEDGER_REQUIRED");
+  }
+  const records = classificationIndex(classification);
+  const sourcesByKey = new Map(ledger.sources.map((row) => [row.stableKey, row]));
+  const slugOwners = new Map(ledger.slugOwners.map((row) => [row.slug, row]));
+  const decisions = [];
   const candidates = [];
+  const retryTimes = [];
 
   for (const post of posts) {
-    if (!post || !post.publishedAt) continue;
-    const publishedMs = Date.parse(post.publishedAt);
-    if (!Number.isFinite(publishedMs)) continue;
+    const stableKey = stableKeyForPost(post.postId);
+    const source = sourcesByKey.get(stableKey);
+    const decision = decide(post, source, slugOwners.get(post.slug), isClassifiedPublic(post, records));
+    decisions.push({ decision, stableKey, slug: post.slug, sourceModifiedAt: post.modifiedAt });
+    if (decision === "INSERT_CANDIDATE" || decision === "UPDATE_CANDIDATE") candidates.push(candidateFor(decision, post, source));
+    if (RETRY_DECISIONS.has(decision)) retryTimes.push(post.modifiedAt);
+  }
 
-    // Only posts newer than the existing staging corpus tip
-    if (publishedMs > tipMs) {
-      const sectionSlug = (post.categoryIds ?? []).includes(21) ? "features" : "health-news";
-      candidates.push({
-        externalId: post.postId,
-        slug: post.slug,
-        title: post.title,
-        standfirst: post.excerpt ?? null,
-        contentHtml: post.contentBody ?? null,
-        accessPolicy: "free",
-        status: "published",
-        publishedAt: post.publishedAt,
-        modifiedAt: post.modifiedAt ?? post.publishedAt,
-        canonicalUrl: post.canonicalUrl,
-        primarySectionSlug: sectionSlug,
-        heroMedia: post.heroMedia ?? null,
-        authorName: post.authorName ?? "HealthTimes Reporter",
-        sourceProvenance: {
-          system: "wordpress",
-          sourceId: String(post.postId),
-          canonicalUrl: post.canonicalUrl,
-          capturedAt: new Date().toISOString()
-        },
-        lockVersion: 1
-      });
+  // Absence only means something inside a window known to be complete.
+  let unpublishDetection = "NOT_EVALUATED_INCOMPLETE_WINDOW";
+  if (options.windowComplete && options.windowStartAt) {
+    unpublishDetection = "EVALUATED";
+    const windowStart = Date.parse(options.windowStartAt);
+    const retrieved = new Set((options.retrievedPostIds ?? posts.map((post) => post.postId)).map(stableKeyForPost));
+    for (const row of ledger.sources) {
+      if (Date.parse(row.storyPublishedAt) >= windowStart && !retrieved.has(row.stableKey)) {
+        decisions.push({ decision: "REVIEW_SOURCE_MISSING", stableKey: row.stableKey, slug: row.storySlug ?? null });
+      }
     }
   }
 
-  // Sort descending by publication date
-  candidates.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
-
-  // Generate idempotent SQL migration plan for separate Owner authorization
-  const sqlStatements = candidates.map((c) => {
-    const esc = (val) => (val == null ? "NULL" : `'${String(val).replace(/'/g, "''")}'`);
-    const provJson = JSON.stringify(c.sourceProvenance).replace(/'/g, "''");
-    return `INSERT INTO public.stories (
-  slug, title, standfirst, content_html, access_policy, status,
-  published_at, updated_at, canonical_url, lock_version, source_provenance
-) VALUES (
-  ${esc(c.slug)}, ${esc(c.title)}, ${esc(c.standfirst)}, ${esc(c.contentHtml)},
-  ${esc(c.accessPolicy)}, ${esc(c.status)}, ${esc(c.publishedAt)}, ${esc(c.modifiedAt)},
-  ${esc(c.canonicalUrl)}, ${c.lockVersion}, '${provJson}'::jsonb
-) ON CONFLICT (slug) DO UPDATE SET
-  title = EXCLUDED.title,
-  standfirst = EXCLUDED.standfirst,
-  content_html = EXCLUDED.content_html,
-  updated_at = EXCLUDED.updated_at,
-  lock_version = public.stories.lock_version + 1;`;
-  });
-
-  const planHash = createHash("sha256")
-    .update(JSON.stringify(candidates))
-    .digest("hex");
-
+  const counts = {};
+  for (const { decision } of decisions) counts[decision] = (counts[decision] ?? 0) + 1;
   return {
-    engine: "healthtimes-incremental-sync-dryrun-v1",
-    targetDatabase: baseline.projectRef,
-    baselineTipAt: baseline.latestCorpusTipAt,
-    candidatesIdentified: candidates.length,
-    newestCandidateAt: candidates[0]?.publishedAt ?? null,
-    planSha256: planHash,
+    engine: "healthtimes-source-key-sync-plan-v2",
+    ledgerCapturedAt: ledger.capturedAt,
+    planSha256: createHash("sha256").update(JSON.stringify({ capturedAt: ledger.capturedAt, decisions, candidates })).digest("hex"),
     stagingDatabaseWriteStatus: "HELD_PENDING_OWNER_AUTHORIZATION",
-    candidates,
-    sqlStatements
+    unpublishDetection,
+    nextWatermark: [...retryTimes].sort()[0] ?? options.latestModifiedRetrievedAt ?? null,
+    counts,
+    decisions,
+    candidates
   };
 }
 
-export async function runIncrementalSyncDryRun(options = {}) {
-  const probe = await probePublicPublisher({ includeBody: true, ...options });
-  if (probe.status !== "PROBE_SUCCEEDED_NOT_AUTHORIZED_AS_FEED") {
-    return {
-      status: "SYNC_DRY_RUN_FAILED",
-      reason: probe.status,
-      probe
-    };
+async function main(argv) {
+  const argument = (name) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : null; };
+  const readJson = async (path) => (path ? JSON.parse(await readFile(path, "utf8")) : null);
+  const ledger = await readJson(argument("--ledger"));
+  const classification = await readJson(argument("--classification"));
+  // A one-second overlap re-reads the boundary post; unchanged posts are no-ops.
+  const since = ledger?.watermark ? new Date(Date.parse(ledger.watermark) - 1000).toISOString() : null;
+  const probe = await probePublicPublisher({ includeBody: Boolean(classification), since });
+  if (!probe.candidates) {
+    console.error(JSON.stringify({ status: "SYNC_PLAN_BLOCKED", reason: probe.status }));
+    process.exit(2);
   }
-  const plan = planIncrementalSync(probe.latestTwentyMetadata);
-  return {
-    status: "SYNC_DRY_RUN_SUCCESS",
-    generatedAt: new Date().toISOString(),
-    ...plan
-  };
+  const oldest = probe.candidates.map((post) => post.publishedAt).sort()[0];
+  const plan = planIncrementalSync(probe.candidates, ledger, classification, {
+    // Only a newest-first date window says anything about unpublished posts.
+    windowComplete: !since,
+    windowStartAt: oldest,
+    retrievedPostIds: probe.retrievedPostIds,
+    latestModifiedRetrievedAt: probe.latestModifiedRetrievedAt
+  });
+  const output = argument("--output");
+  if (output) await writeFile(output, JSON.stringify(plan, null, 2) + "\n", { mode: 0o600 });
+  console.log(JSON.stringify({ planSha256: plan.planSha256, counts: plan.counts, nextWatermark: plan.nextWatermark, unpublishDetection: plan.unpublishDetection, stagingDatabaseWriteStatus: plan.stagingDatabaseWriteStatus }, null, 2));
 }
 
-if (process.argv[1] && process.argv[1].endsWith("sync-incremental-dryrun.mjs")) {
-  runIncrementalSyncDryRun()
-    .then((result) => {
-      console.log(JSON.stringify({
-        status: result.status,
-        targetDatabase: result.targetDatabase,
-        baselineTipAt: result.baselineTipAt,
-        candidatesIdentified: result.candidatesIdentified,
-        newestCandidateAt: result.newestCandidateAt,
-        planSha256: result.planSha256,
-        stagingDatabaseWriteStatus: result.stagingDatabaseWriteStatus,
-        sampleCandidate: result.candidates?.[0] ? {
-          externalId: result.candidates[0].externalId,
-          slug: result.candidates[0].slug,
-          title: result.candidates[0].title,
-          publishedAt: result.candidates[0].publishedAt,
-          bodyLength: result.candidates[0].contentHtml?.length,
-          hasHeroMedia: Boolean(result.candidates[0].heroMedia?.sourceUrl)
-        } : null
-      }, null, 2));
-    })
-    .catch((err) => {
-      console.error(err);
-      process.exit(1);
-    });
+if (process.argv[1]?.endsWith("sync-incremental-dryrun.mjs")) {
+  await main(process.argv.slice(2));
 }

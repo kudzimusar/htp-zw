@@ -49,19 +49,12 @@ jobs:
           npm run build:phase4:web
           test -s apps/mobile/dist/build-info.json
           npx playwright install --with-deps chromium
+          node --check scripts/uat/p0-protected-lab-server.mjs
           node --check scripts/uat/p0-reader-endurance.mjs
-      - name: Instrument five 120-second browser sessions
+      - name: Instrument five 120-second browser sessions and the service worker lifecycle
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/ui/ui-rel04-current-static-server.cjs >/tmp/p0-static-server.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 12); do
-            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then break; fi
-            if [[ "$attempt" == "12" ]]; then cat /tmp/p0-static-server.log; exit 1; fi
-            sleep 1
-          done
           node scripts/uat/p0-reader-endurance.mjs
       - name: Preserve local physical browser traces regardless of failures
         if: always()
@@ -70,6 +63,5 @@ jobs:
           name: p0-reader-five-viewports-120sec-source-parity
           path: |
             p0-reader-endurance/
-            /tmp/p0-static-server.log
           if-no-files-found: warn
           retention-days: 30
