@@ -106,6 +106,6 @@ jobs:
           HT_DISPOSABLE_PG_BASE_URI: postgres://postgres:ephemeral-ci-only@127.0.0.1:55432
         run: |
           set -euo pipefail
-          node --test tests/database/source-sync-writer.test.mjs tests/database/reader-editorial-eligibility.test.mjs 2>&1 | tee /tmp/p0-source-sync-writer.tap
+          node --test tests/database/canonical-schema-roles.test.mjs tests/database/source-sync-writer.test.mjs tests/database/reader-editorial-eligibility.test.mjs 2>&1 | tee /tmp/p0-source-sync-writer.tap
           grep -Eq '^# fail 0$' /tmp/p0-source-sync-writer.tap
           grep -Eq '^# skipped 0$' /tmp/p0-source-sync-writer.tap

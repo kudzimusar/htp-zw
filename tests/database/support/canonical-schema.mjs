@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const BASE = process.env.HT_DISPOSABLE_PG_BASE_URI ?? "postgres://postgres:ephemeral-ci-only@127.0.0.1:55432";
+export const BASE = process.env.HT_DISPOSABLE_PG_BASE_URI ?? "postgres://postgres:ephemeral-ci-only@127.0.0.1:55432";
 assert.ok(["127.0.0.1", "localhost"].includes(new URL(BASE).hostname), "disposable database tests run on loopback only");
-const PSQL = ["/opt/homebrew/opt/postgresql@16/bin/psql", "/opt/homebrew/opt/libpq/bin/psql"].find((path) => fs.existsSync(path)) ?? "psql";
+export const PSQL = ["/opt/homebrew/opt/postgresql@16/bin/psql", "/opt/homebrew/opt/libpq/bin/psql"].find((path) => fs.existsSync(path)) ?? "psql";
 // Held for G2, or fail-closed staging-only fixtures whose guard needs an authorization these tests do not have.
 const EXCLUDED = /^(20261102160000|20261107130000|20261029080000|20261029090000)_/;
 const ROLES = ["anon", "authenticated", "service_role", "authenticator", "supabase_admin", "supabase_auth_admin", "supabase_storage_admin", "dashboard_user"];
@@ -38,6 +38,31 @@ const SUPABASE_STUBS = `
   create function realtime.topic() returns text language sql stable as $$ select nullif(current_setting('realtime.topic', true), '') $$;
 `;
 
+// Roles belong to the cluster, not to one database, and node --test replays several suites
+// against one server at once. Two bootstraps could both see a role missing and both create
+// it; the loser failed with a unique violation on pg_authid. A transaction-scoped advisory
+// lock, held until commit, makes check-and-create one step: an overlapping bootstrap waits,
+// then finds the committed role. Any other error still fails the replay.
+export function clusterRolesSql(roles = ROLES) {
+  for (const role of roles) assert.match(role, /^[a-z_][a-z0-9_]*$/, `unsafe role name ${role}`);
+  return `DO $$
+DECLARE role_name text;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('ht-disposable-cluster-roles'));
+  FOREACH role_name IN ARRAY ARRAY[${roles.map((role) => `'${role}'`).join(", ")}]::text[] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+      EXECUTE format('CREATE ROLE %I NOLOGIN', role_name);
+    END IF;
+  END LOOP;
+END $$;`;
+}
+
+export function ensureClusterRoles(roles = ROLES) {
+  execFileSync(PSQL, [`${BASE}/postgres`, "-At", "-q", "-v", "ON_ERROR_STOP=1"], {
+    encoding: "utf8", input: clusterRolesSql(roles), stdio: ["pipe", "pipe", "pipe"]
+  });
+}
+
 export function disposableDatabase(name) {
   const run = (database, input, vars = {}) => execFileSync(
     PSQL,
@@ -53,7 +78,7 @@ export function disposableDatabase(name) {
     createCanonical() {
       run("postgres", `DROP DATABASE IF EXISTS ${name};`);
       run("postgres", `CREATE DATABASE ${name};`);
-      for (const role of ROLES) run("postgres", `DO $$ BEGIN CREATE ROLE ${role} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
+      ensureClusterRoles();
       run("postgres", `ALTER DATABASE ${name} SET search_path = public, extensions;`);
       sql(SUPABASE_STUBS);
       const migrations = join(ROOT, "supabase/migrations");
