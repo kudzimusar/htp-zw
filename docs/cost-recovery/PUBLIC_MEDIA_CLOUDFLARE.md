@@ -36,7 +36,7 @@ The October 23–November 23 Supabase cached-egress total does not reset when me
 
 ## 11 November 2026 preview evidence
 
-- Supabase project `bzuvntbkevvuhfhqhkua` remained `ACTIVE_HEALTHY`. The source bucket held 2,317 public archived files totaling 675,592,991 bytes; the largest was 6,917,615 bytes. All source MD5 checks matched downloaded bytes. The [checksum manifest](media-manifest-2026-11-11.json) records each path, MD5, and SHA-256; the manifest SHA-256 is `3dd139093a9e6d70fe324ab47af6c08a0a3313915604614f3f09c5f0c1092326`.
+- Supabase project `bzuvntbkevvuhfhqhkua` remained `ACTIVE_HEALTHY`. The source bucket held 2,317 public archived files totaling 675,592,991 bytes; the largest was 6,917,615 bytes. All source MD5 checks matched downloaded bytes. The [compressed checksum manifest](media-manifest-2026-11-11.json.gz) records each path, MD5, and SHA-256; the decompressed manifest SHA-256 is `3dd139093a9e6d70fe324ab47af6c08a0a3313915604614f3f09c5f0c1092326` and the compressed file SHA-256 is `e9b116f030188ade312ee88b8ed8cccf261939a02b867628992bfdeefcdd5491`.
 - One published `newsroom-public` JPG of 38,566 bytes was mirrored separately. Total preview deployment: 2,318 files, 675,631,557 bytes. Supabase source counts remained unchanged after the mirror.
 - Full preview deployment: `https://de5c18d0.healthtimes-media.pages.dev`, alias `https://media-preview.healthtimes-media.pages.dev`. The stable production hostname is intentionally not deployed.
 - JPG, PNG, a 496,500-byte PDF, a 6,917,615-byte PDF, and the newsroom JPG each returned HTTP 200 with expected MIME type and matching SHA-256 against source bytes. A private path and a nonexistent archived path both returned HTTP 404.
