@@ -6,6 +6,7 @@ import type {
   TaxonomyRef,
   VideoItem
 } from "../domain/models";
+import { rewriteVerifiedMigratedMediaUrl } from "../services/public-media-origin";
 
 export const SOURCE_PARITY_VERIFIED_AT = "2026-09-21T00:00:00Z";
 export const SOURCE_PARITY_PUBLIC_BASE_URL = "https://healthtimes.co.zw";
@@ -30,10 +31,10 @@ export const SOURCE_PARITY_MEDIA_MIRRORS: Record<string, string> = {
 export function publicMirrorForSourceMedia(sourceUrl: string | undefined): string | null {
   if (!sourceUrl) return null;
   if (SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl]) {
-    return SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl];
+    return rewriteVerifiedMigratedMediaUrl(SOURCE_PARITY_MEDIA_MIRRORS[sourceUrl]);
   }
   if (sourceUrl.startsWith("https://bzuvntbkevvuhfhqhkua.supabase.co/")) {
-    return sourceUrl;
+    return rewriteVerifiedMigratedMediaUrl(sourceUrl);
   }
   // B1: Unknown or unverified media must NEVER be blindly rewritten to unverified Supabase paths.
   // Return null so callers know no verified public mirror exists, preventing broken 404/415 requests

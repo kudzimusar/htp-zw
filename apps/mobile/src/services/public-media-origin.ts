@@ -1,4 +1,18 @@
 const STORAGE_PREFIX = '/storage/v1/object/public/migrated-media/';
+const MIGRATED_SOURCE_ORIGIN = 'https://bzuvntbkevvuhfhqhkua.supabase.co';
+
+export function rewriteVerifiedMigratedMediaUrl(value: string): string {
+  if (!value.startsWith(MIGRATED_SOURCE_ORIGIN + STORAGE_PREFIX)) return value;
+  const configured = process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL?.trim();
+  if (!configured) return value;
+  try {
+    const base = new URL(configured);
+    if (base.protocol === 'https:' && base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash) {
+      return base.origin + '/' + value.slice((MIGRATED_SOURCE_ORIGIN + STORAGE_PREFIX).length);
+    }
+  } catch {}
+  return value;
+}
 
 export function migratedMediaUrl(supabaseUrl: string, objectName: string | null | undefined): string | null {
   if (!supabaseUrl || !objectName) return null;

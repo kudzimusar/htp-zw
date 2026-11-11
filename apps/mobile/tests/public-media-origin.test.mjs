@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import { loadTs } from './ts-module-loader.mjs';
 
 const source = readFileSync(join(import.meta.dirname, '../src/services/public-media-origin.ts'), 'utf8');
 const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -30,6 +31,19 @@ test('missing or invalid Cloudflare setting preserves Supabase URL', () => {
   process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL = 'http://insecure.example';
   try {
     assert.equal(migratedMediaUrl(supabase, 'wordpress/a.jpg'), `${supabase}/storage/v1/object/public/migrated-media/wordpress/a.jpg`);
+  } finally {
+    if (original === undefined) delete process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL;
+    else process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL = original;
+  }
+});
+
+test('verified source-parity images use Cloudflare only when configured', () => {
+  process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL = 'https://media-preview.healthtimes-media.pages.dev';
+  try {
+    const snapshot = loadTs('src/source-parity/snapshot.ts');
+    const source = 'https://healthtimes.co.zw/wp-content/uploads/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg';
+    assert.equal(snapshot.publicMirrorForSourceMedia(source), 'https://media-preview.healthtimes-media.pages.dev/wordpress/2026/09/enerst-chikwati-ahf-zimbabwe-country-director.jpeg');
+    assert.equal(snapshot.publicMirrorForSourceMedia('https://third-party.example/photo.jpg'), null);
   } finally {
     if (original === undefined) delete process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL;
     else process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL = original;
