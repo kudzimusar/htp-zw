@@ -1,5 +1,25 @@
+import { mirroredNewsroomKeys } from './newsroom-mirrored-keys';
+
 const STORAGE_PREFIX = '/storage/v1/object/public/migrated-media/';
 const MIGRATED_SOURCE_ORIGIN = 'https://bzuvntbkevvuhfhqhkua.supabase.co';
+
+export function mirroredNewsroomPublicUrl(value: string): string {
+  const prefix = MIGRATED_SOURCE_ORIGIN + '/storage/v1/object/public/newsroom-public/';
+  if (!value.startsWith(prefix)) return value;
+  let key: string;
+  try { key = value.slice(prefix.length).split('/').map(decodeURIComponent).join('/'); }
+  catch { return value; }
+  if (!mirroredNewsroomKeys.has(key)) return value;
+  const configured = process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL?.trim();
+  if (!configured) return value;
+  try {
+    const base = new URL(configured);
+    if (base.protocol === 'https:' && base.pathname === '/' && !base.username && !base.password && !base.search && !base.hash) {
+      return base.origin + '/newsroom-public/' + value.slice(prefix.length);
+    }
+  } catch {}
+  return value;
+}
 
 export function rewriteVerifiedMigratedMediaUrl(value: string): string {
   if (!value.startsWith(MIGRATED_SOURCE_ORIGIN + STORAGE_PREFIX)) return value;

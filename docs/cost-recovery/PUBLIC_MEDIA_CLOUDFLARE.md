@@ -34,12 +34,31 @@ Set `EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL=https://media-preview.healthtimes-me
 
 The October 23–November 23 Supabase cached-egress total does not reset when media is moved. Confirm the project remains reachable and review the next cycle's usage after cutover.
 
+## New newsroom media
+
+Published newsroom images are first promoted by the existing secure Supabase private-to-public workflow. Keep that path intact so publication is immediately visible and drafts remain private. The read-only `sync-published-newsroom.mjs` command calls only existing anonymous public Reader RPCs, selects media referenced by released public stories, downloads those public objects, and verifies featured SHA-256 when supplied. It writes a small allowlist for the Reader. The Reader uses Cloudflare only for keys in that verified allowlist; a newly published or replaced key stays on its working Supabase URL until the next sync and Reader deployment. Old objects are retained while references may exist; deletion requires a separate review.
+
+The current verified local cache is `/Users/shadreckmusarurwa/Project AI/healthtimes-media-cache` (2,318 files). For a new publishing batch, run the sync with the current public Supabase publishable key in `SUPABASE_PUBLISHABLE_KEY`, then deploy the **entire** cache to the preview Pages branch with Wrangler, verify its hashes and URLs, review the generated allowlist diff, and deploy the Reader preview. Batch at most daily to stay below 500 Pages builds per month. No Supabase service-role key, schema change, RLS change, or new Cloudflare paid service is required. The owner must approve any production deployment or publishing URL switch separately.
+
+```sh
+SUPABASE_URL=https://bzuvntbkevvuhfhqhkua.supabase.co \
+SUPABASE_PUBLISHABLE_KEY=... \
+node scripts/media/sync-published-newsroom.mjs \
+  '/Users/shadreckmusarurwa/Project AI/healthtimes-media-cache' \
+  apps/mobile/src/services/newsroom-mirrored-keys.ts
+
+npx wrangler pages deploy \
+  '/Users/shadreckmusarurwa/Project AI/healthtimes-media-cache' \
+  --project-name healthtimes-media --branch media-preview
+```
+
 ## 11 November 2026 preview evidence
 
 - Supabase project `bzuvntbkevvuhfhqhkua` remained `ACTIVE_HEALTHY`. The source bucket held 2,317 public archived files totaling 675,592,991 bytes; the largest was 6,917,615 bytes. All source MD5 checks matched downloaded bytes. The [compressed checksum manifest](media-manifest-2026-11-11.json.gz) records each path, MD5, and SHA-256; the decompressed manifest SHA-256 is `3dd139093a9e6d70fe324ab47af6c08a0a3313915604614f3f09c5f0c1092326` and the compressed file SHA-256 is `e9b116f030188ade312ee88b8ed8cccf261939a02b867628992bfdeefcdd5491`.
 - One published `newsroom-public` JPG of 38,566 bytes was mirrored separately. Total preview deployment: 2,318 files, 675,631,557 bytes. Supabase source counts remained unchanged after the mirror.
+- The published-only newsroom sync read five released public stories and selected exactly one referenced public object. Its hash matched the content-addressed path and the existing Pages copy. Draft and private objects were excluded from the generated Reader allowlist.
 - Full preview deployment: `https://de5c18d0.healthtimes-media.pages.dev`, alias `https://media-preview.healthtimes-media.pages.dev`. The stable production hostname is intentionally not deployed.
 - JPG, PNG, a 496,500-byte PDF, a 6,917,615-byte PDF, and the newsroom JPG each returned HTTP 200 with expected MIME type and matching SHA-256 against source bytes. A private path and a nonexistent archived path both returned HTTP 404.
 - Mobile TypeScript and focused tests passed. The local Expo web export loaded the live staging feed with a preview-only Cloudflare setting. Desktop Home cards and article hero images used `media-preview.healthtimes-media.pages.dev` and loaded at native resolution; the 390px mobile article view showed the same Cloudflare hero. A hard-coded source-parity image map was found during this browser check and updated to honor the preview setting. A branch-scoped Vercel preview setting also selects the Cloudflare hostname; production settings remain unchanged. The automatic Vercel `dist` preview is a legacy static site and is not evidence for the current Expo Reader.
 
-This evidence proves the static mirror and archived-media URL mapping in the local Reader preview. Owner/Editor publishing and new-media replacement/deletion UAT remain a separate gate. Current new newsroom uploads still go through the existing Supabase private-to-public promotion path and continue to use Supabase public URLs; a safe automatic replication mechanism is not yet implemented. This limitation must be resolved before claiming full future-media egress diversion.
+This evidence proves the static mirror and archived-media URL mapping in the local Reader preview. Owner/Editor publishing and new-media replacement/deletion UAT remain a separate gate. New newsroom uploads still appear first on Supabase, then can move to Cloudflare after a verified batch and Reader redeployment. This is an operator-run workflow; automatic replication is not implemented. Future media can consume Supabase egress between batches, so a production operating schedule and Owner approval are required before claiming full future-media egress diversion.

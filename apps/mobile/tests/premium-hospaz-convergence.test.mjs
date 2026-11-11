@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { loadTs } from "./ts-module-loader.mjs";
 
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
 const repoRoot=join(root,"..","..");
@@ -39,7 +40,7 @@ function compileModule(path){
   new Function("module","exports","require",output)(
     module,module.exports,(name)=>{
       if(name.startsWith("../domain/")) return {};
-      if(name==="../services/public-media-origin") return compileModule("src/services/public-media-origin.ts");
+      if(name==="../services/public-media-origin") return loadTs("src/services/public-media-origin.ts");
       throw new Error("Unexpected runtime import "+name);
     }
   );
