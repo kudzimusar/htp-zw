@@ -344,7 +344,7 @@ test("repository integration preserves protected-body and platform authority bou
 
   assert.match(migrated,/ag05_public_story_teaser_document/);
   assert.match(migrated,/ag05_public_story_document/);
-  assert.match(mapper,/bodyHtml: accessPolicy === "public" \? doc\.body_html : null/);
+  assert.match(mapper,/bodyHtml: accessPolicy === "public" \? mapMigratedInlineMedia\(doc\.body_html, stagingUrl\) : null/);
   assert.match(mapper,/premiumTeaserHtml: accessPolicy === "premium"/);
 
   assert.match(article,/premiumPreviewConsumerState/);
