@@ -4,8 +4,14 @@ on:
   push:
     branches:
       - fix/ht-mvp-uiat01-r3-icr05b-final-ci-session-evidence
+      - fix/ht-g2-rbac-session-boundary
   pull_request:
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Exact commit SHA authorized for protected Staging UAT fault-injection execution'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,6 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -25,9 +32,12 @@ jobs:
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
-      - name: Parse-check the gated physical fault suite without running live sessions
-        run: node --check tests/harness/icr05a-fault-injection.test.mjs
-      - name: Run 10 ICR05A consistency and 12 ICR05B session negative-path checks
+      - name: Parse-check the gated physical fault suite, outer bootstrap, and inner UAT executor without running live sessions
+        run: |
+          node --check tests/harness/icr05a-fault-injection.test.mjs
+          node --check scripts/release/owner-trusted-uat-bootstrap.mjs
+          node --check scripts/release/run-protected-staging-uat.mjs
+      - name: Run 10 ICR05A consistency, 12 ICR05B session negative-path, 24 workflow containment & outer-to-inner synthetic rehearsal checks, and source-consistency route verification
         shell: bash
         run: |
           set -euo pipefail
@@ -36,62 +46,327 @@ jobs:
           grep -Eq '^# pass 22$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# fail 0$' /tmp/icr05b-deterministic.tap
           grep -Eq '^# skipped 0$' /tmp/icr05b-deterministic.tap
+          node --test tests/harness/icr05b-workflow-containment.test.mjs 2>&1 | tee /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# tests 24$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# pass 24$' /tmp/icr05b-workflow-containment.tap
+          grep -Eq '^# fail 0$' /tmp/icr05b-workflow-containment.tap
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          
+          # Provenance & Ancestry Classification (DEF-G3-03)
+          IS_G2_BRANCH=false
+          if [ "$CANDIDATE_REF" = "release/ht-mvp-2.0-final" ] || [ "$CANDIDATE_REF" = "fix/ht-g2-rbac-session-boundary" ]; then
+            IS_G2_BRANCH=true
+          fi
+
+          IS_G3_CANDIDATE=false
+          if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3_CANDIDATE=true
+          elif [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^fix/ht-mvp-owner-uat-p0- ]] && git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3_CANDIDATE=true
+          fi
+
+          if [ "$IS_G3_CANDIDATE" = "true" ]; then
+            echo "[G3-PREVIEW-CI] G3 candidate ref '$CANDIDATE_REF' (commit '$CANDIDATE_SHA', descendant of accepted G2 parent 46f3b0b) detected."
+            echo "[G3-PREVIEW-CI] G2 staging UAT route proof is NOT applicable to non-live G3 preview scope."
+            
+            echo "[G3-PREVIEW-CI] Executing G3 isolated preview security suite..."
+            node --test tests/g3-isolated-preview-security.test.mjs
+            PREVIEW_ISOLATION_PASS=true
+
+            echo "[G3-PREVIEW-CI] Executing G3 manifest verification negative-tamper controls..."
+            node --test tests/g3-manifest-verification-tamper.test.mjs
+            MANIFEST_TAMPER_PASS=true
+
+            MANIFEST_VERIFIED=false
+            MANIFEST_STATUS="DEFERRED_TO_G3_ARTIFACT_JOB"
+
+            export PREVIEW_ISOLATION_PASS
+            export MANIFEST_TAMPER_PASS
+            export MANIFEST_VERIFIED
+            export MANIFEST_STATUS
+
+            # Write dedicated G3 preview attestation evidence file (distinct from G2, strictly truthful)
+            node -e '
+              const fs = require("node:fs");
+              fs.writeFileSync("/tmp/ht-g3-preview-security-attestation.json", JSON.stringify({
+                workflow: "HT-MVP-UIAT-01-R3-ICR05B",
+                scope: "g3-preview-security-isolation",
+                candidateRef: process.env.CANDIDATE_REF,
+                candidateSha: process.env.CANDIDATE_SHA,
+                g2ParentSha: "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+                provenanceVerified: true,
+                g2StagingUatCertified: false,
+                sourcePreviewIsolationTested: process.env.PREVIEW_ISOLATION_PASS === "true",
+                manifestTamperControlsCertified: process.env.MANIFEST_TAMPER_PASS === "true",
+                compiledArtifactCertificationJob: "g3-isolated-artifact-certification",
+                manifestVerificationCertified: false,
+                manifestVerificationStatus: "DEFERRED_TO_G3_ARTIFACT_JOB",
+                timestamp: new Date().toISOString()
+              }, null, 2) + "\n");
+            '
+            # Record explicit G2 status note without certifying G2 UAT routes
+            node -e '
+              const fs = require("node:fs");
+              fs.writeFileSync("/tmp/ht-g2-uat-route-status.json", JSON.stringify({
+                status: "NOT_EXECUTED_NON_LIVE_G3_PREVIEW_SCOPE",
+                message: "G2 authenticated staging UAT route proof is not certified by non-live G3 preview tests.",
+                g2AllowedBranches: ["release/ht-mvp-2.0-final", "fix/ht-g2-rbac-session-boundary"],
+                candidateRef: process.env.CANDIDATE_REF,
+                candidateSha: process.env.CANDIDATE_SHA
+              }, null, 2) + "\n");
+            '
+          else
+            node scripts/release/run-protected-staging-uat.mjs \
+              --mode verify-route \
+              --expected-sha "$CANDIDATE_SHA" \
+              --output /tmp/ht-g2-uat-route-attestation.json
+          fi
       - name: Upload deterministic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: icr05b-deterministic-exact-head
-          path: /tmp/icr05b-deterministic.tap
+          path: |
+            /tmp/icr05b-deterministic.tap
+            /tmp/icr05b-workflow-containment.tap
+            /tmp/ht-g3-preview-security-attestation.json
+            /tmp/ht-g2-uat-route-status.json
+            /tmp/ht-g2-uat-route-attestation.json
           if-no-files-found: warn
 
-  physical-live-fault-injection:
+  disposable-postgres-rbac-boundary:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Not silently skipped: the physical ICR05A suite REQUIRES authorized
-    # test actor credentials and a privileged Staging audit token. If missing
-    # the job FAILS with a named external blocker, never fixture PASS.
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Require Owner-provisioned protected test identities
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+      - name: Run G2 RBAC Session Boundary (10 suites across all 9 functions) & Story Title Authority (15 + 9 suites) Disposable PostgreSQL 16 Suites
         shell: bash
         env:
-          UAT_ACTORS_JSON: ${{ secrets.HEALTHTIMES_UAT_ACTORS_JSON }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.HEALTHTIMES_STAGING_MANAGEMENT_AUDIT_TOKEN }}
+          HT_DISPOSABLE_PG_BASE_URI: postgres://postgres:ephemeral-ci-only@127.0.0.1:55432
         run: |
           set -euo pipefail
-          test -n "$UAT_ACTORS_JSON" && test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo "::error title=BLOCKED_OWNER_UAT_CREDENTIALS::ICR05A live session test cannot run without Owner-authorized test identities and a Staging audit token."
-            exit 78
-          }
-          node - <<'NODE'
-          const actors=JSON.parse(process.env.UAT_ACTORS_JSON || '{}');
-          const emails=['uat-specialist@healthtimes.test','uat-commercial@healthtimes.test'];
-          if(emails.some(email=>!actors[email]||actors[email].email!==email||typeof actors[email].password!=='string'||!actors[email].password)){
-            console.error('BLOCKED_OWNER_UAT_CREDENTIALS: both distinct real test actors and passwords required');
-            process.exit(78);
-          }
-          NODE
-          mkdir -p "$HOME/.healthtimes-secrets"
-          chmod 700 "$HOME/.healthtimes-secrets"
-          printf '%s' "$UAT_ACTORS_JSON" > "$HOME/.healthtimes-secrets/test-actors.json"
-          chmod 600 "$HOME/.healthtimes-secrets/test-actors.json"
-          node --test tests/harness/icr05a-fault-injection.test.mjs 2>&1 | tee /tmp/icr05a-physical.tap
-          grep -Eq '^# tests 10$' /tmp/icr05a-physical.tap
-          grep -Eq '^# pass 10$' /tmp/icr05a-physical.tap
-          grep -Eq '^# fail 0$' /tmp/icr05a-physical.tap
-          grep -Eq '^# skipped 0$' /tmp/icr05a-physical.tap
-      - name: Remove actor file
-        if: always()
-        run: rm -f "$HOME/.healthtimes-secrets/test-actors.json"
-      - name: Upload physical test summary
+          node --test tests/database/g2-rbac-session-boundary.test.mjs 2>&1 | tee /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# tests 10$' /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# pass 10$' /tmp/g2-rbac-session-boundary.tap
+          grep -Eq '^# fail 0$' /tmp/g2-rbac-session-boundary.tap
+          node --test tests/database/real-schema-title-authority.test.mjs 2>&1 | tee /tmp/real-schema-title-authority.tap
+          grep -Eq '^# tests 15$' /tmp/real-schema-title-authority.tap
+          grep -Eq '^# pass 15$' /tmp/real-schema-title-authority.tap
+          grep -Eq '^# fail 0$' /tmp/real-schema-title-authority.tap
+          node --test tests/database/story-title-authority.test.mjs 2>&1 | tee /tmp/story-title-authority.tap
+          grep -Eq '^# tests 9$' /tmp/story-title-authority.tap
+          grep -Eq '^# pass 9$' /tmp/story-title-authority.tap
+          grep -Eq '^# fail 0$' /tmp/story-title-authority.tap
+      - name: Upload disposable PostgreSQL regression evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: icr05a-staging-physical-summary
-          path: /tmp/icr05a-physical.tap
+          name: g2-rbac-disposable-postgres-evidence
+          path: |
+            /tmp/g2-rbac-session-boundary.tap
+            /tmp/real-schema-title-authority.tap
+            /tmp/story-title-authority.tap
           if-no-files-found: warn
+
+  g3-isolated-artifact-certification:
+    name: g3-isolated-artifact-certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact candidate checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Check G3 Provenance and Execution Scope
+        id: check-scope
+        shell: bash
+        run: |
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          IS_G2_BRANCH=false
+          if [ "$CANDIDATE_REF" = "release/ht-mvp-2.0-final" ] || [ "$CANDIDATE_REF" = "fix/ht-g2-rbac-session-boundary" ]; then
+            IS_G2_BRANCH=true
+          fi
+          IS_G3=false
+          if [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^feat/ht-g3- ]] && git merge-base --is-ancestor 46f3b0bd0d7b3da7c929b723e673f7bf73fd424c "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3=true
+          elif [ "$IS_G2_BRANCH" != "true" ] && [[ "$CANDIDATE_REF" =~ ^fix/ht-mvp-owner-uat-p0- ]] && git merge-base --is-ancestor 7434e70d632e122a1c3feb773d0a81d2921bc854 "$CANDIDATE_SHA" 2>/dev/null; then
+            IS_G3=true
+          fi
+          echo "is_g3=$IS_G3" >> "$GITHUB_OUTPUT"
+          echo "[G3-ARTIFACT-JOB] Candidate ref '$CANDIDATE_REF' (SHA '$CANDIDATE_SHA'), is_g3=$IS_G3"
+      - name: Install root and mobile dependencies
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          npm ci
+          npm install --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+      - name: Build and Package Clean Vercel Preview Output Artifact (DEF-G3-05)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[G3-ARTIFACT-BUILD] Initializing hermetic zero-secret Vercel project configuration..."
+          mkdir -p .vercel
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync(".vercel/project.json", JSON.stringify({
+              projectId: "prj_preview_isolated",
+              orgId: "team_preview_isolated",
+              projectName: "healthtimes-client-preview",
+              settings: {
+                framework: null,
+                buildCommand: "npm run build:phase4:web",
+                outputDirectory: "apps/mobile/dist"
+              }
+            }, null, 2) + "\n");
+          '
+          echo "[G3-ARTIFACT-BUILD] Compiling hermetic Vercel output..."
+          env -u VERCEL_TOKEN npx vercel build --yes
+          echo "[G3-ARTIFACT-BUILD] Packaging fail-closed preview barrier..."
+          node scripts/web/package-preview-artifact.mjs
+      - name: Verify Read-Only Artifact Manifest & Strict Security Policies (DEF-G3-04 / DEF-G3-05)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          node scripts/web/verify-vercel-manifest.mjs --verify --expected-sha "$CANDIDATE_SHA" 2>&1 | tee /tmp/g3-manifest-verification.log
+      - name: Execute Real Compiled Output Function Security Suite (DEF-G3-05)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/g3-compiled-artifact-security.test.mjs 2>&1 | tee /tmp/g3-compiled-security.tap
+          grep -Eq '^# fail 0$' /tmp/g3-compiled-security.tap
+      - name: Execute Hermetic Manifest Tamper & Negative Controls Suite (DEF-G3-04)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/g3-manifest-verification-tamper.test.mjs 2>&1 | tee /tmp/g3-tamper.tap
+          grep -Eq '^# fail 0$' /tmp/g3-tamper.tap
+      - name: Package Sealed Prebuilt Artifact for Delivery Custody (Requirement B)
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[G3-ARTIFACT-CUSTODY] Archiving sealed .vercel/output prebuilt artifact..."
+          tar -czf /tmp/healthtimes-reader-preview-prebuilt.tar.gz -C .vercel/output .
+          sha256sum /tmp/healthtimes-reader-preview-prebuilt.tar.gz | tee /tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256
+          echo "[G3-ARTIFACT-CUSTODY] Archive created successfully: $(du -h /tmp/healthtimes-reader-preview-prebuilt.tar.gz | cut -f1)"
+      - name: Generate Inspectable G3 Artifact Certification Evidence Payload
+        if: steps.check-scope.outputs.is_g3 == 'true'
+        shell: bash
+        run: |
+          export CANDIDATE_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          node -e '
+            const fs = require("node:fs");
+            const manifest = JSON.parse(fs.readFileSync(".vercel/package-manifest.json", "utf8"));
+            const buildInfo = JSON.parse(fs.readFileSync(".vercel/output/static/build-info.json", "utf8"));
+            const tarballSha = fs.existsSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256")
+              ? fs.readFileSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256", "utf8").trim().split(/\s+/)[0]
+              : null;
+            const payload = {
+              workflow: "HT-MVP-UIAT-01-R3-ICR05B",
+              job: "g3-isolated-artifact-certification",
+              candidateRef: process.env.CANDIDATE_REF,
+              candidateSha: process.env.CANDIDATE_SHA,
+              g2ParentSha: "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+              provenanceVerified: true,
+              artifactBuildCertified: true,
+              compiledFunctionSecurityCertified: true,
+              manifestVerificationCertified: true,
+              manifestVerificationStatus: "VERIFIED_PASS",
+              aggregateDigest: manifest.aggregateDigest,
+              fileCount: manifest.fileCount,
+              prebuiltTarballSha256: tarballSha,
+              prebuiltTarballName: "healthtimes-reader-preview-prebuilt.tar.gz",
+              previewLocked: buildInfo.previewLocked,
+              profile: buildInfo.profile,
+              serviceMode: buildInfo.serviceMode,
+              secretsExposure: "NONE_ISOLATED_ZERO_SECRETS",
+              timestamp: new Date().toISOString()
+            };
+            fs.writeFileSync("/tmp/g3-artifact-certification.json", JSON.stringify(payload, null, 2) + "\n");
+          '
+      - name: Record Non-G3 Branch Pass-Through Note
+        if: steps.check-scope.outputs.is_g3 != 'true'
+        shell: bash
+        run: |
+          export CANDIDATE_REF="${{ github.head_ref || github.ref_name }}"
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync("/tmp/g3-artifact-certification.json", JSON.stringify({
+              status: "SKIPPED_NOT_G3_BRANCH",
+              candidateRef: process.env.CANDIDATE_REF,
+              message: "G3 artifact certification runs on feat/ht-g3-* descendants of G2 or fix/ht-mvp-owner-uat-p0-* descendants of frozen G3."
+            }, null, 2) + "\n");
+          '
+      - name: Upload Inspectable G3 Sealed Prebuilt Deployable Artifact and Evidence (Requirement B)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g3-sealed-prebuilt-deployable-artifact
+          path: |
+            /tmp/healthtimes-reader-preview-prebuilt.tar.gz
+            /tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256
+            .vercel/package-manifest.json
+            .vercel/output/static/build-info.json
+            /tmp/g3-artifact-certification.json
+            /tmp/g3-compiled-security.tap
+            /tmp/g3-tamper.tap
+            /tmp/g3-manifest-verification.log
+            .vercel/output/
+          if-no-files-found: warn
+
+  physical-live-fault-injection-disabled:
+    # OBSOLETE & EXPLICITLY DISABLED IN R7:
+    # Staging UAT fault-injection execution is directed exclusively through the external
+    # Owner-controlled trusted bootstrap (`owner-trusted-uat-bootstrap.mjs`).
+    # In-repo CI workflows and PR runs never receive live staging credentials or live execution authority.
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deprecation Notice
+        run: |
+          echo "::error title=JOB_DISABLED::In-repo live fault-injection workflow is disabled. Live execution is authorized exclusively via external owner-trusted-uat-bootstrap.mjs."
+          exit 1

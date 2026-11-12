@@ -512,7 +512,12 @@ test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 3 (Share / Deep Link) — source wi
   assert.match(article, /services\.social\.buildAttributedShareUrl/);
   assert.match(deepLinks, /parseHealthTimesDeepLink/);
   assert.match(layout, /DeepLinkBridge/);
-  assert.match(layout, /router\.push\(\("\/article\/" \+ encodeURIComponent\(destination\.articleId\)\) as never\)/);
+  // Verify the article destination and guards, without relying on whitespace.
+  assert.match(layout, /const target="\/article\/"\+encodeURIComponent\(destination\.articleId\)/);
+  assert.match(layout, /current===target/);
+  assert.match(layout, /browserPath===target/);
+  assert.match(layout, /pendingDestinationRef\.current===target/);
+  assert.match(layout, /router\.push\(\("\/article\/"\s*\+\s*encodeURIComponent\(destination\.articleId\)\) as never\)/);
 });
 
 test("CROSS_PRODUCT_CONTRACT_PROOF: Contract 4 (Advertising) — source wiring across Home, Article, Watch, Live, and AdSlot zero-space guard", () => {

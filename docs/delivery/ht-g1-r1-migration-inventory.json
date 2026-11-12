@@ -1,6 +1,6 @@
 {
   "description": "Source inventory only; not an approved execution manifest. Ledger mappings require independent verification.",
-  "ordinary_count": 113,
+  "ordinary_count": 114,
   "held_count": 3,
   "ordinary": [
     {
@@ -680,6 +680,12 @@
       "sha256": "a1dbdeec24009519cc3ec9d52ac6fa76ec75f713cb84ad4033d491a783be123b",
       "existing_governor_classification": "CANONICAL_READER_DDL",
       "governor_staging_mapping": "20261102160000"
+    },
+    {
+      "file": "20261107130000_ht_mvp_g2_rbac_session_boundary_hardening.sql",
+      "sha256": "9f127811265632be4cd61eafcb9114810fc4c3858c99b029e8cb46f365f27daf",
+      "existing_governor_classification": "UNREVIEWED_FAIL_CLOSED",
+      "governor_staging_mapping": null
     }
   ],
   "held": [

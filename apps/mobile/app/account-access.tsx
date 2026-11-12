@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
+import { parseAccountCallback } from "../src/growth/deepLinks";
 import { services } from "../src/services";
 import { layout, radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
@@ -17,6 +18,7 @@ export default function AccountAccessScreen(){
   const [password,setPassword]=useState("");
   const [displayName,setDisplayName]=useState("");
   const [status,setStatus]=useState("");
+  const consumedCallbacks=useRef(new Set<string>());
 
   const validEmail=email.trim().includes("@");
   const strongEnough=password.length>=8;
@@ -25,13 +27,16 @@ export default function AccountAccessScreen(){
     let active=true;
 
     const consume=async(url:string|null)=>{
-      if(!url || !url.includes("account-access")) return;
+      const callback=parseAccountCallback(url);
+      // Callback codes are one-time: a second attempt would overwrite the result.
+      if(!url || !callback || consumedCallbacks.current.has(url)) return;
+      consumedCallbacks.current.add(url);
       const result=await services.auth.handleAuthCallback(url);
       if(!active) return;
       setStatus(result.message);
 
       if(result.status==="success"){
-        if(url.includes("mode=owner-activation")){
+        if(callback.mode==="owner-activation"){
           const ownerResult=await services.newsroomStaff.bootstrapOwner();
           if(!active) return;
           if(!ownerResult.success){
@@ -42,7 +47,7 @@ export default function AccountAccessScreen(){
           router.replace("/studio" as never);
           return;
         }
-        if(url.includes("mode=recovery")){
+        if(callback.mode==="recovery"){
           setMode("new-password");
           setPassword("");
         }else{
@@ -52,11 +57,13 @@ export default function AccountAccessScreen(){
     };
 
     void Linking.getInitialURL().then(consume);
-    const subscription=Linking.addEventListener("url",({url})=>{ void consume(url); });
+    // On web this event fires for every window "message", which would re-run the
+    // one-time auth callback and owner bootstrap. Web callbacks arrive as page loads.
+    const subscription=Platform.OS==="web" ? null : Linking.addEventListener("url",({url})=>{ void consume(url); });
 
     return ()=>{
       active=false;
-      subscription.remove();
+      subscription?.remove();
     };
   },[router]);
 

@@ -76,7 +76,7 @@ function requestedPath(url) {
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return send(res, 405, 'Method not allowed', 'text/plain; charset=utf-8', 'no-store');
+    return sendJson(req, res, 405, { capabilityVersion: CAPABILITY_VERSION, error: 'METHOD_NOT_ALLOWED' });
   }
 
   const url = new URL(req.url, 'https://' + (req.headers.host || 'localhost'));
