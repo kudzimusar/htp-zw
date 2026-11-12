@@ -1,6 +1,6 @@
 # Public media mirror for HealthTimes Free
 
-Cloudflare Pages project: `healthtimes-media` in the existing `kudzimusar@gmail.com` account. The production hostname is `https://healthtimes-media.pages.dev`; the preview alias is `https://media-preview.healthtimes-media.pages.dev`. The Pages project has no Functions or Workers runtime.
+Cloudflare Pages project: `healthtimes-media` in the Owner's existing Cloudflare account. The production hostname is `https://healthtimes-media.pages.dev`; the preview alias is `https://media-preview.healthtimes-media.pages.dev`. The Pages project has no Functions or Workers runtime.
 
 Cloudflare's [documented Free limits](https://developers.cloudflare.com/pages/platform/limits/) are 20,000 files, 25 MiB per file, 500 builds per month, and one concurrent build. [Static asset requests](https://developers.cloudflare.com/pages/functions/pricing/) are free and unlimited; Pages Functions would use Workers quota, so none are deployed here. [Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/) via Wrangler supports 20,000 files; the browser drag-and-drop path supports only 1,000. This Direct Upload project can later be deployed from CI with Wrangler, but cannot be converted to Git integration in place.
 
