@@ -1,4 +1,5 @@
 import type { ArticleDetail } from "../domain/models";
+import { mirroredNewsroomPublicUrl } from "./public-media-origin";
 
 export type NativeStoryDocument = {
   story_id: string;
@@ -99,11 +100,12 @@ export function mapNativeStoryDocument(
   const authorSlug = deterministicSlug(doc.author?.slug || authorName);
   const sectionName = doc.section?.name?.trim() || null;
   const sectionSlug = deterministicSlug(doc.section?.slug || sectionName);
-  const publicMediaUrl = safePublicMediaUrl(
+  const verifiedPublicMediaUrl = safePublicMediaUrl(
     doc.featured_public_url,
     doc.featured_storage_bucket,
     publicOrigin
   );
+  const publicMediaUrl = verifiedPublicMediaUrl ? mirroredNewsroomPublicUrl(verifiedPublicMediaUrl) : null;
   const mediaStableKey = doc.featured_storage_object
     ? "newsroom-public:" + doc.featured_storage_object
     : "healthtimes-native-featured:" + doc.story_id;

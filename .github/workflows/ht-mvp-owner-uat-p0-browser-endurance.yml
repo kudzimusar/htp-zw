@@ -20,7 +20,7 @@ env:
 
 jobs:
   isolated-reader-endurance:
-    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-')
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || github.head_ref == 'feat/healthtimes-public-media-cloudflare'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -37,6 +37,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Media branch only: certify the Cloudflare-enabled Reader. P0 builds stay unchanged.
+      - name: Enable verified Cloudflare public-media origin (media branch only)
+        if: github.head_ref == 'feat/healthtimes-public-media-cloudflare'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL=https://healthtimes-media.pages.dev" >> "$GITHUB_ENV"
+          echo "P0_EXPECT_MEDIA_ORIGIN=https://healthtimes-media.pages.dev" >> "$GITHUB_ENV"
       - name: Install and compile canonical isolated Reader (archive-only stability laboratory)
         run: |
           npm install --no-audit --no-fund
@@ -48,6 +56,12 @@ jobs:
           test "$EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE" = false
           npm run build:phase4:web
           test -s apps/mobile/dist/build-info.json
+          # Prove which media origin was compiled in (Metro can silently reuse stale env).
+          if [ -n "${P0_EXPECT_MEDIA_ORIGIN:-}" ]; then
+            grep -rqF "$P0_EXPECT_MEDIA_ORIGIN" apps/mobile/dist/_expo || { echo "MEDIA_ORIGIN_NOT_COMPILED"; exit 1; }
+          elif grep -rqF "healthtimes-media.pages.dev" apps/mobile/dist/_expo; then
+            echo "UNEXPECTED_MEDIA_ORIGIN_IN_P0_BUILD"; exit 1
+          fi
           npx playwright install --with-deps chromium
           node --check scripts/uat/p0-protected-lab-server.mjs
           node --check scripts/uat/p0-reader-endurance.mjs
@@ -56,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           cd apps/mobile
-          node --test tests/p0-deep-link-security.test.mjs tests/p0-public-manifest-reader.test.mjs tests/p0-editorial-eligibility.test.mjs tests/p0-reader-feed-eligibility.test.mjs 2>&1 | tee /tmp/p0-reader-security.tap
+          node --test tests/p0-deep-link-security.test.mjs tests/p0-public-manifest-reader.test.mjs tests/p0-editorial-eligibility.test.mjs tests/p0-reader-feed-eligibility.test.mjs tests/public-media-origin.test.mjs 2>&1 | tee /tmp/p0-reader-security.tap
           grep -Eq '^# fail 0$' /tmp/p0-reader-security.tap
           grep -Eq '^# skipped 0$' /tmp/p0-reader-security.tap
       - name: Instrument five 120-second browser sessions and the service worker lifecycle

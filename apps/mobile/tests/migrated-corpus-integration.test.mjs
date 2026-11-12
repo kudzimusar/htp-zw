@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { loadTs } from "./ts-module-loader.mjs";
 
 const root=join(dirname(fileURLToPath(import.meta.url)),"..");
 const read=(path)=>readFileSync(join(root,path),"utf8");
@@ -35,7 +36,12 @@ const mapperOutput=ts.transpileModule(mapperSource,{
 }).outputText;
 const mapperModule={exports:{}};
 new Function("module","exports","require",mapperOutput)(
-  mapperModule,mapperModule.exports,(name)=>{throw new Error("Unexpected runtime import "+name);}
+  mapperModule,mapperModule.exports,(name)=>{
+    if(name==="./public-media-origin") {
+      return loadTs("src/services/public-media-origin.ts");
+    }
+    throw new Error("Unexpected runtime import "+name);
+  }
 );
 const {mapMigratedStoryDocument}=mapperModule.exports;
 
