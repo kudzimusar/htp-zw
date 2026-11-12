@@ -30,6 +30,10 @@ const viewports=[
 // would be a real defect, so failures are recorded and held to a budget. Not done
 // with request interception: that disables the cache and sidesteps the worker.
 const MAX_THIRD_PARTY_MEDIA_FAILURES=4;
+// Set only for the Cloudflare media integration: archive images must come from this
+// origin, and none may be requested from Supabase migrated-media storage.
+const expectedMediaOrigin=process.env.P0_EXPECT_MEDIA_ORIGIN ? new URL(process.env.P0_EXPECT_MEDIA_ORIGIN).origin : null;
+const SUPABASE_ARCHIVE_PATH="/storage/v1/object/public/migrated-media/";
 const runDir=process.env.P0_RUN_DIR ?? "p0-reader-endurance";
 await mkdir(runDir,{recursive:true});
 const lab=await startProtectedLab({distDir,port,legacyWorkerPath:resolve("scripts/uat/fixtures/sw-g3-legacy.js")});
@@ -198,6 +202,36 @@ try{
       if(data){session.unhandled.push(...data.unhandled);session.longTasks=data.longTasks;session.historyMutations=data.historyMutations;session.linkingMessageListeners=data.linkingMessageListeners;}
       if(session.errors.length||session.unhandled.length) {session.success=false;hadFailure=true;}
       await context.tracing.stop({path:runDir+"/"+vp.name+"-trace.zip"}).catch(()=>{});
+      await context.close();
+    }
+    await writeFile(runDir+"/evidence.json",JSON.stringify(output,null,2)+"\n");
+  }
+
+  if(expectedMediaOrigin){
+    // Home carries the archived card images; the article session alone may not.
+    const media={kind:"public-media-origin",expectedOrigin:expectedMediaOrigin,originLoaded:[],originFailed:[],supabaseArchiveRequests:[],success:false};
+    output.publicMedia=media;
+    const context=await labContext({width:1280,height:800});
+    const page=await context.newPage();
+    page.on("request",request=>{if(request.url().includes(SUPABASE_ARCHIVE_PATH))media.supabaseArchiveRequests.push(request.url().slice(0,220));});
+    page.on("response",response=>{
+      if(new URL(response.url()).origin!==expectedMediaOrigin) return;
+      (response.status()===200?media.originLoaded:media.originFailed).push({status:response.status(),url:response.url().slice(0,220)});
+    });
+    try{
+      await page.goto(base+"/",{waitUntil:"load",timeout:35000});
+      for(let i=0;i<6;i++){await page.mouse.wheel(0,1200);await page.waitForTimeout(1000);}
+      await page.goto(articleUrl,{waitUntil:"load",timeout:35000});
+      await page.getByTestId("article-body").getByText(articleBodyText).waitFor({timeout:30000});
+      await page.waitForTimeout(2000);
+      if(media.supabaseArchiveRequests.length) throw new Error("Archive media requested from Supabase: "+media.supabaseArchiveRequests[0]);
+      if(media.originFailed.length) throw new Error("Cloudflare media failure: "+media.originFailed[0].status+" "+media.originFailed[0].url);
+      if(!media.originLoaded.length) throw new Error("No archive media loaded from "+expectedMediaOrigin);
+      media.success=true;
+    }catch(error){
+      hadFailure=true;
+      media.failure=String(error?.stack??error).slice(0,1800);
+    }finally{
       await context.close();
     }
     await writeFile(runDir+"/evidence.json",JSON.stringify(output,null,2)+"\n");

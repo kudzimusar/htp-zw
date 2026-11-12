@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   public-publisher-freshness:
-    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-')
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-') || github.head_ref == 'feat/healthtimes-public-media-cloudflare' || github.ref_name == 'feat/healthtimes-public-media-cloudflare'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -69,7 +69,7 @@ jobs:
           retention-days: 30
 
   source-sync-disposable-postgres:
-    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-')
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-') || github.head_ref == 'feat/healthtimes-public-media-cloudflare' || github.ref_name == 'feat/healthtimes-public-media-cloudflare'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
