@@ -102,11 +102,81 @@ test('source-parity never fetches complete Premium WordPress content', async () 
   expect(authority).not.toContain('content.rendered');
 });
 
+// Loads the real migrated-corpus mapper (and its public-media-origin dependency)
+// so the Premium body boundary is proven by behaviour, not by source text.
+function loadMigratedMapper() {
+  const ts = require(path.join(root, 'apps/mobile/node_modules/typescript'));
+  const cache = new Map();
+  const load = (absolute) => {
+    if (cache.has(absolute)) return cache.get(absolute).exports;
+    const output = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+    }).outputText;
+    const mod = { exports: {} };
+    cache.set(absolute, mod);
+    new Function('module', 'exports', 'require', output)(mod, mod.exports, (specifier) => {
+      if (!specifier.startsWith('.')) throw new Error('Unexpected runtime import ' + specifier);
+      return load(path.join(path.dirname(absolute), specifier) + '.ts');
+    });
+    return mod.exports;
+  };
+  return load(path.join(root, 'apps/mobile/src/services/migrated-corpus-mapper.ts'));
+}
+
+const STAGING = 'https://bzuvntbkevvuhfhqhkua.supabase.co';
+const MEDIA_ENV = 'EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL';
+const migratedDoc = (accessPolicy) => ({
+  story_id: 'story-1', source_id: '33190', source_type: 'post', source_url: null,
+  old_path: '/premium-story/', new_path: null, handling: null, http_status: 200,
+  title: 'Story', story_title: 'Story', description: 'Public description',
+  canonical_url: 'https://healthtimes.co.zw/premium-story/',
+  featured_storage_object: null, featured_source_url: null, featured_alt_text: null,
+  published_at: null, modified_at: null, author: null, section: null,
+  access_policy: accessPolicy,
+  body_html: '<p>FIRST AUTHORIZED PARAGRAPH</p><img src="' + STAGING +
+    '/storage/v1/object/public/migrated-media/wordpress/a.jpg"><p>PARAGRAPH_TWO_SECRET</p>',
+  premium_teaser_html: '<p>FIRST AUTHORIZED PARAGRAPH</p>',
+  standfirst: null, excerpt: null
+});
+
+function withMediaOrigin(value, run) {
+  const previous = process.env[MEDIA_ENV];
+  if (value === undefined) delete process.env[MEDIA_ENV]; else process.env[MEDIA_ENV] = value;
+  try { return run(); } finally {
+    if (previous === undefined) delete process.env[MEDIA_ENV]; else process.env[MEDIA_ENV] = previous;
+  }
+}
+
 test('migrated Reader consumes teaser-specific authority and keeps body protected', async () => {
-  const mapper = read('apps/mobile/src/services/migrated-corpus-mapper.ts');
-  expect(mapper).toContain('premium_teaser_html');
-  expect(mapper).toContain('premiumTeaserHtml: accessPolicy === "premium"');
-  expect(mapper).toContain('bodyHtml: accessPolicy === "public" ? doc.body_html : null');
+  const { mapMigratedStoryDocument } = loadMigratedMapper();
+
+  for (const origin of [undefined, 'https://healthtimes-media.pages.dev']) {
+    withMediaOrigin(origin, () => {
+      // Premium, review and unknown markers all fail closed: no body, teaser only.
+      for (const marker of ['premium', 'premium_marker_review', 'unknown', null, ' PUBLIC-ish ']) {
+        const story = mapMigratedStoryDocument(migratedDoc(marker), STAGING);
+        expect(story.accessPolicy, String(marker)).toBe('premium');
+        expect(story.bodyHtml, String(marker)).toBeNull();
+        expect(story.premiumTeaserHtml).toBe('<p>FIRST AUTHORIZED PARAGRAPH</p>');
+        expect(JSON.stringify(story)).not.toContain('PARAGRAPH_TWO_SECRET');
+      }
+
+      // Public stories keep their full body and never carry a Premium teaser.
+      const open = mapMigratedStoryDocument(migratedDoc('public'), STAGING);
+      expect(open.accessPolicy).toBe('public');
+      expect(open.premiumTeaserHtml).toBeNull();
+      expect(open.bodyHtml).toContain('PARAGRAPH_TWO_SECRET');
+    });
+  }
+
+  // The media origin changes only public image hosts, never the access decision.
+  const rewritten = withMediaOrigin('https://healthtimes-media.pages.dev',
+    () => mapMigratedStoryDocument(migratedDoc('public'), STAGING).bodyHtml);
+  expect(rewritten).toContain('https://healthtimes-media.pages.dev/wordpress/a.jpg');
+  expect(rewritten).not.toContain(STAGING);
+  const unchanged = withMediaOrigin(undefined,
+    () => mapMigratedStoryDocument(migratedDoc('public'), STAGING).bodyHtml);
+  expect(unchanged).toContain(STAGING + '/storage/v1/object/public/migrated-media/wordpress/a.jpg');
 
   const service = read('apps/mobile/src/services/migrated-corpus.ts');
   expect(service).toContain('ag05_public_story_teaser_document');
