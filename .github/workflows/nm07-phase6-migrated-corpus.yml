@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: nm07-phase6-${{ github.event.pull_request.head.sha || github.sha }}
+  group: nm07-phase6-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -75,8 +75,14 @@ jobs:
           npm --prefix apps/mobile run test:native-certification
       - name: Preserve current Reader identity and security contract
         run: npm --prefix apps/mobile run test:identity-security
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build staging Web/PWA Reader
         run: npm run build:phase4:web
+      - name: CI egress control - prove the mirror origin is compiled in
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser smoke mobile and desktop

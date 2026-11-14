@@ -145,7 +145,9 @@ export function storyFromPublicCapability(capability: PublicWebStoryCapability):
 export async function fetchPublicWebCapability(pathname: string): Promise<PublicWebCapability | null> {
   if (typeof fetch !== "function") return null;
   try {
-    const response = await fetch("/api/public?kind=resolve&path=" + encodeURIComponent(pathname), {
+    // redirect=json: a real 301 would be followed by fetch() into a static
+    // page, so alias decisions are requested as data and applied in-app.
+    const response = await fetch("/api/public?kind=resolve&redirect=json&path=" + encodeURIComponent(pathname), {
       method: "GET",
       headers: { Accept: "application/json" }
     });
@@ -156,9 +158,56 @@ export async function fetchPublicWebCapability(pathname: string): Promise<Public
   }
 }
 
-export function injectedPublicWebCapability(): PublicWebCapability | null {
+const CAPABILITY_KINDS = new Set(["story", "context", "route"]);
+
+/** Parse the non-executable capability block injected by api/public.js kind=page. */
+export function parseInjectedCapabilityText(text: string | null | undefined): PublicWebCapability | null {
+  if (!text || text.length > 2_000_000) return null;
+  try {
+    const value = JSON.parse(text) as PublicWebCapability;
+    return value && typeof value === "object" && CAPABILITY_KINDS.has(String((value as { kind?: unknown }).kind)) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Only same-site absolute paths may be followed; never a scheme, host or protocol-relative URL. */
+export function safeInternalRedirectTarget(target: unknown): string | null {
+  if (typeof target !== "string") return null;
+  const value = target.trim();
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
+  if (value.length > 512 || /[\u0000-\u001f\u007f\\]/.test(value)) return null;
+  if (/^\/+[a-z][a-z0-9+.-]*:/i.test(value)) return null;
+  return value;
+}
+
+function comparablePath(value: string | null | undefined): string {
+  const path = String(value || "").trim().replace(/\/{2,}/g, "/");
+  return path.length > 1 ? path.replace(/\/+$/, "") : path;
+}
+
+/** The server block is valid only for the address it was rendered for. */
+export function injectedCapabilityMatchesPath(blockPath: string | null | undefined, pathname: string | null | undefined): boolean {
+  if (!blockPath || !pathname) return false;
+  return comparablePath(blockPath) === comparablePath(pathname);
+}
+
+export function injectedPublicWebCapability(pathname?: string): PublicWebCapability | null {
   const value = (globalThis as typeof globalThis & {
     __HTP_PHASE4_CAPABILITY__?: PublicWebCapability;
   }).__HTP_PHASE4_CAPABILITY__;
-  return value && typeof value === "object" ? value : null;
+  if (value && typeof value === "object") return value;
+  const doc = (globalThis as typeof globalThis & {
+    document?: { getElementById?: (id: string) => { textContent?: string | null; getAttribute?: (name: string) => string | null } | null };
+  }).document;
+  if (!doc || typeof doc.getElementById !== "function") return null;
+  const block = doc.getElementById("htp-public-capability");
+  if (!block) return null;
+  const blockPath = typeof block.getAttribute === "function" ? block.getAttribute("data-path") : null;
+  // Compare with the address the browser actually loaded (what the server
+  // rendered for); router pathnames can differ in form during hydration.
+  const location = (globalThis as typeof globalThis & { location?: { pathname?: unknown } }).location;
+  const current = typeof location?.pathname === "string" ? location.pathname : pathname;
+  if (!injectedCapabilityMatchesPath(blockPath, current)) return null;
+  return parseInjectedCapabilityText(block.textContent);
 }

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ui03-commercial-reader-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ui03-commercial-reader-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -72,6 +72,9 @@ jobs:
           echo "EXPO_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
           echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
 
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build source-parity Web PWA
         env:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
@@ -80,6 +83,9 @@ jobs:
           npm run native:export:web
           node scripts/web/prepare-phase4-vercel.js
 
+      - name: CI egress control - prove the mirror origin is compiled in (source-parity build)
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
@@ -111,6 +117,9 @@ jobs:
           npm --prefix apps/mobile run export:web -- --clear
           node scripts/web/prepare-phase4-vercel.js
 
+      - name: CI egress control - prove the mirror origin is compiled in (staging-service build)
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Capture responsive HOSPAZ evidence
         shell: bash
         env:

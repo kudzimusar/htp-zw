@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui05-phase6b-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ui05-phase6b-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -72,9 +72,15 @@ jobs:
           npm --prefix apps/mobile run test:premium-hospaz
           node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
 
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build exact-head source-parity Web/PWA
         run: npm run build:phase4:web
 
+      - name: CI egress control - prove the mirror origin is compiled in
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 

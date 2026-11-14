@@ -48,7 +48,8 @@ export function ArticleToolbar({
   onBack: () => void;
   onTextScale: () => void;
   onSave: () => void;
-  onListen: () => void;
+  /** Omit until article audio playback exists; the action is then not shown. */
+  onListen?: () => void;
   onShare: () => void;
   onOffline: () => void;
 }) {
@@ -67,7 +68,7 @@ export function ArticleToolbar({
             onPress={onTextScale}
           />
           <ToolbarAction glyph="☆" label="Save article" onPress={onSave} />
-          <ToolbarAction glyph="▶" label="Listen to article" onPress={onListen} />
+          {onListen ? <ToolbarAction glyph="▶" label="Listen to article" onPress={onListen} /> : null}
           <ToolbarAction glyph="↗" label="Share article" onPress={onShare} />
           <Pressable
             accessibilityRole="button"

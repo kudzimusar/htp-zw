@@ -17,6 +17,9 @@ import { premiumPreviewConsumerState } from "../../src/growth/premium-consumer";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
+import { READER_LAUNCH_CAPABILITIES } from "../../src/launch/reader-capabilities";
+import { ArticleSeoHead } from "../../src/seo/RouteSeoHead";
+import { effectiveCommerceStatus, launchCommerceEnabled, mayOpenCheckoutUrl } from "../../src/growth/purchase-policy";
 
 // Security invariant retained for frozen Reader contracts; this text is never rendered to readers.
 const PREMIUM_OFFLINE_SECURITY_INVARIANT = "Premium body is not available for offline storage without entitlement";
@@ -101,7 +104,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     ? decodeURIComponent(window.location.pathname.replace(/^\/article\/?/, "").split("/")[0] || "")
     : "";
   const resolvedId = (params.id && params.id !== "fallback" ? params.id : idFromPath) || "";
-  const id = resolvedId;
+  // Preserved WordPress addresses (/slug/) carry no /article/<id> segment; the
+  // public-web fallback supplies the story itself, so use its stable id.
+  const id = resolvedId || initialStory?.id || "";
   const router=useRouter();
   const { palette }=useAppearance();
   const { width:rawWidth }=useWindowDimensions();
@@ -129,7 +134,8 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   // Only Premium articles show checkout state. Behind Deployment Protection this
   // credential-less request is a 401 console error on every article view.
-  const commerce=useAsync(()=>article.data?.accessPolicy==="premium" ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[article.data?.id,article.data?.accessPolicy]);
+  // With launch commerce off it is never made at all (G5).
+  const commerce=useAsync(()=>!launchCommerceEnabled() ? Promise.resolve(null) : article.data?.accessPolicy==="premium" ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[article.data?.id,article.data?.accessPolicy]);
   const readPosition=useAsync(()=>!id ? Promise.resolve(0) : services.reader.getReadPosition(String(id)),[id]);
   const entitledArticle=useAsync(async()=>{
     const current=article.data;
@@ -276,7 +282,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       previewConfig.source==="owner-policy" &&
       previewConfig.paragraphCount===1 &&
       previewConfig.seconds===20,
-    commerceStatus:commerce.loading ? "loading" : (commerce.data?.status ?? "unavailable"),
+    commerceStatus:commerce.loading ? "loading" : effectiveCommerceStatus(commerce.data?.status ?? "unavailable"),
     promptRequested:premiumPromptRequested
   });
 
@@ -415,7 +421,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         productPlanId:commerce.data?.productPlanId ?? null
       });
       const checkoutUrl=result.checkoutUrl?.trim() ?? "";
-      if(result.status==="redirect-required" && /^https:\/\//i.test(checkoutUrl)){
+      if(result.status==="redirect-required" && /^https:\/\//i.test(checkoutUrl) && mayOpenCheckoutUrl({platform:Platform.OS,commerceEnabled:launchCommerceEnabled(),url:checkoutUrl})){
         setPremiumPromptVisible(false);
         await Linking.openURL(checkoutUrl);
         return;
@@ -434,12 +440,13 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       initialScrollProgress={readPosition.data ?? 0}
       onScrollProgress={persistProgress}
     >
+      <ArticleSeoHead story={story} />
       <ArticleToolbar
         textScale={textScale}
         onBack={()=>router.back()}
         onTextScale={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}
         onSave={()=>{void save();}}
-        onListen={()=>router.push("/listen" as never)}
+        onListen={READER_LAUNCH_CAPABILITIES.audioPlayback ? ()=>router.push("/listen" as never) : undefined}
         onShare={()=>{void share();}}
         onOffline={()=>{void download();}}
       />

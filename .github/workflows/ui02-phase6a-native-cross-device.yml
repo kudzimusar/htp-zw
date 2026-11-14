@@ -112,6 +112,9 @@ jobs:
       - name: Install canonical Reader
         run: npm ci --prefix apps/mobile --no-audit --no-fund
 
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Generate iOS native project
         working-directory: apps/mobile
         run: npx expo prebuild --platform ios --clean --no-install
@@ -333,6 +336,9 @@ jobs:
       - name: Install canonical Reader
         run: npm ci --prefix apps/mobile --no-audit --no-fund
 
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Generate Android native project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install

@@ -7,6 +7,7 @@ import { services } from "../../src/services";
 import { useAsync } from "../../src/hooks/useAsync";
 import { breakpoints, radius, spacing } from "../../src/theme/tokens";
 import { useAppearance } from "../../src/theme/AppearanceProvider";
+import { exploreFormats } from "../../src/launch/reader-capabilities";
 
 function normalized(value:string){
   return value.trim().toLowerCase();
@@ -76,7 +77,7 @@ export default function ExploreScreen(){
     ["Places",orderedExisting([...countries,...regions],["Zimbabwe","Africa","Southern Africa","Global"])],
     ["Editorial desks",desks],
     ["Topics & categories",topics],
-    ["Formats",["Articles","Live","Video","Audio",...(premiumAvailable?["Premium"]:[])]],
+    ["Formats",exploreFormats({premiumAvailable})],
     ["More from HealthTimes",["Authors","About HealthTimes",...sourceProducts]]
   ] as const;
 
