@@ -1,0 +1,111 @@
+name: HT-MVP-PUBLIC-LAUNCH-01 — G5 Web Foundation Certification
+
+# Read-only certification of the G5 public-web foundation on integrated launch
+# branches. No secrets, no deployment, no staging or provider calls (the edge lab
+# aborts every non-loopback request after the browser has applied the CSP).
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ht-g5-web-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  g5-offline-contracts-and-edge-lab:
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-launch-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-launch-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APP_ENV: development
+      EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
+      EXPO_PUBLIC_HT_P0_PUBLIC_MANIFEST_AVAILABLE: "false"
+      HEALTHTIMES_WEB_BASE_URL: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install root and mobile dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix apps/mobile --no-audit --no-fund
+      - name: G5 Reader contracts and the module-graph suites they touch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          node --test tests/g5-*.test.mjs tests/ht-nr05c-video-desk.test.mjs tests/ht-nr05cb-public-watch.test.mjs \
+            tests/ht-nr05d-live-desk.test.mjs tests/ht-nr05db-live-blog-updates.test.mjs \
+            tests/ui03-premium-subscription-prompt.test.mjs tests/p0-deep-link-security.test.mjs 2>&1 | tee /tmp/g5-mobile.tap
+          grep -Eq '^# fail 0$' /tmp/g5-mobile.tap
+          grep -Eq '^# skipped 0$' /tmp/g5-mobile.tap
+      - name: G5 edge, commerce-disabled and newsletter contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/g5-*.test.mjs 2>&1 | tee /tmp/g5-root.tap
+          grep -Eq '^# fail 0$' /tmp/g5-root.tap
+          grep -Eq '^# skipped 0$' /tmp/g5-root.tap
+      - name: Build the web export (fails on CSP inline-script hash drift)
+        run: npm run build:phase4:web
+      - name: Browser edge lab (compiled-route replica, mock RPC, CSP, legacy URLs)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          node scripts/web/g5-edge-lab.mjs --out g5-edge-lab
+      - name: Preserve edge-lab evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g5-edge-lab-evidence
+          path: g5-edge-lab/
+          if-no-files-found: warn
+          retention-days: 30
+
+  g5-account-deletion-disposable-postgres:
+    if: startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-launch-') || startsWith(github.ref_name, 'fix/ht-mvp-owner-uat-p0-launch-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install PostgreSQL client and pinned dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Candidate account-deletion contract on the replayed canonical schema
+        shell: bash
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          HT_DISPOSABLE_PG_BASE_URI: postgres://postgres:ephemeral-ci-only@127.0.0.1:55432
+        run: |
+          set -euo pipefail
+          node --test tests/database/account-deletion-contract.test.mjs 2>&1 | tee /tmp/g5-account-deletion.tap
+          grep -Eq '^# fail 0$' /tmp/g5-account-deletion.tap
+          grep -Eq '^# skipped 0$' /tmp/g5-account-deletion.tap
