@@ -82,8 +82,6 @@ function requestedPath(url) {
 
 const CANONICAL_HOSTS = new Set(['healthtimes.co.zw', 'www.healthtimes.co.zw']);
 const CANONICAL_ORIGIN = 'https://healthtimes.co.zw';
-const SHELL_PATH = '/_htp/reader-shell';
-const SHELL_FETCH_HEADER = 'x-htp-shell-fetch';
 const PAGE_PATH_PARAM = 'htpPath';
 const MAX_PAGE_PATH_LENGTH = 400;
 const BLOCKED_PAGE_PREFIXES = [
@@ -96,8 +94,11 @@ const ROBOTS_DISALLOW = [
   '/notifications', '/appearance', '/saved', '/my', '/_htp/'
 ];
 
+// Only the Host header: Vercel documents x-forwarded-host as identical to it, so
+// trusting the forwarded copy adds nothing and would make robots.txt (CDN-cached)
+// depend on a header a client or intermediate proxy could supply.
 function requestHost(req) {
-  const raw = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const raw = String(req.headers.host || '').trim().toLowerCase();
   return /^[a-z0-9.-]+(:\d{1,5})?$/.test(raw) ? raw : '';
 }
 
@@ -211,34 +212,31 @@ function renderPage(shell, capability, status, path = '') {
 
 let shellLoaderOverride = null;
 
-async function loadShell(req) {
-  if (shellLoaderOverride) return shellLoaderOverride(req);
+// The page shell is the exported +not-found.html, embedded at build time by
+// scripts/web/prepare-phase4-vercel.js into lib/generated/reader-shell.js and
+// bundled with this function (traced through the literal require below). No
+// network fetch, no cookie forwarding and no host trust are involved.
+function loadShell() {
+  if (shellLoaderOverride) return { html: shellLoaderOverride(), source: 'override' };
   const file = process.env.HEALTHTIMES_PAGE_SHELL_FILE;
   if (file) {
-    try { return require('node:fs').readFileSync(file, 'utf8'); } catch { return null; }
+    try { return { html: require('node:fs').readFileSync(file, 'utf8'), source: 'file' }; } catch { return { html: null, source: 'minimal' }; }
   }
-  const host = requestHost(req);
-  if (!host || typeof fetch !== 'function') return null;
   try {
-    const response = await fetch('https://' + host + SHELL_PATH, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: {
-        accept: 'text/html',
-        cookie: String(req.headers.cookie || ''),
-        [SHELL_FETCH_HEADER]: '1'
-      },
-      signal: AbortSignal.timeout(3000)
-    });
-    const type = String(response.headers.get('content-type') || '');
-    if (!response.ok || !type.includes('text/html')) return null;
-    return await response.text();
-  } catch {
-    return null;
-  }
+    const html = require('../lib/generated/reader-shell.js');
+    if (typeof html === 'string' && html.includes('</head>')) return { html, source: 'bundled' };
+  } catch {}
+  return { html: null, source: 'minimal' };
 }
 
-function sendPage(req, res, status, html, cache, extraHeaders = {}) {
+function shellPage(capability, status, path) {
+  const shell = loadShell();
+  return { html: renderPage(shell.html, capability, status, path), source: shell.html ? shell.source : 'minimal' };
+}
+
+function sendPage(req, res, status, page, cache, extraHeaders = {}) {
+  const html = typeof page === 'string' ? page : page.html;
+  if (page && typeof page === 'object') res.setHeader('X-HTP-Shell', page.source);
   res.statusCode = status;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', cache);
@@ -251,15 +249,9 @@ function sendPage(req, res, status, html, cache, extraHeaders = {}) {
 }
 
 async function handlePage(req, res, url) {
-  if (req.headers[SHELL_FETCH_HEADER]) {
-    // The shell itself must be static. Reaching the page renderer means the
-    // shell is missing from this deployment; never recurse.
-    return sendPage(req, res, 404, renderPage(null, null, 404), 'no-store', { 'X-HTP-Page': 'shell-missing' });
-  }
-
   const path = pagePathFrom(url);
   if (!path) {
-    return sendPage(req, res, 404, renderPage(await loadShell(req), null, 404),
+    return sendPage(req, res, 404, shellPage(null, 404),
       'public, max-age=60, s-maxage=3600', { 'X-HTP-Page': 'not-a-page' });
   }
 
@@ -267,11 +259,11 @@ async function handlePage(req, res, url) {
     if (/^\/(category|tag)\//i.test(path)) {
       const context = await rpc('ag05_public_context_document', { p_path: path });
       if (!context) {
-        return sendPage(req, res, 404, renderPage(await loadShell(req), null, 404),
+        return sendPage(req, res, 404, shellPage(null, 404),
           'public, max-age=60, s-maxage=600', { 'X-HTP-Page': 'context-missing' });
       }
       const capability = buildContextCapability(context);
-      return sendPage(req, res, 200, renderPage(await loadShell(req), capability, 200, path),
+      return sendPage(req, res, 200, shellPage(capability, 200, path),
         'public, max-age=0, s-maxage=300, stale-while-revalidate=600', { 'X-HTP-Page': 'context' });
     }
 
@@ -284,20 +276,20 @@ async function handlePage(req, res, url) {
     }
 
     if (decision.httpStatus !== 200) {
-      return sendPage(req, res, 404, renderPage(await loadShell(req), null, 404),
+      return sendPage(req, res, 404, shellPage(null, 404),
         'public, max-age=60, s-maxage=600', { 'X-HTP-Page': 'not-found' });
     }
 
     const doc = await rpc('ag05_public_story_document', { p_path: path });
     if (!doc) {
-      return sendPage(req, res, 404, renderPage(await loadShell(req), null, 404),
+      return sendPage(req, res, 404, shellPage(null, 404),
         'public, max-age=60, s-maxage=600', { 'X-HTP-Page': 'document-missing' });
     }
     const capability = buildStoryCapability(doc, { supabaseUrl: config().url, mediaBaseUrl: process.env.HEALTHTIMES_MEDIA_BASE_URL });
-    return sendPage(req, res, 200, renderPage(await loadShell(req), capability, 200, path),
+    return sendPage(req, res, 200, shellPage(capability, 200, path),
       'public, max-age=0, s-maxage=300, stale-while-revalidate=600', { 'X-HTP-Page': 'story' });
   } catch {
-    return sendPage(req, res, 503, renderPage(await loadShell(req), null, 503),
+    return sendPage(req, res, 503, shellPage(null, 503),
       'no-store', { 'Retry-After': '300', 'X-HTP-Page': 'backend-unavailable' });
   }
 }
@@ -458,7 +450,7 @@ module.exports._internals = {
   escapeHtml,
   jsonForScript,
   setShellLoader(loader) { shellLoaderOverride = typeof loader === 'function' ? loader : null; },
-  SHELL_PATH,
-  SHELL_FETCH_HEADER,
+  loadShell,
+  requestHost,
   PAGE_PATH_PARAM
 };

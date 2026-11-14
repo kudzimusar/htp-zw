@@ -87,7 +87,7 @@ function withRuntime(fn) {
     process.env.SUPABASE_URL = 'https://stub-project.supabase.co';
     process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_stub';
     delete process.env.HEALTHTIMES_MEDIA_BASE_URL;
-    internals.setShellLoader(async () => FIXTURE_SHELL);
+    internals.setShellLoader(() => FIXTURE_SHELL);
     try { await fn(); } finally {
       internals.setShellLoader(null);
       for (const [k, v] of [['SUPABASE_URL', saved.url], ['SUPABASE_PUBLISHABLE_KEY', saved.key], ['HEALTHTIMES_MEDIA_BASE_URL', saved.media]]) {
@@ -284,57 +284,69 @@ test('page: backend restriction (HTTP 402) is a 503 with Retry-After, never cach
   } finally { backend.restore(); }
 }));
 
-test('page: the shell fetch marker can never recurse into the renderer', withRuntime(async () => {
-  const backend = stubBackend({});
-  let shellLoads = 0;
-  internals.setShellLoader(async () => { shellLoads++; return FIXTURE_SHELL; });
-  try {
-    const res = await invoke(pageUrl('/cholera-response-update/'), { headers: { host: 'healthtimes.co.zw', [internals.SHELL_FETCH_HEADER]: '1' } });
-    assert.equal(res.status, 404);
-    assert.equal(res.headers['cache-control'], 'no-store');
-    assert.equal(shellLoads, 0);
-    assert.equal(backend.calls.length, 0);
-  } finally { backend.restore(); }
-}));
-
-test('page: default shell loader fetches the static shell from the same host, forwarding only the visitor cookie', async () => {
-  const savedUrl = process.env.SUPABASE_URL, savedKey = process.env.SUPABASE_PUBLISHABLE_KEY, savedFile = process.env.HEALTHTIMES_PAGE_SHELL_FILE;
-  process.env.SUPABASE_URL = 'https://stub-project.supabase.co';
-  process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_stub';
-  delete process.env.HEALTHTIMES_PAGE_SHELL_FILE;
+test('page: the shell comes only from the build-bundled module; no network fetch, no cookie forwarding, no header trust', withRuntime(async () => {
+  const backend = stubBackend({ ag05_resolve_public_path: () => ({ json: { resolution: 'explicit_404_exception', http_status: 404 } }) });
   internals.setShellLoader(null);
-  const backend = stubBackend({
-    ag05_resolve_public_path: () => ({ json: { resolution: 'explicit_404_exception', http_status: 404 } }),
-    __other: async (url, init) => {
-      assert.equal(url, 'https://healthtimes.co.zw/_htp/reader-shell');
-      assert.equal(init.headers.cookie, '_vercel_jwt=visitor');
-      assert.equal(init.headers[internals.SHELL_FETCH_HEADER], '1');
-      assert.equal(init.redirect, 'manual');
-      return new Response(FIXTURE_SHELL, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-    }
-  });
+  const savedFile = process.env.HEALTHTIMES_PAGE_SHELL_FILE;
+  delete process.env.HEALTHTIMES_PAGE_SHELL_FILE;
+  const generated = path.join(root, 'lib/generated/reader-shell.js');
+  const existed = fs.existsSync(generated);
   try {
-    const res = await invoke(pageUrl('/no-such-story/'), { headers: { host: 'healthtimes.co.zw', cookie: '_vercel_jwt=visitor' } });
+    if (!existed) {
+      fs.mkdirSync(path.dirname(generated), { recursive: true });
+      fs.writeFileSync(generated, "'use strict';\nmodule.exports = " + JSON.stringify(FIXTURE_SHELL) + ';\n');
+    }
+    delete require.cache[generated];
+    const res = await invoke(pageUrl('/no-such-story/'), {
+      headers: { host: 'healthtimes.co.zw', 'x-forwarded-host': 'evil.example', cookie: '_vercel_jwt=visitor; sb-access-token=reader-session' }
+    });
     assert.equal(res.status, 404);
+    assert.equal(res.headers['x-htp-shell'], 'bundled');
     assert.match(res.body, /<div id="root">/, 'served inside the real Reader shell');
-    const invalidHost = await invoke(pageUrl('/no-such-story/'), { headers: { host: 'evil.example/path' } });
-    assert.match(invalidHost.body, /^<!DOCTYPE html>/);
-    assert.doesNotMatch(invalidHost.body, /<script/, 'minimal fallback page carries no script');
-    assert.equal(backend.calls.filter(c => c.url.includes('/_htp/')).length, 1, 'invalid host never fetched');
+    assert.deepEqual([...new Set(backend.calls.map(call => new URL(call.url).origin))], ['https://stub-project.supabase.co'], 'only the configured RPC origin is contacted');
+    for (const call of backend.calls) {
+      const sent = JSON.stringify(call.init.headers || {});
+      assert.doesNotMatch(sent, /_vercel_jwt|reader-session|cookie/i, 'visitor credentials are never forwarded');
+    }
   } finally {
     backend.restore();
-    for (const [k, v] of [['SUPABASE_URL', savedUrl], ['SUPABASE_PUBLISHABLE_KEY', savedKey], ['HEALTHTIMES_PAGE_SHELL_FILE', savedFile]]) {
-      if (v === undefined) delete process.env[k]; else process.env[k] = v;
-    }
+    if (!existed) fs.rmSync(generated, { force: true });
+    delete require.cache[generated];
+    if (savedFile === undefined) delete process.env.HEALTHTIMES_PAGE_SHELL_FILE; else process.env.HEALTHTIMES_PAGE_SHELL_FILE = savedFile;
   }
+}));
+
+test('page: with no shell available the response is a minimal, script-free page', withRuntime(async () => {
+  const backend = stubBackend({ ag05_resolve_public_path: () => ({ json: { resolution: 'explicit_404_exception', http_status: 404 } }) });
+  internals.setShellLoader(null);
+  const savedFile = process.env.HEALTHTIMES_PAGE_SHELL_FILE;
+  process.env.HEALTHTIMES_PAGE_SHELL_FILE = path.join(root, 'tests', 'no-such-shell-file.html');
+  try {
+    const res = await invoke(pageUrl('/no-such-story/'));
+    assert.equal(res.status, 404);
+    assert.equal(res.headers['x-htp-shell'], 'minimal');
+    assert.match(res.body, /^<!DOCTYPE html>/);
+    assert.doesNotMatch(res.body, /<script/);
+    assert.match(res.body, /name="robots" content="noindex,follow"/);
+  } finally {
+    backend.restore();
+    if (savedFile === undefined) delete process.env.HEALTHTIMES_PAGE_SHELL_FILE; else process.env.HEALTHTIMES_PAGE_SHELL_FILE = savedFile;
+  }
+}));
+
+test('robots depends on the Host header only (x-forwarded-host cannot change a CDN-cached policy)', async () => {
+  const preview = await invoke('/api/public?kind=robots', { headers: { host: 'dist-11-11.vercel.app', 'x-forwarded-host': 'healthtimes.co.zw' } });
+  assert.equal(preview.body, 'User-agent: *\nDisallow: /\n');
+  const production = await invoke('/api/public?kind=robots', { headers: { host: 'healthtimes.co.zw', 'x-forwarded-host': 'dist-11-11.vercel.app' } });
+  assert.match(production.body, /Sitemap: https:\/\/healthtimes\.co\.zw\/sitemap\.xml/);
+  assert.equal(internals.requestHost({ headers: { host: 'preview.vercel.app', 'x-forwarded-host': 'evil.example' } }), 'preview.vercel.app');
 });
 
 test('page: the real exported shell keeps its executable inline scripts byte-identical', withRuntime(async () => {
-  const shellFile = path.join(root, 'apps/mobile/dist/_htp/reader-shell.html');
+  const generated = path.join(root, 'lib/generated/reader-shell.js');
   const notFound = path.join(root, 'apps/mobile/dist/+not-found.html');
-  const source = fs.existsSync(shellFile) ? shellFile : (fs.existsSync(notFound) ? notFound : null);
-  const shell = source ? fs.readFileSync(source, 'utf8') : FIXTURE_SHELL;
-  internals.setShellLoader(async () => shell);
+  const shell = fs.existsSync(generated) ? require(generated) : (fs.existsSync(notFound) ? fs.readFileSync(notFound, 'utf8') : FIXTURE_SHELL);
+  internals.setShellLoader(() => shell);
   const backend = stubBackend({
     ag05_resolve_public_path: () => ({ json: { resolution: 'preserved_direct', http_status: 200 } }),
     ag05_public_story_document: () => ({ json: STORY_DOC })

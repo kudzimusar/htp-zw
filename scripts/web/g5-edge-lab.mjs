@@ -19,8 +19,8 @@ const outIndex = process.argv.indexOf('--out');
 const outDir = path.resolve(outIndex > 0 ? process.argv[outIndex + 1] : 'g5-edge-lab');
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
 
-if (!fs.existsSync(path.join(dist, '_htp/reader-shell.html'))) {
-  console.error('G5_LAB_FATAL: run `npm run build:phase4:web` first (apps/mobile/dist/_htp/reader-shell.html missing).');
+if (!fs.existsSync(path.join(root, 'lib/generated/reader-shell.js')) || !fs.existsSync(path.join(dist, '+not-found.html'))) {
+  console.error('G5_LAB_FATAL: run `npm run build:phase4:web` first (bundled Reader shell module or export missing).');
   process.exit(2);
 }
 
@@ -69,7 +69,8 @@ const rpcServer = http.createServer((req, res) => {
 await new Promise(resolve => rpcServer.listen(0, '127.0.0.1', resolve));
 process.env.SUPABASE_URL = 'http://127.0.0.1:' + rpcServer.address().port;
 process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_lab';
-process.env.HEALTHTIMES_PAGE_SHELL_FILE = path.join(dist, '_htp/reader-shell.html');
+// No shell override: the page renderer uses the build-generated bundled module, as on Vercel.
+delete process.env.HEALTHTIMES_PAGE_SHELL_FILE;
 const publicHandler = require(path.join(root, 'api/public.js'));
 
 // ------------------------------------------------- Vercel edge reproduction
@@ -167,6 +168,7 @@ async function legacy(pathname) {
     redirectChain: response.request().redirectedFrom() ? [new URL(response.request().redirectedFrom().url()).pathname] : [],
     status: response.status(),
     serverOgTitle: (await response.text()).match(/property="og:title" content="([^"]*)"/)?.[1] ?? null,
+    shellSource: response.headers()['x-htp-shell'] ?? null,
     bodyText: (await page.evaluate(() => document.body.innerText)).slice(0, 4000),
     canonical: await page.evaluate(() => [...document.querySelectorAll('link[rel="canonical"]')].map(l => l.href)),
     capabilityBlockAtDomReady: await page.evaluate(() => window.__htpBlockAtDomReady ?? null),
@@ -197,6 +199,7 @@ const checks = {
   preservedLegacyPageRendersArticle: preserved.bodyText.includes('G5 lab public body paragraph.'),
   aliasRedirectsToCanonical: alias.finalPath === '/cholera-response-update/' && alias.redirectChain[0] === '/2026/10/30/cholera-response-update/' && alias.bodyText.includes('G5 lab public body paragraph.'),
   unknownPathIs404: missing.status === 404 && /not available/i.test(missing.bodyText),
+  bundledShellServed: [preserved, alias, missing].every(page => page.shellSource === 'bundled'),
   robotsDisallowsNonCanonicalHost: robots === 'User-agent: *\nDisallow: /\n',
   wpUploadsRedirectToArchive: wpRedirect.status === 301 && wpRedirect.headers.get('location') === 'https://healthtimes-media.pages.dev/wordpress/2026/09/example.jpg'
 };
