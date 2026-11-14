@@ -19,6 +19,7 @@ import { parseArticleContent, type ArticleContentBlock, type ArticleInline } fro
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
 import { READER_LAUNCH_CAPABILITIES } from "../../src/launch/reader-capabilities";
 import { ArticleSeoHead } from "../../src/seo/RouteSeoHead";
+import { effectiveCommerceStatus, launchCommerceEnabled, mayOpenCheckoutUrl } from "../../src/growth/purchase-policy";
 
 // Security invariant retained for frozen Reader contracts; this text is never rendered to readers.
 const PREMIUM_OFFLINE_SECURITY_INVARIANT = "Premium body is not available for offline storage without entitlement";
@@ -280,7 +281,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       previewConfig.source==="owner-policy" &&
       previewConfig.paragraphCount===1 &&
       previewConfig.seconds===20,
-    commerceStatus:commerce.loading ? "loading" : (commerce.data?.status ?? "unavailable"),
+    commerceStatus:commerce.loading ? "loading" : effectiveCommerceStatus(commerce.data?.status ?? "unavailable"),
     promptRequested:premiumPromptRequested
   });
 
@@ -419,7 +420,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         productPlanId:commerce.data?.productPlanId ?? null
       });
       const checkoutUrl=result.checkoutUrl?.trim() ?? "";
-      if(result.status==="redirect-required" && /^https:\/\//i.test(checkoutUrl)){
+      if(result.status==="redirect-required" && mayOpenCheckoutUrl({platform:Platform.OS,commerceEnabled:launchCommerceEnabled(),url:checkoutUrl})){
         setPremiumPromptVisible(false);
         await Linking.openURL(checkoutUrl);
         return;

@@ -9,6 +9,7 @@ import { event } from "../src/growth/events";
 import { breakpoints, layout, radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 import { READER_LAUNCH_CAPABILITIES, availableClaims } from "../src/launch/reader-capabilities";
+import { launchCommerceEnabled, mayOpenCheckoutUrl } from "../src/growth/purchase-policy";
 
 // Benefits are a paid-product claim: audio is listed only once playback exists.
 const PREMIUM_PILLARS = [
@@ -65,13 +66,16 @@ export default function PremiumScreen(){
   const [status,setStatus]=useState("");
   const previewTracked=useRef(false);
 
+  const commerceEnabled=launchCommerceEnabled();
   const webOfferAvailable=Boolean(
+    commerceEnabled &&
     webCommerce &&
     commerce.data?.status==="available" &&
     commerce.data.price &&
     commerce.data.currency
   );
   const storeOffersAvailable=Boolean(
+    commerceEnabled &&
     !webCommerce &&
     store.data?.status==="available" &&
     store.data.offers.length
@@ -108,8 +112,8 @@ export default function PremiumScreen(){
         productPlanId:commerce.data?.productPlanId ?? null
       });
       setStatus(result.message);
-      if(result.status==="redirect-required" && result.checkoutUrl){
-        await Linking.openURL(result.checkoutUrl);
+      if(result.status==="redirect-required" && mayOpenCheckoutUrl({platform:Platform.OS,commerceEnabled,url:result.checkoutUrl})){
+        await Linking.openURL(result.checkoutUrl as string);
       }
     }catch{
       setStatus("Premium checkout is unavailable. No membership access has been granted.");
