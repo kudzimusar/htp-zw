@@ -44,7 +44,9 @@ const EXCLUDED_JOBS = {
   "ui-wf02a-search-native-visual.yml#ios-search-native":
     "Runs only for the legacy feat/ui-wf01a-compact-reader-shell base or its own branch",
   "ui-wf02a-search-native-visual.yml#android-search-native":
-    "Runs only for the legacy feat/ui-wf01a-compact-reader-shell base or its own branch"
+    "Runs only for the legacy feat/ui-wf01a-compact-reader-shell base or its own branch",
+  "ht-mvp-g5-web-foundation.yml#g5-offline-contracts-and-edge-lab":
+    "G5 edge lab serves Supabase RPCs from a loopback mock and aborts every non-loopback request after the CSP is applied; it fetches no staging or archive media"
 };
 
 const BUILD = /npm run build:phase4:web|run export:web|npm run native:export:web|expo prebuild|assembleRelease|assembleDebug|xcodebuild(?!\s+-(?:version|list))|expo start/;
