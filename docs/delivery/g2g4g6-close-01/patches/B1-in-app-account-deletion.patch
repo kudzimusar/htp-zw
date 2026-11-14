@@ -1,0 +1,258 @@
+diff --git a/apps/mobile/app/devices-sessions.tsx b/apps/mobile/app/devices-sessions.tsx
+index 41767dc..a3027cc 100644
+--- a/apps/mobile/app/devices-sessions.tsx
++++ b/apps/mobile/app/devices-sessions.tsx
+@@ -1,5 +1,6 @@
+ import { useState } from "react";
+-import { Pressable, StyleSheet, Text, View } from "react-native";
++import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
++import { ACCOUNT_DELETION_CONFIRMATION } from "../src/domain/models";
+ import { Page, Section, SectionHeader } from "../src/ui/Layout";
+ import { services } from "../src/services";
+ import { useAsync } from "../src/hooks/useAsync";
+@@ -18,9 +19,20 @@ export default function DevicesSessionsScreen(){
+     setRefresh((value)=>value+1);
+   };
+ 
++  const [confirmation,setConfirmation]=useState("");
++  const [password,setPassword]=useState("");
++  const deletionStatus=useAsync(()=>services.auth.accountDeletionStatus(),[refresh]);
++  const pending=deletionStatus.data?.status==="requested";
+   const deletion=async()=>{
+-    const result=await services.auth.requestAccountDeletion();
++    const result=await services.auth.requestAccountDeletion(confirmation,password);
++    setPassword("");
+     setStatus(result.message);
++    setRefresh((value)=>value+1);
++  };
++  const cancelDeletion=async()=>{
++    const result=await services.auth.cancelAccountDeletion();
++    setStatus(result.message);
++    setRefresh((value)=>value+1);
+   };
+ 
+   return (
+@@ -50,11 +62,24 @@ export default function DevicesSessionsScreen(){
+       </Section>
+ 
+       <Section>
+-        <SectionHeader title="Account deletion" eyebrow="SERVER ACTION" />
+-        <Text style={[styles.note,{color:palette.inkMuted}]}>Deleting an identity requires server-side removal, entitlement/subscriber reconciliation and an audit trail. The app cannot delete Supabase Auth users with a publishable key.</Text>
+-        <Pressable accessibilityRole="button" style={[styles.danger,{borderColor:palette.live}]} onPress={()=>void deletion()}>
+-          <Text style={[styles.dangerText,{color:palette.live}]}>Request deletion status</Text>
+-        </Pressable>
++        <SectionHeader title="Delete account" eyebrow="ACCOUNT" />
++        <Text style={[styles.note,{color:palette.inkMuted}]}>Deleting your account removes your sign-in, profile, saved devices and comments. Payment records are kept as the law requires, without your name or email. You can cancel within the window shown after you request deletion.</Text>
++        {pending ? (
++          <View>
++            <Text style={[styles.note,{color:palette.ink}]}>{deletionStatus.data?.message}{deletionStatus.data?.cancelWindowEndsAt ? ` Cancel before ${new Date(deletionStatus.data.cancelWindowEndsAt).toLocaleString()}.` : ""}</Text>
++            <Pressable accessibilityRole="button" style={[styles.button,{borderColor:palette.border}]} onPress={()=>void cancelDeletion()}>
++              <Text style={[styles.buttonText,{color:palette.ink}]}>Cancel deletion request</Text>
++            </Pressable>
++          </View>
++        ) : (
++          <View>
++            <TextInput accessibilityLabel={`Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm`} placeholder={ACCOUNT_DELETION_CONFIRMATION} autoCapitalize="characters" autoCorrect={false} value={confirmation} onChangeText={setConfirmation} style={[styles.input,{borderColor:palette.border,color:palette.ink}]} />
++            <TextInput accessibilityLabel="Current password" placeholder="Current password" secureTextEntry autoComplete="current-password" value={password} onChangeText={setPassword} style={[styles.input,{borderColor:palette.border,color:palette.ink}]} />
++            <Pressable accessibilityRole="button" disabled={confirmation.trim()!==ACCOUNT_DELETION_CONFIRMATION||!password} style={[styles.danger,{borderColor:palette.live,opacity:confirmation.trim()===ACCOUNT_DELETION_CONFIRMATION&&password?1:0.5}]} onPress={()=>void deletion()}>
++              <Text style={[styles.dangerText,{color:palette.live}]}>Delete my account</Text>
++            </Pressable>
++          </View>
++        )}
+         {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
+       </Section>
+     </Page>
+@@ -62,6 +87,7 @@ export default function DevicesSessionsScreen(){
+ }
+ 
+ const styles=StyleSheet.create({
++  input:{borderWidth:1,borderRadius:radius.sm,padding:spacing.sm,marginTop:spacing.sm},
+   lede:{fontSize:15,lineHeight:23,maxWidth:760,marginTop:spacing.sm},
+   card:{gap:spacing.md,maxWidth:720,borderWidth:1,borderRadius:radius.md,padding:spacing.lg},
+   fact:{gap:3},
+diff --git a/apps/mobile/src/domain/contracts.ts b/apps/mobile/src/domain/contracts.ts
+index f5598ae..bf32f7a 100644
+--- a/apps/mobile/src/domain/contracts.ts
++++ b/apps/mobile/src/domain/contracts.ts
+@@ -184,7 +184,9 @@ export interface AuthService {
+   resendVerification(email: string): Promise<AuthActionResult>;
+   handleAuthCallback(url: string): Promise<AuthActionResult>;
+   completePasswordReset(password: string): Promise<AuthActionResult>;
+-  requestAccountDeletion(): Promise<AccountDeletionState>;
++  requestAccountDeletion(confirmation: string, currentPassword: string): Promise<AccountDeletionState>;
++  cancelAccountDeletion(): Promise<AccountDeletionState>;
++  accountDeletionStatus(): Promise<AccountDeletionState>;
+   signOut(): Promise<void>;
+ }
+ 
+diff --git a/apps/mobile/src/domain/models.ts b/apps/mobile/src/domain/models.ts
+index 395a962..ebb4050 100644
+--- a/apps/mobile/src/domain/models.ts
++++ b/apps/mobile/src/domain/models.ts
+@@ -290,10 +290,15 @@ export type OwnerActivationResult = {
+ };
+ 
+ export type AccountDeletionState = {
+-  status: "server-required" | "requested" | "unavailable";
++  status: "server-required" | "requested" | "cancelled" | "none" | "completed" | "unavailable" | "error";
+   message: string;
++  requestId?: string;
++  cancelWindowEndsAt?: string;
+ };
+ 
++/** Phrase the reader must type; the server contract checks the same literal. */
++export const ACCOUNT_DELETION_CONFIRMATION = "DELETE MY ACCOUNT";
++
+ export type CurrentDeviceSession = {
+   authenticated: boolean;
+   userId: string | null;
+diff --git a/apps/mobile/src/generated/database.types.ts b/apps/mobile/src/generated/database.types.ts
+index 7c568fc..634aafb 100644
+--- a/apps/mobile/src/generated/database.types.ts
++++ b/apps/mobile/src/generated/database.types.ts
+@@ -5860,6 +5860,20 @@ export type Database = {
+         Args: { p_comment_id: string }
+         Returns: undefined
+       }
++      // Candidate G5 account-deletion contract (20261114120000). Regenerate with
++      // `supabase gen types` once the migration is applied; these are its signatures.
++      account_request_deletion: {
++        Args: { p_confirmation: string }
++        Returns: Json
++      }
++      account_cancel_deletion_request: {
++        Args: Record<PropertyKey, never>
++        Returns: Json
++      }
++      account_deletion_request_status: {
++        Args: Record<PropertyKey, never>
++        Returns: Json
++      }
+     }
+     Enums: {
+       [_ in never]: never
+diff --git a/apps/mobile/src/services/fixtures.ts b/apps/mobile/src/services/fixtures.ts
+index 412b820..d083b3a 100644
+--- a/apps/mobile/src/services/fixtures.ts
++++ b/apps/mobile/src/services/fixtures.ts
+@@ -123,6 +123,12 @@ const authService: AuthService = {
+       message: "Fixture mode has no authoritative account to delete."
+     };
+   },
++  async cancelAccountDeletion() {
++    return { status: "unavailable", message: "Fixture mode has no authoritative account to delete." };
++  },
++  async accountDeletionStatus() {
++    return { status: "unavailable", message: "Fixture mode has no authoritative account to delete." };
++  },
+   async signOut() {
+     return;
+   }
+diff --git a/apps/mobile/src/services/staging.ts b/apps/mobile/src/services/staging.ts
+index 507c7d4..e1e900c 100644
+--- a/apps/mobile/src/services/staging.ts
++++ b/apps/mobile/src/services/staging.ts
+@@ -4,8 +4,25 @@ import type { ReaderProfile } from "../domain/models";
+ import { notifications } from "../fixtures/content";
+ import { checkStagingConnectivity } from "../platform/connectivity";
+ import { getStagingSupabaseClient } from "../platform/supabase";
++import { ACCOUNT_DELETION_CONFIRMATION, type AccountDeletionState } from "../domain/models";
++
+ import { requestPushRegistrationBaseline } from "../security/push";
+ 
++function deletionState(raw: unknown, fallback: AccountDeletionState["status"]): AccountDeletionState {
++  const row = (raw ?? {}) as { status?: string; requestId?: string; cancelWindowEndsAt?: string };
++  const status: string = (["requested", "cancelled", "none", "completed", "data_erased", "rejected"].includes(String(row.status)) ? row.status : fallback) ?? fallback;
++  const messages: Record<string, string> = {
++    requested: "Deletion requested. You can cancel until the time shown; after that your account and personal data are removed.",
++    data_erased: "Your personal data has been removed. Account closure is completing.",
++    completed: "Your account has been deleted.",
++    cancelled: "Deletion cancelled. Your account is unchanged.",
++    rejected: "This account cannot be deleted here. Contact HealthTimes support.",
++    none: "There is no deletion request for this account."
++  };
++  const mapped: AccountDeletionState["status"] = status === "data_erased" ? "requested" : status === "rejected" ? "error" : (status as AccountDeletionState["status"]);
++  return { status: mapped, message: messages[status] ?? "There is no deletion request for this account.", requestId: row.requestId, cancelWindowEndsAt: row.cancelWindowEndsAt };
++}
++
+ const anonymousReader: ReaderProfile = {
+   id: "anonymous",
+   displayName: "Reader",
+@@ -158,12 +175,43 @@ export const stagingAuthService: AuthService = {
+       : { status: "success", message: "Password updated for the current HealthTimes account." };
+   },
+ 
+-  async requestAccountDeletion() {
+-    return {
+-      status: "server-required",
+-      message:
+-        "Account deletion requires an authenticated AG-06 server endpoint with audit and identity-provider deletion. The mobile client cannot delete Auth users directly."
+-    };
++  // G5 account-deletion contract. The client only opens, reads or cancels a request; the
++  // mobile client cannot delete Auth users directly. Erasure and Auth removal run in the
++  // server-only operator job after the cancellation window.
++  async requestAccountDeletion(confirmation: string, currentPassword: string) {
++    if (confirmation.trim() !== ACCOUNT_DELETION_CONFIRMATION) {
++      return { status: "error", message: `Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm.` };
++    }
++    const supabase = getStagingSupabaseClient();
++    const { data } = await supabase.auth.getSession();
++    const email = data.session?.user.email;
++    if (!email) return { status: "error", message: "Sign in to delete your account." };
++    // Reauthentication: a stolen unlocked session alone cannot start deletion.
++    const reauth = await supabase.auth.signInWithPassword({ email, password: currentPassword });
++    if (reauth.error) return { status: "error", message: "Your password was not accepted. Nothing was changed." };
++    const { data: result, error } = await supabase.rpc("account_request_deletion", { p_confirmation: ACCOUNT_DELETION_CONFIRMATION });
++    if (error) {
++      return /STAFF_ACCOUNT_REQUIRES_NEWSROOM_OFFBOARDING/.test(error.message)
++        ? { status: "error", message: "Staff accounts are closed through Newsroom offboarding. Contact your editor." }
++        : { status: "error", message: "Deletion could not be requested. Nothing was changed; please try again." };
++    }
++    return deletionState(result, "requested");
++  },
++
++  async cancelAccountDeletion() {
++    const { data, error } = await getStagingSupabaseClient().rpc("account_cancel_deletion_request");
++    if (error) {
++      return /DELETION_CANCEL_WINDOW_CLOSED/.test(error.message)
++        ? { status: "error", message: "The cancellation window has closed; deletion is already in progress." }
++        : { status: "error", message: "There is no deletion request to cancel." };
++    }
++    return deletionState(data, "cancelled");
++  },
++
++  async accountDeletionStatus() {
++    const { data, error } = await getStagingSupabaseClient().rpc("account_deletion_request_status");
++    if (error) return { status: "error", message: "Deletion status is unavailable right now." };
++    return deletionState(data, "none");
+   },
+ 
+   async signOut() {
+diff --git a/apps/mobile/tests/identity-security.test.mjs b/apps/mobile/tests/identity-security.test.mjs
+index 0a51269..dafeeba 100644
+--- a/apps/mobile/tests/identity-security.test.mjs
++++ b/apps/mobile/tests/identity-security.test.mjs
+@@ -57,10 +57,22 @@ test("staging Reader auth uses Supabase Auth without granting staff authority",(
+ test("account deletion stays server-authoritative",()=>{
+   const staging=read("src/services/staging.ts");
+   const screen=read("app/devices-sessions.tsx");
+-  assert.ok(staging.includes('status: "server-required"'));
+   assert.ok(staging.includes("mobile client cannot delete Auth users directly"));
+   assert.ok(screen.includes("requestAccountDeletion"));
+   assert.equal(staging.includes("admin.deleteUser"),false);
++  assert.equal(/service_role|SERVICE_ROLE/.test(staging),false);
++  // The client may only open, read or cancel a request through the G5 contract.
++  for (const rpc of ["account_request_deletion","account_cancel_deletion_request","account_deletion_request_status"]) assert.ok(staging.includes(`"${rpc}"`),rpc);
++  assert.equal(staging.includes("account_deletion_process"),false);
++  assert.equal(staging.includes("account_deletion_mark_identity_deleted"),false);
++  // Reauthentication precedes the request, and the typed phrase is checked first.
++  const body=staging.slice(staging.indexOf("async requestAccountDeletion("));
++  assert.ok(body.indexOf("ACCOUNT_DELETION_CONFIRMATION")<body.indexOf("signInWithPassword"));
++  assert.ok(body.indexOf("signInWithPassword")<body.indexOf('"account_request_deletion"'));
++  // The screen offers cancellation and never keeps the password after submitting.
++  assert.ok(screen.includes("cancelAccountDeletion"));
++  assert.ok(screen.includes("secureTextEntry"));
++  assert.ok(screen.includes('setPassword("")'));
+ });
+ 
+ test("push registration is permission-driven and never claims server registration",()=>{
