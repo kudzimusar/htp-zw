@@ -87,7 +87,9 @@ test("with commerce off neither screen requests /api/commerce (no 401/SSO noise 
   const premium = read("app/premium.tsx");
   assert.match(premium, /const commerce=useAsync\(\(\)=>launchCommerceEnabled\(\) \? services\.premiumCommerce\.getAuthority\(\) : Promise\.resolve\(null\),\[\]\);/);
   const article = read("app/article/[id].tsx");
-  assert.match(article, /article\.data\?\.accessPolicy==="premium" && launchCommerceEnabled\(\) \? services\.premiumCommerce\.getAuthority\(\) : Promise\.resolve\(null\)/);
+  // The commerce gate comes first so the frozen P0 article contract literal
+  // (p0-reader-recovery-contract: Premium-only authority request) stays intact.
+  assert.match(article, /const commerce=useAsync\(\(\)=>!launchCommerceEnabled\(\) \? Promise\.resolve\(null\) : article\.data\?\.accessPolicy==="premium" \? services\.premiumCommerce\.getAuthority\(\) : Promise\.resolve\(null\),/);
   for (const source of [premium, article]) {
     const calls = [...source.matchAll(/services\.premiumCommerce\.getAuthority\(\)/g)];
     for (const call of calls) {
