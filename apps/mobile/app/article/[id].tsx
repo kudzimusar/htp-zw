@@ -420,7 +420,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         productPlanId:commerce.data?.productPlanId ?? null
       });
       const checkoutUrl=result.checkoutUrl?.trim() ?? "";
-      if(result.status==="redirect-required" && mayOpenCheckoutUrl({platform:Platform.OS,commerceEnabled:launchCommerceEnabled(),url:checkoutUrl})){
+      if(result.status==="redirect-required" && /^https:\/\//i.test(checkoutUrl) && mayOpenCheckoutUrl({platform:Platform.OS,commerceEnabled:launchCommerceEnabled(),url:checkoutUrl})){
         setPremiumPromptVisible(false);
         await Linking.openURL(checkoutUrl);
         return;
