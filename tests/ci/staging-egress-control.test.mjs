@@ -203,3 +203,18 @@ test("UI-03 evidence redirects verified WordPress media to the same object the j
   assert.ok(evidence.includes("headers: { Location: verifiedMediaTarget(verified)"));
   assert.ok(evidence.includes('if(!configured || !supabaseUrl.startsWith(MIGRATED_MEDIA_PREFIX)) return supabaseUrl;'));
 });
+
+test("the sealed G3 artifact of a launch candidate compiles the mirror; the P0 artifact keeps its configuration", () => {
+  const { steps } = workflows["ht-mvp-uiat01-r3-icr05b-certification.yml"].jobs["g3-isolated-artifact-certification"];
+  const launchOnly = "if: steps.check-scope.outputs.is_g3 == 'true' && startsWith(github.head_ref || github.ref_name, 'fix/ht-mvp-owner-uat-p0-launch-')";
+  const enableAt = steps.findIndex((step) => step.includes(ENABLE));
+  const buildAt = steps.findIndex((step) => step.includes("npx vercel build"));
+  const verifyAt = steps.findIndex((step) => step.includes(`${VERIFY} .vercel/output/static`));
+  const manifestAt = steps.findIndex((step) => step.includes("verify-vercel-manifest.mjs --verify"));
+  assert.ok(enableAt >= 0 && buildAt > enableAt, "enable before the Vercel build");
+  assert.ok(verifyAt > buildAt && verifyAt < manifestAt, "verify the packaged output before manifest certification");
+  for (const index of [enableAt, verifyAt]) assert.ok(steps[index].includes(launchOnly), "mirror steps are limited to launch candidates");
+  assert.equal(steps.filter((step) => step.includes("public-media-mirror.sh")).length, 2);
+  const payload = steps.find((step) => step.includes("g3-artifact-certification.json"));
+  assert.ok(payload.includes('compiledPublicMediaOrigin: compilesMirror(".vercel/output/static/_expo") ? "https://healthtimes-media.pages.dev" : "supabase-default"'));
+});
