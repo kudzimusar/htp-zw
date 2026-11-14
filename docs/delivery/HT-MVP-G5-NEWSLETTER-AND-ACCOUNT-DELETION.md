@@ -46,3 +46,56 @@ Consent is therefore never recorded against a draft policy.
    - `COM01_BREVO_WEBHOOK_TOKEN` (unsubscribe and bounce webhooks)
 4. **Web build:** set `EXPO_PUBLIC_HEALTHTIMES_NEWSLETTER_SIGNUP=true`.
 5. **Verification:** subscribe a test address, confirm the consent row and the Brevo list entry, then unsubscribe through Brevo and confirm the webhook updates the record.
+
+## 2. Account deletion
+
+### Why it is required
+
+- **Both stores require it.** Apple (App Store Review Guideline 5.1.1(v)) and Google Play require apps that create accounts to let users start account deletion inside the app. Google also requires a web link for deletion requests.
+- **Today it is a stub.** `requestAccountDeletion()` returns `server-required` (`apps/mobile/src/services/staging.ts`) and nothing is deleted.
+
+### Where personal data lives
+
+The schema was replayed on a disposable database on 2026-11-14 to find every place reader data is stored.
+
+| Data | Table | Contract action |
+|---|---|---|
+| Reader account | `auth.users` | Deleted through the Supabase Auth Admin API after data erasure. Existing AG-06 triggers then revoke any staff profile and sessions. |
+| Subscriber profile | `subscribers` (email unique, not null) | Anonymised: email set to `deleted+<id>@account-deleted.invalid`, name cleared, Auth link removed, status `deleted` |
+| Premium access | `premium_entitlements` | Ended now. Rows kept for finance. |
+| Payments | `payment_transactions` (cannot be deleted; references the subscriber) | Kept unchanged, linked only to the anonymised subscriber |
+| Push devices | `reader_push_devices` | Deleted (they would also cascade with the Auth identity) |
+| Discussion | `reader_comment_profiles`, `story_comments`, `story_comment_revisions` | Profile renamed "Former reader", disabled, and moved to a random unlinkable ID. Comment text and earlier revisions replaced with `[removed at account deletion]` |
+| Newsletter and marketing contacts | `contact_profiles`, `contact_consents` (linked by email) | **Counted for manual review, not changed.** Erasing consent evidence is a legal decision. |
+| Staff identities | `staff_profiles`, `newsroom_sessions` | **Refused.** Staff leave through Newsroom offboarding, which keeps the editorial and audit trail intact. |
+
+### Contract
+
+The contract is in `supabase/migrations/candidates/20261114120000_ht_mvp_g5_account_deletion_contract.sql`. It is not applied anywhere.
+
+| Function | Who may call it | What it does |
+|---|---|---|
+| `account_request_deletion('DELETE MY ACCOUNT')` | Signed-in reader | Opens one request. Idempotent. Refuses staff. A 24-hour cancellation window starts. |
+| `account_cancel_deletion_request()` | Signed-in reader | Cancels the request, only within the window |
+| `account_deletion_request_status()` | Signed-in reader | Returns the reader's own latest request |
+| `account_deletion_process(request_id, processed_by)` | `service_role` only | After the window: erases and anonymises as in the table above, records a count summary, then returns `DELETE_AUTH_IDENTITY_VIA_ADMIN_API` |
+| `account_deletion_mark_identity_deleted(request_id)` | `service_role` only | Completes the request only if the Auth identity no longer exists |
+
+The requests table has row-level security: readers can see only their own rows, and no role can insert or update it directly. Each request keeps the pseudonymous user ID, timestamps and the count summary as evidence of deletion.
+
+**Tests** (`tests/database/account-deletion-contract.test.mjs`): 7/7 pass on a fresh Postgres 16 cluster, and 54/54 pass together with the existing suites in CI's parallel invocation. Three deliberate mutations were each caught:
+- granting processing to readers;
+- removing the staff refusal;
+- removing the cancellation window.
+
+### Integration steps (separately authorized)
+
+1. **Owner:** approve the retention decisions:
+   - the length of the cancellation window;
+   - whether comment text is removed or kept anonymously;
+   - how long payment records and deletion records are kept;
+   - whether newsletter consent evidence is erased.
+2. **DBA:** apply the migration on staging after the G2 backup-and-restore proof. Then, under a later production authority, apply it to production.
+3. **Reader app:** have `requestAccountDeletion()` call `account_request_deletion` with the confirmation phrase typed by the reader. Show status and cancellation in Devices and Sessions.
+4. **Operator:** run a server-only job holding the service-role key, as a scheduled script. It must process due requests, call `auth.admin.deleteUser`, then confirm with `account_deletion_mark_identity_deleted`. A failure at any step leaves the request in a resumable state; no partial "completed" state is possible.
+5. **Web deletion page** (Google Play): publish a page explaining how to delete an account, with a contact route for readers who cannot sign in.
