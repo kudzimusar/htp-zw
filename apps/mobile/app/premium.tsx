@@ -59,7 +59,8 @@ export default function PremiumScreen(){
   const isTablet=viewportWidth>=breakpoints.tablet;
   const isDesktop=viewportWidth>=breakpoints.desktop;
   const store=useAsync(()=>services.premiumStore.getState(),[]);
-  const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
+  // Commerce off: never request /api/commerce (no 401/SSO noise on protected Previews).
+  const commerce=useAsync(()=>launchCommerceEnabled() ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[]);
   const sourceStories=useAsync(()=>services.articles.getHome(),[]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const premiumStories=(sourceStories.data ?? []).filter((story)=>story.accessPolicy==="premium");

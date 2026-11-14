@@ -59,10 +59,17 @@ async function request(pathname, { auth = true, headers = {}, method = 'GET' } =
   const kept = {};
   for (const name of SAFE_HEADERS) {
     const value = response.headers.get(name);
-    if (value !== null) kept[name] = name === 'set-cookie' ? '[present]' : value;
+    if (value !== null && name !== 'set-cookie') kept[name] = value;
   }
-  return { url: url.pathname + url.search, status: response.status, headers: kept, body };
+  // Cookie NAMES only (values never recorded).
+  const cookieNames = (typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie() : [])
+    .map(cookie => cookie.split('=')[0].trim()).filter(Boolean);
+  return { url: url.pathname + url.search, status: response.status, headers: kept, cookieNames, body };
 }
+
+// Vercel Skew Protection may set __vdpl (deployment id, not user state) on shared responses.
+const PLATFORM_COOKIES = new Set(['__vdpl']);
+const onlyPlatformCookies = res => (res.cookieNames || []).every(name => PLATFORM_COOKIES.has(name));
 
 function record(name, pass, detail, { blocked = false } = {}) {
   evidence.checks.push({ name, result: blocked ? 'BLOCKED_STAGING_402' : (pass ? 'PASS' : (pass === null ? 'NOT_APPLICABLE' : 'FAIL')), detail });
@@ -126,19 +133,19 @@ if (isPreviewHost) {
 {
   const notFound1 = await request('/wp-admin/g5-cache-probe/');
   const notFound2 = await request('/wp-admin/g5-cache-probe/');
-  record('E1 404 is publicly cacheable and identical on repeat', /s-maxage=\d+/.test(notFound1.headers['cache-control'] || '') && notFound2.body === notFound1.body && !notFound1.headers['set-cookie'],
-    { cacheControl: notFound1.headers['cache-control'], secondCache: notFound2.headers['x-vercel-cache'] || null });
+  record('E1 404 is publicly cacheable and identical on repeat', /s-maxage=\d+/.test(notFound1.headers['cache-control'] || '') && notFound2.body === notFound1.body && onlyPlatformCookies(notFound1),
+    { cacheControl: notFound1.headers['cache-control'], secondCache: notFound2.headers['x-vercel-cache'] || null, setCookieNames: notFound1.cookieNames });
   if (alias) {
     const a1 = await request(alias); const a2 = await request(alias);
     if (isStagingBlocked(a1)) record('E2 CP5 alias 301 is cacheable', true, { status: a1.status }, { blocked: true });
-    else record('E2 CP5 alias 301 is cacheable', a1.status === 301 && a2.status === 301 && a1.headers.location === a2.headers.location && /s-maxage=3600/.test(a1.headers['cache-control'] || '') && !a1.headers['set-cookie'],
-      { status: a1.status, location: a1.headers.location || null, cacheControl: a1.headers['cache-control'], secondCache: a2.headers['x-vercel-cache'] || null });
+    else record('E2 CP5 alias 301 is cacheable', a1.status === 301 && a2.status === 301 && a1.headers.location === a2.headers.location && /s-maxage=3600/.test(a1.headers['cache-control'] || '') && onlyPlatformCookies(a1),
+      { status: a1.status, location: a1.headers.location || null, cacheControl: a1.headers['cache-control'], secondCache: a2.headers['x-vercel-cache'] || null, setCookieNames: a1.cookieNames });
   } else record('E2 CP5 alias 301 is cacheable', null, 'no --alias supplied');
   if (preserved) {
     const p = await request(preserved);
     if (isStagingBlocked(p)) record('E3 preserved article page is shared-cacheable and carries no user state', true, { status: p.status }, { blocked: true });
-    else record('E3 preserved article page is shared-cacheable and carries no user state', p.status === 200 && /s-maxage=300/.test(p.headers['cache-control'] || '') && !p.headers['set-cookie'] && !/cookie/i.test(p.headers.vary || ''),
-      { status: p.status, cacheControl: p.headers['cache-control'], vary: p.headers.vary || null, ogTitle: (p.body.match(/property="og:title" content="([^"]*)"/) || [])[1] || null });
+    else record('E3 preserved article page is shared-cacheable and carries no user state', p.status === 200 && /s-maxage=300/.test(p.headers['cache-control'] || '') && onlyPlatformCookies(p) && !/cookie/i.test(p.headers.vary || ''),
+      { status: p.status, cacheControl: p.headers['cache-control'], vary: p.headers.vary || null, setCookieNames: p.cookieNames, ogTitle: (p.body.match(/property="og:title" content="([^"]*)"/) || [])[1] || null });
   } else record('E3 preserved article page is shared-cacheable and carries no user state', null, 'no --preserved supplied');
   for (const [name, target] of [['E4 commerce API is not shared-cached', '/api/commerce'], ['E5 communications API is not shared-cached', '/api/communications?action=providerHealth']]) {
     const res = await request(target);

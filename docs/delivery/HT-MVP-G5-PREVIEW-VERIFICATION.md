@@ -25,7 +25,7 @@ vercel env run -- node scripts/web/g5-preview-verify.mjs \
 - It refuses any host other than `https://<name>.vercel.app`, and refuses to start without `VERCEL_OIDC_TOKEN`.
 - It sends the token **only to the Preview origin**. In browser mode the header is attached by origin-scoped routing, so third-party requests (Cloudflare media, Supabase) never receive it.
 - It never follows redirects, so the `/wp-content/uploads` 301 to Cloudflare cannot carry the token.
-- It never prints or stores the token. The evidence keeps only non-sensitive response headers, and a `set-cookie` header is recorded only as `[present]`.
+- It never prints or stores the token. The evidence keeps only non-sensitive response headers; for `Set-Cookie` it records cookie names, never values.
 
 ## What it checks
 
@@ -35,7 +35,7 @@ vercel env run -- node scripts/web/g5-preview-verify.mjs \
 | B. Reader-shell function | `/wp-admin/…` (rejected before any lookup) returns 404 with `X-HTP-Shell: bundled` and the Reader root; a spoofed `x-forwarded-host` plus cookies gives the same result; `/_htp/reader-shell` does not exist | The shell is bundled; no header trust; no recursion surface |
 | C. Query rewrites | A duplicate `htpPath` cannot re-target the renderer; tracking parameters are ignored; UTF-8, encoded traversal, encoded slash and over-long paths never return 5xx or resolve wrongly; `robots.txt` and `/feed` work with query strings | **Records how Vercel really merges query strings** |
 | D. Preview indexing | `X-Robots-Tag: noindex` on HTML, the page function, the API, the manifest and a hashed bundle; `robots.txt` disallows everything | No preview content is indexable |
-| E. CDN caching | 404 and CP5 301 are publicly cacheable and identical on repeat (`x-vercel-cache` recorded); the preserved article is shared-cacheable with no `set-cookie` and no `Vary: Cookie`; commerce and communications APIs are never publicly cached | No user-specific content in shared cache |
+| E. CDN caching | 404 and CP5 301 are publicly cacheable and identical on repeat (`x-vercel-cache` recorded); the preserved article is shared-cacheable with no `Vary: Cookie`; commerce and communications APIs are never publicly cached | No user-specific content in shared cache. The only cookie allowed on shared responses is Vercel's Skew Protection cookie `__vdpl` (the client Preview project has skew protection enabled); any other `Set-Cookie` fails, with its name recorded. |
 | F. Security headers | CSP exactly as in `vercel.json`, plus HSTS, nosniff, X-Frame-Options, Referrer-Policy and Permissions-Policy on static HTML, the page function, an API and a static asset | All present |
 | G. Legacy uploads | `/wp-content/uploads/*` returns a 301 to `https://healthtimes-media.pages.dev/wordpress/*` | Redirect correct |
 | H. Browser (`--browser`) | Home, Explore, Premium, About, Studio and the preserved article render with 0 CSP violations and 0 page errors | Same as the local lab, on Vercel |

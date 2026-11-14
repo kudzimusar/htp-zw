@@ -134,7 +134,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   // Only Premium articles show checkout state. Behind Deployment Protection this
   // credential-less request is a 401 console error on every article view.
-  const commerce=useAsync(()=>article.data?.accessPolicy==="premium" ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[article.data?.id,article.data?.accessPolicy]);
+  const commerce=useAsync(()=>article.data?.accessPolicy==="premium" && launchCommerceEnabled() ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[article.data?.id,article.data?.accessPolicy]);
   const readPosition=useAsync(()=>!id ? Promise.resolve(0) : services.reader.getReadPosition(String(id)),[id]);
   const entitledArticle=useAsync(async()=>{
     const current=article.data;

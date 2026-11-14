@@ -82,3 +82,16 @@ test("native Premium never offers 'Restore purchases' until store billing is con
   const store = read("src/growth/premium-store.ts");
   assert.match(store, /status: "configuration-required"/);
 });
+
+test("with commerce off neither screen requests /api/commerce (no 401/SSO noise on protected Previews)", () => {
+  const premium = read("app/premium.tsx");
+  assert.match(premium, /const commerce=useAsync\(\(\)=>launchCommerceEnabled\(\) \? services\.premiumCommerce\.getAuthority\(\) : Promise\.resolve\(null\),\[\]\);/);
+  const article = read("app/article/[id].tsx");
+  assert.match(article, /article\.data\?\.accessPolicy==="premium" && launchCommerceEnabled\(\) \? services\.premiumCommerce\.getAuthority\(\) : Promise\.resolve\(null\)/);
+  for (const source of [premium, article]) {
+    const calls = [...source.matchAll(/services\.premiumCommerce\.getAuthority\(\)/g)];
+    for (const call of calls) {
+      assert.match(source.slice(Math.max(0, call.index - 120), call.index), /launchCommerceEnabled\(\)/, "ungated commerce authority request");
+    }
+  }
+});
