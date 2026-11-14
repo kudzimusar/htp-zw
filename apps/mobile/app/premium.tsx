@@ -8,21 +8,24 @@ import { useAsync } from "../src/hooks/useAsync";
 import { event } from "../src/growth/events";
 import { breakpoints, layout, radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
+import { READER_LAUNCH_CAPABILITIES, availableClaims } from "../src/launch/reader-capabilities";
 
+// Benefits are a paid-product claim: audio is listed only once playback exists.
 const PREMIUM_PILLARS = [
   "Investigative reporting",
   "Policy & clinical depth",
-  "Audio & saved reading"
+  READER_LAUNCH_CAPABILITIES.audioPlayback ? "Audio & saved reading" : "Saved reading"
 ] as const;
 
-const PREMIUM_BENEFITS = [
+const PREMIUM_BENEFITS = availableClaims([
   {
     title: "Premium investigations and research",
     detail: "Full access to in-depth HealthTimes investigations, health-finance reporting, and specialist policy coverage."
   },
   {
     title: "Article audio where available",
-    detail: "Listen to narrated editions of supported HealthTimes stories across your reading sessions."
+    detail: "Listen to narrated editions of supported HealthTimes stories across your reading sessions.",
+    requires: "audioPlayback"
   },
   {
     title: "Saved reading and offline access where supported",
@@ -36,7 +39,7 @@ const PREMIUM_BENEFITS = [
     title: "Member briefings where published",
     detail: "Read curated editorial briefings from the HealthTimes newsroom when published."
   }
-] as const;
+] as const);
 
 function useHydratedPremiumWidth(){
   const { width }=useWindowDimensions();

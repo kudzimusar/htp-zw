@@ -17,6 +17,7 @@ import { premiumPreviewConsumerState } from "../../src/growth/premium-consumer";
 import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapshot";
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
+import { READER_LAUNCH_CAPABILITIES } from "../../src/launch/reader-capabilities";
 
 // Security invariant retained for frozen Reader contracts; this text is never rendered to readers.
 const PREMIUM_OFFLINE_SECURITY_INVARIANT = "Premium body is not available for offline storage without entitlement";
@@ -441,7 +442,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         onBack={()=>router.back()}
         onTextScale={()=>setTextScale(textScale>=1.25?0.9:textScale+0.1)}
         onSave={()=>{void save();}}
-        onListen={()=>router.push("/listen" as never)}
+        onListen={READER_LAUNCH_CAPABILITIES.audioPlayback ? ()=>router.push("/listen" as never) : undefined}
         onShare={()=>{void share();}}
         onOffline={()=>{void download();}}
       />
