@@ -21,6 +21,21 @@ const outIndex = process.argv.indexOf('--out');
 const mediaIndex = process.argv.indexOf('--allow-media-origin');
 const allowMediaOrigin = mediaIndex > 0 ? new URL(process.argv[mediaIndex + 1]).origin : null;
 const outDir = path.resolve(outIndex > 0 ? process.argv[outIndex + 1] : 'g5-edge-lab');
+// Self-test simulations for scripts/web/g5-preview-verify-selftest.mjs (--serve only, never a real backend):
+//   --upstream-status <400-599>  every mock RPC answers with that HTTP status (402 = the staging
+//                                cached-egress restriction), to prove how the Preview suite classifies it
+//   --unconfigured               the page function runs with no Supabase runtime configuration at all
+const upstreamIndex = process.argv.indexOf('--upstream-status');
+const simulatedUpstreamStatus = upstreamIndex > 0 ? Number(process.argv[upstreamIndex + 1]) : null;
+const unconfigured = process.argv.includes('--unconfigured');
+if (simulatedUpstreamStatus !== null && !(Number.isInteger(simulatedUpstreamStatus) && simulatedUpstreamStatus >= 400 && simulatedUpstreamStatus <= 599)) {
+  console.error('G5_LAB_FATAL: --upstream-status must be an HTTP status from 400 to 599.');
+  process.exit(2);
+}
+if ((simulatedUpstreamStatus !== null || unconfigured) && !process.argv.includes('--serve')) {
+  console.error('G5_LAB_FATAL: --upstream-status and --unconfigured are self-test simulations for --serve only.');
+  process.exit(2);
+}
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
 
 if (!fs.existsSync(path.join(root, 'lib/generated/reader-shell.js')) || !fs.existsSync(path.join(dist, '+not-found.html'))) {
@@ -56,6 +71,10 @@ const rpcServer = http.createServer((req, res) => {
       args.p_path = bare === '/' || bare.endsWith('/') ? bare : bare + '/';
     }
     rpcCalls.push({ name, path: args.p_path });
+    if (simulatedUpstreamStatus !== null) {
+      res.writeHead(simulatedUpstreamStatus, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ code: simulatedUpstreamStatus === 402 ? 'exceed_cached_egress_quota' : 'g5_lab_simulated_failure', message: 'G5 lab simulation' }));
+    }
     let result = null;
     if (name === 'ag05_resolve_public_path') {
       result = args.p_path === '/cholera-response-update/'
@@ -78,6 +97,9 @@ const rpcServer = http.createServer((req, res) => {
 await new Promise(resolve => rpcServer.listen(0, '127.0.0.1', resolve));
 process.env.SUPABASE_URL = 'http://127.0.0.1:' + rpcServer.address().port;
 process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_lab';
+if (unconfigured) {
+  for (const name of ['SUPABASE_URL', 'HEALTHTIMES_SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ANON_KEY', 'HEALTHTIMES_SUPABASE_PUBLISHABLE_KEY']) delete process.env[name];
+}
 // No shell override: the page renderer uses the build-generated bundled module, as on Vercel.
 delete process.env.HEALTHTIMES_PAGE_SHELL_FILE;
 const publicHandler = require(path.join(root, 'api/public.js'));
@@ -132,7 +154,7 @@ const base = 'http://127.0.0.1:' + edge.address().port;
 
 // --serve: keep only the replica running (for scripts/web/g5-preview-verify.mjs --local-replica).
 if (process.argv.includes('--serve')) {
-  console.log(JSON.stringify({ replica: base }));
+  console.log(JSON.stringify({ replica: base, simulation: simulatedUpstreamStatus !== null ? 'upstream-' + simulatedUpstreamStatus : unconfigured ? 'unconfigured' : null }));
   await new Promise(() => {});
 }
 

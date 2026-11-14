@@ -14,6 +14,8 @@
 // Self-test of this script against the local replica (no token, no protection):
 //   node scripts/web/g5-preview-verify.mjs --local-replica http://127.0.0.1:<port> ...
 import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import path from 'node:path';
 
 const args = process.argv.slice(2);
@@ -41,7 +43,8 @@ if (localReplica) {
 
 const evidence = { kind: 'g5-preview-verify', target: base.origin, mode: localReplica ? 'local-replica' : 'protected-preview', startedAt: new Date().toISOString(), checks: [] };
 const SAFE_HEADERS = ['content-type', 'cache-control', 'x-vercel-cache', 'age', 'location', 'x-robots-tag', 'x-htp-shell', 'x-htp-page', 'set-cookie', 'vary',
-  'content-security-policy', 'strict-transport-security', 'x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy', 'retry-after'];
+  'content-security-policy', 'strict-transport-security', 'x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy', 'retry-after',
+  'x-ag05-capability-version'];
 
 async function request(pathname, { auth = true, headers = {}, method = 'GET' } = {}) {
   const url = new URL(pathname, base);
@@ -67,6 +70,30 @@ async function request(pathname, { auth = true, headers = {}, method = 'GET' } =
   return { url: url.pathname + url.search, status: response.status, headers: kept, cookieNames, body };
 }
 
+// fetch() normalizes dot segments (including %2e%2e) before sending, so an encoded traversal would
+// never reach the edge that way. This sends the request target byte-for-byte, to the base origin only.
+function rawRequest(rawPath) {
+  if (!rawPath.startsWith('/') || rawPath.startsWith('//')) throw new Error('raw path must be origin-relative');
+  return new Promise(resolve => {
+    const sent = token ? { [TOKEN_HEADER]: token } : {};
+    const lib = base.protocol === 'https:' ? https : http;
+    const req = lib.request({ protocol: base.protocol, hostname: base.hostname, port: base.port || undefined, path: rawPath, method: 'GET', headers: sent, timeout: 20000 }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => {
+        const kept = {};
+        for (const name of SAFE_HEADERS) if (name !== 'set-cookie' && response.headers[name] !== undefined) kept[name] = String(response.headers[name]);
+        const cookieNames = [].concat(response.headers['set-cookie'] || []).map(cookie => cookie.split('=')[0].trim()).filter(Boolean);
+        resolve({ url: rawPath, status: response.statusCode, headers: kept, cookieNames, body });
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', error => resolve({ url: rawPath, status: 0, headers: {}, body: '', error: String(error?.code || error?.message || 'network-error') }));
+    req.end();
+  });
+}
+
 // Vercel Skew Protection may set __vdpl (deployment id, not user state) on shared responses.
 const PLATFORM_COOKIES = new Set(['__vdpl']);
 const onlyPlatformCookies = res => (res.cookieNames || []).every(name => PLATFORM_COOKIES.has(name));
@@ -74,8 +101,36 @@ const onlyPlatformCookies = res => (res.cookieNames || []).every(name => PLATFOR
 function record(name, pass, detail, { blocked = false } = {}) {
   evidence.checks.push({ name, result: blocked ? 'BLOCKED_STAGING_402' : (pass ? 'PASS' : (pass === null ? 'NOT_APPLICABLE' : 'FAIL')), detail });
 }
-const isStagingBlocked = res => res.status === 503 && res.headers['x-htp-page'] === 'backend-unavailable';
 const isPreviewHost = !localReplica;
+
+// Truthful classification of backend failures. The page function answers 503 "backend-unavailable"
+// for every backend failure: missing runtime configuration, an upstream outage, a network error and
+// the staging cached-egress restriction (HTTP 402) all look the same there. The feed and the CP5 JSON
+// endpoint pass the upstream status through. A check that needs the CP5 backend is BLOCKED_STAGING_402
+// only on evidence of a 402 from our own function: the response itself, or one probe of the same
+// deployment's CP5 JSON endpoint. Anything else (a platform 402, a 5xx, a network error) is a FAIL.
+const fromOurFunction = res => Boolean(res.headers['x-ag05-capability-version']) || res.headers['x-htp-page'] === 'backend-unavailable';
+let upstreamProbe = null;
+async function probeUpstream() {
+  if (!upstreamProbe) {
+    const probePath = preserved || '/g5-verify-story/';
+    const res = await request('/api/public?kind=resolve&path=' + encodeURIComponent(probePath));
+    upstreamProbe = { path: probePath, status: res.status, fromFunction: Boolean(res.headers['x-ag05-capability-version']), at: new Date().toISOString() };
+    evidence.upstreamProbe = upstreamProbe;
+  }
+  return upstreamProbe;
+}
+async function recordBackendCheck(name, res, pass, detail) {
+  if (res.status === 402 && fromOurFunction(res)) return record(name, true, { ...detail, upstreamStatus: 402 }, { blocked: true });
+  if (res.status === 503 && fromOurFunction(res)) {
+    const probe = await probeUpstream();
+    const withProbe = { ...detail, backendUnavailable: true, upstreamProbeStatus: probe.status };
+    return probe.status === 402 && probe.fromFunction ? record(name, true, withProbe, { blocked: true }) : record(name, false, withProbe);
+  }
+  // A check that needs the backend never passes without a backend answer.
+  if (res.status === 0 || res.status === 402 || res.status >= 500) return record(name, false, detail);
+  return record(name, pass, detail);
+}
 
 // A. The Preview is protected (no credentials at all).
 if (isPreviewHost) {
@@ -98,20 +153,23 @@ if (isPreviewHost) {
 
 // C. Query-string handling on the rewrite to /api/public?kind=page&htpPath=...
 {
+  const story = preserved || '/g5-verify-story/';
+  // [name, request target, pass condition, needs the CP5 backend, send the target byte-for-byte]
   const cases = [
-    ['C1 duplicate htpPath via query cannot redirect the renderer', (preserved || '/g5-verify-story/') + '?htpPath=%2Fother-story%2F', res => res.status !== 200 || !/og:url" content="[^"]*other-story/.test(res.body)],
-    ['C2 unrelated query parameters are ignored', (preserved || '/g5-verify-story/') + '?utm_source=g5-verify', res => res.status < 500 || isStagingBlocked(res)],
-    ['C3 percent-encoded UTF-8 path is handled without 5xx', '/caf%C3%A9-g5-verify/', res => res.status < 500 || isStagingBlocked(res)],
-    ['C4 encoded traversal never resolves', '/%2e%2e/%2e%2e/g5-verify/', res => res.status !== 200 && res.status < 500],
-    ['C5 encoded slash never resolves to another document', '/a%2Fb-g5-verify/', res => res.status !== 200 || isStagingBlocked(res)],
-    ['C6 over-long path is rejected before any lookup', '/' + 'g'.repeat(450) + '/', res => res.status === 404 && res.headers['x-htp-page'] === 'not-a-page'],
-    ['C7 robots.txt with a query string still applies the host policy', '/robots.txt?g5=1', res => res.status === 200 && /text\/plain/.test(res.headers['content-type'] || '')],
-    ['C8 RSS route with a query string', '/feed?g5=1', res => (res.status === 200 && /rss\+xml/.test(res.headers['content-type'] || '')) || isStagingBlocked(res) || res.status === 503]
+    ['C1 duplicate htpPath via query cannot redirect the renderer', story + '?htpPath=%2Fother-story%2F', res => res.status !== 200 || !/og:url" content="[^"]*other-story/.test(res.body), true],
+    ['C2 unrelated query parameters are ignored', story + '?utm_source=g5-verify', res => res.status < 500, true],
+    ['C3 percent-encoded UTF-8 path is handled without 5xx', '/caf%C3%A9-g5-verify/', res => res.status < 500, true],
+    ['C4 encoded traversal never resolves', '/%2e%2e/%2e%2e/g5-verify/', res => res.status !== 200 && res.status < 500, true, true],
+    ['C5 encoded slash never resolves to another document', '/a%2Fb-g5-verify/', res => res.status !== 200, true],
+    ['C6 over-long path is rejected before any lookup', '/' + 'g'.repeat(450) + '/', res => res.status === 404 && res.headers['x-htp-page'] === 'not-a-page', false],
+    ['C7 robots.txt with a query string still applies the host policy', '/robots.txt?g5=1', res => res.status === 200 && /text\/plain/.test(res.headers['content-type'] || ''), false],
+    ['C8 RSS route with a query string', '/feed?g5=1', res => res.status === 200 && /rss\+xml/.test(res.headers['content-type'] || ''), true]
   ];
-  for (const [name, pathname, ok] of cases) {
-    const res = await request(pathname);
-    const blocked = isStagingBlocked(res) || (name.startsWith('C8') && res.status === 503);
-    record(name, ok(res), { path: pathname.slice(0, 80), status: res.status, page: res.headers['x-htp-page'] || null }, { blocked: blocked && ok(res) });
+  for (const [name, target, ok, backend, raw] of cases) {
+    const res = raw ? await rawRequest(target) : await request(target);
+    const detail = { path: target.slice(0, 80), status: res.status, page: res.headers['x-htp-page'] || null, ...(raw ? { sentByteForByte: true } : {}) };
+    if (backend) await recordBackendCheck(name, res, ok(res), detail);
+    else record(name, ok(res), detail);
   }
 }
 
@@ -137,20 +195,19 @@ if (isPreviewHost) {
     { cacheControl: notFound1.headers['cache-control'], secondCache: notFound2.headers['x-vercel-cache'] || null, setCookieNames: notFound1.cookieNames });
   if (alias) {
     const a1 = await request(alias); const a2 = await request(alias);
-    if (isStagingBlocked(a1)) record('E2 CP5 alias 301 is cacheable', true, { status: a1.status }, { blocked: true });
-    else record('E2 CP5 alias 301 is cacheable', a1.status === 301 && a2.status === 301 && a1.headers.location === a2.headers.location && /s-maxage=3600/.test(a1.headers['cache-control'] || '') && onlyPlatformCookies(a1),
-      { status: a1.status, location: a1.headers.location || null, cacheControl: a1.headers['cache-control'], secondCache: a2.headers['x-vercel-cache'] || null, setCookieNames: a1.cookieNames });
+    await recordBackendCheck('E2 CP5 alias 301 is cacheable', a1, a1.status === 301 && a2.status === 301 && a1.headers.location === a2.headers.location && /s-maxage=3600/.test(a1.headers['cache-control'] || '') && onlyPlatformCookies(a1),
+      { status: a1.status, location: a1.headers.location || null, cacheControl: a1.headers['cache-control'] || null, secondCache: a2.headers['x-vercel-cache'] || null, setCookieNames: a1.cookieNames });
   } else record('E2 CP5 alias 301 is cacheable', null, 'no --alias supplied');
   if (preserved) {
     const p = await request(preserved);
-    if (isStagingBlocked(p)) record('E3 preserved article page is shared-cacheable and carries no user state', true, { status: p.status }, { blocked: true });
-    else record('E3 preserved article page is shared-cacheable and carries no user state', p.status === 200 && /s-maxage=300/.test(p.headers['cache-control'] || '') && onlyPlatformCookies(p) && !/cookie/i.test(p.headers.vary || ''),
-      { status: p.status, cacheControl: p.headers['cache-control'], vary: p.headers.vary || null, setCookieNames: p.cookieNames, ogTitle: (p.body.match(/property="og:title" content="([^"]*)"/) || [])[1] || null });
+    await recordBackendCheck('E3 preserved article page is shared-cacheable and carries no user state', p, p.status === 200 && /s-maxage=300/.test(p.headers['cache-control'] || '') && onlyPlatformCookies(p) && !/cookie/i.test(p.headers.vary || ''),
+      { status: p.status, cacheControl: p.headers['cache-control'] || null, vary: p.headers.vary || null, setCookieNames: p.cookieNames, ogTitle: (p.body.match(/property="og:title" content="([^"]*)"/) || [])[1] || null });
   } else record('E3 preserved article page is shared-cacheable and carries no user state', null, 'no --preserved supplied');
   for (const [name, target] of [['E4 commerce API is not shared-cached', '/api/commerce'], ['E5 communications API is not shared-cached', '/api/communications?action=providerHealth']]) {
     const res = await request(target);
     const cc = res.headers['cache-control'] || '';
-    record(name, !/s-maxage|public/.test(cc), { status: res.status, cacheControl: cc || null });
+    // A network failure proves nothing about caching.
+    record(name, res.status > 0 && !/s-maxage|public/.test(cc), { status: res.status, cacheControl: cc || null });
   }
 }
 
