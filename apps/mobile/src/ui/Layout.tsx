@@ -10,6 +10,7 @@ import { useAppearance } from "../theme/AppearanceProvider";
 import { services } from "../services";
 import { useAsync } from "../hooks/useAsync";
 import { HealthTimesBrand } from "./Brand";
+import { POLICY_DRAFTS, type PolicyDraft } from "../legal/policy-drafts";
 
 // The static Expo web export renders without a request-specific viewport.
 // Header DOM (phone search vs desktop links) must match on the server and the
@@ -432,6 +433,35 @@ export function HomeSkeleton() {
     </View>
   );
 }
+
+/** Links to the public policy pages (G5). Lives here so screens covered by
+ * strict-import P0 harnesses reach it through the already-declared Layout module. */
+export function PolicyLinks({ current }: { current?: PolicyDraft["key"] }) {
+  const router = useRouter();
+  const { palette } = useAppearance();
+  return (
+    <View style={policyStyles.links} accessibilityLabel="HealthTimes policies">
+      {POLICY_DRAFTS.filter((policy) => policy.key !== current).map((policy) => (
+        <Pressable
+          key={policy.key}
+          accessibilityRole="link"
+          accessibilityLabel={policy.title}
+          onPress={() => router.push(policy.path as never)}
+          style={({ pressed }) => [policyStyles.link, { borderColor: palette.border }, pressed && policyStyles.pressed]}
+        >
+          <Text style={[policyStyles.linkText, { color: palette.blue }]}>{policy.title}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const policyStyles = StyleSheet.create({
+  links: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  link: { minHeight: layout.touchMin, justifyContent: "center", paddingHorizontal: 14, borderWidth: 1, borderRadius: radius.sm },
+  linkText: { fontWeight: "800" },
+  pressed: { opacity: 0.7 }
+});
 
 const styles=StyleSheet.create({
   safe:{flex:1},
