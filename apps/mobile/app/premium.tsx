@@ -10,6 +10,7 @@ import { breakpoints, layout, radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
 import { READER_LAUNCH_CAPABILITIES, availableClaims } from "../src/launch/reader-capabilities";
 import { launchCommerceEnabled, mayOpenCheckoutUrl } from "../src/growth/purchase-policy";
+import { premiumStoreConfigurationReady } from "../src/growth/premium-store";
 
 // Benefits are a paid-product claim: audio is listed only once playback exists.
 const PREMIUM_PILLARS = [
@@ -67,6 +68,8 @@ export default function PremiumScreen(){
   const previewTracked=useRef(false);
 
   const commerceEnabled=launchCommerceEnabled();
+  // G6: "Restore purchases" only exists once native store billing is configured.
+  const storeRestoreAvailable=!webCommerce && premiumStoreConfigurationReady();
   const webOfferAvailable=Boolean(
     commerceEnabled &&
     webCommerce &&
@@ -211,7 +214,9 @@ export default function PremiumScreen(){
                   ? "Your Premium access is active."
                   : webCommerce
                     ? "Sign in to check your existing membership."
-                    : "Sign in to check your existing membership, or restore a previous store purchase."}
+                    : storeRestoreAvailable
+                      ? "Sign in to check your existing membership, or restore a previous store purchase."
+                      : "Sign in to check your existing membership."}
             </Text>
             {entitlement.data!==true && !entitlement.loading && (
               <View style={styles.accessActionRow}>
@@ -227,7 +232,7 @@ export default function PremiumScreen(){
                 >
                   <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Sign in as existing member</Text>
                 </Pressable>
-                {!webCommerce && (
+                {storeRestoreAvailable && (
                   <Pressable
                     accessibilityRole="button"
                     style={({ pressed, focused }: any)=>[
@@ -328,7 +333,9 @@ export default function PremiumScreen(){
               >
                 <Text style={[styles.unavailableTitle,{color:palette.ink}]}>Membership options aren't available here yet</Text>
                 <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>
-                  In-app subscription enrolment is not open right now. Existing subscribers can sign in or restore purchases to read full Premium journalism.
+                  {storeRestoreAvailable
+                    ? "In-app subscription enrolment is not open right now. Existing subscribers can sign in or restore purchases to read full Premium journalism."
+                    : "In-app subscription enrolment is not open right now. Existing subscribers can sign in to read full Premium journalism."}
                 </Text>
                 <View style={styles.unavailableActions}>
                   <Pressable
@@ -343,18 +350,20 @@ export default function PremiumScreen(){
                   >
                     <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Member sign in</Text>
                   </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed, focused }: any)=>[
-                      styles.secondaryAction,
-                      {borderColor:palette.border,backgroundColor:palette.paperMuted},
-                      focused && [styles.actionFocused,{borderColor:palette.blue}],
-                      pressed && styles.actionPressed
-                    ]}
-                    onPress={()=>void restore()}
-                  >
-                    <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Restore purchases</Text>
-                  </Pressable>
+                  {storeRestoreAvailable && (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed, focused }: any)=>[
+                        styles.secondaryAction,
+                        {borderColor:palette.border,backgroundColor:palette.paperMuted},
+                        focused && [styles.actionFocused,{borderColor:palette.blue}],
+                        pressed && styles.actionPressed
+                      ]}
+                      onPress={()=>void restore()}
+                    >
+                      <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Restore purchases</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             )}
@@ -429,7 +438,7 @@ export default function PremiumScreen(){
                 <Text style={[styles.ctaText,{color:palette.paper}]}>Become Premium</Text>
               </Pressable>
             )}
-            {!webCommerce && (
+            {storeRestoreAvailable && (
               <Pressable
                 accessibilityRole="button"
                 style={({ pressed, focused }: any)=>[
@@ -459,7 +468,9 @@ export default function PremiumScreen(){
           <Text style={[styles.signin,{color:palette.inkMuted}]}>
             {webCommerce
               ? "Already a member? Sign in to restore your HealthTimes Premium access."
-              : "Already a member? Sign in or restore a store purchase to recover your HealthTimes Premium access."}
+              : storeRestoreAvailable
+                ? "Already a member? Sign in or restore a store purchase to recover your HealthTimes Premium access."
+                : "Already a member? Sign in to recover your HealthTimes Premium access."}
           </Text>
         </View>
       </Section>

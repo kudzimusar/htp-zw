@@ -67,3 +67,18 @@ test("article and Premium screens consult the launch policy before any checkout"
     }
   }
 });
+
+test("native Premium never offers 'Restore purchases' until store billing is configured (G6)", () => {
+  const premium = read("app/premium.tsx");
+  assert.match(premium, /const storeRestoreAvailable=!webCommerce && premiumStoreConfigurationReady\(\);/);
+  assert.equal((premium.match(/>Restore purchases<\/Text>/g) || []).length, 3);
+  // Every Restore purchases control sits inside a storeRestoreAvailable guard.
+  for (const match of premium.matchAll(/>Restore purchases<\/Text>/g)) {
+    const before = premium.slice(Math.max(0, match.index - 700), match.index);
+    assert.match(before, /\{storeRestoreAvailable && \(/, "unguarded Restore purchases control");
+  }
+  assert.match(premium, /: "Already a member\? Sign in to recover your HealthTimes Premium access\."\}/);
+  assert.match(premium, /Already a member\? Sign in to restore your HealthTimes Premium access/, "web copy preserved");
+  const store = read("src/growth/premium-store.ts");
+  assert.match(store, /status: "configuration-required"/);
+});
