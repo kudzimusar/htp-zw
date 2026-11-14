@@ -11,6 +11,7 @@ import {
   View
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
+import { RouteSeoHead } from "../seo/RouteSeoHead";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { breakpoints, colors, layout, radius, spacing } from "../theme/tokens";
 import { services } from "../services";
@@ -224,6 +225,7 @@ export function StudioShell(props: PropsWithChildren<{
 }>) {
   return (
     <StudioPreferencesProvider>
+      <RouteSeoHead />
       <StudioShellInner {...props} />
     </StudioPreferencesProvider>
   );

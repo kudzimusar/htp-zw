@@ -143,7 +143,7 @@ await context.route('**/*', route => {
   return route.abort();
 });
 
-const routes = ['/', '/explore', '/search', '/live', '/watch', '/listen', '/about', '/premium', '/authors', '/saved', '/my', '/account-access', '/article/fixture-001', '/studio'];
+const routes = ['/', '/explore', '/search', '/live', '/watch', '/listen', '/about', '/premium', '/authors', '/saved', '/my', '/account-access', '/article/fixture-001', '/article/source-africa-cdc-ebola-contact-tracing-community-deaths-drc', '/privacy', '/studio'];
 const results = [];
 for (const route of routes) {
   const page = await context.newPage();

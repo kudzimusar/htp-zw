@@ -18,6 +18,7 @@ import { SOURCE_PARITY_STATIC_ARTICLE_IDS } from "../../src/source-parity/snapsh
 import { parseArticleContent, type ArticleContentBlock, type ArticleInline } from "../../src/reader/article-content";
 import { ReaderDiscussionPanel } from "../../src/ui/ReaderDiscussion";
 import { READER_LAUNCH_CAPABILITIES } from "../../src/launch/reader-capabilities";
+import { ArticleSeoHead } from "../../src/seo/RouteSeoHead";
 
 // Security invariant retained for frozen Reader contracts; this text is never rendered to readers.
 const PREMIUM_OFFLINE_SECURITY_INVARIANT = "Premium body is not available for offline storage without entitlement";
@@ -437,6 +438,7 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
       initialScrollProgress={readPosition.data ?? 0}
       onScrollProgress={persistProgress}
     >
+      <ArticleSeoHead story={story} />
       <ArticleToolbar
         textScale={textScale}
         onBack={()=>router.back()}
