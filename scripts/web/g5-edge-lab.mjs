@@ -121,6 +121,12 @@ const edge = http.createServer(async (req, res) => {
 await new Promise(resolve => edge.listen(0, '127.0.0.1', resolve));
 const base = 'http://127.0.0.1:' + edge.address().port;
 
+// --serve: keep only the replica running (for scripts/web/g5-preview-verify.mjs --local-replica).
+if (process.argv.includes('--serve')) {
+  console.log(JSON.stringify({ replica: base }));
+  await new Promise(() => {});
+}
+
 // ---------------------------------------------------------------- browser run
 fs.mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });

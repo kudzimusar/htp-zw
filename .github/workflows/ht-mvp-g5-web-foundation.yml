@@ -60,6 +60,16 @@ jobs:
           set -euo pipefail
           npx playwright install --with-deps chromium
           node scripts/web/g5-edge-lab.mjs --out g5-edge-lab
+      - name: Preview verification suite self-test against the local replica
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/web/g5-edge-lab.mjs --serve > /tmp/g5-replica.out 2>&1 &
+          for attempt in $(seq 1 60); do grep -q replica /tmp/g5-replica.out && break; sleep 1; done
+          REPLICA=$(node -e "console.log(JSON.parse(require('node:fs').readFileSync('/tmp/g5-replica.out','utf8').split('\\n')[0]).replica)")
+          node scripts/web/g5-preview-verify.mjs --local-replica "$REPLICA" \
+            --preserved /cholera-response-update/ --alias /2026/10/30/cholera-response-update/ \
+            --upload /wp-content/uploads/2026/09/example.jpg --out g5-edge-lab/preview-verify-selftest
       - name: Preserve edge-lab evidence
         if: always()
         uses: actions/upload-artifact@v4
