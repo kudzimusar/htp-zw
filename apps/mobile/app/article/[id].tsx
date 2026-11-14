@@ -101,7 +101,9 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
     ? decodeURIComponent(window.location.pathname.replace(/^\/article\/?/, "").split("/")[0] || "")
     : "";
   const resolvedId = (params.id && params.id !== "fallback" ? params.id : idFromPath) || "";
-  const id = resolvedId;
+  // Preserved WordPress addresses (/slug/) carry no /article/<id> segment; the
+  // public-web fallback supplies the story itself, so use its stable id.
+  const id = resolvedId || initialStory?.id || "";
   const router=useRouter();
   const { palette }=useAppearance();
   const { width:rawWidth }=useWindowDimensions();

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "expo-router/head";
-import { Link, usePathname } from "expo-router";
+import { Link, usePathname, useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { ArticleReader } from "./article/[id]";
 import { Page, Section, SectionHeader } from "../src/ui/Layout";
@@ -8,6 +8,7 @@ import { colors, radius, spacing } from "../src/theme/tokens";
 import {
   fetchPublicWebCapability,
   injectedPublicWebCapability,
+  safeInternalRedirectTarget,
   storyFromPublicCapability,
   type PublicWebCapability,
   type PublicWebContextCapability,
@@ -72,9 +73,17 @@ function MissingScreen() {
 
 export default function PublicWebFallback() {
   const pathname = usePathname();
-  const injected = useMemo(() => injectedPublicWebCapability(), []);
+  const router = useRouter();
+  const injected = useMemo(() => injectedPublicWebCapability(pathname), [pathname]);
   const [capability, setCapability] = useState<PublicWebCapability | null>(null);
   const [resolved, setResolved] = useState(false);
+  const redirectTarget = capability?.kind === "route" && capability.routing?.httpStatus === 301
+    ? safeInternalRedirectTarget(capability.routing.targetPath)
+    : null;
+
+  useEffect(() => {
+    if (redirectTarget && redirectTarget !== pathname) router.replace(redirectTarget as never);
+  }, [redirectTarget, pathname, router]);
 
   useEffect(() => {
     let active = true;
@@ -93,7 +102,7 @@ export default function PublicWebFallback() {
     return () => { active = false; };
   }, [injected, pathname]);
 
-  if (!resolved) {
+  if (!resolved || (redirectTarget && redirectTarget !== pathname)) {
     return <Page><Text style={styles.copy}>Loading HealthTimes…</Text></Page>;
   }
 
