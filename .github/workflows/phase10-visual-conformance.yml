@@ -54,10 +54,16 @@ jobs:
         run: node --test apps/mobile/tests/phase10-visual-conformance.test.mjs
       - name: Typecheck shared Reader
         run: npm run typecheck --prefix apps/mobile
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build source-parity Web/PWA candidate
         env:
           EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
         run: npm run build:phase4:web
+      - name: CI egress control - prove the mirror origin is compiled in (source-parity build)
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Capture source-parity responsive matrix
@@ -176,6 +182,9 @@ jobs:
           rm -rf apps/mobile/.expo apps/mobile/node_modules/.cache
           npm --prefix apps/mobile run export:web -- --clear
           node scripts/web/prepare-phase4-vercel.js
+      - name: CI egress control - prove the mirror origin is compiled in (staging-service build)
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Capture staging HOSPAZ Home proof
         shell: bash
         env:
@@ -309,6 +318,9 @@ jobs:
       - name: Install canonical Reader
         run: npm ci --prefix apps/mobile --no-audit --no-fund
 
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Generate iOS native project
         working-directory: apps/mobile
         run: npx expo prebuild --platform ios --clean --no-install
@@ -595,6 +607,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
       - run: npm ci --prefix apps/mobile --no-audit --no-fund
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Generate staging Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install
