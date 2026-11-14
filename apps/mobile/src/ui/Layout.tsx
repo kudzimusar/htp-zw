@@ -12,6 +12,7 @@ import { useAsync } from "../hooks/useAsync";
 import { HealthTimesBrand } from "./Brand";
 import { POLICY_DRAFTS, type PolicyDraft } from "../legal/policy-drafts";
 import { RouteSeoHead } from "../seo/RouteSeoHead";
+import { ClientErrorReporting } from "../monitoring/ClientErrorReporting";
 
 // The static Expo web export renders without a request-specific viewport.
 // Header DOM (phone search vs desktop links) must match on the server and the
@@ -74,6 +75,7 @@ export function Page({
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.paper }]} edges={["top", "left", "right"]}>
       <RouteSeoHead />
+      <ClientErrorReporting />
       {scroll ? (
         <ScrollView
           ref={scrollRef}
