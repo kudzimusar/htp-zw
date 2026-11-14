@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SymbolView } from "expo-symbols";
@@ -13,6 +13,7 @@ import { HealthTimesBrand } from "./Brand";
 import { POLICY_DRAFTS, type PolicyDraft } from "../legal/policy-drafts";
 import { RouteSeoHead } from "../seo/RouteSeoHead";
 import { ClientErrorReporting } from "../monitoring/ClientErrorReporting";
+import { buildSignupRequest, NEWSLETTER_CONSENT_LABEL, newsletterSignupAvailable, signupResultMessage } from "../growth/newsletter-signup";
 
 // The static Expo web export renders without a request-specific viewport.
 // Header DOM (phone search vs desktop links) must match on the server and the
@@ -460,11 +461,68 @@ export function PolicyLinks({ current }: { current?: PolicyDraft["key"] }) {
   );
 }
 
+/** Public newsletter sign-up (G5). Renders nothing unless the build enables it
+ * AND the Privacy Policy is approved; see src/growth/newsletter-signup.ts. */
+export function NewsletterSignup() {
+  const { palette } = useAppearance();
+  const privacy = POLICY_DRAFTS.find((policy) => policy.key === "privacy");
+  const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (Platform.OS !== "web" || !privacy || !newsletterSignupAvailable({ privacyPolicy: privacy })) return null;
+  const submit = async () => {
+    const built = buildSignupRequest({ email, consent, policyVersion: privacy.version });
+    if (!built.ok) return setStatus(built.message);
+    setBusy(true);
+    try {
+      const response = await fetch(built.request.url, built.request.init);
+      setStatus(signupResultMessage(response.status));
+    } catch {
+      setStatus(signupResultMessage(0));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={policyStyles.newsletter} accessibilityLabel="Newsletter sign-up">
+      <TextInput
+        value={email}
+        onChangeText={setEmail}
+        inputMode="email"
+        autoComplete="email"
+        autoCapitalize="none"
+        accessibilityLabel="Email address"
+        placeholder="Email address"
+        placeholderTextColor={palette.inkMuted}
+        style={[policyStyles.input, { borderColor: palette.border, color: palette.ink }]}
+      />
+      <View style={policyStyles.consentRow}>
+        <Switch value={consent} onValueChange={setConsent} accessibilityLabel={NEWSLETTER_CONSENT_LABEL} />
+        <Text style={[policyStyles.consentText, { color: palette.ink }]}>{NEWSLETTER_CONSENT_LABEL}</Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={() => void submit()}
+        style={[policyStyles.link, { borderColor: palette.border }, busy && policyStyles.pressed]}
+      >
+        <Text style={[policyStyles.linkText, { color: palette.blue }]}>Subscribe</Text>
+      </Pressable>
+      {!!status && <Text accessibilityLiveRegion="polite" style={{ color: palette.inkMuted }}>{status}</Text>}
+    </View>
+  );
+}
+
 const policyStyles = StyleSheet.create({
   links: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   link: { minHeight: layout.touchMin, justifyContent: "center", paddingHorizontal: 14, borderWidth: 1, borderRadius: radius.sm },
   linkText: { fontWeight: "800" },
-  pressed: { opacity: 0.7 }
+  pressed: { opacity: 0.7 },
+  newsletter: { gap: spacing.sm, maxWidth: 560 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, fontSize: 16 },
+  consentRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  consentText: { flex: 1, fontSize: 15, lineHeight: 22 }
 });
 
 const styles=StyleSheet.create({

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
-import { Page, PolicyLinks, Section, SectionHeader } from "../src/ui/Layout";
+import { NewsletterSignup, Page, PolicyLinks, Section, SectionHeader } from "../src/ui/Layout";
 import { services } from "../src/services";
 import { useAsync } from "../src/hooks/useAsync";
 import { radius, spacing } from "../src/theme/tokens";
@@ -96,6 +96,7 @@ export default function AboutScreen(){
           )}
         </>
       )}
+      <NewsletterSignup />
       <Section>
         <SectionHeader title="Policies" eyebrow="READER INFORMATION" />
         <PolicyLinks />
