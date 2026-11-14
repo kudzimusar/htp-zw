@@ -16,6 +16,10 @@ const require = createRequire(import.meta.url);
 const root = process.cwd();
 const dist = path.join(root, 'apps/mobile/dist');
 const outIndex = process.argv.indexOf('--out');
+// --allow-media-origin <origin>: let real requests to that one origin through (e.g. the
+// Cloudflare archive) so archive images load under the real CSP; everything else stays aborted.
+const mediaIndex = process.argv.indexOf('--allow-media-origin');
+const allowMediaOrigin = mediaIndex > 0 ? new URL(process.argv[mediaIndex + 1]).origin : null;
 const outDir = path.resolve(outIndex > 0 ? process.argv[outIndex + 1] : 'g5-edge-lab');
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
 
@@ -61,6 +65,11 @@ const rpcServer = http.createServer((req, res) => {
           : { resolution: 'explicit_404_exception', http_status: 404 };
     } else if (name === 'ag05_public_story_document') {
       result = args.p_path === '/cholera-response-update/' ? STORY : null;
+    } else if (name === 'ag05_public_sitemap_xml') {
+      result = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+        '<url><loc>https://healthtimes.co.zw/cholera-response-update/</loc><lastmod>2026-10-30</lastmod></url>\n</urlset>\n';
+    } else if (name === 'ag05_public_feed_rows') {
+      result = [];
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -143,9 +152,19 @@ await context.addInitScript(() => {
     (window.__cspViolations ||= []).push({ directive: event.effectiveDirective, blocked: event.blockedURI, sample: event.sample, source: event.sourceFile });
   });
 });
+const media = { loaded: [], failed: [], supabaseRequests: [] };
+context.on('request', request => {
+  const target = new URL(request.url());
+  if (target.hostname.endsWith('.supabase.co')) media.supabaseRequests.push(target.origin + target.pathname.slice(0, 80));
+});
+context.on('response', response => {
+  const target = new URL(response.url());
+  if (allowMediaOrigin && target.origin === allowMediaOrigin) (response.status() === 200 ? media.loaded : media.failed).push(target.pathname.slice(0, 120) + ' ' + response.status());
+});
 await context.route('**/*', route => {
   const target = new URL(route.request().url());
   if (target.hostname === '127.0.0.1') return route.continue();
+  if (allowMediaOrigin && target.origin === allowMediaOrigin) return route.continue();
   blockedExternal.add(target.origin);
   return route.abort();
 });
@@ -191,6 +210,10 @@ const preserved = await legacy('/cholera-response-update/');
 const alias = await legacy('/2026/10/30/cholera-response-update/');
 const missing = await legacy('/no-such-story/');
 const robots = await (await fetch(base + '/robots.txt')).text();
+const sitemapResponse = await fetch(base + '/sitemap.xml');
+const sitemap = { status: sitemapResponse.status, type: sitemapResponse.headers.get('content-type'), body: await sitemapResponse.text() };
+const feedResponse = await fetch(base + '/feed');
+const feed = { status: feedResponse.status, type: feedResponse.headers.get('content-type'), body: await feedResponse.text() };
 const wpRedirect = await fetch(base + '/wp-content/uploads/2026/09/example.jpg', { redirect: 'manual' });
 
 await browser.close();
@@ -207,9 +230,16 @@ const checks = {
   unknownPathIs404: missing.status === 404 && /not available/i.test(missing.bodyText),
   bundledShellServed: [preserved, alias, missing].every(page => page.shellSource === 'bundled'),
   robotsDisallowsNonCanonicalHost: robots === 'User-agent: *\nDisallow: /\n',
-  wpUploadsRedirectToArchive: wpRedirect.status === 301 && wpRedirect.headers.get('location') === 'https://healthtimes-media.pages.dev/wordpress/2026/09/example.jpg'
+  sitemapServedAsXml: sitemap.status === 200 && /application\/xml/.test(sitemap.type || '') && sitemap.body.includes('<loc>https://healthtimes.co.zw/cholera-response-update/</loc>'),
+  feedServedAsRss: feed.status === 200 && /rss\+xml/.test(feed.type || '') && feed.body.includes('<rss'),
+  wpUploadsRedirectToArchive: wpRedirect.status === 301 && wpRedirect.headers.get('location') === 'https://healthtimes-media.pages.dev/wordpress/2026/09/example.jpg',
+  ...(allowMediaOrigin ? {
+    archiveMediaLoadedUnderRealCsp: media.loaded.length > 0 && media.failed.length === 0,
+    noSupabaseArchiveMediaRequests: !media.supabaseRequests.some(request => request.includes('/storage/v1/object/public/migrated-media'))
+  } : {})
 };
-const evidence = { kind: 'g5-edge-lab', base, checks, results, preserved, alias, missing, violations, pageErrors, blockedExternalOrigins: [...blockedExternal].sort(), rpcCalls };
+const evidence = { kind: 'g5-edge-lab', base, allowMediaOrigin, checks, results, preserved, alias, missing, violations, pageErrors, blockedExternalOrigins: [...blockedExternal].sort(), rpcCalls,
+  media: { loaded: media.loaded.length, failed: media.failed, supabaseRequests: media.supabaseRequests, samples: media.loaded.slice(0, 5) } };
 fs.writeFileSync(path.join(outDir, 'evidence.json'), JSON.stringify(evidence, null, 2) + '\n');
 const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
 console.log(JSON.stringify({ checks, violations: violations.length, pageErrors: pageErrors.length, blockedExternalOrigins: evidence.blockedExternalOrigins }, null, 2));
