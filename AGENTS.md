@@ -39,3 +39,13 @@ The Owner also requires [11-11-GM-GC-001 — Global Moderator Governance & Conti
 **Preventive handoff trigger:** major phase boundary, planned session transfer, substantial cluster of agent returns, or any suspicion that prior context is becoming unreliable. Write a source-backed successor handoff *before* session loss. A successor independently rechecks PR/CI/main/agent custody, explicitly acknowledges the verified next task, and must create the next preventive handoff. Keep private findings and secrets outside public GitHub.
 
 This process guidance has no standing authorization for Production, paid service use, staging writes, DNS, finance, deployment, repository merge or app-store changes. If central PR #16 or local PR #161 is not yet approved, distinguish voluntary direct Owner process instructions from formally adopted repository policy.
+
+## Canonical two-rule global contract (Owner-directed)
+
+Before assigning, reviewing or implementing HealthTimes tasks, **every agent must read both global standards** and this project's accepted Issue #147 G1–G6 plan. The central standards govern process, not release authority:
+
+- **Rule A — Goal Fidelity and Stage Control:** [11-11-GM-GF-001](https://github.com/kudzimusar/11-11-tech/blob/917c16f6d64d7f29d442fec562021dd11687228d/governance/global-moderator/GOAL-FIDELITY-STAGE-CONTROL-v1.0.md). Classify new feedback under Issue #147's existing current/future gates; do not initiate a competing programme or override previously accepted engineering.
+- **Rule B — Active Moderator Governance and Continuity:** [11-11-GM-GC-001](https://github.com/kudzimusar/11-11-tech/blob/917c16f6d64d7f29d442fec562021dd11687228d/governance/global-moderator/STANDARD-v1.0.md). Independently verify specialist return at exact SHA and issue ACCEPT/REMEDIATE/BLOCK; show approved N/M or NOT_BASELINED; update the existing agent ledger and successor handoff before context loss.
+- **Mandatory central start-here:** [Unified contract](https://github.com/kudzimusar/11-11-tech/blob/917c16f6d64d7f29d442fec562021dd11687228d/governance/global-moderator/AGENT-GOVERNANCE-UNIFIED-v1.0.md) and [Downloadable PDF](https://github.com/kudzimusar/11-11-tech/blob/917c16f6d64d7f29d442fec562021dd11687228d/governance/global-moderator/11-11-TECH-GLOBAL-AGENT-GOVERNANCE-v1.0.pdf). [HealthTimes stage mapping](docs/governance/GLOBAL_AGENT_RULES.md).
+
+**Adoption state:** The Owner's process instruction is effective for moderation now, but central PR #16 and HealthTimes PR #161 are Draft and unmerged. Review and Owner consent remain required for repository merge/activation. Do not alter application source, protected Preview, payments, staging, DNS, media or app stores without their separate permissions.
