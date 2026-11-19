@@ -112,6 +112,51 @@ test("stale prior web export with mismatched SHA fails closed with STALE_WEB_EXP
   );
 });
 
+test("CI-01 build provenance: checked-out source SHA takes precedence over synthetic PR merge GITHUB_SHA and fails closed on mismatch or malformed SHA", async () => {
+  const { createRequire } = await import("node:module");
+  const req = createRequire(import.meta.url);
+  const { resolveBuildProvenance } = req("../../../scripts/web/build-provenance.js");
+  const prHead = "a0b4c57abd70a7c2c87a569dbd32b000147d3f8d";
+  const mergeSha = "039e68071df4fb998db181618a61e56fbb231e84";
+  const otherSha = "1111111111111111111111111111111111111111";
+
+  // 1 & 2: PR checkout at exact HEAD produces matching sourceSha; synthetic merge GITHUB_SHA does not override it
+  const prBuild = resolveBuildProvenance({
+    env: { GITHUB_SHA: mergeSha, HT_EXPECTED_BUILD_SHA: prHead },
+    gitHeadSha: prHead
+  });
+  assert.equal(prBuild.sha, prHead);
+  assert.equal(prBuild.sourceSha, prHead);
+  assert.equal(prBuild.workflowEventSha, mergeSha);
+  assert.equal(prBuild.deploymentSha, null);
+
+  // 3: Wrong expected SHA fails closed
+  assert.throws(
+    () => resolveBuildProvenance({ env: { GITHUB_SHA: mergeSha, HT_EXPECTED_BUILD_SHA: otherSha }, gitHeadSha: prHead }),
+    /BUILD_PROVENANCE_MISMATCH/
+  );
+
+  // 4: Vercel deployment SHA matching checkout succeeds; disagreeing Vercel SHA fails closed
+  const vercelMatch = resolveBuildProvenance({ env: { VERCEL_GIT_COMMIT_SHA: prHead }, gitHeadSha: prHead });
+  assert.equal(vercelMatch.sha, prHead);
+  assert.equal(vercelMatch.deploymentSha, prHead);
+  assert.throws(
+    () => resolveBuildProvenance({ env: { VERCEL_GIT_COMMIT_SHA: otherSha }, gitHeadSha: prHead }),
+    /BUILD_PROVENANCE_MISMATCH/
+  );
+
+  // 5 & 6: Malformed or missing SHA fails closed
+  assert.throws(() => resolveBuildProvenance({ env: {}, gitHeadSha: "not-a-sha" }), /INVALID_BUILD_SHA/);
+  assert.throws(() => resolveBuildProvenance({ env: { HT_EXPECTED_BUILD_SHA: "abc123" }, gitHeadSha: prHead }), /INVALID_BUILD_SHA/);
+  assert.throws(() => resolveBuildProvenance({ env: {}, gitHeadSha: null }), /MISSING_BUILD_SHA/);
+
+  // 7: Local build with no CI env reports exact git HEAD
+  const localBuild = resolveBuildProvenance({ env: {}, gitHeadSha: prHead });
+  assert.equal(localBuild.sha, prHead);
+  assert.equal(localBuild.workflowEventSha, null);
+  assert.equal(localBuild.deploymentSha, null);
+});
+
 test("article pages describe the story and point canonical at its preserved public URL", () => {
   const meta = seo.articleMetadata({
     title: "Cholera response update",

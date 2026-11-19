@@ -604,12 +604,34 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
   return orderedMerged;
 }
 
+export function findArticleByIdentity(articles:ArticleDetail[],id:string):ArticleDetail|null{
+  const query=id.trim();
+  if(!query) return null;
+  // Deterministic identity precedence: canonicalStoryId > article.id > article.slug > legacyPath
+  const byCanonical=articles.find((article)=>article.canonicalStoryId!==null && article.canonicalStoryId===query);
+  if(byCanonical) return byCanonical;
+  const byId=articles.find((article)=>article.id===query);
+  if(byId) return byId;
+  const bySlug=articles.find((article)=>article.slug===query);
+  if(bySlug) return bySlug;
+  if(query.startsWith("/")){
+    const normalizedPath=query.endsWith("/") ? query : query+"/";
+    const byLegacyPath=articles.find((article)=>article.sourceProvenance?.wordpress?.legacyPath===normalizedPath);
+    if(byLegacyPath) return byLegacyPath;
+    const trailingSlug=normalizedPath.replace(/^\/+|\/+$/g,"").split("/").at(-1) ?? "";
+    if(trailingSlug){
+      return articles.find((article)=>article.slug===trailingSlug) ?? null;
+    }
+  }
+  return null;
+}
+
 const articleRepository:ArticleRepository={
   async getHome(){
     return refreshedArticles();
   },
   async getById(id){
-    const current=(await refreshedArticles()).find((article)=>article.id===id || article.slug===id || (article.canonicalStoryId!==null && article.canonicalStoryId===id)) ?? null;
+    const current=findArticleByIdentity(await refreshedArticles(),id);
     if(!current) return null;
     const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
       exception.kind==="taxonomy-unresolved" &&
@@ -663,11 +685,11 @@ const articleRepository:ArticleRepository={
   },
   async getRelated(id){
     const all=await refreshedArticles();
-    const current=all.find((article)=>article.id===id);
+    const current=findArticleByIdentity(all,id);
     if(!current) return all.slice(0,3);
     const terms=new Set((current.legacyTaxonomy ?? current.topics).map((term)=>term.slug));
     return all
-      .filter((article)=>article.id!==id)
+      .filter((article)=>article.id!==current.id)
       .sort((a,b)=>{
         const aScore=(a.legacyTaxonomy ?? a.topics).filter((term)=>terms.has(term.slug)).length;
         const bScore=(b.legacyTaxonomy ?? b.topics).filter((term)=>terms.has(term.slug)).length;

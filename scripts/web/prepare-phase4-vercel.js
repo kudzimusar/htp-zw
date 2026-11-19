@@ -113,15 +113,20 @@ for (const devIndex of ['_sitemap.html']) {
   console.log('CSP inline-script hashes verified: ' + used.size + ' in use' + (unused.length ? ', unused: ' + unused.join(', ') : '') + '.');
 })();
 
-const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || (function() {
+const { resolveBuildProvenance } = require('./build-provenance');
+const gitHeadSha = (function() {
   try {
     return require('node:child_process').execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
   } catch {
-    return 'local';
+    return null;
   }
 })();
+const provenance = resolveBuildProvenance({ env: process.env, gitHeadSha });
 fs.writeFileSync(path.join(dist, 'build-info.json'), JSON.stringify({
-  sha,
+  sha: provenance.sha,
+  sourceSha: provenance.sourceSha,
+  workflowEventSha: provenance.workflowEventSha,
+  deploymentSha: provenance.deploymentSha,
   presentation: 'apps/mobile',
   capability: 'cp5-phase3-v1',
   basePath: '/',

@@ -62,7 +62,9 @@ jobs:
           node --import ./scripts/ci/offline-network-guard.mjs --test tests/g5-*.test.mjs 2>&1 | tee /tmp/g5-root.tap
           grep -Eq '^# fail 0$' /tmp/g5-root.tap
           grep -Eq '^# skipped 0$' /tmp/g5-root.tap
-      - name: Build the web export (fails on CSP inline-script hash drift)
+      - name: Build the web export (fails on CSP inline-script hash drift or source SHA mismatch)
+        env:
+          HT_EXPECTED_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run build:phase4:web
       - name: Verify exported page route metadata against the real build (N6 — fails closed if export absent or stale)
         shell: bash
