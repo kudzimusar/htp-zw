@@ -22,3 +22,20 @@ A **client-demonstrable Reader** may be a scoped G3 Preview milestone but is **n
 `PROGRAMME | CURRENT GATE | UNMET ORIGINAL CRITERIA | NEW FEEDBACK CLASSIFIED/DEFERRED | EXACT SHA/EVIDENCE | NEXT AUTHORIZED MOVE | RELEASE AUTHORITY`
 
 This root guidance exists to keep all implementation agents and reviewers aligned with the same Owner-approved finish line.
+
+## Global Moderator continuity (provisional adoption, PR #161)
+
+The Owner also requires [11-11-GM-GC-001 — Global Moderator Governance & Continuity Standard v1.0](https://github.com/kudzimusar/11-11-tech/blob/3225760aa91a238cda9be52af8cadd205db0da8c/governance/global-moderator/STANDARD-v1.0.md) and the [central reusable skill](https://github.com/kudzimusar/11-11-tech/blob/3225760aa91a238cda9be52af8cadd205db0da8c/skills/11-11-global-moderator/SKILL.md) to govern moderation **once independently approved and adopted**. As of 19 Nov 2026, [central PR #16](https://github.com/kudzimusar/11-11-tech/pull/16) and this project-specific adoption PR #161 are DRAFT/UNMERGED. These are source-pinned process *candidates* and do not grant authority to merge/deploy or replace the binding G1→G6 programme.
+
+**Mandatory local continuity sources:**
+- [HealthTimes moderator skill](skills/healthtimes-programme-moderator/SKILL.md)
+- [Current preventive successor handoff](docs/governance/HT-MOD-HANDOFF-CURRENT.md)
+- [Agent, task, gate and progress ledger](docs/governance/HT-MOD-AGENT-PROGRESS-LEDGER.md)
+- [Machine-readable continuity manifest](docs/governance/HT-MOD-CONTINUITY-MANIFEST.json)
+- [Feedback mapped to the correct stage](docs/governance/FEEDBACK_STAGE_REGISTER.md)
+
+**Operating rule:** On every material specialist return, source SHA change, acceptance/disposition, blocker, Owner decision or stage transition: verify live source; issue exactly one `ACCEPT / REMEDIATE / BLOCK`; update existing ledgers and handoff; and show accepted N/M or `NOT_BASELINED` (never invent a completion percentage). Actual agent dispatch must be confirmed rather than inferred from a written prompt.
+
+**Preventive handoff trigger:** major phase boundary, planned session transfer, substantial cluster of agent returns, or any suspicion that prior context is becoming unreliable. Write a source-backed successor handoff *before* session loss. A successor independently rechecks PR/CI/main/agent custody, explicitly acknowledges the verified next task, and must create the next preventive handoff. Keep private findings and secrets outside public GitHub.
+
+This process guidance has no standing authorization for Production, paid service use, staging writes, DNS, finance, deployment, repository merge or app-store changes. If central PR #16 or local PR #161 is not yet approved, distinguish voluntary direct Owner process instructions from formally adopted repository policy.
