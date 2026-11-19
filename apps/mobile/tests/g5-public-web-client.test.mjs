@@ -183,7 +183,7 @@ test("R3-B7: only verified WordPress slugs or a verified matching source profile
   assert.match(sourceParityText, /export function slugifyAuthorName/);
   assert.match(sourceParityText, /normalize\("NFKD"\)/);
   assert.match(sourceParityText, /export function resolveManifestAuthorSlug/);
-  assert.match(sourceParityText, /Do not manufacture a profile slug/);
+  assert.match(sourceParityText, /Never manufacture a profile slug/);
   assert.match(sourceParityText, /if\(!author \|\| !author\.slug\) continue/);
   assert.match(sourceParityText, /if\(!authorSlug\) return \[\]/);
   const fnMatch = sourceParityText.match(/export function slugifyAuthorName[\s\S]*?return null;\n\}/);
