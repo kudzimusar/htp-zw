@@ -473,10 +473,12 @@ export function ArticleReader({ initialStory = null }: { initialStory?: ArticleD
         {!!displayStandfirst && <Text style={[styles.standfirst,{color:palette.inkMuted},desktop && styles.standfirstDesktop]}>{displayStandfirst}</Text>}
         <View style={[styles.publicationMeta,{borderTopColor:palette.border,borderBottomColor:palette.border}]}>
           <View style={styles.bylineRow}>
-            {story.author ? (
+            {story.author && story.author.slug.trim() ? (
               <Pressable accessibilityRole="link" onPress={()=>router.push(("/author/"+story.author!.slug) as never)}>
                 <Text style={[styles.byline,{color:palette.blue}]}>By {story.author.displayName}</Text>
               </Pressable>
+            ) : story.author ? (
+              <Text style={[styles.byline,{color:palette.inkMuted}]}>By {story.author.displayName}</Text>
             ) : (
               <Text style={[styles.byline,{color:palette.inkMuted}]}>HealthTimes</Text>
             )}

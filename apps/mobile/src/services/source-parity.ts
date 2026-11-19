@@ -34,6 +34,7 @@ import {
   getPublicPremiumTeaserAuthority,
   sourceParityPremiumDetailDecision
 } from "./premium-teaser-authority";
+import { resolveWpAuthorAttribution } from "./wp-author-attribution";
 
 type WpRendered={rendered?:string};
 type WpTerm={id:number;name:string;slug:string;taxonomy?:string};
@@ -228,7 +229,7 @@ function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlu
     const verifiedMatches=authorName
       ? sourceParityAuthors.filter(author=>author.displayName.trim().toLowerCase()===authorName.toLowerCase())
       : [];
-    const verifiedFallback=verifiedMatches.length===1 && fallback?.author?.slug===verifiedMatches[0].slug
+    const verifiedFallback=verifiedMatches.length===1 && verifiedMatches[0] && fallback?.author?.slug===verifiedMatches[0].slug
       ? verifiedMatches[0]
       : null;
     const post:WpPost={
@@ -343,8 +344,7 @@ function mappingExceptions(
   post:WpPost,
   fallback:ArticleDetail|null,
   legacy:TaxonomyRef[],
-  embeddedAuthor:WpAuthor|undefined,
-  authorIdentityVerified:boolean,
+  authorException:SourceException|null,
   media:WpMedia|undefined,
   primarySection:TaxonomyRef|null,
   geography:TaxonomyRef[]
@@ -359,13 +359,8 @@ function mappingExceptions(
       note:"WordPress term IDs were present but _embed did not supply resolvable category/tag records."
     });
   }
-  if((post.author || embeddedAuthor?.name) && !authorIdentityVerified){
-    exceptions.push({
-      kind:"author-unresolved",
-      classification:"requires-review",
-      field:"author",
-      note:"The byline may be displayed, but no verified WordPress author slug or matching source profile is available; no author profile route is assigned."
-    });
+  if(authorException){
+    exceptions.push(authorException);
   }
   if(post.featured_media && !media && !fallback?.heroMedia){
     exceptions.push({
@@ -413,7 +408,7 @@ function mappingExceptions(
   return exceptions;
 }
 
-function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
+export function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const legacy=legacyTaxonomy(post);
   const legacyNames=legacy.map((term)=>term.name);
   const accessPolicy=
@@ -425,23 +420,17 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const media=post._embedded?.["wp:featuredmedia"]?.[0];
   const canonicalUrl=post.link || fallback?.canonicalUrl || sourceBase+"/"+post.slug+"/";
   const excerpt=stripHtml(post.excerpt?.rendered) || fallback?.excerpt || null;
-  const embeddedAuthorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : null;
-  const fallbackAuthorId=fallback?.author?.sourceProvenance?.wordpress?.authorId;
-  const fallbackMatchesWpId=Boolean(post.author && fallbackAuthorId && String(post.author)===String(fallbackAuthorId));
-  const sourceAuthorMatches=embeddedAuthorName
-    ? sourceParityAuthors.filter(author=>author.displayName.trim().toLowerCase()===embeddedAuthorName.trim().toLowerCase())
-    : [];
-  const fallbackMatchesVerifiedProfile=sourceAuthorMatches.length===1 && fallback?.author?.slug===sourceAuthorMatches[0].slug;
-  const verifiedFallbackAuthor=fallback?.author && (fallbackMatchesWpId || fallbackMatchesVerifiedProfile)
-    ? fallback.author
-    : null;
-  const authorName=embeddedAuthorName ?? verifiedFallbackAuthor?.displayName ?? null;
-  const authorSlug=embeddedAuthor?.slug?.trim() || verifiedFallbackAuthor?.slug || null;
-  const authorId=embeddedAuthor?.id ?? post.author ?? null;
-  const authorIdentityVerified=Boolean(authorName && authorSlug);
+  const authorResolution=resolveWpAuthorAttribution({
+    postId:post.id,
+    postAuthor:post.author,
+    embeddedAuthor,
+    fallbackAuthor:fallback?.author ?? null,
+    verifiedAuthors:sourceParityAuthors,
+    decodeName:decodeEntities
+  });
   const primarySection=inferPrimarySection(legacyNames,fallback);
   const geography=inferGeography(post,fallback);
-  const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,authorIdentityVerified,media,primarySection,geography);
+  const exceptions=mappingExceptions(post,fallback,legacy,authorResolution.exception,media,primarySection,geography);
   return {
     id:fallback?.id ?? "source-"+post.slug,
     canonicalStoryId:null,
@@ -456,35 +445,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     status:"published",
     publishedAt:post.date || fallback?.publishedAt || null,
     modifiedAt:post.modified || fallback?.modifiedAt || null,
-    author:authorName ? {
-      id:authorId
-        ? "wordpress-author-"+authorId
-        : authorSlug
-          ? "wordpress-author:"+authorSlug
-          : "source-author-unresolved:"+post.id,
-      displayName:authorName,
-      // Empty slug deliberately means this byline has no verified profile route.
-      slug:authorSlug ?? "",
-      sourceProvenance:{
-        system:"wordpress",
-        sourceId:authorId ? String(authorId) : null,
-        stableKey:authorId
-          ? "wordpress-author:"+authorId
-          : authorSlug
-            ? "wordpress-author:"+authorSlug
-            : "wordpress-post-author-unresolved:"+post.id,
-        sourceUrl:embeddedAuthor?.link ?? verifiedFallbackAuthor?.sourceProvenance?.sourceUrl ?? null,
-        checksum:null,
-        capturedAt:new Date().toISOString(),
-        wordpress:{authorId:authorId ? String(authorId) : undefined},
-        exceptions:authorIdentityVerified ? [] : [{
-          kind:"author-unresolved",
-          classification:"requires-review",
-          field:"author",
-          note:"The byline is preserved without a fabricated author slug or profile identity."
-        }]
-      }
-    } : null,
+    author:authorResolution.author,
     primarySection,
     geography,
     geographyRefs:fallback?.geographyRefs,
@@ -516,7 +477,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
       capturedAt:new Date().toISOString(),
       wordpress:{
         postId:String(post.id),
-        authorId:post.author ? String(post.author) : undefined,
+        authorId:authorResolution.postAuthorId!==null ? String(authorResolution.postAuthorId) : undefined,
         featuredMediaId:post.featured_media ? String(post.featured_media) : undefined,
         categoryIds:(post.categories ?? []).map(String),
         tagIds:(post.tags ?? []).map(String),

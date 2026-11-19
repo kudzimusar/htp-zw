@@ -210,11 +210,12 @@ test("new live posts remain readable through the existing ArticleRepository cont
 
 test("fallbackless live posts preserve uncertainty instead of fabricating canonical truth",()=>{
   const service=read("src/services/source-parity.ts");
+  const wpAuthor=read("src/services/wp-author-attribution.ts");
   assert.match(service,/function inferPrimarySection/);
   assert.match(service,/if\(!normalized\.some\(\(name\)=>canonicalLegacyNames\.has\(name\)\)\) return null/);
   assert.match(service,/Geography is left unassigned because the public source metadata does not provide enough evidence/);
   assert.match(service,/No AG-01 canonical desk is inferred/);
-  assert.match(service,/author-unresolved/);
+  assert.match(wpAuthor,/author-unresolved/);
   assert.match(service,/taxonomy-unresolved/);
   assert.match(service,/missing-media/);
   assert.match(service,/unknown-shortcode/);
@@ -408,9 +409,10 @@ test("GitHub Pages preview includes fresh-load deep-link fallback handshake",()=
 
 test("unverified bylines remain visible without merging into public author profiles",()=>{
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/author:authorName \? \{/);
-  assert.match(service,/slug:authorSlug \?\? ""/);
-  assert.match(service,/source-author-unresolved:/);
+  const wpAuthor=read("src/services/wp-author-attribution.ts");
+  assert.match(wpAuthor,/const author: ArticleDetail\["author"\] = authorName/);
+  assert.match(wpAuthor,/slug: authorSlug \?\? ""/);
+  assert.match(wpAuthor,/source-author-unresolved:/);
   assert.match(service,/if\(!author \|\| !author\.slug\) continue/);
   assert.match(service,/if\(!authorSlug\) return \[\]/);
 });

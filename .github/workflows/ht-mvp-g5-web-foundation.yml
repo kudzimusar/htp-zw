@@ -48,6 +48,7 @@ jobs:
             tests/g5-client-errors.test.mjs tests/g5-commerce-launch-guard.test.mjs \
             tests/g5-honest-surfaces.test.mjs tests/g5-newsletter-signup.test.mjs \
             tests/g5-policy-surfaces.test.mjs tests/g5-public-web-client.test.mjs \
+            tests/r7-b2-wp-author-conflict.test.mjs \
             tests/ht-nr05c-video-desk.test.mjs tests/ht-nr05cb-public-watch.test.mjs \
             tests/ht-nr05d-live-desk.test.mjs tests/ht-nr05db-live-blog-updates.test.mjs \
             tests/ui03-premium-subscription-prompt.test.mjs tests/p0-deep-link-security.test.mjs 2>&1 | tee /tmp/g5-mobile.tap
