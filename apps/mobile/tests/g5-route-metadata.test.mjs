@@ -59,16 +59,38 @@ test("every screen gets route metadata through Page (no new import in P0-harness
   assert.match(read("src/ui/Studio.tsx"), /<StudioPreferencesProvider>\s*<RouteSeoHead \/>/, "Studio screens do not use Page");
 });
 
-test("exported pages carry their route metadata (when a local web export exists)", () => {
-  const dist = join(root, "dist");
-  if (!existsSync(join(dist, "explore.html"))) return;
-  const explore = readFileSync(join(dist, "explore.html"), "utf8");
-  assert.match(explore, /<title data-rh="true">Explore — HealthTimes<\/title>/);
-  assert.match(explore, /rel="canonical" href="https:\/\/healthtimes\.co\.zw\/explore"/);
-  const studio = readFileSync(join(dist, "studio/stories.html"), "utf8");
-  assert.match(studio, /name="robots" content="noindex,nofollow"/);
-  const privacy = readFileSync(join(dist, "privacy.html"), "utf8");
-  assert.match(privacy, /name="robots" content="noindex,follow"/);
+const MANDATORY_EXPORTED_PAGES = [
+  { file: "index.html", title: /<title data-rh="true">HealthTimes<\/title>/, canonical: /rel="canonical" href="https:\/\/healthtimes\.co\.zw\/"/, robots: /name="robots" content="index,follow"/ },
+  { file: "explore.html", title: /<title data-rh="true">Explore — HealthTimes<\/title>/, canonical: /rel="canonical" href="https:\/\/healthtimes\.co\.zw\/explore"/, robots: /name="robots" content="index,follow"/ },
+  { file: "about.html", title: /<title data-rh="true">About HealthTimes<\/title>/, canonical: /rel="canonical" href="https:\/\/healthtimes\.co\.zw\/about"/, robots: /name="robots" content="index,follow"/ },
+  { file: "studio/stories.html", robots: /name="robots" content="noindex,nofollow"/ },
+  { file: "privacy.html", robots: /name="robots" content="noindex,follow"/ },
+  { file: "terms.html", robots: /name="robots" content="noindex,follow"/ },
+  { file: "subscription-terms.html", robots: /name="robots" content="noindex,follow"/ }
+];
+
+function verifyExportedRouteMetadata(distDir) {
+  const missing = MANDATORY_EXPORTED_PAGES.filter(entry => !existsSync(join(distDir, entry.file))).map(entry => entry.file);
+  if (missing.length > 0) {
+    throw new Error("MISSING_WEB_EXPORT: mandatory exported pages are absent from " + distDir + ": " + missing.join(", "));
+  }
+  for (const entry of MANDATORY_EXPORTED_PAGES) {
+    const html = readFileSync(join(distDir, entry.file), "utf8");
+    if (entry.title) assert.match(html, entry.title, entry.file + " title");
+    if (entry.canonical) assert.match(html, entry.canonical, entry.file + " canonical");
+    if (entry.robots) assert.match(html, entry.robots, entry.file + " robots");
+  }
+}
+
+test("exported pages carry their route metadata and fail clearly when the export is absent (N6)", () => {
+  verifyExportedRouteMetadata(join(root, "dist"));
+});
+
+test("deliberately missing web export fails closed with MISSING_WEB_EXPORT (N6 negative regression)", () => {
+  assert.throws(
+    () => verifyExportedRouteMetadata(join(root, "tests", "__nonexistent_export_dir__")),
+    /MISSING_WEB_EXPORT/
+  );
 });
 
 test("article pages describe the story and point canonical at its preserved public URL", () => {

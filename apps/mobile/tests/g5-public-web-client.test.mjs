@@ -69,11 +69,79 @@ test("article reader renders a supplied story on preserved WordPress addresses w
   assert.match(article, /initialStory \? Promise\.resolve\(initialStory\) : services\.articles\.getById/);
 });
 
-test("fallback screen follows validated alias decisions and keys injected data by pathname", () => {
+test("fallback screen follows validated alias decisions, resolves canonical story identity and keys injected data by pathname (N2)", () => {
   const screen = readFileSync(join(root, "app/+not-found.tsx"), "utf8");
   assert.match(screen, /safeInternalRedirectTarget\(capability\.routing\.targetPath\)/);
   assert.match(screen, /router\.replace\(redirectTarget as never\)/);
+  assert.match(screen, /resolveCanonicalStoryFromPublicCapability\(value, services\.articles\)/);
   assert.match(screen, /useMemo\(\(\) => injectedPublicWebCapability\(pathname\), \[pathname\]\)/);
   const service = readFileSync(join(root, "src/services/public-web.ts"), "utf8");
   assert.match(service, /kind=resolve&redirect=json&path=/);
+  assert.doesNotMatch(service, /cp5-source-/, "N2: synthetic cp5-source- namespace must not be generated");
+});
+
+test("N2: storyFromPublicCapability uses canonical Reader slug/storyId and preserves Premium fail-closed boundaries", () => {
+  const pubCap = {
+    capabilityVersion: "cp5-phase3-v1",
+    kind: "story",
+    routing: {
+      storyId: "11111111-2222-4333-8444-555555555555",
+      sourceId: "9001",
+      sourceType: "post",
+      sourceUrl: "https://healthtimes.co.zw/cholera-response-update/",
+      handling: "preserved_direct",
+      canonicalUrl: "https://healthtimes.co.zw/cholera-response-update/",
+      httpStatus: 200
+    },
+    seo: { title: "Cholera response update — HealthTimes", description: "Desc", canonicalUrl: "https://healthtimes.co.zw/cholera-response-update/", robots: "index,follow", openGraph: { type: "article", siteName: "HealthTimes", title: "T", description: "D", url: "https://healthtimes.co.zw/cholera-response-update/", image: null }, twitterCard: "summary", structuredData: {} },
+    content: { storyTitle: "Cholera response update", standfirst: "Standfirst", excerpt: "Excerpt", publishedAt: "2026-10-30T08:00:00Z", modifiedAt: null, author: { name: "Jane Reporter", slug: "jane-reporter" }, section: { name: "Health", slug: "health" }, accessPolicy: "public", bodyProtected: false, bodyHtml: "<p>Body</p>", protectedPreview: null, featuredMedia: null }
+  };
+  const story = web.storyFromPublicCapability(pubCap);
+  assert.equal(story.id, "cholera-response-update");
+  assert.equal(story.slug, "cholera-response-update");
+  assert.equal(story.canonicalStoryId, "11111111-2222-4333-8444-555555555555");
+  assert.equal(story.sourceProvenance.sourceId, "9001");
+  assert.equal(story.author.id, "wordpress-author:jane-reporter");
+  assert.ok(!story.id.startsWith("cp5-source-"));
+
+  const premCap = {
+    ...pubCap,
+    content: { ...pubCap.content, accessPolicy: "premium", bodyProtected: true, bodyHtml: "<p>LEAK</p>", premiumTeaserHtml: "<p>Teaser</p>", protectedPreview: "Preview" }
+  };
+  const premStory = web.storyFromPublicCapability(premCap);
+  assert.equal(premStory.accessPolicy, "premium");
+  assert.equal(premStory.bodyHtml, null);
+  assert.equal(premStory.premiumTeaserHtml, "<p>Teaser</p>");
+});
+
+test("N2: resolveCanonicalStoryFromPublicCapability reconciles with repository without mapping unknown stories to arbitrary articles", async () => {
+  const cap = {
+    capabilityVersion: "cp5-phase3-v1",
+    kind: "story",
+    routing: { storyId: "11111111-2222-4333-8444-555555555555", sourceId: "9001", sourceType: "post", sourceUrl: null, handling: "preserved_direct", canonicalUrl: "https://healthtimes.co.zw/cholera-response-update/", httpStatus: 200 },
+    seo: { title: "Cholera", description: "", canonicalUrl: "https://healthtimes.co.zw/cholera-response-update/", robots: "index,follow", openGraph: { type: "article", siteName: "HealthTimes", title: "T", description: "", url: "https://healthtimes.co.zw/cholera-response-update/", image: null }, twitterCard: "summary", structuredData: {} },
+    content: { storyTitle: "Cholera", standfirst: null, excerpt: null, publishedAt: null, modifiedAt: null, author: null, section: null, accessPolicy: "public", bodyProtected: false, bodyHtml: "<p>Public</p>", protectedPreview: null, featuredMedia: null }
+  };
+
+  // Matching repository story is adopted
+  const matched = await web.resolveCanonicalStoryFromPublicCapability(cap, {
+    getById: async (key) => key === "11111111-2222-4333-8444-555555555555" ? { id: "cholera-response-update", slug: "cholera-response-update", canonicalStoryId: "11111111-2222-4333-8444-555555555555", title: "Repo Cholera", accessPolicy: "public", bodyHtml: "<p>Repo</p>" } : null
+  });
+  assert.equal(matched.title, "Repo Cholera");
+  assert.equal(matched.id, "cholera-response-update");
+
+  // Unrelated story returned by a buggy repository is rejected; falls back to capability identity
+  const guarded = await web.resolveCanonicalStoryFromPublicCapability(cap, {
+    getById: async () => ({ id: "unrelated-story", slug: "unrelated-story", canonicalStoryId: "99999999-9999-4999-8999-999999999999", title: "Wrong Story", accessPolicy: "public", bodyHtml: "<p>Wrong</p>" })
+  });
+  assert.equal(guarded.id, "cholera-response-update");
+  assert.equal(guarded.title, "Cholera");
+
+  // Premium capability stays premium even if repository record was stale public
+  const premCap = { ...cap, content: { ...cap.content, accessPolicy: "premium", bodyProtected: true, bodyHtml: null } };
+  const premResolved = await web.resolveCanonicalStoryFromPublicCapability(premCap, {
+    getById: async () => ({ id: "cholera-response-update", slug: "cholera-response-update", canonicalStoryId: "11111111-2222-4333-8444-555555555555", title: "Repo Cholera", accessPolicy: "public", bodyHtml: "<p>Should be stripped</p>" })
+  });
+  assert.equal(premResolved.accessPolicy, "premium");
+  assert.equal(premResolved.bodyHtml, null);
 });

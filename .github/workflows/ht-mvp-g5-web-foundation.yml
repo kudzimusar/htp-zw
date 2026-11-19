@@ -37,25 +37,43 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm install --prefix apps/mobile --no-audit --no-fund
-      - name: G5 Reader contracts and the module-graph suites they touch
+      - name: G5 Reader offline contracts and the module-graph suites they touch (no network)
         shell: bash
+        env:
+          HT_OFFLINE_ONLY: "1"
         run: |
           set -euo pipefail
           cd apps/mobile
-          node --test tests/g5-*.test.mjs tests/ht-nr05c-video-desk.test.mjs tests/ht-nr05cb-public-watch.test.mjs \
+          node --import ../../scripts/ci/offline-network-guard.mjs --test \
+            tests/g5-client-errors.test.mjs tests/g5-commerce-launch-guard.test.mjs \
+            tests/g5-honest-surfaces.test.mjs tests/g5-newsletter-signup.test.mjs \
+            tests/g5-policy-surfaces.test.mjs tests/g5-public-web-client.test.mjs \
+            tests/ht-nr05c-video-desk.test.mjs tests/ht-nr05cb-public-watch.test.mjs \
             tests/ht-nr05d-live-desk.test.mjs tests/ht-nr05db-live-blog-updates.test.mjs \
             tests/ui03-premium-subscription-prompt.test.mjs tests/p0-deep-link-security.test.mjs 2>&1 | tee /tmp/g5-mobile.tap
           grep -Eq '^# fail 0$' /tmp/g5-mobile.tap
           grep -Eq '^# skipped 0$' /tmp/g5-mobile.tap
-      - name: G5 edge, commerce-disabled and newsletter contracts
+      - name: G5 edge, commerce-disabled and newsletter offline contracts (no network)
         shell: bash
+        env:
+          HT_OFFLINE_ONLY: "1"
         run: |
           set -euo pipefail
-          node --test tests/g5-*.test.mjs 2>&1 | tee /tmp/g5-root.tap
+          node --import ./scripts/ci/offline-network-guard.mjs --test tests/g5-*.test.mjs 2>&1 | tee /tmp/g5-root.tap
           grep -Eq '^# fail 0$' /tmp/g5-root.tap
           grep -Eq '^# skipped 0$' /tmp/g5-root.tap
       - name: Build the web export (fails on CSP inline-script hash drift)
         run: npm run build:phase4:web
+      - name: Verify exported page route metadata against the real build (N6 — fails closed if export absent)
+        shell: bash
+        env:
+          HT_OFFLINE_ONLY: "1"
+        run: |
+          set -euo pipefail
+          cd apps/mobile
+          node --import ../../scripts/ci/offline-network-guard.mjs --test tests/g5-route-metadata.test.mjs 2>&1 | tee /tmp/g5-metadata.tap
+          grep -Eq '^# fail 0$' /tmp/g5-metadata.tap
+          grep -Eq '^# skipped 0$' /tmp/g5-metadata.tap
       - name: Browser edge lab (compiled-route replica, mock RPC, CSP, legacy URLs)
         shell: bash
         run: |

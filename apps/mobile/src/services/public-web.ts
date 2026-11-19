@@ -4,6 +4,7 @@ export type PublicWebStoryCapability = {
   capabilityVersion: string;
   kind: "story";
   routing: {
+    storyId?: string | null;
     sourceId: string | null;
     sourceType: string | null;
     sourceUrl: string | null;
@@ -38,6 +39,7 @@ export type PublicWebStoryCapability = {
     accessPolicy: string | null;
     bodyProtected: boolean;
     bodyHtml: string | null;
+    premiumTeaserHtml?: string | null;
     protectedPreview: string | null;
     featuredMedia: {
       publicUrl: string;
@@ -88,33 +90,71 @@ export type PublicWebCapability =
   | PublicWebContextCapability
   | PublicWebRouteCapability;
 
+function normalizedSlugFromPath(pathname: string): string {
+  return pathname.split("/").filter(Boolean).at(-1)?.trim() ?? "";
+}
+
+function canonicalSlugForCapability(capability: PublicWebStoryCapability): string {
+  const candidates = [
+    capability.routing?.canonicalUrl,
+    capability.seo?.canonicalUrl,
+    capability.routing?.sourceUrl
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const slug = normalizedSlugFromPath(new URL(candidate).pathname);
+      if (slug) return slug;
+    } catch {
+      const slug = normalizedSlugFromPath(candidate);
+      if (slug) return slug;
+    }
+  }
+  const sourceId = capability.routing?.sourceId?.trim();
+  const storyId = capability.routing?.storyId?.trim();
+  return storyId || sourceId || "story";
+}
+
+function normalizedLegacyPath(canonicalUrl: string): string | undefined {
+  try {
+    const pathname = new URL(canonicalUrl).pathname;
+    if (!pathname) return undefined;
+    return pathname.endsWith("/") ? pathname : pathname + "/";
+  } catch {
+    return undefined;
+  }
+}
+
 export function storyFromPublicCapability(capability: PublicWebStoryCapability): ArticleDetail {
-  const sourceId = capability.routing.sourceId ?? "unknown";
+  const sourceId = capability.routing.sourceId?.trim() || null;
+  const canonicalStoryId = capability.routing.storyId?.trim() || null;
   const canonicalUrl = capability.routing.canonicalUrl || capability.seo.canonicalUrl;
-  const canonicalPath = (() => {
-    try { return new URL(canonicalUrl).pathname; } catch { return "/"; }
-  })();
-  const slug = canonicalPath.split("/").filter(Boolean).at(-1) ?? "story";
+  const slug = canonicalSlugForCapability(capability);
+  const sourceType = capability.routing.sourceType || "post";
+  const authorSlug = capability.content.author?.slug?.trim() || null;
   const author = capability.content.author?.name ? {
-    id: "cp5-author-" + (capability.content.author.slug || "healthtimes"),
+    id: authorSlug ? "wordpress-author:" + authorSlug : "wordpress-author:healthtimes",
     displayName: capability.content.author.name,
-    slug: capability.content.author.slug || "healthtimes"
+    slug: authorSlug || "healthtimes"
   } : null;
+  const sectionSlug = capability.content.section?.slug?.trim() || null;
   const primarySection = capability.content.section?.name ? {
-    id: "cp5-section-" + (capability.content.section.slug || "healthtimes"),
+    id: sectionSlug ? "migrated-section:" + sectionSlug : "migrated-section:healthtimes",
     name: capability.content.section.name,
-    slug: capability.content.section.slug || "healthtimes"
+    slug: sectionSlug || "healthtimes"
   } : null;
   const premium = capability.content.bodyProtected || String(capability.content.accessPolicy || "").toLowerCase() !== "public";
+  const legacyPath = normalizedLegacyPath(canonicalUrl);
 
   return {
-    id: "cp5-source-" + sourceId,
-    canonicalStoryId: null,
+    id: slug,
+    canonicalStoryId,
     title: capability.content.storyTitle || capability.seo.title,
     slug,
     standfirst: capability.content.standfirst,
     excerpt: capability.content.excerpt || capability.content.protectedPreview,
-    bodyHtml: capability.content.bodyProtected ? null : capability.content.bodyHtml,
+    bodyHtml: premium ? null : capability.content.bodyHtml,
+    premiumTeaserHtml: premium ? (capability.content.premiumTeaserHtml ?? null) : null,
     canonicalUrl,
     accessPolicy: premium ? "premium" : "public",
     status: "published",
@@ -126,12 +166,27 @@ export function storyFromPublicCapability(capability: PublicWebStoryCapability):
     topics: [],
     legacyTaxonomy: [],
     heroMedia: capability.content.featuredMedia ? {
-      id: "cp5-media-" + sourceId,
+      id: capability.content.featuredMedia.storageObject
+        ? "migrated-media:" + capability.content.featuredMedia.storageObject
+        : "source-media:" + String(sourceId ?? canonicalStoryId ?? slug),
       publicUrl: capability.content.featuredMedia.publicUrl,
       altText: capability.content.featuredMedia.altText,
       caption: null,
       credit: null
     } : null,
+    sourceProvenance: {
+      system: "wordpress",
+      sourceId,
+      stableKey: sourceId ? "wordpress-" + sourceType + ":" + sourceId : null,
+      sourceUrl: capability.routing.sourceUrl ?? canonicalUrl,
+      checksum: null,
+      capturedAt: null,
+      wordpress: {
+        postId: sourceId ?? undefined,
+        legacyPath
+      },
+      exceptions: []
+    },
     contentIntegrity: "verified",
     premiumSourceContext: {
       accessPolicy: premium ? "premium" : "public",
@@ -140,6 +195,62 @@ export function storyFromPublicCapability(capability: PublicWebStoryCapability):
       reconciliation: "match"
     }
   };
+}
+
+/**
+ * Resolves a public-web story capability into the Reader's established canonical
+ * article identity using the active article repository when available, without
+ * inventing synthetic source-prefix IDs or mapping unknown sources to arbitrary stories.
+ */
+export async function resolveCanonicalStoryFromPublicCapability(
+  capability: PublicWebStoryCapability,
+  repository: { getById: (id: string) => Promise<ArticleDetail | null> }
+): Promise<ArticleDetail> {
+  const fallback = storyFromPublicCapability(capability);
+  const lookupKeys = [
+    fallback.canonicalStoryId,
+    fallback.slug,
+    fallback.sourceProvenance?.wordpress?.legacyPath
+  ].filter((value, index, all): value is string => Boolean(value && value.trim()) && all.indexOf(value) === index);
+
+  for (const key of lookupKeys) {
+    try {
+      const resolved = await repository.getById(key);
+      if (!resolved) continue;
+      // Only accept a repository match whose identity actually corresponds to this capability
+      // (same canonicalStoryId, same slug, or same WordPress sourceId). Never map to an arbitrary story.
+      const sameCanonical = Boolean(
+        fallback.canonicalStoryId &&
+        resolved.canonicalStoryId &&
+        resolved.canonicalStoryId === fallback.canonicalStoryId
+      );
+      const sameSlug = Boolean(
+        fallback.slug &&
+        resolved.slug &&
+        resolved.slug.toLowerCase() === fallback.slug.toLowerCase()
+      );
+      const sameSourceId = Boolean(
+        fallback.sourceProvenance?.sourceId &&
+        resolved.sourceProvenance?.sourceId &&
+        resolved.sourceProvenance.sourceId === fallback.sourceProvenance.sourceId
+      );
+      if (sameCanonical || sameSlug || sameSourceId) {
+        // Preserve fail-closed Premium classification if either authority marks it premium.
+        if (fallback.accessPolicy === "premium" && resolved.accessPolicy !== "premium") {
+          return {
+            ...resolved,
+            accessPolicy: "premium",
+            bodyHtml: null,
+            premiumTeaserHtml: resolved.premiumTeaserHtml ?? fallback.premiumTeaserHtml ?? null
+          };
+        }
+        return resolved;
+      }
+    } catch {
+      // Fall through to next key or canonical capability fallback.
+    }
+  }
+  return fallback;
 }
 
 export async function fetchPublicWebCapability(pathname: string): Promise<PublicWebCapability | null> {

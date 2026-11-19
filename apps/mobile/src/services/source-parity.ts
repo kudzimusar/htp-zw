@@ -92,6 +92,7 @@ type PublicMetadataArticle={
   excerpt?:string|null;
   heroMedia?:{sourceUrl?:string;altText?:string;caption?:string}|null;
   authorName?:string|null;
+  authorSlug?:string|null;
   bodyAuthority:string;
 };
 type PublicMetadataManifest={
@@ -222,7 +223,7 @@ function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlu
         author:entry.authorName ? [{
           id:0,
           name:entry.authorName,
-          slug:"healthtimes"
+          slug:entry.authorSlug?.trim() || entry.authorName.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "healthtimes"
         }] : undefined
       }
     };
@@ -587,7 +588,7 @@ const articleRepository:ArticleRepository={
     return refreshedArticles();
   },
   async getById(id){
-    const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
+    const current=(await refreshedArticles()).find((article)=>article.id===id || article.slug===id || (article.canonicalStoryId!==null && article.canonicalStoryId===id)) ?? null;
     if(!current) return null;
     const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
       exception.kind==="taxonomy-unresolved" &&

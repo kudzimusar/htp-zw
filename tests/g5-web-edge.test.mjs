@@ -144,6 +144,9 @@ test('security headers: enforced CSP without unsafe-eval or inline script, plus 
   assert.deepEqual(directives['base-uri'], ["'self'"]);
   assert.deepEqual(directives['form-action'], ["'self'"]);
   assert.ok(directives['connect-src'].includes('https://*.supabase.co'));
+  assert.ok(directives['connect-src'].includes('https://healthtimes-media.pages.dev'), 'N4: approved Cloudflare media origin must be permitted in connect-src');
+  assert.ok(!directives['connect-src'].includes('*') && !directives['connect-src'].includes('https:'), 'N4: connect-src must not use broad wildcards');
+  assert.ok(!directives['connect-src'].includes('https://evil.example'), 'N4: unapproved external origins stay blocked');
   assert.ok('upgrade-insecure-requests' in directives);
   assert.equal(headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(headers['X-Frame-Options'], 'SAMEORIGIN');
@@ -172,15 +175,38 @@ test('legacy wp-content uploads redirect onto the verified Cloudflare archive ke
 
 // ------------------------------------------------------------------ robots.txt
 
-test('robots: only the canonical HealthTimes hosts are indexable', async () => {
+function robotsAllows(robotsTxt, targetPath) {
+  const rules = robotsTxt.split('\n').map(l => l.trim()).filter(l => /^(Allow|Disallow):/i.test(l));
+  let best = { allow: true, len: -1 };
+  for (const rule of rules) {
+    const isAllow = /^Allow:/i.test(rule);
+    const pattern = rule.replace(/^(Allow|Disallow):\s*/i, '');
+    if (!pattern) continue;
+    const anchored = pattern.endsWith('$');
+    const bare = anchored ? pattern.slice(0, -1) : pattern;
+    const matched = anchored ? targetPath === bare : targetPath.startsWith(bare);
+    if (matched && pattern.length > best.len) best = { allow: isAllow, len: pattern.length };
+  }
+  return best.allow;
+}
+
+test('robots (N3): only canonical HealthTimes hosts are indexable, restricted routes use exact/descendant boundaries, and similarly prefixed public slugs remain allowed', async () => {
   const prod = await invoke('/api/public?kind=robots', { headers: { host: 'healthtimes.co.zw' } });
   assert.equal(prod.status, 200);
   assert.match(prod.headers['content-type'], /^text\/plain/);
-  assert.match(prod.body, /Disallow: \/studio\n/);
-  assert.match(prod.body, /Disallow: \/owner-preview\n/);
+  assert.match(prod.body, /Disallow: \/studio\$\nDisallow: \/studio\/\n/);
+  assert.match(prod.body, /Disallow: \/owner-preview\$\nDisallow: \/owner-preview\/\n/);
+  assert.match(prod.body, /Disallow: \/my\$\nDisallow: \/my\/\n/);
+  assert.match(prod.body, /Disallow: \/saved\$\nDisallow: \/saved\/\n/);
   assert.match(prod.body, /Disallow: \/api\/\n/);
   assert.match(prod.body, /Sitemap: https:\/\/healthtimes\.co\.zw\/sitemap\.xml/);
   assert.doesNotMatch(prod.body, /Disallow: \/\n/);
+  for (const blocked of ['/studio', '/studio/', '/studio/stories', '/owner-preview', '/owner-preview/studio', '/my', '/my/profile', '/saved', '/saved/offline', '/notifications', '/notifications/all', '/appearance', '/api/public', '/payment/return']) {
+    assert.equal(robotsAllows(prod.body, blocked), false, blocked + ' must be disallowed');
+  }
+  for (const allowed of ['/', '/studious-article/', '/my-health-story/', '/saved-by-surgery/', '/owner-preview-report/', '/notifications-of-cholera/', '/appearance-of-new-strain/', '/cholera-response-update/']) {
+    assert.equal(robotsAllows(prod.body, allowed), true, allowed + ' must remain indexable');
+  }
   for (const host of ['dist-11-11.vercel.app', 'healthtimes-client-preview.vercel.app', 'evil.example', '']) {
     const other = await invoke('/api/public?kind=robots', { headers: { host } });
     assert.equal(other.body, 'User-agent: *\nDisallow: /\n', host + ' must not be indexable');
@@ -392,3 +418,46 @@ test('public handler stays read-only: POST is 405 and unconfigured GET makes no 
     if (saved !== undefined) process.env.SUPABASE_URL = saved;
   }
 });
+
+test('page (N1): replacement tokens in story metadata stay literal and never duplicate shell markers', withRuntime(async () => {
+  const specialTitle = 'Budget $& $$ $\' update';
+  const specialDesc = 'Cost $& and $$ and $\' summary.';
+  const backend = stubBackend({
+    ag05_resolve_public_path: () => ({ json: { resolution: 'preserved_direct', http_status: 200 } }),
+    ag05_public_story_document: () => ({ json: { ...STORY_DOC, title: specialTitle, story_title: specialTitle, description: specialDesc } })
+  });
+  try {
+    const res = await invoke(pageUrl('/cholera-response-update/'));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['x-htp-shell'], 'override');
+    assert.equal((res.body.match(/<html\b/gi) || []).length, 1);
+    assert.equal((res.body.match(/<\/head>/gi) || []).length, 1);
+    assert.equal((res.body.match(/<\/body>/gi) || []).length, 1);
+    assert.ok(res.body.includes('Budget $&amp; $$ $&#39; update'));
+    assert.ok(Buffer.byteLength(res.body, 'utf8') < internals.MAX_RENDERED_PAGE_BYTES);
+  } finally { backend.restore(); }
+}));
+
+test('page (N1): malformed, duplicated, or oversized shells fail closed to the minimal script-free page', withRuntime(async () => {
+  const backend = stubBackend({
+    ag05_resolve_public_path: () => ({ json: { resolution: 'preserved_direct', http_status: 200 } }),
+    ag05_public_story_document: () => ({ json: STORY_DOC })
+  });
+  try {
+    for (const badShell of [
+      FIXTURE_SHELL + FIXTURE_SHELL,
+      '<html><head></head></html>',
+      '<!DOCTYPE html><html><head></head><body>' + 'a'.repeat(internals.MAX_SHELL_BYTES + 10) + '</body></html>'
+    ]) {
+      assert.equal(internals.isWellFormedShell(badShell), false);
+      internals.setShellLoader(() => badShell);
+      const res = await invoke(pageUrl('/cholera-response-update/'));
+      assert.equal(res.status, 200);
+      assert.equal(res.headers['x-htp-shell'], 'minimal');
+      assert.deepEqual(inlineScripts(res.body), []);
+      assert.doesNotMatch(res.body, /<script[^>]*src=/i);
+      assert.equal((res.body.match(/<html\b/gi) || []).length, 1);
+    }
+  } finally { backend.restore(); }
+}));
+

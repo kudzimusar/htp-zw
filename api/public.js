@@ -93,6 +93,21 @@ const ROBOTS_DISALLOW = [
   '/payment/', '/system-status', '/growth-status', '/onboarding', '/notification-settings',
   '/notifications', '/appearance', '/saved', '/my', '/_htp/'
 ];
+const MAX_RENDERED_PAGE_BYTES = 1_500_000;
+const MAX_SHELL_BYTES = 500_000;
+
+function robotsDisallowLines() {
+  const lines = [];
+  for (const entry of ROBOTS_DISALLOW) {
+    if (entry.endsWith('/')) {
+      lines.push('Disallow: ' + entry);
+    } else {
+      lines.push('Disallow: ' + entry + '$');
+      lines.push('Disallow: ' + entry + '/');
+    }
+  }
+  return lines;
+}
 
 // Only the Host header: Vercel documents x-forwarded-host as identical to it, so
 // trusting the forwarded copy adds nothing and would make robots.txt (CDN-cached)
@@ -109,7 +124,7 @@ function isCanonicalHost(host) {
 function robotsText(host) {
   if (!isCanonicalHost(host)) return 'User-agent: *\nDisallow: /\n';
   return 'User-agent: *\n' +
-    ROBOTS_DISALLOW.map(path => 'Disallow: ' + path).join('\n') +
+    robotsDisallowLines().join('\n') +
     '\nAllow: /\n\nSitemap: ' + CANONICAL_ORIGIN + '/sitemap.xml\n';
 }
 
@@ -186,28 +201,66 @@ function noscriptSummary(capability) {
     '<p><a href="/">HealthTimes</a></p></main></noscript>';
 }
 
-function renderPage(shell, capability, status, path = '') {
+function isWellFormedShell(shell) {
+  if (typeof shell !== 'string' || !shell) return false;
+  if (Buffer.byteLength(shell, 'utf8') > MAX_SHELL_BYTES) return false;
+  const headCloses = shell.match(/<\/head>/gi) || [];
+  const bodyCloses = shell.match(/<\/body>/gi) || [];
+  if (headCloses.length !== 1 || bodyCloses.length !== 1) return false;
+  if ((shell.match(/<html\b/gi) || []).length > 1 || (shell.match(/<\/html>/gi) || []).length > 1) return false;
+  const headEnd = shell.search(/<\/head>/i);
+  const bodyEnd = shell.search(/<\/body>/i);
+  return headEnd >= 0 && bodyEnd > headEnd;
+}
+
+function renderMinimalPage(head, capability) {
+  const safeTitle = escapeHtml(String(head.title || 'HealthTimes').slice(0, 300));
+  const summaryHtml = noscriptSummary(capability).replace(/^<noscript>|<\/noscript>$/g, '');
+  const html = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
+    '<title data-rh="true">' + safeTitle + '</title>' + head.tags +
+    '</head><body>' + summaryHtml + '</body></html>';
+  if (Buffer.byteLength(html, 'utf8') <= MAX_RENDERED_PAGE_BYTES) return html;
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
+    '<title data-rh="true">' + safeTitle + '</title>' +
+    '<meta data-rh="true" name="robots" content="noindex,follow"/>' +
+    '</head><body><main><h1>' + safeTitle + '</h1><p><a href="/">HealthTimes</a></p></main></body></html>';
+}
+
+function renderPageWithMeta(shell, capability, status, path = '') {
   const head = headTags(capability, status);
   const data = capability && path
     ? '<script type="application/json" id="htp-public-capability" data-path="' + escapeHtml(path) + '">' +
       jsonForScript(capability) + '</script>'
     : '';
-  if (!shell || !shell.includes('</head>') || !shell.includes('</body>')) {
-    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
-      '<title data-rh="true">' + escapeHtml(head.title) + '</title>' + head.tags +
-      '</head><body>' + noscriptSummary(capability).replace(/^<noscript>|<\/noscript>$/g, '') + '</body></html>';
+  if (!isWellFormedShell(shell)) {
+    return { html: renderMinimalPage(head, capability), minimal: true };
   }
+  const titleTag = '<title data-rh="true">' + escapeHtml(head.title) + '</title>';
+  const headInjection = head.tags + data;
+  const bodyInjection = noscriptSummary(capability);
   let html = shell;
-  html = html.replace(/<meta name="description"[^>]*>/i, '');
+  html = html.replace(/<meta name="description"[^>]*>/i, () => '');
   if (/<title[^>]*>[\s\S]*?<\/title>/i.test(html)) {
-    html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/i, '<title data-rh="true">' + escapeHtml(head.title) + '</title>');
+    html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/i, () => titleTag);
   } else {
-    html = html.replace('</head>', '<title data-rh="true">' + escapeHtml(head.title) + '</title></head>');
+    html = html.replace(/<\/head>/i, () => titleTag + '</head>');
   }
-  html = html.replace('</head>', head.tags + data + '</head>');
-  html = html.replace('</body>', noscriptSummary(capability) + '</body>');
-  return html;
+  html = html.replace(/<\/head>/i, () => headInjection + '</head>');
+  html = html.replace(/<\/body>/i, () => bodyInjection + '</body>');
+  if (
+    Buffer.byteLength(html, 'utf8') > MAX_RENDERED_PAGE_BYTES ||
+    (html.match(/<\/head>/gi) || []).length !== 1 ||
+    (html.match(/<\/body>/gi) || []).length !== 1
+  ) {
+    return { html: renderMinimalPage(head, capability), minimal: true };
+  }
+  return { html, minimal: false };
+}
+
+function renderPage(shell, capability, status, path = '') {
+  return renderPageWithMeta(shell, capability, status, path).html;
 }
 
 let shellLoaderOverride = null;
@@ -231,7 +284,8 @@ function loadShell() {
 
 function shellPage(capability, status, path) {
   const shell = loadShell();
-  return { html: renderPage(shell.html, capability, status, path), source: shell.html ? shell.source : 'minimal' };
+  const rendered = renderPageWithMeta(shell.html, capability, status, path);
+  return { html: rendered.html, source: rendered.minimal ? 'minimal' : shell.source };
 }
 
 function sendPage(req, res, status, page, cache, extraHeaders = {}) {
@@ -445,8 +499,12 @@ module.exports._internals = {
   rpc,
   requestedPath,
   robotsText,
+  robotsDisallowLines,
   pagePathFrom,
   renderPage,
+  isWellFormedShell,
+  MAX_RENDERED_PAGE_BYTES,
+  MAX_SHELL_BYTES,
   escapeHtml,
   jsonForScript,
   setShellLoader(loader) { shellLoaderOverride = typeof loader === 'function' ? loader : null; },

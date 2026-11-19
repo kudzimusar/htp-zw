@@ -8,12 +8,15 @@ import { colors, radius, spacing } from "../src/theme/tokens";
 import {
   fetchPublicWebCapability,
   injectedPublicWebCapability,
+  resolveCanonicalStoryFromPublicCapability,
   safeInternalRedirectTarget,
   storyFromPublicCapability,
   type PublicWebCapability,
   type PublicWebContextCapability,
   type PublicWebStoryCapability
 } from "../src/services/public-web";
+import { services } from "../src/services";
+import type { ArticleDetail } from "../src/domain/models";
 
 function CapabilityHead({ capability }: { capability: PublicWebStoryCapability | PublicWebContextCapability }) {
   const seo = capability.seo;
@@ -76,6 +79,7 @@ export default function PublicWebFallback() {
   const router = useRouter();
   const injected = useMemo(() => injectedPublicWebCapability(pathname), [pathname]);
   const [capability, setCapability] = useState<PublicWebCapability | null>(null);
+  const [canonicalStory, setCanonicalStory] = useState<ArticleDetail | null>(null);
   const [resolved, setResolved] = useState(false);
   const redirectTarget = capability?.kind === "route" && capability.routing?.httpStatus === 301
     ? safeInternalRedirectTarget(capability.routing.targetPath)
@@ -87,18 +91,26 @@ export default function PublicWebFallback() {
 
   useEffect(() => {
     let active = true;
+    setCanonicalStory(null);
+    setResolved(false);
+
+    const resolveCapability = async (value: PublicWebCapability | null) => {
+      if (!active) return;
+      setCapability(value);
+      if (value?.kind === "story") {
+        const story = await resolveCanonicalStoryFromPublicCapability(value, services.articles);
+        if (!active) return;
+        setCanonicalStory(story);
+      }
+      setResolved(true);
+    };
 
     if (injected) {
-      setCapability(injected);
-      setResolved(true);
+      void resolveCapability(injected);
       return () => { active = false; };
     }
 
-    void fetchPublicWebCapability(pathname).then(value => {
-      if (!active) return;
-      setCapability(value);
-      setResolved(true);
-    });
+    void fetchPublicWebCapability(pathname).then(resolveCapability);
     return () => { active = false; };
   }, [injected, pathname]);
 
@@ -110,7 +122,7 @@ export default function PublicWebFallback() {
     return (
       <>
         <CapabilityHead capability={capability} />
-        <ArticleReader initialStory={storyFromPublicCapability(capability)} />
+        <ArticleReader initialStory={canonicalStory ?? storyFromPublicCapability(capability)} />
       </>
     );
   }
