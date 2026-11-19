@@ -1,0 +1,160 @@
+{
+  "standard_version": "1.0.0",
+  "programme_id": "HT-MVP-PUBLIC-LAUNCH-01",
+  "handoff_id": "HT-MOD-HANDOFF-2026-11-19-GMGC-GOAL-01",
+  "as_of": "2026-11-19T01:50:23.282Z",
+  "verified_at": "2026-11-19T01:50:23.282Z",
+  "source_reference": "https://github.com/kudzimusar/htp-zw/issues/147",
+  "storage_status": "PR_PENDING",
+  "main_sha": "6994aa18d37e2189dbc1d3f8efc76a638ee0971c",
+  "last_accepted_sha": null,
+  "baseline_tasks": null,
+  "accepted_tasks": null,
+  "acceptance_percent": null,
+  "current_gate": {
+    "name": "G2 — authenticated staging UAT; bounded G3 preparation parallel",
+    "status": "BLOCKED",
+    "evidence": "Issue #147 canonical G2 exit not satisfied; historical 23 PASS / 0 FAIL / 7 BLOCKED. Current staging RPC state must be reverified."
+  },
+  "active_prs": [
+    {
+      "task_id": "G1",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/149",
+      "head_sha": "1f6a8ca4b41cb646beb6f12ecf11aee96c5973b5",
+      "status": "DRAFT"
+    },
+    {
+      "task_id": "G2",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/153",
+      "head_sha": "46f3b0bd0d7b3da7c929b723e673f7bf73fd424c",
+      "status": "DRAFT"
+    },
+    {
+      "task_id": "G3",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/156",
+      "head_sha": "7434e70d632e122a1c3feb773d0a81d2921bc854",
+      "status": "DRAFT"
+    },
+    {
+      "task_id": "R7",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/157",
+      "head_sha": "fbf7c1a0b5271a5a0d3090ef21402669794e71e1",
+      "status": "DRAFT"
+    },
+    {
+      "task_id": "CLOUDFLARE_MEDIA",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/158",
+      "head_sha": "988deed1331e0853d9e746435bb8f3b6785626de",
+      "status": "IN_REVIEW"
+    },
+    {
+      "task_id": "G3G5_N1_N6",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/159",
+      "head_sha": "6eab1ec53efc7454704b93e11e01edc856050cb9",
+      "status": "REMEDIATE"
+    },
+    {
+      "task_id": "G2G4G6_PARALLEL",
+      "ref": "https://github.com/kudzimusar/htp-zw/pull/160",
+      "head_sha": "684734057b0dd3a04d69e85fc2d0ae7534dfc2f2",
+      "status": "DRAFT"
+    }
+  ],
+  "agent_assignments": [
+    {
+      "role": "Existing G3/G5 integration specialist; current session not independently verified",
+      "task_id": "HT-MVP-G3G5-FINAL-EXACT-HEAD-REVIEW-01-R2-FIX-CLOSE",
+      "state": "LOCAL_FIX_OWNER_AUTHORIZED; PUBLICATION_HELD",
+      "reviewer": "@11-eleven-skm",
+      "next_action": "Return actual local commit SHA and tests for N1–N6. Separate Owner approval required before push."
+    },
+    {
+      "role": "Existing G3/G5 independent peer; report provided by Owner",
+      "task_id": "G3G5_INDEPENDENT_PEER",
+      "state": "REMEDIATE_REPORTED; NEW_HEAD_REVIEW_PENDING",
+      "reviewer": null,
+      "next_action": "Verify corrected exact source and artifact after Owner-authorized publication."
+    },
+    {
+      "role": "Existing Cloudflare media specialist; current session not independently verified",
+      "task_id": "PR158",
+      "state": "DRAFT_REVIEW_PENDING",
+      "reviewer": "@11-eleven-skm",
+      "next_action": "Preserve existing media source and mirror; do not redeploy without Owner."
+    },
+    {
+      "role": "Existing G2/G4/G6 specialist; current session not independently verified",
+      "task_id": "PR160",
+      "state": "DRAFT_UNMERGED",
+      "reviewer": "NOT_ASSIGNED",
+      "next_action": "Preserve separate parallel workstream; no premature integration."
+    },
+    {
+      "role": "Independent formal GitHub reviewer",
+      "task_id": "PR158_PR159_PR161",
+      "state": "REVIEW_REQUESTED; ZERO_SUBMITTED_REVIEWS_AT_VERIFICATION",
+      "reviewer": "@11-eleven-skm",
+      "next_action": "Review actual final exact head independently after correction."
+    },
+    {
+      "role": "HealthTimes Programme Moderator (this conversation)",
+      "task_id": "HT_GMGC_PROVISIONAL_ADOPTION_PR161",
+      "state": "DOCUMENTATION_COMMITTED_TO_DRAFT_BRANCH; NOT_MERGED",
+      "reviewer": "@11-eleven-skm",
+      "next_action": "Finish source-backed adoption and conditional Owner/reviewer gate."
+    }
+  ],
+  "blockers": [
+    {
+      "classification": "SECURITY",
+      "description": "PR #159 N1–N6 peer defects require local remediation; details held in restricted peer evidence.",
+      "owner_role": "G3/G5 integration specialist",
+      "unblock_condition": "Local SHA/test return, separate Owner push authority, fresh independent exact-head review and distinct Preview approval."
+    },
+    {
+      "classification": "ENVIRONMENT",
+      "description": "G2 real authenticated UAT previously blocked by RPC 402; current data-plane recovery not independently verified.",
+      "owner_role": "Owner + G2 specialist",
+      "unblock_condition": "Owner-approved protected identities, verified staging recovery and seven canonical field UAT cases."
+    },
+    {
+      "classification": "PRODUCT",
+      "description": "Owner rejected older protected Preview as sufficient client evidence due to stale content, missing images and legacy navigation.",
+      "owner_role": "Existing G2/G3/G5 specialists",
+      "unblock_condition": "Address gaps at original approved gate with real browser/content-rights evidence and no scope drift."
+    },
+    {
+      "classification": "CUSTODY",
+      "description": "Draft PR #160 diverges from PR #159 final source; formal exact-head approval is absent.",
+      "owner_role": "Programme Moderator + independent reviewer",
+      "unblock_condition": "Documented lineage reconciliation and formal review before any integration."
+    },
+    {
+      "classification": "OWNER_POLICY",
+      "description": "Public/Premium, legal, media rights, release and financial decisions remain held.",
+      "owner_role": "Owner/Publisher/Finance authority",
+      "unblock_condition": "Explicit stage-specific approvals with evidence, not implied by a demo."
+    },
+    {
+      "classification": "RELEASE_GATE",
+      "description": "Global PR #16 and HealthTimes PR #161 still Draft/unmerged; no automatic adoption.",
+      "owner_role": "Owner and independent governance reviewer",
+      "unblock_condition": "Independent review and separately authorized central and project merges."
+    }
+  ],
+  "next_action": "Same existing G3/G5 integration specialist completes authorized LOCAL N1–N6 fixes at remote PR #159 starting 6eab1ec53efc7454704b93e11e01edc856050cb9; return local SHA, negative tests, artifacts and Owner publication request. No push/deploy.",
+  "receiving_moderator_instruction": "The receiving moderator must follow Global Moderator Governance & Continuity Standard 1.0, generate the next successor handoff, and verify live sources.",
+  "evidence_links": [
+    "https://github.com/kudzimusar/htp-zw/issues/147",
+    "https://github.com/kudzimusar/htp-zw/pull/159",
+    "https://github.com/kudzimusar/htp-zw/pull/160",
+    "https://github.com/kudzimusar/htp-zw/pull/161",
+    "https://github.com/kudzimusar/11-11-tech/pull/16",
+    "https://github.com/kudzimusar/htp-zw/blob/docs/ht-goal-fidelity-stage-control-20261119/docs/governance/HT-MOD-HANDOFF-CURRENT.md"
+  ],
+  "restrictions": [
+    "No Owner-unauthorized merge, push of held source, protected Preview deployment, public launch, staging/production mutation, DNS, paid services, LIVE payments, newsletter/deletion activation or app-store release.",
+    "Do not post private security reproduction, tokens, staff identities or protected client data to public repositories.",
+    "Do not turn blocked CI/UAT into PASS or draft work into accepted/merged source."
+  ]
+}
