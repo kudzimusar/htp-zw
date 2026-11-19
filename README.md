@@ -1,5 +1,10 @@
 # HealthTimes Zimbabwe — 2.1 Client-Review Platform
 
+## Mandatory Agent Governance
+
+Every HealthTimes implementation and review agent must read [AGENTS.md](AGENTS.md) and [the two global governance rules](docs/governance/GLOBAL_AGENT_RULES.md). [Download the versioned PDF](https://github.com/kudzimusar/11-11-tech/blob/917c16f6d64d7f29d442fec562021dd11687228d/governance/global-moderator/11-11-TECH-GLOBAL-AGENT-GOVERNANCE-v1.0.pdf). Existing G1–G6 stage authority and protected release permissions remain unchanged.
+
+
 HealthTimes 2.1 is a modernization of the HealthTimes Zimbabwe publication into a premium editorial website, native-feeling mobile news product, subscriber experience, advertising platform, HealthTimes Intelligence layer and role-governed Newsroom.
 
 ## Live surfaces
