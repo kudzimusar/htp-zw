@@ -405,3 +405,12 @@ test("GitHub Pages preview includes fresh-load deep-link fallback handshake",()=
   assert.match(workflow,/HEALTHTIMES_PWA_DEEP_LINK_FALLBACK/);
   assert.match(workflow,/source-nm04-live-discovered/);
 });
+
+test("unverified bylines remain visible without merging into public author profiles",()=>{
+  const service=read("src/services/source-parity.ts");
+  assert.match(service,/author:authorName \? \{/);
+  assert.match(service,/slug:authorSlug \?\? ""/);
+  assert.match(service,/source-author-unresolved:/);
+  assert.match(service,/if\(!author \|\| !author\.slug\) continue/);
+  assert.match(service,/if\(!authorSlug\) return \[\]/);
+});

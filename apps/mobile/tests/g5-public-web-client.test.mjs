@@ -104,6 +104,22 @@ test("N2: storyFromPublicCapability uses canonical Reader slug/storyId and prese
   assert.equal(story.author.id, "wordpress-author:jane-reporter");
   assert.ok(!story.id.startsWith("cp5-source-"));
 
+  const sluglessA = web.storyFromPublicCapability({
+    ...pubCap,
+    routing: { ...pubCap.routing, storyId: "aaaaaaaa-1111-4111-8111-111111111111", sourceId: "9002" },
+    content: { ...pubCap.content, author: { name: "Tendai Moyo" } }
+  });
+  const sluglessB = web.storyFromPublicCapability({
+    ...pubCap,
+    routing: { ...pubCap.routing, storyId: "bbbbbbbb-2222-4222-8222-222222222222", sourceId: "9003" },
+    content: { ...pubCap.content, author: { name: "Rudo Ncube" } }
+  });
+  assert.equal(sluglessA.author.displayName, "Tendai Moyo");
+  assert.equal(sluglessB.author.displayName, "Rudo Ncube");
+  assert.equal(sluglessA.author.slug, "", "unverified author must not receive a profile route");
+  assert.equal(sluglessB.author.slug, "", "unverified author must not receive a profile route");
+  assert.notEqual(sluglessA.author.id, sluglessB.author.id, "distinct slugless writers must not share an author identity");
+
   const premCap = {
     ...pubCap,
     content: { ...pubCap.content, accessPolicy: "premium", bodyProtected: true, bodyHtml: "<p>LEAK</p>", premiumTeaserHtml: "<p>Teaser</p>", protectedPreview: "Preview" }
@@ -162,14 +178,15 @@ test("N2: resolveCanonicalStoryFromPublicCapability reconciles with repository w
   assert.equal(dupConflict.sourceProvenance.sourceId, "9001");
 });
 
-test("R3-B7: author-slug normalization folds diacritics, preserves verified slugs, and avoids synthetic collisions", () => {
+test("R3-B7: only verified WordPress slugs or a verified matching source profile create author routes", () => {
   const sourceParityText = readFileSync(join(root, "src/services/source-parity.ts"), "utf8");
   assert.match(sourceParityText, /export function slugifyAuthorName/);
   assert.match(sourceParityText, /normalize\("NFKD"\)/);
   assert.match(sourceParityText, /export function resolveManifestAuthorSlug/);
-  assert.match(sourceParityText, /Do not overwrite a verified author identity/);
-  // Extract pure helper functions to test directly without pulling in Expo/RN modules
-  const fnMatch = sourceParityText.match(/export function slugifyAuthorName[\s\S]*?return slugifyAuthorName\(authorName\) \|\| "healthtimes";\n\}/);
+  assert.match(sourceParityText, /Do not manufacture a profile slug/);
+  assert.match(sourceParityText, /if\(!author \|\| !author\.slug\) continue/);
+  assert.match(sourceParityText, /if\(!authorSlug\) return \[\]/);
+  const fnMatch = sourceParityText.match(/export function slugifyAuthorName[\s\S]*?return null;\n\}/);
   assert.ok(fnMatch, "author-slug helpers present");
   const transpiled = ts.transpileModule(fnMatch[0], { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const mod = { exports: {} };
@@ -180,6 +197,10 @@ test("R3-B7: author-slug normalization folds diacritics, preserves verified slug
   assert.equal(slugifyAuthorName("  Chipo  Ndlovu-Chikwanda! "), "chipo-ndlovu-chikwanda");
   assert.equal(resolveManifestAuthorSlug("Kudakwashe Pembere", null, { displayName: "Kudakwashe Pembere", slug: "kuda-pembere" }), "kuda-pembere");
   assert.equal(resolveManifestAuthorSlug("Jane Doe", "jane-doe-verified", { displayName: "Jane Doe", slug: "old-slug" }), "jane-doe-verified");
-  assert.equal(resolveManifestAuthorSlug("Jane Doe", null, { displayName: "Different Writer", slug: "different-writer" }), "jane-doe");
-  assert.equal(resolveManifestAuthorSlug("   ", null, null), "healthtimes");
+  assert.equal(resolveManifestAuthorSlug("Jane Doe", null, { displayName: "Different Writer", slug: "different-writer" }), null);
+  assert.equal(resolveManifestAuthorSlug("Tendai Moyo", null, null), null);
+  assert.equal(resolveManifestAuthorSlug("Rudo Ncube", null, null), null);
+  assert.equal(resolveManifestAuthorSlug("Dr. J. Moyo", null, null), null);
+  assert.equal(resolveManifestAuthorSlug("Dr J Moyo", null, null), null);
+  assert.equal(resolveManifestAuthorSlug("   ", null, null), null);
 });

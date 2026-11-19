@@ -147,6 +147,16 @@ test('security headers: enforced CSP without unsafe-eval or inline script, plus 
   assert.ok(directives['connect-src'].includes('https://healthtimes-media.pages.dev'), 'N4: approved Cloudflare media origin must be permitted in connect-src');
   assert.ok(!directives['connect-src'].includes('*') && !directives['connect-src'].includes('https:'), 'N4: connect-src must not use broad wildcards');
   assert.ok(!directives['connect-src'].includes('https://evil.example'), 'N4: unapproved external origins stay blocked');
+  for (const origin of ['https://healthtimes-media.pages.dev', 'https://img.youtube.com', 'https://bzuvntbkevvuhfhqhkua.supabase.co', 'https://healthtimes.co.zw', 'https://www.healthtimes.co.zw']) {
+    assert.ok(directives['img-src'].includes(origin), `N4: verified image origin ${origin} must be explicitly allowed`);
+  }
+  for (const origin of ['https://healthtimes-media.pages.dev', 'https://bzuvntbkevvuhfhqhkua.supabase.co']) {
+    assert.ok(directives['media-src'].includes(origin), `N4: verified media origin ${origin} must be explicitly allowed`);
+  }
+  for (const directive of ['img-src', 'media-src']) {
+    assert.ok(!directives[directive].includes('https:') && !directives[directive].includes('*'), `N4: ${directive} must not allow arbitrary HTTPS origins or wildcards`);
+    assert.ok(!directives[directive].includes('https://evil.example'), `N4: ${directive} must block unapproved external origins`);
+  }
   assert.ok('upgrade-insecure-requests' in directives);
   assert.equal(headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(headers['X-Frame-Options'], 'SAMEORIGIN');

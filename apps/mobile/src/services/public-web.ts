@@ -132,10 +132,13 @@ export function storyFromPublicCapability(capability: PublicWebStoryCapability):
   const slug = canonicalSlugForCapability(capability);
   const sourceType = capability.routing.sourceType || "post";
   const authorSlug = capability.content.author?.slug?.trim() || null;
+  const authorIdentityKey = canonicalStoryId || sourceId || slug;
   const author = capability.content.author?.name ? {
-    id: authorSlug ? "wordpress-author:" + authorSlug : "wordpress-author:healthtimes",
+    // Without a source-verified author slug, retain the byline but scope its
+    // unresolved identity to this story. An unresolved byline has no profile route.
+    id: authorSlug ? "wordpress-author:" + authorSlug : "wordpress-author:unresolved-story:" + authorIdentityKey,
     displayName: capability.content.author.name,
-    slug: authorSlug || "healthtimes"
+    slug: authorSlug || ""
   } : null;
   const sectionSlug = capability.content.section?.slug?.trim() || null;
   const primarySection = capability.content.section?.name ? {

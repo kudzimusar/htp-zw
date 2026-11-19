@@ -37,7 +37,7 @@ import {
 
 type WpRendered={rendered?:string};
 type WpTerm={id:number;name:string;slug:string;taxonomy?:string};
-type WpAuthor={id:number;name:string;slug:string;link?:string};
+type WpAuthor={id:number;name:string;slug?:string;link?:string};
 type WpMedia={
   id:number;
   source_url?:string;
@@ -210,19 +210,27 @@ export function slugifyAuthorName(value:string):string{
     .replace(/^-+|-+$/g,"");
 }
 
-export function resolveManifestAuthorSlug(authorName:string,authorSlug?:string|null,verifiedFallback?:{displayName?:string|null;slug?:string|null}|null):string{
+export function resolveManifestAuthorSlug(authorName:string,authorSlug?:string|null,verifiedFallback?:{displayName?:string|null;slug?:string|null}|null):string|null{
   const explicit=authorSlug ? slugifyAuthorName(authorSlug) : "";
   if(explicit) return explicit;
   const normalizedName=authorName.trim().toLowerCase();
   if(verifiedFallback?.slug && verifiedFallback.displayName && verifiedFallback.displayName.trim().toLowerCase()===normalizedName){
     return verifiedFallback.slug;
   }
-  return slugifyAuthorName(authorName) || "healthtimes";
+  // A display name is not a WordPress identity. Never manufacture a profile slug.
+  return null;
 }
 
 function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlug:Map<string,ArticleDetail>){
   return entries.map((entry)=>{
     const fallback=fallbackBySlug.get(entry.slug)??null;
+    const authorName=entry.authorName?.trim() ?? "";
+    const verifiedMatches=authorName
+      ? sourceParityAuthors.filter(author=>author.displayName.trim().toLowerCase()===authorName.toLowerCase())
+      : [];
+    const verifiedFallback=verifiedMatches.length===1 && fallback?.author?.slug===verifiedMatches[0].slug
+      ? verifiedMatches[0]
+      : null;
     const post:WpPost={
       id:entry.id,slug:entry.slug,link:entry.link,
       date:entry.publishedAt,modified:entry.modifiedAt,
@@ -244,7 +252,7 @@ function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlu
         author:entry.authorName ? [{
           id:0,
           name:entry.authorName,
-          slug:resolveManifestAuthorSlug(entry.authorName,entry.authorSlug,fallback?.author)
+          slug:resolveManifestAuthorSlug(entry.authorName,entry.authorSlug,verifiedFallback) ?? undefined
         }] : undefined
       }
     };
@@ -336,6 +344,7 @@ function mappingExceptions(
   fallback:ArticleDetail|null,
   legacy:TaxonomyRef[],
   embeddedAuthor:WpAuthor|undefined,
+  authorIdentityVerified:boolean,
   media:WpMedia|undefined,
   primarySection:TaxonomyRef|null,
   geography:TaxonomyRef[]
@@ -350,12 +359,12 @@ function mappingExceptions(
       note:"WordPress term IDs were present but _embed did not supply resolvable category/tag records."
     });
   }
-  if(post.author && !embeddedAuthor && !fallback?.author){
+  if((post.author || embeddedAuthor?.name) && !authorIdentityVerified){
     exceptions.push({
       kind:"author-unresolved",
       classification:"requires-review",
       field:"author",
-      note:"WordPress author ID is preserved, but the public _embed response did not include a verified display identity."
+      note:"The byline may be displayed, but no verified WordPress author slug or matching source profile is available; no author profile route is assigned."
     });
   }
   if(post.featured_media && !media && !fallback?.heroMedia){
@@ -416,12 +425,23 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const media=post._embedded?.["wp:featuredmedia"]?.[0];
   const canonicalUrl=post.link || fallback?.canonicalUrl || sourceBase+"/"+post.slug+"/";
   const excerpt=stripHtml(post.excerpt?.rendered) || fallback?.excerpt || null;
-  const authorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : fallback?.author?.displayName ?? "HealthTimes";
-  const authorSlug=embeddedAuthor?.slug || fallback?.author?.slug || "healthtimes";
+  const embeddedAuthorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : null;
+  const fallbackAuthorId=fallback?.author?.sourceProvenance?.wordpress?.authorId;
+  const fallbackMatchesWpId=Boolean(post.author && fallbackAuthorId && String(post.author)===String(fallbackAuthorId));
+  const sourceAuthorMatches=embeddedAuthorName
+    ? sourceParityAuthors.filter(author=>author.displayName.trim().toLowerCase()===embeddedAuthorName.trim().toLowerCase())
+    : [];
+  const fallbackMatchesVerifiedProfile=sourceAuthorMatches.length===1 && fallback?.author?.slug===sourceAuthorMatches[0].slug;
+  const verifiedFallbackAuthor=fallback?.author && (fallbackMatchesWpId || fallbackMatchesVerifiedProfile)
+    ? fallback.author
+    : null;
+  const authorName=embeddedAuthorName ?? verifiedFallbackAuthor?.displayName ?? null;
+  const authorSlug=embeddedAuthor?.slug?.trim() || verifiedFallbackAuthor?.slug || null;
   const authorId=embeddedAuthor?.id ?? post.author ?? null;
+  const authorIdentityVerified=Boolean(authorName && authorSlug);
   const primarySection=inferPrimarySection(legacyNames,fallback);
   const geography=inferGeography(post,fallback);
-  const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,media,primarySection,geography);
+  const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,authorIdentityVerified,media,primarySection,geography);
   return {
     id:fallback?.id ?? "source-"+post.slug,
     canonicalStoryId:null,
@@ -436,26 +456,35 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     status:"published",
     publishedAt:post.date || fallback?.publishedAt || null,
     modifiedAt:post.modified || fallback?.modifiedAt || null,
-    author:{
-      id:authorId ? "wordpress-author-"+authorId : fallback?.author?.id ?? "source-author-"+authorSlug,
+    author:authorName ? {
+      id:authorId
+        ? "wordpress-author-"+authorId
+        : authorSlug
+          ? "wordpress-author:"+authorSlug
+          : "source-author-unresolved:"+post.id,
       displayName:authorName,
-      slug:authorSlug,
+      // Empty slug deliberately means this byline has no verified profile route.
+      slug:authorSlug ?? "",
       sourceProvenance:{
         system:"wordpress",
         sourceId:authorId ? String(authorId) : null,
-        stableKey:authorId ? "wordpress-author:"+authorId : "wordpress-author:"+authorSlug,
-        sourceUrl:embeddedAuthor?.link ?? fallback?.author?.sourceProvenance?.sourceUrl ?? null,
+        stableKey:authorId
+          ? "wordpress-author:"+authorId
+          : authorSlug
+            ? "wordpress-author:"+authorSlug
+            : "wordpress-post-author-unresolved:"+post.id,
+        sourceUrl:embeddedAuthor?.link ?? verifiedFallbackAuthor?.sourceProvenance?.sourceUrl ?? null,
         checksum:null,
         capturedAt:new Date().toISOString(),
         wordpress:{authorId:authorId ? String(authorId) : undefined},
-        exceptions:post.author && !embeddedAuthor && !fallback?.author ? [{
+        exceptions:authorIdentityVerified ? [] : [{
           kind:"author-unresolved",
           classification:"requires-review",
           field:"author",
-          note:"The WordPress author ID is preserved but the public _embed response did not provide a verified display identity."
-        }] : []
+          note:"The byline is preserved without a fabricated author slug or profile identity."
+        }]
       }
-    },
+    } : null,
     primarySection,
     geography,
     geographyRefs:fallback?.geographyRefs,
@@ -705,8 +734,9 @@ const articleRepository:ArticleRepository={
     );
   },
   async listByAuthor(authorSlug){
+    if(!authorSlug) return [];
     const all=await refreshedArticles();
-    return all.filter((article)=>article.author?.slug===authorSlug);
+    return all.filter((article)=>Boolean(article.author?.slug) && article.author?.slug===authorSlug);
   }
 };
 
@@ -735,7 +765,8 @@ async function parityAuthors():Promise<AuthorProfile[]>{
   const articles=await refreshedArticles();
   for(const article of articles){
     const author=article.author;
-    if(!author) continue;
+    // Slugless bylines remain visible on stories but never become profile records.
+    if(!author || !author.slug) continue;
     const existing=profiles.get(author.slug);
     const isSyntheticDerived=!author.sourceProvenance?.sourceId && author.id.startsWith("source-author-");
     if(existing && isSyntheticDerived && existing.displayName.trim().toLowerCase()!==author.displayName.trim().toLowerCase()){
