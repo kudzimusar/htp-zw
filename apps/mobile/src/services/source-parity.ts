@@ -200,8 +200,29 @@ async function readSameOriginPublicManifest():Promise<PublicMetadataArticle[]|nu
   }
 }
 
+export function slugifyAuthorName(value:string):string{
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,"-")
+    .replace(/^-+|-+$/g,"");
+}
+
+export function resolveManifestAuthorSlug(authorName:string,authorSlug?:string|null,verifiedFallback?:{displayName?:string|null;slug?:string|null}|null):string{
+  const explicit=authorSlug ? slugifyAuthorName(authorSlug) : "";
+  if(explicit) return explicit;
+  const normalizedName=authorName.trim().toLowerCase();
+  if(verifiedFallback?.slug && verifiedFallback.displayName && verifiedFallback.displayName.trim().toLowerCase()===normalizedName){
+    return verifiedFallback.slug;
+  }
+  return slugifyAuthorName(authorName) || "healthtimes";
+}
+
 function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlug:Map<string,ArticleDetail>){
   return entries.map((entry)=>{
+    const fallback=fallbackBySlug.get(entry.slug)??null;
     const post:WpPost={
       id:entry.id,slug:entry.slug,link:entry.link,
       date:entry.publishedAt,modified:entry.modifiedAt,
@@ -223,11 +244,11 @@ function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlu
         author:entry.authorName ? [{
           id:0,
           name:entry.authorName,
-          slug:entry.authorSlug?.trim() || entry.authorName.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "healthtimes"
+          slug:resolveManifestAuthorSlug(entry.authorName,entry.authorSlug,fallback?.author)
         }] : undefined
       }
     };
-    return mapWpPost(post,fallbackBySlug.get(entry.slug)??null);
+    return mapWpPost(post,fallback);
   });
 }
 const wpMetadataFields=[
@@ -694,14 +715,19 @@ async function parityAuthors():Promise<AuthorProfile[]>{
     const author=article.author;
     if(!author) continue;
     const existing=profiles.get(author.slug);
+    const isSyntheticDerived=!author.sourceProvenance?.sourceId && author.id.startsWith("source-author-");
+    if(existing && isSyntheticDerived && existing.displayName.trim().toLowerCase()!==author.displayName.trim().toLowerCase()){
+      // Do not overwrite a verified author identity with a derived-slug collision from a differently named writer.
+      continue;
+    }
     profiles.set(author.slug,{
-      id:author.id,
-      displayName:author.displayName,
+      id:existing?.id ?? author.id,
+      displayName:existing?.displayName ?? author.displayName,
       slug:author.slug,
       role:existing?.role ?? null,
       bio:existing?.bio ?? null,
-      sourceUrl:author.sourceProvenance?.sourceUrl ?? existing?.sourceUrl ?? null,
-      sourceProvenance:author.sourceProvenance ?? existing?.sourceProvenance ?? null
+      sourceUrl:existing?.sourceUrl ?? author.sourceProvenance?.sourceUrl ?? null,
+      sourceProvenance:existing?.sourceProvenance ?? author.sourceProvenance ?? null
     });
   }
   return Array.from(profiles.values()).sort((a,b)=>a.displayName.localeCompare(b.displayName));

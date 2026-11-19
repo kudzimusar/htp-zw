@@ -69,10 +69,21 @@ const MANDATORY_EXPORTED_PAGES = [
   { file: "subscription-terms.html", robots: /name="robots" content="noindex,follow"/ }
 ];
 
-function verifyExportedRouteMetadata(distDir) {
+function verifyExportedRouteMetadata(distDir, { expectedSha = "" } = {}) {
   const missing = MANDATORY_EXPORTED_PAGES.filter(entry => !existsSync(join(distDir, entry.file))).map(entry => entry.file);
   if (missing.length > 0) {
     throw new Error("MISSING_WEB_EXPORT: mandatory exported pages are absent from " + distDir + ": " + missing.join(", "));
+  }
+  const buildInfoPath = join(distDir, "build-info.json");
+  if (!existsSync(buildInfoPath)) {
+    throw new Error("MISSING_WEB_EXPORT: build-info.json is absent from " + distDir);
+  }
+  const buildInfo = JSON.parse(readFileSync(buildInfoPath, "utf8"));
+  if (typeof buildInfo?.sha !== "string" || !/^[0-9a-f]{40}$/i.test(buildInfo.sha)) {
+    throw new Error("MISSING_WEB_EXPORT: build-info.json lacks a valid 40-char commit sha");
+  }
+  if (expectedSha && buildInfo.sha.toLowerCase() !== String(expectedSha).trim().toLowerCase()) {
+    throw new Error("STALE_WEB_EXPORT: build-info.json sha " + buildInfo.sha + " does not match expected " + expectedSha);
   }
   for (const entry of MANDATORY_EXPORTED_PAGES) {
     const html = readFileSync(join(distDir, entry.file), "utf8");
@@ -82,14 +93,22 @@ function verifyExportedRouteMetadata(distDir) {
   }
 }
 
-test("exported pages carry their route metadata and fail clearly when the export is absent (N6)", () => {
-  verifyExportedRouteMetadata(join(root, "dist"));
+test("exported pages carry their route metadata and fail clearly when the export is absent or stale (N6)", () => {
+  const expectedSha = process.env.HT_EXPECTED_BUILD_SHA || process.env.GITHUB_SHA || "";
+  verifyExportedRouteMetadata(join(root, "dist"), { expectedSha });
 });
 
 test("deliberately missing web export fails closed with MISSING_WEB_EXPORT (N6 negative regression)", () => {
   assert.throws(
     () => verifyExportedRouteMetadata(join(root, "tests", "__nonexistent_export_dir__")),
     /MISSING_WEB_EXPORT/
+  );
+});
+
+test("stale prior web export with mismatched SHA fails closed with STALE_WEB_EXPORT (N6 negative regression)", () => {
+  assert.throws(
+    () => verifyExportedRouteMetadata(join(root, "dist"), { expectedSha: "0000000000000000000000000000000000000000" }),
+    /STALE_WEB_EXPORT/
   );
 });
 

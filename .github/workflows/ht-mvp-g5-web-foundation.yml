@@ -64,10 +64,11 @@ jobs:
           grep -Eq '^# skipped 0$' /tmp/g5-root.tap
       - name: Build the web export (fails on CSP inline-script hash drift)
         run: npm run build:phase4:web
-      - name: Verify exported page route metadata against the real build (N6 — fails closed if export absent)
+      - name: Verify exported page route metadata against the real build (N6 — fails closed if export absent or stale)
         shell: bash
         env:
           HT_OFFLINE_ONLY: "1"
+          HT_EXPECTED_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           cd apps/mobile

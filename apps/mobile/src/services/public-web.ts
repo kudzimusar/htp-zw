@@ -218,7 +218,19 @@ export async function resolveCanonicalStoryFromPublicCapability(
       const resolved = await repository.getById(key);
       if (!resolved) continue;
       // Only accept a repository match whose identity actually corresponds to this capability
-      // (same canonicalStoryId, same slug, or same WordPress sourceId). Never map to an arbitrary story.
+      // (same canonicalStoryId, same slug, or same WordPress sourceId) AND has no conflicting
+      // explicit canonicalStoryId or sourceId (prevents merging duplicate slugs across distinct stories).
+      const conflictingCanonical = Boolean(
+        fallback.canonicalStoryId &&
+        resolved.canonicalStoryId &&
+        resolved.canonicalStoryId !== fallback.canonicalStoryId
+      );
+      const conflictingSourceId = Boolean(
+        fallback.sourceProvenance?.sourceId &&
+        resolved.sourceProvenance?.sourceId &&
+        resolved.sourceProvenance.sourceId !== fallback.sourceProvenance.sourceId
+      );
+      if (conflictingCanonical || conflictingSourceId) continue;
       const sameCanonical = Boolean(
         fallback.canonicalStoryId &&
         resolved.canonicalStoryId &&

@@ -144,4 +144,42 @@ test("N2: resolveCanonicalStoryFromPublicCapability reconciles with repository w
   });
   assert.equal(premResolved.accessPolicy, "premium");
   assert.equal(premResolved.bodyHtml, null);
+
+  // R3-B2: Duplicate slug with conflicting sourceId or canonicalStoryId is rejected (never merged across distinct stories)
+  const dupConflict = await web.resolveCanonicalStoryFromPublicCapability(cap, {
+    getById: async () => ({
+      id: "cholera-response-update",
+      slug: "cholera-response-update",
+      canonicalStoryId: "22222222-3333-4444-8555-666666666666",
+      sourceProvenance: { sourceId: "9999" },
+      title: "Different Story Sharing Slug",
+      accessPolicy: "public",
+      bodyHtml: "<p>Wrong body</p>"
+    })
+  });
+  assert.equal(dupConflict.title, "Cholera");
+  assert.equal(dupConflict.canonicalStoryId, "11111111-2222-4333-8444-555555555555");
+  assert.equal(dupConflict.sourceProvenance.sourceId, "9001");
+});
+
+test("R3-B7: author-slug normalization folds diacritics, preserves verified slugs, and avoids synthetic collisions", () => {
+  const sourceParityText = readFileSync(join(root, "src/services/source-parity.ts"), "utf8");
+  assert.match(sourceParityText, /export function slugifyAuthorName/);
+  assert.match(sourceParityText, /normalize\("NFKD"\)/);
+  assert.match(sourceParityText, /export function resolveManifestAuthorSlug/);
+  assert.match(sourceParityText, /Do not overwrite a verified author identity/);
+  // Extract pure helper functions to test directly without pulling in Expo/RN modules
+  const fnMatch = sourceParityText.match(/export function slugifyAuthorName[\s\S]*?return slugifyAuthorName\(authorName\) \|\| "healthtimes";\n\}/);
+  assert.ok(fnMatch, "author-slug helpers present");
+  const transpiled = ts.transpileModule(fnMatch[0], { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const mod = { exports: {} };
+  new Function("module", "exports", transpiled)(mod, mod.exports);
+  const { slugifyAuthorName, resolveManifestAuthorSlug } = mod.exports;
+
+  assert.equal(slugifyAuthorName("Dr. José Moyo"), "dr-jose-moyo");
+  assert.equal(slugifyAuthorName("  Chipo  Ndlovu-Chikwanda! "), "chipo-ndlovu-chikwanda");
+  assert.equal(resolveManifestAuthorSlug("Kudakwashe Pembere", null, { displayName: "Kudakwashe Pembere", slug: "kuda-pembere" }), "kuda-pembere");
+  assert.equal(resolveManifestAuthorSlug("Jane Doe", "jane-doe-verified", { displayName: "Jane Doe", slug: "old-slug" }), "jane-doe-verified");
+  assert.equal(resolveManifestAuthorSlug("Jane Doe", null, { displayName: "Different Writer", slug: "different-writer" }), "jane-doe");
+  assert.equal(resolveManifestAuthorSlug("   ", null, null), "healthtimes");
 });
