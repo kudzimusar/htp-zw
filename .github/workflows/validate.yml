@@ -29,6 +29,9 @@ jobs:
       - name: Verify migration governor safe process invocation and attestation gate
         run: node --test tests/migration/migration-governor-process-safety.test.mjs tests/migration/migration-governor-catalog-integrity.test.mjs
 
+      - name: Verify CI staging egress control contract
+        run: node --test tests/ci/staging-egress-control.test.mjs
+
       - name: Validate JavaScript syntax
         run: |
           node --check app.js

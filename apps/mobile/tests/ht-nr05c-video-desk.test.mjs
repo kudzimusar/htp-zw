@@ -661,34 +661,48 @@ test("HT-NR-05C Owner Preview: Studio Video Desk view is rendered in OwnerPrevie
 });
 
 // =============================================================================
-// 9. STAGING CONNECTIVITY & DATABASE RESTRAINT
+// 9. OFFLINE ANONYMOUS-DENIAL CLASSIFICATION (N5 — LIVE STAGING CHECK SEPARATED
+//    INTO tests/ht-nr05c-video-desk-staging.test.mjs)
 // =============================================================================
 
-test("HT-NR-05C Staging Read-Only: newsroom_list_videos RPC fails closed for anonymous caller", async () => {
-  const eas = JSON.parse(fs.readFileSync(path.join(root, "eas.json"), "utf8"));
-  const stagingEnv = eas.build?.staging?.env ?? {};
-  const supabaseUrl = stagingEnv.EXPO_PUBLIC_SUPABASE_URL;
-  const anonKey = stagingEnv.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+test("HT-NR-05C Offline Classification (N5): HTTP 402 quota restriction never satisfies anonymous RPC denial", () => {
+  const classify = (status, bodyText = "") => {
+    if (status === 402) return { ok: false, classification: "BLOCKED_STAGING_402" };
+    if (status === 401 || status === 403) return { ok: true, classification: "AUTH_DENIED" };
+    if (status === 400 && /permission denied|unauthorized|session|42501|P0001/i.test(bodyText)) {
+      return { ok: true, classification: "RPC_PERMISSION_DENIED" };
+    }
+    return { ok: false, classification: "UNEXPECTED_STATUS_" + status };
+  };
 
-  assert.ok(supabaseUrl, "Staging Supabase URL must be configured in eas.json");
-  assert.ok(anonKey, "Staging Supabase key must be configured in eas.json");
-
-  // Calling newsroom_list_videos anonymously must be rejected with 401 or 403 or P0001
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/newsroom_list_videos`, {
-    method: "POST",
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ p_status: null, p_search: null, p_limit: 10 })
+  assert.deepStrictEqual(classify(402, '{"code":"exceed_cached_egress_quota"}'), {
+    ok: false,
+    classification: "BLOCKED_STAGING_402"
+  });
+  assert.deepStrictEqual(classify(200, "[]"), {
+    ok: false,
+    classification: "UNEXPECTED_STATUS_200"
+  });
+  assert.deepStrictEqual(classify(500, "internal error"), {
+    ok: false,
+    classification: "UNEXPECTED_STATUS_500"
+  });
+  assert.deepStrictEqual(classify(401, "unauthorized"), {
+    ok: true,
+    classification: "AUTH_DENIED"
+  });
+  assert.deepStrictEqual(classify(403, "forbidden"), {
+    ok: true,
+    classification: "AUTH_DENIED"
+  });
+  assert.deepStrictEqual(classify(400, "permission denied for function newsroom_list_videos"), {
+    ok: true,
+    classification: "RPC_PERMISSION_DENIED"
   });
 
-  // RPC revoked from public/anon or newsroom_session_authorized fails closed
-  assert.ok(
-    !response.ok,
-    `newsroom_list_videos must fail closed for anonymous requests, returned status ${response.status}`
-  );
+  // Verify live staging test remains separated and rejects 402
+  const stagingTest = read("tests/ht-nr05c-video-desk-staging.test.mjs");
+  assert.ok(stagingTest.includes("BLOCKED_STAGING_402"), "Separated live staging test must classify 402 as blocked, never pass");
 });
 
 // =============================================================================

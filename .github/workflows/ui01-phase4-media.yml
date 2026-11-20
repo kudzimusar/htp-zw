@@ -60,8 +60,14 @@ jobs:
           npm --prefix apps/mobile run test:source-parity
           npm --prefix apps/mobile run test:ui01-phase3
           npm --prefix apps/mobile run test:ui03
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build exact-head source-parity Web/PWA
         run: npm run build:phase4:web
+      - name: CI egress control - prove the mirror origin is compiled in
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Capture Live Watch Listen responsive evidence

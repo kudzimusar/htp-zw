@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
-import { Chip, Page, Section, SectionHeader } from "../src/ui/Layout";
+import { Chip, Page, PolicyLinks, Section, SectionHeader } from "../src/ui/Layout";
 import { parseAccountCallback } from "../src/growth/deepLinks";
 import { services } from "../src/services";
 import { layout, radius, spacing } from "../src/theme/tokens";
@@ -200,6 +200,7 @@ export default function AccountAccessScreen(){
           )}
 
           {!!status && <Text accessibilityLiveRegion="polite" style={[styles.status,{color:palette.inkMuted}]}>{status}</Text>}
+          <PolicyLinks />
         </View>
       </Section>
 

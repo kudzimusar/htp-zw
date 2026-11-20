@@ -220,8 +220,26 @@ const VERIFIED_SOURCE_PARITY_MEDIA_MIRRORS = {
     "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/wordpress/2026/09/zimbabwe-parliamentarians-not-in-my-constituency-teenage-pregnancy.jpg"
 };
 
+// CI egress control (scripts/ci/public-media-mirror.sh): when the job routes public
+// archive media to the verified Cloudflare mirror, redirect to the same object there
+// instead of Supabase Storage. Validation matches apps/mobile/src/services/public-media-origin.ts;
+// without the setting the redirect target is unchanged.
+const MIGRATED_MEDIA_PREFIX = "https://bzuvntbkevvuhfhqhkua.supabase.co/storage/v1/object/public/migrated-media/";
+function verifiedMediaTarget(supabaseUrl){
+  const configured = String(process.env.EXPO_PUBLIC_HEALTHTIMES_MEDIA_BASE_URL ?? "").trim();
+  if(!configured || !supabaseUrl.startsWith(MIGRATED_MEDIA_PREFIX)) return supabaseUrl;
+  try{
+    const base = new URL(configured);
+    if(base.protocol==="https:" && base.pathname==="/" && !base.username && !base.password && !base.search && !base.hash){
+      return base.origin + "/" + supabaseUrl.slice(MIGRATED_MEDIA_PREFIX.length);
+    }
+  }catch{}
+  return supabaseUrl;
+}
+
 async function installPremiumAuthorityRoutes(page,payload){
-  // B1: Only route verified WordPress media to proven Supabase Storage mirrors;
+  // B1: Only route verified WordPress media to proven Supabase Storage mirrors
+  // (or their verified Cloudflare copies under CI egress control);
   // unknown media is NEVER rewritten to fabricated Supabase paths.
   await page.route("https://healthtimes.co.zw/wp-content/uploads/**", async route => {
     const reqUrl = route.request().url();
@@ -229,7 +247,7 @@ async function installPremiumAuthorityRoutes(page,payload){
     if (verified) {
       await route.fulfill({
         status: 302,
-        headers: { Location: verified, "access-control-allow-origin": "*" }
+        headers: { Location: verifiedMediaTarget(verified), "access-control-allow-origin": "*" }
       });
     } else {
       await route.continue();

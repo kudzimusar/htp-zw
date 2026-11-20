@@ -8,21 +8,26 @@ import { useAsync } from "../src/hooks/useAsync";
 import { event } from "../src/growth/events";
 import { breakpoints, layout, radius, spacing } from "../src/theme/tokens";
 import { useAppearance } from "../src/theme/AppearanceProvider";
+import { READER_LAUNCH_CAPABILITIES, availableClaims } from "../src/launch/reader-capabilities";
+import { launchCommerceEnabled, mayOpenCheckoutUrl } from "../src/growth/purchase-policy";
+import { premiumStoreConfigurationReady } from "../src/growth/premium-store";
 
+// Benefits are a paid-product claim: audio is listed only once playback exists.
 const PREMIUM_PILLARS = [
   "Investigative reporting",
   "Policy & clinical depth",
-  "Audio & saved reading"
+  READER_LAUNCH_CAPABILITIES.audioPlayback ? "Audio & saved reading" : "Saved reading"
 ] as const;
 
-const PREMIUM_BENEFITS = [
+const PREMIUM_BENEFITS = availableClaims([
   {
     title: "Premium investigations and research",
     detail: "Full access to in-depth HealthTimes investigations, health-finance reporting, and specialist policy coverage."
   },
   {
     title: "Article audio where available",
-    detail: "Listen to narrated editions of supported HealthTimes stories across your reading sessions."
+    detail: "Listen to narrated editions of supported HealthTimes stories across your reading sessions.",
+    requires: "audioPlayback"
   },
   {
     title: "Saved reading and offline access where supported",
@@ -36,7 +41,7 @@ const PREMIUM_BENEFITS = [
     title: "Member briefings where published",
     detail: "Read curated editorial briefings from the HealthTimes newsroom when published."
   }
-] as const;
+] as const);
 
 function useHydratedPremiumWidth(){
   const { width }=useWindowDimensions();
@@ -54,7 +59,8 @@ export default function PremiumScreen(){
   const isTablet=viewportWidth>=breakpoints.tablet;
   const isDesktop=viewportWidth>=breakpoints.desktop;
   const store=useAsync(()=>services.premiumStore.getState(),[]);
-  const commerce=useAsync(()=>services.premiumCommerce.getAuthority(),[]);
+  // Commerce off: never request /api/commerce (no 401/SSO noise on protected Previews).
+  const commerce=useAsync(()=>launchCommerceEnabled() ? services.premiumCommerce.getAuthority() : Promise.resolve(null),[]);
   const sourceStories=useAsync(()=>services.articles.getHome(),[]);
   const entitlement=useAsync(()=>services.premium.hasEntitlement(),[]);
   const premiumStories=(sourceStories.data ?? []).filter((story)=>story.accessPolicy==="premium");
@@ -62,13 +68,18 @@ export default function PremiumScreen(){
   const [status,setStatus]=useState("");
   const previewTracked=useRef(false);
 
+  const commerceEnabled=launchCommerceEnabled();
+  // G6: "Restore purchases" only exists once native store billing is configured.
+  const storeRestoreAvailable=!webCommerce && premiumStoreConfigurationReady();
   const webOfferAvailable=Boolean(
+    commerceEnabled &&
     webCommerce &&
     commerce.data?.status==="available" &&
     commerce.data.price &&
     commerce.data.currency
   );
   const storeOffersAvailable=Boolean(
+    commerceEnabled &&
     !webCommerce &&
     store.data?.status==="available" &&
     store.data.offers.length
@@ -105,8 +116,8 @@ export default function PremiumScreen(){
         productPlanId:commerce.data?.productPlanId ?? null
       });
       setStatus(result.message);
-      if(result.status==="redirect-required" && result.checkoutUrl){
-        await Linking.openURL(result.checkoutUrl);
+      if(result.status==="redirect-required" && mayOpenCheckoutUrl({platform:Platform.OS,commerceEnabled,url:result.checkoutUrl})){
+        await Linking.openURL(result.checkoutUrl as string);
       }
     }catch{
       setStatus("Premium checkout is unavailable. No membership access has been granted.");
@@ -204,7 +215,9 @@ export default function PremiumScreen(){
                   ? "Your Premium access is active."
                   : webCommerce
                     ? "Sign in to check your existing membership."
-                    : "Sign in to check your existing membership, or restore a previous store purchase."}
+                    : storeRestoreAvailable
+                      ? "Sign in to check your existing membership, or restore a previous store purchase."
+                      : "Sign in to check your existing membership."}
             </Text>
             {entitlement.data!==true && !entitlement.loading && (
               <View style={styles.accessActionRow}>
@@ -220,7 +233,7 @@ export default function PremiumScreen(){
                 >
                   <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Sign in as existing member</Text>
                 </Pressable>
-                {!webCommerce && (
+                {storeRestoreAvailable && (
                   <Pressable
                     accessibilityRole="button"
                     style={({ pressed, focused }: any)=>[
@@ -321,7 +334,9 @@ export default function PremiumScreen(){
               >
                 <Text style={[styles.unavailableTitle,{color:palette.ink}]}>Membership options aren't available here yet</Text>
                 <Text style={[styles.unavailableText,{color:palette.inkMuted}]}>
-                  In-app subscription enrolment is not open right now. Existing subscribers can sign in or restore purchases to read full Premium journalism.
+                  {storeRestoreAvailable
+                    ? "In-app subscription enrolment is not open right now. Existing subscribers can sign in or restore purchases to read full Premium journalism."
+                    : "In-app subscription enrolment is not open right now. Existing subscribers can sign in to read full Premium journalism."}
                 </Text>
                 <View style={styles.unavailableActions}>
                   <Pressable
@@ -336,18 +351,20 @@ export default function PremiumScreen(){
                   >
                     <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Member sign in</Text>
                   </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed, focused }: any)=>[
-                      styles.secondaryAction,
-                      {borderColor:palette.border,backgroundColor:palette.paperMuted},
-                      focused && [styles.actionFocused,{borderColor:palette.blue}],
-                      pressed && styles.actionPressed
-                    ]}
-                    onPress={()=>void restore()}
-                  >
-                    <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Restore purchases</Text>
-                  </Pressable>
+                  {storeRestoreAvailable && (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed, focused }: any)=>[
+                        styles.secondaryAction,
+                        {borderColor:palette.border,backgroundColor:palette.paperMuted},
+                        focused && [styles.actionFocused,{borderColor:palette.blue}],
+                        pressed && styles.actionPressed
+                      ]}
+                      onPress={()=>void restore()}
+                    >
+                      <Text style={[styles.secondaryActionText,{color:palette.ink}]}>Restore purchases</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             )}
@@ -422,7 +439,7 @@ export default function PremiumScreen(){
                 <Text style={[styles.ctaText,{color:palette.paper}]}>Become Premium</Text>
               </Pressable>
             )}
-            {!webCommerce && (
+            {storeRestoreAvailable && (
               <Pressable
                 accessibilityRole="button"
                 style={({ pressed, focused }: any)=>[
@@ -452,7 +469,9 @@ export default function PremiumScreen(){
           <Text style={[styles.signin,{color:palette.inkMuted}]}>
             {webCommerce
               ? "Already a member? Sign in to restore your HealthTimes Premium access."
-              : "Already a member? Sign in or restore a store purchase to recover your HealthTimes Premium access."}
+              : storeRestoreAvailable
+                ? "Already a member? Sign in or restore a store purchase to recover your HealthTimes Premium access."
+                : "Already a member? Sign in to recover your HealthTimes Premium access."}
           </Text>
         </View>
       </Section>

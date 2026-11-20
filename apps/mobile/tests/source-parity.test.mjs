@@ -144,20 +144,78 @@ test("live public WordPress refresh can surface newly published posts without re
 });
 
 
-test("new live posts remain readable through the existing ArticleRepository contract",()=>{
+test("new live posts remain readable through the existing ArticleRepository contract with deterministic identity precedence (CI-02)",async()=>{
+  const ts=(await import("typescript")).default;
   const service=read("src/services/source-parity.ts");
-  assert.match(service,/const current=\(await refreshedArticles\(\)\)\.find\(\(article\)=>article\.id===id\)/);
+  assert.match(service,/export function findArticleByIdentity/);
+  assert.match(service,/const current=findArticleByIdentity\(await refreshedArticles\(\),id\)/);
+  assert.match(service,/const current=findArticleByIdentity\(all,id\)/);
+  assert.match(service,/\.filter\(\(article\)=>article\.id!==current\.id\)/);
   assert.match(service,/encodeURIComponent\(current\.slug\)/);
   assert.doesNotMatch(service,/if\(!fallback\) return null/);
+
+  // Behavioral contract test for findArticleByIdentity (precedence, aliases, collisions, missing/withdrawn)
+  const fnMatch=service.match(/export function findArticleByIdentity[\s\S]*?\n\}/);
+  assert.ok(fnMatch,"findArticleByIdentity present");
+  const transpiled=ts.transpileModule(fnMatch[0],{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const mod={exports:{}};
+  new Function("module","exports",transpiled)(mod,mod.exports);
+  const { findArticleByIdentity }=mod.exports;
+
+  const corpus=[
+    {
+      id:"source-cholera-update",
+      slug:"cholera-update",
+      canonicalStoryId:"11111111-2222-4333-8444-555555555555",
+      accessPolicy:"public",
+      bodyHtml:"<p>Public story body</p>",
+      sourceProvenance:{sourceId:"101",wordpress:{legacyPath:"/2026/09/18/cholera-update/"}}
+    },
+    {
+      id:"source-collision-slug",
+      slug:"11111111-2222-4333-8444-555555555555",
+      canonicalStoryId:"22222222-3333-4444-8555-666666666666",
+      accessPolicy:"public",
+      bodyHtml:"<p>Colliding slug story</p>",
+      sourceProvenance:{sourceId:"202",wordpress:{legacyPath:"/collision-slug/"}}
+    },
+    {
+      id:"source-premium-investigation",
+      slug:"premium-investigation",
+      canonicalStoryId:"33333333-4444-4555-8666-777777777777",
+      accessPolicy:"premium",
+      bodyHtml:null,
+      sourceProvenance:{sourceId:"303",wordpress:{legacyPath:"/premium-investigation/"}}
+    }
+  ];
+
+  // Canonical ID beats colliding slug on another record
+  assert.equal(findArticleByIdentity(corpus,"11111111-2222-4333-8444-555555555555").id,"source-cholera-update");
+  // Exact article ID resolves
+  assert.equal(findArticleByIdentity(corpus,"source-cholera-update").slug,"cholera-update");
+  // Exact slug resolves
+  assert.equal(findArticleByIdentity(corpus,"cholera-update").id,"source-cholera-update");
+  // Legacy dated WordPress path resolves
+  assert.equal(findArticleByIdentity(corpus,"/2026/09/18/cholera-update/").id,"source-cholera-update");
+  // Trailing path segment resolves
+  assert.equal(findArticleByIdentity(corpus,"/cholera-update").id,"source-cholera-update");
+  // Missing or withdrawn story fails closed (null, never substitutes another story)
+  assert.equal(findArticleByIdentity(corpus,"withdrawn-nonexistent-story"),null);
+  assert.equal(findArticleByIdentity(corpus,"   "),null);
+  // Premium story resolves with bodyHtml remaining null (fail-closed)
+  const prem=findArticleByIdentity(corpus,"premium-investigation");
+  assert.equal(prem.accessPolicy,"premium");
+  assert.equal(prem.bodyHtml,null);
 });
 
 test("fallbackless live posts preserve uncertainty instead of fabricating canonical truth",()=>{
   const service=read("src/services/source-parity.ts");
+  const wpAuthor=read("src/services/wp-author-attribution.ts");
   assert.match(service,/function inferPrimarySection/);
   assert.match(service,/if\(!normalized\.some\(\(name\)=>canonicalLegacyNames\.has\(name\)\)\) return null/);
   assert.match(service,/Geography is left unassigned because the public source metadata does not provide enough evidence/);
   assert.match(service,/No AG-01 canonical desk is inferred/);
-  assert.match(service,/author-unresolved/);
+  assert.match(wpAuthor,/author-unresolved/);
   assert.match(service,/taxonomy-unresolved/);
   assert.match(service,/missing-media/);
   assert.match(service,/unknown-shortcode/);
@@ -347,4 +405,14 @@ test("GitHub Pages preview includes fresh-load deep-link fallback handshake",()=
   assert.match(html,/history\.replaceState/);
   assert.match(workflow,/HEALTHTIMES_PWA_DEEP_LINK_FALLBACK/);
   assert.match(workflow,/source-nm04-live-discovered/);
+});
+
+test("unverified bylines remain visible without merging into public author profiles",()=>{
+  const service=read("src/services/source-parity.ts");
+  const wpAuthor=read("src/services/wp-author-attribution.ts");
+  assert.match(wpAuthor,/const author: ArticleDetail\["author"\] = authorName/);
+  assert.match(wpAuthor,/slug: authorSlug \?\? ""/);
+  assert.match(wpAuthor,/source-author-unresolved:/);
+  assert.match(service,/if\(!author \|\| !author\.slug\) continue/);
+  assert.match(service,/if\(!authorSlug\) return \[\]/);
 });

@@ -37,9 +37,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      # Media branch only: certify the Cloudflare-enabled Reader. P0 builds stay unchanged.
-      - name: Enable verified Cloudflare public-media origin (media branch only)
-        if: github.head_ref == 'feat/healthtimes-public-media-cloudflare'
+      # Media and integrated launch branches only: certify the Cloudflare-enabled Reader.
+      # The accepted P0 branch (fix/ht-mvp-owner-uat-p0-stability-freshness) stays unchanged.
+      - name: Enable verified Cloudflare public-media origin (media and launch branches only)
+        if: github.head_ref == 'feat/healthtimes-public-media-cloudflare' || startsWith(github.head_ref, 'fix/ht-mvp-owner-uat-p0-launch-')
         shell: bash
         run: |
           set -euo pipefail

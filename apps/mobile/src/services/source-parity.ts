@@ -34,10 +34,11 @@ import {
   getPublicPremiumTeaserAuthority,
   sourceParityPremiumDetailDecision
 } from "./premium-teaser-authority";
+import { resolveWpAuthorAttribution } from "./wp-author-attribution";
 
 type WpRendered={rendered?:string};
 type WpTerm={id:number;name:string;slug:string;taxonomy?:string};
-type WpAuthor={id:number;name:string;slug:string;link?:string};
+type WpAuthor={id:number;name:string;slug?:string;link?:string};
 type WpMedia={
   id:number;
   source_url?:string;
@@ -92,6 +93,7 @@ type PublicMetadataArticle={
   excerpt?:string|null;
   heroMedia?:{sourceUrl?:string;altText?:string;caption?:string}|null;
   authorName?:string|null;
+  authorSlug?:string|null;
   bodyAuthority:string;
 };
 type PublicMetadataManifest={
@@ -199,8 +201,37 @@ async function readSameOriginPublicManifest():Promise<PublicMetadataArticle[]|nu
   }
 }
 
+export function slugifyAuthorName(value:string):string{
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,"-")
+    .replace(/^-+|-+$/g,"");
+}
+
+export function resolveManifestAuthorSlug(authorName:string,authorSlug?:string|null,verifiedFallback?:{displayName?:string|null;slug?:string|null}|null):string|null{
+  const explicit=authorSlug ? slugifyAuthorName(authorSlug) : "";
+  if(explicit) return explicit;
+  const normalizedName=authorName.trim().toLowerCase();
+  if(verifiedFallback?.slug && verifiedFallback.displayName && verifiedFallback.displayName.trim().toLowerCase()===normalizedName){
+    return verifiedFallback.slug;
+  }
+  // A display name is not a WordPress identity. Never manufacture a profile slug.
+  return null;
+}
+
 function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlug:Map<string,ArticleDetail>){
   return entries.map((entry)=>{
+    const fallback=fallbackBySlug.get(entry.slug)??null;
+    const authorName=entry.authorName?.trim() ?? "";
+    const verifiedMatches=authorName
+      ? sourceParityAuthors.filter(author=>author.displayName.trim().toLowerCase()===authorName.toLowerCase())
+      : [];
+    const verifiedFallback=verifiedMatches.length===1 && verifiedMatches[0] && fallback?.author?.slug===verifiedMatches[0].slug
+      ? verifiedMatches[0]
+      : null;
     const post:WpPost={
       id:entry.id,slug:entry.slug,link:entry.link,
       date:entry.publishedAt,modified:entry.modifiedAt,
@@ -222,11 +253,11 @@ function mapVerifiedPublicMetadata(entries:PublicMetadataArticle[],fallbackBySlu
         author:entry.authorName ? [{
           id:0,
           name:entry.authorName,
-          slug:"healthtimes"
+          slug:resolveManifestAuthorSlug(entry.authorName,entry.authorSlug,verifiedFallback) ?? undefined
         }] : undefined
       }
     };
-    return mapWpPost(post,fallbackBySlug.get(entry.slug)??null);
+    return mapWpPost(post,fallback);
   });
 }
 const wpMetadataFields=[
@@ -313,7 +344,7 @@ function mappingExceptions(
   post:WpPost,
   fallback:ArticleDetail|null,
   legacy:TaxonomyRef[],
-  embeddedAuthor:WpAuthor|undefined,
+  authorException:SourceException|null,
   media:WpMedia|undefined,
   primarySection:TaxonomyRef|null,
   geography:TaxonomyRef[]
@@ -328,13 +359,8 @@ function mappingExceptions(
       note:"WordPress term IDs were present but _embed did not supply resolvable category/tag records."
     });
   }
-  if(post.author && !embeddedAuthor && !fallback?.author){
-    exceptions.push({
-      kind:"author-unresolved",
-      classification:"requires-review",
-      field:"author",
-      note:"WordPress author ID is preserved, but the public _embed response did not include a verified display identity."
-    });
+  if(authorException){
+    exceptions.push(authorException);
   }
   if(post.featured_media && !media && !fallback?.heroMedia){
     exceptions.push({
@@ -382,7 +408,7 @@ function mappingExceptions(
   return exceptions;
 }
 
-function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
+export function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const legacy=legacyTaxonomy(post);
   const legacyNames=legacy.map((term)=>term.name);
   const accessPolicy=
@@ -394,12 +420,17 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
   const media=post._embedded?.["wp:featuredmedia"]?.[0];
   const canonicalUrl=post.link || fallback?.canonicalUrl || sourceBase+"/"+post.slug+"/";
   const excerpt=stripHtml(post.excerpt?.rendered) || fallback?.excerpt || null;
-  const authorName=embeddedAuthor?.name ? decodeEntities(embeddedAuthor.name) : fallback?.author?.displayName ?? "HealthTimes";
-  const authorSlug=embeddedAuthor?.slug || fallback?.author?.slug || "healthtimes";
-  const authorId=embeddedAuthor?.id ?? post.author ?? null;
+  const authorResolution=resolveWpAuthorAttribution({
+    postId:post.id,
+    postAuthor:post.author,
+    embeddedAuthor,
+    fallbackAuthor:fallback?.author ?? null,
+    verifiedAuthors:sourceParityAuthors,
+    decodeName:decodeEntities
+  });
   const primarySection=inferPrimarySection(legacyNames,fallback);
   const geography=inferGeography(post,fallback);
-  const exceptions=mappingExceptions(post,fallback,legacy,embeddedAuthor,media,primarySection,geography);
+  const exceptions=mappingExceptions(post,fallback,legacy,authorResolution.exception,media,primarySection,geography);
   return {
     id:fallback?.id ?? "source-"+post.slug,
     canonicalStoryId:null,
@@ -414,26 +445,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
     status:"published",
     publishedAt:post.date || fallback?.publishedAt || null,
     modifiedAt:post.modified || fallback?.modifiedAt || null,
-    author:{
-      id:authorId ? "wordpress-author-"+authorId : fallback?.author?.id ?? "source-author-"+authorSlug,
-      displayName:authorName,
-      slug:authorSlug,
-      sourceProvenance:{
-        system:"wordpress",
-        sourceId:authorId ? String(authorId) : null,
-        stableKey:authorId ? "wordpress-author:"+authorId : "wordpress-author:"+authorSlug,
-        sourceUrl:embeddedAuthor?.link ?? fallback?.author?.sourceProvenance?.sourceUrl ?? null,
-        checksum:null,
-        capturedAt:new Date().toISOString(),
-        wordpress:{authorId:authorId ? String(authorId) : undefined},
-        exceptions:post.author && !embeddedAuthor && !fallback?.author ? [{
-          kind:"author-unresolved",
-          classification:"requires-review",
-          field:"author",
-          note:"The WordPress author ID is preserved but the public _embed response did not provide a verified display identity."
-        }] : []
-      }
-    },
+    author:authorResolution.author,
     primarySection,
     geography,
     geographyRefs:fallback?.geographyRefs,
@@ -465,7 +477,7 @@ function mapWpPost(post:WpPost,fallback:ArticleDetail|null):ArticleDetail{
       capturedAt:new Date().toISOString(),
       wordpress:{
         postId:String(post.id),
-        authorId:post.author ? String(post.author) : undefined,
+        authorId:authorResolution.postAuthorId!==null ? String(authorResolution.postAuthorId) : undefined,
         featuredMediaId:post.featured_media ? String(post.featured_media) : undefined,
         categoryIds:(post.categories ?? []).map(String),
         tagIds:(post.tags ?? []).map(String),
@@ -582,12 +594,34 @@ async function refreshedArticles():Promise<ArticleDetail[]>{
   return orderedMerged;
 }
 
+export function findArticleByIdentity(articles:ArticleDetail[],id:string):ArticleDetail|null{
+  const query=id.trim();
+  if(!query) return null;
+  // Deterministic identity precedence: canonicalStoryId > article.id > article.slug > legacyPath
+  const byCanonical=articles.find((article)=>article.canonicalStoryId!==null && article.canonicalStoryId===query);
+  if(byCanonical) return byCanonical;
+  const byId=articles.find((article)=>article.id===query);
+  if(byId) return byId;
+  const bySlug=articles.find((article)=>article.slug===query);
+  if(bySlug) return bySlug;
+  if(query.startsWith("/")){
+    const normalizedPath=query.endsWith("/") ? query : query+"/";
+    const byLegacyPath=articles.find((article)=>article.sourceProvenance?.wordpress?.legacyPath===normalizedPath);
+    if(byLegacyPath) return byLegacyPath;
+    const trailingSlug=normalizedPath.replace(/^\/+|\/+$/g,"").split("/").at(-1) ?? "";
+    if(trailingSlug){
+      return articles.find((article)=>article.slug===trailingSlug) ?? null;
+    }
+  }
+  return null;
+}
+
 const articleRepository:ArticleRepository={
   async getHome(){
     return refreshedArticles();
   },
   async getById(id){
-    const current=(await refreshedArticles()).find((article)=>article.id===id) ?? null;
+    const current=findArticleByIdentity(await refreshedArticles(),id);
     if(!current) return null;
     const taxonomyUnresolved=(current.sourceProvenance?.exceptions ?? []).some((exception)=>
       exception.kind==="taxonomy-unresolved" &&
@@ -641,11 +675,11 @@ const articleRepository:ArticleRepository={
   },
   async getRelated(id){
     const all=await refreshedArticles();
-    const current=all.find((article)=>article.id===id);
+    const current=findArticleByIdentity(all,id);
     if(!current) return all.slice(0,3);
     const terms=new Set((current.legacyTaxonomy ?? current.topics).map((term)=>term.slug));
     return all
-      .filter((article)=>article.id!==id)
+      .filter((article)=>article.id!==current.id)
       .sort((a,b)=>{
         const aScore=(a.legacyTaxonomy ?? a.topics).filter((term)=>terms.has(term.slug)).length;
         const bScore=(b.legacyTaxonomy ?? b.topics).filter((term)=>terms.has(term.slug)).length;
@@ -661,8 +695,9 @@ const articleRepository:ArticleRepository={
     );
   },
   async listByAuthor(authorSlug){
+    if(!authorSlug) return [];
     const all=await refreshedArticles();
-    return all.filter((article)=>article.author?.slug===authorSlug);
+    return all.filter((article)=>Boolean(article.author?.slug) && article.author?.slug===authorSlug);
   }
 };
 
@@ -691,16 +726,22 @@ async function parityAuthors():Promise<AuthorProfile[]>{
   const articles=await refreshedArticles();
   for(const article of articles){
     const author=article.author;
-    if(!author) continue;
+    // Slugless bylines remain visible on stories but never become profile records.
+    if(!author || !author.slug) continue;
     const existing=profiles.get(author.slug);
+    const isSyntheticDerived=!author.sourceProvenance?.sourceId && author.id.startsWith("source-author-");
+    if(existing && isSyntheticDerived && existing.displayName.trim().toLowerCase()!==author.displayName.trim().toLowerCase()){
+      // Do not overwrite a verified author identity with a derived-slug collision from a differently named writer.
+      continue;
+    }
     profiles.set(author.slug,{
-      id:author.id,
-      displayName:author.displayName,
+      id:existing?.id ?? author.id,
+      displayName:existing?.displayName ?? author.displayName,
       slug:author.slug,
       role:existing?.role ?? null,
       bio:existing?.bio ?? null,
-      sourceUrl:author.sourceProvenance?.sourceUrl ?? existing?.sourceUrl ?? null,
-      sourceProvenance:author.sourceProvenance ?? existing?.sourceProvenance ?? null
+      sourceUrl:existing?.sourceUrl ?? author.sourceProvenance?.sourceUrl ?? null,
+      sourceProvenance:existing?.sourceProvenance ?? author.sourceProvenance ?? null
     });
   }
   return Array.from(profiles.values()).sort((a,b)=>a.displayName.localeCompare(b.displayName));

@@ -48,7 +48,13 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm install --prefix apps/mobile --no-audit --no-fund
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - run: npm run build:phase4:web
+      - name: CI egress control - prove the mirror origin is compiled in
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - run: npx playwright install --with-deps chromium
       - name: Capture final mobile/tablet/desktop Reader evidence
         shell: bash

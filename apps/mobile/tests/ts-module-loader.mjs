@@ -28,6 +28,10 @@ export function loadTs(relativePath,{mocks={}}={}){
 
     const localRequire=(specifier)=>{
       if(Object.prototype.hasOwnProperty.call(mocks,specifier)) return mocks[specifier];
+      if(specifier === "expo-router/head"){
+        // Document-head manager (G5 route metadata): renders nothing outside a browser.
+        return { __esModule: true, default: () => null };
+      }
       if(specifier === "expo-constants"){
         return {
           default: { expoConfig: { experiments: { baseUrl: "" } } },

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { loadTs } from "./ts-module-loader.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(root, p), "utf8");
@@ -35,8 +36,15 @@ const mapperOutput = ts.transpileModule(mapperSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText;
 const mapperModule = { exports: {} };
+// The mapper's only permitted dependency is the pure public-media-origin resolver
+// (archive media URL mapping, added with the Cloudflare media work). Any other
+// import still fails closed.
+const publicMediaOrigin = loadTs("src/services/public-media-origin.ts");
 new Function("module", "exports", "require", mapperOutput)(
-  mapperModule, mapperModule.exports, () => { throw new Error("Unexpected require"); }
+  mapperModule, mapperModule.exports, (specifier) => {
+    if (specifier === "./public-media-origin") return publicMediaOrigin;
+    throw new Error(`Unexpected require: ${specifier}`);
+  }
 );
 const { mapMigratedStoryDocument } = mapperModule.exports;
 

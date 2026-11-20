@@ -10,3 +10,5 @@ private-source-package/
 .env
 .env.*
 !.env.example
+# G5: build-generated Reader shell module (scripts/web/prepare-phase4-vercel.js)
+lib/generated/

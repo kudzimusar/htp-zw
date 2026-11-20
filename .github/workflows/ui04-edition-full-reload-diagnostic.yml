@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ui04-edition-full-reload-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   APP_ENV: staging
   EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE: source-parity
@@ -47,8 +51,14 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm install --prefix apps/mobile --no-audit --no-fund
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build source-parity Web/PWA
         run: npm run build:phase4:web
+      - name: CI egress control - prove the mirror origin is compiled in
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Reproduce full-reload boundary

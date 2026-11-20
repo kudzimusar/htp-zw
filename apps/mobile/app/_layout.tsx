@@ -85,6 +85,9 @@ export default function RootLayout() {
         <Stack.Screen name="notification-settings" />
         <Stack.Screen name="devices-sessions" />
         <Stack.Screen name="account-access" />
+        <Stack.Screen name="privacy" />
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="subscription-terms" />
         <Stack.Screen name="studio" />
       </Stack>
     </AppearanceProvider>

@@ -44,6 +44,9 @@ jobs:
           npm --prefix apps/mobile run typecheck
       - name: Install Chromium evidence runtime
         run: npx playwright install --with-deps chromium
+      - name: CI egress control - use the verified Cloudflare mirror for public archive media
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build exact PR84 source-parity PWA
         shell: bash
         run: |
@@ -52,6 +55,9 @@ jobs:
           APP_ENV=development EXPO_PUBLIC_HEALTHTIMES_SERVICE_MODE=source-parity HEALTHTIMES_WEB_BASE_URL=/htp-zw npm --prefix apps/mobile run export:web
           mkdir -p ui-wf01b-sites/candidate/htp-zw
           cp -R apps/mobile/dist/. ui-wf01b-sites/candidate/htp-zw/
+      - name: CI egress control - prove the mirror origin is compiled in (candidate build)
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify
       - name: Build immutable canonical-main comparator
         shell: bash
         run: |

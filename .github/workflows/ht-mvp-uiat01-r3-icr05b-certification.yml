@@ -237,6 +237,13 @@ jobs:
         run: |
           npm ci
           npm install --prefix apps/mobile --ignore-scripts --no-audit --no-fund
+      # Integrated launch candidates only: the deployable artifact uses the same verified
+      # Cloudflare public-media origin the P0 endurance gate certifies on these branches.
+      # The accepted P0 branch artifact keeps its certified configuration.
+      - name: CI egress control - use the verified Cloudflare mirror in the launch candidate artifact
+        if: steps.check-scope.outputs.is_g3 == 'true' && startsWith(github.head_ref || github.ref_name, 'fix/ht-mvp-owner-uat-p0-launch-')
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh enable
       - name: Build and Package Clean Vercel Preview Output Artifact (DEF-G3-05)
         if: steps.check-scope.outputs.is_g3 == 'true'
         shell: bash
@@ -261,6 +268,10 @@ jobs:
           env -u VERCEL_TOKEN npx vercel build --yes
           echo "[G3-ARTIFACT-BUILD] Packaging fail-closed preview barrier..."
           node scripts/web/package-preview-artifact.mjs
+      - name: CI egress control - prove the launch candidate artifact compiles the mirror origin
+        if: steps.check-scope.outputs.is_g3 == 'true' && startsWith(github.head_ref || github.ref_name, 'fix/ht-mvp-owner-uat-p0-launch-')
+        shell: bash
+        run: bash scripts/ci/public-media-mirror.sh verify .vercel/output/static
       - name: Verify Read-Only Artifact Manifest & Strict Security Policies (DEF-G3-04 / DEF-G3-05)
         if: steps.check-scope.outputs.is_g3 == 'true'
         shell: bash
@@ -304,6 +315,10 @@ jobs:
             const tarballSha = fs.existsSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256")
               ? fs.readFileSync("/tmp/healthtimes-reader-preview-prebuilt.tar.gz.sha256", "utf8").trim().split(/\s+/)[0]
               : null;
+            const compilesMirror = (dir) => fs.existsSync(dir) && fs.readdirSync(dir, { withFileTypes: true }).some((entry) =>
+              entry.isDirectory()
+                ? compilesMirror(dir + "/" + entry.name)
+                : entry.name.endsWith(".js") && fs.readFileSync(dir + "/" + entry.name, "utf8").includes("https://healthtimes-media.pages.dev"));
             const payload = {
               workflow: "HT-MVP-UIAT-01-R3-ICR05B",
               job: "g3-isolated-artifact-certification",
@@ -322,6 +337,7 @@ jobs:
               previewLocked: buildInfo.previewLocked,
               profile: buildInfo.profile,
               serviceMode: buildInfo.serviceMode,
+              compiledPublicMediaOrigin: compilesMirror(".vercel/output/static/_expo") ? "https://healthtimes-media.pages.dev" : "supabase-default",
               secretsExposure: "NONE_ISOLATED_ZERO_SECRETS",
               timestamp: new Date().toISOString()
             };
