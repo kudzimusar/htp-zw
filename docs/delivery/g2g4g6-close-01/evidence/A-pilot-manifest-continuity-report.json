@@ -1,0 +1,560 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-16T04:16:44.020Z",
+  "wordpressListingComplete": false,
+  "counts": {
+    "MIGRATED_HISTORICAL": 149,
+    "MIGRATED_OUTDATED": 0,
+    "CURRENT_WP_NOT_MIGRATED": 0,
+    "WITHDRAWN_AT_SOURCE": 0,
+    "NATIVE_NEWSROOM": 0
+  },
+  "severities": {
+    "BLOCK": 1,
+    "HOLD": 98,
+    "REVIEW": 27
+  },
+  "byCode": {
+    "SOURCE_COVERAGE_GAP": 1,
+    "MEDIA_RIGHTS_UNRECORDED": 81,
+    "FEATURED_MEDIA_NOT_INVENTORIED": 17,
+    "MEDIA_MISSING_ALT_TEXT": 27
+  },
+  "gates": {
+    "inventoryComplete": false,
+    "identityAndDuplicatesClear": true,
+    "metadataComplete": false,
+    "redirectsPreserved": true,
+    "freshness": "NOT_RUN"
+  },
+  "freshness": {
+    "verdict": "NOT_RUN",
+    "reason": "no Reader capture in snapshot"
+  },
+  "ready": false,
+  "inputs": {
+    "source": "migration-output (pilot, captured 2026-09-16)",
+    "sha256": {
+      "normalized-records.json": "cbe506af16f26130e00f53de4c1b93e17221f33d3d88fe5291518662098dc0cb",
+      "media-manifest.json": "a72df7ad859009586b2c4fd9d090e277edc1ae6ce00b06886c5c528a634b503c",
+      "redirect-manifest.json": "681caa23c247f242ba9fcdc2575f25e218700004caf220c164337136fe3b0d19",
+      "wordpress-public-inventory.json": "48b6fa5f7c74e64707e595d0ca126a615c5dd4a3ab31e5f890ff87e6cc11d0c4"
+    }
+  },
+  "findingsByCode": {
+    "SOURCE_COVERAGE_GAP": [
+      {
+        "subject": "wordpress:post",
+        "declared": 5728,
+        "migrated": 100,
+        "missing": 5628
+      }
+    ],
+    "MEDIA_RIGHTS_UNRECORDED": [
+      {
+        "subject": "wordpress:post:33144",
+        "mediaId": "33146"
+      },
+      {
+        "subject": "wordpress:post:33140",
+        "mediaId": "33142"
+      },
+      {
+        "subject": "wordpress:post:33130",
+        "mediaId": "33133"
+      },
+      {
+        "subject": "wordpress:post:33098",
+        "mediaId": "33102"
+      },
+      {
+        "subject": "wordpress:post:33089",
+        "mediaId": "33091"
+      },
+      {
+        "subject": "wordpress:post:33085",
+        "mediaId": "33087"
+      },
+      {
+        "subject": "wordpress:post:33080",
+        "mediaId": "33082"
+      },
+      {
+        "subject": "wordpress:post:33076",
+        "mediaId": "33078"
+      },
+      {
+        "subject": "wordpress:post:33072",
+        "mediaId": "33074"
+      },
+      {
+        "subject": "wordpress:post:33068",
+        "mediaId": "32310"
+      },
+      {
+        "subject": "wordpress:post:33064",
+        "mediaId": "33066"
+      },
+      {
+        "subject": "wordpress:post:33058",
+        "mediaId": "33061"
+      },
+      {
+        "subject": "wordpress:post:33047",
+        "mediaId": "33054"
+      },
+      {
+        "subject": "wordpress:post:33038",
+        "mediaId": "33041"
+      },
+      {
+        "subject": "wordpress:post:33034",
+        "mediaId": "33036"
+      },
+      {
+        "subject": "wordpress:post:33026",
+        "mediaId": "33028"
+      },
+      {
+        "subject": "wordpress:post:33022",
+        "mediaId": "33023"
+      },
+      {
+        "subject": "wordpress:post:33013",
+        "mediaId": "33017"
+      },
+      {
+        "subject": "wordpress:post:32999",
+        "mediaId": "33011"
+      },
+      {
+        "subject": "wordpress:post:32983",
+        "mediaId": "32987"
+      },
+      {
+        "subject": "wordpress:post:32956",
+        "mediaId": "32958"
+      },
+      {
+        "subject": "wordpress:post:32941",
+        "mediaId": "32942"
+      },
+      {
+        "subject": "wordpress:post:32949",
+        "mediaId": "32866"
+      },
+      {
+        "subject": "wordpress:post:32946",
+        "mediaId": "32947"
+      },
+      {
+        "subject": "wordpress:post:32936",
+        "mediaId": "32937"
+      },
+      {
+        "subject": "wordpress:post:32932",
+        "mediaId": "32935"
+      },
+      {
+        "subject": "wordpress:post:32929",
+        "mediaId": "32930"
+      },
+      {
+        "subject": "wordpress:post:32919",
+        "mediaId": "32922"
+      },
+      {
+        "subject": "wordpress:post:32912",
+        "mediaId": "32918"
+      },
+      {
+        "subject": "wordpress:post:32905",
+        "mediaId": "32906"
+      },
+      {
+        "subject": "wordpress:post:32899",
+        "mediaId": "32900"
+      },
+      {
+        "subject": "wordpress:post:32888",
+        "mediaId": "32889"
+      },
+      {
+        "subject": "wordpress:post:32882",
+        "mediaId": "32886"
+      },
+      {
+        "subject": "wordpress:post:32879",
+        "mediaId": "32880"
+      },
+      {
+        "subject": "wordpress:post:32876",
+        "mediaId": "32877"
+      },
+      {
+        "subject": "wordpress:post:32873",
+        "mediaId": "32874"
+      },
+      {
+        "subject": "wordpress:post:32869",
+        "mediaId": "32870"
+      },
+      {
+        "subject": "wordpress:post:32865",
+        "mediaId": "32866"
+      },
+      {
+        "subject": "wordpress:post:32861",
+        "mediaId": "32862"
+      },
+      {
+        "subject": "wordpress:post:32807",
+        "mediaId": "32808"
+      },
+      {
+        "subject": "wordpress:post:32792",
+        "mediaId": "32793"
+      },
+      {
+        "subject": "wordpress:post:32789",
+        "mediaId": "32790"
+      },
+      {
+        "subject": "wordpress:post:32786",
+        "mediaId": "32787"
+      },
+      {
+        "subject": "wordpress:post:32779",
+        "mediaId": "32780"
+      },
+      {
+        "subject": "wordpress:post:32776",
+        "mediaId": "32777"
+      },
+      {
+        "subject": "wordpress:post:32729",
+        "mediaId": "32730"
+      },
+      {
+        "subject": "wordpress:post:32419",
+        "mediaId": "32420"
+      },
+      {
+        "subject": "wordpress:post:32415",
+        "mediaId": "32416"
+      },
+      {
+        "subject": "wordpress:post:32409",
+        "mediaId": "32413"
+      },
+      {
+        "subject": "wordpress:post:32399",
+        "mediaId": "32400"
+      },
+      {
+        "subject": "wordpress:post:32396",
+        "mediaId": "32397"
+      },
+      {
+        "subject": "wordpress:post:32389",
+        "mediaId": "32392"
+      },
+      {
+        "subject": "wordpress:post:32385",
+        "mediaId": "32386"
+      },
+      {
+        "subject": "wordpress:post:32382",
+        "mediaId": "32383"
+      },
+      {
+        "subject": "wordpress:post:32373",
+        "mediaId": "32375"
+      },
+      {
+        "subject": "wordpress:post:32369",
+        "mediaId": "32370"
+      },
+      {
+        "subject": "wordpress:post:32365",
+        "mediaId": "32366"
+      },
+      {
+        "subject": "wordpress:post:32362",
+        "mediaId": "32363"
+      },
+      {
+        "subject": "wordpress:post:32357",
+        "mediaId": "32359"
+      },
+      {
+        "subject": "wordpress:post:32331",
+        "mediaId": "32332"
+      },
+      {
+        "subject": "wordpress:post:32334",
+        "mediaId": "32335"
+      },
+      {
+        "subject": "wordpress:post:32352",
+        "mediaId": "32353"
+      },
+      {
+        "subject": "wordpress:post:32324",
+        "mediaId": "32325"
+      },
+      {
+        "subject": "wordpress:post:32321",
+        "mediaId": "32322"
+      },
+      {
+        "subject": "wordpress:post:32318",
+        "mediaId": "32319"
+      },
+      {
+        "subject": "wordpress:post:32379",
+        "mediaId": "32380"
+      },
+      {
+        "subject": "wordpress:post:32309",
+        "mediaId": "32310"
+      },
+      {
+        "subject": "wordpress:post:32297",
+        "mediaId": "32302"
+      },
+      {
+        "subject": "wordpress:post:32293",
+        "mediaId": "32294"
+      },
+      {
+        "subject": "wordpress:post:32285",
+        "mediaId": "32286"
+      },
+      {
+        "subject": "wordpress:post:32276",
+        "mediaId": "32277"
+      },
+      {
+        "subject": "wordpress:post:32271",
+        "mediaId": "32272"
+      },
+      {
+        "subject": "wordpress:post:32268",
+        "mediaId": "32269"
+      },
+      {
+        "subject": "wordpress:post:32264",
+        "mediaId": "32266"
+      },
+      {
+        "subject": "wordpress:post:32254",
+        "mediaId": "32256"
+      },
+      {
+        "subject": "wordpress:post:32247",
+        "mediaId": "32248"
+      },
+      {
+        "subject": "wordpress:post:32228",
+        "mediaId": "32229"
+      },
+      {
+        "subject": "wordpress:post:32206",
+        "mediaId": "32209"
+      },
+      {
+        "subject": "wordpress:post:32203",
+        "mediaId": "32204"
+      },
+      {
+        "subject": "wordpress:post:32198",
+        "mediaId": "32199"
+      },
+      {
+        "subject": "wordpress:post:32183",
+        "mediaId": "32184"
+      }
+    ],
+    "FEATURED_MEDIA_NOT_INVENTORIED": [
+      {
+        "subject": "wordpress:post:33117",
+        "mediaId": "33116"
+      },
+      {
+        "subject": "wordpress:post:33055",
+        "mediaId": "13601"
+      },
+      {
+        "subject": "wordpress:post:33030",
+        "mediaId": "31368"
+      },
+      {
+        "subject": "wordpress:post:32924",
+        "mediaId": "30250"
+      },
+      {
+        "subject": "wordpress:post:32812",
+        "mediaId": "28677"
+      },
+      {
+        "subject": "wordpress:post:32804",
+        "mediaId": "31022"
+      },
+      {
+        "subject": "wordpress:post:32800",
+        "mediaId": "13601"
+      },
+      {
+        "subject": "wordpress:post:32797",
+        "mediaId": "29914"
+      },
+      {
+        "subject": "wordpress:post:32795",
+        "mediaId": "32099"
+      },
+      {
+        "subject": "wordpress:post:32406",
+        "mediaId": "30507"
+      },
+      {
+        "subject": "wordpress:post:32402",
+        "mediaId": "729"
+      },
+      {
+        "subject": "wordpress:post:32303",
+        "mediaId": "31368"
+      },
+      {
+        "subject": "wordpress:post:32289",
+        "mediaId": "31870"
+      },
+      {
+        "subject": "wordpress:post:32274",
+        "mediaId": "1765"
+      },
+      {
+        "subject": "wordpress:post:32261",
+        "mediaId": "31368"
+      },
+      {
+        "subject": "wordpress:post:32259",
+        "mediaId": "3843"
+      },
+      {
+        "subject": "wordpress:post:32210",
+        "mediaId": "31698"
+      }
+    ],
+    "MEDIA_MISSING_ALT_TEXT": [
+      {
+        "subject": "wordpress:post:33085",
+        "mediaId": "33087"
+      },
+      {
+        "subject": "wordpress:post:33080",
+        "mediaId": "33082"
+      },
+      {
+        "subject": "wordpress:post:33064",
+        "mediaId": "33066"
+      },
+      {
+        "subject": "wordpress:post:33058",
+        "mediaId": "33061"
+      },
+      {
+        "subject": "wordpress:post:33047",
+        "mediaId": "33054"
+      },
+      {
+        "subject": "wordpress:post:33034",
+        "mediaId": "33036"
+      },
+      {
+        "subject": "wordpress:post:33022",
+        "mediaId": "33023"
+      },
+      {
+        "subject": "wordpress:post:32956",
+        "mediaId": "32958"
+      },
+      {
+        "subject": "wordpress:post:32936",
+        "mediaId": "32937"
+      },
+      {
+        "subject": "wordpress:post:32912",
+        "mediaId": "32918"
+      },
+      {
+        "subject": "wordpress:post:32879",
+        "mediaId": "32880"
+      },
+      {
+        "subject": "wordpress:post:32876",
+        "mediaId": "32877"
+      },
+      {
+        "subject": "wordpress:post:32807",
+        "mediaId": "32808"
+      },
+      {
+        "subject": "wordpress:post:32789",
+        "mediaId": "32790"
+      },
+      {
+        "subject": "wordpress:post:32786",
+        "mediaId": "32787"
+      },
+      {
+        "subject": "wordpress:post:32729",
+        "mediaId": "32730"
+      },
+      {
+        "subject": "wordpress:post:32409",
+        "mediaId": "32413"
+      },
+      {
+        "subject": "wordpress:post:32389",
+        "mediaId": "32392"
+      },
+      {
+        "subject": "wordpress:post:32365",
+        "mediaId": "32366"
+      },
+      {
+        "subject": "wordpress:post:32357",
+        "mediaId": "32359"
+      },
+      {
+        "subject": "wordpress:post:32331",
+        "mediaId": "32332"
+      },
+      {
+        "subject": "wordpress:post:32352",
+        "mediaId": "32353"
+      },
+      {
+        "subject": "wordpress:post:32328",
+        "mediaId": "32329"
+      },
+      {
+        "subject": "wordpress:post:32379",
+        "mediaId": "32380"
+      },
+      {
+        "subject": "wordpress:post:32247",
+        "mediaId": "32248"
+      },
+      {
+        "subject": "wordpress:post:32228",
+        "mediaId": "32229"
+      },
+      {
+        "subject": "wordpress:post:32206",
+        "mediaId": "32209"
+      }
+    ]
+  }
+}
